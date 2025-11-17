@@ -4,7 +4,7 @@ User-related Pydantic schemas
 
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr, Field, validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, validator
 
 from .common import BaseSchema, PhoneValidator, UsernameValidator
 
@@ -38,13 +38,30 @@ class UserCreateSchema(BaseSchema):
     """User creation request schema"""
 
     username: str = Field(..., min_length=3, max_length=50, description="Username")
-    email: EmailStr = Field(..., description="Email address")
+    email: Optional[str] = Field(default=None, description="Email address")
     password: str = Field(..., min_length=6, max_length=128, description="Password")
     first_name: Optional[str] = Field(default=None, max_length=100, description="First name")
     last_name: Optional[str] = Field(default=None, max_length=100, description="Last name")
     phone: Optional[str] = Field(default=None, description="Phone number")
     timezone: Optional[str] = Field(default=None, max_length=50, description="Timezone")
     role: Optional[str] = Field(default="user", description="User role")
+    token_balance: Optional[int] = Field(default=0, description="Initial token balance")
+    work_duration_days: Optional[int] = Field(default=None, description="Work duration in days")
+    game_ids: Optional[list] = Field(default_factory=list, description="List of game IDs")
+    rbac_role_ids: Optional[list] = Field(default_factory=list, description="List of RBAC role IDs")
+    expires_at: Optional[str] = Field(default=None, description="Expiration date (ISO format)")
+    project_id: Optional[int] = Field(default=None, description="Project ID")
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def validate_email(cls, v):
+        # Allow empty string or None - convert to None
+        if v == "" or v is None:
+            return None
+        # Basic email validation - can be enhanced if needed
+        if "@" not in str(v):
+            raise ValueError("Invalid email format")
+        return v
 
     @validator("username")
     def validate_username(cls, v):
