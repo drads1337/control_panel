@@ -1,0 +1,181 @@
+import { useQuery } from '@tanstack/react-query'
+import { useAuthContext } from '@/contexts/auth-context'
+import { getApiUrl } from '@/shared/api'
+import { enhancedApi as api } from '@/shared/api/enhanced-client'
+import { getLogs } from '@/entities/log'
+import { projectKeys } from './use-projects-query'
+import { logKeys } from './use-logs-query'
+
+export interface OwnerDashboardStats {
+  system_overview: {
+    total_projects: number
+    active_projects: number
+    total_users: number
+    active_users: number
+    total_keys: number
+    active_keys: number
+    total_games: number
+    total_servers: number
+    online_servers: number
+    system_uptime: number
+    total_revenue: number
+    monthly_revenue: number
+  }
+  project_analytics: Array<{
+    project_id: number
+    project_name: string
+    users_count: number
+    keys_count: number
+    games_count: number
+    servers_count: number
+    status: string
+    subscription_status: string
+    created_at: string
+    last_activity: string
+  }>
+  user_analytics: {
+    by_role: Array<{ role: string; count: number }>
+    by_status: Array<{ status: string; count: number }>
+    new_today: number
+    new_week: number
+    new_month: number
+  }
+  revenue_analytics: {
+    daily: Array<{ date: string; revenue: number }>
+    monthly: Array<{ month: string; revenue: number }>
+    by_project: Array<{ project: string; revenue: number }>
+  }
+  system_health: {
+    cpu_usage: number
+    memory_usage: number
+    disk_usage: number
+    network_status: string
+    database_status: string
+    redis_status: string
+    last_backup: string
+  }
+  security_metrics: {
+    failed_logins: number
+    blocked_ips: number
+    security_alerts: number
+    two_factor_enabled: number
+    last_security_scan: string
+  }
+}
+
+export interface RecentSystemActivity {
+  id: number
+  type: 'user' | 'project' | 'system' | 'security'
+  action: string
+  details: string
+  timestamp: string
+  severity: 'info' | 'warning' | 'error' | 'critical'
+}
+
+// Cache keys for owner dashboard
+export const ownerDashboardKeys = {
+  all: ['owner-dashboard'] as const,
+  overview: () => [...ownerDashboardKeys.all, 'overview'] as const,
+  activity: () => [...ownerDashboardKeys.all, 'activity'] as const,
+}
+
+export interface UseOwnerDashboardReturn {
+  stats: OwnerDashboardStats | null
+  recentActivity: RecentSystemActivity[]
+  loading: boolean
+  error: string | null
+  refetch: () => void
+}
+
+export function useOwnerDashboard(): UseOwnerDashboardReturn {
+  const { isAuthenticated, user } = useAuthContext()
+  const isOwner = user?.roles?.includes('owner')
+
+  // Fetch owner dashboard overview
+  const {
+    data: overviewData,
+    isLoading: overviewLoading,
+    error: overviewError,
+    refetch: refetchOverview,
+  } = useQuery({
+    queryKey: ownerDashboardKeys.overview(),
+    queryFn: async () => {
+      const response = await api.get('/api/analytics/owner/dashboard/overview')
+      return response.data.data as OwnerDashboardStats
+    },
+    enabled: isAuthenticated && !!isOwner,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 5 * 60 * 1000, // 5 minutes
+    retry: (failureCount, error: any) => {
+      // Don't retry on auth errors
+      if (error?.response?.status === 401 || error?.response?.status === 403) {
+        return false
+      }
+      return failureCount < 2
+    },
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
+  })
+
+  // Fetch recent activity logs
+  const {
+    data: logsData,
+    isLoading: logsLoading,
+    error: logsError,
+    refetch: refetchLogs,
+  } = useQuery({
+    queryKey: ownerDashboardKeys.activity(),
+    queryFn: async () => {
+      const logsResponse = await getLogs(1, 20)
+      return logsResponse.logs || []
+    },
+    enabled: isAuthenticated && !!isOwner,
+    staleTime: 1 * 60 * 1000, // 1 minute - activity logs update more frequently
+    gcTime: 2 * 60 * 1000, // 2 minutes
+    retry: (failureCount, error: any) => {
+      if (error?.response?.status === 401 || error?.response?.status === 403) {
+        return false
+      }
+      return failureCount < 2
+    },
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
+  })
+
+  // Transform logs to recent activity format
+  const recentActivity: RecentSystemActivity[] = (logsData || [])
+    .slice(0, 10)
+    .map((log: any) => ({
+      id: log.id,
+      type: log.action?.includes('project') ? 'project' as const : 
+            log.action?.includes('user') ? 'user' as const :
+            log.action?.includes('security') ? 'security' as const : 'system' as const,
+      action: log.action || '',
+      details: log.details || '',
+      timestamp: log.created_at || '',
+      severity: (log.action?.includes('error') ? 'error' :
+                 log.action?.includes('warning') ? 'warning' : 'info') as 'info' | 'warning' | 'error' | 'critical'
+    }))
+
+  // Combine loading states
+  const loading = overviewLoading || logsLoading
+
+  // Combine errors
+  const error = overviewError || logsError
+    ? (overviewError || logsError)?.message || 'Failed to load owner dashboard data'
+    : null
+
+  // Combined refetch function
+  const refetch = () => {
+    refetchOverview()
+    refetchLogs()
+  }
+
+  return {
+    stats: overviewData || null,
+    recentActivity,
+    loading,
+    error,
+    refetch,
+  }
+}

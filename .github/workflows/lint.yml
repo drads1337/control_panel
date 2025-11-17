@@ -1,0 +1,44 @@
+name: Code Quality Checks
+
+on:
+  push:
+    branches: [ main, develop, master ]
+  pull_request:
+    branches: [ main, develop, master ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      working-directory: ./backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Run Black check
+      working-directory: ./backend
+      run: |
+        black --check --diff . || (echo "❌ Black formatting check failed. Run 'black .' to auto-format." && exit 1)
+    
+    - name: Run isort check
+      working-directory: ./backend
+      run: |
+        isort --check-only --diff . || (echo "❌ isort import sorting check failed. Run 'isort .' to auto-fix." && exit 1)
+    
+    - name: Run Flake8
+      working-directory: ./backend
+      run: |
+        # Check for critical errors first
+        flake8 . --count --select=E9,F63,F7,F82,F811 --show-source --statistics || exit 1
+        # Then check for other issues (warnings, but don't fail)
+        flake8 . --count --exit-zero --max-complexity=20 --max-line-length=100 --statistics
+

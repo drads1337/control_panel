@@ -1,0 +1,78 @@
+[databases]
+# Database connection strings
+# Format: database_name = connection_string
+# The connection string points to the actual PostgreSQL server
+panel_db = host=localhost port=5432 dbname=panel user=panel_user password=panel_password
+
+[pgbouncer]
+# PgBouncer configuration
+# This is a connection pooler that sits between your application and PostgreSQL
+
+# Listen address and port
+listen_addr = 127.0.0.1
+listen_port = 6432
+
+# Authentication
+auth_type = md5
+auth_file = /etc/pgbouncer/userlist.txt
+
+# Connection pool settings
+# Pooling mode: session, transaction, or statement
+# For SQLAlchemy applications, 'transaction' mode is recommended
+pool_mode = transaction
+
+# Maximum number of client connections
+max_client_conn = 1000
+
+# Default pool size per database
+# This is the maximum number of connections to PostgreSQL
+default_pool_size = 25
+
+# Maximum number of connections per user
+max_user_connections = 50
+
+# Maximum number of connections per database
+max_db_connections = 50
+
+# Connection lifetime (seconds)
+# Connections are recycled after this time
+server_lifetime = 3600
+
+# Server idle timeout (seconds)
+# Close server connections that have been idle for this long
+server_idle_timeout = 600
+
+# Logging
+logfile = /var/log/pgbouncer/pgbouncer.log
+pidfile = /var/run/pgbouncer/pgbouncer.pid
+
+# Admin console (optional, for monitoring)
+admin_users = admin_user
+stats_users = stats_user
+
+# DNS lookup timeout
+dns_max_ttl = 15
+
+# Application name (for monitoring)
+application_name_add_host = 1
+
+# Performance tuning
+# Automatically close server connections that have been idle too long
+server_connect_timeout = 15
+server_login_retry = 15
+
+# Query timeout (optional)
+# Uncomment to set query timeout
+# query_timeout = 300
+
+# Query wait timeout (how long to wait for a connection)
+query_wait_timeout = 120
+
+# Maximum number of queries per connection before recycling
+# Helps prevent memory leaks
+max_packet_size = 2147483647
+
+# Connection string for admin console (optional)
+# admin_users can use SHOW commands via psql
+# Format: postgresql://user:password@localhost:6432/pgbouncer
+

@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+# Disallow admin and API endpoints
+Disallow: /api/
+Disallow: /admin/
+
+Sitemap: https://zolo-cn.store/sitemap.xml
+

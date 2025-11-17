@@ -1,0 +1,132 @@
+name: Security Audit
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  schedule:
+    # Run weekly on Monday at 00:00 UTC
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+
+jobs:
+  frontend-audit:
+    name: Frontend Security Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Run npm audit (high severity)
+        working-directory: ./frontend
+        run: npm audit --audit-level=high
+        continue-on-error: false
+
+      - name: Generate audit report
+        working-directory: ./frontend
+        run: |
+          npm audit --json > audit-report.json || true
+          npm audit --audit-level=high > audit-summary.txt || true
+        continue-on-error: true
+
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-audit-report
+          path: |
+            frontend/audit-report.json
+            frontend/audit-summary.txt
+          retention-days: 30
+
+  backend-audit:
+    name: Backend Security Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        working-directory: ./backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install safety
+
+      - name: Run Safety check
+        working-directory: ./backend
+        run: |
+          pip install -r requirements.txt
+          safety check --json --output safety-report.json || true
+          safety check > safety-summary.txt || true
+        continue-on-error: true
+
+      - name: Upload safety report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-safety-report
+          path: |
+            backend/safety-report.json
+            backend/safety-summary.txt
+          retention-days: 30
+
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [frontend-audit, backend-audit]
+    if: always()
+    
+    steps:
+      - name: Download frontend audit report
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-audit-report
+          path: ./reports/frontend
+
+      - name: Download backend safety report
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-safety-report
+          path: ./reports/backend
+
+      - name: Display security summary
+        run: |
+          echo "## Security Audit Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f "./reports/frontend/audit-summary.txt" ]; then
+            echo "### Frontend (npm audit)" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            cat ./reports/frontend/audit-summary.txt >> $GITHUB_STEP_SUMMARY || true
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ -f "./reports/backend/safety-summary.txt" ]; then
+            echo "### Backend (Safety check)" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            cat ./reports/backend/safety-summary.txt >> $GITHUB_STEP_SUMMARY || true
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi
+

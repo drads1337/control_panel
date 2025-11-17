@@ -1,0 +1,28 @@
+[Unit]
+Description=Celery Worker for Key Tasks Queue
+After=network.target redis.service postgresql.service
+Requires=network.target
+
+[Service]
+Type=forking
+User=your-user
+Group=your-group
+WorkingDirectory=/path/to/panel/backend
+Environment="PATH=/path/to/panel/backend/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONPATH=/path/to/panel/backend"
+# Load environment variables from .env file
+EnvironmentFile=/path/to/panel/.env
+ExecStart=/path/to/panel/backend/venv/bin/python -m backend.scripts.celery_worker key_tasks
+ExecStop=/bin/kill -s TERM $MAINPID
+Restart=always
+RestartSec=10
+# Resource limits
+LimitNOFILE=65536
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=celery-worker-key-tasks
+
+[Install]
+WantedBy=multi-user.target
+

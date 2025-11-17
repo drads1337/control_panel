@@ -1,0 +1,399 @@
+import { useState, useEffect } from 'react'
+import { useAuthContext } from '@/contexts/auth-context'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { generateInviteCode, getInviteCodes, getLatestInviteCode, updateInviteCodeDuration, deleteUnusedInviteCodes } from '@/entities/user'
+import { Copy, Plus, Clock, Loader2, Trash2, RefreshCw, Filter } from 'lucide-react'
+import { toast } from 'sonner'
+import { isOwner } from '@/lib/rbac-utils'
+import type { InviteCode, CreateInviteCodeData, User } from '@/entities/user';
+import type { Project } from '@/entities/project';
+
+interface InviteCodeManagerProps {
+  projectId?: number
+}
+
+export function InviteCodeManager({ projectId }: InviteCodeManagerProps) {
+  const { token, user } = useAuthContext()
+  const [inviteCodes, setInviteCodes] = useState<InviteCode[]>([])
+  const [latestCode, setLatestCode] = useState<InviteCode | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [isUpdating, setIsUpdating] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [showGenerateDialog, setShowGenerateDialog] = useState(false)
+  const [expiresInDays, setExpiresInDays] = useState(7)
+  const [showOnlyUnused, setShowOnlyUnused] = useState(false)
+  const [selectedRole, setSelectedRole] = useState<'seller' | 'developer' | 'moderator'>('seller')
+
+  const fetchInviteCodes = async () => {
+    if (!token) return
+    
+    setIsLoading(true)
+    try {
+      const codes = await getInviteCodes()
+      setInviteCodes(codes)
+    } catch (error) {
+      console.error('Error fetching invite codes:', error)
+      if (error instanceof Error) {
+        toast.error(`Error loading invite codes: ${error.message}`)
+      } else {
+        toast.error('Error loading invite codes')
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const fetchLatestCode = async () => {
+    if (!token) return
+    
+    try {
+      const response = await getLatestInviteCode()
+      setLatestCode(response.invite_code)
+    } catch (error) {
+      console.error('Error fetching latest invite code:', error)
+    }
+  }
+
+  const handleGenerateCode = async () => {
+    if (!token) {
+      console.error('No token available')
+      toast.error('Authentication token not found')
+      return
+    }
+    
+    setIsGenerating(true)
+    try {
+      console.log('Generating code with token:', token.substring(0, 20) + '...')
+      console.log('Project ID:', projectId)
+      
+      const data: CreateInviteCodeData = {
+        expires_in_days: expiresInDays,
+        project_id: projectId,
+        game_ids: []
+      }
+
+      console.log('Sending data:', data)
+      const result = await generateInviteCode(data)
+      console.log('Code generated successfully:', result)
+      
+      toast.success(`Invite code for role "${selectedRole}" created successfully.`)
+      setShowGenerateDialog(false)
+      await fetchInviteCodes()
+      await fetchLatestCode()
+    } catch (error) {
+      console.error('Error generating invite code:', error)
+      if (error instanceof Error) {
+        toast.error(`Error creating invite code: ${error.message}`)
+      } else {
+        toast.error('Failed to create invite code.')
+      }
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const handleUpdateDuration = async () => {
+    if (!token) return
+    
+    setIsUpdating(true)
+    try {
+      await updateInviteCodeDuration(expiresInDays)
+      toast.success('Code duration updated.')
+      await fetchInviteCodes()
+      await fetchLatestCode()
+    } catch (error) {
+      toast.error('Failed to update code duration.')
+      console.error('Error updating invite code duration:', error)
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
+  const handleDeleteUnusedCodes = async () => {
+    if (!token) return
+    
+    setIsDeleting(true)
+    try {
+      console.log('=== DELETE UNUSED CODES DEBUG ===')
+      console.log('Total invite codes:', inviteCodes.length)
+      console.log('All codes:', inviteCodes)
+      
+      // Get only unused codes
+      const unusedCodes = inviteCodes.filter(code => !(code.used || code.is_used))
+      console.log('Unused codes found:', unusedCodes.length)
+      console.log('Unused codes:', unusedCodes)
+      
+      if (unusedCodes.length === 0) {
+        toast.info('No unused codes to delete.')
+        return
+      }
+
+      console.log('Calling API to delete unused codes...')
+      // Call API to delete unused codes
+      const result = await deleteUnusedInviteCodes()
+      console.log('API result:', result)
+      
+      // Update local state
+      const remainingCodes = inviteCodes.filter(code => code.used || code.is_used)
+      console.log('Remaining codes after deletion:', remainingCodes.length)
+      setInviteCodes(remainingCodes)
+      
+      toast.success(result.msg || `Deleted ${result.deleted_count || 0} codes`)
+    } catch (error) {
+      console.error('Error deleting unused codes:', error)
+      if (error instanceof Error) {
+        toast.error(`Error deleting: ${error.message}`)
+      } else {
+        toast.error('Failed to delete unused codes.')
+      }
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      toast.success('Code copied to clipboard!')
+    } catch (error) {
+      toast.error('Failed to copy code.')
+    }
+  }
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'Never'
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    })
+  }
+
+  const getStatusBadge = (code: InviteCode) => {
+    if (code.used || code.is_used) {
+      return <Badge variant="secondary">Used</Badge>
+    }
+    
+    if (code.expires_at && new Date(code.expires_at) < new Date()) {
+      return <Badge variant="destructive">Expired</Badge>
+    }
+
+    return <Badge variant="default">Active</Badge>
+  }
+
+  const getUnusedCodesCount = () => {
+    return inviteCodes.filter(code => !(code.used || code.is_used)).length
+  }
+
+  const getFilteredCodes = () => {
+    if (showOnlyUnused) {
+      return inviteCodes.filter(code => !(code.used || code.is_used))
+    }
+    return inviteCodes
+  }
+
+  useEffect(() => {
+    if (token && isOwner(user)) {
+      fetchInviteCodes()
+      fetchLatestCode()
+    }
+  }, [token, user])
+
+  if (!isOwner(user)) {
+    return null
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Main Actions */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg">Invite Codes (for inviting users)</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {latestCode && (
+            <div className="flex items-center space-x-2">
+              <Input
+                readOnly
+                value={latestCode.code}
+                className="font-mono text-sm"
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => copyToClipboard(latestCode.code)}
+                aria-label="Copy invite code to clipboard"
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+          <div className="flex gap-2 flex-wrap">
+            <Dialog open={showGenerateDialog} onOpenChange={setShowGenerateDialog}>
+              <DialogTrigger asChild>
+                <Button size="sm">
+                  <Plus className="mr-2 h-3 w-3" />
+                  New Code
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create Invite Code for Inviting Users</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3 py-2">
+                  <div>
+                    <Label htmlFor="selectedRole">User Role</Label>
+                    <Select value={selectedRole} onValueChange={(value: 'seller' | 'developer' | 'moderator') => setSelectedRole(value)}>
+                      <SelectTrigger className="mt-2">
+                        <SelectValue placeholder="Select role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="seller">Seller</SelectItem>
+                        <SelectItem value="developer">Developer</SelectItem>
+                        <SelectItem value="moderator">Moderator</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="expiresInDays">Expiration Days</Label>
+                    <Input
+                      id="expiresInDays"
+                      type="number"
+                      min="1"
+                      max="365"
+                      value={expiresInDays}
+                      onChange={(e) => setExpiresInDays(Number(e.target.value))}
+                      className="mt-2"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowGenerateDialog(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleGenerateCode} disabled={isGenerating}>
+                    {isGenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Create
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleUpdateDuration}
+              disabled={isUpdating || !latestCode}
+            >
+              {isUpdating ? (
+                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+              ) : (
+                <Clock className="mr-2 h-3 w-3" />
+              )}
+              Update
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchInviteCodes}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+              ) : (
+                <RefreshCw className="mr-2 h-3 w-3" />
+              )}
+              Refresh List
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDeleteUnusedCodes}
+              disabled={isDeleting || getUnusedCodesCount() === 0}
+            >
+              {isDeleting ? (
+                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+              ) : (
+                <Trash2 className="mr-2 h-3 w-3" />
+              )}
+              Delete Unused ({getUnusedCodesCount()})
+            </Button>
+            <Button
+              variant={showOnlyUnused ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowOnlyUnused(!showOnlyUnused)}
+            >
+              <Filter className="mr-2 h-3 w-3" />
+              {showOnlyUnused ? 'Show All' : 'Only Unused'}
+            </Button>
+          </div>
+          
+          {/* Codes List */}
+          {isLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            </div>
+          ) : inviteCodes.length > 0 ? (
+            <div className="pt-3 border-t">
+              <div className="text-sm font-medium text-muted-foreground mb-2">
+                {showOnlyUnused ? 'Unused Codes' : 'All Codes'} ({getFilteredCodes().length}) - Unused: {getUnusedCodesCount()}
+              </div>
+              <div className="space-y-1">
+                {getFilteredCodes().map((code, index) => (
+                  <div key={`${code.code}-${index}`}>
+                    <div className="flex items-center justify-between py-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs">{code.code}</span>
+                        {getStatusBadge(code)}
+                        {code.role && (
+                          <Badge variant="outline" className="text-xs">
+                            {code.role}
+                          </Badge>
+                        )}
+                        <span className="text-xs text-muted-foreground">
+                          {code.created_at && formatDate(code.created_at)}
+                        </span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => copyToClipboard(code.code)}
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    {index < inviteCodes.length - 1 && (
+                      <div className="border-t border-gray-100 my-1" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-4 text-muted-foreground">
+              {showOnlyUnused ? 'No unused invite codes' : 'No invite codes'}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
