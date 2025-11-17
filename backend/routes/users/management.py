@@ -77,44 +77,59 @@ def get_users(current_user=None, project_id=None):
 @enforce_project_scope
 @require_role(RolePermissions.USER_CREATION_ROLES)
 @validate_request(UserCreateSchema)
-def add_user(current_user=None):
+def add_user(current_user=None, validated_data=None):
     """Create a new user with roles and game permissions"""
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
     # Fallback to g for backward compatibility if not passed explicitly
     if current_user is None:
         from flask import g
         current_user = g.current_user
-    data = request.get_json()  # Already validated by @validate_request
+    
+    # Use validated_data from decorator, fallback to request.get_json() for backward compatibility
+    data = validated_data if validated_data is not None else request.get_json()
 
     if not data:
         return jsonify({"error": "No data provided"}), 400
 
-    user, error = user_service.create_user_with_roles_and_games(current_user, data)
+    try:
+        user, error = user_service.create_user_with_roles_and_games(current_user, data)
 
-    if error:
-        return jsonify({"error": error}), 400
+        if error:
+            return jsonify({"error": error}), 400
 
-    # Log activity
-    activity_service.log_activity(
-        current_user,
-        "add_user",
-        details=f"Created user: {user.username} (token_balance: {user.token_balance})",
-        ip=request.remote_addr,
-    )
+        # Log activity (don't fail if logging fails)
+        try:
+            activity_service.log_activity(
+                current_user,
+                "add_user",
+                details=f"Created user: {user.username} (token_balance: {user.token_balance})",
+                ip=request.remote_addr,
+            )
+        except Exception as log_error:
+            logger.warning(f"Failed to log activity for user creation: {log_error}")
 
-    return (
-        jsonify(
-            {
-                "message": "User created successfully",
-                "user": {
-                    "id": user.id,
-                    "username": user.username,
-                    "token_balance": user.token_balance,
-                    "created_at": user.created_at.isoformat(),
-                },
-            }
-        ),
-        201,
-    )
+        return (
+            jsonify(
+                {
+                    "message": "User created successfully",
+                    "user": {
+                        "id": user.id,
+                        "username": user.username,
+                        "token_balance": user.token_balance,
+                        "created_at": user.created_at.isoformat(),
+                    },
+                }
+            ),
+            201,
+        )
+    except Exception as e:
+        logger.error(f"Error in add_user endpoint: {str(e)}", exc_info=True)
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({"error": f"Failed to create user: {str(e)}"}), 500
 
 
 @management_bp.route("/<int:user_id>", methods=["PUT"])

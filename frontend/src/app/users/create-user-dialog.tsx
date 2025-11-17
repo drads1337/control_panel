@@ -168,10 +168,12 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
       onOpenChange(false);
       onSuccess();
     } catch (error) {
-      // Error is already handled by interceptor in enhanced-client.ts
-      // No need to show toast.error() here - interceptor handles all API errors
-      // Only log for debugging
+      // Log error details for debugging
       console.error('Failed to create user:', error);
+      
+      // Use standardized error message utility for user-friendly messages
+      const errorMessage = getErrorMessage(error);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }

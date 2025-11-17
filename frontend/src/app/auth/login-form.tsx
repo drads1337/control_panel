@@ -1,14 +1,16 @@
-import React, { useState, useCallback } from "react"
+import React, { useCallback, useState } from "react"
+import { AlertCircle, Loader2 } from "lucide-react"
+import { useNavigate } from "react-router-dom"
+
 import { cn } from "@/lib/utils"
+import { useLoginForm } from "@/hooks/use-login-form"
+import { usePerformanceDetection } from "@/hooks/use-performance-detection"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle, Loader2 } from "lucide-react"
-import { useLoginForm } from "@/hooks/use-login-form"
-import { useNavigate } from "react-router-dom"
-import { usePerformanceDetection } from "@/hooks/use-performance-detection"
+
 // Lazy load heavy FaultyTerminal component to improve initial load time
 const FaultyTerminal = React.lazy(() => import("../shared/faulty-terminal"))
 
@@ -27,28 +29,28 @@ function LoginFormComponent({
     error,
     handleInputChange,
     handleSubmit,
-    clearErrors
+    clearErrors,
   } = useLoginForm()
-  
+
   const { recommendedSettings } = usePerformanceDetection()
 
   const handleSignUpClick = useCallback(() => {
-    navigate('/signup')
+    navigate("/signup")
   }, [navigate])
 
   const handleForgotPassword = useCallback(() => {
     // TODO: Implement forgot password functionality
-    console.log('Forgot password clicked');
+    console.log("Forgot password clicked")
   }, [])
 
   const handleTermsClick = useCallback(() => {
     // TODO: Navigate to Terms of Service
-    console.log('Terms of Service clicked');
+    console.log("Terms of Service clicked")
   }, [])
 
   const handlePrivacyClick = useCallback(() => {
     // TODO: Navigate to Privacy Policy
-    console.log('Privacy Policy clicked');
+    console.log("Privacy Policy clicked")
   }, [])
 
   return (
@@ -79,7 +81,9 @@ function LoginFormComponent({
                   type="text"
                   placeholder="Enter your username or email"
                   value={formData.username}
-                  onChange={(e) => handleInputChange('username', e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("username", e.target.value)
+                  }
                   className={errors.username ? "border-red-500" : ""}
                   disabled={isLoading}
                   required
@@ -92,28 +96,25 @@ function LoginFormComponent({
               <div className="space-y-2">
                 <div className="flex items-center">
                   <Label htmlFor="password">Password</Label>
-          
                 </div>
-                <Input 
-                  id="password" 
-                  type="password" 
+                <Input
+                  id="password"
+                  type="password"
                   placeholder="Enter your password"
                   value={formData.password}
-                  onChange={(e) => handleInputChange('password', e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("password", e.target.value)
+                  }
                   className={errors.password ? "border-red-500" : ""}
                   disabled={isLoading}
-                  required 
+                  required
                 />
                 {errors.password && (
                   <p className="text-sm text-red-500">{errors.password}</p>
                 )}
               </div>
 
-              <Button 
-                type="submit" 
-                className="w-full" 
-                disabled={isLoading}
-              >
+              <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -128,7 +129,7 @@ function LoginFormComponent({
                 Don&apos;t have an account?{" "}
                 <button
                   type="button"
-                  className="underline underline-offset-4 hover:text-primary bg-transparent border-none p-0 cursor-pointer"
+                  className="hover:text-primary cursor-pointer border-none bg-transparent p-0 underline underline-offset-4"
                   onClick={handleSignUpClick}
                 >
                   Sign up
@@ -138,7 +139,9 @@ function LoginFormComponent({
           </form>
 
           <div className="bg-muted relative hidden md:block">
-            <React.Suspense fallback={<div className="absolute inset-0 bg-muted" />}>
+            <React.Suspense
+              fallback={<div className="bg-muted absolute inset-0" />}
+            >
               <FaultyTerminal
                 scale={1.5}
                 gridMul={[3, 2]}
@@ -165,8 +168,6 @@ function LoginFormComponent({
           </div>
         </CardContent>
       </Card>
-
-     
     </div>
   )
 }
