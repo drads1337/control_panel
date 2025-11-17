@@ -59,16 +59,20 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
     }
   };
 
-  // Check if user has access to games based on game access
-  // User has access if they have game access to at least one game OR if games array is not empty (fallback)
-  const canViewGames = userGameAccess.length > 0 || games.length > 0;
+  // Check if user has access to game library games (not multi-app)
+  // User can view "Game" target type only if they have access to at least one game library game
+  const gameLibraryGames = games.filter(game => !game.is_multi_app);
+  const gameLibraryGamesWithAccess = gameLibraryGames.filter(game => 
+    userGameAccess.includes(game.id)
+  );
+  const canViewGames = gameLibraryGamesWithAccess.length > 0;
   const canViewLoaders = loaders.length > 0;
 
-  // Load loaders and game access on component mount
+  // Load loaders and game access on component mount and when games change
   useEffect(() => {
     loadLoaders();
     loadUserGameAccess();
-  }, [user?.id]);
+  }, [user?.id, games.length]);
 
   const loadLoaders = async () => {
     try {

@@ -402,8 +402,27 @@ def toggle_user_game_access(user_id, game_id, current_user=None):
             game_service.invalidate_game_cache(target_user.project_id, game_id)
             # Also invalidate using cache service directly for comprehensive coverage
             cache_service.invalidate_game_instantly(target_user.project_id, game_id)
+            
+            # CRITICAL: Invalidate game cache for ALL users in the project
+            # When game access changes, it affects the game list for all users
+            # because the filtering logic checks UserGamePermission for each user
+            # We need to invalidate all user-specific game caches in this project
+            all_user_game_cache_patterns = [
+                f"games:project_id={target_user.project_id}:user_id=*:*",
+                f"games:project_id={target_user.project_id}:type=all:user_id=*",
+                f"games:project_id={target_user.project_id}:type=multi_app:user_id=*",
+                f"games:project_id={target_user.project_id}:type=game_library:user_id=*",
+            ]
+            for pattern in all_user_game_cache_patterns:
+                try:
+                    deleted = cache_service.invalidate_pattern(pattern)
+                    if deleted > 0:
+                        logging.info(f"Invalidated {deleted} cache entries matching pattern: {pattern}")
+                except Exception as pattern_error:
+                    logging.warning(f"Failed to invalidate pattern {pattern}: {pattern_error}")
+            
             logging.info(
-                f"Invalidated game cache for project {target_user.project_id}, game {game_id} after access change for user {user_id}"
+                f"Invalidated game cache for project {target_user.project_id}, game {game_id} and ALL users after access change for user {user_id}"
             )
         except Exception as cache_error:
             logging.warning(f"Failed to invalidate game cache: {cache_error}")

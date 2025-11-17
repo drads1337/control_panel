@@ -60,41 +60,38 @@ def get_games():
         if result.get("success"):
             original_games = result.get("games", [])
             
-            # Filter games by user permissions if user doesn't have global view permission
-            if not has_view_permission and user_id:
-                # Check permissions for each game individually
-                filtered_games = []
-                for game in original_games:
-                    game_id = game.get("id")
-                    # Check if user has permission for this specific game
-                    if rbac_service.check_permission(user.id, "games.view", game_id=game_id):
-                        filtered_games.append(game)
+            # Always filter games by UserGamePermission if it exists
+            # Even if user has global games.view permission, UserGamePermission takes precedence
+            from ...models import UserGamePermission
+            
+            filtered_games = []
+            for game in original_games:
+                game_id = game.get("id")
+                should_include = False
+                
+                # First check UserGamePermission - this takes highest priority
+                user_game_perm = UserGamePermission.query.filter_by(
+                    user_id=user_id, game_id=game_id
+                ).first()
+                
+                if user_game_perm:
+                    # If UserGamePermission exists, use has_access from it
+                    should_include = user_game_perm.has_access
+                else:
+                    # If no UserGamePermission record exists, check RBAC permissions
+                    if not has_view_permission:
+                        # User doesn't have global permission, check specific game permission
+                        should_include = rbac_service.check_permission(user.id, "games.view", game_id=game_id)
                     else:
-                        # Fallback: check UserGamePermission table for backward compatibility
-                        from ...models import UserGamePermission
-                        user_game_perm = UserGamePermission.query.filter_by(
-                            user_id=user_id, game_id=game_id, has_access=True
-                        ).first()
-                        if user_game_perm:
-                            filtered_games.append(game)
+                        # User has global permission and no UserGamePermission record
+                        # Default to allowing access (backward compatibility)
+                        should_include = True
                 
-                result["games"] = filtered_games
-                result["total_count"] = len(filtered_games)
-            else:
-                # User has global view permission, but still filter by individual game permissions
-                # for users who might have restrictions on specific games
-                filtered_games = []
-                for game in original_games:
-                    game_id = game.get("id")
-                    # Even with global permission, check individual game permission
-                    if rbac_service.check_permission(user.id, "games.view", game_id=game_id):
-                        filtered_games.append(game)
-                
-                # If user has global permission and can see all games, use original list
-                # Otherwise use filtered list
-                if len(filtered_games) < len(original_games):
-                    result["games"] = filtered_games
-                    result["total_count"] = len(filtered_games)
+                if should_include:
+                    filtered_games.append(game)
+            
+            result["games"] = filtered_games
+            result["total_count"] = len(filtered_games)
 
             return jsonify(result)
         else:
