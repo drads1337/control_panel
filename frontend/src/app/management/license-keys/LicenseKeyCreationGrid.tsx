@@ -60,14 +60,14 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
   };
 
   // Check if user has access to game library games (not multi-app)
-  // User can view "Game" target type only if they have access to at least one game library game
+  // Games array is already filtered by backend based on UserGamePermission
+  // So if game library games exist in the array, user has access to them
   const gameLibraryGames = games.filter(game => !game.is_multi_app);
-  const gameLibraryGamesWithAccess = gameLibraryGames.filter(game => 
-    userGameAccess.includes(game.id)
-  );
-  const canViewGames = gameLibraryGamesWithAccess.length > 0;
-  const canViewLoaders = loaders.length > 0;
-
+  const canViewGames = gameLibraryGames.length > 0;
+  
+  const multiAppGames = games.filter(game => game.is_multi_app);
+  const canViewLoaders = multiAppGames.length > 0;
+  
   // Load loaders and game access on component mount and when games change
   useEffect(() => {
     loadLoaders();

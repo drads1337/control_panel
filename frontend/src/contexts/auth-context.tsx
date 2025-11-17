@@ -21,8 +21,6 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const auth = useAuth()
-
-  // Мемоизируем значение контекста для предотвращения лишних перерисовок
   const contextValue = useMemo(() => ({
     user: auth.user,
     token: auth.token,
@@ -58,12 +56,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 }
 
+// Track if we're in a hot reload scenario to suppress warnings
+let isHotReloading = false
+let hasWarned = false // Track if we've already warned to avoid spam
+
+if (import.meta.hot) {
+  import.meta.hot.on('vite:beforeUpdate', () => {
+    isHotReloading = true
+    hasWarned = false // Reset warning flag on hot reload
+  })
+  import.meta.hot.on('vite:afterUpdate', () => {
+    // Reset after a short delay to allow components to re-render
+    setTimeout(() => {
+      isHotReloading = false
+    }, 200)
+  })
+}
+
+// Components that are known to be inside providers but may render before context is ready
+const KNOWN_INSIDE_PROVIDER_COMPONENTS = [
+  'QueryErrorHandler',
+  'ColorInitializer',
+  'AppContent',
+  'AuthGuard',
+  'useProjectExpiration',
+  'useSettingsQuery',
+  'useCustomColor'
+]
+
 export function useAuthContext() {
   const context = useContext(AuthContext)
   if (context === undefined) {
-    // During hot reload, the context might be undefined temporarily
+    // During hot reload or initial render, the context might be undefined temporarily
     // Return a default context to prevent crashes
-    console.warn('useAuthContext called outside AuthProvider - returning default context')
+    // Only warn once in development and not during hot reload
+    if (import.meta.env.DEV && !isHotReloading && !hasWarned) {
+      const stack = new Error().stack || ''
+      // Check if this is a component that's known to be inside the provider tree
+      // These components may render before context is ready during hot reload
+      const isKnownComponent = KNOWN_INSIDE_PROVIDER_COMPONENTS.some(name => 
+        stack.includes(name)
+      )
+      
+      // Only warn if it's likely a real error (component actually outside provider)
+      if (!isKnownComponent) {
+        console.warn('useAuthContext called outside AuthProvider - returning default context')
+        hasWarned = true // Only warn once per session
+      }
+    }
+    
     return {
       user: null,
       token: null,

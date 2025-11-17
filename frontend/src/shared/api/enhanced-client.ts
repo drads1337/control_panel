@@ -216,12 +216,40 @@ async function handleError(error: AxiosError): Promise<never> {
   // Handle CSRF errors centrally
   if (error.response?.status === 403) {
     try {
-      const { isCsrfError, handleCsrfError } = await import('@/lib/csrf')
+      const { isCsrfError, clearCsrfToken, getCsrfHeaders } = await import('@/lib/csrf')
       if (isCsrfError(error.response.status, error.response.data)) {
-        // CSRF errors are handled separately - clear cache and let user retry
+        // CSRF errors: clear cache and retry the request once with a fresh token
         // Don't treat as auth error to avoid unnecessary logout
-        await handleCsrfError(error.response.data)
-        return Promise.reject(error)
+        const config = error.config as InternalAxiosRequestConfig | undefined
+        
+        // Check if this is a retry attempt (to prevent infinite loops)
+        const retryCount = (config as any)?.['__csrfRetryCount'] || 0
+        if (retryCount === 0 && config) {
+          // Clear the token cache and retry once
+          clearCsrfToken()
+          console.warn('CSRF token validation failed, retrying request with fresh token...')
+          
+          // Mark this as a retry attempt
+          ;(config as any)['__csrfRetryCount'] = 1
+          
+          // Fetch fresh CSRF token and retry the request
+          try {
+            const csrfHeaders = await getCsrfHeaders()
+            config.headers = { ...config.headers, ...csrfHeaders }
+            
+            // Retry the request
+            return enhancedApi.request(config)
+          } catch (retryError) {
+            // If retry also fails, reject with original error
+            console.error('CSRF token retry failed:', retryError)
+            return Promise.reject(error)
+          }
+        } else {
+          // Already retried once, reject with error
+          clearCsrfToken()
+          console.warn('CSRF token validation failed after retry, cleared cache')
+          return Promise.reject(error)
+        }
       }
     } catch (csrfError) {
       // If CSRF error handling fails, still return early to avoid treating as auth error

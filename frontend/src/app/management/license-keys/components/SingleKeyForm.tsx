@@ -148,14 +148,15 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
               </div>
             )}
 
+            {/* Show Game selector if: canViewGames AND (targetType is 'game' OR no loaders access) */}
             {canViewGames && (formData.targetType === 'game' || !canViewLoaders) ? (
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-foreground">Game</Label>
                 {getGameLibraryGames().length === 0 ? (
                   games.length === 0 ? (
-                  <div className="p-4 border border-dashed border-muted-foreground/25 rounded-md bg-muted/20">
-                    <div className="text-center">
-                      <Gamepad2 className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                    <div className="p-4 border border-dashed border-muted-foreground/25 rounded-md bg-muted/20">
+                      <div className="text-center">
+                        <Gamepad2 className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                         <p className="text-sm text-muted-foreground">No games available. Create an application first.</p>
                       </div>
                     </div>
@@ -164,8 +165,8 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
                       <div className="text-center">
                         <Gamepad2 className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                         <p className="text-sm text-muted-foreground">You only have access to multi-app games. Use Loader target type to create keys for them.</p>
+                      </div>
                     </div>
-                  </div>
                   )
                 ) : (
                   <div className="flex gap-2 items-center">
@@ -198,19 +199,30 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
                   </div>
                 )}
               </div>
-            ) : ((formData.targetType === 'loader' && canViewLoaders) || (canViewLoaders && !canViewGames)) ? (
+            ) : null}
+            
+            {/* Show Loader selector if: canViewLoaders AND (targetType is 'loader' OR no games access) */}
+            {canViewLoaders && (formData.targetType === 'loader' || !canViewGames) ? (
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-foreground">Loader</Label>
-                  <div className="flex gap-2 items-center">
-                    <Select
-                      value={formData.loaderId}
-                      onValueChange={(value) => {
-                        updateField('loaderId', value);
-                        updateField('selectedGames', []);
-                      }}
-                      disabled={loading || loadersLoading}
-                    >
+                  {loaders.length === 0 ? (
+                    <div className="p-4 border border-dashed border-muted-foreground/25 rounded-md bg-muted/20">
+                      <div className="text-center">
+                        <Container className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">No loaders available. Create a loader first.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2 items-center">
+                      <Select
+                        value={formData.loaderId}
+                        onValueChange={(value) => {
+                          updateField('loaderId', value);
+                          updateField('selectedGames', []);
+                        }}
+                        disabled={loading || loadersLoading}
+                      >
                       <SelectTrigger className="flex-1">
                         <SelectValue placeholder={loadersLoading ? "Loading loaders..." : "Select a loader"} />
                       </SelectTrigger>
@@ -236,7 +248,7 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
                       <X className="h-4 w-4" />
                     </Button>
                   </div>
-                </div>
+                  )}
 
                 {formData.loaderId && (
                   <div className="space-y-2">
@@ -287,6 +299,7 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
                     )}
                   </div>
                 )}
+                </div>
               </div>
             ) : null}
 

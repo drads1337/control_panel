@@ -13,7 +13,7 @@ git status
 git add .
 
 # 4. Save changes
-git commit -m "Description of what you did"
+git commit -m "Fixed the logout button, and managment.py"
 
 # 5. Send to GitHub
 git push

@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authService } from '@/services/auth-service'
-import { clearCsrfToken } from '@/lib/csrf'
+import { clearCsrfToken, prefetchCsrfToken } from '@/lib/csrf'
 import type { User } from '@/entities/user'
 
 interface UseAuthActionsParams {
@@ -115,6 +115,13 @@ export function useAuthActions(
 
       loginAttempts.current = 0
       const isClassicUser = data.login_type === 'classic_web'
+
+      // Pre-fetch CSRF token immediately after successful login
+      // This prevents CSRF errors on the first request after login
+      prefetchCsrfToken().catch((error) => {
+        // Log but don't block login flow - token will be fetched on first request if this fails
+        console.warn('Failed to prefetch CSRF token after login:', error)
+      })
 
       try {
         const userData = await authService.getFullUserData(controller)

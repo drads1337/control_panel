@@ -64,31 +64,59 @@ def get_games():
             # Even if user has global games.view permission, UserGamePermission takes precedence
             from ...models import UserGamePermission
             
+            # Get all UserGamePermission records for this user in one query (optimization)
+            user_game_permissions = {
+                perm.game_id: perm.has_access
+                for perm in UserGamePermission.query.filter_by(user_id=user_id).all()
+            }
+            
+            # Check if user has seller role - sellers require explicit UserGamePermission
+            # Load user roles once instead of checking for each game
+            from ...models.rbac import UserRole, Role
+            user_roles = db.session.query(Role.name).join(
+                UserRole, Role.id == UserRole.role_id
+            ).filter(UserRole.user_id == user_id).all()
+            user_role_names = [role[0] for role in user_roles]
+            is_seller = 'seller' in user_role_names or any('seller' in str(role).lower() for role in user_role_names)
+            
+            current_app.logger.info(
+                f"User {user_id} has {len(user_game_permissions)} UserGamePermission records. "
+                f"Has global games.view: {has_view_permission}. "
+                f"Is seller: {is_seller}. "
+                f"Total games before filter: {len(original_games)}"
+            )
+            
             filtered_games = []
             for game in original_games:
                 game_id = game.get("id")
                 should_include = False
                 
-                # First check UserGamePermission - this takes highest priority
-                user_game_perm = UserGamePermission.query.filter_by(
-                    user_id=user_id, game_id=game_id
-                ).first()
-                
-                if user_game_perm:
-                    # If UserGamePermission exists, use has_access from it
-                    should_include = user_game_perm.has_access
+                # CRITICAL: Check UserGamePermission first - this takes highest priority
+                # If UserGamePermission exists for this game, use has_access from it
+                # This ensures that explicit permissions override global permissions
+                if game_id in user_game_permissions:
+                    should_include = user_game_permissions[game_id]
                 else:
                     # If no UserGamePermission record exists, check RBAC permissions
-                    if not has_view_permission:
+                    if is_seller:
+                        # Sellers require explicit UserGamePermission - no default access
+                        should_include = False
+                    elif not has_view_permission:
                         # User doesn't have global permission, check specific game permission
                         should_include = rbac_service.check_permission(user.id, "games.view", game_id=game_id)
                     else:
                         # User has global permission and no UserGamePermission record
-                        # Default to allowing access (backward compatibility)
+                        # IMPORTANT: For users with global games.view, if there's no UserGamePermission,
+                        # we allow access by default (backward compatibility)
+                        # But if UserGamePermission exists with has_access=False, it takes precedence
                         should_include = True
                 
                 if should_include:
                     filtered_games.append(game)
+            
+            current_app.logger.info(
+                f"User {user_id}: Filtered {len(original_games)} games to {len(filtered_games)} games"
+            )
             
             result["games"] = filtered_games
             result["total_count"] = len(filtered_games)
