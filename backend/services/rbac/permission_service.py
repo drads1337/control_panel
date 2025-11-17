@@ -77,8 +77,9 @@ class PermissionService:
             db.session.add(permission)
             db.session.commit()
 
-            # Invalidate cache for permissions list
-            cache_service.delete("rbac:permissions", project_id=project_id)
+            # Invalidate cache for permissions list with instant update markers
+            cache_service.invalidate_rbac_permission_instantly(permission.id, project_id)
+            cache_service.invalidate_rbac_project_instantly(project_id)
 
             logging.info(
                 f"RBAC_PERMISSION_CREATED permission_id={permission.id} project_id={project_id} name={name} scope={scope}"
@@ -141,8 +142,9 @@ class PermissionService:
 
             db.session.commit()
 
-            # Invalidate cache for permissions list
-            cache_service.delete("rbac:permissions", project_id=project_id)
+            # Invalidate cache for permissions list with instant update markers
+            cache_service.invalidate_rbac_permission_instantly(permission.id, project_id)
+            cache_service.invalidate_rbac_project_instantly(project_id)
 
             # Invalidate cache for all users with roles that have this permission (granular invalidation)
             self._invalidate_users_with_permission_cache(permission_id)
@@ -186,8 +188,9 @@ class PermissionService:
             db.session.delete(permission)
             db.session.commit()
 
-            # Invalidate cache for permissions list
-            cache_service.delete("rbac:permissions", project_id=project_id)
+            # Invalidate cache for permissions list with instant update markers
+            cache_service.invalidate_rbac_permission_instantly(permission.id, project_id)
+            cache_service.invalidate_rbac_project_instantly(project_id)
 
             logging.info(f"RBAC_PERMISSION_DELETED permission_id={permission_id}")
             return True
@@ -573,9 +576,9 @@ class PermissionService:
                 user_roles = UserRole.query.filter_by(role_id=role_id).all()
                 user_ids.update({ur.user_id for ur in user_roles})
 
-            # Invalidate cache for affected users
+            # Invalidate cache for affected users with instant markers
             for user_id in user_ids:
-                cache_service.delete("rbac:user_permissions", user_id=user_id)
+                cache_service.invalidate_rbac_user_instantly(user_id)
 
             logging.debug(f"Invalidated cache for {len(user_ids)} users with permission_id={permission_id}")
         except Exception as e:

@@ -85,6 +85,8 @@ class GameService:
         if user_id:
             cache_key_params["user_id"] = user_id
 
+        # Games fetching is a heavy operation (multiple JOINs, aggregations)
+        # Use smart caching which will check update markers automatically
         cached_result = self._cache_service.get_or_set(
             cache_type="games", fetch_func=fetch_games, **cache_key_params
         )
@@ -320,27 +322,13 @@ class GameService:
                 self.logger.error(f"Error fetching simple games: {e}")
                 return []
 
-        # Check for recent updates that should bypass cache
-        try:
-            from ...utils.redis_client import redis_client
-
-            update_marker = f"panel_cache:game_updated:{project_id}:*"
-            recent_updates = redis_client.keys(update_marker)
-
-            if recent_updates:
-                self.logger.info(
-                    f"Recent game updates detected, bypassing cache for project {project_id}"
-                )
-                # Force fresh data fetch
-                return fetch_simple_games()
-        except Exception as e:
-            self.logger.debug(f"Could not check update markers: {e}")
-
+        # Cache key parameters
         cache_key_params = {"project_id": project_id, "simple": True}
 
         if user_id:
             cache_key_params["user_id"] = user_id
 
+        # Use smart caching - it will automatically check update markers
         cached_result = self._cache_service.get_or_set(
             cache_type="games", fetch_func=fetch_simple_games, **cache_key_params
         )

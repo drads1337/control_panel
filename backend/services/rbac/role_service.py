@@ -64,7 +64,7 @@ class RoleService:
                 valid_permissions = self.get_all_permissions_func()
             else:
                 valid_permissions = []
-                
+
             for permission in permissions:
                 if permission not in valid_permissions:
                     raise ValueError(f"Invalid permission: {permission}")
@@ -97,8 +97,9 @@ class RoleService:
 
             db.session.commit()
 
-            # Invalidate cache for roles list
-            cache_service.delete("rbac:roles", project_id=project_id)
+            # Invalidate cache for roles list with instant update markers
+            cache_service.invalidate_rbac_role_instantly(role.id, project_id)
+            cache_service.invalidate_rbac_project_instantly(project_id)
 
             logging.info(
                 f"RBAC_ROLE_CREATED role_id={role.id} project_id={project_id} name={name} parent_role_id={parent_role_id}"
@@ -175,7 +176,7 @@ class RoleService:
                     valid_permissions = self.get_all_permissions_func()
                 else:
                     valid_permissions = []
-                    
+
                 for permission in kwargs["permissions"]:
                     if permission not in valid_permissions:
                         raise ValueError(f"Invalid permission: {permission}")
@@ -198,8 +199,9 @@ class RoleService:
             role.updated_at = datetime.utcnow()
             db.session.commit()
 
-            # Invalidate cache for roles list
-            cache_service.delete("rbac:roles", project_id=project_id)
+            # Invalidate cache for roles list with instant update markers
+            cache_service.invalidate_rbac_role_instantly(role.id, project_id)
+            cache_service.invalidate_rbac_project_instantly(project_id)
 
             # Invalidate cache for all users with this role (granular invalidation)
             self._invalidate_users_with_role_cache(role_id)
@@ -301,13 +303,14 @@ class RoleService:
             db.session.delete(role)
             db.session.commit()
 
-            # Invalidate cache for roles list
-            cache_service.delete("rbac:roles", project_id=project_id)
+            # Invalidate cache for roles list with instant update markers
+            cache_service.invalidate_rbac_role_instantly(role.id, project_id)
+            cache_service.invalidate_rbac_project_instantly(project_id)
 
             # Invalidate cache for all users who had this role (granular invalidation)
             for user_id in user_ids_to_invalidate:
-                cache_service.delete("rbac", user_id=user_id, cache_type="user_roles")
-                cache_service.delete("rbac:user_permissions", user_id=user_id)
+                # Use instant invalidation which sets update markers
+                cache_service.invalidate_rbac_user_instantly(user_id)
 
             logging.info(f"RBAC_ROLE_DELETED role_id={role_id}")
             return True
@@ -414,9 +417,8 @@ class RoleService:
             db.session.add(user_role)
             db.session.commit()
 
-            # Invalidate cache for this user (granular invalidation)
-            cache_service.delete("rbac:user_roles", user_id=user_id)
-            cache_service.delete("rbac:user_permissions", user_id=user_id)
+            # Invalidate cache for this user with instant markers
+            cache_service.invalidate_rbac_user_instantly(user_id)
 
             logging.info(
                 f"RBAC_ROLE_ASSIGNED user_id={user_id} role_id={role_id} role_name={role.name}"
@@ -443,9 +445,8 @@ class RoleService:
             db.session.delete(user_role)
             db.session.commit()
 
-            # Invalidate cache for this user (granular invalidation)
-            cache_service.delete("rbac:user_roles", user_id=user_id)
-            cache_service.delete("rbac:user_permissions", user_id=user_id)
+            # Invalidate cache for this user with instant markers
+            cache_service.invalidate_rbac_user_instantly(user_id)
 
             logging.info(f"RBAC_ROLE_REMOVED user_id={user_id} role_id={role_id}")
             return True
@@ -577,7 +578,7 @@ class RoleService:
 
         # Create permission lookup
         permission_lookup = {p.name: p for p in permissions}
-        
+
         # For owner role, use all permissions if permissions list is empty
         default_roles_copy = dict(self.default_roles)
         if default_roles_copy.get("owner", {}).get("permissions") == []:
@@ -633,12 +634,12 @@ class RoleService:
         return False
 
     def _invalidate_users_with_role_cache(self, role_id: int) -> None:
-        """Invalidate cache for all users with a specific role (granular invalidation)"""
+        """Invalidate cache for all users with a specific role (granular invalidation with instant markers)"""
         try:
             user_roles = UserRole.query.filter_by(role_id=role_id).all()
             for user_role in user_roles:
-                cache_service.delete("rbac", user_id=user_role.user_id, cache_type="user_roles")
-                cache_service.delete("rbac", user_id=user_role.user_id, cache_type="user_permissions")
+                # Use instant invalidation which sets update markers
+                cache_service.invalidate_rbac_user_instantly(user_role.user_id)
             logging.debug(f"Invalidated cache for {len(user_roles)} users with role_id={role_id}")
         except Exception as e:
             logging.error(f"Error invalidating users cache for role_id={role_id}: {e}")

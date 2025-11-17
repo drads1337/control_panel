@@ -19,19 +19,29 @@ class CacheService:
     """Service for managing application-level caching with smart invalidation"""
 
     def __init__(self):
-        self.default_ttl = 300  # 5 minutes default
+        self.default_ttl = 60  # 1 minute default - reduced for faster updates
         self.cache_prefix = "panel_cache"
 
-        # Cache TTL configurations for different data types (optimized for instant updates)
+        # Cache TTL configurations for different data types (optimized for smart caching)
+        # Reduced TTL for frequently changed data, longer for stable data
         self.cache_ttl_config = {
-            "games": 300,  # 5 minutes - longer TTL but instant invalidation
-            "projects": 300,  # 5 minutes - longer TTL but instant invalidation
-            "settings": 600,  # 10 minutes - settings change rarely
-            "stats": 120,  # 2 minutes - stats change frequently
-            "user_data": 60,  # 1 minute - user data changes frequently
-            "analytics": 300,  # 5 minutes - analytics are expensive to compute
-            "rbac": 600,  # 10 minutes - RBAC data changes rarely
+            "games": 60,  # 1 minute - games change frequently, use smart invalidation
+            "projects": 60,  # 1 minute - projects change frequently
+            "settings": 300,  # 5 minutes - settings change rarely
+            "stats": 30,  # 30 seconds - stats change very frequently
+            "user_data": 30,  # 30 seconds - user data changes frequently
+            "analytics": 120,  # 2 minutes - analytics are expensive but need freshness
+            "rbac": 60,  # 1 minute - RBAC changes need instant updates
+            "rbac:roles": 60,  # 1 minute - roles change need instant updates
+            "rbac:user_roles": 60,  # 1 minute - user roles change need instant updates
+            "rbac:user_permissions": 60,  # 1 minute - permissions change need instant updates
+            "rbac:permissions": 60,  # 1 minute - permissions change need instant updates
         }
+
+        # Smart caching: only cache expensive operations
+        self.smart_cache_enabled = True
+        # Stale-while-revalidate: serve stale cache while refreshing in background
+        self.stale_while_revalidate = True
 
         # Cache tags for smart invalidation
         self.cache_tags = {
@@ -98,9 +108,91 @@ class CacheService:
             logging.error(f"Error invalidating by tag {tag_type}={tag_value}: {e}")
             return 0
 
-    def get(self, cache_type: str, **kwargs) -> Optional[Dict[str, Any]]:
-        """Get cached data"""
+    def _check_update_markers(self, cache_type: str, **kwargs) -> bool:
+        """Check if there are recent update markers that should bypass cache"""
         try:
+            # Check for project-level update markers
+            if "project_id" in kwargs:
+                project_id = kwargs["project_id"]
+                marker_pattern = f"{self.cache_prefix}:game_updated:{project_id}:*"
+                markers = redis_client.keys(marker_pattern)
+
+                if markers:
+                    # Check if any marker is recent (within last 2 minutes)
+                    for marker_key in markers:
+                        marker_value = redis_client.get(marker_key)
+                        if marker_value:
+                            logging.debug(f"Update marker found: {marker_key}, bypassing cache")
+                            return True
+
+                # Check for project update markers
+                project_marker = f"{self.cache_prefix}:project_updated:{project_id}"
+                if redis_client.get(project_marker):
+                    logging.debug(f"Project update marker found: {project_marker}, bypassing cache")
+                    return True
+
+            # Check for game-level update markers
+            if "game_id" in kwargs:
+                game_id = kwargs["game_id"]
+                if "project_id" in kwargs:
+                    project_id = kwargs["project_id"]
+                    game_marker = f"{self.cache_prefix}:game_updated:{project_id}:{game_id}"
+                    if redis_client.get(game_marker):
+                        logging.debug(f"Game update marker found: {game_marker}, bypassing cache")
+                        return True
+
+            # Check for RBAC update markers
+            if cache_type.startswith("rbac"):
+                # Check for user-level RBAC markers
+                if "user_id" in kwargs:
+                    user_id = kwargs["user_id"]
+                    rbac_user_marker = f"{self.cache_prefix}:rbac_updated:user:{user_id}"
+                    if redis_client.get(rbac_user_marker):
+                        logging.debug(f"RBAC user update marker found: {rbac_user_marker}, bypassing cache")
+                        return True
+
+                # Check for role-level RBAC markers
+                if "role_id" in kwargs:
+                    role_id = kwargs["role_id"]
+                    rbac_role_marker = f"{self.cache_prefix}:rbac_updated:role:{role_id}"
+                    if redis_client.get(rbac_role_marker):
+                        logging.debug(f"RBAC role update marker found: {rbac_role_marker}, bypassing cache")
+                        return True
+
+                # Check for permission-level RBAC markers
+                if "permission_id" in kwargs:
+                    permission_id = kwargs["permission_id"]
+                    rbac_perm_marker = f"{self.cache_prefix}:rbac_updated:permission:{permission_id}"
+                    if redis_client.get(rbac_perm_marker):
+                        logging.debug(f"RBAC permission update marker found: {rbac_perm_marker}, bypassing cache")
+                        return True
+
+                # Check for project-level RBAC markers
+                if "project_id" in kwargs:
+                    project_id = kwargs["project_id"]
+                    rbac_project_marker = f"{self.cache_prefix}:rbac_updated:project:{project_id}"
+                    if redis_client.get(rbac_project_marker):
+                        logging.debug(f"RBAC project update marker found: {rbac_project_marker}, bypassing cache")
+                        return True
+
+            return False
+        except Exception as e:
+            logging.debug(f"Error checking update markers: {e}")
+            return False
+
+    def get(self, cache_type: str, force_refresh: bool = False, **kwargs) -> Optional[Dict[str, Any]]:
+        """Get cached data with smart update marker checking"""
+        try:
+            # If force refresh is requested, skip cache
+            if force_refresh:
+                logging.debug(f"Force refresh requested, skipping cache")
+                return None
+
+            # Check for recent update markers - if found, bypass cache
+            if self._check_update_markers(cache_type, **kwargs):
+                logging.debug(f"Update markers detected, bypassing cache for {cache_type}")
+                return None
+
             cache_key = self._generate_cache_key(cache_type, **kwargs)
             cached_data = redis_client.get_json(cache_key)
 
@@ -307,9 +399,14 @@ class CacheService:
                 total_deleted += self.invalidate_pattern(pattern)
 
             # Force immediate cache refresh by setting a marker
+            # Markers help bypass cache even if TTL hasn't expired
             if game_id:
                 marker_key = f"{self.cache_prefix}:game_updated:{project_id}:{game_id}"
-                redis_client.set(marker_key, "updated", ex=60)  # 1 minute marker
+                redis_client.set(marker_key, "updated", ex=120)  # 2 minute marker - longer than TTL
+            else:
+                # Set project-level marker if no specific game
+                project_marker = f"{self.cache_prefix}:project_updated:{project_id}"
+                redis_client.set(project_marker, "updated", ex=120)  # 2 minute marker
 
             logging.info(
                 f"INSTANT game cache invalidation: {total_deleted} keys deleted for project {project_id}, game {game_id}"
@@ -338,11 +435,125 @@ class CacheService:
             for pattern in patterns:
                 total_deleted += self.invalidate_pattern(pattern)
 
+            # Set project update marker to bypass cache
+            project_marker = f"{self.cache_prefix}:project_updated:{project_id}"
+            redis_client.set(project_marker, "updated", ex=120)  # 2 minute marker
+
             logging.info(f"INSTANT project cache invalidation: {total_deleted} keys deleted")
             return total_deleted
 
         except Exception as e:
             logging.error(f"INSTANT project cache invalidation error: {e}")
+            return 0
+
+    def invalidate_rbac_user_instantly(self, user_id: int) -> int:
+        """INSTANT invalidation of RBAC cache for a specific user"""
+        try:
+            total_deleted = 0
+
+            # Invalidate user-specific RBAC cache
+            patterns = [
+                f"rbac:user_roles:user_id={user_id}*",
+                f"rbac:user_permissions:user_id={user_id}*",
+                f"rbac:user_id={user_id}*",
+            ]
+
+            for pattern in patterns:
+                total_deleted += self.invalidate_pattern(pattern)
+
+            # Set RBAC user update marker
+            rbac_user_marker = f"{self.cache_prefix}:rbac_updated:user:{user_id}"
+            redis_client.set(rbac_user_marker, "updated", ex=120)  # 2 minute marker
+
+            logging.info(f"INSTANT RBAC user cache invalidation: {total_deleted} keys deleted for user {user_id}")
+            return total_deleted
+
+        except Exception as e:
+            logging.error(f"INSTANT RBAC user cache invalidation error: {e}")
+            return 0
+
+    def invalidate_rbac_role_instantly(self, role_id: int, project_id: Optional[int] = None) -> int:
+        """INSTANT invalidation of RBAC cache for a specific role"""
+        try:
+            total_deleted = 0
+
+            # Invalidate role-specific cache
+            patterns = [f"rbac:roles:role_id={role_id}*"]
+            if project_id:
+                patterns.append(f"rbac:roles:project_id={project_id}*")
+
+            for pattern in patterns:
+                total_deleted += self.invalidate_pattern(pattern)
+
+            # Set RBAC role update marker
+            rbac_role_marker = f"{self.cache_prefix}:rbac_updated:role:{role_id}"
+            redis_client.set(rbac_role_marker, "updated", ex=120)  # 2 minute marker
+
+            # Also set project marker if provided
+            if project_id:
+                rbac_project_marker = f"{self.cache_prefix}:rbac_updated:project:{project_id}"
+                redis_client.set(rbac_project_marker, "updated", ex=120)
+
+            logging.info(f"INSTANT RBAC role cache invalidation: {total_deleted} keys deleted for role {role_id}")
+            return total_deleted
+
+        except Exception as e:
+            logging.error(f"INSTANT RBAC role cache invalidation error: {e}")
+            return 0
+
+    def invalidate_rbac_permission_instantly(self, permission_id: int, project_id: Optional[int] = None) -> int:
+        """INSTANT invalidation of RBAC cache for a specific permission"""
+        try:
+            total_deleted = 0
+
+            # Invalidate permission-specific cache
+            patterns = [f"rbac:permissions:permission_id={permission_id}*"]
+            if project_id:
+                patterns.append(f"rbac:permissions:project_id={project_id}*")
+
+            for pattern in patterns:
+                total_deleted += self.invalidate_pattern(pattern)
+
+            # Set RBAC permission update marker
+            rbac_perm_marker = f"{self.cache_prefix}:rbac_updated:permission:{permission_id}"
+            redis_client.set(rbac_perm_marker, "updated", ex=120)  # 2 minute marker
+
+            # Also set project marker if provided
+            if project_id:
+                rbac_project_marker = f"{self.cache_prefix}:rbac_updated:project:{project_id}"
+                redis_client.set(rbac_project_marker, "updated", ex=120)
+
+            logging.info(f"INSTANT RBAC permission cache invalidation: {total_deleted} keys deleted for permission {permission_id}")
+            return total_deleted
+
+        except Exception as e:
+            logging.error(f"INSTANT RBAC permission cache invalidation error: {e}")
+            return 0
+
+    def invalidate_rbac_project_instantly(self, project_id: int) -> int:
+        """INSTANT invalidation of all RBAC cache for a project"""
+        try:
+            total_deleted = 0
+
+            # Invalidate all RBAC cache for project
+            patterns = [
+                f"rbac:roles:project_id={project_id}*",
+                f"rbac:permissions:project_id={project_id}*",
+                f"rbac:project_id={project_id}*",
+            ]
+
+            for pattern in patterns:
+                total_deleted += self.invalidate_pattern(pattern)
+
+            # Set RBAC project update marker
+            rbac_project_marker = f"{self.cache_prefix}:rbac_updated:project:{project_id}"
+            redis_client.set(rbac_project_marker, "updated", ex=120)  # 2 minute marker
+
+            logging.info(f"INSTANT RBAC project cache invalidation: {total_deleted} keys deleted for project {project_id}")
+            return total_deleted
+
+        except Exception as e:
+            logging.error(f"INSTANT RBAC project cache invalidation error: {e}")
             return 0
 
     def write_through_cache(
@@ -367,17 +578,32 @@ class CacheService:
             return False
 
     def get_or_set(
-        self, cache_type: str, fetch_func: Callable, ttl: Optional[int] = None, **kwargs
+        self, cache_type: str, fetch_func: Callable, ttl: Optional[int] = None, force_refresh: bool = False, **kwargs
     ) -> Optional[Dict[str, Any]]:
-        """Get from cache or fetch and cache the result"""
+        """Get from cache or fetch and cache the result with smart update detection"""
         try:
-            # Try to get from cache first
-            cached_data = self.get(cache_type, **kwargs)
+            # Try to get from cache first (will check update markers automatically)
+            cached_data = self.get(cache_type, force_refresh=force_refresh, **kwargs)
             if cached_data is not None:
-                return cached_data.get("data")
+                data = cached_data.get("data")
+                # If stale-while-revalidate is enabled and cache is getting old, refresh in background
+                if self.stale_while_revalidate and data:
+                    cached_at_str = cached_data.get("cached_at")
+                    if cached_at_str:
+                        try:
+                            cached_at = datetime.fromisoformat(cached_at_str)
+                            age_seconds = (datetime.utcnow() - cached_at).total_seconds()
+                            ttl_value = cached_data.get("ttl", self.default_ttl)
+                            # If cache is more than 70% of TTL old, refresh in background
+                            if age_seconds > (ttl_value * 0.7):
+                                logging.debug(f"Cache is stale ({age_seconds}s old), will refresh in background")
+                                # Note: Background refresh would require async task, for now just return stale data
+                        except Exception:
+                            pass
+                return data
 
-            # Cache miss - fetch data
-            logging.debug(f"Cache miss for {cache_type}, fetching data...")
+            # Cache miss or update marker detected - fetch fresh data
+            logging.debug(f"Cache miss or update detected for {cache_type}, fetching fresh data...")
             fresh_data = fetch_func()
 
             if fresh_data is not None:
@@ -489,6 +715,62 @@ class CacheService:
             logging.error(f"Force refresh loader cache error: {e}")
             return False
 
+    def should_cache(self, cache_type: str, operation_cost: str = "normal") -> bool:
+        """
+        Determine if caching should be used based on operation cost and smart cache settings.
+
+        Args:
+            cache_type: Type of cache operation
+            operation_cost: "light", "normal", or "heavy" - only cache heavy operations by default
+
+        Returns:
+            True if caching should be used, False otherwise
+        """
+        if not self.smart_cache_enabled:
+            return True  # If smart cache is disabled, always cache
+
+        # Only cache expensive operations when smart caching is enabled
+        if operation_cost == "heavy":
+            return True
+        elif operation_cost == "normal":
+            # Cache normal operations for frequently accessed data types
+            frequently_accessed = ["games", "projects", "analytics"]
+            return cache_type in frequently_accessed
+        else:
+            # Don't cache light operations
+            return False
+
+    def get_or_set_smart(
+        self,
+        cache_type: str,
+        fetch_func: Callable,
+        operation_cost: str = "normal",
+        ttl: Optional[int] = None,
+        force_refresh: bool = False,
+        **kwargs
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Smart get_or_set that only caches expensive operations.
+
+        Args:
+            cache_type: Type of cache
+            fetch_func: Function to fetch data if cache miss
+            operation_cost: "light", "normal", or "heavy" - determines if caching is used
+            ttl: Optional TTL override
+            force_refresh: Force refresh even if cache exists
+            **kwargs: Cache key parameters
+
+        Returns:
+            Cached or fresh data
+        """
+        # Check if we should cache this operation
+        if not self.should_cache(cache_type, operation_cost):
+            logging.debug(f"Skipping cache for {cache_type} (operation_cost: {operation_cost})")
+            return fetch_func()
+
+        # Use regular get_or_set for cacheable operations
+        return self.get_or_set(cache_type, fetch_func, ttl=ttl, force_refresh=force_refresh, **kwargs)
+
     def get_cache_stats(self) -> Dict[str, Any]:
         """Get cache statistics"""
         try:
@@ -512,6 +794,8 @@ class CacheService:
                 "total_keys": len(keys),
                 "total_memory_bytes": total_memory,
                 "total_memory_mb": round(total_memory / 1024 / 1024, 2),
+                "smart_cache_enabled": self.smart_cache_enabled,
+                "stale_while_revalidate": self.stale_while_revalidate,
                 "timestamp": datetime.utcnow().isoformat(),
             }
         except Exception as e:
