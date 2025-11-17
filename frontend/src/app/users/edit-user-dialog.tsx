@@ -162,6 +162,24 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
     }
   }, []);
 
+  // Load user game access
+  const loadUserGameAccess = useCallback(async (userId: number): Promise<number[]> => {
+    try {
+      const response = await enhancedApi.get(`/api/clients/${userId}/games`);
+      if (Array.isArray(response.data)) {
+        // Filter games where has_access is true
+        return response.data
+          .filter((game: any) => game.has_access === true)
+          .map((game: any) => game.game_id || game.id);
+      }
+      return [];
+    } catch (error: any) {
+      console.error('Failed to load user game access:', error);
+      return [];
+    }
+  }, []);
+
+
   // Initialize form when user changes
   useEffect(() => {
     // Only load if dialog is open and user is provided
@@ -188,8 +206,9 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
       loadRoles(),
       loadGames(),
       loadPermissions(),
-      loadUserPermissions(user.id)
-    ]).then(([loadedRoles, , , userPermissions]) => {
+      loadUserPermissions(user.id),
+      loadUserGameAccess(user.id)
+    ]).then(([loadedRoles, , , userPermissions, userGameAccess]) => {
       // Only update if this is still the current user (prevent race conditions)
       if (lastLoadedUserIdRef.current !== user.id) {
         return;
@@ -218,6 +237,18 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
         workDurationDays = diffDays > 0 ? diffDays : 7;
       }
 
+      // Get role permissions as default if user has no custom permissions
+      let defaultPermissions: string[] = [];
+      if (userRoleId) {
+        const role = loadedRoles.find(r => r.id === userRoleId);
+        if (role && role.permissions && Array.isArray(role.permissions)) {
+          defaultPermissions = role.permissions;
+        }
+      }
+
+      // Use user permissions if they exist, otherwise use role permissions
+      const initialPermissions = userPermissions.length > 0 ? userPermissions : defaultPermissions;
+
       // Initialize form
       setForm({
         first_name: user.first_name || '',
@@ -225,9 +256,9 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
         email: user.email || '',
         token_balance: user.token_balance || 0,
         work_duration_days: workDurationDays,
-        selected_games: [], // Will be populated if we fetch user's games
+        selected_games: userGameAccess,
         selected_rbac_role: userRoleId,
-        selected_permissions: userPermissions
+        selected_permissions: initialPermissions
       });
       setUserLoading(false);
     }).catch((error) => {
@@ -238,7 +269,7 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
       }
       setUserLoading(false);
     });
-  }, [user?.id, open, loadRoles, loadGames, loadPermissions, loadUserPermissions]);
+  }, [user?.id, open, loadRoles, loadGames, loadPermissions, loadUserPermissions, loadUserGameAccess]);
 
   // Reset form when dialog closes
   useEffect(() => {
@@ -305,37 +336,55 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
         }
       }
 
-      // Update RBAC roles and games
+      // Update RBAC roles and expires_at
       try {
         await enhancedApi.put(`/api/users/${currentUser.id}`, {
           rbac_role_ids: [form.selected_rbac_role],
-          game_ids: form.selected_games || [],
           expires_at: expiresAt.toISOString()
         });
-
-        // Update role permissions
-        try {
-          const allPermissionIds: number[] = [];
-          Object.values(availablePermissions).forEach(perms => {
-            perms.forEach(perm => {
-              if (form.selected_permissions.includes(perm.name)) {
-                allPermissionIds.push(perm.id);
-              }
-            });
-          });
-
-          await enhancedApi.put(`/api/rbac/roles/${form.selected_rbac_role}/permissions`, {
-            permission_ids: allPermissionIds
-          });
-        } catch (error) {
-          console.error('Failed to update role permissions:', error);
-          const errorMessage = getErrorMessage(error);
-          toast.warning(`Role updated but failed to update permissions: ${errorMessage}`);
-        }
       } catch (error) {
-        console.error('Failed to update roles/games:', error);
+        console.error('Failed to update roles:', error);
         throw error;
       }
+
+      // Update game access for each game
+      try {
+        // Get current user game access
+        const currentGameAccess = await loadUserGameAccess(currentUser.id);
+        const currentGameSet = new Set(currentGameAccess);
+        const newGameSet = new Set(form.selected_games || []);
+
+        // Find games to add and remove
+        const gamesToAdd = form.selected_games.filter(gameId => !currentGameSet.has(gameId));
+        const gamesToRemove = currentGameAccess.filter(gameId => !newGameSet.has(gameId));
+
+        // Toggle access for each game that needs to change
+        for (const gameId of gamesToAdd) {
+          try {
+            await enhancedApi.post(`/api/clients/${currentUser.id}/games/${gameId}/toggle`);
+          } catch (error) {
+            console.error(`Failed to grant access to game ${gameId}:`, error);
+            // Continue with other games even if one fails
+          }
+        }
+
+        for (const gameId of gamesToRemove) {
+          try {
+            await enhancedApi.post(`/api/clients/${currentUser.id}/games/${gameId}/toggle`);
+          } catch (error) {
+            console.error(`Failed to revoke access to game ${gameId}:`, error);
+            // Continue with other games even if one fails
+          }
+        }
+      } catch (error) {
+        console.error('Failed to update game access:', error);
+        const errorMessage = getErrorMessage(error);
+        toast.warning(`User updated but failed to update game access: ${errorMessage}`);
+      }
+
+      // Note: Individual user permissions are not updated here
+      // This would require a backend endpoint to store user-specific permissions
+      // For now, permissions come from the role only
 
       toast.success('Employee updated successfully');
       onOpenChange(false);
@@ -463,12 +512,25 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
             ) : (
               <Select 
                 value={form.selected_rbac_role?.toString() || ""} 
-                onValueChange={(value) => 
+                onValueChange={async (value) => {
+                  const roleId = value ? parseInt(value) : null;
+                  
+                  // Load role permissions when role is selected
+                  let rolePermissions: string[] = [];
+                  if (roleId) {
+                    const role = roles.find(r => r.id === roleId);
+                    if (role && role.permissions && Array.isArray(role.permissions)) {
+                      rolePermissions = role.permissions;
+                    }
+                  }
+                  
+                  // Update form with new role and its default permissions
                   setForm({
                     ...form,
-                    selected_rbac_role: value ? parseInt(value) : null
-                  })
-                }
+                    selected_rbac_role: roleId,
+                    selected_permissions: rolePermissions
+                  });
+                }}
                 disabled={loading}
               >
                 <SelectTrigger>
@@ -489,46 +551,64 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
 
           <div className="space-y-2">
             <Label>Game Access</Label>
+            <p className="text-xs text-muted-foreground mb-2">
+              Select games this user has access to
+            </p>
             {gamesLoading ? (
               <div className="text-sm text-muted-foreground">Loading games...</div>
             ) : gamesError ? (
               <div className="text-sm text-red-500">Error loading games: {gamesError}</div>
             ) : (
               <div className="max-h-[150px] overflow-y-auto border rounded-md p-2 space-y-2">
-                {games.map((game) => (
-                  <div key={game.id} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`game-${game.id}`}
-                      checked={form.selected_games.includes(game.id)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setForm({
-                            ...form,
-                            selected_games: [...form.selected_games, game.id]
-                          })
-                        } else {
-                          setForm({
-                            ...form,
-                            selected_games: form.selected_games.filter(id => id !== game.id)
-                          })
-                        }
-                      }}
-                      disabled={loading}
-                    />
-                    <Label htmlFor={`game-${game.id}`} className="text-sm">
-                      <div>
-                        <div className="font-medium">{game.name}</div>
-                        <div className="text-xs text-muted-foreground">{game.description || 'No description'}</div>
+                {games.length === 0 ? (
+                  <div className="text-sm text-muted-foreground text-center py-4">No games available</div>
+                ) : (
+                  games.map((game) => {
+                    const hasAccess = form.selected_games.includes(game.id);
+                    return (
+                      <div key={game.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`game-${game.id}`}
+                          checked={hasAccess}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setForm({
+                                ...form,
+                                selected_games: [...form.selected_games, game.id]
+                              })
+                            } else {
+                              setForm({
+                                ...form,
+                                selected_games: form.selected_games.filter(id => id !== game.id)
+                              })
+                            }
+                          }}
+                          disabled={loading}
+                        />
+                        <Label htmlFor={`game-${game.id}`} className="text-sm cursor-pointer flex-1">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="font-medium">{game.name}</div>
+                              <div className="text-xs text-muted-foreground">{game.description || 'No description'}</div>
+                            </div>
+                            {hasAccess && (
+                              <span className="text-xs text-green-600 font-medium ml-2">✓ Access</span>
+                            )}
+                          </div>
+                        </Label>
                       </div>
-                    </Label>
-                  </div>
-                ))}
+                    );
+                  })
+                )}
               </div>
             )}
           </div>
 
           <div className="space-y-2">
             <Label>Permissions</Label>
+            <p className="text-xs text-muted-foreground mb-2">
+              Configure individual permissions for this user. Default permissions from the selected role are shown.
+            </p>
             {permissionsLoading ? (
               <div className="text-sm text-muted-foreground">Loading permissions...</div>
             ) : permissionsError ? (
@@ -539,36 +619,44 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
                   <div key={resource} className="space-y-1">
                     <div className="font-medium text-sm capitalize">{resource}</div>
                     <div className="space-y-1 pl-2">
-                      {perms.map((perm) => (
-                        <div key={perm.id} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`perm-${perm.id}`}
-                            checked={form.selected_permissions.includes(perm.name)}
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                setForm({
-                                  ...form,
-                                  selected_permissions: [...form.selected_permissions, perm.name]
-                                })
-                              } else {
-                                setForm({
-                                  ...form,
-                                  selected_permissions: form.selected_permissions.filter(p => p !== perm.name)
-                                })
-                              }
-                            }}
-                            disabled={loading}
-                          />
-                          <Label htmlFor={`perm-${perm.id}`} className="text-sm cursor-pointer">
-                            <div>
-                              <div className="font-medium">{perm.action}</div>
-                              {perm.description && (
-                                <div className="text-xs text-muted-foreground">{perm.description}</div>
-                              )}
-                            </div>
-                          </Label>
-                        </div>
-                      ))}
+                      {perms.map((perm) => {
+                        const isChecked = form.selected_permissions.includes(perm.name);
+                        return (
+                          <div key={perm.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`perm-${perm.id}`}
+                              checked={isChecked}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setForm({
+                                    ...form,
+                                    selected_permissions: [...form.selected_permissions, perm.name]
+                                  })
+                                } else {
+                                  setForm({
+                                    ...form,
+                                    selected_permissions: form.selected_permissions.filter(p => p !== perm.name)
+                                  })
+                                }
+                              }}
+                              disabled={loading}
+                            />
+                            <Label htmlFor={`perm-${perm.id}`} className="text-sm cursor-pointer flex-1">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <div className="font-medium">{perm.action}</div>
+                                  {perm.description && (
+                                    <div className="text-xs text-muted-foreground">{perm.description}</div>
+                                  )}
+                                </div>
+                                {isChecked && (
+                                  <span className="text-xs text-green-600 font-medium ml-2">✓ Enabled</span>
+                                )}
+                              </div>
+                            </Label>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 ))}

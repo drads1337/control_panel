@@ -304,11 +304,21 @@ export function useAuthActions(
       loginAttempts.current = 0
 
       await authService.logout()
+      
+      // Set loading to false and initialized to true after logout completes
+      // This prevents the spinner from showing on the login page
+      updateState({
+        isLoading: false,
+        isInitialized: true,
+        isAuthenticated: false,
+        user: null
+      })
+      
       navigateRef.current('/login')
     } finally {
       isLoggingIn.current = false
     }
-  }, [isLoggingIn, abortControllerRef, reset, loginAttempts, navigate])
+  }, [isLoggingIn, abortControllerRef, reset, loginAttempts, navigate, updateState])
 
   return {
     login,

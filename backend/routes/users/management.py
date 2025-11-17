@@ -138,7 +138,7 @@ def add_user(current_user=None, validated_data=None):
 @enforce_project_scope
 @require_role(RolePermissions.ADMIN_ROLES)
 @validate_request(UserUpdateSchema)
-def update_user(user_id, current_user=None):
+def update_user(user_id, current_user=None, validated_data=None):
     """Update a user with roles and game permissions"""
     import logging
     from flask import g
@@ -149,8 +149,8 @@ def update_user(user_id, current_user=None):
     if current_user is None:
         current_user = g.current_user
 
-    # Get request data
-    data = request.get_json()  # Already validated by @validate_request
+    # Get request data - use validated_data if available, otherwise fallback to request.get_json()
+    data = validated_data if validated_data else request.get_json()
     if not data:
         return jsonify({"error": "No data provided"}), 400
 

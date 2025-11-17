@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Database } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { usePermissions } from '@/hooks/use-permissions';
+import { useAuthContext } from '@/contexts/auth-context';
+import { enhancedApi } from '@/shared/api/enhanced-client';
 import { toast } from 'sonner';
 import { createLicenseKey, createCustomLicenseKey, bulkCreateLicenseKeys } from '@/entities/key';
 import { getLoaders } from '@/entities/loader';
@@ -17,14 +19,9 @@ interface LicenseKeyCreationGridProps {
 
 const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, onKeyCreated }) => {
   const { hasPermission } = usePermissions();
+  const { user } = useAuthContext();
   const canCreate = hasPermission('keys.create');
   const canGenerate = hasPermission('keys.generate');
-  
-  // Check permissions for target type selection
-  // If user has games in the array, they have access to games (even without global games.view permission)
-  const hasGlobalGamesPermission = hasPermission('games.view');
-  const canViewGames = hasGlobalGamesPermission || games.length > 0;
-  const canViewLoaders = hasPermission('loaders.view');
   
   const [loading, setLoading] = useState({
     single: false,
@@ -35,11 +32,43 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
   // Loaders state
   const [loaders, setLoaders] = useState<Array<{ id: number; name: string; assigned_games: number[] }>>([]);
   const [loadersLoading, setLoadersLoading] = useState(false);
+  
+  // Game access state
+  const [userGameAccess, setUserGameAccess] = useState<number[]>([]);
+  const [gameAccessLoading, setGameAccessLoading] = useState(false);
 
-  // Load loaders on component mount
+  // Load user game access
+  const loadUserGameAccess = async () => {
+    if (!user?.id) return;
+    
+    try {
+      setGameAccessLoading(true);
+      const response = await enhancedApi.get(`/api/clients/${user.id}/games`);
+      if (Array.isArray(response.data)) {
+        // Filter games where has_access is true
+        const accessibleGames = response.data
+          .filter((game: any) => game.has_access === true)
+          .map((game: any) => game.game_id || game.id);
+        setUserGameAccess(accessibleGames);
+      }
+    } catch (error: any) {
+      console.error('Failed to load user game access:', error);
+      setUserGameAccess([]);
+    } finally {
+      setGameAccessLoading(false);
+    }
+  };
+
+  // Check if user has access to games based on game access
+  // User has access if they have game access to at least one game OR if games array is not empty (fallback)
+  const canViewGames = userGameAccess.length > 0 || games.length > 0;
+  const canViewLoaders = loaders.length > 0;
+
+  // Load loaders and game access on component mount
   useEffect(() => {
     loadLoaders();
-  }, []);
+    loadUserGameAccess();
+  }, [user?.id]);
 
   const loadLoaders = async () => {
     try {
