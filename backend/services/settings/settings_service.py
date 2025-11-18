@@ -11,12 +11,10 @@ from ...core.extensions import db
 from ...models.core import ProjectEncryptionKeys, ProjectSettings, User
 from ...utils.rbac_utils import RBACManager
 
-# Import cache_service with error handling
 try:
     from ...services.cache import cache_service
 except ImportError:
     cache_service = None
-
 
 class SettingsService:
     """Service for managing project settings with caching"""
@@ -38,7 +36,6 @@ class SettingsService:
             try:
                 self.logger.info(f"Fetching settings from database for user {user_id}")
 
-                # Safely query user
                 try:
                     user = User.query.get(user_id)
                 except Exception as db_error:
@@ -65,7 +62,6 @@ class SettingsService:
 
                 self.logger.info(f"User {user_id} has project_id: {project_id}")
 
-                # Get or create project settings
                 try:
                     settings = self._get_or_create_project_settings(project_id)
                     self.logger.info(f"Retrieved settings for project {project_id}")
@@ -76,7 +72,6 @@ class SettingsService:
                     self.logger.error(traceback.format_exc())
                     return {"error": f"Failed to get project settings: {str(settings_error)}"}
 
-                # Parse appearance settings
                 appearance_settings = {}
                 if hasattr(settings, "appearance_settings") and settings.appearance_settings:
                     try:
@@ -84,7 +79,6 @@ class SettingsService:
                     except (json.JSONDecodeError, TypeError, AttributeError):
                         appearance_settings = {}
 
-                # Get encryption keys
                 try:
                     encryption_keys = self._get_or_create_project_keys(project_id)
                     if not encryption_keys or not isinstance(encryption_keys, dict):
@@ -93,11 +87,9 @@ class SettingsService:
                         )
                         encryption_keys = {"aes_key": "", "public_key": ""}
 
-                    # Ensure encryption_keys is a dict with required keys
                     if not isinstance(encryption_keys, dict):
                         encryption_keys = {"aes_key": "", "public_key": ""}
 
-                    # Ensure required keys exist
                     if "aes_key" not in encryption_keys:
                         encryption_keys["aes_key"] = ""
                     if "public_key" not in encryption_keys:
@@ -114,7 +106,6 @@ class SettingsService:
                     )
                     encryption_keys = {"aes_key": "", "public_key": ""}
 
-                # Build response dictionary safely
                 try:
                     result = {
                         "security": {
@@ -231,16 +222,15 @@ class SettingsService:
                             "offline_ticket_expiration_hours": int(
                                 getattr(settings, "offline_ticket_expiration_hours", 12) or 12
                             ),
-                            # Note: max_devices is determined by key.max_devices, not by project settings
+
                         },
                         "encryption_keys": {
                             "aes_key": str(encryption_keys.get("aes_key", "") or ""),
                             "public_key": str(encryption_keys.get("public_key", "") or ""),
-                            # private_key intentionally excluded for security
+
                         },
                     }
-                    
-                    # Filter admin-only sections for non-admin users
+
                     try:
                         is_admin = RBACManager.is_admin(user)
                     except Exception as admin_check_error:
@@ -248,11 +238,11 @@ class SettingsService:
                         self.logger.error(
                             f"Error checking admin status for user {user_id}: {admin_check_error}\n{traceback.format_exc()}"
                         )
-                        # Default to non-admin on error (fail-safe)
+
                         is_admin = False
-                    
+
                     if not is_admin:
-                        # Remove admin-only sections
+
                         admin_only_sections = [
                             "encryption_keys",
                             "encryption",
@@ -266,7 +256,7 @@ class SettingsService:
                         for section in admin_only_sections:
                             result.pop(section, None)
                         self.logger.info(f"Filtered admin-only sections for non-admin user {user_id}")
-                    
+
                     self.logger.info("Successfully built settings response dictionary")
                     return result
                 except Exception as build_error:
@@ -287,7 +277,6 @@ class SettingsService:
 
         cache_key_params = {"user_id": user_id}
 
-        # Temporarily disable cache for debugging
         try:
             self.logger.info(f"Starting get_settings_cached for user {user_id}")
             result = fetch_settings()
@@ -309,43 +298,22 @@ class SettingsService:
             self.logger.error(f"Error in get_settings_cached: {str(e)}\n{error_traceback}")
             return {"error": f"Failed to retrieve settings: {str(e)}"}
 
-        # try:
-        #     cached_result = cache_service.get_or_set(
-        #         cache_type='settings',
-        #         fetch_func=fetch_settings,
-        #         **cache_key_params
-        #     )
-        #
-        #     if cached_result is None:
-        #         # If cache fails, try direct fetch
-        #         self.logger.warning("Cache service failed, falling back to direct fetch")
-        #         return fetch_settings()
-        #
-        #     return cached_result
-        # except Exception as cache_error:
-        #     self.logger.error(f"Cache service error: {cache_error}")
-        #     # Fallback to direct fetch if cache fails
-        #     return fetch_settings()
-
     def _get_or_create_project_settings(self, project_id: int) -> ProjectSettings:
         """Get or create project settings"""
         self.logger.info(f"Getting or creating settings for project_id: {project_id}")
 
-        # Try to query settings - handle missing columns gracefully
         try:
             settings = ProjectSettings.query.filter_by(project_id=project_id).first()
         except Exception as db_error:
-            # If there's a database schema mismatch (missing columns), try to query with explicit column selection
+
             error_str = str(db_error)
             if "does not exist" in error_str or "UndefinedColumn" in error_str:
                 self.logger.warning(f"Database schema mismatch detected: {error_str}")
                 self.logger.info("Attempting to query with minimal columns...")
                 try:
-                    # Use raw SQL to select only basic columns that should exist
+
                     from sqlalchemy import text
 
-                    # SECURITY: Safe - uses parameterized query with :project_id placeholder
-                    # project_id is passed as parameter, not concatenated into SQL string
                     result = db.session.execute(
                         text(
                             """
@@ -370,7 +338,7 @@ class SettingsService:
                     ).fetchone()
 
                     if result:
-                        # Create a minimal settings object manually
+
                         settings = ProjectSettings()
                         settings.id = result[0]
                         settings.project_id = result[1]
@@ -426,7 +394,7 @@ class SettingsService:
                         settings.invite_code_required = (
                             bool(result[29]) if result[29] is not None else False
                         )
-                        # Set defaults for missing columns
+
                         settings.password_complexity_required = True
                         settings.session_fingerprinting = True
                         settings.ip_whitelist_enabled = False
@@ -446,48 +414,48 @@ class SettingsService:
 
         if not settings:
             self.logger.info(f"No settings found for project_id: {project_id}, creating new ones")
-            # Create default settings with master key
+
             import secrets
 
             try:
-                # Try creating with all fields
+
                 settings = ProjectSettings(
                     project_id=project_id,
                     min_password_length=8,
                     max_login_attempts=5,
                     ip_block_duration_minutes=15,
-                    max_sessions_per_user=5,  # Constant: 5 sessions
-                    log_retention_days=60,  # Constant: 60 days
+                    max_sessions_per_user=5,
+                    log_retention_days=60,
                     security_log_level="INFO",
                     invite_code_required=False,
                     max_connections=1000,
-                    session_timeout_minutes=480,  # 8 hours
+                    session_timeout_minutes=480,
                     log_file_size_mb=100,
                     system_log_level="INFO",
                     auto_save_enabled=True,
                     analytics_enabled=True,
                     system_notifications_enabled=True,
-                    two_factor_auth_required=False,  # Disabled by default
+                    two_factor_auth_required=False,
                     password_complexity_required=True,
-                    session_fingerprinting=True,  # Track and validate fingerprints
+                    session_fingerprinting=True,
                     ip_whitelist_enabled=False,
-                    rate_limiting_enabled=True,  # Constant: enabled
-                    rate_limit_requests_per_minute=60,  # Constant: 60 requests/minute
+                    rate_limiting_enabled=True,
+                    rate_limit_requests_per_minute=60,
                     vpn_blocking_enabled=False,
-                    security_logging_enabled=True,  # Record all security events
-                    suspicious_activity_check_enabled=True,  # Analyze behavior patterns
-                    session_limiting_enabled=True,  # Limit concurrent sessions
-                    auto_log_cleanup_enabled=True,  # Auto delete old logs
+                    security_logging_enabled=True,
+                    suspicious_activity_check_enabled=True,
+                    session_limiting_enabled=True,
+                    auto_log_cleanup_enabled=True,
                     encryption_enabled=False,
                     encryption_algorithm="AES-256",
                     key_rotation_days=90,
                     auto_backup_enabled=False,
                     backup_frequency_hours=24,
                     backup_retention_days=30,
-                    project_master_key=secrets.token_hex(32),  # Generate 64-character hex key
+                    project_master_key=secrets.token_hex(32),
                 )
             except Exception as create_error:
-                # If creating fails due to missing columns, use raw SQL
+
                 error_str = str(create_error)
                 if "does not exist" in error_str or "UndefinedColumn" in error_str:
                     self.logger.warning(
@@ -496,8 +464,7 @@ class SettingsService:
                     from sqlalchemy import text
 
                     master_key = secrets.token_hex(32)
-                    # SECURITY: Safe - uses parameterized query with :project_id and :master_key placeholders
-                    # All user input is passed as parameters, not concatenated into SQL string
+
                     db.session.execute(
                         text(
                             """
@@ -527,21 +494,20 @@ class SettingsService:
                         ),
                         {"project_id": project_id, "master_key": master_key},
                     )
-                    # SECURITY: Safe - uses parameterized query with :project_id placeholder
+
                     result = db.session.execute(
                         text("SELECT * FROM project_settings WHERE project_id = :project_id"),
                         {"project_id": project_id},
                     ).fetchone()
                     if result:
-                        # Reconstruct the object like in the fallback query above
+
                         settings = ProjectSettings()
                         settings.id = result[0]
                         settings.project_id = result[1]
-                        # ... (set all fields from result)
-                        # For now, just set basic fields
+
                         settings.project_id = project_id
                         settings.project_master_key = master_key
-                        # Use getattr with defaults for the rest
+
                     else:
                         raise Exception("Failed to create settings using raw SQL")
                 else:
@@ -552,7 +518,7 @@ class SettingsService:
                 db.session.commit()
             except Exception as commit_error:
                 db.session.rollback()
-                # If commit fails, try without optional columns
+
                 error_str = str(commit_error)
                 if "does not exist" in error_str or "UndefinedColumn" in error_str:
                     self.logger.warning(
@@ -561,8 +527,7 @@ class SettingsService:
                     from sqlalchemy import text
 
                     master_key = secrets.token_hex(32)
-                    # SECURITY: Safe - uses parameterized query with :project_id and :master_key placeholders
-                    # All user input is passed as parameters, not concatenated into SQL string
+
                     db.session.execute(
                         text(
                             """
@@ -575,7 +540,7 @@ class SettingsService:
                         {"project_id": project_id, "master_key": master_key},
                     )
                     db.session.commit()
-                    # Reload the settings
+
                     settings = ProjectSettings.query.filter_by(project_id=project_id).first()
                 else:
                     raise commit_error
@@ -593,7 +558,7 @@ class SettingsService:
 
         if not keys:
             self.logger.info(f"No keys found for project_id: {project_id}, creating new ones")
-            # Create default keys with proper RSA generation
+
             import json
             import secrets
             from datetime import datetime
@@ -602,13 +567,11 @@ class SettingsService:
             from cryptography.hazmat.primitives import serialization
             from cryptography.hazmat.primitives.asymmetric import rsa
 
-            # Generate RSA key pair
             private_key = rsa.generate_private_key(
                 public_exponent=65537, key_size=2048, backend=default_backend()
             )
             public_key = private_key.public_key()
 
-            # Convert to PEM format
             private_pem = private_key.private_bytes(
                 encoding=serialization.Encoding.PEM,
                 format=serialization.PrivateFormat.PKCS8,
@@ -620,7 +583,6 @@ class SettingsService:
                 format=serialization.PublicFormat.SubjectPublicKeyInfo,
             ).decode("utf-8")
 
-            # Create the keys record
             keys = ProjectEncryptionKeys(
                 project_id=project_id,
                 aes_key=secrets.token_hex(32),
@@ -637,11 +599,10 @@ class SettingsService:
         else:
             self.logger.info(f"Found existing keys for project_id: {project_id}")
 
-        # Return in the format expected by frontend (excluding private_key for security)
         result = {
             "aes_key": keys.aes_key or "",
             "public_key": keys.public_key_cert or "",
-            # private_key intentionally excluded for security
+
         }
         self.logger.info(
             f"Returning keys: aes_key={bool(result['aes_key'])}, public_key={bool(result['public_key'])}"
@@ -658,7 +619,6 @@ class SettingsService:
             project_id = user.project_id
             settings = self._get_or_create_project_settings(project_id)
 
-            # Update settings based on provided data
             if "security" in settings_data:
                 security = settings_data["security"]
                 if "min_password_length" in security:
@@ -711,7 +671,7 @@ class SettingsService:
                 if "ip_whitelist_enabled" in security_features:
                     settings.ip_whitelist_enabled = security_features["ip_whitelist_enabled"]
                 if "ip_whitelist" in security_features:
-                    # Store ip_whitelist as JSON string if it's a list
+
                     ip_whitelist = security_features["ip_whitelist"]
                     if isinstance(ip_whitelist, list):
                         settings.ip_whitelist = json.dumps(ip_whitelist)
@@ -767,7 +727,6 @@ class SettingsService:
 
             db.session.commit()
 
-            # Invalidate cache
             self.invalidate_settings_cache(user_id)
 
             return {"success": True, "message": "Settings updated successfully"}
@@ -782,17 +741,15 @@ class SettingsService:
         if not ip_whitelist_value:
             return "[]"
 
-        # If it's already a string, validate it's valid JSON and return it
         if isinstance(ip_whitelist_value, str):
             try:
-                # Validate it's valid JSON
+
                 json.loads(ip_whitelist_value)
                 return ip_whitelist_value
             except json.JSONDecodeError:
-                # If invalid JSON, return empty array
+
                 return "[]"
 
-        # If it's a list, convert to JSON string
         if isinstance(ip_whitelist_value, list):
             return json.dumps(ip_whitelist_value)
 
@@ -812,6 +769,4 @@ class SettingsService:
             self.logger.error(f"Error invalidating settings cache: {e}")
             return False
 
-
-# Global instance
 settings_service = SettingsService()

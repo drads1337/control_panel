@@ -47,33 +47,32 @@ interface KeyDetailsDialogProps {
 const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange, keyData, keyId }) => {
   const { hasPermission } = usePermissions();
   const canViewKeys = hasPermission('keys.view');
-  
+
   const [keyDetails, setKeyDetails] = useState<any>(null);
   const [keyAnalytics, setKeyAnalytics] = useState<any>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [activeTab, setActiveTab] = useState<'details' | 'analytics'>('details');
 
-  // Load key details when dialog opens
   useEffect(() => {
     if (open && keyId) {
-      // Always load full details to get devices, even if keyData is provided
+
       loadKeyDetails();
     } else if (open && keyData && !keyId) {
-      // Only use keyData if no keyId is provided (shouldn't happen normally)
+
       setKeyDetails({ key: keyData });
     }
   }, [open, keyId, keyData]);
 
   const loadKeyDetails = async () => {
     if (!keyId) return;
-    
+
     try {
       setLoadingDetails(true);
       const details = await getLicenseKeyDetails(keyId);
       setKeyDetails(details);
     } catch (error) {
-      console.error('Error loading key details:', error);
+
       toast.error('Error loading key details');
     } finally {
       setLoadingDetails(false);
@@ -82,13 +81,13 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
 
   const loadKeyAnalytics = async () => {
     if (!keyId) return;
-    
+
     try {
       setLoadingAnalytics(true);
       const analytics = await getLicenseKeyAnalytics(keyId);
       setKeyAnalytics(analytics);
     } catch (error) {
-      console.error('Error loading key analytics:', error);
+
       toast.error('Error loading key analytics');
     } finally {
       setLoadingAnalytics(false);
@@ -96,26 +95,23 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
   };
 
   const handleCopyText = async (text: string, entity: string = "Key") => {
-    // SECURITY: Use /reveal endpoint to get full key for copying
-    // This ensures we have permission and get the real key, not masked version
+
     let fullKey: string;
-    
-    // First try to use keyDetails if available and not masked
+
     if (keyDetails?.key?.key && !isMaskedKey(keyDetails.key.key) && !keyDetails.key.key_masked) {
       fullKey = keyDetails.key.key;
     } else if (keyId) {
-      // Use /reveal endpoint to get full key
+
       try {
         const revealResponse = await revealLicenseKey(keyId);
         fullKey = revealResponse.key;
-        
-        // Double-check: if still masked, user doesn't have permission
+
         if (isMaskedKey(fullKey) || revealResponse.key_masked) {
           toast.error('You do not have permission to copy full keys. Contact your administrator.');
           return;
         }
       } catch (error: any) {
-        console.error('Failed to reveal key for copying:', error);
+
         if (error.response?.status === 403) {
           toast.error('You do not have permission to copy full keys. Contact your administrator.');
         } else {
@@ -124,19 +120,19 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
         return;
       }
     } else {
-      // Fallback to provided text if no keyId
+
       fullKey = text;
       if (isMaskedKey(fullKey)) {
         toast.error('Cannot copy masked key. Please open key details first.');
         return;
       }
     }
-    
+
     try {
       await navigator.clipboard.writeText(fullKey);
       toast.success(`${entity} copied to clipboard!`);
     } catch (error) {
-      // Fallback for older browsers
+
       const textArea = document.createElement('textarea');
       textArea.value = fullKey;
       document.body.appendChild(textArea);
@@ -155,7 +151,7 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
   const getStatusBadge = (status: string) => {
     let statusType: StatusType;
     let icon: React.ReactNode;
-    
+
     switch (status) {
       case 'Active':
         statusType = 'active';
@@ -173,7 +169,7 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
         statusType = 'inactive';
         icon = <PauseCircle className="h-3 w-3" />;
     }
-    
+
     return (
       <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200 ${getStatusClasses(statusType)}`}>
         {icon}
@@ -213,7 +209,7 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
           </DialogDescription>
         </DialogHeader>
 
-        {/* Tab Navigation */}
+        {}
         <div className="flex space-x-1 bg-muted p-1 rounded-lg">
           <Button
             variant={activeTab === 'details' ? 'default' : 'ghost'}
@@ -248,7 +244,7 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
               </div>
             ) : (keyDetails || keyData) ? (
               <div className="space-y-6">
-                {/* Main Information */}
+                {}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label className="text-sm font-medium">Key</Label>
@@ -264,7 +260,7 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
                             try {
                               const revealResponse = await revealLicenseKey(keyId);
                               if (revealResponse.key && !revealResponse.key_masked) {
-                                // Reload details to show full key
+
                                 await loadKeyDetails();
                                 toast.success('Key revealed');
                               } else {
@@ -287,7 +283,7 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          // Always use full key from keyDetails if available, otherwise from keyData
+
                           const keyToCopy = keyDetails?.key?.key || keyData?.key;
                           if (keyToCopy) {
                             handleCopyText(keyToCopy);
@@ -344,7 +340,7 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
                   </div>
                 </div>
 
-                {/* Devices */}
+                {}
                 <div>
                   <Label className="text-sm font-medium">Devices ({(keyDetails?.key || keyData)?.device_count || 0} / {(keyDetails?.key || keyData)?.max_devices || 0})</Label>
                   {keyDetails?.devices && keyDetails.devices.length > 0 ? (
@@ -399,7 +395,7 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
                   )}
                 </div>
 
-                {/* Additional Information */}
+                {}
                 {(keyDetails?.key || keyData)?.fingerprint && (
                   <div>
                     <Label className="text-sm font-medium">Fingerprint</Label>
@@ -409,7 +405,7 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
                   </div>
                 )}
 
-                {/* Metadata */}
+                {}
                 {(keyDetails?.key || keyData)?.key_metadata && (
                   <div>
                     <Label className="text-sm font-medium">Metadata</Label>
@@ -426,14 +422,14 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
               </div>
             )
           ) : (
-            /* Analytics Tab */
+
             loadingAnalytics ? (
               <div className="text-center py-12">
                 <Spinner message="Loading analytics..." />
               </div>
             ) : keyAnalytics ? (
               <div className="space-y-6">
-                {/* General Statistics */}
+                {}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="bg-muted/50 p-4 rounded-lg">
                     <div className="text-2xl font-bold text-primary">
@@ -461,7 +457,7 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
                   </div>
                 </div>
 
-                {/* Games */}
+                {}
                 {keyAnalytics.summary.games_played.length > 0 && (
                   <div>
                     <h4 className="font-semibold mb-2">Games:</h4>
@@ -473,7 +469,7 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
                   </div>
                 )}
 
-                {/* Daily Analytics */}
+                {}
                 {keyAnalytics.daily_analytics.length > 0 && (
                   <div>
                     <h4 className="font-semibold mb-3">Daily Statistics:</h4>
@@ -496,7 +492,7 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
                   </div>
                 )}
 
-                {/* Analytics Period */}
+                {}
                 <div className="text-sm text-muted-foreground">
                   {keyAnalytics.summary.first_analytics_date && keyAnalytics.summary.last_analytics_date ? (
                     <>Period: {new Date(keyAnalytics.summary.first_analytics_date).toLocaleDateString('en-US')} - {new Date(keyAnalytics.summary.last_analytics_date).toLocaleDateString('en-US')}</>

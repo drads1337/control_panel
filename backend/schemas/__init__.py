@@ -15,5 +15,4 @@ Import schemas directly from their modules:
 - etc.
 """
 
-# Empty __init__.py - all imports should be direct from module files
 __all__ = []

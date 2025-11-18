@@ -6,7 +6,6 @@ from datetime import datetime
 
 from ..core.extensions import db
 
-
 class Key(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id", ondelete="SET NULL"), nullable=True)
@@ -15,7 +14,7 @@ class Key(db.Model):
     expires_at = db.Column(db.DateTime, nullable=True)
     max_devices = db.Column(db.Integer, default=1)
     devices = db.Column(db.Text, default="")
-    status = db.Column(db.Integer, default=1)  # 1 - active, 0 - inactive
+    status = db.Column(db.Integer, default=1)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     game_id = db.Column(db.Integer, db.ForeignKey("game.id"), nullable=True)
     game = db.relationship("Game", backref="keys")
@@ -23,16 +22,15 @@ class Key(db.Model):
     activated_at = db.Column(db.DateTime, nullable=True)
     duration_hours = db.Column(db.Float, default=24)
     fingerprint = db.Column(db.Text, nullable=True)
-    key_metadata = db.Column(db.Text, nullable=True)  # JSON string for additional data
+    key_metadata = db.Column(db.Text, nullable=True)
     deviceinfo = db.relationship("DeviceInfo", backref="key", cascade="all, delete-orphan")
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
     project = db.relationship("Project", backref="keys")
 
-
 class DeviceInfo(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     key_id = db.Column(db.Integer, db.ForeignKey("key.id", ondelete="CASCADE"))
-    device_id = db.Column(db.String(128), nullable=True)  # android_id, ios_id, windows_id, etc.
+    device_id = db.Column(db.String(128), nullable=True)
     device_model = db.Column(db.String(128), nullable=True)
     device_brand = db.Column(db.String(128), nullable=True)
     serial = db.Column(db.String(128), nullable=True)
@@ -41,25 +39,22 @@ class DeviceInfo(db.Model):
     connected_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_seen = db.Column(db.DateTime, default=datetime.utcnow)
 
-
 class KeyAnalytics(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     key_id = db.Column(db.Integer, db.ForeignKey("key.id", ondelete="CASCADE"))
-    date = db.Column(db.Date, nullable=False)  # Date for statistics grouping
-    total_connections = db.Column(db.Integer, default=0)  # Total number of connections
-    unique_devices = db.Column(db.Integer, default=0)  # Number of unique devices
-    total_connection_time = db.Column(db.Integer, default=0)  # Total connection time in seconds
+    date = db.Column(db.Date, nullable=False)
+    total_connections = db.Column(db.Integer, default=0)
+    unique_devices = db.Column(db.Integer, default=0)
+    total_connection_time = db.Column(db.Integer, default=0)
     peak_concurrent = db.Column(
         db.Integer, default=0
-    )  # Peak number of concurrent connections
-    countries = db.Column(db.Text, nullable=True)  # JSON list of countries
-    games_played = db.Column(db.Text, nullable=True)  # JSON list of games
+    )
+    countries = db.Column(db.Text, nullable=True)
+    games_played = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Index for fast lookup by key and date
     __table_args__ = (db.Index("idx_key_date", "key_id", "date"),)
-
 
 class TokenTransaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -71,28 +66,26 @@ class TokenTransaction(db.Model):
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
     project = db.relationship("Project", backref="token_transactions")
 
-
 class ConnectToken(db.Model):
     """
     Model for storing connect tokens with indexed lookup for secure validation.
     This prevents DoS attacks from token enumeration.
     """
     id = db.Column(db.Integer, primary_key=True)
-    token = db.Column(db.String(64), unique=True, nullable=False, index=True)  # SHA256 hash
+    token = db.Column(db.String(64), unique=True, nullable=False, index=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
     key_id = db.Column(db.Integer, db.ForeignKey("key.id", ondelete="CASCADE"), nullable=True)
     game_name = db.Column(db.String(128), nullable=True)
     serial = db.Column(db.String(128), nullable=True)
-    is_classic = db.Column(db.Boolean, default=False)  # True for classic tokens
+    is_classic = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     expires_at = db.Column(db.DateTime, nullable=True)
     last_used = db.Column(db.DateTime, nullable=True)
-    
+
     user = db.relationship("User", backref="connect_tokens")
     key = db.relationship("Key", backref="connect_tokens")
-    
-    __table_args__ = (db.Index("idx_connect_token_token", "token"),)
 
+    __table_args__ = (db.Index("idx_connect_token_token", "token"),)
 
 class ReferralCode(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -101,9 +94,9 @@ class ReferralCode(db.Model):
     used = db.Column(db.Boolean, default=False)
     used_by = db.Column(db.Integer, db.ForeignKey("user.id", ondelete="SET NULL"), nullable=True)
     game_ids = db.Column(db.PickleType, nullable=True)
-    rbac_role_ids = db.Column(db.PickleType, nullable=True)  # RBAC roles for the user
-    token_balance = db.Column(db.BigInteger, default=0)  # Token balance for the user
-    work_duration_days = db.Column(db.Integer, default=7)  # Employee work duration in days
+    rbac_role_ids = db.Column(db.PickleType, nullable=True)
+    token_balance = db.Column(db.BigInteger, default=0)
+    work_duration_days = db.Column(db.Integer, default=7)
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
     created_by = db.Column(db.Integer, db.ForeignKey("user.id", ondelete="SET NULL"), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -115,14 +108,12 @@ class ReferralCode(db.Model):
         if self.game_ids is None:
             return []
 
-        # If it's already a list, return as is
         if isinstance(self.game_ids, list):
             return self.game_ids
 
-        # If it's a string, try to parse it
         if isinstance(self.game_ids, str):
             try:
-                # Remove square brackets and split by comma
+
                 clean_str = self.game_ids.strip("[]")
                 if clean_str:
                     return [int(x.strip()) for x in clean_str.split(",")]
@@ -130,7 +121,6 @@ class ReferralCode(db.Model):
             except (ValueError, AttributeError):
                 return []
 
-        # If it's something else, return empty list
         return []
 
     @game_ids_list.setter
@@ -147,14 +137,12 @@ class ReferralCode(db.Model):
         if self.rbac_role_ids is None:
             return []
 
-        # If it's already a list, return as is
         if isinstance(self.rbac_role_ids, list):
             return self.rbac_role_ids
 
-        # If it's a string, try to parse it
         if isinstance(self.rbac_role_ids, str):
             try:
-                # Remove square brackets and split by comma
+
                 clean_str = self.rbac_role_ids.strip("[]")
                 if clean_str:
                     return [int(x.strip()) for x in clean_str.split(",")]
@@ -162,7 +150,6 @@ class ReferralCode(db.Model):
             except (ValueError, AttributeError):
                 return []
 
-        # If it's something else, return empty list
         return []
 
     @rbac_role_ids_list.setter

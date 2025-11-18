@@ -3,7 +3,6 @@ import { getClients, deleteUser } from '@/entities/user'
 import type { User } from '@/entities/user'
 import { useMutationWithCache } from './use-mutation-helpers'
 
-// Cache keys
 export const clientKeys = {
   all: ['clients'] as const,
   lists: () => [...clientKeys.all, 'list'] as const,
@@ -14,16 +13,14 @@ interface UseClientsReturn {
   clients: User[]
   loading: boolean
   error: string | null
-  
-  // Actions
+
   deleteClient: (id: number) => Promise<void>
-  
-  // Data updates
+
   refetch: () => void
 }
 
 export function useClientsQuery(): UseClientsReturn {
-  // Query для получения списка клиентов
+
   const {
     data,
     isLoading,
@@ -35,21 +32,20 @@ export function useClientsQuery(): UseClientsReturn {
       const response = await getClients()
       return response.clients || []
     },
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 2 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
     retry: (failureCount, error: any) => {
-      // Don't retry on auth errors (401, 403)
+
       if (error?.response?.status === 401 || error?.response?.status === 403) {
         return false
       }
-      // Retry up to 2 times for other errors
+
       return failureCount < 2
     },
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
   })
 
-  // Мутация для удаления клиента с автоматической инвалидацией кэша
   const deleteClientMutation = useMutationWithCache({
     mutationFn: deleteUser,
     invalidateQueries: [clientKeys.lists()],
@@ -57,7 +53,6 @@ export function useClientsQuery(): UseClientsReturn {
     errorMessage: 'Failed to delete client',
   })
 
-  // Convert error to string for compatibility
   const errorMessage = error
     ? (error as any)?.response?.data?.error || 
       (error as any)?.response?.data?.message || 

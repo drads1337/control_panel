@@ -67,7 +67,7 @@ export function ProfileCard({
     <Card className="@container/card border shadow-sm">
       <CardContent className="p-8">
         <div className="text-center">
-          {/* Avatar with camera button */}
+          {}
           <div className="relative inline-block mb-6">
             <Avatar className="h-28 w-28 bg-muted border-2 border-border">
               <AvatarImage
@@ -79,14 +79,14 @@ export function ProfileCard({
               </AvatarFallback>
             </Avatar>
 
-            {/* Avatar upload indicator */}
+            {}
             {isAvatarUploading && (
               <div className="absolute inset-0 bg-background/80 rounded-full flex items-center justify-center">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             )}
 
-            {/* Camera button */}
+            {}
             <Button
               size="sm"
               variant="outline"
@@ -106,13 +106,13 @@ export function ProfileCard({
             />
           </div>
 
-          {/* User's name */}
+          {}
           <h3 className="text-2xl font-bold text-foreground mb-2">{getFullName()}</h3>
 
-          {/* Username */}
+          {}
           <p className="text-muted-foreground mb-4 text-lg">@{profileData.username}</p>
 
-          {/* Role */}
+          {}
           <Badge className="mb-6 bg-primary text-primary-foreground px-4 py-2 text-sm font-medium rounded-md">
             {(() => {
               const primaryRole = getPrimaryRole(user)
@@ -122,7 +122,7 @@ export function ProfileCard({
             })()}
           </Badge>
 
-          {/* Contact information */}
+          {}
           <div className="space-y-4 text-left">
             {profileData.email && (
               <div className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -142,4 +142,3 @@ export function ProfileCard({
     </Card>
   )
 }
-

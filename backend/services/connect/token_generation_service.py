@@ -14,7 +14,6 @@ from ...models.keys import ConnectToken
 
 logger = logging.getLogger(__name__)
 
-
 class TokenGenerationService:
     """Handles token generation and storage"""
 
@@ -39,7 +38,7 @@ class TokenGenerationService:
     ) -> str:
         """
         Generate connect token for successful authentication and store it in database.
-        
+
         This function now stores tokens in the database for secure O(1) validation,
         preventing DoS attacks from token enumeration.
 
@@ -57,18 +56,17 @@ class TokenGenerationService:
         """
         real = f"{game}-{user_key}-{serial}-{self.static_word}"
         token = hashlib.sha256(real.encode()).hexdigest()
-        
-        # Store token in database for secure validation
+
         if user_id is not None:
             try:
-                # Check if token already exists (shouldn't happen, but handle gracefully)
+
                 existing_token = ConnectToken.query.filter_by(token=token).first()
                 if existing_token:
-                    # Update last_used if exists
+
                     existing_token.last_used = datetime.utcnow()
                     db.session.commit()
                 else:
-                    # Create new token record
+
                     connect_token = ConnectToken(
                         token=token,
                         user_id=user_id,
@@ -83,9 +81,7 @@ class TokenGenerationService:
                     db.session.commit()
                     logger.debug(f"Token stored in database: {token[:20]}...")
             except Exception as e:
-                # Log error but don't fail token generation
-                logger.error(f"Failed to store connect token in database: {e}")
-                # Continue without database storage (backward compatibility)
-        
-        return token
 
+                logger.error(f"Failed to store connect token in database: {e}")
+
+        return token

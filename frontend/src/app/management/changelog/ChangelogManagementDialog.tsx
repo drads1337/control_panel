@@ -29,22 +29,21 @@ const ChangelogManagementDialog: React.FC<ChangelogManagementDialogProps> = ({
   }
 
   const { hasPermission } = usePermissions();
-  
+
   const canViewChangelog = hasPermission('games.changelog_view');
   const canCreateChangelog = hasPermission('games.changelog_create');
   const canEditChangelog = hasPermission('games.changelog_edit');
   const canDeleteChangelog = hasPermission('games.changelog_delete');
-  
+
   if (!canViewChangelog) {
     return null;
   }
-  
+
   const [changelogEntries, setChangelogEntries] = useState<ChangelogEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingEntry, setEditingEntry] = useState<ChangelogEntry | null>(null);
 
-  // Load changelog when dialog opens
   useEffect(() => {
     if (open && game) {
       loadChangelog();
@@ -53,14 +52,14 @@ const ChangelogManagementDialog: React.FC<ChangelogManagementDialogProps> = ({
 
   const loadChangelog = async () => {
     if (!game) return;
-    
+
     try {
       setLoading(true);
       const response = await getGameChangelog(game.id);
       setChangelogEntries(response.changelog);
     } catch (error) {
       toast.error('Error loading changelog');
-      console.error('Error loading changelog:', error);
+
     } finally {
       setLoading(false);
     }
@@ -71,32 +70,24 @@ const ChangelogManagementDialog: React.FC<ChangelogManagementDialogProps> = ({
 
   const handleDeleteEntry = useCallback(async (entryId: number) => {
     if (deletingIds.has(entryId) || activeDeletesRef.current.has(entryId)) {
-      console.log('Delete blocked:', { 
-        deletingIds: Array.from(deletingIds), 
-        activeDeletes: Array.from(activeDeletesRef.current),
-        entryId 
-      });
       return;
     }
-    
+
     if (!canDeleteChangelog) {
       toast.error('You do not have permission to delete changelog entries');
       return;
     }
-    
-    console.log('Starting delete for changelog entry:', entryId);
+
     setDeletingIds(prev => new Set(prev).add(entryId));
     activeDeletesRef.current.add(entryId);
-    
+
     try {
       const result = await deleteChangelogEntry(entryId);
-      console.log('Delete successful:', result);
-      
-      // Update local state instead of reloading the entire list
+
       setChangelogEntries(prev => prev.filter(entry => entry.id !== entryId));
       toast.success('Changelog entry deleted');
     } catch (error) {
-      console.error('Error deleting changelog entry:', error);
+
       toast.error('Error deleting changelog entry');
     } finally {
       setDeletingIds(prev => {
@@ -109,12 +100,12 @@ const ChangelogManagementDialog: React.FC<ChangelogManagementDialogProps> = ({
   }, [deletingIds, canDeleteChangelog]);
 
   const handleEntryCreated = () => {
-    // Reload changelog when a new entry is created
+
     loadChangelog();
   };
 
   const handleEntryUpdated = () => {
-    // Reload changelog when an entry is updated
+
     loadChangelog();
     setEditingEntry(null);
   };
@@ -123,7 +114,7 @@ const ChangelogManagementDialog: React.FC<ChangelogManagementDialogProps> = ({
     const date = new Date(dateString);
     const now = new Date();
     const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-    
+
     if (diffInHours < 24) {
       return date.toLocaleTimeString('en-US', { 
         hour: '2-digit', 
@@ -148,7 +139,7 @@ const ChangelogManagementDialog: React.FC<ChangelogManagementDialogProps> = ({
 
   const renderChanges = (changes: string[]) => {
     if (!changes || changes.length === 0) return null;
-    
+
     return (
       <div className="mt-2">
         <ul className="text-sm text-muted-foreground space-y-1">
@@ -175,8 +166,8 @@ const ChangelogManagementDialog: React.FC<ChangelogManagementDialogProps> = ({
             Make necessary changes to the settings of the game "{game.name}"
           </DialogDescription>
         </DialogHeader>
-        
-        {/* Header and create button immediately after description */}
+
+        {}
         <div className="flex items-center justify-between mb-1 px-1">
           <h3 className="text-base font-semibold">Changelog Entries ({changelogEntries.length})</h3>
           <ConditionalRender permission="games.changelog_create" fallback={null}>
@@ -191,12 +182,12 @@ const ChangelogManagementDialog: React.FC<ChangelogManagementDialogProps> = ({
           </Button>
           </ConditionalRender>
         </div>
-        
+
         <div className="space-y-4 overflow-y-auto max-h-[calc(80vh-120px)] pr-2">
-          {/* Existing changelog entries */}
+          {}
           <Card className="border">
             <CardContent className="p-4">
-              
+
               {loading ? (
                 <div className="flex items-center justify-center py-6">
                   <Loader2 className="h-5 w-5 animate-spin mr-2" />
@@ -222,19 +213,19 @@ const ChangelogManagementDialog: React.FC<ChangelogManagementDialogProps> = ({
                               v{entry.version}
                             </Badge>
                           </div>
-                          
+
                           <h4 className="text-sm font-semibold leading-relaxed mb-2 break-words">
                             {entry.title}
                           </h4>
-                          
+
                           {entry.description && (
                             <p className="text-sm text-muted-foreground leading-relaxed mb-2 break-words">
                               {entry.description}
                             </p>
                           )}
-                          
+
                           {renderChanges(entry.changes)}
-                          
+
                           <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap mt-3">
                             <div className="flex items-center gap-1">
                               <Calendar className="h-3 w-3" />
@@ -242,7 +233,7 @@ const ChangelogManagementDialog: React.FC<ChangelogManagementDialogProps> = ({
                             </div>
                           </div>
                         </div>
-                        
+
                         <div className="flex items-center gap-1">
                           <ConditionalRender permission="games.changelog_edit" fallback={null}>
                           <Button
@@ -290,7 +281,7 @@ const ChangelogManagementDialog: React.FC<ChangelogManagementDialogProps> = ({
         </DialogFooter>
       </DialogContent>
 
-      {/* Dialog for creating/editing changelog entry */}
+      {}
       <ChangelogFormDialog
         open={showCreateDialog || !!editingEntry}
         onOpenChange={(open: boolean) => {

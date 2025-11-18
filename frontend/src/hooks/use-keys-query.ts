@@ -15,7 +15,6 @@ import { toast } from 'sonner'
 import { useAuthContext } from '@/contexts/auth-context'
 import { measurePerformance } from '@/lib/sentry-config'
 
-// Cache keys
 export const keyKeys = {
   all: ['keys'] as const,
   lists: () => [...keyKeys.all, 'list'] as const,
@@ -40,39 +39,34 @@ interface UseKeysReturn {
   pages: number
   currentPage: number
   perPage: number
-  
-  // Actions
+
   createKey: (data: CreateKeyData) => Promise<any>
   createCustomKey: (data: CreateKeyData & { custom_key: string }) => Promise<any>
   bulkCreateKeys: (data: BulkCreateKeysData) => Promise<any>
-  
-  // Pagination and filters
+
   setPage: (page: number) => void
   setPerPage: (perPage: number) => void
   setStatus: (status: string) => void
   setGameId: (gameId: number | undefined) => void
   setSearch: (search: string) => void
   setMyKeys: (myKeys: boolean) => void
-  
-  // Data updates
+
   refetch: () => void
 }
 
 export function useKeysQuery(initialParams: UseKeysParams = {}): UseKeysReturn {
   const queryClient = useQueryClient()
   const { isAuthenticated } = useAuthContext()
-  
-  // Query parameters
+
   const [params, setParams] = React.useState<UseKeysParams>({
     page: 1,
     per_page: 20,
     ...initialParams,
   })
 
-  // Sync params with initialParams when they change
   React.useEffect(() => {
     setParams(prev => {
-      // Merge initialParams with current params, only updating fields that are provided in initialParams
+
       const updated: UseKeysParams = { ...prev }
       if (initialParams.page !== undefined) updated.page = initialParams.page
       if (initialParams.per_page !== undefined) updated.per_page = initialParams.per_page
@@ -80,8 +74,7 @@ export function useKeysQuery(initialParams: UseKeysParams = {}): UseKeysReturn {
       if (initialParams.game_id !== undefined) updated.game_id = initialParams.game_id
       if (initialParams.search !== undefined) updated.search = initialParams.search
       if (initialParams.my_keys !== undefined) updated.my_keys = initialParams.my_keys
-      
-      // Only update if something actually changed
+
       const hasChanges = 
         updated.page !== prev.page ||
         updated.per_page !== prev.per_page ||
@@ -89,12 +82,11 @@ export function useKeysQuery(initialParams: UseKeysParams = {}): UseKeysReturn {
         updated.game_id !== prev.game_id ||
         updated.search !== prev.search ||
         updated.my_keys !== prev.my_keys
-      
+
       return hasChanges ? updated : prev
     })
   }, [initialParams.page, initialParams.per_page, initialParams.status, initialParams.game_id, initialParams.search, initialParams.my_keys])
 
-  // Keys query with performance tracking
   const {
     data: keysData,
     isLoading: keysLoading,
@@ -123,11 +115,10 @@ export function useKeysQuery(initialParams: UseKeysParams = {}): UseKeysReturn {
         }
       )
     },
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 2 * 60 * 1000,
     enabled: isAuthenticated,
   })
 
-  // Mutations
   const createKeyMutation = useMutation({
     mutationFn: (data: CreateKeyData) => createLicenseKey(data),
     onSuccess: () => {
@@ -164,7 +155,6 @@ export function useKeysQuery(initialParams: UseKeysParams = {}): UseKeysReturn {
     },
   })
 
-  // Handlers for changing parameters
   const setPage = (page: number) => {
     setParams(prev => ({ ...prev, page }))
   }
@@ -197,26 +187,25 @@ export function useKeysQuery(initialParams: UseKeysParams = {}): UseKeysReturn {
     pages: keysData?.pages || 0,
     currentPage: keysData?.current_page || 1,
     perPage: keysData?.per_page || 20,
-    
+
     createKey: createKeyMutation.mutateAsync,
     createCustomKey: createCustomKeyMutation.mutateAsync,
     bulkCreateKeys: bulkCreateKeysMutation.mutateAsync,
-    
+
     setPage,
     setPerPage,
     setStatus,
     setGameId,
     setSearch,
     setMyKeys,
-    
+
     refetch: refetchKeys,
   }
 }
 
-// Hook for keys stats
 export function useKeysStats() {
   const { isAuthenticated } = useAuthContext()
-  
+
   const {
     data: stats,
     isLoading,
@@ -225,7 +214,7 @@ export function useKeysStats() {
   } = useQuery({
     queryKey: keyKeys.stats(),
     queryFn: getKeysStats,
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 2 * 60 * 1000,
     enabled: isAuthenticated,
   })
 

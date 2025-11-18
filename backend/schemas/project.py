@@ -9,7 +9,6 @@ from pydantic import BaseModel, Field, validator
 
 from .common import BaseSchema
 
-
 class ProjectCreateSchema(BaseSchema):
     """Project creation request schema"""
 
@@ -32,7 +31,6 @@ class ProjectCreateSchema(BaseSchema):
         if v not in allowed_statuses:
             raise ValueError(f"Status must be one of: {', '.join(allowed_statuses)}")
         return v
-
 
 class ProjectUpdateSchema(BaseSchema):
     """Project update request schema"""
@@ -60,7 +58,6 @@ class ProjectUpdateSchema(BaseSchema):
                 raise ValueError(f"Status must be one of: {', '.join(allowed_statuses)}")
         return v
 
-
 class ProjectResponseSchema(BaseSchema):
     """Project response schema"""
 
@@ -74,7 +71,6 @@ class ProjectResponseSchema(BaseSchema):
     updated_at: Optional[str] = Field(default=None, description="Last update timestamp")
     expiry_date: Optional[str] = Field(default=None, description="Project expiry date")
 
-
 class ProjectListResponseSchema(BaseSchema):
     """Project list response schema"""
 
@@ -83,7 +79,6 @@ class ProjectListResponseSchema(BaseSchema):
     page: int = Field(..., description="Current page")
     per_page: int = Field(..., description="Items per page")
     pages: int = Field(..., description="Total pages")
-
 
 class ProjectSettingsUpdateSchema(BaseSchema):
     """Project settings update request schema"""
@@ -95,7 +90,6 @@ class ProjectSettingsUpdateSchema(BaseSchema):
         if not isinstance(v, dict):
             raise ValueError("Settings must be a dictionary")
         return v
-
 
 class ProjectStatusUpdateSchema(BaseSchema):
     """Project status update request schema"""
@@ -110,7 +104,6 @@ class ProjectStatusUpdateSchema(BaseSchema):
             raise ValueError(f"Status must be one of: {', '.join(allowed_statuses)}")
         return v
 
-
 class ProjectSuspensionSchema(BaseSchema):
     """Project suspension request schema"""
 
@@ -121,7 +114,6 @@ class ProjectSuspensionSchema(BaseSchema):
         if v is not None and len(v.strip()) == 0:
             return None
         return v
-
 
 class ProjectReactivationSchema(BaseSchema):
     """Project reactivation request schema"""

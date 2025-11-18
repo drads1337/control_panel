@@ -1,10 +1,9 @@
 import { BaseEntity, PaginatedResponse } from '@/shared/api'
 
-// User entity types
 export interface User extends BaseEntity {
   username: string
   roles: string[]
-  permissions?: string[] // Dynamic permissions from RBAC system
+  permissions?: string[]
   first_name: string | null
   last_name: string | null
   email: string | null
@@ -57,7 +56,6 @@ export interface UserStats {
   premium_users: number
 }
 
-// Profile types
 export interface ProfileData {
   username?: string
   first_name?: string
@@ -92,7 +90,6 @@ export interface AvatarUploadResponse {
   avatar: string
 }
 
-// User Activity types
 export interface UserActivity {
   id: number
   action: string
@@ -119,7 +116,6 @@ export interface UserActivityStats {
   last_activity: string | null
 }
 
-// Invite Code types
 export interface InviteCode {
   id?: number
   code: string
@@ -154,7 +150,6 @@ export interface ReferralCode {
   game_ids: number[]
 }
 
-// Project Invite Code types
 export interface CreateProjectInviteCodeData {
   expires_in_days?: number
 }

@@ -3,7 +3,6 @@ import * as RechartsPrimitive from "recharts"
 
 import { cn } from "@/lib/utils"
 
-// Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const
 
 export type ChartConfig = {
@@ -67,28 +66,19 @@ function ChartContainer({
   )
 }
 
-/**
- * Sanitizes CSS color values to prevent XSS attacks.
- * Only allows valid CSS color formats (hex, rgb, rgba, hsl, hsla, named colors, CSS variables).
- * 
- * SECURITY NOTE: This function ensures that user-controlled data cannot inject malicious CSS.
- * The ChartConfig should only contain trusted, statically-defined values.
- */
 function sanitizeCssColor(color: string): string {
-  // Remove any potentially dangerous characters
-  // Allow: alphanumeric, spaces, #, rgb(), rgba(), hsl(), hsla(), var(), calc(), and common CSS color names
+
   const sanitized = color.trim()
-  
-  // Reject if contains script tags or javascript: protocol
+
   if (
     /<script|javascript:|on\w+\s*=/i.test(sanitized) ||
     sanitized.includes("expression(") ||
     sanitized.includes("url(") && !sanitized.match(/url\(['"]?data:/)
   ) {
-    console.warn("Potentially unsafe CSS color value detected, using fallback:", color)
+
     return "transparent"
   }
-  
+
   return sanitized
 }
 
@@ -104,42 +94,34 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
     return null
   }
 
-  // SECURITY: Use useEffect to safely set CSS variables on the DOM element
-  // This avoids dangerouslySetInnerHTML and prevents XSS attacks
   React.useEffect(() => {
-    // The id is already sanitized in ChartContainer (chart-${id || uniqueId.replace(/:/g, "")})
-    // Use CSS.escape for additional safety in querySelector
+
     const escapedId = CSS.escape ? CSS.escape(id) : id.replace(/[^a-zA-Z0-9-_]/g, "")
     const chartElement = document.querySelector(`[data-chart="${escapedId}"]`) as HTMLElement
     if (!chartElement) return
 
     const updateStyles = () => {
-      // Determine current theme (check if dark class is present on html or body)
+
       const isDark = document.documentElement.classList.contains('dark') || 
                      document.body.classList.contains('dark')
 
-      // Set CSS variables for the current theme
       colorConfig.forEach(([key, itemConfig]) => {
         const color = isDark && itemConfig.theme?.dark
           ? itemConfig.theme.dark
           : itemConfig.theme?.light || itemConfig.color
-        
+
         if (!color) return
-        
-        // Sanitize color value to prevent XSS
+
         const sanitizedColor = sanitizeCssColor(color)
-        // Escape the key to prevent CSS injection
+
         const sanitizedKey = key.replace(/[^a-zA-Z0-9-_]/g, "")
-        
-        // Set CSS variable directly on the element
+
         chartElement.style.setProperty(`--color-${sanitizedKey}`, sanitizedColor)
       })
     }
 
-    // Initial style update
     updateStyles()
 
-    // Listen for theme changes
     const observer = new MutationObserver(updateStyles)
 
     observer.observe(document.documentElement, {
@@ -152,7 +134,6 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
     }
   }, [id, colorConfig])
 
-  // Return null since we're using useEffect to set styles
   return null
 }
 
@@ -358,7 +339,6 @@ function ChartLegendContent({
   )
 }
 
-// Helper to extract item config from a payload.
 function getPayloadConfigFromPayload(
   config: ChartConfig,
   payload: unknown,

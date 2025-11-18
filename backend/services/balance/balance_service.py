@@ -13,7 +13,6 @@ from ...models.core import User
 from ...models.keys import TokenTransaction
 from ..activity import activity_service
 
-
 class BalanceService:
     """Service for handling balance management operations"""
 
@@ -42,22 +41,18 @@ class BalanceService:
             Tuple of (success, error_message, result_data)
         """
         try:
-            # Validate amount
+
             if amount <= 0:
                 return False, "Amount must be positive", None
 
-            # Get target user
             target_user = User.query.get(target_user_id)
             if not target_user:
                 return False, "User not found", None
 
-            # Store old balance
             old_balance = target_user.token_balance
 
-            # Update balance
             target_user.token_balance += amount
 
-            # Create transaction record
             transaction_description = description or f"Balance top-up by {current_user.username}"
             transaction = TokenTransaction(
                 user_id=target_user.id,
@@ -70,7 +65,6 @@ class BalanceService:
             db.session.add(transaction)
             db.session.commit()
 
-            # Log activity
             activity_service.log_activity(
                 current_user,
                 "topup_balance",
@@ -114,26 +108,21 @@ class BalanceService:
             Tuple of (success, error_message, result_data)
         """
         try:
-            # Validate amount
+
             if amount <= 0:
                 return False, "Amount must be positive", None
 
-            # Get target user
             target_user = User.query.get(target_user_id)
             if not target_user:
                 return False, "User not found", None
 
-            # Check if user has sufficient balance
             if target_user.token_balance < amount:
                 return False, "Insufficient balance", None
 
-            # Store old balance
             old_balance = target_user.token_balance
 
-            # Update balance
             target_user.token_balance -= amount
 
-            # Create transaction record
             transaction_description = f'{reason or "Balance deduction"} by {current_user.username}'
             transaction = TokenTransaction(
                 user_id=target_user.id,
@@ -146,7 +135,6 @@ class BalanceService:
             db.session.add(transaction)
             db.session.commit()
 
-            # Log activity
             activity_service.log_activity(
                 current_user,
                 "deduct_balance",
@@ -184,13 +172,12 @@ class BalanceService:
             Tuple of (success, error_message, result_data)
         """
         try:
-            # Validate user exists
+
             user = User.query.get(user_id)
             if not user:
                 return False, "User not found", None
 
-            # Get pagination parameters
-            per_page = min(per_page, 1000)  # Limit max per_page
+            per_page = min(per_page, 1000)
 
             query = TokenTransaction.query.filter_by(user_id=user_id).order_by(
                 TokenTransaction.created_at.desc()
@@ -307,7 +294,6 @@ class BalanceService:
         try:
             from .rbac_service import rbac_service
 
-            # Check permissions
             can_manage_balance = (
                 rbac_service.check_permission(current_user.id, "billing.view_balance")
                 or rbac_service.check_permission(current_user.id, "billing.top_up_balance")
@@ -316,7 +302,7 @@ class BalanceService:
             )
 
             if not can_manage_balance:
-                # Check if users are in the same project
+
                 if current_user.project_id != target_user.project_id:
                     return False, "Access denied"
 
@@ -326,6 +312,4 @@ class BalanceService:
             self.logger.error(f"Error checking balance access: {str(e)}")
             return False, "Failed to check access permissions"
 
-
-# Create service instance
 balance_service = BalanceService()

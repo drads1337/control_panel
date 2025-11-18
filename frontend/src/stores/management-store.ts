@@ -2,10 +2,6 @@ import { create } from 'zustand'
 import { produce } from 'immer'
 import type { Game } from '@/entities/game'
 
-// State management types
-// Note: stats are now managed by TanStack Query (useManagementStats hook)
-// Zustand is only used for UI state (tabs, dialogs)
-
 interface ManagementState {
   activeTab: string
   dialogs: {
@@ -107,4 +103,3 @@ export const useManagementStore = create<ManagementState & ManagementActions>((s
     })
   )
 }))
-

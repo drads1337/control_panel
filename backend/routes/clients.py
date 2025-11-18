@@ -21,14 +21,12 @@ from ..models.core import DeveloperGamePermission, User, UserActivity, UserGameP
 from ..models.keys import Key
 from ..models.rbac import Role, UserRole
 
-# Import services and utilities
 from ..services.activity import activity_service
 from ..middleware.auth import require_role, require_user
 from ..utils.fulltext_search import fulltext_search_filter
 from ..utils.role_constants import RolePermissions
 
 clients_bp = Blueprint("clients", __name__)
-
 
 @clients_bp.route("", methods=["GET"])
 @jwt_required()
@@ -38,7 +36,7 @@ clients_bp = Blueprint("clients", __name__)
 @require_role(RolePermissions.ADMIN_ROLES)
 def get_clients(current_user=None, project_id=None):
     """Get clients with optimized queries (fixes N+1 problem)"""
-    # Fallback to g for backward compatibility if not passed explicitly
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -48,23 +46,19 @@ def get_clients(current_user=None, project_id=None):
     search = request.args.get("search")
     status_filter = request.args.get("status")
 
-    # Build query for clients only
     query = User.query.filter(
         User.id.in_(select(UserRole.user_id).join(Role).where(Role.name == "client"))
     )
 
-    # Apply project scoping
     if current_user.project_id:
         query = query.filter(User.project_id == current_user.project_id)
     else:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    # Apply full-text search filter
     if search:
-        # Using PostgreSQL tsvector for efficient full-text search
+
         query = fulltext_search_filter(query, search, "search_vector")
 
-    # Apply status filter
     if status_filter == "active":
         query = query.filter((User.expires_at.is_(None)) | (User.expires_at > datetime.utcnow()))
     elif status_filter == "expired":
@@ -74,7 +68,6 @@ def get_clients(current_user=None, project_id=None):
 
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
-    # Use denormalized key counters from User model (no need for JOIN query)
     clients = []
     for user in pagination.items:
         keys_count = user.total_keys or 0
@@ -115,7 +108,6 @@ def get_clients(current_user=None, project_id=None):
         }
     )
 
-
 @clients_bp.route("/bulk-delete", methods=["POST"])
 @jwt_required()
 @require_user
@@ -124,38 +116,35 @@ def get_clients(current_user=None, project_id=None):
 @require_role(RolePermissions.ADMIN_ROLES)
 def bulk_delete_clients(current_user=None, project_id=None):
     """Bulk delete clients with filters"""
-    # Fallback to g for backward compatibility if not passed explicitly
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
     data = request.get_json()
 
     client_ids = data.get("client_ids", [])
-    game_id = data.get("game_id")  # Optional game filter
-    filters = data.get("filters", {})  # Additional filters like status, project, etc.
+    game_id = data.get("game_id")
+    filters = data.get("filters", {})
 
     if not client_ids and not game_id and not filters:
         return jsonify({"error": "No selection criteria provided"}), 400
 
     try:
-        # Build query for clients to delete
+
         query = User.query.filter(
             User.id.in_(select(UserRole.user_id).join(Role).where(Role.name == "client"))
         )
 
-        # Apply project filter
         if current_user.project_id:
             query = query.filter(User.project_id == current_user.project_id)
         else:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        # Apply specific client IDs if provided
         if client_ids:
             query = query.filter(User.id.in_(client_ids))
 
-        # Apply game filter if provided
         if game_id:
-            # Get clients who have keys for this specific game
+
             clients_with_game_keys = (
                 db.session.query(User.id)
                 .join(Key)
@@ -167,7 +156,6 @@ def bulk_delete_clients(current_user=None, project_id=None):
             )
             query = query.filter(User.id.in_(clients_with_game_keys))
 
-        # Apply additional filters
         if filters.get("status") == "active":
             query = query.filter(
                 (User.expires_at.is_(None)) | (User.expires_at > datetime.utcnow())
@@ -176,7 +164,7 @@ def bulk_delete_clients(current_user=None, project_id=None):
             query = query.filter(User.expires_at <= datetime.utcnow())
 
         if filters.get("search"):
-            # Using PostgreSQL tsvector for efficient full-text search
+
             query = fulltext_search_filter(query, filters['search'], "search_vector")
 
         clients_to_delete = query.all()
@@ -188,8 +176,7 @@ def bulk_delete_clients(current_user=None, project_id=None):
         deleted_clients = []
 
         for client in clients_to_delete:
-            # Delete related data
-            # Reset key counters before deletion (will be 0 after deletion)
+
             client.total_keys = 0
             client.active_keys = 0
             Key.query.filter_by(user_id=client.id).delete()
@@ -211,7 +198,6 @@ def bulk_delete_clients(current_user=None, project_id=None):
 
         db.session.commit()
 
-        # Log the activity
         activity_service.log_activity(
             current_user,
             "bulk_delete_clients",
@@ -231,7 +217,6 @@ def bulk_delete_clients(current_user=None, project_id=None):
         db.session.rollback()
         return jsonify({"error": f"Failed to delete clients: {str(e)}"}), 500
 
-
 @clients_bp.route("/<int:game_id>/classic-users", methods=["GET"])
 @jwt_required()
 @require_user
@@ -239,19 +224,17 @@ def bulk_delete_clients(current_user=None, project_id=None):
 @require_project_isolation
 def get_classic_users_for_game(game_id, current_user=None):
     """Get users who have permissions for a specific game"""
-    # Fallback to g for backward compatibility if not passed explicitly
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
 
-    # Get the game
     from ..models.games import Game
 
     game = Game.query.filter_by(id=game_id, project_id=current_user.project_id).first()
     if not game:
         return jsonify({"error": "Game not found"}), 404
 
-    # Check if user has access to this game's project
     from ..services.rbac import rbac_service
     from ..utils.rbac_utils import RBACManager
 
@@ -259,7 +242,6 @@ def get_classic_users_for_game(game_id, current_user=None):
     if not can_view_all and game.project_id != current_user.project_id:
         return jsonify({"error": "Access denied"}), 403
 
-    # Get users who have permissions for this game with optimized query (fixes N+1)
     user_permissions = (
         UserGamePermission.query.filter_by(game_id=game_id, project_id=game.project_id)
         .options(joinedload(UserGamePermission.user))
@@ -270,7 +252,6 @@ def get_classic_users_for_game(game_id, current_user=None):
     for permission in user_permissions:
         user = permission.user
 
-        # Ensure user has project_id and matches current user's project
         if not user or not user.project_id or user.project_id != current_user.project_id:
             continue
 
@@ -285,7 +266,6 @@ def get_classic_users_for_game(game_id, current_user=None):
 
     return jsonify({"users": users, "game_id": game_id, "game_name": game.name})
 
-
 @clients_bp.route("/<int:user_id>/games", methods=["GET"])
 @jwt_required()
 @require_user
@@ -293,7 +273,7 @@ def get_classic_users_for_game(game_id, current_user=None):
 @require_project_isolation
 def get_user_games(user_id, current_user=None):
     """Get games accessible by a specific user"""
-    # Fallback to g for backward compatibility if not passed explicitly
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -302,7 +282,6 @@ def get_user_games(user_id, current_user=None):
     if not target_user:
         return jsonify({"error": "User not found"}), 404
 
-    # Check access permissions
     from ..services.rbac import rbac_service
     from ..utils.rbac_utils import RBACManager
 
@@ -325,9 +304,6 @@ def get_user_games(user_id, current_user=None):
         for game in project_games:
             has_access = permission_map.get(game.id, False)
 
-            # Don't auto-create permissions - only show existing ones
-            # Permissions should be explicitly created when user is created or game access is toggled
-
             game_list.append(
                 {
                     "id": game.id,
@@ -337,14 +313,12 @@ def get_user_games(user_id, current_user=None):
                 }
             )
 
-        # No need to commit - we're not creating anything
         return jsonify(game_list)
 
     except Exception as e:
         db.session.rollback()
         logging.error(f"Error in get_user_games: {e}")
         return jsonify([])
-
 
 @clients_bp.route("/<int:user_id>/games/<int:game_id>/toggle", methods=["POST"])
 @jwt_required()
@@ -353,7 +327,7 @@ def get_user_games(user_id, current_user=None):
 @require_project_isolation
 def toggle_user_game_access(user_id, game_id, current_user=None):
     """Toggle user access to a specific game"""
-    # Fallback to g for backward compatibility if not passed explicitly
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -368,7 +342,6 @@ def toggle_user_game_access(user_id, game_id, current_user=None):
     if not game:
         return jsonify({"error": "Game not found"}), 404
 
-    # Check access permissions
     from ..services.rbac import rbac_service
     from ..utils.rbac_utils import RBACManager
 
@@ -398,15 +371,10 @@ def toggle_user_game_access(user_id, game_id, current_user=None):
             from ..services.cache import cache_service
             from ..services.games import game_service
 
-            # Invalidate using game service (handles project-level cache)
             game_service.invalidate_game_cache(target_user.project_id, game_id)
-            # Also invalidate using cache service directly for comprehensive coverage
+
             cache_service.invalidate_game_instantly(target_user.project_id, game_id)
-            
-            # CRITICAL: Invalidate game cache for ALL users in the project
-            # When game access changes, it affects the game list for all users
-            # because the filtering logic checks UserGamePermission for each user
-            # We need to invalidate all user-specific game caches in this project
+
             all_user_game_cache_patterns = [
                 f"games:project_id={target_user.project_id}:user_id=*:*",
                 f"games:project_id={target_user.project_id}:type=all:user_id=*",
@@ -420,7 +388,7 @@ def toggle_user_game_access(user_id, game_id, current_user=None):
                         logging.info(f"Invalidated {deleted} cache entries matching pattern: {pattern}")
                 except Exception as pattern_error:
                     logging.warning(f"Failed to invalidate pattern {pattern}: {pattern_error}")
-            
+
             logging.info(
                 f"Invalidated game cache for project {target_user.project_id}, game {game_id} and ALL users after access change for user {user_id}"
             )

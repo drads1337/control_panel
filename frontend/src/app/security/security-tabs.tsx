@@ -100,7 +100,7 @@ export default function SecurityTabs({
     canUnblockHWIDs,
     canManageRules
   } = useSecurityPermissions();
-  // Define available tabs based on permissions
+
   const availableTabs = useMemo(() => {
     const tabs: Array<{
       value: string
@@ -130,22 +130,20 @@ export default function SecurityTabs({
     }
     return tabs
   }, [canViewIPs, canViewHWIDs, canManageRules])
-  
-  // Ensure active tab is available, otherwise switch to first available tab
+
   useEffect(() => {
     if (availableTabs.length > 0 && !availableTabs.some(tab => tab.value === activeTab)) {
       setActiveTab(availableTabs[0].value)
     }
   }, [activeTab, availableTabs, setActiveTab])
-  
-  // If no tabs are available, don't show anything
+
   if (availableTabs.length === 0) {
     return null
   }
-  
+
   return (
     <div className="space-y-6">
-      {/* Stats Cards */}
+      {}
       <SecurityStatsCards 
         stats={stats} 
         loading={loading}
@@ -153,7 +151,7 @@ export default function SecurityTabs({
         canViewHWIDs={canViewHWIDs}
       />
 
-      {/* Tabs */}
+      {}
       {availableTabs.length > 0 && (
       <>
         {availableTabs.length > 1 ? (
@@ -209,7 +207,7 @@ export default function SecurityTabs({
             )}
           </Tabs>
         ) : (
-          // Single tab - render content directly without tabs UI
+
           <>
             {canViewIPs && activeTab === 'blocked-ips' && (
               <div className="space-y-6">

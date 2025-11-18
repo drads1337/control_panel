@@ -27,10 +27,8 @@ const UsersMain: React.FC = () => {
     refetch,
   } = useUsersQuery();
 
-  // State management
   const [activeTab, setActiveTab] = useState('employees');
-  
-  // Track last fetch parameters to preserve filters when reloading
+
   const lastFetchParamsRef = useRef<{
     roles?: string[];
     page?: number;
@@ -40,7 +38,6 @@ const UsersMain: React.FC = () => {
     project_id?: number;
   }>({});
 
-  // Wrapper function to track fetch parameters and preserve filters across reloads
   const fetchUsersWithTracking = useCallback(async (params?: {
     roles?: string[];
     page?: number;
@@ -55,10 +52,9 @@ const UsersMain: React.FC = () => {
       page: params?.page ?? currentPage,
       per_page: params?.per_page ?? perPage,
     };
-    
+
     lastFetchParamsRef.current = { ...fetchParams };
-    
-    // Update query parameters using React Query hooks
+
     if (params?.page !== undefined) {
       setPage(params.page);
     }
@@ -68,22 +64,18 @@ const UsersMain: React.FC = () => {
     if (params?.roles !== undefined) {
       setRoles(params.roles);
     }
-    
-    // Refetch data with new parameters
+
     return refetch();
   }, [setPage, setPerPage, setRoles, refetch, currentPage, perPage]);
 
-  // RBAC permissions
   const { hasPermission } = usePermissions();
   const canViewUsers = hasPermission('employees.view') || hasPermission('clients.view');
-  
-  // Check permissions for each tab
+
   const canViewEmployees = hasPermission('employees.view');
   const canViewClients = hasPermission('clients.view');
   const canViewRbac = hasPermission('rbac.view');
   const canViewReferrals = hasPermission('referrals.view');
-  
-  // Define available tabs based on permissions
+
   const availableTabs = useMemo(() => {
     const tabs: Array<{
       value: string
@@ -120,26 +112,22 @@ const UsersMain: React.FC = () => {
     }
     return tabs
   }, [canViewEmployees, canViewClients, canViewRbac, canViewReferrals])
-  
-  // Ensure active tab is available, otherwise switch to first available tab
+
   useEffect(() => {
     if (availableTabs.length > 0 && !availableTabs.some(tab => tab.value === activeTab)) {
       setActiveTab(availableTabs[0].value)
     }
   }, [activeTab, availableTabs])
 
-  // Employee roles filter - used to determine if users without roles are admins
   const employeeRolesFilter = useMemo(() => ['admin', 'seller', 'developer', 'moderator'], []);
-  
-  // Load users on component mount
+
   useEffect(() => {
     if (isInitialized && user && canViewEmployees) {
       setRoles(employeeRolesFilter);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [isInitialized, user, canViewEmployees]);
 
-  // Calculate stats - MEMOIZED
   const userStats = useMemo(() => ({
     total: total || 0,
     active: users.length,
@@ -147,7 +135,6 @@ const UsersMain: React.FC = () => {
     admins: users.filter(u => u.roles?.includes('admin') || u.roles?.includes('owner')).length
   }), [users, total]);
 
-  // Don't render until auth is initialized
   if (!isInitialized) {
     return (
       <div className="flex h-screen bg-background">
@@ -158,7 +145,6 @@ const UsersMain: React.FC = () => {
     )
   }
 
-  // Check if user has permission to view users
   if (!canViewUsers) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -180,7 +166,7 @@ const UsersMain: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
+      {}
       <div className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">User Management</h1>
         <p className="text-muted-foreground mt-2">
@@ -188,10 +174,10 @@ const UsersMain: React.FC = () => {
         </p>
       </div>
 
-      {/* Stats */}
+      {}
       <UsersStats stats={userStats} loading={statsLoading} />
 
-      {/* Main Tabs */}
+      {}
       {availableTabs.length > 0 && (
         <>
           {availableTabs.length > 1 ? (
@@ -212,7 +198,7 @@ const UsersMain: React.FC = () => {
                 })}
               </TabsList>
 
-              {/* Employees Tab Content */}
+              {}
               {canViewEmployees && (
                 <TabsContent value="employees" className="space-y-6 mt-4">
                   <EmployeesTab 
@@ -229,21 +215,21 @@ const UsersMain: React.FC = () => {
                 </TabsContent>
               )}
 
-              {/* Clients Tab Content */}
+              {}
               {canViewClients && (
                 <TabsContent value="clients" className="space-y-6 mt-4">
                   <ClientsTab />
                 </TabsContent>
               )}
 
-              {/* RBAC Tab Content */}
+              {}
               {canViewRbac && (
                 <TabsContent value="rbac" className="space-y-6 mt-4">
                   <RBACTab />
                 </TabsContent>
               )}
 
-              {/* Referrals Tab Content */}
+              {}
               {canViewReferrals && (
                 <TabsContent value="referrals" className="space-y-6 mt-4">
                   <ReferralsTab />
@@ -251,7 +237,7 @@ const UsersMain: React.FC = () => {
               )}
             </Tabs>
           ) : (
-            // Single tab - render content directly without tabs UI
+
             <>
               {canViewEmployees && activeTab === 'employees' && (
                 <div className="space-y-6 mt-4">

@@ -8,7 +8,6 @@ from pydantic import Field, validator
 
 from .common import BaseSchema
 
-
 class KeyCreateSchema(BaseSchema):
     """Key creation request schema"""
 
@@ -22,7 +21,6 @@ class KeyCreateSchema(BaseSchema):
         if v <= 0:
             raise ValueError("Game ID must be a positive integer")
         return v
-
 
 class KeyUpdateSchema(BaseSchema):
     """Key update request schema"""
@@ -42,7 +40,6 @@ class KeyUpdateSchema(BaseSchema):
             raise ValueError("Duration must be at least 1 hour")
         return v
 
-
 class KeyMoveSchema(BaseSchema):
     """Key move request schema (move key to another user)"""
 
@@ -54,7 +51,6 @@ class KeyMoveSchema(BaseSchema):
             raise ValueError("User ID must be a positive integer")
         return v
 
-
 class KeyExtendSchema(BaseSchema):
     """Key extend request schema"""
 
@@ -65,7 +61,6 @@ class KeyExtendSchema(BaseSchema):
         if v <= 0:
             raise ValueError("Hours must be positive")
         return v
-
 
 class LoaderKeyCreateSchema(BaseSchema):
     """Loader key creation request schema"""
@@ -88,7 +83,6 @@ class LoaderKeyCreateSchema(BaseSchema):
         if any(gid <= 0 for gid in v):
             raise ValueError("All game IDs must be positive integers")
         return v
-
 
 class CustomLoaderKeyCreateSchema(BaseSchema):
     """Custom loader key creation request schema"""
@@ -121,7 +115,6 @@ class CustomLoaderKeyCreateSchema(BaseSchema):
             raise ValueError("All game IDs must be positive integers")
         return v
 
-
 class BulkLoaderKeyCreateSchema(BaseSchema):
     """Bulk loader key creation request schema"""
 
@@ -145,7 +138,6 @@ class BulkLoaderKeyCreateSchema(BaseSchema):
             raise ValueError("All game IDs must be positive integers")
         return v
 
-
 class BulkLoaderKeyActionSchema(BaseSchema):
     """Bulk loader key action request schema"""
 
@@ -165,7 +157,6 @@ class BulkLoaderKeyActionSchema(BaseSchema):
         if any(gid <= 0 for gid in v):
             raise ValueError("All game IDs must be positive integers")
         return v
-
 
 class BulkAddHoursSchema(BaseSchema):
     """Bulk add hours to loader keys schema"""
@@ -188,7 +179,6 @@ class BulkAddHoursSchema(BaseSchema):
             raise ValueError("All game IDs must be positive integers")
         return v
 
-
 class KeyValidateSchema(BaseSchema):
     """Key validation request schema"""
 
@@ -201,4 +191,3 @@ class KeyValidateSchema(BaseSchema):
         if not v or not v.strip():
             raise ValueError("Key is required")
         return v.strip()
-

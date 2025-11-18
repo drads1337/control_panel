@@ -31,7 +31,7 @@ management_bp = Blueprint("keys_management", __name__)
 @require_project_isolation
 def get_keys(current_user=None, project_id=None):
     """Get list of keys with filtering and pagination"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -42,7 +42,6 @@ def get_keys(current_user=None, project_id=None):
     if not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    # Build filters from request parameters
     my_keys = request.args.get("my_keys", "false").lower() == "true"
     filters = {
         "page": request.args.get("page", 1, type=int),
@@ -53,16 +52,13 @@ def get_keys(current_user=None, project_id=None):
         "my_keys": my_keys,
     }
 
-    # Validate game_id if provided
     if filters["game_id"]:
         game = Game.query.filter_by(id=filters["game_id"], project_id=current_user.project_id).first()
         if not game:
             return jsonify({"error": "Game not found or access denied"}), 404
 
-    # Use key service to get keys (fixes N+1 problem)
     keys, total_count = key_service.get_keys(current_user, filters)
 
-    # Calculate pagination info
     page = filters["page"]
     per_page = filters["per_page"]
     pages = (total_count + per_page - 1) // per_page
@@ -77,7 +73,6 @@ def get_keys(current_user=None, project_id=None):
         }
     )
 
-
 @management_bp.route("", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -88,7 +83,6 @@ def create_key(current_user=None, project_id=None, validated_data=None):
     logger = logging.getLogger(__name__)
     logger.info(f"🔑 Create key request - Origin: {request.headers.get('Origin')}")
 
-    # Use explicit current_user from decorator
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -96,17 +90,14 @@ def create_key(current_user=None, project_id=None, validated_data=None):
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
-    # Check if user is owner (owners can create keys without project_id)
     user_roles = RBACManager.get_user_role_names(current_user)
     is_owner = user_roles and user_roles[0] == UserRoles.OWNER.value
 
-    # Ensure non-owner users have project_id
     if not is_owner and not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    data = validated_data or request.get_json()  # Use validated_data if available
+    data = validated_data or request.get_json()
 
-    # Prepare key data for service
     key_data = {
         "game_id": data.get("game_id"),
         "duration_hours": data.get("duration_hours", 24),
@@ -114,7 +105,6 @@ def create_key(current_user=None, project_id=None, validated_data=None):
         "length": data.get("length", 32),
     }
 
-    # Add metadata
     game = None
     if data.get("game_id"):
         game = Game.query.filter_by(id=data["game_id"], project_id=current_user.project_id).first()
@@ -139,7 +129,6 @@ def create_key(current_user=None, project_id=None, validated_data=None):
     if not game:
         return jsonify({"error": "Game ID is required"}), 400
 
-    # Use service to create key
     key, error = key_service.create_key(current_user, key_data)
     if error:
         logger.error(f"🔑 Failed to create key: {error}")
@@ -150,14 +139,12 @@ def create_key(current_user=None, project_id=None, validated_data=None):
 
     logger.info(f"🔑 Key {key.id} created and committed")
 
-    # Clear cache if possible
     try:
         from ...routes.files import clear_storage_cache
         clear_storage_cache(current_user.project_id)
     except ImportError:
         pass
 
-    # Prepare response data
     game = Game.query.get(key.game_id)
     if not game:
         logger.error(f"🔑 Game not found for key {key.id}, game_id: {key.game_id}")
@@ -185,7 +172,6 @@ def create_key(current_user=None, project_id=None, validated_data=None):
 
     logger.info(f"🔑 Returning success response for key {key.id}, user {current_user.id}")
 
-    # Log activity
     try:
         activity_service.log_activity(
             current_user,
@@ -198,7 +184,6 @@ def create_key(current_user=None, project_id=None, validated_data=None):
 
     return jsonify(response_data), 201
 
-
 @management_bp.route("/<int:key_id>", methods=["PUT"])
 @jwt_required()
 @require_project_with_grace_period
@@ -206,7 +191,7 @@ def create_key(current_user=None, project_id=None, validated_data=None):
 @validate_request(KeyUpdateSchema)
 def update_key(key_id, current_user=None, project_id=None):
     """Update a key"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -217,20 +202,17 @@ def update_key(key_id, current_user=None, project_id=None):
     if not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    data = request.get_json()  # Already validated by @validate_request
+    data = request.get_json()
     if not data:
         return jsonify({"error": "No data provided"}), 400
 
-    # Check if key exists and user can manage it
     key = Key.query.filter_by(id=key_id, project_id=current_user.project_id).first()
     if not key:
         return jsonify({"error": "Key not found or access denied"}), 404
 
-    # Check if user can manage this key
     if not can_manage_key(current_user, key, "keys.edit"):
         return jsonify({"error": "You do not have permission to edit this key"}), 403
 
-    # Use service to update key
     key, error = key_service.update_key(current_user, key_id, data)
     if error:
         return jsonify({"error": error}), 400
@@ -244,14 +226,13 @@ def update_key(key_id, current_user=None, project_id=None):
 
     return jsonify({"message": "Key updated successfully"})
 
-
 @management_bp.route("/<int:key_id>", methods=["DELETE"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
 def delete_key(key_id, current_user=None, project_id=None):
     """Delete a key"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -267,16 +248,13 @@ def delete_key(key_id, current_user=None, project_id=None):
         f"Delete key request: key_id={key_id}, user_id={current_user.id}, user_project_id={current_user.project_id}"
     )
 
-    # Check if key exists and user can manage it
     key = Key.query.filter_by(id=key_id, project_id=current_user.project_id).first()
     if not key:
         return jsonify({"error": "Key not found or access denied"}), 404
 
-    # Check if user can manage this key
     if not can_manage_key(current_user, key, "keys.delete"):
         return jsonify({"error": "You do not have permission to delete this key"}), 403
 
-    # Use service to delete key
     success, error = key_service.delete_key(current_user, key_id)
     if not success:
         return jsonify({"error": error}), 500
@@ -292,7 +270,6 @@ def delete_key(key_id, current_user=None, project_id=None):
     )
 
     return jsonify({"message": "Key deleted successfully"})
-
 
 @management_bp.route("/<int:key_id>/reset", methods=["POST"])
 @jwt_required()
@@ -314,7 +291,6 @@ def reset_key(key_id):
     if not key:
         return jsonify({"error": "Key not found or access denied"}), 404
 
-    # Check if user can manage this key
     if not can_manage_key(user, key, "keys.reset_pc_binding"):
         return jsonify({"error": "You do not have permission to reset this key"}), 403
 
@@ -339,7 +315,6 @@ def reset_key(key_id):
         db.session.rollback()
         return jsonify({"error": f"Failed to reset key: {str(e)}"}), 500
 
-
 @management_bp.route("/<int:key_id>/pause", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -360,23 +335,20 @@ def pause_key(key_id):
     if not key:
         return jsonify({"error": "Key not found or access denied"}), 404
 
-    # Check if user can manage this key
     if not can_manage_key(user, key, "keys.pause_resume"):
         return jsonify({"error": "You do not have permission to pause this key"}), 403
 
     try:
         old_status = key.status
-        key.status = 3  # PAUSED status
-        
-        # Update user key counters
+        key.status = 3
+
         from ...utils.key_counters import update_user_key_counters_on_status_change
         update_user_key_counters_on_status_change(key.user_id, old_status, 3)
-        
-        # Update project key counters
+
         if key.project_id:
             from ...utils.project_counters import update_project_key_counters_on_status_change
             update_project_key_counters_on_status_change(key.project_id, old_status, 3)
-        
+
         db.session.commit()
 
         activity_service.log_activity(
@@ -388,7 +360,6 @@ def pause_key(key_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Failed to pause key: {str(e)}"}), 500
-
 
 @management_bp.route("/<int:key_id>/resume", methods=["POST"])
 @jwt_required()
@@ -410,23 +381,20 @@ def resume_key(key_id):
     if not key:
         return jsonify({"error": "Key not found or access denied"}), 404
 
-    # Check if user can manage this key
     if not can_manage_key(user, key, "keys.pause_resume"):
         return jsonify({"error": "You do not have permission to resume this key"}), 403
 
     try:
         old_status = key.status
-        key.status = 1  # ACTIVE status
-        
-        # Update user key counters
+        key.status = 1
+
         from ...utils.key_counters import update_user_key_counters_on_status_change
         update_user_key_counters_on_status_change(key.user_id, old_status, 1)
-        
-        # Update project key counters
+
         if key.project_id:
             from ...utils.project_counters import update_project_key_counters_on_status_change
             update_project_key_counters_on_status_change(key.project_id, old_status, 1)
-        
+
         db.session.commit()
 
         activity_service.log_activity(
@@ -438,7 +406,6 @@ def resume_key(key_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Failed to resume key: {str(e)}"}), 500
-
 
 @management_bp.route("/<int:key_id>/extend", methods=["POST"])
 @jwt_required()
@@ -456,7 +423,7 @@ def extend_key(key_id):
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    data = request.get_json()  # Already validated by @validate_request
+    data = request.get_json()
     hours = data.get("hours", 0)
 
     if hours <= 0:
@@ -467,7 +434,6 @@ def extend_key(key_id):
     if not key:
         return jsonify({"error": "Key not found or access denied"}), 404
 
-    # Check if user can manage this key
     if not can_manage_key(user, key, "keys.extend"):
         return jsonify({"error": "You do not have permission to extend this key"}), 403
 
@@ -491,7 +457,6 @@ def extend_key(key_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Failed to extend key: {str(e)}"}), 500
-
 
 @management_bp.route("/<int:key_id>/duplicate", methods=["POST"])
 @jwt_required()
@@ -521,12 +486,10 @@ def duplicate_key(key_id):
         if not game:
             return jsonify({"error": "Game not found"}), 404
 
-        # Generate new key string
         new_key_string = key_service.generate_key_string(
             length=32, game=game, duration_hours=key.duration_hours, project_id=user.project_id
         )
 
-        # Create duplicate key
         duplicate_key = Key(
             key=new_key_string,
             user_id=key.user_id,
@@ -567,7 +530,6 @@ def duplicate_key(key_id):
         db.session.rollback()
         return jsonify({"error": f"Failed to duplicate key: {str(e)}"}), 500
 
-
 @management_bp.route("/<int:key_id>/move", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -584,7 +546,7 @@ def move_key(key_id):
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    data = request.get_json()  # Already validated by @validate_request
+    data = request.get_json()
     new_user_id = data.get("user_id")
 
     if not new_user_id:
@@ -617,7 +579,6 @@ def move_key(key_id):
         db.session.rollback()
         return jsonify({"error": f"Failed to move key: {str(e)}"}), 500
 
-
 @management_bp.route("/<int:key_id>/block", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -638,23 +599,20 @@ def block_key(key_id):
     if not key:
         return jsonify({"error": "Key not found or access denied"}), 404
 
-    # Check if user can manage this key
     if not can_manage_key(user, key, "keys.block_unblock"):
         return jsonify({"error": "You do not have permission to block this key"}), 403
 
     try:
         old_status = key.status
-        key.status = 2  # BLOCKED status
-        
-        # Update user key counters
+        key.status = 2
+
         from ...utils.key_counters import update_user_key_counters_on_status_change
         update_user_key_counters_on_status_change(key.user_id, old_status, 2)
-        
-        # Update project key counters
+
         if key.project_id:
             from ...utils.project_counters import update_project_key_counters_on_status_change
             update_project_key_counters_on_status_change(key.project_id, old_status, 2)
-        
+
         db.session.commit()
 
         activity_service.log_activity(
@@ -666,7 +624,6 @@ def block_key(key_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Failed to block key: {str(e)}"}), 500
-
 
 @management_bp.route("/<int:key_id>/unblock", methods=["POST"])
 @jwt_required()
@@ -688,23 +645,20 @@ def unblock_key(key_id):
     if not key:
         return jsonify({"error": "Key not found or access denied"}), 404
 
-    # Check if user can manage this key
     if not can_manage_key(user, key, "keys.block_unblock"):
         return jsonify({"error": "You do not have permission to unblock this key"}), 403
 
     try:
         old_status = key.status
-        key.status = 1  # ACTIVE status
-        
-        # Update user key counters
+        key.status = 1
+
         from ...utils.key_counters import update_user_key_counters_on_status_change
         update_user_key_counters_on_status_change(key.user_id, old_status, 1)
-        
-        # Update project key counters
+
         if key.project_id:
             from ...utils.project_counters import update_project_key_counters_on_status_change
             update_project_key_counters_on_status_change(key.project_id, old_status, 1)
-        
+
         db.session.commit()
 
         activity_service.log_activity(
@@ -716,7 +670,6 @@ def unblock_key(key_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Failed to unblock key: {str(e)}"}), 500
-
 
 @management_bp.route("/<int:key_id>/archive", methods=["POST"])
 @jwt_required()
@@ -740,17 +693,15 @@ def archive_key(key_id):
 
     try:
         old_status = key.status
-        key.status = 4  # ARCHIVED status
-        
-        # Update user key counters
+        key.status = 4
+
         from ...utils.key_counters import update_user_key_counters_on_status_change
         update_user_key_counters_on_status_change(key.user_id, old_status, 4)
-        
-        # Update project key counters
+
         if key.project_id:
             from ...utils.project_counters import update_project_key_counters_on_status_change
             update_project_key_counters_on_status_change(key.project_id, old_status, 4)
-        
+
         db.session.commit()
 
         activity_service.log_activity(
@@ -762,7 +713,6 @@ def archive_key(key_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Failed to archive key: {str(e)}"}), 500
-
 
 @management_bp.route("/<int:key_id>/restore", methods=["POST"])
 @jwt_required()
@@ -786,17 +736,15 @@ def restore_key(key_id):
 
     try:
         old_status = key.status
-        key.status = 1  # ACTIVE status
-        
-        # Update user key counters
+        key.status = 1
+
         from ...utils.key_counters import update_user_key_counters_on_status_change
         update_user_key_counters_on_status_change(key.user_id, old_status, 1)
-        
-        # Update project key counters
+
         if key.project_id:
             from ...utils.project_counters import update_project_key_counters_on_status_change
             update_project_key_counters_on_status_change(key.project_id, old_status, 1)
-        
+
         db.session.commit()
 
         activity_service.log_activity(
@@ -808,7 +756,6 @@ def restore_key(key_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Failed to restore key: {str(e)}"}), 500
-
 
 @management_bp.route("/<int:key_id>/export", methods=["GET"])
 @jwt_required()
@@ -874,14 +821,13 @@ def export_key(key_id):
     except Exception as e:
         return jsonify({"error": f"Failed to export key: {str(e)}"}), 500
 
-
 @management_bp.route("/<int:key_id>/download", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
 def download_key(key_id):
     """Download a key as JSON file
-    
+
     SECURITY: Requires keys.view permission to download full key.
     Users without permission will receive a masked key.
     """
@@ -902,22 +848,18 @@ def download_key(key_id):
     try:
         from flask import make_response
 
-        # SECURITY: Check if user can download full key
-        # Owners/admins can always download full keys
         can_download_full_key = RBACManager.is_owner(user) or RBACManager.is_admin(user)
-        
-        # Regular users need keys.view permission
+
         if not can_download_full_key:
-            # Check if it's their own key
+
             is_own_key = key.user_id == user.id
             if is_own_key:
-                # Users can download their own keys if they have keys.view permission
+
                 can_download_full_key = rbac_service.check_permission(user.id, "keys.view")
             else:
-                # For other users' keys, require keys.view permission
+
                 can_download_full_key = rbac_service.check_permission(user.id, "keys.view")
 
-        # Mask key if user doesn't have permission
         key_value = key.key if can_download_full_key else mask_license_key(key.key)
 
         game = (
@@ -929,7 +871,7 @@ def download_key(key_id):
         export_data = {
             "key_id": key.id,
             "key": key_value,
-            "key_masked": not can_download_full_key,  # Flag to indicate if key is masked
+            "key_masked": not can_download_full_key,
             "game_id": key.game_id,
             "game_name": game.name if game else None,
             "status": key.status,
@@ -958,19 +900,18 @@ def download_key(key_id):
     except Exception as e:
         return jsonify({"error": f"Failed to download key: {str(e)}"}), 500
 
-
 @management_bp.route("/<int:key_id>/details", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
 def get_key_details(key_id):
     """Get detailed information about a key
-    
+
     SECURITY: By default, keys are masked. Full keys are only returned if:
     - User has keys.view permission, OR
     - User is owner/admin, OR
     - It's the user's own key and they have keys.view permission
-    
+
     This endpoint uses a more lenient rate limit (60/min) to allow users
     to view multiple keys in quick succession without hitting rate limits.
     """
@@ -1014,28 +955,24 @@ def get_key_details(key_id):
             for device in devices
         ]
 
-        # SECURITY: Check if user can view full key
-        # Owners/admins can always see full keys
         can_view_full_key = RBACManager.is_owner(user) or RBACManager.is_admin(user)
-        
-        # Regular users need keys.view permission
+
         if not can_view_full_key:
-            # Check if it's their own key
+
             is_own_key = key.user_id == user.id
             if is_own_key:
-                # Users can see their own keys if they have keys.view permission
+
                 can_view_full_key = rbac_service.check_permission(user.id, "keys.view")
             else:
-                # For other users' keys, require keys.view permission
+
                 can_view_full_key = rbac_service.check_permission(user.id, "keys.view")
 
-        # Mask key if user doesn't have permission to view full key
         key_value = key.key if can_view_full_key else mask_license_key(key.key)
 
         key_data = {
             "id": key.id,
             "key": key_value,
-            "key_masked": not can_view_full_key,  # Flag to indicate if key is masked
+            "key_masked": not can_view_full_key,
             "game_id": key.game_id,
             "game_name": game.name if game else None,
             "status": key.status,
@@ -1060,18 +997,17 @@ def get_key_details(key_id):
     except Exception as e:
         return jsonify({"error": f"Failed to get key details: {str(e)}"}), 500
 
-
 @management_bp.route("/<int:key_id>/reveal", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
 def reveal_key(key_id):
     """Reveal full license key
-    
+
     SECURITY: This endpoint explicitly requires keys.view permission to reveal full keys.
     This is a security measure to prevent mass data leakage. Users must explicitly
     request to reveal a key, and the request is logged for audit purposes.
-    
+
     Returns:
         Full key value if user has permission, otherwise returns masked key.
     """
@@ -1090,23 +1026,21 @@ def reveal_key(key_id):
         return jsonify({"error": "Key not found or access denied"}), 404
 
     try:
-        # SECURITY: Check if user can reveal full key
-        # Owners/admins can always reveal full keys
+
         can_reveal_key = RBACManager.is_owner(user) or RBACManager.is_admin(user)
-        
-        # Regular users need keys.view permission
+
         if not can_reveal_key:
-            # Check if it's their own key
+
             is_own_key = key.user_id == user.id
             if is_own_key:
-                # Users can reveal their own keys if they have keys.view permission
+
                 can_reveal_key = rbac_service.check_permission(user.id, "keys.view")
             else:
-                # For other users' keys, require keys.view permission
+
                 can_reveal_key = rbac_service.check_permission(user.id, "keys.view")
 
         if not can_reveal_key:
-            # Log unauthorized attempt
+
             logging.warning(
                 f"🚫 Unauthorized key reveal attempt: user_id={user.id}, key_id={key_id}, "
                 f"key_owner={key.user_id}, has_keys_view={rbac_service.check_permission(user.id, 'keys.view')}"
@@ -1117,7 +1051,6 @@ def reveal_key(key_id):
                 "key_masked": True
             }), 403
 
-        # Log successful reveal for audit purposes
         logging.info(
             f"🔓 Key revealed: user_id={user.id}, key_id={key_id}, "
             f"key_owner={key.user_id}, is_own_key={key.user_id == user.id}"

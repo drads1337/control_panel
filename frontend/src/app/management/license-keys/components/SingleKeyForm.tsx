@@ -37,17 +37,13 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
   canViewLoaders,
 }) => {
   const showTargetTypeToggle = canViewGames && canViewLoaders;
-  
-  // Determine initial target type based on permissions
-  // If user has both permissions, default to 'game'
-  // If user has only games permission, force 'game'
-  // If user has only loaders permission, force 'loader'
+
   const getInitialTargetType = () => {
     if (canViewGames && !canViewLoaders) return 'game';
     if (canViewLoaders && !canViewGames) return 'loader';
-    return 'game'; // Default to game if both or neither
+    return 'game';
   };
-  
+
   const {
     formData,
     updateField,
@@ -59,36 +55,34 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
     loaders,
     initialTargetType: getInitialTargetType(),
   });
-  
-  // Ensure targetType matches available permissions
+
   React.useEffect(() => {
     if (!showTargetTypeToggle) {
-      // If user has games access but no loaders access, force game target type
+
       if (canViewGames && !canViewLoaders && formData.targetType !== 'game') {
         updateField('targetType', 'game');
       } 
-      // If user has loaders access but no games access, force loader target type
+
       else if (canViewLoaders && !canViewGames && formData.targetType !== 'loader') {
         updateField('targetType', 'loader');
       }
-      // If user has both but games exist, prefer game (unless targetType already set to loader)
+
       else if (canViewGames && canViewLoaders && games.length > 0 && formData.targetType === 'loader' && getGameLibraryGames().length > 0) {
-        // Only switch to game if there are library games available
-        // Otherwise keep loader if user has multi-app games
+
       }
     }
   }, [showTargetTypeToggle, canViewGames, canViewLoaders, formData.targetType, updateField, games, getGameLibraryGames]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const duration_hours = parseDuration(formData.duration, formData.customHours);
-    
+
     if (formData.targetType === 'loader') {
       if (!formData.loaderId || formData.selectedGames.length === 0) {
         throw new Error('Please select a loader and at least one game');
       }
-      // Create keys for each selected game
+
       const promises = formData.selectedGames.map(gameId =>
         onSubmit({
           targetType: 'loader',
@@ -110,7 +104,7 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
         max_devices: formData.maxDevices,
       });
     }
-    
+
     reset();
   };
 
@@ -148,7 +142,7 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
               </div>
             )}
 
-            {/* Show Game selector if: canViewGames AND (targetType is 'game' OR no loaders access) */}
+            {}
             {canViewGames && (formData.targetType === 'game' || !canViewLoaders) ? (
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-foreground">Game</Label>
@@ -200,8 +194,8 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
                 )}
               </div>
             ) : null}
-            
-            {/* Show Loader selector if: canViewLoaders AND (targetType is 'loader' OR no games access) */}
+
+            {}
             {canViewLoaders && (formData.targetType === 'loader' || !canViewGames) ? (
               <div className="space-y-4">
                 <div className="space-y-2">

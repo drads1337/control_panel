@@ -6,12 +6,10 @@ for GET requests, reducing load on the primary database.
 
 Usage:
     from ..utils.db_replica import get_read_session, get_write_session
-    
-    # For read operations (GET requests)
+
     with get_read_session() as session:
         users = session.query(User).filter_by(project_id=1).all()
-    
-    # For write operations (POST, PUT, DELETE)
+
     with get_write_session() as session:
         user = User(username='test')
         session.add(user)
@@ -30,12 +28,10 @@ from ..core.extensions import db
 
 logger = logging.getLogger(__name__)
 
-# Глобальные переменные для хранения engines
 _read_engine = None
 _write_engine = None
 _read_session_factory = None
 _write_session_factory = None
-
 
 def init_replica_engines(app):
     """
@@ -44,10 +40,8 @@ def init_replica_engines(app):
     """
     global _read_engine, _write_engine, _read_session_factory, _write_session_factory
 
-    # Write engine (primary database) - всегда используется
     _write_engine = db.engine
 
-    # Read engine (replica) - создается только если настроен DATABASE_READ_REPLICA_URL
     read_replica_url = app.config.get("SQLALCHEMY_DATABASE_READ_URI")
 
     if read_replica_url:
@@ -55,17 +49,15 @@ def init_replica_engines(app):
             read_options = app.config.get("SQLALCHEMY_READ_ENGINE_OPTIONS", {})
             _read_engine = create_engine(read_replica_url, **read_options)
 
-            # Создаем session factory для read операций
             _read_session_factory = sessionmaker(bind=_read_engine)
 
             logger.info("✅ Read replica engine initialized successfully")
 
-            # Добавляем обработчик для установки read-only режима
             @event.listens_for(_read_engine, "connect")
             def set_readonly_pragma(dbapi_conn, connection_record):
                 """Устанавливает read-only режим для read replica соединений"""
                 try:
-                    # Для PostgreSQL устанавливаем транзакцию в read-only режим
+
                     cursor = dbapi_conn.cursor()
                     cursor.execute("SET default_transaction_read_only = on")
                     cursor.close()
@@ -82,7 +74,6 @@ def init_replica_engines(app):
         _read_engine = None
         _read_session_factory = None
 
-
 def is_read_request() -> bool:
     """
     Определяет, является ли текущий запрос read-only (GET).
@@ -97,7 +88,6 @@ def is_read_request() -> bool:
 
     return request.method in ("GET", "HEAD", "OPTIONS")
 
-
 def has_read_replica() -> bool:
     """
     Проверяет, настроен ли read replica.
@@ -106,7 +96,6 @@ def has_read_replica() -> bool:
         True если read replica доступен, False иначе
     """
     return _read_engine is not None and _read_session_factory is not None
-
 
 @contextmanager
 def get_read_session(force_primary: bool = False):
@@ -122,13 +111,11 @@ def get_read_session(force_primary: bool = False):
     """
     global _read_engine, _read_session_factory, _write_engine
 
-    # Если read replica не настроен или принудительно используется primary
     if not has_read_replica() or force_primary:
-        # Используем стандартную сессию из Flask-SQLAlchemy
+
         yield db.session
         return
 
-    # Используем read replica
     session = _read_session_factory()
     try:
         yield session
@@ -139,7 +126,6 @@ def get_read_session(force_primary: bool = False):
     finally:
         session.close()
 
-
 @contextmanager
 def get_write_session():
     """
@@ -149,9 +135,8 @@ def get_write_session():
     Yields:
         SQLAlchemy Session для write операций
     """
-    # Всегда используем primary database для write операций
-    yield db.session
 
+    yield db.session
 
 def get_session_for_query(is_read: Optional[bool] = None):
     """
@@ -172,8 +157,6 @@ def get_session_for_query(is_read: Optional[bool] = None):
     else:
         return get_write_session()
 
-
-# Декоратор для автоматического выбора сессии
 def use_read_replica(func):
     """
     Декоратор для функций, которые должны использовать read replica.
@@ -186,9 +169,9 @@ def use_read_replica(func):
     """
 
     def wrapper(*args, **kwargs):
-        # Принудительно используем read replica
+
         with get_read_session(force_primary=False) as session:
-            # Временно заменяем db.session на read session
+
             original_session = db.session
             db.session = session
             try:
@@ -201,8 +184,6 @@ def use_read_replica(func):
     wrapper.__doc__ = func.__doc__
     return wrapper
 
-
-# Middleware для автоматического выбора read replica для GET запросов
 class ReadReplicaMiddleware:
     """
     Middleware для автоматического перенаправления GET запросов на read replica.
@@ -216,18 +197,15 @@ class ReadReplicaMiddleware:
     def before_request():
         """Вызывается перед обработкой запроса"""
         if is_read_request() and has_read_replica():
-            # Для GET запросов можно использовать read replica
-            # Но мы не меняем db.session здесь, т.к. это делается в get_read_session()
+
             pass
 
     @staticmethod
     def after_request(response):
         """Вызывается после обработки запроса"""
-        # Очистка, если необходимо
+
         return response
 
-
-# Утилита для проверки состояния реплик
 def check_replica_health() -> dict:
     """
     Проверяет состояние read replica.
@@ -246,32 +224,26 @@ def check_replica_health() -> dict:
         "read_replica_lag": None,
     }
 
-    # Проверка primary
     try:
         with get_write_session() as session:
             from sqlalchemy import text
 
-            # SECURITY: Safe - hardcoded constant query with no user input
             session.execute(text("SELECT 1"))
             result["primary_available"] = True
     except Exception as e:
         logger.error(f"Primary database check failed: {e}")
         result["primary_error"] = str(e)
 
-    # Проверка read replica
     if has_read_replica():
         try:
             with get_read_session() as session:
                 from sqlalchemy import text
 
-                # SECURITY: Safe - hardcoded constant query with no user input
-                # Проверка соединения
                 session.execute(text("SELECT 1"))
                 result["read_replica_available"] = True
 
-                # Проверка lag (для PostgreSQL)
                 try:
-                    # SECURITY: Safe - hardcoded PostgreSQL system function query with no user input
+
                     lag_result = session.execute(
                         text(
                             """
@@ -282,7 +254,7 @@ def check_replica_health() -> dict:
                     if lag_result:
                         result["read_replica_lag"] = lag_result[0]
                 except Exception:
-                    # Если запрос не поддерживается (не PostgreSQL или нет прав)
+
                     pass
 
         except Exception as e:

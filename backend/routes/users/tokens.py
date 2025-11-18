@@ -26,7 +26,6 @@ from ...utils.role_constants import RolePermissions
 tokens_bp = Blueprint("users_tokens", __name__)
 logger = logging.getLogger(__name__)
 
-
 @tokens_bp.route("/<int:user_id>/tokens", methods=["GET"])
 @jwt_required()
 @require_user
@@ -41,7 +40,6 @@ def get_user_tokens(user_id):
     if not target_user:
         return jsonify({"error": "User not found"}), 404
 
-    # Check access permissions
     from ...services.rbac import rbac_service
 
     can_view_all = rbac_service.check_permission(
@@ -51,7 +49,6 @@ def get_user_tokens(user_id):
         if current_user.project_id != target_user.project_id:
             return jsonify({"error": "Access denied"}), 403
 
-    # Get all API tokens for the user
     api_keys = APIKey.query.filter_by(created_by=user_id).order_by(APIKey.created_at.desc()).all()
 
     tokens_data = []
@@ -76,7 +73,6 @@ def get_user_tokens(user_id):
 
     return jsonify({"tokens": tokens_data})
 
-
 @tokens_bp.route("/<int:user_id>/tokens", methods=["POST"])
 @jwt_required()
 @require_user
@@ -91,7 +87,6 @@ def create_user_token(user_id):
     if not target_user:
         return jsonify({"error": "User not found"}), 404
 
-    # Check access permissions
     from ...services.rbac import rbac_service
 
     can_view_all = rbac_service.check_permission(
@@ -112,15 +107,13 @@ def create_user_token(user_id):
         return jsonify({"error": "Token name is required"}), 400
 
     try:
-        # Generate API key
+
         api_key_value = secrets.token_urlsafe(32)
         key_hash = hashlib.sha256(api_key_value.encode()).hexdigest()
 
-        # Check if hash already exists (very unlikely but check anyway)
         if APIKey.query.filter_by(key_hash=key_hash).first():
             return jsonify({"error": "Failed to generate unique token"}), 500
 
-        # Create API key record
         api_key = APIKey(
             name=name,
             key_hash=key_hash,
@@ -133,7 +126,6 @@ def create_user_token(user_id):
         db.session.add(api_key)
         db.session.commit()
 
-        # Log activity
         activity_service.log_activity(
             current_user,
             "create_api_token",
@@ -147,7 +139,7 @@ def create_user_token(user_id):
                 "token": {
                     "id": api_key.id,
                     "name": api_key.name,
-                    "api_key": api_key_value,  # Only returned once on creation
+                    "api_key": api_key_value,
                     "is_active": api_key.is_active,
                     "created_at": api_key.created_at.isoformat(),
                     "permissions": permissions,
@@ -159,7 +151,6 @@ def create_user_token(user_id):
         db.session.rollback()
         logger.error(f"Error creating API token: {str(e)}", exc_info=True)
         return jsonify({"error": "Failed to create API token"}), 500
-
 
 @tokens_bp.route("/<int:user_id>/tokens/<int:token_id>", methods=["PUT"])
 @jwt_required()
@@ -175,7 +166,6 @@ def update_user_token(user_id, token_id):
     if not target_user:
         return jsonify({"error": "User not found"}), 404
 
-    # Check access permissions
     from ...services.rbac import rbac_service
 
     can_view_all = rbac_service.check_permission(
@@ -194,7 +184,7 @@ def update_user_token(user_id, token_id):
         return jsonify({"error": "No data provided"}), 400
 
     try:
-        # Update fields
+
         if "name" in data:
             api_key.name = data["name"]
 
@@ -206,7 +196,6 @@ def update_user_token(user_id, token_id):
 
         db.session.commit()
 
-        # Log activity
         activity_service.log_activity(
             current_user,
             "update_api_token",
@@ -240,7 +229,6 @@ def update_user_token(user_id, token_id):
         logger.error(f"Error updating API token: {str(e)}", exc_info=True)
         return jsonify({"error": "Failed to update API token"}), 500
 
-
 @tokens_bp.route("/<int:user_id>/tokens/<int:token_id>", methods=["DELETE"])
 @jwt_required()
 @require_user
@@ -255,7 +243,6 @@ def delete_user_token(user_id, token_id):
     if not target_user:
         return jsonify({"error": "User not found"}), 404
 
-    # Check access permissions
     from ...services.rbac import rbac_service
 
     can_view_all = rbac_service.check_permission(
@@ -274,7 +261,6 @@ def delete_user_token(user_id, token_id):
         db.session.delete(api_key)
         db.session.commit()
 
-        # Log activity
         activity_service.log_activity(
             current_user,
             "delete_api_token",

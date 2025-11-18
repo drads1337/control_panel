@@ -1,4 +1,4 @@
-// Base API response types
+
 export interface BaseResponse {
   success?: boolean
   message?: string
@@ -17,7 +17,6 @@ export interface ApiError {
   details?: any
 }
 
-// Common filter types
 export interface BaseFilters {
   page?: number
   per_page?: number
@@ -33,7 +32,6 @@ export interface StatusFilters {
   status?: string
 }
 
-// File upload types
 export interface FileUploadResponse {
   success: boolean
   message: string
@@ -46,7 +44,6 @@ export interface BulkOperationResponse {
   affected_count: number
 }
 
-// Common entity fields
 export interface BaseEntity {
   id: number
   created_at: string | null

@@ -18,7 +18,6 @@ from ...utils.rbac_utils import RBACManager
 from ...utils.role_constants import UserRoles
 from ...services.cache import cache_service
 
-
 class ProjectService:
     """Service for managing project data with caching"""
 
@@ -35,7 +34,7 @@ class ProjectService:
         self, user_id: int, page: int = 1, per_page: int = 20, search: Optional[str] = None
     ) -> Dict[str, Any]:
         """Get projects with caching support"""
-        
+
         self.logger.info(
             f"get_projects_cached called - user_id: {user_id}, page: {page}, "
             f"per_page: {per_page}, search: {search}"
@@ -56,8 +55,7 @@ class ProjectService:
                         "current_page": page,
                         "per_page": per_page,
                     }
-                
-                # SECURITY: Use RBAC roles in logs, not static role field
+
                 user_roles_log = RBACManager.get_user_role_names(user)
                 primary_role_log = user_roles_log[0] if user_roles_log else UserRoles.CLIENT.value
                 self.logger.info(
@@ -65,7 +63,6 @@ class ProjectService:
                     f"roles: {user_roles_log}, primary_role: {primary_role_log}, project_id: {user.project_id}"
                 )
 
-                # Check if user is owner using RBAC only
                 is_owner = RBACManager.is_owner(user)
 
                 self.logger.info(
@@ -74,24 +71,21 @@ class ProjectService:
                     f"user.project_id: {user.project_id}"
                 )
 
-                # Check total projects in database
                 total_projects_count = Project.query.count()
                 self.logger.info(f"[FETCH] Total projects in database: {total_projects_count}")
-                
+
                 if total_projects_count > 0:
                     all_projects = Project.query.all()
                     project_info = [(p.id, p.name, p.status) for p in all_projects]
                     self.logger.info(f"[FETCH] All projects in DB: {project_info}")
 
-                # Base query
                 query = Project.query
                 self.logger.info(f"[FETCH] Starting base query: {query}")
 
-                # If user is not owner, filter by their project
                 if not is_owner:
                     if user.project_id:
                         self.logger.info(f"[FETCH] User is NOT owner, filtering by project_id: {user.project_id}")
-                        # Check if project exists
+
                         project_exists = Project.query.filter(Project.id == user.project_id).first()
                         if project_exists:
                             self.logger.info(f"[FETCH] Project {user.project_id} exists: {project_exists.name}")
@@ -99,7 +93,7 @@ class ProjectService:
                             self.logger.warning(f"[FETCH] Project {user.project_id} does NOT exist in database!")
                         query = query.filter(Project.id == user.project_id)
                     else:
-                        # User is not owner and has no project_id - return empty result
+
                         self.logger.warning(
                             f"[FETCH] User {user_id} is not owner and has no project_id, "
                             f"returning empty list"
@@ -116,26 +110,22 @@ class ProjectService:
 
                 if search:
                     self.logger.info(f"[FETCH] Applying full-text search filter: {search}")
-                    # Using PostgreSQL tsvector for efficient full-text search
+
                     query = fulltext_search_filter(query, search, "search_vector")
-                
-                # Use denormalized counters from Project model instead of expensive subqueries
-                # This significantly improves performance by avoiding JOINs with aggregated subqueries
+
                 self.logger.info("[FETCH] Using denormalized counters from Project model")
-                
-                # Check query count
+
                 try:
                     query_count = query.count()
                     self.logger.info(f"[FETCH] Query count: {query_count}")
                 except Exception as e:
                     self.logger.error(f"[FETCH] Error counting query: {e}")
 
-                # Pagination
                 self.logger.info(f"[FETCH] Applying pagination: page={page}, per_page={per_page}")
                 pagination = query.order_by(Project.created_at.desc()).paginate(
                     page=page, per_page=per_page, error_out=False
                 )
-                
+
                 self.logger.info(
                     f"[FETCH] Pagination result - total: {pagination.total}, "
                     f"pages: {pagination.pages}, "
@@ -146,8 +136,7 @@ class ProjectService:
                     f"is_owner: {is_owner}, "
                     f"user.project_id: {user.project_id}"
                 )
-                
-                # Debug: Log all project IDs in database if user is owner
+
                 if is_owner and pagination.total == 0:
                     all_projects = Project.query.all()
                     self.logger.warning(
@@ -155,8 +144,7 @@ class ProjectService:
                         f"but database has {len(all_projects)} projects: "
                         f"{[p.id for p in all_projects]}"
                     )
-                
-                # Debug: Log if non-owner user has project_id but sees 0 projects
+
                 if not is_owner and user.project_id and pagination.total == 0:
                     project_check = Project.query.filter(Project.id == user.project_id).first()
                     self.logger.warning(
@@ -166,7 +154,7 @@ class ProjectService:
 
                 projects = []
                 self.logger.info(f"[FETCH] Processing {len(pagination.items)} project items")
-                
+
                 for idx, project in enumerate(pagination.items):
                     self.logger.info(
                         f"[FETCH] Processing project {idx+1}/{len(pagination.items)}: "
@@ -209,12 +197,12 @@ class ProjectService:
                     "current_page": page,
                     "per_page": per_page,
                 }
-                
+
                 self.logger.info(
                     f"[FETCH] Returning result with {len(projects)} projects, "
                     f"total: {pagination.total}, pages: {pagination.pages}"
                 )
-                
+
                 return result
 
             except Exception as e:
@@ -230,14 +218,13 @@ class ProjectService:
                     "error": str(e),
                 }
 
-        # Use cache with user_id, page, per_page, and search as cache keys
         cache_key_params = {"user_id": user_id, "page": page, "per_page": per_page}
 
         if search:
             cache_key_params["search"] = search
 
         self.logger.info(f"[CACHE] Cache key params: {cache_key_params}")
-        
+
         cached_result = self._cache_service.get_or_set(
             cache_type="projects", fetch_func=fetch_projects, **cache_key_params
         )
@@ -269,18 +256,13 @@ class ProjectService:
                 if not user:
                     return {"error": "User not found"}
 
-                # Get user roles with error handling
-                # SECURITY: Never fallback to static roles (user.role) - use RBAC only
                 try:
                     user_roles = RBACManager.get_user_role_names(user)
                 except Exception as e:
                     self.logger.error(f"Failed to get RBAC roles for user {user.id}: {e}")
-                    # Use default role from RBAC system, never fallback to static roles
-                    # This prevents security vulnerabilities from static role bypass
-                    user_roles = [UserRoles.CLIENT.value]  # Default role from RBAC system
 
-                # TEMPORARY FIX: Allow all users to access their own project
-                # This bypasses the RBAC system to isolate the issue
+                    user_roles = [UserRoles.CLIENT.value]
+
                 if user.project_id and user.project_id == project_id:
                     self.logger.info(
                         f"TEMPORARY FIX: Allowing access for user {user_id} to project {project_id} (matching project_id)"
@@ -290,23 +272,6 @@ class ProjectService:
                         f"TEMPORARY FIX: Access denied - user {user_id} project_id {user.project_id} does not match requested project_id {project_id}"
                     )
                     return {"error": "Access denied"}
-
-                # Original RBAC logic (commented out for debugging)
-                # is_owner = user_roles and user_roles[0] == 'owner'
-                # has_project_settings = any(role in user_roles for role in ['admin', 'moderator', 'seller', 'developer']) if user_roles else False
-                #
-                # self.logger.info(f"Project access check - user_id: {user_id}, project_id: {project_id}, user_roles: {user_roles}, is_owner: {is_owner}, has_project_settings: {has_project_settings}, user.project_id: {user.project_id}")
-                #
-                # if not is_owner:
-                #     # For now, allow access if user has a project_id and is accessing their own project
-                #     # This is a temporary fix to allow non-owner users to access their project
-                #     if not user.project_id or user.project_id != project_id:
-                #         self.logger.warning(f"Access denied - user {user_id} project_id {user.project_id} does not match requested project_id {project_id}")
-                #         return {'error': 'Access denied'}
-                #     # Log the access for debugging
-                #     self.logger.info(f"Allowing access for user {user_id} to project {project_id} (non-owner with matching project_id)")
-                # else:
-                #     self.logger.info(f"Allowing access for user {user_id} to project {project_id} (owner user)")
 
                 project = Project.query.get(project_id)
                 if not project:
@@ -356,10 +321,8 @@ class ProjectService:
                 if not user:
                     return {"error": "User not found"}
 
-                # Check if user is owner using RBAC only
                 is_owner = RBACManager.is_owner(user)
 
-                # Check access to project
                 if not is_owner:
                     if not user.project_id or user.project_id != project_id:
                         return {"error": "Access denied"}
@@ -368,7 +331,6 @@ class ProjectService:
                 if not project:
                     return {"error": "Project not found"}
 
-                # Get statistics in one query
                 stats = (
                     db.session.query(
                         func.count(User.id).label("total_users"),
@@ -389,7 +351,6 @@ class ProjectService:
                     .first()
                 )
 
-                # Get top games statistics
                 top_games = (
                     db.session.query(Game.name, func.count(Key.id).label("key_count"))
                     .outerjoin(Key, and_(Key.game_id == Game.id, Key.project_id == project_id))
@@ -460,17 +421,14 @@ class ProjectService:
             if not user:
                 return {"error": "User not found"}
 
-            # Validate name
             name = name.strip()
             if not name:
                 return {"error": "Project name is required"}
 
-            # Check name uniqueness
             existing_project = Project.query.filter_by(name=name).first()
             if existing_project:
                 return {"error": "Project with this name already exists"}
 
-            # Create project
             project = Project(
                 name=name,
                 description=description.strip(),
@@ -480,13 +438,12 @@ class ProjectService:
                 subscription_status="trial",
                 subscription_expires_at=datetime.utcnow() + timedelta(days=30),
                 is_active=True,
-                storage_limit_gb=10,  # Default limit
+                storage_limit_gb=10,
             )
 
             db.session.add(project)
             db.session.commit()
 
-            # Create activity record
             try:
                 activity_service.log_activity(
                     user,
@@ -498,7 +455,6 @@ class ProjectService:
             except Exception as e:
                 self.logger.warning(f"Failed to log project creation activity: {e}")
 
-            # Invalidate cache
             try:
                 self.invalidate_project_cache(project.id)
                 from ...services.cache import cache_service
@@ -561,15 +517,13 @@ class ProjectService:
             if not user:
                 return {"error": "User not found"}
 
-            # Check user permissions
             try:
                 user_roles = RBACManager.get_user_role_names(user)
             except Exception as e:
                 self.logger.warning(f"Failed to get user roles for user {user.id}: {e}")
-            # Check if user is owner using RBAC only
+
             is_owner = RBACManager.is_owner(user)
 
-            # Check project access
             if not is_owner:
                 if not user.project_id or user.project_id != project_id:
                     return {"error": "Access denied"}
@@ -578,13 +532,11 @@ class ProjectService:
             if not project:
                 return {"error": "Project not found"}
 
-            # Update name if provided
             if name is not None:
                 name = name.strip()
                 if not name:
                     return {"error": "Project name cannot be empty"}
 
-                # Check name uniqueness
                 existing_project = Project.query.filter(
                     and_(Project.name == name, Project.id != project_id)
                 ).first()
@@ -593,29 +545,25 @@ class ProjectService:
 
                 project.name = name
 
-            # Update description if provided
             if description is not None:
                 project.description = description.strip()
 
-            # Update status if provided
             if status is not None:
                 if status not in ["active", "inactive", "expired"]:
                     return {"error": f"Invalid status: {status}"}
                 project.status = status
 
-            # Only owners can update subscription_status and storage_limit_gb
             if subscription_status is not None and is_owner:
                 project.subscription_status = subscription_status
 
             if storage_limit_gb is not None and is_owner:
                 if isinstance(storage_limit_gb, (int, float)) and storage_limit_gb >= 0:
-                    project.storage_limit = int(storage_limit_gb * (1024**3))  # Convert GB to bytes
+                    project.storage_limit = int(storage_limit_gb * (1024**3))
                 else:
                     return {"error": "Invalid storage_limit_gb value"}
 
             db.session.commit()
 
-            # Create activity record
             try:
                 activity_service.log_activity(
                     user,
@@ -627,7 +575,6 @@ class ProjectService:
             except Exception as e:
                 self.logger.warning(f"Failed to log project update activity: {e}")
 
-            # Invalidate cache
             try:
                 self.invalidate_project_cache(project_id)
                 from ...services.cache import cache_service
@@ -683,18 +630,15 @@ class ProjectService:
 
             project_name = project.name
 
-            # Start transaction for safe deletion
             db.session.begin_nested()
 
             try:
-                # Get user IDs before deleting keys for counter recalculation
+
                 affected_user_ids = db.session.query(Key.user_id).filter_by(project_id=project_id).distinct().all()
                 affected_user_ids = [uid[0] for uid in affected_user_ids if uid[0] is not None]
-                
-                # Delete all related data
+
                 Key.query.filter_by(project_id=project_id).delete()
-                
-                # Recalculate key counters for affected users
+
                 from ...utils.key_counters import update_user_key_counters
                 for user_id in affected_user_ids:
                     update_user_key_counters(user_id, project_id=project_id)
@@ -705,13 +649,10 @@ class ProjectService:
                 ProjectInviteCode.query.filter_by(project_id=project_id).delete()
                 ProjectEncryptionKeys.query.filter_by(project_id=project_id).delete()
 
-                # Delete the project itself
                 db.session.delete(project)
 
-                # Commit transaction
                 db.session.commit()
 
-                # Create activity record (project already deleted, so project_id is None)
                 try:
                     activity_service.log_activity(
                         user,
@@ -726,7 +667,7 @@ class ProjectService:
                 return {"message": "Project deleted successfully"}
 
             except Exception as e:
-                # Rollback transaction on error
+
                 db.session.rollback()
                 raise e
 
@@ -764,18 +705,14 @@ class ProjectService:
             if not user:
                 return {"error": "User not found"}
 
-            # Allow owners to create project invite codes even without a project
-            # Project invite codes with project_id=None are used to create new projects
             from ...utils.rbac_utils import RBACManager
             is_owner = RBACManager.is_owner(user)
-            
+
             if not user.project_id and not is_owner:
                 return {"error": "User must be assigned to a project"}
 
-            # If user has a project, use it; otherwise set to None (for project creation codes)
             project_id = user.project_id if user.project_id else None
 
-            # Generate a unique invite code
             def generate_invite_code():
                 """Generate a unique 8-character alphanumeric code"""
                 while True:
@@ -786,12 +723,10 @@ class ProjectService:
 
             invite_code = generate_invite_code()
 
-            # Calculate expiration date
             expires_at = (
                 datetime.utcnow() + timedelta(days=expires_in_days) if expires_in_days > 0 else None
             )
 
-            # Create the invite code
             new_code = ProjectInviteCode(
                 code=invite_code,
                 project_id=project_id,
@@ -804,7 +739,6 @@ class ProjectService:
             db.session.add(new_code)
             db.session.commit()
 
-            # Log activity
             try:
                 activity_service.log_activity(
                     user,
@@ -857,23 +791,18 @@ class ProjectService:
 
             project_id = user.project_id
 
-            # Find the invite code
             invite_code = ProjectInviteCode.query.filter_by(id=code_id, project_id=project_id).first()
             if not invite_code:
                 return {"error": "Invite code not found"}
 
-            # Check if code has been used
             if invite_code.is_used:
                 return {"error": "Cannot delete used invite code"}
 
-            # Store code for logging
             code_value = invite_code.code
 
-            # Delete the invite code
             db.session.delete(invite_code)
             db.session.commit()
 
-            # Log activity
             try:
                 activity_service.log_activity(
                     user,
@@ -910,13 +839,11 @@ class ProjectService:
             if not user:
                 return {"error": "User not found"}
 
-            # Allow owners to view invite codes even without a project
             is_owner = RBACManager.is_owner(user)
-            
+
             if not user.project_id and not is_owner:
                 return {"error": "User must be assigned to a project"}
 
-            # If user has a project, filter by it; if owner without project, show codes with project_id=None
             if user.project_id:
                 project_id = user.project_id
                 invite_codes = (
@@ -925,7 +852,7 @@ class ProjectService:
                     .all()
                 )
             else:
-                # Owner without project: show codes for creating new projects (project_id=None)
+
                 invite_codes = (
                     ProjectInviteCode.query.filter_by(project_id=None)
                     .order_by(desc(ProjectInviteCode.created_at))
@@ -972,13 +899,11 @@ class ProjectService:
             if not user:
                 return {"error": "User not found"}
 
-            # Allow owners to view invite codes even without a project
             is_owner = RBACManager.is_owner(user)
-            
+
             if not user.project_id and not is_owner:
                 return {"error": "User must be assigned to a project"}
 
-            # If user has a project, filter by it; if owner without project, show codes with project_id=None
             if user.project_id:
                 project_id = user.project_id
                 latest_code = (
@@ -987,7 +912,7 @@ class ProjectService:
                     .first()
                 )
             else:
-                # Owner without project: get latest code for creating new projects (project_id=None)
+
                 latest_code = (
                     ProjectInviteCode.query.filter_by(project_id=None)
                     .order_by(desc(ProjectInviteCode.created_at))
@@ -1016,6 +941,4 @@ class ProjectService:
             self.logger.error(f"Error getting latest project invite code: {str(e)}")
             return {"error": "Failed to retrieve latest project invite code"}
 
-
-# Global instance
 project_service = ProjectService()

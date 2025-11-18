@@ -16,7 +16,6 @@ from ...models.servers import Server
 from ...utils.fulltext_search import fulltext_search_filter
 from ...utils.rbac_utils import RBACManager
 
-
 class ServerService:
     """Service for handling server management operations"""
 
@@ -90,7 +89,6 @@ class ServerService:
         try:
             query = Server.query
 
-            # Proper project isolation
             if not RBACManager.is_owner(user):
                 query = query.filter_by(project_id=user.project_id)
 
@@ -98,14 +96,13 @@ class ServerService:
                 query = query.filter_by(status=status_filter)
 
             if search:
-                # Using PostgreSQL tsvector for efficient full-text search
+
                 query = fulltext_search_filter(query, search, "search_vector")
 
             pagination = query.order_by(Server.created_at.desc()).paginate(
                 page=page, per_page=per_page, error_out=False
             )
 
-            # Get project settings for all servers in one query (fixes N+1)
             project_ids = list(set([server.project_id for server in pagination.items]))
             project_settings_dict = {}
             if project_ids and include_password:
@@ -118,12 +115,11 @@ class ServerService:
 
             servers = []
             for server in pagination.items:
-                # Get project master key from preloaded dict
+
                 project_master_key = None
                 if include_password:
                     project_master_key = project_settings_dict.get(server.project_id)
 
-                # Use secure to_dict method
                 server_data = server.to_dict(
                     include_password=include_password, project_master_key=project_master_key
                 )
@@ -170,7 +166,7 @@ class ServerService:
             Tuple of (Server object or None, error message or None)
         """
         try:
-            # Determine project_id based on user role
+
             if not project_id:
                 if RBACManager.is_owner(user):
                     return None, "Project ID is required for owner users"
@@ -179,15 +175,12 @@ class ServerService:
             if not project_id:
                 return None, "Project ID is required"
 
-            # Check if server with same name exists
             if Server.query.filter_by(name=name, project_id=project_id).first():
                 return None, "Server with this name already exists"
 
-            # Check if server with same IP exists
             if Server.query.filter_by(ip_address=ip_address, project_id=project_id).first():
                 return None, "Server with this IP address already exists"
 
-            # Get project master key for encryption
             project_settings = ProjectSettings.query.filter_by(project_id=project_id).first()
             if not project_settings or not project_settings.project_master_key:
                 return (
@@ -195,13 +188,12 @@ class ServerService:
                     "Project encryption key not found. Please contact administrator.",
                 )
 
-            # Create server with encrypted password
             server = Server(
                 name=name,
                 ip_address=ip_address,
                 port=port,
                 username=username,
-                password="",  # Will be set encrypted below
+                password="",
                 description=description or "",
                 is_active=is_active,
                 status="offline",
@@ -209,16 +201,14 @@ class ServerService:
                 created_at=datetime.utcnow(),
             )
 
-            # Encrypt password before saving
             server.set_password(password, project_settings.project_master_key)
 
             db.session.add(server)
-            
-            # Update project server counters
+
             if project_id:
                 from ...utils.project_counters import increment_project_server_counters
                 increment_project_server_counters(project_id)
-            
+
             db.session.commit()
 
             return server, None
@@ -245,7 +235,6 @@ class ServerService:
             if not server:
                 return False, "Server not found"
 
-            # Update project server counters before deletion
             project_id = server.project_id
             if project_id:
                 from ...utils.project_counters import decrement_project_server_counters
@@ -274,7 +263,6 @@ class ServerService:
         try:
             query = Server.query
 
-            # Proper project isolation
             if not RBACManager.is_owner(user):
                 query = query.filter_by(project_id=user.project_id)
 
@@ -300,7 +288,7 @@ class ServerService:
                     "offline": offline_servers,
                     "starting": starting_servers,
                     "stopping": stopping_servers,
-                    "uptime_rate": 99.0,  # Placeholder - can be calculated from actual data
+                    "uptime_rate": 99.0,
                 },
                 "project_stats": [
                     {"project": project, "count": count} for project, count in project_stats
@@ -352,7 +340,4 @@ class ServerService:
             self.logger.error(f"Error getting project settings for project {project_id}: {str(e)}")
             return None
 
-
-# Create service instance
 server_service = ServerService()
-

@@ -14,10 +14,6 @@ interface UseAuthInitRefs {
   isInitializing: React.MutableRefObject<boolean>
 }
 
-/**
- * Hook for initializing authentication check
- * Handles caching and API verification
- */
 export function useAuthInit(
   params: UseAuthInitParams,
   refs: UseAuthInitRefs
@@ -26,12 +22,11 @@ export function useAuthInit(
   const { isLoggingIn, justLoggedIn, abortControllerRef, isInitializing } = refs
 
   useEffect(() => {
-    // Skip if already initialized or if login/registration is in progress
+
     if (isInitializing.current || isLoggingIn.current || justLoggedIn.current) {
       return
     }
 
-    // Check cache first for fast initial load
     const cachedUser = authService.getCachedUser()
     if (cachedUser?.user) {
       setUser(cachedUser.user)
@@ -40,7 +35,6 @@ export function useAuthInit(
       return
     }
 
-    // Fallback to memory cache
     const memoryCachedUser = authService.getCachedUserFromMemory()
     if (memoryCachedUser) {
       setUser(memoryCachedUser)
@@ -49,12 +43,10 @@ export function useAuthInit(
       return
     }
 
-    // Perform API check
     isInitializing.current = true
     const controller = new AbortController()
     abortControllerRef.current = controller
 
-    // Fallback timeout to ensure loading state is cleared
     const fallbackTimeout = setTimeout(() => {
       if (isInitializing.current) {
         updateState({ isLoading: false, isInitialized: true })
@@ -119,7 +111,6 @@ export function useAuthInit(
       })
 
     return cleanup
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Run only once on mount - refs are stable, callbacks are from useAuthState
-}
 
+  }, [])
+}

@@ -3,7 +3,6 @@ RBAC Routes
 Handles Role-Based Access Control endpoints
 """
 
-# Rate limiting will be handled by individual decorators
 import logging
 from datetime import datetime
 from functools import wraps
@@ -29,14 +28,12 @@ from ..services.rbac import rbac_service
 
 rbac_bp = Blueprint("rbac", __name__)
 
-
 def get_current_user():
     """Get current user from JWT token"""
     user_id = get_jwt_identity()
     if not user_id:
         return None
     return User.query.get(user_id)
-
 
 def admin_required(f):
     """Decorator to require admin role (static roles excluded from RBAC management)"""
@@ -47,27 +44,20 @@ def admin_required(f):
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
 
-        # Only non-static admin roles can access RBAC management
-        # Static roles (owner, admin) are excluded from RBAC management
-        # SECURITY: Use RBAC system, not static roles
         from ..utils.rbac_utils import RBACManager
         if RBACManager.is_owner(current_user) or RBACManager.is_admin(current_user):
             return jsonify({"error": "Static roles cannot manage RBAC"}), 403
 
         from ..services.rbac import rbac_service
 
-        # RBAC management requires rbac permissions
         if not rbac_service.check_permission(current_user.id, "rbac.view"):
             return jsonify({"error": "Admin access required"}), 403
 
-        # Pass current_user as keyword argument to avoid conflicts with URL parameters
-        # Only pass as positional if function doesn't already have current_user in kwargs
         if 'current_user' not in kwargs:
             return f(*args, current_user=current_user, **kwargs)
         return f(*args, **kwargs)
 
     return decorated_function
-
 
 def token_required(f):
     """Decorator to require valid JWT token"""
@@ -78,14 +68,11 @@ def token_required(f):
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
 
-        # Pass current_user as keyword argument to avoid conflicts with URL parameters
-        # Only pass as positional if function doesn't already have current_user in kwargs
         if 'current_user' not in kwargs:
             return f(*args, current_user=current_user, **kwargs)
         return f(*args, **kwargs)
 
     return decorated_function
-
 
 @rbac_bp.route("/roles", methods=["GET"])
 @jwt_required()
@@ -102,7 +89,6 @@ def get_roles(current_user):
 
         project_id = current_user.project_id
 
-        # Check if RBAC is initialized, if not initialize it
         existing_roles = Role.query.filter_by(project_id=project_id).count()
         if existing_roles == 0:
             logging.info(f"RBAC not initialized for project {project_id}, initializing...")
@@ -113,10 +99,9 @@ def get_roles(current_user):
 
         roles = rbac_service.get_roles(project_id)
 
-        # Filter roles based on user permissions
         filtered_roles = []
         for role in roles:
-            # Owner role is excluded from RBAC management entirely
+
             if role["name"] in ["owner", "admin"]:
                 continue
             filtered_roles.append(role)
@@ -132,7 +117,6 @@ def get_roles(current_user):
         logging.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": "Failed to get roles", "details": str(e)}), 500
 
-
 @rbac_bp.route("/roles", methods=["POST"])
 @jwt_required()
 def create_role():
@@ -142,11 +126,9 @@ def create_role():
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
 
-        # Check admin permissions using RBAC (owner excluded from RBAC management)
         from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
 
-        # RBAC management requires rbac permissions
         if not rbac_service.check_permission(current_user.id, "rbac.view"):
             return jsonify({"error": "Admin access required"}), 403
 
@@ -167,7 +149,6 @@ def create_role():
 
         project_id = current_user.project_id
 
-        # Create role
         role = rbac_service.create_role(
             project_id=project_id,
             name=name,
@@ -188,7 +169,6 @@ def create_role():
         logging.error(f"RBAC_ROLE_CREATION_ERROR user_id={current_user.id} error={e}")
         return jsonify({"error": "Failed to create role"}), 500
 
-
 @rbac_bp.route("/roles/<int:role_id>", methods=["PUT"])
 @jwt_required()
 @require_project_isolation
@@ -199,11 +179,9 @@ def update_role(role_id):
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
 
-        # Check admin permissions using RBAC (owner excluded from RBAC management)
         from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
 
-        # RBAC management requires rbac permissions
         if not rbac_service.check_permission(current_user.id, "rbac.view"):
             return jsonify({"error": "Admin access required"}), 403
 
@@ -211,12 +189,10 @@ def update_role(role_id):
         if not data:
             return jsonify({"error": "No data provided"}), 400
 
-        # Check if role belongs to user's project
         role = Role.query.filter_by(id=role_id, project_id=current_user.project_id).first()
         if not role or role.project_id != current_user.project_id:
             return jsonify({"error": "Role not found"}), 404
 
-        # Update role
         updated_role = rbac_service.update_role(role_id, current_user.project_id, **data)
 
         logging.info(f"RBAC_ROLE_UPDATED user_id={current_user.id} role_id={role_id}")
@@ -231,7 +207,6 @@ def update_role(role_id):
         )
         return jsonify({"error": "Failed to update role"}), 500
 
-
 @rbac_bp.route("/roles/<int:role_id>", methods=["DELETE"])
 @jwt_required()
 @require_project_isolation
@@ -242,25 +217,20 @@ def delete_role(role_id):
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
 
-        # Check admin permissions using RBAC (owner excluded from RBAC management)
         from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
 
-        # RBAC management requires rbac permissions
         if not rbac_service.check_permission(current_user.id, "rbac.view"):
             return jsonify({"error": "Admin access required"}), 403
 
-        # Check if role belongs to user's project
         role = Role.query.filter_by(id=role_id, project_id=current_user.project_id).first()
         if not role or role.project_id != current_user.project_id:
             return jsonify({"error": "Role not found"}), 404
 
-        # Get optional parameters (use silent=True to handle empty DELETE requests)
         data = request.get_json(silent=True) or {}
         force = data.get("force", False)
         reassign_to_role_id = data.get("reassign_to_role_id")
 
-        # Delete role
         success = rbac_service.delete_role(
             role_id, current_user.project_id, force=force, reassign_to_role_id=reassign_to_role_id
         )
@@ -282,7 +252,6 @@ def delete_role(role_id):
         )
         return jsonify({"error": f"Failed to delete role: {str(e)}"}), 500
 
-
 @rbac_bp.route("/permissions", methods=["GET"])
 @jwt_required()
 @token_required
@@ -298,7 +267,6 @@ def get_permissions(current_user):
 
         project_id = current_user.project_id
 
-        # Check if RBAC is initialized, if not initialize it
         existing_permissions = Permission.query.filter_by(project_id=project_id).count()
         if existing_permissions == 0:
             logging.info(f"RBAC not initialized for project {project_id}, initializing...")
@@ -320,7 +288,6 @@ def get_permissions(current_user):
         logging.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": "Failed to get permissions", "details": str(e)}), 500
 
-
 @rbac_bp.route("/permissions", methods=["POST"])
 @jwt_required()
 def create_permission():
@@ -330,11 +297,9 @@ def create_permission():
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
 
-        # Check admin permissions using RBAC (owner excluded from RBAC management)
         from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
 
-        # RBAC management requires rbac permissions
         if not rbac_service.check_permission(current_user.id, "rbac.view"):
             return jsonify({"error": "Admin access required"}), 403
 
@@ -354,7 +319,6 @@ def create_permission():
         if not all([name, resource, action]):
             return jsonify({"error": "Name, resource, and action are required"}), 400
 
-        # Create permission
         permission = rbac_service.create_permission(
             project_id=current_user.project_id,
             name=name,
@@ -379,7 +343,6 @@ def create_permission():
         logging.error(f"RBAC_PERMISSION_CREATION_ERROR user_id={current_user.id} error={e}")
         return jsonify({"error": "Failed to create permission"}), 500
 
-
 @rbac_bp.route("/permissions/<int:permission_id>", methods=["PUT"])
 @jwt_required()
 def update_permission(permission_id):
@@ -389,11 +352,9 @@ def update_permission(permission_id):
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
 
-        # Check admin permissions using RBAC (owner excluded from RBAC management)
         from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
 
-        # RBAC management requires rbac permissions
         if not rbac_service.check_permission(current_user.id, "rbac.view"):
             return jsonify({"error": "Admin access required"}), 403
 
@@ -401,7 +362,6 @@ def update_permission(permission_id):
         if not data:
             return jsonify({"error": "No data provided"}), 400
 
-        # Update permission
         updated_permission = rbac_service.update_permission(
             permission_id, current_user.project_id, **data
         )
@@ -420,7 +380,6 @@ def update_permission(permission_id):
         )
         return jsonify({"error": "Failed to update permission"}), 500
 
-
 @rbac_bp.route("/permissions/<int:permission_id>", methods=["DELETE"])
 @jwt_required()
 def delete_permission(permission_id):
@@ -430,15 +389,12 @@ def delete_permission(permission_id):
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
 
-        # Check admin permissions using RBAC (owner excluded from RBAC management)
         from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
 
-        # Deleting permission requires rbac.delete permission
         if not rbac_service.check_permission(current_user.id, "rbac.delete"):
             return jsonify({"error": "Admin access required"}), 403
 
-        # Delete permission
         success = rbac_service.delete_permission(permission_id, current_user.project_id)
 
         if success:
@@ -457,7 +413,6 @@ def delete_permission(permission_id):
         )
         return jsonify({"error": "Failed to delete permission"}), 500
 
-
 @rbac_bp.route("/users/<int:user_id>/roles", methods=["GET"])
 @jwt_required()
 @token_required
@@ -465,17 +420,16 @@ def delete_permission(permission_id):
 @require_project_isolation
 def get_user_roles(user_id, current_user=None):
     """Get all roles assigned to a user"""
-    # Fallback to get_current_user if not provided by decorator
+
     if current_user is None:
         current_user = get_current_user()
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
-    
+
     try:
-        # Check if user belongs to the same project
+
         target_user = User.query.get(user_id)
 
-        # Ensure user has project_id
         if not target_user or not target_user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
         if target_user.project_id != current_user.project_id:
@@ -491,7 +445,6 @@ def get_user_roles(user_id, current_user=None):
         )
         return jsonify({"error": "Failed to get user roles"}), 500
 
-
 @rbac_bp.route("/users/<int:user_id>/roles", methods=["POST"])
 @jwt_required()
 @token_required
@@ -499,12 +452,12 @@ def get_user_roles(user_id, current_user=None):
 @require_project_isolation
 def assign_role_to_user(user_id, current_user=None):
     """Assign a role to a user"""
-    # Fallback to get_current_user if not provided by decorator
+
     if current_user is None:
         current_user = get_current_user()
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
-    
+
     try:
         data = request.get_json()
         if not data:
@@ -514,21 +467,17 @@ def assign_role_to_user(user_id, current_user=None):
         if not role_id:
             return jsonify({"error": "Role ID is required"}), 400
 
-        # Check if user belongs to the same project
         target_user = User.query.get(user_id)
 
-        # Ensure user has project_id
         if not target_user or not target_user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
         if target_user.project_id != current_user.project_id:
             return jsonify({"error": "User not found"}), 404
 
-        # Check if role belongs to the same project
         role = Role.query.filter_by(id=role_id, project_id=current_user.project_id).first()
         if not role or role.project_id != current_user.project_id:
             return jsonify({"error": "Role not found"}), 404
 
-        # Assign role
         success = rbac_service.assign_role_to_user(user_id, role_id)
 
         if success:
@@ -547,7 +496,6 @@ def assign_role_to_user(user_id, current_user=None):
         )
         return jsonify({"error": "Failed to assign role"}), 500
 
-
 @rbac_bp.route("/users/<int:user_id>/roles/<int:role_id>", methods=["DELETE"])
 @jwt_required()
 @token_required
@@ -555,28 +503,25 @@ def assign_role_to_user(user_id, current_user=None):
 @require_project_isolation
 def remove_role_from_user(user_id, role_id, current_user=None):
     """Remove a role from a user"""
-    # Fallback to get_current_user if not provided by decorator
+
     if current_user is None:
         current_user = get_current_user()
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
-    
+
     try:
-        # Check if user belongs to the same project
+
         target_user = User.query.get(user_id)
 
-        # Ensure user has project_id
         if not target_user or not target_user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
         if target_user.project_id != current_user.project_id:
             return jsonify({"error": "User not found"}), 404
 
-        # Check if role belongs to the same project
         role = Role.query.filter_by(id=role_id, project_id=current_user.project_id).first()
         if not role or role.project_id != current_user.project_id:
             return jsonify({"error": "Role not found"}), 404
 
-        # Remove role
         success = rbac_service.remove_role_from_user(user_id, role_id)
 
         if success:
@@ -593,44 +538,40 @@ def remove_role_from_user(user_id, role_id, current_user=None):
         )
         return jsonify({"error": "Failed to remove role"}), 500
 
-
 @rbac_bp.route("/users/<int:user_id>/permissions", methods=["GET"])
 @jwt_required()
 @token_required
 @require_project_isolation
 def get_user_permissions(user_id, current_user=None):
     """Get all permissions for a user"""
-    # Fallback to get_current_user if not provided by decorator
+
     if current_user is None:
         current_user = get_current_user()
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
-    
+
     try:
-        # Check permissions - user needs employees.view or rbac.view to view user permissions
+
         from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
-        
-        # Check if user has permission to view employees
+
         has_view_permission = rbac_service.check_permission(current_user.id, "employees.view")
         has_rbac_permission = rbac_service.check_permission(current_user.id, "rbac.view")
-        
+
         if not has_view_permission and not has_rbac_permission:
-            # Also allow owner/admin
+
             if not (RBACManager.is_owner(current_user) or RBACManager.is_admin(current_user)):
                 return jsonify({"error": "Insufficient permissions"}), 403
-        
-        # Check if user belongs to the same project
+
         target_user = User.query.get(user_id)
 
         if not target_user:
             logging.warning(f"User {user_id} not found")
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not target_user.project_id:
             logging.warning(f"User {user_id} has no project_id")
-            # Return empty permissions instead of error for users without project
+
             return jsonify({"success": True, "user_id": user_id, "permissions": []})
 
         if target_user.project_id != current_user.project_id:
@@ -652,7 +593,7 @@ def get_user_permissions(user_id, current_user=None):
             logging.error(
                 f"Failed to get permissions for user {user_id}: {perm_error}", exc_info=True
             )
-            # Return empty permissions instead of error
+
             return jsonify({"success": True, "user_id": user_id, "permissions": []})
 
     except Exception as e:
@@ -663,9 +604,8 @@ def get_user_permissions(user_id, current_user=None):
         import traceback
 
         logging.error(f"Traceback: {traceback.format_exc()}")
-        # Return empty permissions instead of error to prevent UI issues
-        return jsonify({"success": True, "user_id": user_id, "permissions": [], "error": str(e)})
 
+        return jsonify({"success": True, "user_id": user_id, "permissions": [], "error": str(e)})
 
 @rbac_bp.route("/users/<int:user_id>/permissions", methods=["PUT"])
 @jwt_required()
@@ -673,27 +613,25 @@ def get_user_permissions(user_id, current_user=None):
 @require_project_isolation
 def update_user_permissions(user_id, current_user=None):
     """Update individual permissions for a user (overrides role permissions)"""
-    # Fallback to get_current_user if not provided by decorator
+
     if current_user is None:
         current_user = get_current_user()
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
-    
+
     try:
-        # Check permissions - user needs employees.edit or rbac.view to manage user permissions
+
         from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
-        
-        # Check if user has permission to edit employees
+
         has_edit_permission = rbac_service.check_permission(current_user.id, "employees.edit")
         has_rbac_permission = rbac_service.check_permission(current_user.id, "rbac.view")
-        
+
         if not has_edit_permission and not has_rbac_permission:
-            # Also allow owner/admin (but they can't edit their own permissions)
+
             if not (RBACManager.is_owner(current_user) or RBACManager.is_admin(current_user)):
                 return jsonify({"error": "Insufficient permissions"}), 403
-        
-        # Check if user belongs to the same project
+
         target_user = User.query.get(user_id)
 
         if not target_user:
@@ -702,8 +640,6 @@ def update_user_permissions(user_id, current_user=None):
         if target_user.project_id != current_user.project_id:
             return jsonify({"error": "User not found"}), 404
 
-        # Check if target user has static role (owner/admin) - cannot modify their permissions
-        # Only block owner and admin roles, not other system roles like seller, moderator, etc.
         user_roles = RBACManager.get_user_role_names(target_user)
         if "owner" in user_roles or "admin" in user_roles:
             logging.warning(
@@ -723,7 +659,6 @@ def update_user_permissions(user_id, current_user=None):
             f"RBAC_USER_PERMISSIONS_UPDATE_REQUEST user_id={current_user.id} target_user_id={user_id} permissions_count={len(permissions)} permissions={permissions}"
         )
 
-        # Get all permissions for the project
         project_permissions = Permission.query.filter_by(project_id=current_user.project_id).all()
         permission_map = {p.name: p for p in project_permissions}
 
@@ -731,7 +666,6 @@ def update_user_permissions(user_id, current_user=None):
             f"RBAC_USER_PERMISSIONS_UPDATE_AVAILABLE project_id={current_user.project_id} available_permissions_count={len(permission_map)}"
         )
 
-        # Validate that all permission names exist
         invalid_permissions = [p for p in permissions if p not in permission_map]
         if invalid_permissions:
             logging.warning(
@@ -739,14 +673,12 @@ def update_user_permissions(user_id, current_user=None):
             )
             return jsonify({"error": f"Invalid permissions: {', '.join(invalid_permissions)}"}), 400
 
-        # Remove all existing user permissions
         from ..models.rbac import UserPermission
         deleted_count = UserPermission.query.filter_by(user_id=user_id).delete()
         logging.debug(
             f"RBAC_USER_PERMISSIONS_DELETE_EXISTING user_id={user_id} deleted_count={deleted_count}"
         )
 
-        # Add new user permissions
         added_count = 0
         for permission_name in permissions:
             permission = permission_map[permission_name]
@@ -763,7 +695,6 @@ def update_user_permissions(user_id, current_user=None):
             f"RBAC_USER_PERMISSIONS_ADDED user_id={user_id} added_count={added_count}"
         )
 
-        # Invalidate cache for this user
         from ..services.cache import cache_service
         cache_service.delete("rbac:user_permissions", user_id=user_id)
 
@@ -780,7 +711,6 @@ def update_user_permissions(user_id, current_user=None):
             exc_info=True,
         )
         return jsonify({"error": "Failed to update user permissions"}), 500
-
 
 @rbac_bp.route("/check-permission", methods=["POST"])
 @jwt_required()
@@ -806,7 +736,6 @@ def check_permission(current_user):
         logging.error(f"RBAC_PERMISSION_CHECK_ERROR user_id={current_user.id} error={e}")
         return jsonify({"error": "Failed to check permission"}), 500
 
-
 @rbac_bp.route("/roles/<int:role_id>/users", methods=["GET"])
 @jwt_required()
 @token_required
@@ -815,7 +744,7 @@ def check_permission(current_user):
 def get_role_users(current_user, role_id):
     """Get all users assigned to a role"""
     try:
-        # Check if role belongs to the same project
+
         role = Role.query.filter_by(id=role_id, project_id=current_user.project_id).first()
         if not role or role.project_id != current_user.project_id:
             return jsonify({"error": "Role not found"}), 404
@@ -829,7 +758,6 @@ def get_role_users(current_user, role_id):
             f"RBAC_ROLE_USERS_GET_ERROR user_id={current_user.id} role_id={role_id} error={e}"
         )
         return jsonify({"error": "Failed to get role users"}), 500
-
 
 @rbac_bp.route("/statistics", methods=["GET"])
 @jwt_required()
@@ -847,7 +775,6 @@ def get_rbac_statistics(current_user):
         logging.error(f"RBAC_STATISTICS_GET_ERROR user_id={current_user.id} error={e}")
         return jsonify({"error": "Failed to get RBAC statistics"}), 500
 
-
 @rbac_bp.route("/initialize", methods=["POST"])
 @jwt_required()
 @token_required
@@ -858,12 +785,10 @@ def initialize_rbac(current_user):
     try:
         project_id = current_user.project_id
 
-        # Check if RBAC is already initialized
         existing_roles = Role.query.filter_by(project_id=project_id).count()
         if existing_roles > 0:
             return jsonify({"error": "RBAC system is already initialized for this project"}), 400
 
-        # Initialize RBAC
         success = rbac_service.initialize_default_data(project_id)
 
         if success:
@@ -875,7 +800,6 @@ def initialize_rbac(current_user):
     except Exception as e:
         logging.error(f"RBAC_INITIALIZATION_ERROR user_id={current_user.id} error={e}")
         return jsonify({"error": "Failed to initialize RBAC system"}), 500
-
 
 @rbac_bp.route("/games", methods=["GET"])
 @jwt_required()
@@ -905,7 +829,6 @@ def get_games_for_rbac(current_user):
         logging.error(f"RBAC_GAMES_GET_ERROR user_id={current_user.id} error={e}")
         return jsonify({"error": "Failed to get games"}), 500
 
-
 @rbac_bp.route("/games/<int:game_id>/permissions", methods=["GET"])
 @jwt_required()
 @token_required
@@ -913,12 +836,11 @@ def get_games_for_rbac(current_user):
 def get_game_permissions(current_user, game_id):
     """Get permissions for a specific game"""
     try:
-        # Check if game belongs to user's project
+
         game = Game.query.filter_by(id=game_id, project_id=current_user.project_id).first()
         if not game:
             return jsonify({"error": "Game not found"}), 404
 
-        # Get permissions for this game
         permissions = Permission.query.filter_by(
             project_id=current_user.project_id, game_id=game_id
         ).all()
@@ -950,7 +872,6 @@ def get_game_permissions(current_user, game_id):
         )
         return jsonify({"error": "Failed to get game permissions"}), 500
 
-
 @rbac_bp.route("/games/<int:game_id>/permissions", methods=["POST"])
 @jwt_required()
 @require_project_isolation
@@ -961,15 +882,12 @@ def create_game_permission(game_id):
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
 
-        # Check admin permissions using RBAC (owner excluded from RBAC management)
         from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
 
-        # RBAC management requires rbac permissions
         if not rbac_service.check_permission(current_user.id, "rbac.view"):
             return jsonify({"error": "Admin access required"}), 403
 
-        # Check if game belongs to user's project
         game = Game.query.filter_by(id=game_id, project_id=current_user.project_id).first()
         if not game:
             return jsonify({"error": "Game not found"}), 404
@@ -986,7 +904,6 @@ def create_game_permission(game_id):
         if not all([name, resource, action]):
             return jsonify({"error": "Name, resource, and action are required"}), 400
 
-        # Create permission
         permission = Permission(
             name=name,
             description=description,
@@ -1028,7 +945,6 @@ def create_game_permission(game_id):
         )
         return jsonify({"error": "Failed to create game permission"}), 500
 
-
 @rbac_bp.route("/roles/<int:role_id>/games/<int:game_id>/permissions", methods=["POST"])
 @jwt_required()
 @require_project_isolation
@@ -1039,20 +955,16 @@ def assign_game_permissions_to_role(role_id, game_id):
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
 
-        # Check admin permissions using RBAC (owner excluded from RBAC management)
         from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
 
-        # RBAC management requires rbac permissions
         if not rbac_service.check_permission(current_user.id, "rbac.view"):
             return jsonify({"error": "Admin access required"}), 403
 
-        # Check if role belongs to user's project
         role = Role.query.filter_by(id=role_id, project_id=current_user.project_id).first()
         if not role:
             return jsonify({"error": "Role not found"}), 404
 
-        # Check if game belongs to user's project
         game = Game.query.filter_by(id=game_id, project_id=current_user.project_id).first()
         if not game:
             return jsonify({"error": "Game not found"}), 404
@@ -1065,16 +977,15 @@ def assign_game_permissions_to_role(role_id, game_id):
         if not isinstance(permissions, list):
             return jsonify({"error": "Permissions must be a list"}), 400
 
-        # Get or create game-specific permissions
         assigned_permissions = []
         for permission_name in permissions:
-            # Check if permission exists for this game
+
             permission = Permission.query.filter_by(
                 name=permission_name, project_id=current_user.project_id, game_id=game_id
             ).first()
 
             if not permission:
-                # Create game-specific permission
+
                 resource, action = (
                     permission_name.split(".", 1)
                     if "." in permission_name
@@ -1090,9 +1001,8 @@ def assign_game_permissions_to_role(role_id, game_id):
                     created_at=datetime.utcnow(),
                 )
                 db.session.add(permission)
-                db.session.flush()  # Get the ID
+                db.session.flush()
 
-            # Check if role already has this permission
             existing = RolePermission.query.filter_by(
                 role_id=role_id, permission_id=permission.id
             ).first()
@@ -1126,20 +1036,17 @@ def assign_game_permissions_to_role(role_id, game_id):
         )
         return jsonify({"error": "Failed to assign game permissions"}), 500
 
-
 @rbac_bp.route("/files", methods=["GET"])
 @jwt_required()
 @token_required
 def get_files_for_rbac(current_user):
     """Get files for RBAC management"""
     try:
-        # Check permissions
+
         if not rbac_service.check_permission(current_user.id, "files.view"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
-        # Get files from the project
-        # NOTE: File model doesn't exist - this code may need to be updated
-        from ..models.games import FileMeta as File  # Using FileMeta as File replacement
+        from ..models.games import FileMeta as File
 
         project_id = current_user.project_id
         files = File.query.filter_by(project_id=project_id).all()
@@ -1163,7 +1070,6 @@ def get_files_for_rbac(current_user):
         logging.error(f"RBAC_FILES_GET_ERROR user_id={current_user.id} error={e}")
         return jsonify({"error": "Failed to get files"}), 500
 
-
 @rbac_bp.route("/notifications", methods=["GET"])
 @jwt_required()
 @token_required
@@ -1171,11 +1077,10 @@ def get_files_for_rbac(current_user):
 def get_notifications_for_rbac(current_user):
     """Get notifications for RBAC management"""
     try:
-        # Check permissions
+
         if not rbac_service.check_permission(current_user.id, "notifications.view"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
-        # Get notifications from the project
         from ..models.notifications import Notification
 
         project_id = current_user.project_id
@@ -1203,18 +1108,16 @@ def get_notifications_for_rbac(current_user):
         logging.error(f"RBAC_NOTIFICATIONS_GET_ERROR user_id={current_user.id} error={e}")
         return jsonify({"error": "Failed to get notifications"}), 500
 
-
 @rbac_bp.route("/changelog", methods=["GET"])
 @jwt_required()
 @token_required
 def get_changelog_for_rbac(current_user):
     """Get changelog for RBAC management"""
     try:
-        # Check permissions
+
         if not rbac_service.check_permission(current_user.id, "changelog.view"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
-        # Get changelog entries from the project
         from ..models.games import ChangelogEntry
 
         project_id = current_user.project_id
@@ -1241,18 +1144,16 @@ def get_changelog_for_rbac(current_user):
         logging.error(f"RBAC_CHANGELOG_GET_ERROR user_id={current_user.id} error={e}")
         return jsonify({"error": "Failed to get changelog"}), 500
 
-
 @rbac_bp.route("/billing", methods=["GET"])
 @jwt_required()
 @token_required
 def get_billing_for_rbac(current_user):
     """Get billing information for RBAC management"""
     try:
-        # Check permissions
+
         if not rbac_service.check_permission(current_user.id, "billing.view"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
-        # Get billing information from the project
         from ..models.servers import Billing as BillingInfo
 
         project_id = current_user.project_id
@@ -1282,7 +1183,6 @@ def get_billing_for_rbac(current_user):
         logging.error(f"RBAC_BILLING_GET_ERROR user_id={current_user.id} error={e}")
         return jsonify({"error": "Failed to get billing information"}), 500
 
-
 @rbac_bp.route("/billing/top-up", methods=["POST"])
 @jwt_required()
 def top_up_balance():
@@ -1292,7 +1192,6 @@ def top_up_balance():
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
 
-        # Check permissions
         if not rbac_service.check_permission(current_user.id, "billing.top_up"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1306,7 +1205,6 @@ def top_up_balance():
         if not amount or amount <= 0:
             return jsonify({"error": "Invalid amount"}), 400
 
-        # Get or create billing info
         from ..models.servers import Billing as BillingInfo
 
         project_id = current_user.project_id
@@ -1318,7 +1216,6 @@ def top_up_balance():
             )
             db.session.add(billing_info)
 
-        # Update balance
         billing_info.balance += amount
         billing_info.last_transaction = datetime.utcnow()
         billing_info.updated_at = datetime.utcnow()
@@ -1342,7 +1239,6 @@ def top_up_balance():
         logging.error(f"RBAC_BALANCE_TOP_UP_ERROR user_id={current_user.id} error={e}")
         return jsonify({"error": "Failed to top up balance"}), 500
 
-
 @rbac_bp.route("/hierarchy", methods=["GET"])
 @jwt_required()
 @token_required
@@ -1358,7 +1254,6 @@ def get_role_hierarchy(current_user):
         logging.error(f"RBAC_HIERARCHY_GET_ERROR user_id={current_user.id} error={e}")
         return jsonify({"error": "Failed to get role hierarchy"}), 500
 
-
 @rbac_bp.route("/roles/<int:role_id>/inheritance", methods=["GET"])
 @jwt_required()
 @token_required
@@ -1366,7 +1261,7 @@ def get_role_hierarchy(current_user):
 def get_role_inheritance_chain(current_user, role_id):
     """Get inheritance chain for a specific role"""
     try:
-        # Check if role belongs to user's project
+
         role = Role.query.filter_by(id=role_id, project_id=current_user.project_id).first()
         if not role:
             return jsonify({"error": "Role not found"}), 404
@@ -1381,7 +1276,6 @@ def get_role_inheritance_chain(current_user, role_id):
         )
         return jsonify({"error": "Failed to get inheritance chain"}), 500
 
-
 @rbac_bp.route("/status", methods=["GET"])
 @jwt_required()
 @token_required
@@ -1391,21 +1285,16 @@ def get_rbac_status(current_user):
     try:
         project_id = current_user.project_id
 
-        # Get basic counts
         roles_count = Role.query.filter_by(project_id=project_id).count()
         permissions_count = Permission.query.filter_by(project_id=project_id).count()
         users_count = User.query.filter_by(project_id=project_id).count()
 
-        # Get user role assignments
         user_roles_count = UserRole.query.join(Role).filter(Role.project_id == project_id).count()
 
-        # Check if RBAC is initialized
         is_initialized = roles_count > 0
 
-        # Get user's current roles
         user_roles = rbac_service.get_user_roles(current_user.id)
 
-        # Get user's permissions
         user_permissions = rbac_service.get_user_permissions(current_user.id)
 
         return jsonify(
@@ -1430,10 +1319,6 @@ def get_rbac_status(current_user):
     except Exception as e:
         logging.error(f"RBAC_STATUS_ERROR user_id={current_user.id} error={e}")
         return jsonify({"error": "Failed to get RBAC status"}), 500
-
-
-# ABAC (Attribute-Based Access Control) endpoints
-
 
 @rbac_bp.route("/abac/rules", methods=["GET"])
 @jwt_required()
@@ -1472,7 +1357,6 @@ def get_abac_rules(current_user):
         logging.error(f"ABAC_RULES_GET_ERROR user_id={current_user.id} error={e}")
         return jsonify({"error": "Failed to get ABAC rules"}), 500
 
-
 @rbac_bp.route("/abac/rules", methods=["POST"])
 @jwt_required()
 def create_abac_rule():
@@ -1482,11 +1366,9 @@ def create_abac_rule():
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
 
-        # Check admin permissions using RBAC (owner excluded from RBAC management)
         from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
 
-        # RBAC management requires rbac permissions
         if not rbac_service.check_permission(current_user.id, "rbac.view"):
             return jsonify({"error": "Admin access required"}), 403
 
@@ -1505,7 +1387,6 @@ def create_abac_rule():
         if not all([name, rule_type]):
             return jsonify({"error": "Name and rule_type are required"}), 400
 
-        # Create rule
         rule = rbac_service.create_attribute_rule(
             project_id=current_user.project_id,
             name=name,
@@ -1529,7 +1410,6 @@ def create_abac_rule():
         logging.error(f"ABAC_RULE_CREATION_ERROR user_id={current_user.id} error={e}")
         return jsonify({"error": "Failed to create ABAC rule"}), 500
 
-
 @rbac_bp.route("/abac/users/<int:user_id>/attributes", methods=["POST"])
 @jwt_required()
 @require_project_isolation
@@ -1540,15 +1420,12 @@ def set_user_attribute(user_id):
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
 
-        # Check admin permissions using RBAC (owner excluded from RBAC management)
         from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
 
-        # RBAC management requires rbac permissions
         if not rbac_service.check_permission(current_user.id, "rbac.view"):
             return jsonify({"error": "Admin access required"}), 403
 
-        # Check if user belongs to the same project
         target_user = User.query.get(user_id)
         if not target_user or target_user.project_id != current_user.project_id:
             return jsonify({"error": "User not found"}), 404
@@ -1564,7 +1441,6 @@ def set_user_attribute(user_id):
         if not all([attribute_name, attribute_value]):
             return jsonify({"error": "attribute_name and attribute_value are required"}), 400
 
-        # Set attribute
         attribute = rbac_service.set_user_attribute(
             user_id=user_id,
             attribute_name=attribute_name,
@@ -1586,7 +1462,6 @@ def set_user_attribute(user_id):
         )
         return jsonify({"error": "Failed to set user attribute"}), 500
 
-
 @rbac_bp.route("/abac/resources/<resource_type>/<int:resource_id>/attributes", methods=["POST"])
 @jwt_required()
 def set_resource_attribute(resource_type, resource_id):
@@ -1596,11 +1471,9 @@ def set_resource_attribute(resource_type, resource_id):
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
 
-        # Check admin permissions using RBAC (owner excluded from RBAC management)
         from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
 
-        # RBAC management requires rbac permissions
         if not rbac_service.check_permission(current_user.id, "rbac.view"):
             return jsonify({"error": "Admin access required"}), 403
 
@@ -1615,7 +1488,6 @@ def set_resource_attribute(resource_type, resource_id):
         if not all([attribute_name, attribute_value]):
             return jsonify({"error": "attribute_name and attribute_value are required"}), 400
 
-        # Set attribute
         attribute = rbac_service.set_resource_attribute(
             project_id=current_user.project_id,
             resource_type=resource_type,
@@ -1638,7 +1510,6 @@ def set_resource_attribute(resource_type, resource_id):
             f"ABAC_RESOURCE_ATTRIBUTE_SET_ERROR user_id={current_user.id} resource_type={resource_type} resource_id={resource_id} error={e}"
         )
         return jsonify({"error": "Failed to set resource attribute"}), 500
-
 
 @rbac_bp.route("/abac/check-permission", methods=["POST"])
 @jwt_required()
@@ -1683,10 +1554,6 @@ def check_abac_permission(current_user):
         logging.error(f"ABAC_PERMISSION_CHECK_ERROR user_id={current_user.id} error={e}")
         return jsonify({"error": "Failed to check ABAC permission"}), 500
 
-
-# Resource-level permissions endpoints
-
-
 @rbac_bp.route("/resources", methods=["GET"])
 @jwt_required()
 @token_required
@@ -1695,7 +1562,6 @@ def get_available_resources(current_user):
     try:
         project_id = current_user.project_id
 
-        # Define available resource types and their models
         resource_types = {
             "keys": {
                 "model": "Key",
@@ -1729,7 +1595,7 @@ def get_available_resources(current_user):
 
         for resource_type, config in resource_types.items():
             try:
-                # Import the model dynamically
+
                 from ..models.core import Project, User
                 from ..models.games import Game
                 from ..models.keys import Key
@@ -1749,7 +1615,7 @@ def get_available_resources(current_user):
                 model_class = model_mapping.get(config["model"])
 
                 if model_class:
-                    # Get count of resources of this type
+
                     count = model_class.query.filter_by(project_id=project_id).count()
 
                     resources_data.append(
@@ -1771,7 +1637,6 @@ def get_available_resources(current_user):
         logging.error(f"RBAC_RESOURCES_GET_ERROR user_id={current_user.id} error={e}")
         return jsonify({"error": "Failed to get available resources"}), 500
 
-
 @rbac_bp.route("/resources/<resource_type>", methods=["GET"])
 @jwt_required()
 @token_required
@@ -1780,7 +1645,6 @@ def get_resource_instances(current_user, resource_type):
     try:
         project_id = current_user.project_id
 
-        # Map resource types to models
         model_mapping = {
             "keys": "Key",
             "games": "Game",
@@ -1793,7 +1657,6 @@ def get_resource_instances(current_user, resource_type):
         if resource_type not in model_mapping:
             return jsonify({"error": "Invalid resource type"}), 400
 
-        # Import the model dynamically
         from ..models.core import Project, User
         from ..models.games import Game
         from ..models.keys import Key
@@ -1815,12 +1678,11 @@ def get_resource_instances(current_user, resource_type):
         if not model_class:
             return jsonify({"error": "Resource type not supported"}), 400
 
-        # Get instances
         instances = model_class.query.filter_by(project_id=project_id).all()
 
         instances_data = []
         for instance in instances:
-            # Get basic info about the instance
+
             instance_data = {
                 "id": instance.id,
                 "name": getattr(instance, "name", f"{resource_type}_{instance.id}"),
@@ -1828,7 +1690,6 @@ def get_resource_instances(current_user, resource_type):
                 "created_at": getattr(instance, "created_at", None),
             }
 
-            # Add type-specific fields
             if hasattr(instance, "status"):
                 instance_data["status"] = instance.status
             if hasattr(instance, "type"):
@@ -1846,7 +1707,6 @@ def get_resource_instances(current_user, resource_type):
         )
         return jsonify({"error": "Failed to get resource instances"}), 500
 
-
 @rbac_bp.route("/resources/<resource_type>/<int:resource_id>/permissions", methods=["GET"])
 @jwt_required()
 @token_required
@@ -1856,7 +1716,6 @@ def get_resource_permissions(current_user, resource_type, resource_id):
     try:
         project_id = current_user.project_id
 
-        # Get permissions for this specific resource
         permissions = Permission.query.filter_by(
             project_id=project_id, resource_type=resource_type, resource_id=resource_id
         ).all()
@@ -1891,7 +1750,6 @@ def get_resource_permissions(current_user, resource_type, resource_id):
         )
         return jsonify({"error": "Failed to get resource permissions"}), 500
 
-
 def _get_available_actions(resource_type):
     """Get available actions for a resource type"""
     action_mapping = {
@@ -1905,10 +1763,6 @@ def _get_available_actions(resource_type):
 
     return action_mapping.get(resource_type, ["view", "create", "edit", "delete"])
 
-
-# Deny Rules endpoints
-
-
 @rbac_bp.route("/roles/<int:role_id>/permissions", methods=["POST"])
 @jwt_required()
 @require_project_isolation
@@ -1919,15 +1773,12 @@ def assign_permission_to_role(role_id):
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
 
-        # Check admin permissions using RBAC (owner excluded from RBAC management)
         from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
 
-        # RBAC management requires rbac permissions
         if not rbac_service.check_permission(current_user.id, "rbac.view"):
             return jsonify({"error": "Admin access required"}), 403
 
-        # Check if role belongs to user's project
         role = Role.query.filter_by(id=role_id, project_id=current_user.project_id).first()
         if not role:
             return jsonify({"error": "Role not found"}), 404
@@ -1942,14 +1793,12 @@ def assign_permission_to_role(role_id):
         if not permission_id:
             return jsonify({"error": "permission_id is required"}), 400
 
-        # Check if permission belongs to user's project
         permission = Permission.query.filter_by(
             id=permission_id, project_id=current_user.project_id
         ).first()
         if not permission:
             return jsonify({"error": "Permission not found"}), 404
 
-        # Assign permission
         success = rbac_service.assign_permission_to_role(role_id, permission_id, permission_type)
 
         if success:
@@ -1968,7 +1817,6 @@ def assign_permission_to_role(role_id):
         )
         return jsonify({"error": "Failed to assign permission"}), 500
 
-
 @rbac_bp.route("/roles/<int:role_id>/permissions/<int:permission_id>", methods=["DELETE"])
 @jwt_required()
 @require_project_isolation
@@ -1979,20 +1827,16 @@ def remove_permission_from_role(role_id, permission_id):
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
 
-        # Check admin permissions using RBAC (owner excluded from RBAC management)
         from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
 
-        # RBAC management requires rbac permissions
         if not rbac_service.check_permission(current_user.id, "rbac.view"):
             return jsonify({"error": "Admin access required"}), 403
 
-        # Check if role belongs to user's project
         role = Role.query.filter_by(id=role_id, project_id=current_user.project_id).first()
         if not role:
             return jsonify({"error": "Role not found"}), 404
 
-        # Remove permission
         success = rbac_service.remove_permission_from_role(role_id, permission_id)
 
         if success:
@@ -2009,7 +1853,6 @@ def remove_permission_from_role(role_id, permission_id):
         )
         return jsonify({"error": "Failed to remove permission"}), 500
 
-
 @rbac_bp.route("/roles/<int:role_id>/permissions", methods=["PUT"])
 @jwt_required()
 @token_required
@@ -2017,7 +1860,7 @@ def remove_permission_from_role(role_id, permission_id):
 def update_role_permissions(current_user, role_id):
     """Update role permissions in bulk - replaces all permissions for the role"""
     try:
-        # Check if role belongs to user's project
+
         role = Role.query.filter_by(id=role_id, project_id=current_user.project_id).first()
         if not role:
             return jsonify({"error": "Role not found"}), 404
@@ -2030,7 +1873,6 @@ def update_role_permissions(current_user, role_id):
         if not isinstance(permission_ids, list):
             return jsonify({"error": "permission_ids must be a list"}), 400
 
-        # Validate all permissions belong to the project
         permissions = Permission.query.filter(
             Permission.id.in_(permission_ids), Permission.project_id == current_user.project_id
         ).all()
@@ -2041,10 +1883,8 @@ def update_role_permissions(current_user, role_id):
                 400,
             )
 
-        # Remove all existing permissions from role
         RolePermission.query.filter_by(role_id=role_id).delete()
 
-        # Add new permissions
         for permission in permissions:
             role_permission = RolePermission(role_id=role_id, permission_id=permission.id)
             db.session.add(role_permission)
@@ -2064,7 +1904,6 @@ def update_role_permissions(current_user, role_id):
         )
         return jsonify({"error": "Failed to update role permissions"}), 500
 
-
 @rbac_bp.route("/roles/<int:role_id>/permissions/detailed", methods=["GET"])
 @jwt_required()
 @token_required
@@ -2072,7 +1911,7 @@ def update_role_permissions(current_user, role_id):
 def get_role_permissions_detailed(current_user, role_id):
     """Get detailed permissions for a role including allow/deny types"""
     try:
-        # Check if role belongs to user's project
+
         role = Role.query.filter_by(id=role_id, project_id=current_user.project_id).first()
         if not role:
             return jsonify({"error": "Role not found"}), 404
@@ -2094,7 +1933,6 @@ def get_role_permissions_detailed(current_user, role_id):
         )
         return jsonify({"error": "Failed to get role permissions"}), 500
 
-
 @rbac_bp.route("/users/<int:user_id>/permissions/detailed", methods=["GET"])
 @jwt_required()
 @token_required
@@ -2102,22 +1940,20 @@ def get_role_permissions_detailed(current_user, role_id):
 @require_project_isolation
 def get_user_permissions_detailed(user_id, current_user=None):
     """Get detailed permissions for a user including allow/deny types"""
-    # Fallback to get_current_user if not provided by decorator
+
     if current_user is None:
         current_user = get_current_user()
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
-    
+
     try:
-        # Check if user belongs to the same project
+
         target_user = User.query.get(user_id)
         if not target_user or target_user.project_id != current_user.project_id:
             return jsonify({"error": "User not found"}), 404
 
-        # Get user's roles
         user_roles = rbac_service.get_user_roles(user_id)
 
-        # Get detailed permissions for each role
         all_allow_permissions = []
         all_deny_permissions = []
 
@@ -2126,7 +1962,6 @@ def get_user_permissions_detailed(user_id, current_user=None):
             all_allow_permissions.extend(role_permissions["allow"])
             all_deny_permissions.extend(role_permissions["deny"])
 
-        # Remove duplicates and apply deny rules
         allow_set = set()
         deny_set = set()
 
@@ -2136,7 +1971,6 @@ def get_user_permissions_detailed(user_id, current_user=None):
         for perm in all_deny_permissions:
             deny_set.add(perm["name"])
 
-        # Final permissions (allow - deny)
         final_permissions = allow_set - deny_set
 
         return jsonify(
@@ -2159,30 +1993,28 @@ def get_user_permissions_detailed(user_id, current_user=None):
         )
         return jsonify({"error": "Failed to get user permissions"}), 500
 
-
 @rbac_bp.route("/navigation", methods=["GET"])
 @jwt_required()
 @token_required
 def get_navigation_config(current_user):
     """
     Get navigation configuration for the current user based on their role and permissions.
-    
+
     Returns a list of navigation items that the user has access to, with their permission requirements.
     The frontend will add UI metadata (title, icon) based on the href.
-    
+
     This centralizes navigation logic on the server, making it easier to maintain and allowing
     for dynamic navigation based on project settings or feature flags.
     """
     try:
         from ..utils.rbac_utils import RBACManager
-        
+
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
-        
+
         user_role = RBACManager.get_user_role_names(current_user)
         primary_role = user_role[0] if user_role else None
-        
-        # Owner gets static navigation
+
         if primary_role == "owner":
             navigation_items = [
                 {
@@ -2203,7 +2035,7 @@ def get_navigation_config(current_user):
                 }
             ]
         else:
-            # RBAC-based navigation for non-owner roles
+
             navigation_items = [
                 {
                     "href": "/dashboard",
@@ -2242,13 +2074,13 @@ def get_navigation_config(current_user):
                     "permissionPrefix": "logs."
                 }
             ]
-        
+
         return jsonify({
             "success": True,
             "navigation": navigation_items,
             "role": primary_role
         })
-    
+
     except Exception as e:
         logging.error(
             f"RBAC_NAVIGATION_ERROR user_id={current_user.id if current_user else 'unknown'} error={e}"

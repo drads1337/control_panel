@@ -35,4 +35,3 @@ export function GameDatabaseEmptyState({ onCreateGame, canCreateGames }: GameDat
     </Card>
   )
 }
-

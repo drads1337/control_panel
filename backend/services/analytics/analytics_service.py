@@ -19,7 +19,6 @@ from ...models.notifications import Notification
 from ...models.rbac import Role, UserRole
 from ...models.security import BlockedFingerprint, TwoFactorAuth
 
-
 class AnalyticsService:
     """Service for providing comprehensive analytics and insights"""
 
@@ -34,34 +33,26 @@ class AnalyticsService:
     ) -> Dict:
         """Get comprehensive dashboard overview"""
         try:
-            # Validate period
+
             period_days = min(max(period_days, 1), self.max_period_days)
             start_date = datetime.utcnow() - timedelta(days=period_days)
 
-            # Base query filter
             base_filter = []
             if project_id:
                 base_filter.append(Project.id == project_id)
 
-            # Get basic statistics
             stats = self._get_basic_statistics(project_id, start_date)
 
-            # Get sales analytics
             sales_analytics = self._get_sales_analytics(project_id, start_date)
 
-            # Get user analytics
             user_analytics = self._get_user_analytics(project_id, start_date)
 
-            # Get activation geography
             geography_analytics = self._get_geography_analytics(project_id, start_date)
 
-            # Get popular products
             popular_products = self._get_popular_products(project_id, start_date)
 
-            # Get security analytics
             security_analytics = self._get_security_analytics(project_id, start_date)
 
-            # Get system health
             system_health = self._get_system_health(project_id)
 
             return {
@@ -85,29 +76,22 @@ class AnalyticsService:
     def get_system_overview(self, period_days: int = 30) -> Dict:
         """Get comprehensive system-wide overview for owner dashboard"""
         try:
-            # Validate period
+
             period_days = min(max(period_days, 1), self.max_period_days)
             start_date = datetime.utcnow() - timedelta(days=period_days)
 
-            # Get system-wide statistics (no project filtering)
             stats = self._get_system_statistics(start_date)
 
-            # Get system-wide sales analytics
             sales_analytics = self._get_system_sales_analytics(start_date)
 
-            # Get system-wide user analytics
             user_analytics = self._get_system_user_analytics(start_date)
 
-            # Get system-wide geography analytics
             geography_analytics = self._get_system_geography_analytics(start_date)
 
-            # Get system-wide popular products
             popular_products = self._get_system_popular_products(start_date)
 
-            # Get system-wide security analytics
             security_analytics = self._get_system_security_analytics(start_date)
 
-            # Get system health (no project_id needed for system-wide health)
             system_health = self._get_system_health(None)
 
             return {
@@ -130,44 +114,36 @@ class AnalyticsService:
     def _get_basic_statistics(self, project_id: Optional[int], start_date: datetime) -> Dict:
         """Get basic statistics"""
         try:
-            # Total users
+
             user_query = User.query
             if project_id:
                 user_query = user_query.filter(User.project_id == project_id)
             total_users = user_query.count()
 
-            # New users in period
             new_users = user_query.filter(User.created_at >= start_date).count()
 
-            # Total keys
             key_query = Key.query
             if project_id:
                 key_query = key_query.filter(Key.project_id == project_id)
             total_keys = key_query.count()
 
-            # Active keys
             active_keys = key_query.filter(Key.status == 1).count()
 
-            # Total projects
             project_query = Project.query
             if project_id:
                 project_query = project_query.filter(Project.id == project_id)
             total_projects = project_query.count()
 
-            # Active projects
             active_projects = project_query.filter(Project.is_active == True).count()
 
-            # Total games
             game_query = Game.query
             if project_id:
                 game_query = game_query.filter(Game.project_id == project_id)
             total_games = game_query.count()
 
-            # Active games
             active_games = game_query.filter(Game.status == "active").count()
 
-            # Total revenue (if you have revenue tracking)
-            total_revenue = 0  # Implement revenue tracking if needed
+            total_revenue = 0
 
             return {
                 "total_users": total_users,
@@ -189,13 +165,13 @@ class AnalyticsService:
     def _get_sales_analytics(self, project_id: Optional[int], start_date: datetime) -> Dict:
         """Get sales analytics"""
         try:
-            # Daily sales data
+
             daily_sales = []
             current_date = start_date.date()
             end_date = datetime.utcnow().date()
 
             while current_date <= end_date:
-                # Count keys created on this date
+
                 key_query = Key.query.filter(func.date(Key.created_at) == current_date)
                 if project_id:
                     key_query = key_query.filter(Key.project_id == project_id)
@@ -205,13 +181,12 @@ class AnalyticsService:
                     {
                         "date": current_date.isoformat(),
                         "count": daily_count,
-                        "revenue": daily_count * 10,  # Assuming $10 per key
+                        "revenue": daily_count * 10,
                     }
                 )
 
                 current_date += timedelta(days=1)
 
-            # Weekly sales data
             weekly_sales = []
             current_week = start_date.date()
             while current_week <= end_date:
@@ -238,7 +213,6 @@ class AnalyticsService:
 
                 current_week += timedelta(days=7)
 
-            # Top selling games
             top_games = (
                 db.session.query(Game.name, func.count(Key.id).label("key_count"))
                 .join(Key, Game.id == Key.game_id)
@@ -272,7 +246,7 @@ class AnalyticsService:
     def _get_user_analytics(self, project_id: Optional[int], start_date: datetime) -> Dict:
         """Get user analytics"""
         try:
-            # User registration trends
+
             daily_registrations = []
             current_date = start_date.date()
             end_date = datetime.utcnow().date()
@@ -287,7 +261,6 @@ class AnalyticsService:
 
                 current_date += timedelta(days=1)
 
-            # User role distribution using RBAC
             role_query = db.session.query(
                 Role.name, func.count(UserRole.user_id).label("count")
             ).join(UserRole, Role.id == UserRole.role_id)
@@ -297,14 +270,12 @@ class AnalyticsService:
 
             role_distribution = role_query.group_by(Role.name).all()
 
-            # Active users (users with recent activity)
             active_users = User.query.filter(User.last_login >= start_date)
             if project_id:
                 active_users = active_users.filter(User.project_id == project_id)
 
             active_users_count = active_users.count()
 
-            # User retention (users who created keys in the last 30 days)
             retained_users = User.query.filter(
                 User.id.in_(
                     db.session.query(Key.user_id).filter(Key.created_at >= start_date).distinct()
@@ -339,7 +310,7 @@ class AnalyticsService:
     def _get_geography_analytics(self, project_id: Optional[int], start_date: datetime) -> Dict:
         """Get activation geography analytics"""
         try:
-            # Get device info with IP addresses
+
             device_query = DeviceInfo.query.filter(DeviceInfo.connected_at >= start_date)
 
             if project_id:
@@ -347,14 +318,12 @@ class AnalyticsService:
 
             devices = device_query.all()
 
-            # Group by country (you'll need to implement IP to country mapping)
             country_counts = {}
             for device in devices:
-                # This is a simplified version - you should use a proper IP geolocation service
+
                 country = self._get_country_from_ip(device.ip_address)
                 country_counts[country] = country_counts.get(country, 0) + 1
 
-            # Sort by count
             top_countries = sorted(country_counts.items(), key=lambda x: x[1], reverse=True)[:10]
 
             return {
@@ -377,7 +346,7 @@ class AnalyticsService:
     def _get_popular_products(self, project_id: Optional[int], start_date: datetime) -> Dict:
         """Get popular products analytics"""
         try:
-            # Most popular games
+
             popular_games = (
                 db.session.query(
                     Game.name,
@@ -400,7 +369,6 @@ class AnalyticsService:
                 .all()
             )
 
-            # Most active users
             active_users = (
                 db.session.query(User.username, User.id, func.count(Key.id).label("key_count"))
                 .join(Key, User.id == Key.user_id)
@@ -440,7 +408,7 @@ class AnalyticsService:
     def _get_security_analytics(self, project_id: Optional[int], start_date: datetime) -> Dict:
         """Get security analytics"""
         try:
-            # Blocked fingerprints
+
             blocked_fingerprints = BlockedFingerprint.query.filter(
                 BlockedFingerprint.created_at >= start_date
             )
@@ -451,7 +419,6 @@ class AnalyticsService:
 
             blocked_count = blocked_fingerprints.count()
 
-            # Recent security events
             security_events = UserActivity.query.filter(
                 and_(
                     UserActivity.created_at >= start_date,
@@ -467,7 +434,6 @@ class AnalyticsService:
 
             security_events_count = security_events.count()
 
-            # Failed login attempts
             failed_logins = UserActivity.query.filter(
                 and_(
                     UserActivity.created_at >= start_date, UserActivity.action.like("%login_error%")
@@ -494,28 +460,22 @@ class AnalyticsService:
     def _get_system_health(self, project_id: Optional[int] = None) -> Dict:
         """Get system health metrics in format expected by frontend"""
         try:
-            # Database health
+
             db_health = self._check_database_health()
             database_status = "healthy" if db_health.get("status") == "healthy" else "error"
 
-            # Redis health
             redis_health = self._check_redis_health()
             redis_status = "healthy" if redis_health.get("status") == "healthy" else "error"
 
-            # Storage health
             storage_health = self._check_storage_health()
             disk_usage = 100 - storage_health.get("free_percentage", 0)
 
-            # CPU usage
             cpu_usage = self._get_cpu_usage()
 
-            # Memory usage
             memory_usage = self._get_memory_usage()
 
-            # Network status
             network_status = self._check_network_status()
 
-            # Last backup (mock for now - implement actual backup tracking)
             last_backup = datetime.utcnow().isoformat()
 
             return {
@@ -530,7 +490,7 @@ class AnalyticsService:
 
         except Exception as e:
             logging.error(f"ANALYTICS_SYSTEM_HEALTH_ERROR project_id={project_id} error={e}")
-            # Return default values on error
+
             return {
                 "cpu_usage": 0.0,
                 "memory_usage": 0.0,
@@ -546,13 +506,11 @@ class AnalyticsService:
         if total_count == 0:
             return 0.0
 
-        # Simple growth rate calculation
         return round((new_count / total_count) * 100, 2)
 
     def _get_country_from_ip(self, ip_address: str) -> str:
         """Get country from IP address (simplified)"""
-        # This is a simplified version - you should use a proper IP geolocation service
-        # like MaxMind GeoIP2 or similar
+
         try:
             import requests
 
@@ -568,8 +526,7 @@ class AnalyticsService:
         self, blocked_count: int, security_events: int, failed_logins: int
     ) -> int:
         """Calculate security score (0-100)"""
-        # Simple security score calculation
-        # Lower numbers are better
+
         total_issues = blocked_count + security_events + failed_logins
 
         if total_issues == 0:
@@ -586,15 +543,13 @@ class AnalyticsService:
     def _check_database_health(self) -> Dict:
         """Check database health"""
         try:
-            # Test database connection
+
             db.session.execute("SELECT 1")
 
-            # Check response time
             start_time = time.time()
             db.session.execute("SELECT COUNT(*) FROM user")
             response_time = time.time() - start_time
 
-            # Calculate score based on response time
             if response_time < 0.1:
                 score = 100
             elif response_time < 0.5:
@@ -607,7 +562,7 @@ class AnalyticsService:
             return {
                 "status": "healthy",
                 "score": score,
-                "response_time": round(response_time * 1000, 2),  # Convert to ms
+                "response_time": round(response_time * 1000, 2),
                 "message": "Database connection successful",
             }
 
@@ -637,12 +592,10 @@ class AnalyticsService:
                 socket_timeout=2,
             )
 
-            # Test Redis connection
             start_time = time.time()
             client.ping()
             response_time = time.time() - start_time
 
-            # Calculate score based on response time
             if response_time < 0.01:
                 score = 100
             elif response_time < 0.05:
@@ -655,7 +608,7 @@ class AnalyticsService:
             return {
                 "status": "healthy",
                 "score": score,
-                "response_time": round(response_time * 1000, 2),  # Convert to ms
+                "response_time": round(response_time * 1000, 2),
                 "message": "Redis connection successful",
             }
 
@@ -673,11 +626,9 @@ class AnalyticsService:
             import os
             import shutil
 
-            # Check available disk space
             total, used, free = shutil.disk_usage("/")
             free_percentage = (free / total) * 100
 
-            # Calculate score based on free space
             if free_percentage > 20:
                 score = 100
             elif free_percentage > 10:
@@ -711,9 +662,9 @@ class AnalyticsService:
 
             return psutil.cpu_percent(interval=0.1)
         except ImportError:
-            # Fallback: try using /proc/stat on Linux (requires two snapshots)
+
             try:
-                # First snapshot
+
                 with open("/proc/stat", "r") as f:
                     line1 = f.readline()
                     if line1.startswith("cpu "):
@@ -721,10 +672,8 @@ class AnalyticsService:
                         total1 = sum(int(f) for f in fields1[1:])
                         idle1 = int(fields1[4])
 
-                # Wait a bit
                 time.sleep(0.1)
 
-                # Second snapshot
                 with open("/proc/stat", "r") as f:
                     line2 = f.readline()
                     if line2.startswith("cpu "):
@@ -732,7 +681,6 @@ class AnalyticsService:
                         total2 = sum(int(f) for f in fields2[1:])
                         idle2 = int(fields2[4])
 
-                        # Calculate usage
                         total_delta = total2 - total1
                         idle_delta = idle2 - idle1
                         if total_delta > 0:
@@ -740,8 +688,8 @@ class AnalyticsService:
                             return max(0.0, min(100.0, usage))
             except (IOError, ValueError, IndexError, AttributeError):
                 pass
-            # Return a default value if we can't get CPU usage
-            return 25.0  # Default reasonable value
+
+            return 25.0
 
     def _get_memory_usage(self) -> float:
         """Get memory usage percentage"""
@@ -750,7 +698,7 @@ class AnalyticsService:
 
             return psutil.virtual_memory().percent
         except ImportError:
-            # Fallback: try using /proc/meminfo on Linux
+
             try:
                 with open("/proc/meminfo", "r") as f:
                     meminfo = {}
@@ -768,27 +716,26 @@ class AnalyticsService:
                         return max(0.0, min(100.0, usage))
             except (IOError, ValueError, KeyError):
                 pass
-            # Return a default value if we can't get memory usage
-            return 45.0  # Default reasonable value
+
+            return 45.0
 
     def _check_network_status(self) -> str:
         """Check network connectivity status"""
         try:
             import socket
 
-            # Try to connect to a reliable external DNS service (Google DNS)
             socket.setdefaulttimeout(2)
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.connect(("8.8.8.8", 53))
             sock.close()
             return "online"
         except (socket.error, OSError):
-            # If external check fails, try to resolve a hostname
+
             try:
                 socket.gethostbyname("google.com")
                 return "online"
             except (socket.gaierror, OSError):
-                # If DNS resolution fails, assume network is available if we can bind
+
                 try:
                     test_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                     test_sock.bind(("127.0.0.1", 0))
@@ -800,8 +747,7 @@ class AnalyticsService:
     def _get_system_statistics(self, start_date: datetime) -> Dict:
         """Get system-wide statistics (no project filtering)"""
         try:
-            # Use injected logger instead of current_app
-            # Total users across all projects
+
             total_users = User.query.count()
             active_users = User.query.filter(User.last_login >= start_date).count()
             new_today = User.query.filter(User.created_at >= datetime.utcnow().date()).count()
@@ -812,7 +758,6 @@ class AnalyticsService:
                 User.created_at >= datetime.utcnow() - timedelta(days=30)
             ).count()
 
-            # Total keys across all projects
             total_keys = Key.query.count()
             active_keys = Key.query.filter(
                 Key.status == 1, Key.expires_at > datetime.utcnow()
@@ -821,24 +766,19 @@ class AnalyticsService:
                 Key.status == 1, Key.expires_at <= datetime.utcnow()
             ).count()
 
-            # Total projects
             total_projects = Project.query.count()
             active_projects = Project.query.filter(Project.is_active == True).count()
 
-            # Total games across all projects
             total_games = Game.query.count()
             active_games = Game.query.filter(Game.status == "active").count()
 
-            # Total servers across all projects
             from ...models.servers import Server
 
             total_servers = Server.query.count()
             online_servers = Server.query.filter(Server.status == "online").count()
 
-            # System uptime (mock data - implement actual system monitoring)
             system_uptime = 99.9
 
-            # Revenue (mock data - implement actual revenue tracking)
             total_revenue = 0
             monthly_revenue = 0
 
@@ -864,21 +804,18 @@ class AnalyticsService:
     def _get_project_analytics(self) -> List[Dict]:
         """Get analytics for all projects"""
         try:
-            # Use injected logger instead of current_app
+
             projects = Project.query.all()
             project_analytics = []
 
             for project in projects:
-                # Count users in this project
+
                 users_count = User.query.filter(User.project_id == project.id).count()
 
-                # Count keys in this project
                 keys_count = Key.query.filter(Key.project_id == project.id).count()
 
-                # Count games in this project
                 games_count = Game.query.filter(Game.project_id == project.id).count()
 
-                # Count servers in this project
                 from ...models.servers import Server
 
                 servers_count = Server.query.filter(Server.project_id == project.id).count()
@@ -915,7 +852,7 @@ class AnalyticsService:
             from sqlalchemy import func
 
             with current_app.app_context():
-                # Users by role
+
                 role_stats = (
                     db.session.query(Role.name, func.count(UserRole.user_id))
                     .join(UserRole, Role.id == UserRole.role_id)
@@ -924,27 +861,24 @@ class AnalyticsService:
                 )
                 by_role = [{"role": role, "count": count} for role, count in role_stats]
 
-                # Users by status (using RBAC roles, not static roles)
-                # SECURITY: Never use User.is_admin - use RBAC roles only
                 admin_roles = ["admin", "owner"]
                 admin_role_ids = db.session.query(Role.id).filter(
                     Role.name.in_(admin_roles)
                 ).subquery()
-                
+
                 admin_user_ids = db.session.query(func.distinct(UserRole.user_id)).filter(
                     UserRole.role_id.in_(admin_role_ids)
                 ).subquery()
-                
+
                 admin_count = db.session.query(func.count()).select_from(admin_user_ids).scalar() or 0
                 total_users = User.query.count()
                 regular_count = max(0, total_users - admin_count)
-                
+
                 by_status = [
                     {"status": "admin", "count": admin_count},
                     {"status": "user", "count": regular_count}
                 ]
 
-                # New users
                 new_today = User.query.filter(User.created_at >= datetime.utcnow().date()).count()
                 new_week = User.query.filter(
                     User.created_at >= datetime.utcnow() - timedelta(days=7)
@@ -968,14 +902,14 @@ class AnalyticsService:
     def _get_system_sales_analytics(self, start_date: datetime) -> Dict:
         """
         Get system-wide sales analytics.
-        
+
         NOTE: This is a placeholder implementation that returns zero revenue.
         To implement actual revenue tracking, you need to:
         1. Create a revenue/payment tracking model in the database
         2. Store transaction records with amounts and timestamps
         3. Query and aggregate revenue data by date/project
         4. Replace the zero values below with actual revenue calculations
-        
+
         Until revenue tracking is implemented, this method returns empty data structures
         with zero values to maintain API compatibility.
         """
@@ -984,36 +918,30 @@ class AnalyticsService:
             monthly_revenue = []
             by_project = []
 
-            # Generate data structure for the last 30 days
-            # TODO: Replace with actual revenue queries from payment/transaction records
             for i in range(30):
                 date = start_date + timedelta(days=i)
                 daily_revenue.append(
                     {
                         "date": date.strftime("%Y-%m-%d"),
-                        "revenue": 0,  # TODO: Query actual revenue from payment records
+                        "revenue": 0,
                     }
                 )
 
-            # Generate data structure for monthly data
-            # TODO: Replace with actual revenue aggregation from payment records
             for i in range(12):
                 month = datetime.utcnow() - timedelta(days=30 * i)
                 monthly_revenue.append(
                     {
                         "month": month.strftime("%Y-%m"),
-                        "revenue": 0,  # TODO: Aggregate actual revenue from payment records
+                        "revenue": 0,
                     }
                 )
 
-            # Project revenue breakdown
-            # TODO: Replace with actual revenue aggregation grouped by project
             projects = Project.query.all()
             for project in projects:
                 by_project.append(
                     {
                         "project": project.name,
-                        "revenue": 0  # TODO: Calculate actual revenue per project from payment records
+                        "revenue": 0
                     }
                 )
 
@@ -1026,7 +954,7 @@ class AnalyticsService:
     def _get_system_geography_analytics(self, start_date: datetime) -> Dict:
         """Get system-wide geography analytics (mock data)"""
         try:
-            # Mock geography data - implement actual IP geolocation
+
             return {"top_countries": [], "top_cities": [], "total_countries": 0}
 
         except Exception as e:
@@ -1040,7 +968,7 @@ class AnalyticsService:
             from sqlalchemy import func
 
             with current_app.app_context():
-                # Get games with most keys across all projects
+
                 popular_games = (
                     db.session.query(Game.name, func.count(Key.id).label("key_count"))
                     .join(Key, Game.id == Key.game_id)
@@ -1059,8 +987,7 @@ class AnalyticsService:
     def _get_system_security_analytics(self, start_date: datetime) -> Dict:
         """Get system-wide security analytics"""
         try:
-            # Use injected logger instead of current_app
-            # Mock security data - implement actual security monitoring
+
             return {
                 "failed_logins": 0,
                 "blocked_ips": 0,
@@ -1075,6 +1002,4 @@ class AnalyticsService:
             logging.error(f"ANALYTICS_SYSTEM_SECURITY_ANALYTICS_ERROR error={e}")
             return {}
 
-
-# Global instance
 analytics_service = AnalyticsService()

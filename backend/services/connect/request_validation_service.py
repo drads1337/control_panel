@@ -9,14 +9,13 @@ from typing import Any, Dict, Tuple
 
 logger = logging.getLogger(__name__)
 
-
 class RequestValidationService:
     """Handles request data validation"""
 
     def validate_request_data(self, data: Dict[str, Any]) -> Tuple[bool, str]:
         """
         Validate required fields in request data.
-        
+
         Supports both obfuscated field names (for backward compatibility) and normal field names.
 
         Args:
@@ -25,8 +24,7 @@ class RequestValidationService:
         Returns:
             Tuple of (is_valid, error_message)
         """
-        # Map obfuscated field names to actual field names (for backward compatibility)
-        # Note: Obfuscation does not provide real security, but is kept for compatibility
+
         field_mapping = {
             "a": "user_key",
             "b": "challenge_response",
@@ -35,8 +33,7 @@ class RequestValidationService:
             "e": "game",
             "f": "serial",
         }
-        
-        # Normal field names (preferred)
+
         normal_fields = {
             "user_key": "user_key",
             "challenge_response": "challenge_response",
@@ -45,17 +42,16 @@ class RequestValidationService:
             "game": "game",
             "serial": "serial",
         }
-        
-        # Check if using normal field names
+
         using_normal_fields = any(field in data for field in normal_fields.keys())
-        
+
         if using_normal_fields:
-            # Validate normal field names
+
             for field_name in normal_fields.keys():
                 if field_name not in data or not isinstance(data[field_name], str):
                     return False, f"Missing or invalid field: {field_name}"
         else:
-            # Validate obfuscated field names (backward compatibility)
+
             for obfuscated_field, actual_field in field_mapping.items():
                 if obfuscated_field not in data or not isinstance(data[obfuscated_field], str):
                     return False, f"Missing or invalid field: {actual_field}"
@@ -72,7 +68,7 @@ class RequestValidationService:
         Returns:
             Dictionary with normalized field names
         """
-        # Support both obfuscated and normal field names
+
         result = {
             "user_key": data.get("user_key") or data.get("a"),
             "challenge_response": data.get("challenge_response") or data.get("b"),
@@ -101,7 +97,6 @@ class RequestValidationService:
         if not user_key or not isinstance(user_key, str):
             return False, "Invalid user key format"
 
-        # Check for corrupted user_key
         if any(
             indicator in user_key.lower()
             for indicator in ["error", "exception", "traceback", "null}", "timestamp", "level"]
@@ -109,4 +104,3 @@ class RequestValidationService:
             return False, "Invalid user key data"
 
         return True, ""
-

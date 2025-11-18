@@ -13,7 +13,6 @@ from ...models.notifications import Notification
 from ...utils.rbac_utils import RBACManager
 from ...utils.structured_logging import get_logger
 
-
 class NotificationService:
     """Service for handling notification operations"""
 
@@ -42,7 +41,7 @@ class NotificationService:
             Tuple of (Notification object or None, error message or None)
         """
         try:
-            # Validate target user if provided
+
             if target_user_id:
                 target_user = User.query.filter_by(
                     id=target_user_id, project_id=user.project_id
@@ -97,7 +96,7 @@ class NotificationService:
             Tuple of (notifications_created, notification_ids, error_message)
         """
         try:
-            # Verify all target users exist and belong to the same project
+
             target_user_objects = User.query.filter(
                 User.id.in_(target_user_ids), User.project_id == user.project_id
             ).all()
@@ -105,7 +104,6 @@ class NotificationService:
             if len(target_user_objects) != len(target_user_ids):
                 return 0, [], "One or more target users not found or do not belong to this project"
 
-            # Filter out admin and owner users - they should not receive notifications
             workers_only = [
                 target_user
                 for target_user in target_user_objects
@@ -119,7 +117,6 @@ class NotificationService:
                     "No workers found to send notifications to. Admin and owner users are excluded.",
                 )
 
-            # Format message with title if provided
             if title:
                 formatted_message = f"{title}: {message}"
             else:
@@ -141,7 +138,7 @@ class NotificationService:
                     created_at=datetime.utcnow(),
                 )
                 db.session.add(notification)
-                db.session.flush()  # Flush to get the notification ID
+                db.session.flush()
                 notification_ids.append(notification.id)
                 notifications_created += 1
 
@@ -179,9 +176,8 @@ class NotificationService:
             if not notification:
                 return False, "Notification not found"
 
-            # Check if user has access to this notification
             if notification.user_id and notification.user_id != user.id:
-                # Check if user has permission to view all notifications
+
                 from ...services.rbac import rbac_service
 
                 can_view_all = rbac_service.check_permission(
@@ -218,7 +214,6 @@ class NotificationService:
         try:
             from sqlalchemy import text
 
-            # Check if notification exists and is not already deleted
             result = db.session.execute(
                 text("SELECT is_deleted, project_id, user_id FROM notification WHERE id = :notification_id"),
                 {"notification_id": notification_id},
@@ -232,13 +227,11 @@ class NotificationService:
             if is_deleted:
                 return True, "Notification already deleted"
 
-            # Check project access
             if project_id != user.project_id:
                 return False, "Access denied"
 
-            # Check if user has access to this notification
             if notification_user_id and notification_user_id != user.id:
-                # Check if user has permission to delete all notifications
+
                 from ...services.rbac import rbac_service
 
                 can_delete_all = rbac_service.check_permission(
@@ -248,7 +241,6 @@ class NotificationService:
                 if not can_delete_all:
                     return False, "Access denied"
 
-            # Soft delete using parameterized query
             db.session.execute(
                 text(
                     "UPDATE notification SET is_deleted = :is_deleted, deleted_at = :deleted_at WHERE id = :notification_id"
@@ -305,7 +297,4 @@ class NotificationService:
             self.logger.error(f"Error cleaning up notifications: {str(e)}")
             return 0, f"Failed to cleanup notifications: {str(e)}"
 
-
-# Create service instance
 notification_service = NotificationService()
-

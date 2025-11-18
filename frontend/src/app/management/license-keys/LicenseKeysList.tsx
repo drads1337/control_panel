@@ -28,7 +28,7 @@ interface LicenseKeysListProps {
   keys: LicenseKey[];
   loading: boolean;
   showKey: Record<number, boolean>;
-  fullKeys: Record<number, string>; // Full keys cache
+  fullKeys: Record<number, string>;
   selectedKeys: Set<number>;
   actionLoading: Set<number>;
   pagination: {
@@ -86,51 +86,45 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
 }) => {
   const allSelected = keys.length > 0 && keys.every(key => selectedKeys.has(key.id));
   const someSelected = keys.some(key => selectedKeys.has(key.id));
-  
-  // Virtualization setup - only enable if we have many keys on the page
+
   const parentRef = useRef<HTMLDivElement>(null);
   const scrollPositionRef = useRef<number>(0);
-  const shouldVirtualize = keys.length > 50; // Only virtualize if more than 50 items on current page
-  
+  const shouldVirtualize = keys.length > 50;
+
   const rowVirtualizer = useVirtualizer({
     count: shouldVirtualize ? keys.length : 0,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 73, // Estimated row height in pixels
-    overscan: 5, // Render 5 extra items outside visible area
+    estimateSize: () => 73,
+    overscan: 5,
     enabled: shouldVirtualize,
   });
 
-  // Save scroll position before page change
   const handlePageChange = (page: number) => {
     scrollPositionRef.current = window.scrollY || document.documentElement.scrollTop;
     onPageChange(page);
   };
 
-  // Restore scroll position after data loads
   useLayoutEffect(() => {
     if (!loading && scrollPositionRef.current > 0) {
-      // Restore scroll position synchronously before browser paint
+
       window.scrollTo({
         top: scrollPositionRef.current,
         behavior: 'instant' as ScrollBehavior,
       });
-      scrollPositionRef.current = 0; // Reset after restoring
+      scrollPositionRef.current = 0;
     }
   }, [loading, pagination.page]);
-  
-  // Check if a key belongs to the current user
+
   const isOwnKey = (key: LicenseKey) => {
     return key.user_id === currentUserId;
   };
-  
-  // Check if user can perform action on a key
+
   const canPerformAction = (key: LicenseKey, actionPermission: boolean) => {
     if (!actionPermission) return false;
     if (isOwnKey(key)) return true;
-    return canManage; // Can only manage other users' keys if has manage permission
+    return canManage;
   };
-  
-  // Convert numeric status to StatusType
+
   const getStatusType = (status: number): StatusType => {
     switch (status) {
       case KEY_STATUS.BLOCKED:
@@ -140,7 +134,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
       case KEY_STATUS.EXPIRED:
         return 'expired';
       case KEY_STATUS.PAUSED:
-        return 'inactive'; // PAUSED
+        return 'inactive';
       default:
         return 'inactive';
     }
@@ -171,7 +165,6 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
     );
   }
 
-  // Memoized Key Row Component
   const KeyRow = React.memo<{
     keyData: LicenseKey;
     isSelected: boolean;
@@ -301,7 +294,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
               <TooltipContent>View Details</TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          
+
           <ConditionalRender permission="keys.edit" fallback={null}>
           <TooltipProvider>
             <Tooltip>
@@ -314,7 +307,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                 </Tooltip>
               </TooltipProvider>
               </ConditionalRender>
-              
+
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -325,7 +318,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                   <TooltipContent>Copy to clipboard</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-              
+
               <ConditionalRender permission="keys.pause_resume" fallback={null}>
               {keyData.status === KEY_STATUS.ACTIVE ? (
                 <TooltipProvider>
@@ -373,7 +366,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                 </TooltipProvider>
               ) : null}
               </ConditionalRender>
-              
+
               <ConditionalRender permission="keys.extend" fallback={null}>
               <TooltipProvider>
                 <Tooltip>
@@ -386,7 +379,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                 </Tooltip>
               </TooltipProvider>
               </ConditionalRender>
-              
+
               <ConditionalRender permission="keys.reset_pc_binding" fallback={null}>
               <TooltipProvider>
                 <Tooltip>
@@ -399,7 +392,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                 </Tooltip>
               </TooltipProvider>
               </ConditionalRender>
-              
+
               <ConditionalRender permission="keys.block" fallback={null}>
               {keyData.status === KEY_STATUS.BLOCKED ? (
                 <TooltipProvider>
@@ -447,7 +440,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                 </TooltipProvider>
               ) : null}
               </ConditionalRender>
-              
+
               <ConditionalRender permission="keys.delete" fallback={null}>
               <TooltipProvider>
                 <Tooltip>
@@ -467,7 +460,6 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
 
   KeyRow.displayName = 'KeyRow';
 
-  // Render key row cells (kept for backward compatibility, but KeyRow is now used)
   const renderKeyRowCells = (key: LicenseKey) => (
     <>
       <TableCell>
@@ -559,7 +551,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
               <TooltipContent>View Details</TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          
+
           <ConditionalRender permission="keys.edit" fallback={null}>
           <TooltipProvider>
             <Tooltip>
@@ -572,7 +564,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                 </Tooltip>
               </TooltipProvider>
               </ConditionalRender>
-              
+
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -583,7 +575,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                   <TooltipContent>Copy to clipboard</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-              
+
               <ConditionalRender permission="keys.pause_resume" fallback={null}>
               {key.status === KEY_STATUS.ACTIVE ? (
                 <TooltipProvider>
@@ -631,7 +623,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                 </TooltipProvider>
               ) : null}
               </ConditionalRender>
-              
+
               <ConditionalRender permission="keys.extend" fallback={null}>
               <TooltipProvider>
                 <Tooltip>
@@ -644,7 +636,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                 </Tooltip>
               </TooltipProvider>
               </ConditionalRender>
-              
+
               <ConditionalRender permission="keys.reset_pc_binding" fallback={null}>
               <TooltipProvider>
                 <Tooltip>
@@ -657,7 +649,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                 </Tooltip>
               </TooltipProvider>
               </ConditionalRender>
-              
+
               <ConditionalRender permission="keys.block" fallback={null}>
               {key.status === KEY_STATUS.BLOCKED ? (
                 <TooltipProvider>
@@ -705,7 +697,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                 </TooltipProvider>
               ) : null}
               </ConditionalRender>
-              
+
               <ConditionalRender permission="keys.delete" fallback={null}>
               <TooltipProvider>
                 <Tooltip>
@@ -725,7 +717,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* My/All Tabs - only show if user has keys.view permission */}
+      {}
       <ConditionalRender permission="keys.view" fallback={null}>
         <div className="flex justify-end">
           <Tabs value={viewMode} onValueChange={(value) => onViewModeChange?.(value as 'my' | 'all')}>
@@ -736,7 +728,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
           </Tabs>
         </div>
       </ConditionalRender>
-      
+
       <div className="rounded-md border">
         <Table style={{ tableLayout: 'fixed' }}>
           <colgroup>
@@ -770,7 +762,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
             </TableRow>
           </TableHeader>
         </Table>
-        {/* Virtualized table body - only if many keys */}
+        {}
         {shouldVirtualize ? (
           <div
             ref={parentRef}
@@ -873,7 +865,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
         )}
       </div>
 
-      {/* Pagination */}
+      {}
       {pagination.pages > 1 && (
         <div className="flex items-center justify-between mt-4">
           <div className="text-sm text-muted-foreground whitespace-nowrap">Showing {((pagination.page - 1) * pagination.perPage) + 1} to {Math.min(pagination.page * pagination.perPage, pagination.total)} of {pagination.total} keys</div>
@@ -895,25 +887,25 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                   className={pagination.page === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
                 />
               </PaginationItem>
-              
-              {/* Page numbers */}
+
+              {}
               {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
                 let pageNum: number;
-                
+
                 if (pagination.pages <= 5) {
-                  // Show all pages if 5 or fewer
+
                   pageNum = i + 1;
                 } else if (pagination.page <= 3) {
-                  // Show first 5 pages
+
                   pageNum = i + 1;
                 } else if (pagination.page >= pagination.pages - 2) {
-                  // Show last 5 pages
+
                   pageNum = pagination.pages - 4 + i;
                 } else {
-                  // Show pages around current page
+
                   pageNum = pagination.page - 2 + i;
                 }
-                
+
                 return (
                   <PaginationItem key={pageNum}>
                     <PaginationLink
@@ -934,13 +926,13 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                   </PaginationItem>
                 );
               })}
-              
+
               {pagination.pages > 5 && pagination.page < pagination.pages - 2 && (
                 <PaginationItem>
                   <PaginationEllipsis />
                 </PaginationItem>
               )}
-              
+
               <PaginationItem>
                 <PaginationNext
                   href="#"

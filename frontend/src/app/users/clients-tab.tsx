@@ -9,7 +9,6 @@ import { RefreshCw, UserCheck, Edit, Trash2 } from 'lucide-react';
 import { getStatusClasses } from '@/lib/status-utils';
 import { useClientsQuery } from '@/hooks/use-clients-query';
 
-// Memoized Client Item Component
 const ClientItem = React.memo(({
   client,
   loading,
@@ -97,11 +96,9 @@ const ClientsTab: React.FC = () => {
     if (confirm('Are you sure you want to delete this client?')) {
       try {
         await deleteClient(clientId)
-        // Кэш автоматически инвалидируется через useMutationWithCache
-        // и данные автоматически обновляются через React Query
+
       } catch (error) {
-        // Ошибка обрабатывается в useMutationWithCache через toast
-        console.error('Failed to delete client:', error)
+
       }
     }
   }, [deleteClient])
@@ -176,4 +173,3 @@ const ClientsTab: React.FC = () => {
 };
 
 export default ClientsTab;
-

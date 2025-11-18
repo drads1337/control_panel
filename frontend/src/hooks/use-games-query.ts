@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query'
 import { getGames, getGamesAvailableForAssignment } from '@/entities/game'
 import type { Game } from '@/entities/game'
 
-// Cache keys for games
 export const gameKeys = {
   all: ['games'] as const,
   lists: () => [...gameKeys.all, 'list'] as const,
@@ -30,9 +29,6 @@ interface UseGamesAvailableForAssignmentReturn {
   refetch: () => void
 }
 
-/**
- * Hook for fetching all games with optional type filter
- */
 export function useGamesQuery(type: string = 'all'): UseGamesQueryReturn {
   const {
     data: gamesData,
@@ -45,18 +41,18 @@ export function useGamesQuery(type: string = 'all'): UseGamesQueryReturn {
       const response = await getGames(type)
       return response
     },
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 2 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
     retry: (failureCount, error: any) => {
-      // Don't retry on auth errors
+
       if (error?.response?.status === 401 || error?.response?.status === 403) {
         return false
       }
-      // Don't retry on payment required
+
       if (error?.response?.status === 402) {
         return false
       }
-      // Don't retry on rate limit errors
+
       if (error?.response?.status === 429) {
         return false
       }
@@ -66,7 +62,6 @@ export function useGamesQuery(type: string = 'all'): UseGamesQueryReturn {
     refetchOnReconnect: true,
   })
 
-  // Convert error to string
   const errorMessage = error
     ? (error as any)?.response?.data?.message ||
       (error as any)?.message ||
@@ -81,9 +76,6 @@ export function useGamesQuery(type: string = 'all'): UseGamesQueryReturn {
   }
 }
 
-/**
- * Hook for fetching games available for assignment (paginated)
- */
 export function useGamesAvailableForAssignment(
   page: number = 1,
   perPage: number = 50
@@ -99,8 +91,8 @@ export function useGamesAvailableForAssignment(
       const response = await getGamesAvailableForAssignment(page, perPage)
       return response
     },
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 2 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
     retry: (failureCount, error: any) => {
       if (error?.response?.status === 401 || error?.response?.status === 403) {
         return false
@@ -117,7 +109,6 @@ export function useGamesAvailableForAssignment(
     refetchOnReconnect: true,
   })
 
-  // Convert error to string
   const errorMessage = error
     ? (error as any)?.response?.data?.message ||
       (error as any)?.message ||
@@ -135,4 +126,3 @@ export function useGamesAvailableForAssignment(
     refetch,
   }
 }
-

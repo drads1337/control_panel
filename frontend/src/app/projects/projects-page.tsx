@@ -24,49 +24,32 @@ export default function Projects() {
     deleteProject: handleDeleteProject,
     refetch
   } = useProjectsQuery()
-  
-  // Wrapper for clearError (react-query handles errors internally)
+
   const clearError = () => {
-    // React Query handles errors internally, but we can refetch to clear stale errors
+
     refetch()
   }
-  
-  // Component state logging
+
   useEffect(() => {
-    console.log('[COMPONENT] Projects component mounted')
-    console.log('[COMPONENT] User:', user ? { 
-      id: user.id, 
-      username: user.username, 
-      roles: user.roles,
-      project_id: user.project_id 
-    } : 'null')
+
   }, [user])
-  
+
   useEffect(() => {
-    console.log('[COMPONENT] Projects state changed:', {
-      projectsCount: projects.length,
-      projects: projects.map(p => ({ id: p.id, name: p.name })),
+    ),
       isLoading,
       error,
       pagination
     })
   }, [projects, isLoading, error, pagination])
-  
+
   useEffect(() => {
-    console.log('[COMPONENT] Render conditions:', {
-      isLoading,
-      hasProjects: projects.length > 0,
-      hasError: !!error,
-      showEmptyState: !isLoading && projects.length === 0 && !error,
-      showProjectsGrid: !isLoading && projects.length > 0
-    })
+
   }, [isLoading, projects.length, error])
-  
+
   const [isCreating, setIsCreating] = useState(false)
   const [activeTab, setActiveTab] = useState<'projects' | 'project-codes'>('projects')
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
   const [isManagementDialogOpen, setIsManagementDialogOpen] = useState(false)
-
 
   const handleCreateProjectWrapper = useCallback(async (data: any) => {
     setIsCreating(true)
@@ -78,8 +61,7 @@ export default function Projects() {
   }, [handleCreateProject])
 
   const handleProjectClick = useCallback((projectId: number) => {
-    // You can add navigation to the project detail page here
-    console.log('Project clicked:', projectId)
+
   }, [])
 
   const handleManageProject = useCallback((project: Project) => {
@@ -101,7 +83,7 @@ export default function Projects() {
           break
       }
     } catch (error) {
-      console.error('Failed to perform quick action:', error)
+
     }
   }, [handleUpdateProject])
 
@@ -111,7 +93,7 @@ export default function Projects() {
       setIsManagementDialogOpen(false)
       setSelectedProject(null)
     } catch (error) {
-      console.error('Failed to update project:', error)
+
       throw error
     }
   }, [handleUpdateProject])
@@ -122,17 +104,17 @@ export default function Projects() {
       setIsManagementDialogOpen(false)
       setSelectedProject(null)
     } catch (error) {
-      console.error('Failed to delete project:', error)
+
       throw error
     }
   }, [handleDeleteProject])
 
   return (
     <div className="space-y-6">
-      {/* Error Alert */}
+      {}
       {error && (
         <>
-          {console.error('[COMPONENT] Rendering error alert:', error)}
+          {}
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
             <div className="flex items-center">
               <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
@@ -150,20 +132,20 @@ export default function Projects() {
         </>
       )}
 
-      {/* Navigation and Tabs */}
+      {}
       <ProjectsNavigation 
         activeTab={activeTab}
         onTabChange={setActiveTab}
       />
 
-      {/* Content based on active tab */}
+      {}
       {activeTab === 'projects' ? (
         <>
 
-          {/* Loading State */}
+          {}
           {isLoading && (
             <>
-              {console.log('[COMPONENT] Rendering loading state')}
+              {}
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary mr-3" />
                 <span className="text-muted-foreground">Loading projects...</span>
@@ -171,15 +153,15 @@ export default function Projects() {
             </>
           )}
 
-          {/* Projects Grid */}
+          {}
           {!isLoading && projects.length > 0 && (
             <>
-              {console.log('[COMPONENT] Rendering projects grid with', projects.length, 'projects')}
+              {}
               <div 
                 className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
               >
                 {projects.map((project) => {
-                  console.log('[COMPONENT] Rendering project card:', project.id, project.name)
+
                   return (
                     <ProjectCard
                       key={project.id}
@@ -191,8 +173,8 @@ export default function Projects() {
                   )
                 })}
               </div>
-              
-              {/* Pagination */}
+
+              {}
               <Pagination
                 currentPage={pagination.currentPage}
                 totalPages={pagination.pages}
@@ -201,15 +183,10 @@ export default function Projects() {
             </>
           )}
 
-          {/* Empty State */}
+          {}
           {!isLoading && projects.length === 0 && !error && (
             <>
-              {console.warn('[COMPONENT] Rendering empty state - no projects found!', {
-                isLoading,
-                projectsLength: projects.length,
-                error,
-                pagination
-              })}
+              {}
               <div className="text-center py-12">
                 <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
                   <Search className="h-8 w-8 text-muted-foreground" />
@@ -227,11 +204,11 @@ export default function Projects() {
           )}
         </>
       ) : (
-        /* Project Codes Tab */
+
         <ProjectInviteCodeManager />
       )}
 
-      {/* Project Management Dialog */}
+      {}
       <ProjectManagementDialog
         project={selectedProject}
         isOpen={isManagementDialogOpen}

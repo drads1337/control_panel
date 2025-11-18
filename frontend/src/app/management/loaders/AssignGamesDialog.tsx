@@ -8,7 +8,6 @@ import { Label } from '@/components/ui/label';
 import { type Loader } from '@/entities/loader';
 import { getGames, getGamesAvailableForAssignment, type Game } from '@/entities/game';
 
-// Common game item component to avoid duplication
 const GameItem = React.memo<{
   game: Game;
   isSelected: boolean;
@@ -46,7 +45,6 @@ const GameItem = React.memo<{
   );
 });
 
-// Common section header component
 const SectionHeader: React.FC<{
   title: string;
   count: number;
@@ -106,11 +104,11 @@ const AssignGamesDialog: React.FC<AssignGamesDialogProps> = ({
   const loadAvailableGames = async () => {
     setLoading(true);
     try {
-      // Use optimized endpoint that only returns unassigned multi-app games
-      const response = await getGamesAvailableForAssignment(1, 100); // Load up to 100 games
+
+      const response = await getGamesAvailableForAssignment(1, 100);
       setAvailableGames(response.games || []);
     } catch (error) {
-      console.error('[AssignGamesDialog] Failed to load available games:', error);
+
       setAvailableGames([]);
     } finally {
       setLoading(false);
@@ -124,7 +122,7 @@ const AssignGamesDialog: React.FC<AssignGamesDialogProps> = ({
     }
 
     try {
-      // Only load games that are assigned to this loader
+
       const response = await getGames('all');
       const allGames = response.games || [];
       const assigned = allGames.filter(game => 
@@ -132,11 +130,10 @@ const AssignGamesDialog: React.FC<AssignGamesDialogProps> = ({
       );
       setAssignedGames(assigned);
     } catch (error) {
-      console.error('[AssignGamesDialog] Failed to load assigned games:', error);
+
       setAssignedGames([]);
     }
   };
-
 
   const handleGameToggle = (gameId: number) => {
     setSelectedGames(prev =>
@@ -170,7 +167,6 @@ const AssignGamesDialog: React.FC<AssignGamesDialogProps> = ({
     }
   };
 
-
   const handleAssign = async () => {
     if (!loader || selectedGames.length === 0) return;
 
@@ -180,7 +176,7 @@ const AssignGamesDialog: React.FC<AssignGamesDialogProps> = ({
       setSelectedGames([]);
       onOpenChange(false);
     } catch (error) {
-      console.error('Failed to assign games:', error);
+
     } finally {
       setAssigning(false);
     }
@@ -195,7 +191,7 @@ const AssignGamesDialog: React.FC<AssignGamesDialogProps> = ({
       setSelectedAssignedGames([]);
       onOpenChange(false);
     } catch (error) {
-      console.error('Failed to unassign games:', error);
+
     } finally {
       setUnassigning(false);
     }
@@ -218,7 +214,7 @@ const AssignGamesDialog: React.FC<AssignGamesDialogProps> = ({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Assigned Games Section */}
+          {}
           {assignedGames.length > 0 && (
             <div className="space-y-3">
               <SectionHeader
@@ -248,7 +244,7 @@ const AssignGamesDialog: React.FC<AssignGamesDialogProps> = ({
             </div>
           )}
 
-          {/* Available Games Section */}
+          {}
           <div className="space-y-3">
             <SectionHeader
               title="Assign Available"

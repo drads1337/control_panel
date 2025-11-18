@@ -31,7 +31,7 @@ export default function Profile() {
       <ProfileHeader />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Profile Card */}
+        {}
         <div className="lg:col-span-1">
           <ProfileCard
             user={user}
@@ -41,7 +41,7 @@ export default function Profile() {
           />
         </div>
 
-        {/* Main content */}
+        {}
         <div className="lg:col-span-2">
           <Tabs defaultValue="general" className="space-y-6">
             <TabsList className="grid w-full grid-cols-3 h-14 bg-muted border border-border rounded-lg">

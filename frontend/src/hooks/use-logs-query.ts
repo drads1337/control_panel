@@ -12,7 +12,6 @@ import {
 } from '@/entities/log'
 import type { Log, LogStats, ConnectionLog, ConnectionLogStats, LogsResponse } from '@/entities/log'
 
-// Ключи для кэширования
 export const logKeys = {
   all: ['logs'] as const,
   lists: () => [...logKeys.all, 'list'] as const,
@@ -73,17 +72,16 @@ interface UseLogsReturn {
 export function useLogsQuery(options: UseLogsOptions = {}): UseLogsReturn {
   const queryClient = useQueryClient()
   const { isAuthenticated } = useAuthContext()
-  
+
   const [pagination, setPagination] = React.useState({
     page: options.page || 1,
     perPage: options.perPage || 50,
   })
-  
+
   const [filters, setFilters] = React.useState<LogFilters>(options.filters || {})
   const [searchTerm, setSearchTerm] = React.useState<string>('')
   const [isSearching, setIsSearching] = React.useState(false)
 
-  // Query for logs
   const logsQuery = useQuery<LogsResponse, Error>({
     queryKey: logKeys.list({
       page: pagination.page,
@@ -108,20 +106,18 @@ export function useLogsQuery(options: UseLogsOptions = {}): UseLogsReturn {
       )
     },
     enabled: isAuthenticated,
-    staleTime: 30 * 1000, // 30 seconds
+    staleTime: 30 * 1000,
     refetchInterval: options.autoRefresh ? (options.refreshInterval || 30000) : false,
   })
 
-  // Query for stats
   const statsQuery = useQuery<LogStats, Error>({
     queryKey: logKeys.stats(),
     queryFn: getLogStats,
     enabled: isAuthenticated,
-    staleTime: 60 * 1000, // 1 minute
+    staleTime: 60 * 1000,
     refetchInterval: options.autoRefresh ? (options.refreshInterval || 30000) : false,
   })
 
-  // Handlers
   const fetchLogs = React.useCallback((newFilters?: LogFilters) => {
     setIsSearching(false)
     setSearchTerm('')
@@ -212,15 +208,14 @@ interface UseConnectionLogsReturn {
 
 export function useConnectionLogsQuery(options: UseConnectionLogsParams = {}): UseConnectionLogsReturn {
   const { isAuthenticated } = useAuthContext()
-  
+
   const [pagination, setPagination] = React.useState({
     page: options.page || 1,
     perPage: options.per_page || 50,
   })
-  
+
   const [filters, setFilters] = React.useState<UseConnectionLogsParams['filters']>(options.filters || {})
 
-  // Query for connection logs
   const logsQuery = useQuery({
     queryKey: logKeys.connectionList({
       page: pagination.page,
@@ -238,15 +233,14 @@ export function useConnectionLogsQuery(options: UseConnectionLogsParams = {}): U
       filters?.game
     ),
     enabled: isAuthenticated,
-    staleTime: 30 * 1000, // 30 seconds
+    staleTime: 30 * 1000,
   })
 
-  // Query for connection stats
   const statsQuery = useQuery({
     queryKey: logKeys.connectionStats(),
     queryFn: getConnectionLogStats,
     enabled: isAuthenticated,
-    staleTime: 60 * 1000, // 1 minute
+    staleTime: 60 * 1000,
   })
 
   const fetchConnectionLogs = React.useCallback((newFilters?: UseConnectionLogsParams['filters']) => {
@@ -306,8 +300,7 @@ export function useLogActions() {
         filters.dateFrom,
         filters.dateTo
       )
-      
-      // Create download link
+
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url

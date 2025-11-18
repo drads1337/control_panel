@@ -4,7 +4,6 @@ import { useLoginForm } from '../use-login-form'
 import { AuthContext } from '@/contexts/auth-context'
 import React from 'react'
 
-// Mock auth context
 const mockLogin = vi.fn()
 const mockAuthContextValue = {
   user: null,
@@ -34,7 +33,7 @@ describe('useLoginForm', () => {
 
   it('should initialize with empty form data', () => {
     const { result } = renderHook(() => useLoginForm(), { wrapper })
-    
+
     expect(result.current.formData.username).toBe('')
     expect(result.current.formData.password).toBe('')
     expect(result.current.errors).toEqual({})
@@ -42,12 +41,12 @@ describe('useLoginForm', () => {
 
   it('should update form data on input change', async () => {
     const { result } = renderHook(() => useLoginForm(), { wrapper })
-    
+
     result.current.handleInputChange('username', 'testuser')
     await waitFor(() => {
       expect(result.current.formData.username).toBe('testuser')
     })
-    
+
     result.current.handleInputChange('password', 'password123')
     await waitFor(() => {
       expect(result.current.formData.password).toBe('password123')
@@ -56,13 +55,13 @@ describe('useLoginForm', () => {
 
   it('should validate required fields', async () => {
     const { result } = renderHook(() => useLoginForm(), { wrapper })
-    
+
     const form = document.createElement('form')
     const submitEvent = new Event('submit', { bubbles: true, cancelable: true })
     Object.defineProperty(submitEvent, 'preventDefault', { value: vi.fn() })
-    
+
     result.current.handleSubmit(submitEvent as any)
-    
+
     await waitFor(() => {
       expect(result.current.errors.username).toBe('Username is required')
       expect(result.current.errors.password).toBe('Password is required')
@@ -72,23 +71,23 @@ describe('useLoginForm', () => {
 
   it('should validate password length', async () => {
     const { result } = renderHook(() => useLoginForm(), { wrapper })
-    
+
     result.current.handleInputChange('username', 'testuser')
     await waitFor(() => {
       expect(result.current.formData.username).toBe('testuser')
     })
-    
+
     result.current.handleInputChange('password', 'short')
     await waitFor(() => {
       expect(result.current.formData.password).toBe('short')
     })
-    
+
     const form = document.createElement('form')
     const submitEvent = new Event('submit', { bubbles: true, cancelable: true })
     Object.defineProperty(submitEvent, 'preventDefault', { value: vi.fn() })
-    
+
     result.current.handleSubmit(submitEvent as any)
-    
+
     await waitFor(() => {
       expect(result.current.errors.password).toBe('Password must be at least 8 characters')
     })
@@ -97,24 +96,23 @@ describe('useLoginForm', () => {
 
   it('should call login on valid form submission', async () => {
     mockLogin.mockResolvedValue(undefined)
-    
+
     const { result } = renderHook(() => useLoginForm(), { wrapper })
-    
+
     result.current.handleInputChange('username', 'testuser')
     result.current.handleInputChange('password', 'password123')
-    
-    // Wait for state updates
+
     await waitFor(() => {
       expect(result.current.formData.username).toBe('testuser')
       expect(result.current.formData.password).toBe('password123')
     })
-    
+
     const form = document.createElement('form')
     const submitEvent = new Event('submit', { bubbles: true, cancelable: true })
     Object.defineProperty(submitEvent, 'preventDefault', { value: vi.fn() })
-    
+
     result.current.handleSubmit(submitEvent as any)
-    
+
     await waitFor(() => {
       expect(mockLogin).toHaveBeenCalledWith('testuser', 'password123')
     }, { timeout: 3000 })
@@ -122,20 +120,18 @@ describe('useLoginForm', () => {
 
   it('should clear field errors when user types', async () => {
     const { result } = renderHook(() => useLoginForm(), { wrapper })
-    
-    // Trigger validation error
+
     const form = document.createElement('form')
     const submitEvent = new Event('submit', { bubbles: true, cancelable: true })
     Object.defineProperty(submitEvent, 'preventDefault', { value: vi.fn() })
     result.current.handleSubmit(submitEvent as any)
-    
+
     await waitFor(() => {
       expect(result.current.errors.username).toBe('Username is required')
     })
-    
-    // Clear error by typing
+
     result.current.handleInputChange('username', 'test')
-    
+
     await waitFor(() => {
       expect(result.current.errors.username).toBeUndefined()
     })
@@ -143,22 +139,20 @@ describe('useLoginForm', () => {
 
   it('should clear all errors', async () => {
     const { result } = renderHook(() => useLoginForm(), { wrapper })
-    
-    // Trigger validation errors
+
     const form = document.createElement('form')
     const submitEvent = new Event('submit', { bubbles: true, cancelable: true })
     Object.defineProperty(submitEvent, 'preventDefault', { value: vi.fn() })
     result.current.handleSubmit(submitEvent as any)
-    
+
     await waitFor(() => {
       expect(Object.keys(result.current.errors).length).toBeGreaterThan(0)
     })
-    
+
     result.current.clearErrors()
-    
+
     await waitFor(() => {
       expect(result.current.errors).toEqual({})
     })
   })
 })
-

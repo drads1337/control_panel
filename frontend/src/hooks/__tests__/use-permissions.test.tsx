@@ -3,7 +3,6 @@ import { renderHook } from '@testing-library/react'
 import { usePermissions } from '../use-permissions'
 import { useAuthContext } from '@/contexts/auth-context'
 
-// Mock the auth context
 vi.mock('@/contexts/auth-context', () => ({
   useAuthContext: vi.fn()
 }))
@@ -140,4 +139,3 @@ describe('usePermissions', () => {
     expect(result.current.hasAnyRole(['developer', 'admin'])).toBe(true)
   })
 })
-

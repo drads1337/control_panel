@@ -1,9 +1,7 @@
 "use client"
-
 import * as React from "react"
 import { ChevronDownIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
-
 interface SimpleSelectProps {
   value?: string
   onChange?: (value: string) => void
@@ -12,55 +10,46 @@ interface SimpleSelectProps {
   size?: "sm" | "default"
   className?: string
   children?: React.ReactNode
-  // Новые свойства
   error?: boolean
   required?: boolean
   name?: string
   id?: string
 }
-
 interface SimpleSelectOptionProps {
   value: string
   children: React.ReactNode
   className?: string
 }
-
 const SimpleSelectContext = React.createContext<{
   onSelect: (value: string, label: string) => void
   selectedValue?: string
 } | null>(null)
-
 const SimpleSelect = React.forwardRef<HTMLDivElement, SimpleSelectProps>(
   ({ value, onChange, placeholder, disabled, size = "default", className, children, error, required, name, id }, ref) => {
     const [isOpen, setIsOpen] = React.useState(false)
     const [selectedValue, setSelectedValue] = React.useState(value || "")
     const [selectedLabel, setSelectedLabel] = React.useState<string | undefined>(undefined)
     const selectRef = React.useRef<HTMLDivElement>(null)
-
     React.useEffect(() => {
       if (value !== undefined) {
         setSelectedValue(value)
       }
     }, [value])
-
     React.useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
         if (selectRef.current && !selectRef.current.contains(event.target as Node)) {
           setIsOpen(false)
         }
       }
-
       document.addEventListener("mousedown", handleClickOutside)
       return () => document.removeEventListener("mousedown", handleClickOutside)
     }, [])
-
     const handleSelect = (optionValue: string, optionLabel: string) => {
       setSelectedValue(optionValue)
       setSelectedLabel(optionLabel)
       setIsOpen(false)
       onChange?.(optionValue)
     }
-
     const handleKeyDown = (event: React.KeyboardEvent) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault()
@@ -69,7 +58,6 @@ const SimpleSelect = React.forwardRef<HTMLDivElement, SimpleSelectProps>(
         setIsOpen(false)
       }
     }
-
     return (
       <SimpleSelectContext.Provider value={{ onSelect: handleSelect, selectedValue }}>
         <div ref={selectRef} className="relative">
@@ -107,7 +95,6 @@ const SimpleSelect = React.forwardRef<HTMLDivElement, SimpleSelectProps>(
               )} 
             />
           </div>
-
           {isOpen && (
             <div
               id="simple-select-options"
@@ -122,27 +109,21 @@ const SimpleSelect = React.forwardRef<HTMLDivElement, SimpleSelectProps>(
     )
   }
 )
-
 SimpleSelect.displayName = "SimpleSelect"
-
 const SimpleSelectOption = React.forwardRef<HTMLDivElement, SimpleSelectOptionProps>(
   ({ value, children, className }, ref) => {
     const context = React.useContext(SimpleSelectContext)
     const [isSelected, setIsSelected] = React.useState(false)
-    
     React.useEffect(() => {
-      // Проверяем, выбран ли этот элемент
       if (context?.selectedValue === value) {
         setIsSelected(true)
       } else {
         setIsSelected(false)
       }
     }, [context?.selectedValue, value])
-    
     const handleClick = () => {
       context?.onSelect(value, typeof children === 'string' ? children : value)
     }
-
     return (
       <div
         ref={ref}
@@ -167,10 +148,7 @@ const SimpleSelectOption = React.forwardRef<HTMLDivElement, SimpleSelectOptionPr
     )
   }
 )
-
 SimpleSelectOption.displayName = "SimpleSelectOption"
-
-// Компонент для группировки опций
 const SimpleSelectGroup = React.forwardRef<HTMLDivElement, {
   label?: string
   className?: string
@@ -187,7 +165,5 @@ const SimpleSelectGroup = React.forwardRef<HTMLDivElement, {
     </div>
   )
 })
-
 SimpleSelectGroup.displayName = "SimpleSelectGroup"
-
 export { SimpleSelect, SimpleSelectOption, SimpleSelectGroup } 

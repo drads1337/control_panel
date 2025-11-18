@@ -24,7 +24,6 @@ from ..utils.structured_logging import get_logger
 settings_bp = Blueprint("settings", __name__)
 logger = get_logger(__name__)
 
-
 def encrypt_data_with_project_key(data: dict, project_id: int) -> str:
     try:
         settings = get_or_create_project_settings(project_id)
@@ -32,11 +31,10 @@ def encrypt_data_with_project_key(data: dict, project_id: int) -> str:
             raise ValueError("Project master key not found")
 
         raw = json.dumps(data)
-        # Use AES-256-GCM encryption (industry standard)
+
         return MasterKeyManager.encrypt_with_master_key(raw, settings.project_master_key)
     except Exception as e:
         raise ValueError(f"Project encryption error: {str(e)}")
-
 
 def decrypt_data_with_project_key(enc: str, project_id: int, use_gcm: bool = True) -> dict:
     try:
@@ -58,13 +56,13 @@ def decrypt_data_with_project_key(enc: str, project_id: int, use_gcm: bool = Tru
             raise ValueError("Project master key not found")
 
         try:
-            # Always use AES-256-GCM (use_gcm parameter kept for backward compatibility)
+
             try:
                 decrypted_raw = MasterKeyManager.decrypt_with_master_key_legacy(
                     enc, settings.project_master_key
                 )
             except Exception as gcm_error:
-                # Fallback to standard method
+
                 logger.debug(
                     "Legacy GCM failed, trying standard method",
                     error=str(gcm_error)[:50],
@@ -94,14 +92,12 @@ def decrypt_data_with_project_key(enc: str, project_id: int, use_gcm: bool = Tru
     except Exception as e:
         raise ValueError(f"Project decryption error: {str(e)}")
 
-
 def get_user_project_id(user_id):
     user = User.query.get(user_id)
 
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    # Ensure user has project_id
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -122,7 +118,6 @@ def get_user_project_id(user_id):
 
     return user.project_id, None
 
-
 def get_or_create_project_settings(project_id):
     settings = ProjectSettings.query.filter_by(project_id=project_id).first()
     if not settings:
@@ -135,7 +130,6 @@ def get_or_create_project_settings(project_id):
         db.session.commit()
     return settings
 
-
 def get_project_security_settings(project_id):
     settings = get_or_create_project_settings(project_id)
     return {
@@ -145,7 +139,6 @@ def get_project_security_settings(project_id):
         "log_retention_days": settings.log_retention_days,
         "security_log_level": settings.security_log_level,
     }
-
 
 def check_login_attempts(ip_address, project_id):
     from datetime import datetime, timedelta, timezone
@@ -165,7 +158,6 @@ def check_login_attempts(ip_address, project_id):
 
     return failed_attempts >= max_attempts
 
-
 def is_ip_blocked(ip_address, project_id):
     """
     Check if an IP address is blocked due to failed login attempts
@@ -177,9 +169,8 @@ def is_ip_blocked(ip_address, project_id):
     Returns:
         True if IP is blocked, False otherwise
     """
-    # Delegate to security service
-    return security_service.is_ip_blocked(ip_address, project_id)
 
+    return security_service.is_ip_blocked(ip_address, project_id)
 
 def record_login_attempt(ip_address, username, success, project_id, user_agent=None):
     """
@@ -192,9 +183,8 @@ def record_login_attempt(ip_address, username, success, project_id, user_agent=N
         project_id: Project ID
         user_agent: Client user agent string
     """
-    # Delegate to security service
-    security_service.record_login_attempt(ip_address, username, success, project_id, user_agent)
 
+    security_service.record_login_attempt(ip_address, username, success, project_id, user_agent)
 
 def check_session_limit(user_id, project_id):
     """
@@ -211,9 +201,8 @@ def check_session_limit(user_id, project_id):
     Returns:
         True if session limit exceeded, False otherwise
     """
-    # Delegate to security service
-    return security_service.check_session_limit(user_id, project_id)
 
+    return security_service.check_session_limit(user_id, project_id)
 
 def get_or_create_project_keys(project_id):
     keys = ProjectEncryptionKeys.query.filter_by(project_id=project_id).first()
@@ -248,7 +237,6 @@ def get_or_create_project_keys(project_id):
 
     return keys
 
-
 @settings_bp.route("/api/settings", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -259,12 +247,10 @@ def get_settings():
         project_id = getattr(request, "project_id", None)
         logger.info("Getting settings", user_id=user_id, project_id=project_id)
 
-        # Use cached settings service
         from ..services.settings import settings_service
 
         result = settings_service.get_settings_cached(user_id=user_id)
 
-        # Check if result is None or not a dict
         if result is None:
             logger.error("Settings service returned None", user_id=user_id, project_id=project_id)
             return jsonify({"error": "Settings service returned no data"}), 500
@@ -326,11 +312,10 @@ def get_settings():
                     500,
                 )
 
-        # Test JSON serialization before returning
         try:
             import json as json_module
 
-            json_module.dumps(result)  # Test if it can be serialized
+            json_module.dumps(result)
         except (TypeError, ValueError) as ser_error:
             logger.error(
                 "Result cannot be JSON serialized",
@@ -372,16 +357,15 @@ def get_settings():
                 project_id=project_id,
             )
         except:
-            # Fallback if logging fails
+
             logger.error("Error getting settings (fallback)", error=error_msg, traceback=error_traceback)
         try:
             return jsonify({"error": error_msg}), 500
         except:
-            # Ultimate fallback - return plain text
+
             from flask import Response
 
             return Response(f'{{"error": "{error_msg}"}}', mimetype="application/json"), 500
-
 
 @settings_bp.route("/api/settings", methods=["PUT"])
 @jwt_required()
@@ -400,7 +384,6 @@ def update_settings():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -412,7 +395,6 @@ def update_settings():
         logger.debug("User role", user_id=user_id, project_id=project_id, role=user_role)
         from ..services.rbac import rbac_service
 
-        # Settings management requires system.manage permission
         if not rbac_service.check_permission(user.id, "system.manage"):
             logger.debug(
                 "Access denied for user",
@@ -601,10 +583,9 @@ def update_settings():
                 settings.offline_auth_enabled = bool(offline_auth["offline_auth_enabled"])
             if "offline_ticket_expiration_hours" in offline_auth:
                 expiration_hours = int(offline_auth["offline_ticket_expiration_hours"])
-                # Validate: min 1 hour, max 168 hours (7 days)
+
                 expiration_hours = max(1, min(168, expiration_hours))
                 settings.offline_ticket_expiration_hours = expiration_hours
-            # Note: max_devices is determined by key.max_devices, not by project settings
 
         if "appearance" in data:
             settings.appearance_settings = json.dumps(data["appearance"])
@@ -619,7 +600,6 @@ def update_settings():
 
         db.session.commit()
 
-        # Invalidate settings cache
         try:
             from ..services.settings import settings_service
 
@@ -634,7 +614,6 @@ def update_settings():
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
-
 
 @settings_bp.route("/api/settings/regenerate-master-key", methods=["POST"])
 @jwt_required()
@@ -653,13 +632,11 @@ def regenerate_master_key():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
         from ..services.rbac import rbac_service
 
-        # Settings management requires system.manage_maintenance permission (admin-level)
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -669,7 +646,6 @@ def regenerate_master_key():
 
         db.session.commit()
 
-        # Invalidate cache after master key regeneration
         from ..services.cache import cache_service
 
         cache_service.invalidate_user_cache(user_id)
@@ -686,7 +662,6 @@ def regenerate_master_key():
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
-
 
 @settings_bp.route("/api/settings/keys", methods=["POST"])
 @jwt_required()
@@ -705,13 +680,11 @@ def regenerate_keys():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
         from ..services.rbac import rbac_service
 
-        # Settings management requires system.manage_maintenance permission (admin-level)
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -744,7 +717,6 @@ def regenerate_keys():
 
         db.session.commit()
 
-        # Invalidate cache after key regeneration
         from ..services.cache import cache_service
 
         cache_service.invalidate_user_cache(user_id)
@@ -755,7 +727,7 @@ def regenerate_keys():
                 "keys": {
                     "aes_key": keys.aes_key,
                     "public_key": keys.public_key_cert,
-                    # private_key intentionally excluded for security
+
                 },
             }
         )
@@ -763,7 +735,6 @@ def regenerate_keys():
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
-
 
 @settings_bp.route("/api/settings/keys", methods=["PUT"])
 @jwt_required()
@@ -782,13 +753,11 @@ def update_keys():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
         from ..services.rbac import rbac_service
 
-        # Settings management requires system.manage_maintenance permission (admin-level)
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -828,7 +797,6 @@ def update_keys():
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-
 @settings_bp.route("/api/settings/fingerprint-lists", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -846,13 +814,11 @@ def get_fingerprint_lists():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
         from ..services.rbac import rbac_service
 
-        # Settings management requires system.manage_maintenance permission (admin-level)
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -895,7 +861,6 @@ def get_fingerprint_lists():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 @settings_bp.route("/api/settings/fingerprint-lists/blocked", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -913,13 +878,11 @@ def add_to_fingerprint_blacklist():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
         from ..services.rbac import rbac_service
 
-        # Settings management requires system.manage_maintenance permission (admin-level)
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -964,7 +927,6 @@ def add_to_fingerprint_blacklist():
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-
 @settings_bp.route("/api/settings/fingerprint-lists/blocked/<int:fp_id>", methods=["DELETE"])
 @jwt_required()
 @require_project_with_grace_period
@@ -982,13 +944,11 @@ def remove_from_fingerprint_blacklist(fp_id):
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
         from ..services.rbac import rbac_service
 
-        # Settings management requires system.manage_maintenance permission (admin-level)
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1008,8 +968,6 @@ def remove_from_fingerprint_blacklist(fp_id):
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-
-# IP Blocking endpoints
 @settings_bp.route("/api/settings/security/blocked-ips", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -1032,7 +990,6 @@ def get_blocked_ips():
 
         from ..services.rbac import rbac_service
 
-        # Settings management requires system.manage_maintenance permission (admin-level)
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1072,7 +1029,6 @@ def get_blocked_ips():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 @settings_bp.route("/api/settings/security/blocked-ips", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -1095,7 +1051,6 @@ def block_ip():
 
         from ..services.rbac import rbac_service
 
-        # Settings management requires system.manage_maintenance permission (admin-level)
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1146,7 +1101,6 @@ def block_ip():
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-
 @settings_bp.route("/api/settings/security/blocked-ips/<int:ip_id>", methods=["DELETE"])
 @jwt_required()
 @require_project_with_grace_period
@@ -1169,7 +1123,6 @@ def unblock_ip(ip_id):
 
         from ..services.rbac import rbac_service
 
-        # Settings management requires system.manage_maintenance permission (admin-level)
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1191,8 +1144,6 @@ def unblock_ip(ip_id):
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-
-# HWID Blocking endpoints
 @settings_bp.route("/api/settings/security/blocked-hwids", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -1215,7 +1166,6 @@ def get_blocked_hwids():
 
         from ..services.rbac import rbac_service
 
-        # Settings management requires system.manage_maintenance permission (admin-level)
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1258,7 +1208,6 @@ def get_blocked_hwids():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 @settings_bp.route("/api/settings/security/blocked-hwids", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -1281,7 +1230,6 @@ def block_hwid():
 
         from ..services.rbac import rbac_service
 
-        # Settings management requires system.manage_maintenance permission (admin-level)
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1330,7 +1278,6 @@ def block_hwid():
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-
 @settings_bp.route("/api/settings/security/blocked-hwids/<int:hwid_id>", methods=["DELETE"])
 @jwt_required()
 @require_project_with_grace_period
@@ -1353,7 +1300,6 @@ def unblock_hwid(hwid_id):
 
         from ..services.rbac import rbac_service
 
-        # Settings management requires system.manage_maintenance permission (admin-level)
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1375,7 +1321,6 @@ def unblock_hwid(hwid_id):
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-
 @settings_bp.route("/api/settings/security/analytics", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -1393,13 +1338,11 @@ def get_security_analytics():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
         from ..services.rbac import rbac_service
 
-        # Settings management requires system.manage_maintenance permission (admin-level)
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1413,7 +1356,6 @@ def get_security_analytics():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 @settings_bp.route("/api/settings/security/rules", methods=["GET"])
 @jwt_required()
@@ -1432,13 +1374,11 @@ def get_security_rules():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
         from ..services.rbac import rbac_service
 
-        # Settings management requires system.manage_maintenance permission (admin-level)
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1478,7 +1418,6 @@ def get_security_rules():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 @settings_bp.route("/api/settings/security/rules", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -1496,13 +1435,11 @@ def create_security_rule():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
         from ..services.rbac import rbac_service
 
-        # Settings management requires system.manage_maintenance permission (admin-level)
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1533,7 +1470,6 @@ def create_security_rule():
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-
 @settings_bp.route("/api/settings/security/events", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -1551,13 +1487,11 @@ def get_security_events():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
         from ..services.rbac import rbac_service
 
-        # Settings management requires system.manage_maintenance permission (admin-level)
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1603,7 +1537,6 @@ def get_security_events():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 @settings_bp.route("/api/settings/security/rules/<int:rule_id>/toggle", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -1621,13 +1554,11 @@ def toggle_security_rule(rule_id):
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
         from ..services.rbac import rbac_service
 
-        # Settings management requires system.manage_maintenance permission (admin-level)
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1653,7 +1584,6 @@ def toggle_security_rule(rule_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 @settings_bp.route("/api/settings/security/rules/<int:rule_id>", methods=["PUT"])
 @jwt_required()
 @require_project_with_grace_period
@@ -1671,13 +1601,11 @@ def update_security_rule(rule_id):
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
         from ..services.rbac import rbac_service
 
-        # Settings management requires system.manage_maintenance permission (admin-level)
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1732,7 +1660,6 @@ def update_security_rule(rule_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 @settings_bp.route("/api/settings/security/rules/<int:rule_id>", methods=["DELETE"])
 @jwt_required()
 @require_project_with_grace_period
@@ -1750,13 +1677,11 @@ def delete_security_rule(rule_id):
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
         from ..services.rbac import rbac_service
 
-        # Settings management requires system.manage_maintenance permission (admin-level)
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1778,7 +1703,6 @@ def delete_security_rule(rule_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 @settings_bp.route("/api/settings/security/rules/reset", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -1796,13 +1720,11 @@ def reset_security_rules():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
         from ..services.rbac import rbac_service
 
-        # Settings management requires system.manage_maintenance permission (admin-level)
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 

@@ -1,6 +1,3 @@
-/**
- * UI-related constants
- */
 
 export const PAGINATION = {
   DEFAULT_PAGE_SIZE: 10,
@@ -15,8 +12,7 @@ export const DEBOUNCE_DELAYS = {
 } as const;
 
 export const FILE_UPLOAD = {
-  MAX_SIZE: 5 * 1024 * 1024 * 1024, // 5GB
-  CHUNK_SIZE: 5 * 1024 * 1024, // 5MB
+  MAX_SIZE: 5 * 1024 * 1024 * 1024,
+  CHUNK_SIZE: 5 * 1024 * 1024,
   MAX_FILES: 50,
 } as const;
-

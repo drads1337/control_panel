@@ -1,31 +1,24 @@
 import { createContext, useContext, useState, ReactNode } from 'react'
-
 interface SidebarContextType {
   isCollapsed: boolean
   toggleSidebar: () => void
   setSidebarCollapsed: (collapsed: boolean) => void
 }
-
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined)
-
 export function SidebarProvider({ children }: { children: ReactNode }) {
   const [isCollapsed, setIsCollapsed] = useState(false)
-
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed)
   }
-
   const setSidebarCollapsed = (collapsed: boolean) => {
     setIsCollapsed(collapsed)
   }
-
   return (
     <SidebarContext.Provider value={{ isCollapsed, toggleSidebar, setSidebarCollapsed }}>
       {children}
     </SidebarContext.Provider>
   )
 }
-
 export function useSidebar() {
   const context = useContext(SidebarContext)
   if (context === undefined) {

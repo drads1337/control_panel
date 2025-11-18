@@ -14,7 +14,7 @@ export default function Sessions() {
   const [selectedSessions, setSelectedSessions] = useState<Set<number>>(new Set())
   const [selectedSessionForDetails, setSelectedSessionForDetails] = useState<{ userId: number; username: string } | null>(null)
   const [activeTab, setActiveTab] = useState('sessions')
-  
+
   const {
     sessions,
     stats,
@@ -29,28 +29,18 @@ export default function Sessions() {
     clearError
   } = useSessionsQuery({
     autoRefresh: true,
-    refreshInterval: 30000 // 30 seconds
+    refreshInterval: 30000
   })
 
-  // Debug logging
   useEffect(() => {
-    console.log('Sessions component debug:', {
-      token: token ? 'present' : 'missing',
-      user: user ? 'present' : 'missing',
-      sessionsCount: sessions.length,
-      loading,
-      error,
-      pagination
-    })
+
   }, [token, user, sessions, loading, error, pagination])
 
-  // Debounce search to avoid filtering on every keystroke
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
 
-  // Filter sessions based on search term - MEMOIZED with debounced search
   const filteredSessions = useMemo(() => {
     if (!debouncedSearchTerm) return sessions
-    
+
     const searchLower = debouncedSearchTerm.toLowerCase()
     return sessions.filter(session =>
       session.username.toLowerCase().includes(searchLower) ||
@@ -60,7 +50,6 @@ export default function Sessions() {
     )
   }, [sessions, debouncedSearchTerm])
 
-  // Handle session selection - MEMOIZED
   const toggleSessionSelection = useCallback((userId: number) => {
     setSelectedSessions(prev => {
       const newSelected = new Set(prev)
@@ -73,32 +62,27 @@ export default function Sessions() {
     })
   }, [])
 
-  // Handle select all sessions - MEMOIZED
   const handleSelectAllSessions = useCallback((sessions: any[]) => {
     setSelectedSessions(new Set(sessions.map(s => s.user_id)))
   }, [])
 
-  // Handle bulk termination - MEMOIZED
   const handleBulkTerminate = useCallback(async () => {
     if (selectedSessions.size === 0) return
-    
+
     const result = await terminateMultipleSessions(Array.from(selectedSessions))
     if (result.success) {
       setSelectedSessions(new Set())
     }
   }, [selectedSessions, terminateMultipleSessions])
 
-  // Handle single session termination - MEMOIZED
   const handleTerminateSession = useCallback(async (userId: number) => {
     await terminateUserSession(userId)
   }, [terminateUserSession])
 
-  // Handle viewing session details - MEMOIZED
   const handleViewDetails = useCallback((userId: number, username: string) => {
     setSelectedSessionForDetails({ userId, username })
   }, [])
 
-  // Clear error when component unmounts
   useEffect(() => {
     return () => {
       clearError()
@@ -119,7 +103,7 @@ export default function Sessions() {
 
   return (
     <div>
-          {/* Page Header */}
+          {}
           <div className="mb-8">
             <h2 className="text-3xl font-bold text-foreground mb-2">
               Session Management
@@ -129,7 +113,7 @@ export default function Sessions() {
             </p>
           </div>
 
-          {/* Error Alert */}
+          {}
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
               <div className="flex items-center gap-2">
@@ -147,12 +131,10 @@ export default function Sessions() {
             </div>
           )}
 
-
-
-          {/* Stats Cards */}
+          {}
           <SessionStatsCards stats={stats} loading={loading} />
 
-          {/* Tabs */}
+          {}
           <SessionsTabs
             activeTab={activeTab}
             setActiveTab={setActiveTab}
@@ -172,7 +154,7 @@ export default function Sessions() {
             onChangePage={changePage}
           />
 
-      {/* Session Details Dialog */}
+      {}
       {selectedSessionForDetails && token && (
         <SessionDetailsDialog
           isOpen={!!selectedSessionForDetails}

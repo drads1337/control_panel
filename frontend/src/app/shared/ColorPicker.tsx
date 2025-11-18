@@ -19,7 +19,6 @@ export const ColorPicker = () => {
   const { customColor, setPrimaryColor, resetToDefault } = useCustomColor();
   const [customColorInput, setCustomColorInput] = useState(customColor.primary);
 
-  // Обновляем input при изменении цвета из настроек
   useEffect(() => {
     setCustomColorInput(customColor.primary);
   }, [customColor.primary]);
@@ -44,7 +43,7 @@ export const ColorPicker = () => {
 
   return (
     <div className="space-y-2.5">
-      {/* Preset Colors */}
+      {}
       <div className="flex items-center gap-2 flex-wrap">
         {PRESET_COLORS.map((color) => (
           <button
@@ -69,7 +68,7 @@ export const ColorPicker = () => {
         ))}
       </div>
 
-      {/* Custom Color Input */}
+      {}
       <div className="flex items-center gap-2">
         <Input
           id="custom-color"

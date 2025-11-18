@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 Script to drop all tables from PostgreSQL database and reset migrations
 Uses SQLAlchemy metadata.drop_all() for safe DDL generation
@@ -9,7 +9,6 @@ import sys
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import SQLAlchemyError
 
-# Add project root to path
 script_dir = os.path.dirname(os.path.abspath(__file__))
 backend_dir = os.path.dirname(script_dir)
 project_root = os.path.dirname(backend_dir)
@@ -18,9 +17,7 @@ sys.path.insert(0, project_root)
 from backend.core.extensions import db
 from backend.utils.structured_logging import get_logger
 
-# Import all models to ensure they're registered with SQLAlchemy metadata
-# This is required for metadata.drop_all() to work correctly
-from backend.models import (  # noqa: F401
+from backend.models import (
     APIKey,
     Announcement,
     AttributeRule,
@@ -97,14 +94,12 @@ from backend.models import (  # noqa: F401
 
 logger = get_logger(__name__)
 
-# Database connection
 DATABASE_URL = "postgresql://panel123:password123@localhost:5432/panel123"
-
 
 def drop_all_tables():
     """
     Drop all tables from the database using SQLAlchemy metadata
-    
+
     SECURITY: Uses SQLAlchemy's metadata.drop_all() instead of f-string SQL generation.
     This eliminates any theoretical risk of SQL injection by using SQLAlchemy's
     built-in DDL generation, which properly handles identifiers and escaping.
@@ -112,11 +107,11 @@ def drop_all_tables():
     engine = create_engine(DATABASE_URL)
 
     try:
-        # Bind the metadata to the engine
+
         db.metadata.bind = engine
-        
-        with engine.begin() as conn:  # begin() handles transaction automatically
-            # Check if there are any tables to drop
+
+        with engine.begin() as conn:
+
             inspector = inspect(engine)
             tables = inspector.get_table_names()
 
@@ -129,13 +124,7 @@ def drop_all_tables():
                 component="database_reset",
                 table_count=len(tables)
             )
-            
-            # Use SQLAlchemy metadata to drop all tables safely
-            # This uses SQLAlchemy's DDL generation instead of raw SQL strings
-            # metadata.drop_all() properly handles:
-            # - Table name escaping (reserved keywords, special characters)
-            # - Foreign key constraints (CASCADE where appropriate)
-            # - Proper SQL syntax for the target database
+
             db.metadata.drop_all(bind=engine, checkfirst=True)
 
             logger.info("All tables dropped successfully", component="database_reset")
@@ -146,7 +135,6 @@ def drop_all_tables():
         return False
     finally:
         engine.dispose()
-
 
 def drop_alembic_version_table():
     """Drop alembic_version table if it exists"""
@@ -161,15 +149,12 @@ def drop_alembic_version_table():
     finally:
         engine.dispose()
 
-
 if __name__ == "__main__":
     db_name = DATABASE_URL.split("@")[1] if "@" in DATABASE_URL else DATABASE_URL
     logger.info("Starting database reset", component="database_reset", database=db_name)
 
-    # Drop alembic_version first
     drop_alembic_version_table()
 
-    # Drop all tables
     if drop_all_tables():
         logger.info("Database reset complete", component="database_reset")
         sys.exit(0)

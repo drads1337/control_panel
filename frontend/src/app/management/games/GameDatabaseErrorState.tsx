@@ -18,4 +18,3 @@ export function GameDatabaseErrorState({ error, onRetry }: GameDatabaseErrorStat
     </Card>
   )
 }
-

@@ -8,25 +8,22 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, EmailStr, Field, validator
 
-
 class BaseSchema(BaseModel):
     """Base schema with common configuration"""
 
     class Config:
-        # Allow extra fields to be ignored
-        extra = "ignore"
-        # Use enum values instead of names
-        use_enum_values = True
-        # Validate assignment
-        validate_assignment = True
 
+        extra = "ignore"
+
+        use_enum_values = True
+
+        validate_assignment = True
 
 class PaginationSchema(BaseSchema):
     """Pagination parameters"""
 
     page: int = Field(default=1, ge=1, description="Page number")
     per_page: int = Field(default=20, ge=1, le=100, description="Items per page")
-
 
 class ResponseSchema(BaseSchema):
     """Standard API response schema"""
@@ -36,7 +33,6 @@ class ResponseSchema(BaseSchema):
     data: Optional[Any] = Field(default=None, description="Response data")
     errors: Optional[List[str]] = Field(default=None, description="Error messages")
 
-
 class ErrorResponseSchema(BaseSchema):
     """Error response schema"""
 
@@ -44,19 +40,16 @@ class ErrorResponseSchema(BaseSchema):
     message: Optional[str] = Field(default=None, description="Error message")
     details: Optional[Dict[str, Any]] = Field(default=None, description="Error details")
 
-
 class TimestampSchema(BaseSchema):
     """Schema with timestamp fields"""
 
     created_at: Optional[datetime] = Field(default=None, description="Creation timestamp")
     updated_at: Optional[datetime] = Field(default=None, description="Last update timestamp")
 
-
 class IDSchema(BaseSchema):
     """Schema with ID field"""
 
     id: int = Field(ge=1, description="Entity ID")
-
 
 class UsernameValidator:
     """Username validation utilities"""
@@ -75,12 +68,10 @@ class UsernameValidator:
         if len(username) > 50:
             raise ValueError("Username must be no more than 50 characters long")
 
-        # Check for valid characters (alphanumeric, underscore, hyphen)
         if not re.match(r"^[a-zA-Z0-9_-]+$", username):
             raise ValueError("Username can only contain letters, numbers, underscores, and hyphens")
 
         return username
-
 
 class PasswordValidator:
     """Password validation utilities"""
@@ -97,7 +88,6 @@ class PasswordValidator:
         if len(password) > 128:
             raise ValueError("Password is too long")
 
-        # Check for at least one letter and one number
         if not re.search(r"[A-Za-z]", password):
             raise ValueError("Password must contain at least one letter")
 
@@ -105,7 +95,6 @@ class PasswordValidator:
             raise ValueError("Password must contain at least one number")
 
         return password
-
 
 class PhoneValidator:
     """Phone number validation utilities"""
@@ -118,13 +107,11 @@ class PhoneValidator:
 
         phone = phone.strip()
 
-        # Basic phone validation
         phone_clean = re.sub(r"[^\d+]", "", phone)
         if len(phone_clean) < 10 or len(phone_clean) > 15:
             raise ValueError("Invalid phone number format")
 
         return phone
-
 
 class CodeValidator:
     """Code validation utilities (invite codes, referral codes, etc.)"""
@@ -143,7 +130,6 @@ class CodeValidator:
         if len(code) > max_length:
             raise ValueError(f"Code is too long (maximum {max_length} characters)")
 
-        # Check for valid characters (alphanumeric)
         if not re.match(r"^[A-Z0-9]+$", code):
             raise ValueError("Code can only contain letters and numbers")
 

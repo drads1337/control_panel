@@ -4,7 +4,6 @@ import type { Project, CreateProjectData, ProjectsResponse } from '@/entities/pr
 import { usePaginatedResource } from './use-paginated-resource'
 import { useMutationWithCache } from './use-mutation-helpers'
 
-// Cache keys
 export const projectKeys = {
   all: ['projects'] as const,
   lists: () => [...projectKeys.all, 'list'] as const,
@@ -33,23 +32,20 @@ interface UseProjectsReturn {
     total: number
     perPage: number
   }
-  
-  // Actions
+
   createProject: (data: CreateProjectData) => Promise<Project>
   updateProject: (id: number, data: Partial<CreateProjectData> & { status?: string; subscription_days?: number }) => Promise<Project>
   deleteProject: (id: number) => Promise<void>
-  
-  // Pagination and search
+
   setPage: (page: number) => void
   setPerPage: (perPage: number) => void
   setSearch: (search: string) => void
-  
-  // Data updates
+
   refetch: () => void
 }
 
 export function useProjectsQuery(initialParams: UseProjectsParams = {}): UseProjectsReturn {
-  // Используем универсальный хук для пагинации
+
   const {
     items: projects,
     loading,
@@ -65,11 +61,10 @@ export function useProjectsQuery(initialParams: UseProjectsParams = {}): UseProj
     itemsField: 'projects',
     initialParams,
     queryOptions: {
-      staleTime: 2 * 60 * 1000, // 2 minutes
+      staleTime: 2 * 60 * 1000,
     },
   })
 
-  // Мутации с автоматической инвалидацией кэша
   const createProjectMutation = useMutationWithCache({
     mutationFn: (data: CreateProjectData) => createProject(data),
     invalidateQueries: [projectKeys.lists()],
@@ -92,7 +87,6 @@ export function useProjectsQuery(initialParams: UseProjectsParams = {}): UseProj
     errorMessage: 'Failed to delete project',
   })
 
-  // Обработчик для поиска
   const setSearch = React.useCallback((search: string) => {
     setParams((prev) => ({ ...prev, search, page: 1 }))
   }, [setParams])
@@ -106,16 +100,16 @@ export function useProjectsQuery(initialParams: UseProjectsParams = {}): UseProj
     currentPage: pagination.currentPage,
     perPage: pagination.perPage,
     pagination,
-    
+
     createProject: createProjectMutation.mutateAsync,
     updateProject: (id: number, data: Partial<CreateProjectData> & { status?: string; subscription_days?: number }) => 
       updateProjectMutation.mutateAsync({ id, data }),
     deleteProject: deleteProjectMutation.mutateAsync,
-    
+
     setPage,
     setPerPage,
     setSearch,
-    
+
     refetch,
   }
 }

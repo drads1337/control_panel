@@ -17,7 +17,6 @@ from ...utils.rbac_utils import RBACManager
 
 prices_bp = Blueprint("games_prices", __name__)
 
-
 @prices_bp.route("/<int:game_id>/prices", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -34,18 +33,17 @@ def get_game_prices(game_id):
         return jsonify({"error": "User must be assigned to a project"}), 403
 
     try:
-        # Check if game exists and belongs to user's project
+
         game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
         if not game:
             return jsonify({"error": "Game not found"}), 404
 
-        # Get all prices for the game (excluding custom periods)
         prices = GameKeyPrice.query.filter_by(game_id=game_id, project_id=user.project_id).all()
 
         price_dict = {}
         for price in prices:
             if not price.period.startswith("custom_"):
-                # Prices are stored as integers, return as float for frontend compatibility
+
                 price_dict[price.period] = float(price.price) if price.price else 0.0
 
         return jsonify(
@@ -59,7 +57,6 @@ def get_game_prices(game_id):
     except Exception as e:
         current_app.logger.error(f"Error fetching game prices: {str(e)}")
         return jsonify({"error": f"Failed to fetch prices: {str(e)}"}), 500
-
 
 @prices_bp.route("/<int:game_id>/prices", methods=["PUT"])
 @jwt_required()
@@ -76,7 +73,6 @@ def update_game_prices(game_id):
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    # Check RBAC permissions
     has_permission = RBACManager.has_permission(
         user.id, user.project_id, "applications.manage_prices"
     )
@@ -92,7 +88,7 @@ def update_game_prices(game_id):
         )
 
     try:
-        # Check if game exists and belongs to user's project
+
         game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
         if not game:
             return jsonify({"error": "Game not found"}), 404
@@ -105,22 +101,18 @@ def update_game_prices(game_id):
         if not isinstance(prices_data, dict):
             return jsonify({"error": "Prices must be a dictionary"}), 400
 
-        # Valid periods
         valid_periods = ["hour", "day", "week", "month"]
 
-        # Update or create prices for valid periods
         for period, price_value in prices_data.items():
             if period not in valid_periods:
                 continue
 
-            # Convert price to integer (prices are stored as integers)
             try:
                 price_int = int(float(price_value)) if price_value else 0
             except (ValueError, TypeError):
                 current_app.logger.warning(f"Invalid price value for period {period}: {price_value}")
                 continue
 
-            # Find existing price or create new one
             existing_price = GameKeyPrice.query.filter_by(
                 game_id=game_id, period=period, project_id=user.project_id
             ).first()
@@ -138,10 +130,8 @@ def update_game_prices(game_id):
 
         db.session.commit()
 
-        # Invalidate game cache
         game_service.invalidate_game_cache(user.project_id, game_id)
 
-        # Log activity
         activity_service.log_activity(
             user,
             "game_prices_updated",
@@ -165,7 +155,6 @@ def update_game_prices(game_id):
         current_app.logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": f"Failed to update prices: {str(e)}"}), 500
 
-
 @prices_bp.route("/<int:game_id>/custom-periods", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -182,12 +171,11 @@ def get_custom_periods(game_id):
         return jsonify({"error": "User must be assigned to a project"}), 403
 
     try:
-        # Check if game exists and belongs to user's project
+
         game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
         if not game:
             return jsonify({"error": "Game not found"}), 404
 
-        # Get all custom periods for the game
         custom_prices = GameKeyPrice.query.filter_by(
             game_id=game_id, project_id=user.project_id
         ).filter(GameKeyPrice.period.like("custom_%")).all()
@@ -215,7 +203,6 @@ def get_custom_periods(game_id):
         current_app.logger.error(f"Error fetching custom periods: {str(e)}")
         return jsonify({"error": f"Failed to fetch custom periods: {str(e)}"}), 500
 
-
 @prices_bp.route("/<int:game_id>/custom-periods", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -231,7 +218,6 @@ def add_custom_period(game_id):
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    # Check RBAC permissions
     has_permission = RBACManager.has_permission(
         user.id, user.project_id, "applications.manage_prices"
     )
@@ -247,7 +233,7 @@ def add_custom_period(game_id):
         )
 
     try:
-        # Check if game exists and belongs to user's project
+
         game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
         if not game:
             return jsonify({"error": "Game not found"}), 404
@@ -266,11 +252,9 @@ def add_custom_period(game_id):
         if price_value is None:
             return jsonify({"error": "price is required"}), 400
 
-        # Ensure period name starts with "custom_"
         if not period_name.startswith("custom_"):
             period_name = f"custom_{period_name}"
 
-        # Check if custom period already exists
         existing_price = GameKeyPrice.query.filter_by(
             game_id=game_id, period=period_name, project_id=user.project_id
         ).first()
@@ -278,13 +262,11 @@ def add_custom_period(game_id):
         if existing_price:
             return jsonify({"error": "Custom period already exists"}), 400
 
-        # Convert price to integer
         try:
             price_int = int(float(price_value))
         except (ValueError, TypeError):
             return jsonify({"error": "Invalid price value"}), 400
 
-        # Create new custom period
         new_price = GameKeyPrice(
             game_id=game_id,
             period=period_name,
@@ -296,10 +278,8 @@ def add_custom_period(game_id):
         db.session.add(new_price)
         db.session.commit()
 
-        # Invalidate game cache
         game_service.invalidate_game_cache(user.project_id, game_id)
 
-        # Log activity
         activity_service.log_activity(
             user,
             "game_custom_period_added",
@@ -331,7 +311,6 @@ def add_custom_period(game_id):
         current_app.logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": f"Failed to add custom period: {str(e)}"}), 500
 
-
 @prices_bp.route("/<int:game_id>/custom-periods/<custom_period_id>", methods=["DELETE"])
 @jwt_required()
 @require_project_with_grace_period
@@ -347,7 +326,6 @@ def remove_custom_period(game_id, custom_period_id):
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    # Check RBAC permissions
     has_permission = RBACManager.has_permission(
         user.id, user.project_id, "applications.manage_prices"
     )
@@ -363,12 +341,11 @@ def remove_custom_period(game_id, custom_period_id):
         )
 
     try:
-        # Check if game exists and belongs to user's project
+
         game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
         if not game:
             return jsonify({"error": "Game not found"}), 404
 
-        # Find custom period
         custom_price = GameKeyPrice.query.filter_by(
             id=custom_period_id, game_id=game_id, project_id=user.project_id
         ).first()
@@ -376,7 +353,6 @@ def remove_custom_period(game_id, custom_period_id):
         if not custom_price:
             return jsonify({"error": "Custom period not found"}), 404
 
-        # Ensure it's a custom period
         if not custom_price.period.startswith("custom_"):
             return jsonify({"error": "Not a custom period"}), 400
 
@@ -385,10 +361,8 @@ def remove_custom_period(game_id, custom_period_id):
         db.session.delete(custom_price)
         db.session.commit()
 
-        # Invalidate game cache
         game_service.invalidate_game_cache(user.project_id, game_id)
 
-        # Log activity
         activity_service.log_activity(
             user,
             "game_custom_period_removed",

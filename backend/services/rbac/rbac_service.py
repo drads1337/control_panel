@@ -17,12 +17,11 @@ from .abac_service import ABACService
 from .permission_service import PermissionService
 from .role_service import RoleService
 
-
 class RBACService:
     """Facade service for managing Role-Based Access Control - delegates to specialized services"""
 
     def __init__(self):
-        # Default permissions
+
         self.default_permissions = {
             "employees": {
                 "view": "View employees",
@@ -156,33 +155,33 @@ class RBACService:
         self.default_roles = {
             "owner": {
                 "description": "Full system access",
-                "permissions": [],  # Will be populated with all permissions during initialization
+                "permissions": [],
             },
             "admin": {
                 "description": "Administrative access",
                 "permissions": [
-                    # Employees management
+
                     "employees.view",
                     "employees.create",
                     "employees.edit",
                     "employees.send_notification",
                     "employees.delete",
-                    # Clients management
+
                     "clients.view",
                     "clients.create",
                     "clients.edit",
                     "clients.send_notification",
                     "clients.delete",
-                    # RBAC management
+
                     "rbac.view",
                     "rbac.create_role",
                     "rbac.edit",
                     "rbac.delete",
-                    # Referrals management
+
                     "referrals.view",
                     "referrals.create",
                     "referrals.delete",
-                    # Key management
+
                     "keys.view",
                     "keys.create",
                     "keys.edit",
@@ -192,17 +191,17 @@ class RBACService:
                     "keys.pause_resume",
                     "keys.extend",
                     "keys.block",
-                    # Analytics
+
                     "analytics.view",
                     "analytics.export",
-                    # Webhooks (simplified)
+
                     "webhooks.view",
                     "webhooks.create",
                     "webhooks.edit",
                     "webhooks.delete",
                     "webhooks.test",
                     "webhooks.view_logs",
-                    # Security (simplified, 2FA removed)
+
                     "security.view_fingerprints",
                     "security.block_fingerprints",
                     "security.unblock_fingerprints",
@@ -214,21 +213,21 @@ class RBACService:
                     "security.unblock_hwids",
                     "security.manage_rules",
                     "security.view_logs",
-                    # Remote control (simplified)
+
                     "remote_control.view",
                     "remote_control.create",
                     "remote_control.edit",
                     "remote_control.delete",
                     "remote_control.toggle",
-                    # System
+
                     "system.view_health",
                     "system.view_logs",
-                    # Billing
+
                     "billing.view_balance",
                     "billing.top_up_balance",
                     "billing.deduct_balance",
                     "billing.view_transactions",
-                    # Games (Applications)
+
                     "games.view",
                     "games.create",
                     "games.edit",
@@ -250,7 +249,7 @@ class RBACService:
                     "games.files_download",
                     "games.files_manage_configs",
                     "games.files_manage_resources",
-                    # Loaders
+
                     "loaders.view",
                     "loaders.create",
                     "loaders.edit",
@@ -275,7 +274,7 @@ class RBACService:
                     "loaders.files_download",
                     "loaders.files_manage_configs",
                     "loaders.files_manage_resources",
-                    # Logs
+
                     "logs.view",
                     "logs.view_all",
                 ],
@@ -283,23 +282,23 @@ class RBACService:
             "seller": {
                 "description": "Sales and key management",
                 "permissions": [
-                    # Employees management
+
                     "employees.view",
                     "employees.create",
                     "employees.edit",
                     "employees.send_notification",
-                    # Clients management
+
                     "clients.view",
                     "clients.create",
                     "clients.edit",
                     "clients.send_notification",
-                    # RBAC management
+
                     "rbac.view",
-                    # Referrals management
+
                     "referrals.view",
                     "referrals.create",
                     "referrals.delete",
-                    # Key management
+
                     "keys.view",
                     "keys.create",
                     "keys.edit",
@@ -341,7 +340,7 @@ class RBACService:
                     "billing.view_balance",
                     "billing.top_up_balance",
                     "billing.view_transactions",
-                    # Games (Applications)
+
                     "games.view",
                     "games.create",
                     "games.edit",
@@ -360,7 +359,7 @@ class RBACService:
                     "games.changelog_edit",
                     "games.changelog_delete",
                     "games.status",
-                    # Loaders
+
                     "loaders.view",
                     "loaders.create",
                     "loaders.edit",
@@ -381,13 +380,13 @@ class RBACService:
             "support": {
                 "description": "Customer support access",
                 "permissions": [
-                    # Clients management
+
                     "clients.view",
                     "clients.edit",
-                    # Key management
+
                     "keys.view",
                     "keys.reset_pc_binding",
-                    # Security
+
                     "security.view_fingerprints",
                     "security.view_ips",
                     "security.view_hwids",
@@ -416,10 +415,10 @@ class RBACService:
             "billing_manager": {
                 "description": "Billing and balance management",
                 "permissions": [
-                    # Clients management
+
                     "clients.view",
                     "clients.edit",
-                    # Billing
+
                     "billing.view_balance",
                     "billing.top_up_balance",
                     "billing.deduct_balance",
@@ -430,20 +429,18 @@ class RBACService:
             "developer": {
                 "description": "Developer access with file management and remote control",
                 "permissions": [
-                    # File management - removed
-                    # Remote control - full access
+
                     "remote_control.view",
                     "remote_control.create",
                     "remote_control.edit",
                     "remote_control.delete",
                     "remote_control.toggle",
-                    # Analytics - view only
+
                     "analytics.view",
                 ],
             },
         }
-        
-        # Initialize specialized services with default configurations
+
         self.permission_service = PermissionService(default_permissions=self.default_permissions)
         self.role_service = RoleService(
             permission_service=self.permission_service,
@@ -455,10 +452,9 @@ class RBACService:
     def initialize_default_data(self, project_id: int) -> bool:
         """Initialize default roles and permissions for a project"""
         try:
-            # Create permissions using PermissionService
+
             permissions = self.permission_service._create_permissions(project_id)
 
-            # Create roles using RoleService
             roles = self.role_service._create_roles(project_id, permissions)
 
             logging.info(
@@ -533,7 +529,7 @@ class RBACService:
 
     def get_user_permissions(self, user_id: int) -> Set[str]:
         """Get all permissions for a user - delegates to PermissionService"""
-        # Ensure RBAC is initialized for the project if needed
+
         try:
             from ...models.rbac import Permission
             user = User.query.get(user_id)
@@ -595,23 +591,19 @@ class RBACService:
             if not user:
                 return False
 
-            # Owner and admin always have all permissions
-            # Use RBACManager to check roles properly (handles both static and RBAC roles)
             if RBACManager.is_owner(user):
                 return True
 
             if RBACManager.is_admin(user):
                 return True
 
-            # First check traditional RBAC permissions
             user_permissions = self.get_user_permissions(user_id)
 
-            # Check for resource-specific permissions
             resource_permission_result = self._check_resource_permissions(
                 user_id, permission, resource_type, resource_id
             )
             if resource_permission_result is not None:
-                # Apply ABAC rules to resource permission
+
                 abac_result = self._check_abac_rules(
                     user_id, permission, resource_type, resource_id, context
                 )
@@ -619,34 +611,29 @@ class RBACService:
                     return abac_result
                 return resource_permission_result
 
-            # Check general permission
             if permission in user_permissions:
-                # Apply ABAC rules
+
                 abac_result = self._check_abac_rules(
                     user_id, permission, resource_type, resource_id, context
                 )
-                if abac_result is not None:  # ABAC rule found
+                if abac_result is not None:
                     return abac_result
-                return True  # No ABAC rules, use RBAC result
+                return True
 
-            # If game_id is specified, check for game-specific permission
             if game_id:
-                # Check if user has global permission for this resource (e.g., games.view)
-                # OR has game-specific permission (e.g., games.view with game_id)
-                # Parse permission to get resource and action
+
                 if "." in permission:
                     resource, action = permission.split(".", 1)
                 else:
                     resource = permission
                     action = "view"
-                
-                # Check for game-specific permission in database
+
                 from ...models.rbac import Permission, RolePermission, UserRole
                 user_roles = UserRole.query.filter_by(user_id=user_id).all()
                 role_ids = [ur.role_id for ur in user_roles]
-                
+
                 if role_ids:
-                    # Check if user has permission with this game_id
+
                     game_specific_permission = (
                         db.session.query(Permission)
                         .join(RolePermission, RolePermission.permission_id == Permission.id)
@@ -659,20 +646,19 @@ class RBACService:
                         )
                         .first()
                     )
-                    
+
                     if game_specific_permission:
-                        # Apply ABAC rules
+
                         abac_result = self._check_abac_rules(
                             user_id, permission, resource_type, resource_id, context
                         )
                         if abac_result is not None:
                             return abac_result
                         return True
-                
-                # Also check format {permission}.game.{game_id} for backward compatibility
+
                 game_permission = f"{permission}.game.{game_id}"
                 if game_permission in user_permissions:
-                    # Apply ABAC rules
+
                     abac_result = self._check_abac_rules(
                         user_id, game_permission, resource_type, resource_id, context
                     )
@@ -680,7 +666,6 @@ class RBACService:
                         return abac_result
                     return True
 
-            # Check if there are any ABAC rules that might grant access
             abac_result = self._check_abac_rules(
                 user_id, permission, resource_type, resource_id, context
             )
@@ -703,22 +688,18 @@ class RBACService:
             if not resource_type:
                 return None
 
-            # Get user's project
             user = User.query.get(user_id)
             if not user or not user.project_id:
                 return None
 
-            # Parse permission to get resource and action
             if "." in permission:
                 resource, action = permission.split(".", 1)
             else:
                 resource = permission
                 action = "view"
 
-            # Get user's roles
             user_roles = UserRole.query.filter_by(user_id=user_id).all()
 
-            # Check for resource-specific permissions
             for user_role in user_roles:
                 role_permissions = user_role.role.permissions.join(Permission).filter(
                     Permission.project_id == user.project_id,
@@ -729,7 +710,6 @@ class RBACService:
                 for role_permission in role_permissions:
                     perm = role_permission.permission
 
-                    # Check scope-based permissions
                     if perm.scope == "global":
                         return True
                     elif perm.scope == "resource" and perm.resource_type == resource_type:
@@ -741,7 +721,7 @@ class RBACService:
                     ):
                         return True
 
-            return None  # No resource-specific permissions found
+            return None
 
         except Exception as e:
             logging.error(
@@ -838,14 +818,14 @@ class RBACService:
     ) -> bool:
         """Assign a permission to a role with allow/deny type - delegates to PermissionService"""
         result = self.permission_service.assign_permission_to_role(role_id, permission_id, permission_type)
-        # Invalidate cache for all users with this role after permission assignment
+
         self.role_service._invalidate_users_with_role_cache(role_id)
         return result
 
     def remove_permission_from_role(self, role_id: int, permission_id: int) -> bool:
         """Remove a permission from a role - delegates to PermissionService"""
         result = self.permission_service.remove_permission_from_role(role_id, permission_id)
-        # Invalidate cache for all users with this role after permission removal
+
         self.role_service._invalidate_users_with_role_cache(role_id)
         return result
 
@@ -897,20 +877,17 @@ class RBACService:
     def get_rbac_statistics(self, project_id: int) -> Dict:
         """Get RBAC statistics for a project"""
         try:
-            # Count roles
+
             total_roles = Role.query.filter_by(project_id=project_id).count()
             system_roles = Role.query.filter_by(project_id=project_id, is_system_role=True).count()
             custom_roles = total_roles - system_roles
 
-            # Count permissions
             total_permissions = Permission.query.filter_by(project_id=project_id).count()
 
-            # Count user role assignments
             total_assignments = (
                 UserRole.query.join(Role).filter(Role.project_id == project_id).count()
             )
 
-            # Count users with roles
             users_with_roles = (
                 db.session.query(UserRole.user_id)
                 .join(Role)
@@ -919,7 +896,6 @@ class RBACService:
                 .count()
             )
 
-            # Count users without roles
             total_users = User.query.filter_by(project_id=project_id).count()
             users_without_roles = total_users - users_with_roles
 
@@ -938,6 +914,4 @@ class RBACService:
             logging.error(f"RBAC_STATISTICS_ERROR project_id={project_id} error={e}")
             return {}
 
-
-# Global instance
 rbac_service = RBACService()

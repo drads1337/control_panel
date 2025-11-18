@@ -30,14 +30,13 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
   onNotificationCreated,
 }) => {
   const { hasPermission } = usePermissions();
-  
+
   const canCreateNotifications = hasPermission('games.notifications_create');
-  
-  // Early return if user doesn't have permission to create notifications
+
   if (!canCreateNotifications) {
     return null;
   }
-  
+
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [type, setType] = useState<'info' | 'warning' | 'error' | 'success' | 'custom'>('info');
@@ -58,7 +57,7 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
       toast.error('Enter a name for the custom type');
       return;
     }
-    
+
     if (!canCreateNotifications) {
       toast.error('You do not have permission to create notifications');
       return;
@@ -66,7 +65,7 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
 
     try {
       setSending(true);
-      
+
       let scheduledAt = null;
       if (!useCurrentTime && scheduledDate && scheduledTime) {
         scheduledAt = new Date(`${scheduledDate}T${scheduledTime}`).toISOString();
@@ -82,8 +81,7 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
       });
 
       toast.success(`Notification "${title}" sent successfully! Received by ${result.notifications_created} users.`);
-      
-      // Reset form
+
       setTitle('');
       setMessage('');
       setType('info');
@@ -92,15 +90,13 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
       setUseCurrentTime(true);
       setScheduledDate('');
       setScheduledTime('');
-      
-      // Close dialog
+
       onOpenChange(false);
-      
-      // Call the callback if provided
+
       if (onNotificationCreated) {
         onNotificationCreated();
       }
-      
+
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Error sending notification');
     } finally {
@@ -127,17 +123,17 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
       error: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
       success: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
     };
-    
+
     const getTypeLabel = (type: string) => {
       switch (type) {
         case 'info': return 'Info';
         case 'warning': return 'Warning';
         case 'error': return 'Error';
         case 'success': return 'Success';
-        default: return type; // For custom types
+        default: return type;
     }
   };
-  
+
     return (
       <Badge className={colors[type as keyof typeof colors] || 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300'}>
         {getTypeLabel(type)}
@@ -161,7 +157,7 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
             Create a new notification for the game "{game.name}"
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-4 overflow-y-auto max-h-[calc(90vh-120px)] pr-2">
           <Card className="border-2">
             <CardContent className="p-4">
@@ -178,7 +174,7 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
                       className="h-9"
                     />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="notificationType" className="text-sm font-medium">Notification Type</Label>
                     <Select 
@@ -199,7 +195,7 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
                     </Select>
                   </div>
                 </div>
-                
+
                 {type === 'custom' && (
                   <div className="space-y-2">
                     <Label htmlFor="customType" className="text-sm font-medium">Custom Type Name</Label>
@@ -213,7 +209,7 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
                     />
                   </div>
                 )}
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="notificationMessage" className="text-sm font-medium">Notification Text</Label>
                   <Textarea
@@ -226,7 +222,7 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
                     className="resize-none"
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="repeatCount" className="text-sm font-medium">Number of Displays</Label>
                   <div className="flex items-center gap-2">
@@ -268,7 +264,7 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
                         Send Now
                       </Label>
                     </div>
-                    
+
                     {!useCurrentTime && (
                       <div className="grid grid-cols-2 gap-3">
                         <div>
@@ -296,7 +292,7 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
                         </div>
                       </div>
                     )}
-                    
+
                     {useCurrentTime && (
                       <div className="p-2 bg-muted/50 rounded-md">
                         <p className="text-sm text-muted-foreground">
@@ -307,7 +303,7 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
                   </div>
                 </div>
 
-                {/* Preview */}
+                {}
                 {(title.trim() || message.trim()) && (
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Preview</Label>

@@ -44,10 +44,6 @@ interface SidebarItem extends NavigationItem {
   badge?: string
 }
 
-/**
- * Mapping of navigation href to UI metadata (title, icon)
- * This allows the frontend to add UI metadata to server-provided navigation items
- */
 const navigationUIMap: Record<string, { title: string; icon: React.ReactNode }> = {
   '/owner-dashboard': {
     title: 'Dashboard',
@@ -91,20 +87,15 @@ const navigationUIMap: Record<string, { title: string; icon: React.ReactNode }> 
   }
 }
 
-/**
- * Convert navigation items from server to SidebarItem format
- * Adds UI metadata (title, icon) to server-provided navigation items
- */
 function convertNavigationItemsToSidebarItems(navigationItems: NavigationItem[]): SidebarItem[] {
   return navigationItems
     .map(item => {
       const uiMetadata = navigationUIMap[item.href]
       if (!uiMetadata) {
-        // Skip items without UI metadata (shouldn't happen in normal operation)
-        console.warn(`No UI metadata found for navigation item: ${item.href}`)
+
         return null
       }
-      
+
       return {
         ...item,
         title: uiMetadata.title,
@@ -120,44 +111,33 @@ export default function AppSidebar() {
   const { user, logout, isInitialized } = useAuthContext()
   const { isCollapsed, toggleSidebar } = useSidebar()
 
-  // Load navigation configuration from server using react-query
-  // This provides caching, automatic refetching, and better error handling
-  // The navigation is now server-driven, making it easier to maintain and allowing
-  // for dynamic navigation based on project settings or feature flags
   const { navigation: navigationConfig } = useNavigationQuery({
     enabled: isInitialized && !!user,
-    staleTime: 5 * 60 * 1000, // 5 minutes - navigation config doesn't change often
+    staleTime: 5 * 60 * 1000,
   })
 
-  // Get navigation items from server config and add UI metadata
-  const userRole = user?.roles?.[0] // Get primary role
-  
-  // Convert server navigation items to SidebarItem format with UI metadata
+  const userRole = user?.roles?.[0]
+
   const allSidebarItems = navigationConfig?.navigation
     ? convertNavigationItemsToSidebarItems(navigationConfig.navigation)
     : []
-  
-  // Use centralized access check for all items (including owner)
-  // The canAccessNavigationItem function handles owner/admin bypass logic
-  // This ensures consistent RBAC logic across the application
+
   const sidebarItems = allSidebarItems.filter(item => canAccessNavigationItem(item, user, userRole))
 
-  // Load current project using react-query instead of direct api.get
-  // This provides caching, automatic refetching, and better error handling
   const { data: currentProject } = useQuery({
     queryKey: projectKeys.detail(String(user?.project_id)),
     queryFn: () => getProject(user!.project_id!),
     enabled: !!user?.project_id && isInitialized,
-    staleTime: 5 * 60 * 1000, // 5 minutes - project info doesn't change often
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     retry: (failureCount, error: any) => {
-      // Don't retry on auth errors or not found
+
       if (error?.response?.status === 401 || error?.response?.status === 403 || error?.response?.status === 404) {
         return false
       }
       return failureCount < 2
     },
-    // Silently fail - don't show error toast, will show "Panel" as fallback
+
     meta: {
       errorMessage: null,
     },
@@ -176,14 +156,14 @@ export default function AppSidebar() {
   }
 
   const handleNavigation = (href: string) => {
-    console.log('Navigating to:', href)
+
     navigate(href)
     closeMobileSidebar()
   }
 
   return (
     <>
-      {/* Mobile Overlay */}
+      {}
       {isMobileOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
@@ -191,7 +171,7 @@ export default function AppSidebar() {
         />
       )}
 
-      {/* Sidebar */}
+      {}
       <div className={`
         fixed left-0 top-0 z-40 h-full transition-transform duration-300 ease-in-out
         ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -201,7 +181,7 @@ export default function AppSidebar() {
         dark:bg-sidebar dark:border-border
       `}>
         <div className="flex h-full flex-col">
-          {/* Header */}
+          {}
           <div className="flex h-16 items-center justify-between px-4 border-b border-border dark:border-border">
             {!isCollapsed && (
               <h2 className="text-lg font-semibold text-sidebar-foreground dark:text-sidebar-foreground truncate">
@@ -226,7 +206,7 @@ export default function AppSidebar() {
             </Button>
           </div>
 
-          {/* Navigation */}
+          {}
           <ScrollArea className="flex-1 px-3 py-4">
             <nav className="space-y-2">
               {sidebarItems.map((item) => (
@@ -253,10 +233,10 @@ export default function AppSidebar() {
             </nav>
           </ScrollArea>
 
-          {/* Footer - User Profile & Actions */}
+          {}
           <div className="p-3 border-t border-border dark:border-border">
             <div className={`flex items-center gap-2 ${isCollapsed ? 'flex-col' : 'flex-row'}`}>
-              {/* User Avatar with Dropdown Menu */}
+              {}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className={`flex items-center gap-2 rounded-lg hover:bg-sidebar-accent transition-colors p-1.5 ${isCollapsed ? 'w-full justify-center' : 'flex-1 min-w-0'}`}>
@@ -317,7 +297,7 @@ export default function AppSidebar() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {/* Logout Button */}
+              {}
             <Button
                 variant="ghost"
               size="sm"

@@ -16,14 +16,14 @@ interface SecurityStatsCardsProps {
 }
 
 export default function SecurityStatsCards({ stats, loading = false, canViewIPs = true, canViewHWIDs = true }: SecurityStatsCardsProps) {
-  // Determine which cards to show based on permissions
+
   const showTotalCard = canViewIPs || canViewHWIDs
   const showActiveCard = canViewIPs || canViewHWIDs
   const showIPCard = canViewIPs
   const showHWIDCard = canViewHWIDs
-  
+
   const visibleCards = [showTotalCard, showActiveCard, showIPCard, showHWIDCard].filter(Boolean).length
-  
+
   if (loading) {
     return (
       <div 

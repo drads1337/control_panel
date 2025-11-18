@@ -5,19 +5,16 @@ import { usePermissions } from '@/hooks/use-permissions'
 import { Card, CardContent } from '@/components/ui/card'
 import { BarChart3 } from 'lucide-react'
 
-/**
- * Страница дашборда владельца с заголовком
- */
 export function OwnerDashboardPage() {
   const { user } = useAuthContext()
   const { hasPermission } = usePermissions()
-  
+
   const canViewAnalytics = hasPermission('analytics.view')
 
   if (!canViewAnalytics) {
     return (
       <div>
-        {/* Page Header */}
+        {}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-foreground mb-2">
             Owner Dashboard
@@ -45,7 +42,7 @@ export function OwnerDashboardPage() {
 
   return (
     <div>
-      {/* Page Header */}
+      {}
       <div className="mb-8">
         <h2 className="text-3xl font-bold text-foreground mb-2">
           Owner Dashboard

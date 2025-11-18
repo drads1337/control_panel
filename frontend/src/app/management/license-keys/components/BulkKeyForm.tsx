@@ -39,14 +39,13 @@ export const BulkKeyForm: React.FC<BulkKeyFormProps> = ({
   canViewLoaders,
 }) => {
   const showTargetTypeToggle = canViewGames && canViewLoaders;
-  
-  // Determine initial target type based on permissions
+
   const getInitialTargetType = () => {
     if (canViewGames && !canViewLoaders) return 'game';
     if (canViewLoaders && !canViewGames) return 'loader';
-    return 'game'; // Default to game if both or neither
+    return 'game';
   };
-  
+
   const {
     formData,
     updateField,
@@ -58,8 +57,7 @@ export const BulkKeyForm: React.FC<BulkKeyFormProps> = ({
     loaders,
     initialTargetType: getInitialTargetType(),
   });
-  
-  // Ensure targetType matches available permissions
+
   React.useEffect(() => {
     if (!showTargetTypeToggle) {
       if (canViewGames && !canViewLoaders && formData.targetType !== 'game') {
@@ -74,18 +72,18 @@ export const BulkKeyForm: React.FC<BulkKeyFormProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (quantity < 1 || quantity > 1000) {
       throw new Error('Quantity must be between 1 and 1000');
     }
-    
+
     const duration_hours = parseDuration(formData.duration, formData.customHours);
-    
+
     if (formData.targetType === 'loader') {
       if (!formData.loaderId || formData.selectedGames.length === 0) {
         throw new Error('Please select a loader and at least one game');
       }
-      // Create bulk keys for each selected game
+
       const promises = formData.selectedGames.map(gameId =>
         onSubmit({
           targetType: 'loader',
@@ -109,7 +107,7 @@ export const BulkKeyForm: React.FC<BulkKeyFormProps> = ({
         max_devices: formData.maxDevices,
       });
     }
-    
+
     reset();
     setQuantity(10);
   };
@@ -374,4 +372,3 @@ export const BulkKeyForm: React.FC<BulkKeyFormProps> = ({
     </ConditionalRender>
   );
 };
-

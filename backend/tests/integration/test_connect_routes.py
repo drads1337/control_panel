@@ -8,7 +8,6 @@ import pytest
 
 from backend.models.keys import Key
 
-
 @pytest.mark.integration
 @pytest.mark.connect
 class TestConnectRoutes:
@@ -72,14 +71,14 @@ class TestConnectRoutes:
         self, client, test_user, test_project, mocker
     ):
         """Test classic connect with username/password"""
-        # Mock analytics tracker on the service instance
+
         from backend.services.connect_service import connect_service
         mocker.patch.object(
             connect_service.analytics_tracker,
             "log_user_activity",
             return_value=None
         )
-        
+
         response = client.post(
             "/api/classic_connect",
             json={
@@ -88,7 +87,7 @@ class TestConnectRoutes:
             },
             content_type="application/json",
         )
-        # Should return 200, but if there's an auth error, check response
+
         assert response.status_code in [200, 401]
         if response.status_code == 200:
             data = json.loads(response.data)
@@ -142,7 +141,7 @@ class TestConnectRoutes:
 
     def test_challenge_rate_limiting(self, client, test_key, test_project):
         """Test that challenge endpoint respects rate limiting"""
-        # Make a few rapid requests (reduced from 10 to avoid DB connection issues)
+
         responses = []
         for _ in range(3):
             try:
@@ -157,10 +156,8 @@ class TestConnectRoutes:
                 )
                 responses.append(response.status_code)
             except Exception:
-                # If DB connection fails, skip this test
+
                 pytest.skip("Database connection issue in rate limiting test")
                 return
 
-        # At least some requests should succeed (rate limit may vary)
-        assert 200 in responses or 429 in responses or len(responses) > 0  # 429 = Too Many Requests
-
+        assert 200 in responses or 429 in responses or len(responses) > 0

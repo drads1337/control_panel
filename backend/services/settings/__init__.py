@@ -5,7 +5,6 @@ Contains business logic for settings management
 
 from .settings_service import SettingsService, settings_service
 
-# Auto-generate __all__ from imports to avoid duplication
 import sys
 _current_module = sys.modules[__name__]
 __all__ = sorted([

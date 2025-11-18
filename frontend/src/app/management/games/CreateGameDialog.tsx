@@ -23,12 +23,11 @@ interface CreateGameDialogProps {
 const CreateGameDialog: React.FC<CreateGameDialogProps> = ({ open, onOpenChange, onSuccess }) => {
   const { hasPermission } = usePermissions();
   const canCreate = hasPermission('games.create');
-  
-  // Early return if user doesn't have permission to create games
+
   if (!canCreate) {
     return null;
   }
-  
+
   const [creatingGame, setCreatingGame] = useState(false);
   const [createGameData, setCreateGameData] = useState<{
     name: string;
@@ -43,44 +42,23 @@ const CreateGameDialog: React.FC<CreateGameDialogProps> = ({ open, onOpenChange,
   });
 
   const handleCreateGame = async () => {
-    console.log('🎮 [CreateGameDialog] handleCreateGame called', {
-      createGameData,
-      nameTrimmed: createGameData.name.trim(),
-      hasName: !!createGameData.name.trim()
-    })
-    
     if (!createGameData.name.trim()) {
-      console.warn('🎮 [CreateGameDialog] Validation failed: name is empty')
       toast.error('Application name is required.');
       return;
     }
-    
+
     try {
       setCreatingGame(true);
-      console.log('🎮 [CreateGameDialog] Starting game creation with data:', {
-        name: createGameData.name.trim(),
-        description: createGameData.description.trim() || undefined,
-        is_multi_app: createGameData.is_multi_app,
-        version: createGameData.version.trim() || '1.0.0'
-      })
-      
+
       const gameData = {
         name: createGameData.name.trim(),
         description: createGameData.description.trim() || undefined,
         is_multi_app: createGameData.is_multi_app,
         version: createGameData.version.trim() || '1.0.0'
       }
-      
-      console.log('🎮 [CreateGameDialog] Calling createGame API with:', gameData)
+
       const response = await createGame(gameData);
-      
-      console.log('🎮 [CreateGameDialog] Create game response received:', {
-        success: response.success,
-        message: response.message,
-        game: response.game
-      })
-      
-      // Automatically create configs folder for the new game
+
       if (response.success && response.game) {
         try {
           await createFolder({
@@ -88,15 +66,14 @@ const CreateGameDialog: React.FC<CreateGameDialogProps> = ({ open, onOpenChange,
             parent_path: '/',
             game_id: response.game.id
           });
-          console.log('🎮 Created configs folder for game:', response.game.id);
+
         } catch (folderError) {
-          // Ignore folder creation errors as they are not critical
-          console.log('Failed to create configs folder for new game:', folderError);
+
         }
       }
-      
+
       if (response.success && response.game) {
-        console.log('🎮 Game created successfully, calling onSuccess');
+
         toast.success('Game successfully created!');
         onOpenChange(false);
         setCreateGameData({
@@ -108,38 +85,22 @@ const CreateGameDialog: React.FC<CreateGameDialogProps> = ({ open, onOpenChange,
         onSuccess();
       } else {
         toast.error(response.message || 'Failed to create game.');
-        console.error('🎮 Create game error: Invalid response', response);
+
       }
     } catch (err: unknown) {
-      // Log error details for debugging (in development)
+
       if (import.meta.env.DEV) {
-        console.error('🎮 [CreateGameDialog] Error caught in handleCreateGame:', {
-          error: err,
-          message: err instanceof Error ? err.message : 'Unknown error',
-        })
-        
-        // Log debug information if available
+
         if (err && typeof err === 'object' && 'debug' in err) {
           const debugInfo = (err as any).debug
-          console.error('🎮 [CreateGameDialog] Debug info from backend:', {
-            user_id: debugInfo.user_id,
-            username: debugInfo.username,
-            role: debugInfo.role,
-            project_id: debugInfo.project_id,
-            is_owner: debugInfo.is_owner,
-            is_admin: debugInfo.is_admin,
-            rbac_roles: debugInfo.rbac_roles,
-            all_role_names: debugInfo.all_role_names,
-            has_applications_create: debugInfo.has_applications_create
-          })
+
         }
       }
-      
-      // Use standardized error message utility for user-friendly messages
+
       const errorMessage = getErrorMessage(err)
       toast.error(errorMessage)
     } finally {
-      console.log('🎮 [CreateGameDialog] Setting creatingGame to false')
+
       setCreatingGame(false);
     }
   };
@@ -167,7 +128,7 @@ const CreateGameDialog: React.FC<CreateGameDialogProps> = ({ open, onOpenChange,
             Fill in the details for the new game.
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="gameName">Application Name *</Label>

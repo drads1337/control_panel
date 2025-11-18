@@ -16,14 +16,11 @@ from flask import Blueprint
 from .bulk_operations import bulk_operations_bp
 from .files import files_bp
 
-# Import all sub-blueprints
 from .management import management_bp
 from .prices import prices_bp
 
-# Create main blueprint
 games_bp = Blueprint("games", __name__)
 
-# Register sub-blueprints
 games_bp.register_blueprint(management_bp)
 games_bp.register_blueprint(prices_bp)
 games_bp.register_blueprint(files_bp)

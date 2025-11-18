@@ -8,7 +8,6 @@ import type {
   ConnectionLogStats as ConnectionLogStatsType
 } from '../model/types'
 
-// Log API functions
 export async function getLogs(
   page: number = 1,
   perPage: number = 50,
@@ -23,21 +22,20 @@ export async function getLogs(
     page: page.toString(),
     per_page: perPage.toString(),
   }
-  
+
   if (action && action.trim() !== '') params.action = action
   if (userId) params.user_id = userId.toString()
   if (dateFrom && dateFrom.trim() !== '') params.date_from = dateFrom
   if (dateTo && dateTo.trim() !== '') params.date_to = dateTo
   if (ip && ip.trim() !== '') params.ip = ip
   if (projectId && projectId !== 'all') params.project_id = projectId.toString()
-  
-  // CSRF token and credentials are automatically handled by axios interceptors in base.ts
+
   const response = await api.get(API_ENDPOINTS.LOGS, { params })
   return response.data
 }
 
 export async function getLogStats(): Promise<LogStatsType> {
-  // CSRF token and credentials are automatically handled by axios interceptors in base.ts
+
   const response = await api.get(API_ENDPOINTS.LOGS_STATS)
   return response.data
 }
@@ -56,21 +54,20 @@ export async function getConnectionLogs(
     page: page.toString(),
     per_page: perPage.toString(),
   }
-  
+
   if (status) params.status = status
   if (userId) params.user_id = userId.toString()
   if (dateFrom) params.date_from = dateFrom
   if (dateTo) params.date_to = dateTo
   if (ip) params.ip = ip
   if (game) params.game = game
-  
-  // CSRF token and credentials are automatically handled by axios interceptors in base.ts
+
   const response = await api.get(API_ENDPOINTS.LOGS_CONNECTS, { params })
   return response.data
 }
 
 export async function getConnectionLogStats(): Promise<ConnectionLogStatsType> {
-  // CSRF token and credentials are automatically handled by axios interceptors in base.ts
+
   const response = await api.get(API_ENDPOINTS.LOGS_CONNECTS_STATS)
   return response.data
 }
@@ -85,14 +82,13 @@ export async function searchLogs(
     page: page.toString(),
     per_page: perPage.toString(),
   }
-  
-  // CSRF token and credentials are automatically handled by axios interceptors in base.ts
+
   const response = await api.get(API_ENDPOINTS.LOGS_SEARCH, { params })
   return response.data
 }
 
 export async function getRealtimeLogs(): Promise<{ logs: any[]; count: number; timestamp: string }> {
-  // CSRF token and credentials are automatically handled by axios interceptors in base.ts
+
   const response = await api.get(API_ENDPOINTS.LOGS_REALTIME)
   return response.data
 }
@@ -104,13 +100,12 @@ export async function exportLogs(
   dateTo?: string
 ): Promise<Blob> {
   const params: Record<string, string> = {}
-  
+
   if (action && action.trim() !== '') params.action = action
   if (userId) params.user_id = userId.toString()
   if (dateFrom && dateFrom.trim() !== '') params.date_from = dateFrom
   if (dateTo && dateTo.trim() !== '') params.date_to = dateTo
-  
-  // CSRF token and credentials are automatically handled by axios interceptors in base.ts
+
   const response = await api.get(API_ENDPOINTS.LOGS_EXPORT, { 
     params,
     responseType: 'blob'
@@ -119,7 +114,7 @@ export async function exportLogs(
 }
 
 export async function cleanupLogs(daysOld: number = 90): Promise<{ message: string; deleted_count: number }> {
-  // CSRF token and credentials are automatically handled by axios interceptors in base.ts
+
   const response = await api.post(API_ENDPOINTS.LOGS_CLEANUP, { days_old: daysOld })
   return response.data
 }

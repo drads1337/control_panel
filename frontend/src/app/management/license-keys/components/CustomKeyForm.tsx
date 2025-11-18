@@ -39,14 +39,13 @@ export const CustomKeyForm: React.FC<CustomKeyFormProps> = ({
   canViewLoaders,
 }) => {
   const showTargetTypeToggle = canViewGames && canViewLoaders;
-  
-  // Determine initial target type based on permissions
+
   const getInitialTargetType = () => {
     if (canViewGames && !canViewLoaders) return 'game';
     if (canViewLoaders && !canViewGames) return 'loader';
-    return 'game'; // Default to game if both or neither
+    return 'game';
   };
-  
+
   const {
     formData,
     updateField,
@@ -58,8 +57,7 @@ export const CustomKeyForm: React.FC<CustomKeyFormProps> = ({
     loaders,
     initialTargetType: getInitialTargetType(),
   });
-  
-  // Ensure targetType matches available permissions
+
   React.useEffect(() => {
     if (!showTargetTypeToggle) {
       if (canViewGames && !canViewLoaders && formData.targetType !== 'game') {
@@ -74,18 +72,18 @@ export const CustomKeyForm: React.FC<CustomKeyFormProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!keyName.trim()) {
       throw new Error('Key name is required');
     }
-    
+
     const duration_hours = parseDuration(formData.duration, formData.customHours);
-    
+
     if (formData.targetType === 'loader') {
       if (!formData.loaderId || formData.selectedGames.length === 0) {
         throw new Error('Please select a loader and at least one game');
       }
-      // Create custom keys for each selected game
+
       const promises = formData.selectedGames.map(gameId =>
         onSubmit({
           targetType: 'loader',
@@ -109,7 +107,7 @@ export const CustomKeyForm: React.FC<CustomKeyFormProps> = ({
         max_devices: formData.maxDevices,
       });
     }
-    
+
     reset();
     setKeyName('');
   };
@@ -371,4 +369,3 @@ export const CustomKeyForm: React.FC<CustomKeyFormProps> = ({
     </ConditionalRender>
   );
 };
-

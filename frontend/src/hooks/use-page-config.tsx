@@ -11,7 +11,7 @@ interface PageConfig {
 
 export function usePageConfig(): PageConfig {
   const location = useLocation()
-  
+
   const configs: Record<string, PageConfig> = {
     '/dashboard': { 
       title: 'Dashboard'
@@ -72,6 +72,6 @@ export function usePageConfig(): PageConfig {
       title: 'Presentation'
     }
   }
-  
+
   return configs[location.pathname] || { title: 'Panel' }
 }

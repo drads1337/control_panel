@@ -1,6 +1,5 @@
 import { BaseEntity } from '@/shared/api'
 
-// Game entity types
 export interface Game extends BaseEntity {
   unique_id: string
   name: string
@@ -20,7 +19,7 @@ export interface Game extends BaseEntity {
   prices?: any
   activeUsers?: number
   lastUpdate?: string
-  // New fields for enhanced game management
+
   custom_key_prefix?: string
   key_prefix_format?: string
   login_type?: 'license_generation' | 'classic_login'

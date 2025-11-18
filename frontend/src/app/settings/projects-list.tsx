@@ -65,8 +65,8 @@ export default function ProjectsList({ projects, loadingProjects }: ProjectsList
                     </Button>
                   </div>
                 </div>
-                
-                {/* Status badges */}
+
+                {}
                 <div className="flex items-center flex-wrap gap-3 text-sm">
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground">Status:</span>
@@ -77,7 +77,7 @@ export default function ProjectsList({ projects, loadingProjects }: ProjectsList
                        project.status}
                     </Badge>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground">Subscription:</span>
                     <Badge 
@@ -96,7 +96,7 @@ export default function ProjectsList({ projects, loadingProjects }: ProjectsList
                        project.subscription_status_display.replace('_', ' ')}
                     </Badge>
                   </div>
-                  
+
                   {project.days_until_expiry !== null && (
                     <div className="flex items-center gap-2">
                       <span className="text-muted-foreground">Expires:</span>
@@ -113,7 +113,7 @@ export default function ProjectsList({ projects, loadingProjects }: ProjectsList
                     </div>
                   )}
                 </div>
-                
+
                 {project.subscription_expires_at && (
                   <div className="text-xs text-muted-foreground mt-2">
                     {new Date(project.subscription_expires_at).toLocaleDateString('en-US', {

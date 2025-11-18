@@ -45,13 +45,13 @@ export function InviteCodeManager({ projectId }: InviteCodeManagerProps) {
 
   const fetchInviteCodes = async () => {
     if (!token) return
-    
+
     setIsLoading(true)
     try {
       const codes = await getInviteCodes()
       setInviteCodes(codes)
     } catch (error) {
-      console.error('Error fetching invite codes:', error)
+
       if (error instanceof Error) {
         toast.error(`Error loading invite codes: ${error.message}`)
       } else {
@@ -64,43 +64,40 @@ export function InviteCodeManager({ projectId }: InviteCodeManagerProps) {
 
   const fetchLatestCode = async () => {
     if (!token) return
-    
+
     try {
       const response = await getLatestInviteCode()
       setLatestCode(response.invite_code)
     } catch (error) {
-      console.error('Error fetching latest invite code:', error)
+
     }
   }
 
   const handleGenerateCode = async () => {
     if (!token) {
-      console.error('No token available')
+
       toast.error('Authentication token not found')
       return
     }
-    
+
     setIsGenerating(true)
     try {
-      console.log('Generating code with token:', token.substring(0, 20) + '...')
-      console.log('Project ID:', projectId)
-      
+      + '...')
+
       const data: CreateInviteCodeData = {
         expires_in_days: expiresInDays,
         project_id: projectId,
         game_ids: []
       }
 
-      console.log('Sending data:', data)
       const result = await generateInviteCode(data)
-      console.log('Code generated successfully:', result)
-      
+
       toast.success(`Invite code for role "${selectedRole}" created successfully.`)
       setShowGenerateDialog(false)
       await fetchInviteCodes()
       await fetchLatestCode()
     } catch (error) {
-      console.error('Error generating invite code:', error)
+
       if (error instanceof Error) {
         toast.error(`Error creating invite code: ${error.message}`)
       } else {
@@ -113,7 +110,7 @@ export function InviteCodeManager({ projectId }: InviteCodeManagerProps) {
 
   const handleUpdateDuration = async () => {
     if (!token) return
-    
+
     setIsUpdating(true)
     try {
       await updateInviteCodeDuration(expiresInDays)
@@ -122,7 +119,7 @@ export function InviteCodeManager({ projectId }: InviteCodeManagerProps) {
       await fetchLatestCode()
     } catch (error) {
       toast.error('Failed to update code duration.')
-      console.error('Error updating invite code duration:', error)
+
     } finally {
       setIsUpdating(false)
     }
@@ -130,36 +127,26 @@ export function InviteCodeManager({ projectId }: InviteCodeManagerProps) {
 
   const handleDeleteUnusedCodes = async () => {
     if (!token) return
-    
+
     setIsDeleting(true)
     try {
-      console.log('=== DELETE UNUSED CODES DEBUG ===')
-      console.log('Total invite codes:', inviteCodes.length)
-      console.log('All codes:', inviteCodes)
-      
-      // Get only unused codes
+
       const unusedCodes = inviteCodes.filter(code => !(code.used || code.is_used))
-      console.log('Unused codes found:', unusedCodes.length)
-      console.log('Unused codes:', unusedCodes)
-      
+
       if (unusedCodes.length === 0) {
         toast.info('No unused codes to delete.')
         return
       }
 
-      console.log('Calling API to delete unused codes...')
-      // Call API to delete unused codes
       const result = await deleteUnusedInviteCodes()
-      console.log('API result:', result)
-      
-      // Update local state
+
       const remainingCodes = inviteCodes.filter(code => code.used || code.is_used)
-      console.log('Remaining codes after deletion:', remainingCodes.length)
+
       setInviteCodes(remainingCodes)
-      
+
       toast.success(result.msg || `Deleted ${result.deleted_count || 0} codes`)
     } catch (error) {
-      console.error('Error deleting unused codes:', error)
+
       if (error instanceof Error) {
         toast.error(`Error deleting: ${error.message}`)
       } else {
@@ -192,7 +179,7 @@ export function InviteCodeManager({ projectId }: InviteCodeManagerProps) {
     if (code.used || code.is_used) {
       return <Badge variant="secondary">Used</Badge>
     }
-    
+
     if (code.expires_at && new Date(code.expires_at) < new Date()) {
       return <Badge variant="destructive">Expired</Badge>
     }
@@ -224,7 +211,7 @@ export function InviteCodeManager({ projectId }: InviteCodeManagerProps) {
 
   return (
     <div className="space-y-4">
-      {/* Main Actions */}
+      {}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-lg">Invite Codes (for inviting users)</CardTitle>
@@ -345,8 +332,8 @@ export function InviteCodeManager({ projectId }: InviteCodeManagerProps) {
               {showOnlyUnused ? 'Show All' : 'Only Unused'}
             </Button>
           </div>
-          
-          {/* Codes List */}
+
+          {}
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />

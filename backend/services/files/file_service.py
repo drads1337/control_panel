@@ -20,7 +20,6 @@ from ...models.core import Project, User
 from ...models.games import Game, GameExtraFile, GameFileConfig, GameFileDownload
 from ...models.loaders import Loader
 
-
 class FileService:
     """Service for handling file management operations"""
 
@@ -41,7 +40,7 @@ class FileService:
     def validate_user_project(self, user: User) -> Tuple[bool, Optional[str]]:
         """
         Validate that user has a project assigned
-        
+
         Returns:
             Tuple of (is_valid, error_message)
         """
@@ -101,16 +100,15 @@ class FileService:
             return 0
 
         try:
-            # Get the upload folder path from current app context or use default
+
             try:
                 upload_folder = current_app.config.get("UPLOAD_FOLDER", self.upload_folder)
                 root_path = current_app.root_path
             except RuntimeError:
-                # Working outside of application context, use default values
+
                 upload_folder = self.upload_folder
                 root_path = os.getcwd()
 
-            # Check project-specific game files
             project_games_path = os.path.join(root_path, upload_folder, "games", str(project_id))
 
             total_size = 0
@@ -122,7 +120,6 @@ class FileService:
                         if os.path.isfile(file_path):
                             total_size += os.path.getsize(file_path)
 
-            # Also check database records for more accurate calculation
             try:
                 configs_size = (
                     db.session.query(db.func.sum(GameFileConfig.file_size))
@@ -150,7 +147,7 @@ class FileService:
     def check_storage_limit(self, user: User, file_size: int) -> Tuple[bool, str]:
         """
         Check if file can be uploaded based on project storage limits
-        
+
         Returns:
             Tuple of (can_upload, message)
         """
@@ -246,7 +243,7 @@ class FileService:
     ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         """
         Upload a file
-        
+
         Returns:
             Tuple of (file_data, error_message)
         """
@@ -342,11 +339,11 @@ class FileService:
                     main_type = mime_type.split("/")[0]
                     type_stats[main_type] = type_stats.get(main_type, 0) + 1
 
-                if file_size < 1024 * 1024:  # < 1MB
+                if file_size < 1024 * 1024:
                     size_stats["small"] += 1
-                elif file_size < 10 * 1024 * 1024:  # < 10MB
+                elif file_size < 10 * 1024 * 1024:
                     size_stats["medium"] += 1
-                else:  # >= 10MB
+                else:
                     size_stats["large"] += 1
 
         storage_limit = None
@@ -503,7 +500,6 @@ class FileService:
         self.clear_storage_cache(user.project_id)
         return deleted_count, None
 
-    # Game files methods
     def get_game_configs(
         self, user: User, game_id: int
     ) -> Tuple[Optional[List[Dict[str, Any]]], Optional[str]]:
@@ -627,22 +623,22 @@ class FileService:
     def get_file_path_for_download(self, filename: str) -> Tuple[Optional[str], Optional[str]]:
         """
         Get file path for download
-        
+
         Returns:
             Tuple of (file_path, error_message)
         """
         upload_path = self.get_upload_path()
         file_path = os.path.join(upload_path, secure_filename(filename))
-        
+
         if not os.path.exists(file_path):
             return None, "File not found"
-        
+
         return file_path, None
 
     def get_file_size(self, file_path: str) -> int:
         """
         Get file size in bytes
-        
+
         Returns:
             File size in bytes, or 0 if file doesn't exist
         """
@@ -656,7 +652,7 @@ class FileService:
     def get_game_file_path(self, game: Game, file_type: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
         """
         Get game file path (logo, banner, loader)
-        
+
         Returns:
             Tuple of (file_path, filename, error_message)
         """
@@ -671,23 +667,23 @@ class FileService:
             filename = f"{game.name}_loader.exe"
         else:
             return None, None, "File not found"
-        
+
         if not os.path.exists(file_path):
             return None, None, "File not found on disk"
-        
+
         return file_path, filename, None
 
     def delete_game_file(self, game: Game, file_type: str) -> Tuple[bool, Optional[str]]:
         """
         Delete game file (logo, banner, loader)
-        
+
         Returns:
             Tuple of (success, error_message)
         """
         file_path, _, error = self.get_game_file_path(game, file_type)
         if error:
             return False, error
-        
+
         field_to_clear = None
         if file_type == "logo":
             field_to_clear = "logo"
@@ -695,15 +691,15 @@ class FileService:
             field_to_clear = "banner"
         elif file_type == "loader":
             field_to_clear = "loader_file"
-        
+
         try:
             if file_path and os.path.exists(file_path):
                 os.remove(file_path)
-            
+
             if field_to_clear:
                 setattr(game, field_to_clear, None)
                 db.session.commit()
-            
+
             self.clear_storage_cache(game.project_id)
             return True, None
         except Exception as e:
@@ -713,19 +709,19 @@ class FileService:
     def create_folder(self, folder_name: str, parent_path: str = "/", game_id: Optional[int] = None) -> Tuple[bool, Optional[str], Optional[Dict[str, Any]]]:
         """
         Create a folder
-        
+
         Returns:
             Tuple of (success, error_message, folder_data)
         """
         if not folder_name:
             return False, "Folder name is required", None
-        
+
         base_path = self.get_upload_path()
         if game_id:
             base_path = os.path.join(base_path, "games", str(game_id))
-        
+
         folder_path = os.path.join(base_path, parent_path.lstrip("/"), folder_name)
-        
+
         try:
             os.makedirs(folder_path, exist_ok=True)
             return True, None, {
@@ -740,19 +736,19 @@ class FileService:
     def delete_folder(self, folder_path: str) -> Tuple[bool, Optional[str]]:
         """
         Delete a folder
-        
+
         Returns:
             Tuple of (success, error_message)
         """
         base_path = self.get_upload_path()
         full_folder_path = os.path.join(base_path, secure_filename(folder_path))
-        
+
         if not os.path.exists(full_folder_path):
             return False, "Folder not found"
-        
+
         if not os.path.isdir(full_folder_path):
             return False, "Path is not a directory"
-        
+
         try:
             shutil.rmtree(full_folder_path)
             return True, None
@@ -763,16 +759,16 @@ class FileService:
     def download_game_config(self, config: GameFileConfig, user: User, ip_address: Optional[str] = None, user_agent: Optional[str] = None) -> Tuple[Optional[Any], Optional[str]]:
         """
         Download game config file
-        
+
         Returns:
             Tuple of (send_file_response, error_message)
         """
         if not os.path.exists(config.file_path):
             return None, "File not found on disk"
-        
+
         try:
             config.download_count += 1
-            
+
             download_log = GameFileDownload(
                 file_id=config.id,
                 file_type="config",
@@ -782,7 +778,7 @@ class FileService:
             )
             db.session.add(download_log)
             db.session.commit()
-            
+
             return send_file(config.file_path, as_attachment=True, download_name=config.name), None
         except Exception as e:
             self.logger.error(f"Error downloading game config: {e}")
@@ -791,17 +787,17 @@ class FileService:
     def download_game_extra_file(self, extra_file: GameExtraFile) -> Tuple[Optional[Any], Optional[str]]:
         """
         Download game extra file
-        
+
         Returns:
             Tuple of (send_file_response, error_message)
         """
         if not os.path.exists(extra_file.file_path):
             return None, "File not found on disk"
-        
+
         try:
             extra_file.download_count += 1
             db.session.commit()
-            
+
             return send_file(
                 extra_file.file_path, as_attachment=True, download_name=extra_file.original_filename
             ), None
@@ -821,44 +817,44 @@ class FileService:
     ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         """
         Upload game config file
-        
+
         Returns:
             Tuple of (config_data, error_message)
         """
         if file.filename == "":
             return None, "No file selected"
-        
+
         file.seek(0, 2)
         file_size = file.tell()
         file.seek(0)
-        
+
         can_upload, message = self.check_storage_limit(user, file_size)
         if not can_upload:
             return None, message
-        
+
         try:
             timestamp = int(time.time())
             filename = secure_filename(file.filename)
             name_part, ext = os.path.splitext(filename)
             filename = f"{name_part}_{timestamp}{ext}"
-            
+
             upload_path = os.path.join(
                 self.get_upload_path(), "games", str(game.id), "configs"
             )
             if not os.path.exists(upload_path):
                 os.makedirs(upload_path)
-            
+
             file_path = os.path.join(upload_path, filename)
             file.save(file_path)
-            
+
             file_hash = self.get_file_hash(file_path)
             file_type = ext.lstrip(".").lower()
-            
+
             from ...models.utils import generate_config_id
             config_id = generate_config_id()
-            
+
             display_name = name if name else file.filename
-            
+
             config = GameFileConfig(
                 config_id=config_id,
                 game_id=game.id,
@@ -872,12 +868,12 @@ class FileService:
                 version=version,
                 is_public=is_public,
             )
-            
+
             db.session.add(config)
             db.session.commit()
-            
+
             self.clear_storage_cache(user.project_id)
-            
+
             return {
                 "id": config.id,
                 "config_id": config.config_id,
@@ -901,41 +897,41 @@ class FileService:
     ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         """
         Upload game extra file
-        
+
         Returns:
             Tuple of (file_data, error_message)
         """
         if file.filename == "":
             return None, "No file selected"
-        
+
         file.seek(0, 2)
         file_size = file.tell()
         file.seek(0)
-        
+
         can_upload, message = self.check_storage_limit(user, file_size)
         if not can_upload:
             return None, message
-        
+
         try:
             original_filename = file.filename
-            
+
             timestamp = int(time.time())
             filename = secure_filename(file.filename)
             name_part, ext = os.path.splitext(filename)
             unique_filename = f"{name_part}_{timestamp}{ext}"
-            
+
             upload_path = os.path.join(
                 self.get_upload_path(), "games", str(game.id), "extra"
             )
             if not os.path.exists(upload_path):
                 os.makedirs(upload_path)
-            
+
             file_path = os.path.join(upload_path, unique_filename)
             file.save(file_path)
-            
+
             file_hash = self.get_file_hash(file_path)
             file_type = ext.lstrip(".").lower()
-            
+
             extra_file = GameExtraFile(
                 game_id=game.id,
                 name=name or original_filename,
@@ -949,12 +945,12 @@ class FileService:
                 status="active",
                 is_active=True,
             )
-            
+
             db.session.add(extra_file)
             db.session.commit()
-            
+
             self.clear_storage_cache(user.project_id)
-            
+
             return {
                 "id": extra_file.id,
                 "name": extra_file.name,
@@ -970,17 +966,17 @@ class FileService:
     def delete_game_config(self, config: GameFileConfig, user: User) -> Tuple[bool, Optional[str]]:
         """
         Delete game config
-        
+
         Returns:
             Tuple of (success, error_message)
         """
         try:
             if os.path.exists(config.file_path):
                 os.remove(config.file_path)
-            
+
             db.session.delete(config)
             db.session.commit()
-            
+
             self.clear_storage_cache(user.project_id)
             return True, None
         except Exception as e:
@@ -990,24 +986,21 @@ class FileService:
     def delete_game_extra_file(self, extra_file: GameExtraFile, user: User) -> Tuple[bool, Optional[str]]:
         """
         Delete game extra file
-        
+
         Returns:
             Tuple of (success, error_message)
         """
         try:
             if os.path.exists(extra_file.file_path):
                 os.remove(extra_file.file_path)
-            
+
             db.session.delete(extra_file)
             db.session.commit()
-            
+
             self.clear_storage_cache(user.project_id)
             return True, None
         except Exception as e:
             self.logger.error(f"Error deleting game extra file: {e}")
             return False, f"Failed to delete game extra file: {str(e)}"
 
-
-# Create service instance
 file_service = FileService()
-

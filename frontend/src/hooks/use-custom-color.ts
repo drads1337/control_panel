@@ -15,10 +15,9 @@ const DEFAULT_COLOR: CustomColor = {
 
 export const useCustomColor = () => {
   const { settings, saveSettings } = useSettingsQuery();
-  
-  // Функция для генерации hover и light цветов на основе основного цвета
+
   const generateColorVariants = useCallback((primaryColor: string) => {
-    // Простая функция для затемнения цвета (hover)
+
     const darkenColor = (color: string, amount: number) => {
       const hex = color.replace('#', '');
       const r = Math.max(0, parseInt(hex.substr(0, 2), 16) - amount);
@@ -27,7 +26,6 @@ export const useCustomColor = () => {
       return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
     };
 
-    // Простая функция для осветления цвета (light)
     const lightenColor = (color: string, amount: number) => {
       const hex = color.replace('#', '');
       const r = Math.min(255, parseInt(hex.substr(0, 2), 16) + amount);
@@ -43,7 +41,6 @@ export const useCustomColor = () => {
     };
   }, []);
 
-  // Получаем цвет из настроек проекта или используем значение по умолчанию
   const getColorFromSettings = useCallback((): CustomColor => {
     if (settings?.appearance?.primaryColor) {
       return generateColorVariants(settings.appearance.primaryColor);
@@ -53,18 +50,15 @@ export const useCustomColor = () => {
 
   const [customColor, setCustomColor] = useState<CustomColor>(DEFAULT_COLOR);
 
-  // Загружаем цвет из настроек при их изменении
   useEffect(() => {
     const colorFromSettings = getColorFromSettings();
     setCustomColor(colorFromSettings);
   }, [getColorFromSettings]);
 
-  // Функция для установки нового цвета
   const setPrimaryColor = useCallback(async (color: string) => {
     const variants = generateColorVariants(color);
     setCustomColor(variants);
-    
-    // Сохраняем цвет в настройки проекта
+
     try {
       await saveSettings({
         appearance: {
@@ -72,15 +66,13 @@ export const useCustomColor = () => {
         }
       });
     } catch (error) {
-      console.error('Failed to save color to project settings:', error);
+
     }
   }, [generateColorVariants, saveSettings]);
 
-  // Функция для сброса к цвету по умолчанию
   const resetToDefault = useCallback(async () => {
     setCustomColor(DEFAULT_COLOR);
-    
-    // Сохраняем цвет по умолчанию в настройки проекта
+
     try {
       await saveSettings({
         appearance: {
@@ -88,10 +80,9 @@ export const useCustomColor = () => {
         }
       });
     } catch (error) {
-      console.error('Failed to reset color in project settings:', error);
+
     }
-    
-    // Очищаем CSS-переменные, чтобы вернуться к значениям по умолчанию
+
     const root = document.documentElement;
     root.style.removeProperty('--primary');
     root.style.removeProperty('--ring');
@@ -104,14 +95,9 @@ export const useCustomColor = () => {
     root.style.removeProperty('--chart-5');
   }, [saveSettings]);
 
-  // Функция для применения цветов к CSS-переменным
-  // Использует прямую установку CSS-переменных на document.documentElement
-  // вместо инъекции style тегов в document.head
   const applyCustomColors = useCallback(() => {
     const root = document.documentElement;
-    
-    // Устанавливаем CSS-переменные напрямую на root элемент
-    // Это более чистый подход, чем инъекция style тегов
+
     root.style.setProperty('--primary', customColor.primary);
     root.style.setProperty('--ring', customColor.primary);
     root.style.setProperty('--sidebar-primary', customColor.primary);
@@ -123,7 +109,6 @@ export const useCustomColor = () => {
     root.style.setProperty('--chart-5', customColor.primaryHover);
   }, [customColor]);
 
-  // Применяем цвета при изменении
   useEffect(() => {
     applyCustomColors();
   }, [applyCustomColors]);

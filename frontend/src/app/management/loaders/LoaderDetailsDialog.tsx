@@ -4,21 +4,17 @@ import { Badge } from '@/components/ui/badge';
 import { Zap, Calendar, Download, Users, Gamepad2, FileText, Bell } from 'lucide-react';
 import type { Game } from '@/entities/game';
 import type { Loader } from '@/entities/loader';
-
 interface LoaderDetailsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   loader: Loader | null;
   games: Game[];
 }
-
 const LoaderDetailsDialog: React.FC<LoaderDetailsDialogProps> = ({ open, onOpenChange, loader, games }) => {
   if (!loader) return null;
-
   const assignedGames = loader.assigned_games.map(gameId => 
     games.find(g => g.id === gameId)
   ).filter(Boolean) as Game[];
-
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
@@ -31,7 +27,6 @@ const LoaderDetailsDialog: React.FC<LoaderDetailsDialogProps> = ({ open, onOpenC
         return <Badge variant="outline">Unknown</Badge>;
     }
   };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -44,9 +39,8 @@ const LoaderDetailsDialog: React.FC<LoaderDetailsDialogProps> = ({ open, onOpenC
             {loader.description || 'No description available'}
           </DialogDescription>
         </DialogHeader>
-
         <div className="space-y-6">
-          {/* Basic Info */}
+          {}
           <div className="space-y-3">
             <div className="flex items-center justify-between py-2 border-b">
               <span className="text-sm font-medium text-muted-foreground">Status</span>
@@ -75,8 +69,7 @@ const LoaderDetailsDialog: React.FC<LoaderDetailsDialogProps> = ({ open, onOpenC
               </span>
             </div>
           </div>
-
-          {/* Assigned Games */}
+          {}
           {assignedGames.length > 0 && (
             <div className="space-y-3">
               <h3 className="text-sm font-medium text-muted-foreground">Assigned Games</h3>
@@ -101,8 +94,7 @@ const LoaderDetailsDialog: React.FC<LoaderDetailsDialogProps> = ({ open, onOpenC
               </div>
             </div>
           )}
-
-          {/* Additional Info */}
+          {}
           {(loader.changelog || loader.notifications) && (
             <div className="space-y-3">
               {loader.changelog && (
@@ -114,7 +106,6 @@ const LoaderDetailsDialog: React.FC<LoaderDetailsDialogProps> = ({ open, onOpenC
                   <div className="mt-1 text-sm bg-muted p-3 rounded">{loader.changelog}</div>
                 </div>
               )}
-              
               {loader.notifications && (
                 <div>
                   <span className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -126,8 +117,7 @@ const LoaderDetailsDialog: React.FC<LoaderDetailsDialogProps> = ({ open, onOpenC
               )}
             </div>
           )}
-
-          {/* Last Update */}
+          {}
           <div className="space-y-3">
             <div className="flex items-center justify-between py-2 border-b">
               <span className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -144,5 +134,4 @@ const LoaderDetailsDialog: React.FC<LoaderDetailsDialogProps> = ({ open, onOpenC
     </Dialog>
   );
 };
-
 export default LoaderDetailsDialog;

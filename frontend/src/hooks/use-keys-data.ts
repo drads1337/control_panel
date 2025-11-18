@@ -15,7 +15,7 @@ interface UseKeysDataParams {
 }
 
 interface UseKeysDataReturn {
-  // Data
+
   keys: any[];
   loading: boolean;
   games: Array<{ id: number; name: string; is_multi_app: boolean }>;
@@ -26,15 +26,10 @@ interface UseKeysDataReturn {
     pages: number;
   };
 
-  // Data actions
   loadGames: () => Promise<void>;
   invalidateQueries: () => void;
 }
 
-/**
- * Hook for managing keys data (queries, fetching)
- * Separated from UI state management for better reusability
- */
 export function useKeysData({
   viewMode,
   filters,
@@ -43,7 +38,6 @@ export function useKeysData({
 }: UseKeysDataParams): UseKeysDataReturn {
   const queryClient = useQueryClient();
 
-  // Use React Query hook for keys
   const showMyKeysOnly = !canViewKeys ? true : viewMode === 'my';
   const keysQuery = useKeysQuery({
     page: currentPage,
@@ -54,7 +48,6 @@ export function useKeysData({
     my_keys: showMyKeysOnly,
   });
 
-  // Extract data from query
   const keys = keysQuery.keys || [];
   const loading = keysQuery.loading;
   const pagination = {
@@ -64,14 +57,12 @@ export function useKeysData({
     pages: keysQuery.pages,
   };
 
-  // Load games
   const loadGames = useCallback(async (): Promise<void> => {
     try {
       await getGames('all');
-      // This function doesn't set games state - it's just for fetching
-      // The caller should handle the state update if needed
+
     } catch (error) {
-      console.error('Error loading games:', error);
+
       throw error;
     }
   }, []);
@@ -82,15 +73,13 @@ export function useKeysData({
   }, [queryClient]);
 
   return {
-    // Data
+
     keys,
     loading,
-    games: [], // Games should be loaded separately or passed as prop
+    games: [],
     pagination,
 
-    // Data actions
     loadGames,
     invalidateQueries,
   };
 }
-

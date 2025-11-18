@@ -4,7 +4,6 @@ import { getUserActivity, getUserActivityStats } from '@/entities/user'
 import type { UserActivity, UserActivityStats } from '@/entities/user'
 import { useAuthContext } from '@/contexts/auth-context'
 
-// Cache keys
 export const userActivityKeys = {
   all: ['user-activity'] as const,
   list: (page: number, perPage: number) => [...userActivityKeys.all, 'list', page, perPage] as const,
@@ -30,8 +29,7 @@ export interface UseUserActivityQueryReturn {
     currentPage: number
     perPage: number
   }
-  
-  // Actions
+
   changePage: (page: number) => void
   changePerPage: (perPage: number) => void
   refetch: () => void
@@ -46,7 +44,7 @@ export function useUserActivityQuery(
     page = 1,
     perPage = 20,
     autoRefresh = false,
-    refreshInterval = 60000, // 1 minute
+    refreshInterval = 60000,
   } = options
 
   const [paginationState, setPaginationState] = React.useState({
@@ -54,7 +52,6 @@ export function useUserActivityQuery(
     perPage,
   })
 
-  // Activities query
   const {
     data: activitiesData,
     isLoading: activitiesLoading,
@@ -66,14 +63,14 @@ export function useUserActivityQuery(
       return await getUserActivity(paginationState.currentPage, paginationState.perPage)
     },
     enabled: isAuthenticated,
-    staleTime: 30 * 1000, // 30 seconds
-    gcTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 30 * 1000,
+    gcTime: 2 * 60 * 1000,
     refetchInterval: autoRefresh ? refreshInterval : false,
     refetchIntervalInBackground: autoRefresh,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
     retry: (failureCount, error: any) => {
-      // Don't retry on auth errors
+
       if (error?.response?.status === 401 || error?.response?.status === 403) {
         return false
       }
@@ -81,7 +78,6 @@ export function useUserActivityQuery(
     },
   })
 
-  // Stats query
   const {
     data: stats,
     isLoading: statsLoading,
@@ -92,8 +88,8 @@ export function useUserActivityQuery(
       return await getUserActivityStats('')
     },
     enabled: isAuthenticated,
-    staleTime: 1 * 60 * 1000, // 1 minute
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 1 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
     refetchInterval: autoRefresh ? refreshInterval : false,
     refetchIntervalInBackground: autoRefresh,
     refetchOnWindowFocus: true,
@@ -137,4 +133,3 @@ export function useUserActivityQuery(
     refetchStats,
   }
 }
-

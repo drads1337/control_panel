@@ -64,20 +64,20 @@ float fbm(vec2 p)
   p *= 1.1;
   float f = 0.0;
   float amp = 0.5 * uNoiseAmp;
-  
+
   mat2 modify0 = rotate(time * 0.02);
   f += amp * noise(p);
   p = modify0 * p * 2.0;
-  amp *= 0.454545; // 1/2.2
-  
+  amp *= 0.454545;
+
   mat2 modify1 = rotate(time * 0.02);
   f += amp * noise(p);
   p = modify1 * p * 2.0;
   amp *= 0.454545;
-  
+
   mat2 modify2 = rotate(time * 0.08);
   f += amp * noise(p);
-  
+
   return f;
 }
 
@@ -86,7 +86,7 @@ float pattern(vec2 p, out vec2 q, out vec2 r) {
   vec2 offset0 = vec2(0.0);
   mat2 rot01 = rotate(0.1 * time);
   mat2 rot1 = rotate(0.1);
-  
+
   q = vec2(fbm(p + offset1), fbm(rot01 * p + offset1));
   r = vec2(fbm(rot1 * q + offset0), fbm(q + offset0));
   return fbm(p + r);
@@ -98,42 +98,42 @@ float digit(vec2 p){
     p = p * grid;
     vec2 q, r;
     float intensity = pattern(s * 0.1, q, r) * 1.3 - 0.03;
-    
+
     if(uUseMouse > 0.5){
         vec2 mouseWorld = uMouse * uScale;
         float distToMouse = distance(s, mouseWorld);
         float mouseInfluence = exp(-distToMouse * 8.0) * uMouseStrength * 10.0;
         intensity += mouseInfluence;
-        
+
         float ripple = sin(distToMouse * 20.0 - iTime * 5.0) * 0.1 * mouseInfluence;
         intensity += ripple;
     }
-    
+
     if(uUsePageLoadAnimation > 0.5){
         float cellRandom = fract(sin(dot(s, vec2(12.9898, 78.233))) * 43758.5453);
         float cellDelay = cellRandom * 0.8;
         float cellProgress = clamp((uPageLoadProgress - cellDelay) / 0.2, 0.0, 1.0);
-        
+
         float fadeAlpha = smoothstep(0.0, 1.0, cellProgress);
         intensity *= fadeAlpha;
     }
-    
+
     p = fract(p);
     p *= uDigitSize;
-    
+
     float px5 = p.x * 5.0;
     float py5 = (1.0 - p.y) * 5.0;
     float x = fract(px5);
     float y = fract(py5);
-    
+
     float i = floor(py5) - 2.0;
     float j = floor(px5) - 2.0;
     float n = i * i + j * j;
     float f = n * 0.0625;
-    
+
     float isOn = step(0.1, intensity - f);
     float brightness = isOn * (0.2 + y * 0.8) * (0.75 + x * 0.25);
-    
+
     return step(0.0, p.x) * step(p.x, 1.0) * step(0.0, p.y) * step(p.y, 1.0) * brightness;
 }
 
@@ -150,10 +150,10 @@ float displace(vec2 look)
 }
 
 vec3 getColor(vec2 p){
-    
-    float bar = step(mod(p.y + time * 20.0, 1.0), 0.2) * 0.4 + 1.0; // more efficient than ternary
+
+    float bar = step(mod(p.y + time * 20.0, 1.0), 0.2) * 0.4 + 1.0;
     bar *= uScanlineIntensity;
-    
+
     float displacement = displace(p);
     p.x += displacement;
 
@@ -163,12 +163,12 @@ vec3 getColor(vec2 p){
     }
 
     float middle = digit(p);
-    
+
     const float off = 0.002;
     float sum = digit(p + vec2(-off, -off)) + digit(p + vec2(0.0, -off)) + digit(p + vec2(off, -off)) +
                 digit(p + vec2(-off, 0.0)) + digit(p + vec2(0.0, 0.0)) + digit(p + vec2(off, 0.0)) +
                 digit(p + vec2(-off, off)) + digit(p + vec2(0.0, off)) + digit(p + vec2(off, off));
-    
+
     vec3 baseColor = vec3(0.9) * middle + sum * 0.1 * vec3(1.0) * bar;
     return baseColor;
 }
@@ -187,7 +187,7 @@ void main() {
     if(uCurvature != 0.0){
       uv = barrel(uv);
     }
-    
+
     vec2 p = uv * uScale;
     vec3 col = getColor(p);
 
@@ -245,7 +245,7 @@ interface FaultyTerminalProps {
   brightness?: number;
   className?: string;
   style?: React.CSSProperties;
-  // Performance options
+
   lowPowerMode?: boolean;
   maxFPS?: number;
   adaptiveQuality?: boolean;
@@ -277,14 +277,13 @@ function FaultyTerminalComponent({
   adaptiveQuality: adaptiveQualityProp,
   ...rest
 }: FaultyTerminalProps) {
-  // Automatically detect performance and use recommended settings if not explicitly provided
+
   const { recommendedSettings } = usePerformanceDetection();
-  
-  // Use provided props or fall back to performance-detected defaults
+
   const lowPowerMode = lowPowerModeProp ?? recommendedSettings.lowPowerMode;
   const maxFPS = maxFPSProp ?? recommendedSettings.maxFPS;
   const adaptiveQuality = adaptiveQualityProp ?? recommendedSettings.adaptiveQuality;
-  
+
   const containerRef = useRef<HTMLDivElement>(null);
   const programRef = useRef<Program | null>(null);
   const rendererRef = useRef<Renderer | null>(null);
@@ -296,15 +295,13 @@ function FaultyTerminalComponent({
   const rafRef = useRef(0);
   const loadAnimationStartRef = useRef(0);
   const timeOffsetRef = useRef(Math.random() * 100);
-  
-  // Performance monitoring
+
   const frameCountRef = useRef(0);
   const lastFPSCheckRef = useRef(0);
   const currentFPSRef = useRef(60);
   const performanceModeRef = useRef<'high' | 'medium' | 'low'>('high');
   const lastFrameTimeRef = useRef(0);
 
-  // Use refs for dynamic props to avoid stale closures
   const propsRef = useRef({
     scale,
     gridMul,
@@ -328,7 +325,6 @@ function FaultyTerminalComponent({
     adaptiveQuality
   });
 
-  // Update refs when props change
   useEffect(() => {
     propsRef.current = {
       scale,
@@ -386,7 +382,6 @@ function FaultyTerminalComponent({
     mouseRef.current = { x, y };
   }, []);
 
-  // Main WebGL initialization - runs only once on mount
   useEffect(() => {
     const ctn = containerRef.current;
     if (!ctn) return;
@@ -456,19 +451,16 @@ function FaultyTerminalComponent({
 
     const update = (t: number) => {
       const props = propsRef.current;
-      
-      // Performance monitoring
+
       frameCountRef.current++;
       const deltaTime = t - lastFrameTimeRef.current;
       lastFrameTimeRef.current = t;
-      
-      // Check FPS every second
+
       if (t - lastFPSCheckRef.current >= 1000) {
         currentFPSRef.current = frameCountRef.current;
         frameCountRef.current = 0;
         lastFPSCheckRef.current = t;
-        
-        // Adaptive quality based on FPS
+
         if (props.adaptiveQuality) {
           if (currentFPSRef.current < 30) {
             performanceModeRef.current = 'low';
@@ -479,14 +471,12 @@ function FaultyTerminalComponent({
           }
         }
       }
-      
-      // Skip frame if in low power mode and FPS is too high
+
       if (props.lowPowerMode && currentFPSRef.current > props.maxFPS) {
         rafRef.current = requestAnimationFrame(update);
         return;
       }
-      
-      // Skip frame if adaptive quality is low and we're running at low FPS
+
       if (props.adaptiveQuality && performanceModeRef.current === 'low' && frameCountRef.current % 2 === 0) {
         rafRef.current = requestAnimationFrame(update);
         return;
@@ -533,39 +523,35 @@ function FaultyTerminalComponent({
     if (mouseReact) ctn.addEventListener("mousemove", handleMouseMove);
 
     return () => {
-      // Proper cleanup of WebGL resources
+
       cancelAnimationFrame(rafRef.current);
       resizeObserver.disconnect();
-      
+
       if (mouseReact) ctn.removeEventListener("mousemove", handleMouseMove);
-      
+
       if (gl.canvas.parentElement === ctn) ctn.removeChild(gl.canvas);
-      
-      // Clear refs to allow garbage collection
+
       meshRef.current = null;
       programRef.current = null;
       geometryRef.current = null;
       rendererRef.current = null;
-      
-      // Release WebGL context
+
       const loseContext = gl.getExtension('WEBGL_lose_context');
       if (loseContext) {
         loseContext.loseContext();
       }
-      
-      // Reset refs
+
       loadAnimationStartRef.current = 0;
       timeOffsetRef.current = Math.random() * 100;
     };
-  }, [dpr, handleMouseMove]); // Only dpr and handleMouseMove in dependencies
+  }, [dpr, handleMouseMove]);
 
-  // Update uniforms when props change - without recreating WebGL context
   useEffect(() => {
     if (!programRef.current) return;
-    
+
     const program = programRef.current;
     const props = propsRef.current;
-    
+
     program.uniforms.uScale.value = props.scale;
     program.uniforms.uGridMul.value = new Float32Array(props.gridMul);
     program.uniforms.uDigitSize.value = props.digitSize;
@@ -609,5 +595,4 @@ function FaultyTerminalComponent({
   );
 }
 
-// Memoize component to prevent unnecessary re-renders
 export default React.memo(FaultyTerminalComponent)

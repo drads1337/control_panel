@@ -16,7 +16,6 @@ from ...utils.rbac_utils import RBACManager
 
 logger = logging.getLogger(__name__)
 
-
 class KeyValidator:
     """Handles key validation and related checks"""
 
@@ -33,7 +32,6 @@ class KeyValidator:
         if not key_obj or key_obj.status != 1:
             return False, "Key is not active (frozen or blocked)"
 
-        # Check expiration
         now = datetime.utcnow()
         if key_obj.expires_at and key_obj.expires_at < now:
             return False, "Key expired"
@@ -57,18 +55,15 @@ class KeyValidator:
             db.session.commit()
             logger.info(f"KEY_ACTIVATED key_id={key_obj.id} expires_at={key_obj.expires_at}")
 
-            # Trigger webhook for key activation
             try:
                 from .webhook_service import get_webhook_service
 
                 webhook_service = get_webhook_service()
 
-                # Get game info
                 game = None
                 if key_obj.game_id:
                     game = Game.query.get(key_obj.game_id)
 
-                # Prepare webhook data
                 webhook_data = {
                     "key_id": key_obj.id,
                     "key_value": key_obj.key,
@@ -81,7 +76,6 @@ class KeyValidator:
                     "expires_at": key_obj.expires_at.isoformat() if key_obj.expires_at else None,
                 }
 
-                # Trigger webhook
                 webhook_service.trigger_webhook("key.activated", webhook_data, key_obj.project_id)
                 logger.info(f"Triggered webhook for key activation: {key_obj.id}")
 
@@ -113,7 +107,6 @@ class KeyValidator:
             if game_obj.name and game_obj.name.lower() != game.lower():
                 return False, "Key not found", None
 
-            # Check game status
             if game_obj.status == "inactive":
                 return (
                     False,
@@ -178,12 +171,11 @@ class KeyValidator:
 
         if serial not in devices:
             if len(devices) < key_obj.max_devices:
-                # Device can be added
+
                 return True, ""
             else:
                 return False, "Max devices reached"
 
-        # Device already registered
         return True, ""
 
     def validate_single_device_fingerprint(
@@ -201,12 +193,12 @@ class KeyValidator:
         """
         if key_obj.max_devices == 1:
             if not key_obj.fingerprint:
-                # Set fingerprint for first device
+
                 key_obj.fingerprint = fingerprint
                 db.session.commit()
                 logger.info(f"FINGERPRINT_SET key_id={key_obj.id} fingerprint={fingerprint}")
             elif key_obj.fingerprint != fingerprint:
-                # Device mismatch
+
                 return False, "Device mismatch"
 
         return True, ""
@@ -231,17 +223,14 @@ class KeyValidator:
                 user_id = get_jwt_identity()
                 user = User.query.get(user_id)
 
-                # Ensure user has project_id
                 if not user.project_id:
                     return False, "User must be assigned to a project"
 
-                # Check project access
-                # SECURITY: Use RBACManager methods, not role strings
                 if user and not RBACManager.is_owner(user) and user.project_id != project_id:
                     return False, "Access denied (project mismatch)"
 
             except Exception:
-                # JWT verification failed, but that's ok for key-based auth
+
                 pass
 
         return True, ""
@@ -275,6 +264,4 @@ class KeyValidator:
 
         return expires_at, seconds_left, seconds_left_human
 
-
-# Create singleton instance for reuse
 key_validator = KeyValidator()

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 SECURITY FIX: Configuration Setup Script
 This script helps set up secure environment variables for the panel application.
@@ -9,7 +9,6 @@ import secrets
 import sys
 from pathlib import Path
 
-# Add project root to path
 script_dir = os.path.dirname(os.path.abspath(__file__))
 backend_dir = os.path.dirname(script_dir)
 project_root = os.path.dirname(backend_dir)
@@ -19,16 +18,13 @@ from backend.utils.structured_logging import get_logger
 
 logger = get_logger(__name__)
 
-
 def generate_secure_key(length=32):
     """Generate a secure random key."""
     return secrets.token_hex(length)
 
-
 def generate_secure_string(length=32):
     """Generate a secure random string."""
     return secrets.token_urlsafe(length)
-
 
 def create_env_file():
     """Create a .env file with secure configuration."""
@@ -41,12 +37,10 @@ def create_env_file():
             logger.info("Aborted", component="config_setup")
             return False
 
-    # Generate secure keys
-    master_key = generate_secure_key(32)  # 64 hex characters
+    master_key = generate_secure_key(32)
     secret_key = generate_secure_string(32)
     jwt_secret = generate_secure_string(32)
 
-    # Get database configuration
     logger.info("Database Configuration", component="config_setup")
     db_host = input("Database host [localhost]: ").strip() or "localhost"
     db_port = input("Database port [5432]: ").strip() or "5432"
@@ -58,46 +52,28 @@ def create_env_file():
         logger.error("Database password is required", component="config_setup")
         return False
 
-    # Get Redis configuration
     logger.info("Redis Configuration", component="config_setup")
     redis_host = input("Redis host [127.0.0.1]: ").strip() or "127.0.0.1"
     redis_port = input("Redis port [6379]: ").strip() or "6379"
     redis_password = input("Redis password (optional): ").strip()
 
-    # Create .env content
     env_content = f"""# SECURITY FIX: Secure Configuration
-# Generated on {os.popen('date').read().strip()}
 
-# CRITICAL: Master encryption key (64 hex characters)
 PANEL_MASTER_KEY={master_key}
 
-# CRITICAL: Flask secret key
 SECRET_KEY={secret_key}
 
-# CRITICAL: JWT secret key
 JWT_SECRET_KEY={jwt_secret}
 
-# CRITICAL: Database connection
 DATABASE_URL=postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}
 
-# Redis configuration
 REDIS_HOST={redis_host}
 REDIS_PORT={redis_port}
 REDIS_PASSWORD={redis_password or ''}
 REDIS_DB=0
 
-# Optional: Telegram notifications
-# TELEGRAM_TOKEN=your_telegram_bot_token
-# TELEGRAM_CHAT_ID=your_telegram_chat_id
-
-# Optional: Play Integrity API
-# PLAY_INTEGRITY_API_KEY=your_play_integrity_api_key
-
-# Optional: Bot API
-# BOT_API_KEY=your_bot_api_key
 """
 
-    # Write .env file
     try:
         with open(env_path, "w") as f:
             f.write(env_content)
@@ -117,7 +93,6 @@ REDIS_DB=0
         logger.error("Failed to create .env file", component="config_setup", error=str(e))
         return False
 
-
 def validate_config():
     """Validate the current configuration."""
     logger.info("Validating Configuration", component="config_setup")
@@ -132,7 +107,7 @@ def validate_config():
         if not value:
             missing_vars.append(var)
         else:
-            # Validate specific formats
+
             if var == "PANEL_MASTER_KEY":
                 if len(value) != 64:
                     invalid_vars.append(f"{var} (must be 64 hex characters)")
@@ -158,7 +133,6 @@ def validate_config():
     logger.info("Configuration is valid", component="config_setup")
     return True
 
-
 def show_instructions():
     """Show deployment instructions."""
     instructions = """
@@ -172,7 +146,7 @@ def show_instructions():
 
 3. Start Celery workers for async task processing:
    python -m backend.scripts.celery_worker
-   
+
    Or with custom options:
    celery -A backend.core.celery_app.celery_app worker --loglevel=info --concurrency=4 --queues=server_tasks,key_tasks
 
@@ -193,7 +167,6 @@ def show_instructions():
 """
     print(instructions)
     logger.info("Deployment instructions shown", component="config_setup")
-
 
 def main():
     """Main function."""
@@ -218,7 +191,6 @@ def main():
         return True
     else:
         return False
-
 
 if __name__ == "__main__":
     success = main()

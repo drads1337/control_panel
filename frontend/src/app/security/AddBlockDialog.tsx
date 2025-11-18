@@ -7,10 +7,6 @@ import { ConditionalRender } from '@/components/rbac/conditional-render'
 import { BlockFormFields } from './components/BlockFormFields'
 import { useBlockForm } from './hooks/useBlockForm'
 
-/**
- * Base block form data with all required and optional fields
- * The dynamic field (e.g., ip_address, user_id) is added via intersection
- */
 export type BlockFormDataBase = {
   reason: string
   expires_at?: string
@@ -20,37 +16,29 @@ export type BlockFormDataBase = {
   threat_score: number
 }
 
-/**
- * BlockFormData with a dynamic field specified by the field name
- * This provides type safety while allowing flexibility for different field types
- */
 export type BlockFormData<T extends string = string> = BlockFormDataBase & {
   [K in T]?: string | number
 }
 
 export interface AddBlockDialogConfig {
-  // Field configuration
+
   fieldName: string
   fieldLabel: string
   fieldPlaceholder: string
-  
-  // UI configuration
+
   title: string
   description: string
   buttonText: string
   submitButtonText: string
   icon: LucideIcon
   iconColor?: string
-  
-  // Dialog configuration
+
   dialogMaxWidth?: string
-  fieldLayout?: 'single' | 'grid' // How to layout the main field
-  
-  // Options
+  fieldLayout?: 'single' | 'grid'
+
   blockTypeOptions?: Array<{ value: string; label: string }>
   categoryOptions?: Array<{ value: string; label: string }>
-  
-  // Permission
+
   permission: string
 }
 
@@ -76,7 +64,7 @@ export default function AddBlockDialog({ config, onAdd, loading = false }: AddBl
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!isValid) {
       return
     }
@@ -105,7 +93,7 @@ export default function AddBlockDialog({ config, onAdd, loading = false }: AddBl
               {config.description}
             </DialogDescription>
           </DialogHeader>
-          
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <BlockFormFields
               config={config}
@@ -129,4 +117,3 @@ export default function AddBlockDialog({ config, onAdd, loading = false }: AddBl
     </ConditionalRender>
   )
 }
-

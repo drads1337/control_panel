@@ -45,7 +45,7 @@ export interface TypographyProps<T extends ElementType = "p">
 const Typography = forwardRef<HTMLElement, TypographyProps>(
   ({ className, variant, size, as, ...props }, ref) => {
     const Component = (as || getDefaultElement(variant)) as ElementType
-    
+
     return (
       <Component
         className={cn(typographyVariants({ variant, size, className }))}

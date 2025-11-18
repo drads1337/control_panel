@@ -8,18 +8,17 @@ from datetime import datetime
 from ..core.extensions import db
 from ..utils.secure_crypto import MasterKeyManager
 
-
 class Server(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(128), nullable=False)
     ip_address = db.Column(db.String(128), nullable=False)
     port = db.Column(db.Integer, default=22)
     username = db.Column(db.String(128), nullable=False)
-    # SECURITY FIX: Password is now encrypted using project master key
-    password = db.Column(db.Text, nullable=False)  # Changed to Text to store encrypted data
+
+    password = db.Column(db.Text, nullable=False)
     description = db.Column(db.Text, nullable=True)
     is_active = db.Column(db.Boolean, default=True)
-    status = db.Column(db.String(32), default="offline")  # online, offline, starting, stopping
+    status = db.Column(db.String(32), default="offline")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
     project = db.relationship("Project", backref="servers")
@@ -78,16 +77,14 @@ class Server(db.Model):
 
         return data
 
-
 class Billing(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=False)
     plan = db.Column(db.String(64), nullable=False)
-    status = db.Column(db.String(32), default="active")  # active, expired, trial
+    status = db.Column(db.String(32), default="active")
     expires_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     project = db.relationship("Project", backref="billing")
-
 
 class ProjectAPIKey(db.Model):
     id = db.Column(db.Integer, primary_key=True)

@@ -3,7 +3,6 @@ import { render, RenderOptions } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter } from 'react-router-dom'
 
-// Create a test query client with default options
 const createTestQueryClient = () =>
   new QueryClient({
     defaultOptions: {
@@ -38,4 +37,3 @@ const customRender = (
 
 export * from '@testing-library/react'
 export { customRender as render }
-

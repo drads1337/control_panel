@@ -19,7 +19,6 @@ from ...utils.rbac_utils import RBACManager
 
 analytics_bp = Blueprint("keys_analytics", __name__)
 
-
 @analytics_bp.route("/usage", methods=["GET"])
 @jwt_required()
 @require_project_isolation
@@ -36,7 +35,6 @@ def get_keys_usage():
 
     query = Key.query.filter_by(project_id=user.project_id)
 
-    # Filter by user_id if user doesn't have keys.view permission
     if not RBACManager.is_owner(user) and not RBACManager.is_admin(user):
         from ...services.rbac import rbac_service
 
@@ -87,7 +85,6 @@ def get_keys_usage():
             "keys_by_game": [{"game": game, "count": count} for game, count in game_stats],
         }
     )
-
 
 @analytics_bp.route("/analytics", methods=["GET"])
 @jwt_required()
@@ -181,7 +178,6 @@ def get_keys_analytics():
         }
     )
 
-
 @analytics_bp.route("/<int:key_id>/analytics", methods=["GET"])
 @jwt_required()
 @require_project_isolation
@@ -258,7 +254,6 @@ def get_key_analytics(key_id):
     except Exception as e:
         return jsonify({"error": f"Failed to get key analytics: {str(e)}"}), 500
 
-
 @analytics_bp.route("/stats", methods=["GET"])
 @jwt_required()
 @require_project_isolation
@@ -275,7 +270,6 @@ def get_keys_stats():
 
     from ...services.keys import key_service
 
-    # Use key service to get statistics
     stats = key_service.get_key_stats(user)
 
     return jsonify(
@@ -290,7 +284,6 @@ def get_keys_stats():
             },
         }
     )
-
 
 @analytics_bp.route("/export", methods=["GET"])
 @jwt_required()
@@ -320,7 +313,6 @@ def export_keys():
 
     query = Key.query.filter_by(project_id=user.project_id)
 
-    # Filter by user_id if user doesn't have keys.view permission
     if not RBACManager.is_owner(user) and not RBACManager.is_admin(user):
         from ...services.rbac import rbac_service
 
@@ -349,7 +341,6 @@ def export_keys():
         buffer = StringIO()
         writer = csv.writer(buffer)
 
-        # Write header
         header = [
             "ID",
             "Key",
@@ -370,7 +361,6 @@ def export_keys():
         buffer.seek(0)
         buffer.truncate(0)
 
-        # Process keys in batches to avoid memory issues
         batch_size = 1000
         offset = 0
 
@@ -380,7 +370,6 @@ def export_keys():
             if not keys_batch:
                 break
 
-            # Get game names for this batch in one query (optimized)
             game_ids = [key.game_id for key in keys_batch if key.game_id]
             games_dict = {}
             if game_ids:
@@ -389,7 +378,6 @@ def export_keys():
                 ).all()
                 games_dict = {game.id: game.name for game in games}
 
-            # Write keys in batch
             for key in keys_batch:
                 key_game_name = games_dict.get(key.game_id, "") if key.game_id else ""
 
@@ -411,7 +399,6 @@ def export_keys():
                     ]
                 )
 
-            # Yield batch and clear buffer
             yield buffer.getvalue()
             buffer.seek(0)
             buffer.truncate(0)

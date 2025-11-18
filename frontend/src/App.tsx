@@ -11,12 +11,11 @@ function AppContent() {
   const { isAuthenticated } = useAuthContext()
   const { checkProjectExpiration } = useProjectExpiration()
 
-  // Check project expiration on mount only
   React.useEffect(() => {
     if (isAuthenticated) {
       checkProjectExpiration()
     }
-  }, [isAuthenticated, checkProjectExpiration]) // checkProjectExpiration is now stable
+  }, [isAuthenticated, checkProjectExpiration])
 
   return (
     <AuthGuard>

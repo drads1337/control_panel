@@ -24,19 +24,17 @@ export default function SettingsPage() {
     error
   } = useSettingsQuery()
 
-  // State for projects and games
   const [projects, setProjects] = React.useState<Project[]>([])
   const [loadingProjects, setLoadingProjects] = React.useState(false)
   const [currentProject, setCurrentProject] = React.useState<Project | null>(null)
 
-  // Functions for loading projects and games
   const loadProjects = async () => {
     try {
       setLoadingProjects(true)
       const response = await api.get('/api/projects')
       setProjects(response.data.projects || [])
     } catch (error) {
-      console.error('Failed to load projects:', error)
+
       toast.error('Failed to load projects')
     } finally {
       setLoadingProjects(false)
@@ -45,21 +43,19 @@ export default function SettingsPage() {
 
   const loadCurrentProject = async () => {
     try {
-      // Only load current project for users with project settings permissions
+
       if (user?.project_id && canAccessFeature(user, 'project_settings')) {
         const response = await api.get(`/api/projects/${user.project_id}`)
         setCurrentProject(response.data)
       }
     } catch (error) {
-      console.error('Failed to load current project:', error)
-      // Don't show error to user if they don't have permissions
+
       if (error instanceof AxiosError && error.response?.status !== 403) {
         toast.error('Failed to load current project')
       }
     }
   }
 
-  // Load projects and current project on component mount
   React.useEffect(() => {
     if (user?.roles?.includes('owner')) {
       loadProjects()
@@ -67,12 +63,10 @@ export default function SettingsPage() {
     loadCurrentProject()
   }, [user])
 
-  // Show loading indicator if data is not yet loaded
   if (isLoading) {
     return <LoadingState message="Loading settings..." />
   }
 
-  // Show an error if settings failed to load
   if (error) {
     return (
       <ErrorState 
@@ -95,7 +89,7 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
+      {}
       <div>
         <h2 className="text-2xl font-semibold mb-1">Settings</h2>
         <p className="text-sm text-muted-foreground">
@@ -104,7 +98,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="space-y-6">
-        {/* Top Row - Security Keys and Appearance/Current Project */}
+        {}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <div className="lg:col-span-3">
             <CryptographicKeys settings={settings} isSaving={isSaving} />
@@ -117,10 +111,10 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Offline Authentication Settings */}
+        {}
         <OfflineAuthSettings />
 
-        {/* Projects IDs Section */}
+        {}
         {user?.roles?.includes('owner') && (
           <ProjectsList projects={projects} loadingProjects={loadingProjects} />
         )}

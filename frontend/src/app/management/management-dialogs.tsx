@@ -2,7 +2,6 @@ import React, { Suspense } from 'react'
 import { useManagementStore } from '@/stores/management-store'
 import type { Game } from '@/entities/game'
 
-// Lazy load heavy management components for better code splitting
 const ViewGameDialog = React.lazy(() =>
   import('./games').then((module) => ({ default: module.ViewGameDialog }))
 )
@@ -32,4 +31,3 @@ export function ManagementDialogs({ onEditGame, onUploadGame }: ManagementDialog
     </Suspense>
   )
 }
-

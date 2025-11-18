@@ -10,7 +10,6 @@ from ..models.core import User
 from ..services.activity import activity_service
 from ..utils.data_masking import create_safe_log_details, mask_username
 
-
 class ActivityLoggerMiddleware:
 
     def __init__(self, app):
@@ -74,9 +73,8 @@ class ActivityLoggerMiddleware:
                 )
                 return
 
-            # SECURITY: Extract token but never log it - tokens are sensitive
             token = auth_header.split(" ")[1]
-            # Only log that we're processing a token, never the token itself
+
             logging.debug(f"[DEBUG] Processing token for {request.method} {request.path}")
 
             try:
@@ -117,7 +115,6 @@ class ActivityLoggerMiddleware:
                     logging.debug(f"[DEBUG] Failed to get user even after rollback: {retry_error}")
                     return
 
-            # SECURITY FIX: Mask username in logs
             masked_username = mask_username(user.username) if user.username else "unknown"
             logging.debug(f"[DEBUG] Found user: {masked_username} (ID: {user.id})")
 
@@ -139,31 +136,20 @@ class ActivityLoggerMiddleware:
         Falls back to path-based mapping for special cases or when endpoint is unavailable.
         """
         method = request.method
-        
-        # Primary approach: Use request.endpoint for automatic action determination
+
         if request.endpoint:
-            # request.endpoint format: 'blueprint_name.function_name'
-            # Example: 'projects.get_projects' -> 'projects.get_projects'
-            # Example: 'users_profile.get_me' -> 'users.profile.get_me' (after normalization)
+
             endpoint_parts = request.endpoint.split('.')
-            
+
             if len(endpoint_parts) >= 2:
                 blueprint_name = endpoint_parts[0]
                 function_name = endpoint_parts[1]
-                
-                # Normalize blueprint name: remove common suffixes and convert underscores to dots
-                # This makes names more readable: 'users_profile' -> 'users.profile'
-                # Note: request.endpoint uses the blueprint name (not variable name), so '_bp' suffix
-                # is unlikely, but we handle it for safety
+
                 blueprint_name = blueprint_name.replace('_bp', '').replace('_', '.')
-                
-                # Build action from blueprint and function name
-                # This creates actions like: 'projects.get_projects', 'users.profile.get_me'
+
                 action = f"{blueprint_name}.{function_name}"
                 return action
-        
-        # Fallback: Use path-based mapping for special cases or when endpoint is unavailable
-        # This maintains backward compatibility and handles edge cases
+
         path = request.path
         action_map = {
             "/api/users/profile": "profile_view" if method == "GET" else "profile_update",
@@ -199,7 +185,6 @@ class ActivityLoggerMiddleware:
             if path.startswith(pattern):
                 return action
 
-        # Final fallback: generate from method and path
         return f'{method.lower()}_{path.split("/")[-1]}'
 
     def _log_async(self, user, action, request, response):
@@ -237,7 +222,6 @@ class ActivityLoggerMiddleware:
                             request_data, response_data, duration
                         )
 
-                        # SECURITY FIX: Mask sensitive data in logs
                         masked_username = (
                             mask_username(user.username) if user.username else "unknown"
                         )
@@ -245,7 +229,6 @@ class ActivityLoggerMiddleware:
                             f"[DEBUG] Logging activity: {action} for user {masked_username}"
                         )
 
-                        # SECURITY FIX: Create safe details
                         safe_details = create_safe_log_details(
                             action,
                             user_id=user.id,
@@ -259,7 +242,7 @@ class ActivityLoggerMiddleware:
                             action=action,
                             ip=real_ip,
                             user_agent=request_data["user_agent"],
-                            details=safe_details,  # Use safe details
+                            details=safe_details,
                             session_id=request_data["session_id"],
                         )
 

@@ -9,7 +9,6 @@ from pydantic import BaseModel, Field, validator
 
 from .common import BaseSchema, CodeValidator
 
-
 class InviteCreateSchema(BaseSchema):
     """Invite creation request schema"""
 
@@ -20,7 +19,6 @@ class InviteCreateSchema(BaseSchema):
     description: Optional[str] = Field(
         default=None, max_length=200, description="Invite description"
     )
-
 
 class InviteResponseSchema(BaseSchema):
     """Invite response schema"""
@@ -35,7 +33,6 @@ class InviteResponseSchema(BaseSchema):
     expires_at: Optional[str] = Field(default=None, description="Expiration timestamp")
     status: str = Field(..., description="Invite status")
 
-
 class InviteListResponseSchema(BaseSchema):
     """Invite list response schema"""
 
@@ -45,7 +42,6 @@ class InviteListResponseSchema(BaseSchema):
     per_page: int = Field(..., description="Items per page")
     pages: int = Field(..., description="Total pages")
 
-
 class InviteUseSchema(BaseSchema):
     """Invite use request schema"""
 
@@ -54,7 +50,6 @@ class InviteUseSchema(BaseSchema):
     @validator("code")
     def validate_code(cls, v):
         return CodeValidator.validate_code(v)
-
 
 class SystemSettingsUpdateSchema(BaseSchema):
     """System settings update request schema"""
@@ -66,7 +61,6 @@ class SystemSettingsUpdateSchema(BaseSchema):
         if not isinstance(v, dict):
             raise ValueError("Settings must be a dictionary")
         return v
-
 
 class SecurityRuleCreateSchema(BaseSchema):
     """Security rule creation request schema"""
@@ -91,7 +85,6 @@ class SecurityRuleCreateSchema(BaseSchema):
         if v not in allowed_actions:
             raise ValueError(f"Action must be one of: {', '.join(allowed_actions)}")
         return v
-
 
 class SecurityRuleUpdateSchema(BaseSchema):
     """Security rule update request schema"""
@@ -125,7 +118,6 @@ class SecurityRuleUpdateSchema(BaseSchema):
                 raise ValueError(f"Action must be one of: {', '.join(allowed_actions)}")
         return v
 
-
 class SecurityRuleResponseSchema(BaseSchema):
     """Security rule response schema"""
 
@@ -138,7 +130,6 @@ class SecurityRuleResponseSchema(BaseSchema):
     enabled: bool = Field(..., description="Whether rule is enabled")
     created_at: Optional[str] = Field(default=None, description="Creation timestamp")
     updated_at: Optional[str] = Field(default=None, description="Last update timestamp")
-
 
 class BackupCreateSchema(BaseSchema):
     """Backup creation request schema"""
@@ -156,7 +147,6 @@ class BackupCreateSchema(BaseSchema):
             raise ValueError(f"Backup type must be one of: {', '.join(allowed_types)}")
         return v
 
-
 class BackupResponseSchema(BaseSchema):
     """Backup response schema"""
 
@@ -169,7 +159,6 @@ class BackupResponseSchema(BaseSchema):
     file_size: Optional[int] = Field(default=None, description="Backup file size in bytes")
     created_at: Optional[str] = Field(default=None, description="Creation timestamp")
     completed_at: Optional[str] = Field(default=None, description="Completion timestamp")
-
 
 class AdminStatsResponseSchema(BaseSchema):
     """Admin statistics response schema"""

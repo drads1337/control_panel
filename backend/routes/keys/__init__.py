@@ -16,15 +16,11 @@ from .analytics import analytics_bp
 from .bulk_operations import bulk_operations_bp
 from .loader import loader_bp
 
-# Import all sub-blueprints
 from .management import management_bp
 from .validation import validation_bp
 
-# Create main blueprint
 keys_bp = Blueprint("keys", __name__)
 
-# Register sub-blueprints with appropriate URL prefixes
-# All routes will be prefixed with /api/keys (set in blueprints.py)
 keys_bp.register_blueprint(management_bp)
 keys_bp.register_blueprint(bulk_operations_bp)
 keys_bp.register_blueprint(analytics_bp)

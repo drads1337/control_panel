@@ -1,4 +1,4 @@
-// Settings types
+
 export interface ProjectSettings {
   security: {
     min_password_length: number
@@ -39,7 +39,7 @@ export interface ProjectSettings {
   offline_auth: {
     offline_auth_enabled: boolean
     offline_ticket_expiration_hours: number
-    // Note: max_devices is determined by key.max_devices, not by project settings
+
   }
   appearance: Record<string, any>
 }

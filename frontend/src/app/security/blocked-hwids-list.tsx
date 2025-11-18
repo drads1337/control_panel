@@ -108,7 +108,6 @@ export default function BlockedHWIDsList({
     hwid.severity.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  // If user doesn't have view permission, don't render anything
   if (!canViewHWIDs) {
     return null;
   }

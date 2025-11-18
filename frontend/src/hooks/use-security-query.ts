@@ -4,7 +4,6 @@ import { securityAPI, BlockedIP, BlockedHWID, SecurityStats, CreateIPBlockReques
 import { useMutationWithCache } from './use-mutation-helpers'
 import { toast } from 'sonner'
 
-// Cache keys
 export const securityKeys = {
   all: ['security'] as const,
   blockedIPs: () => [...securityKeys.all, 'blocked-ips'] as const,
@@ -12,9 +11,6 @@ export const securityKeys = {
   stats: () => [...securityKeys.all, 'stats'] as const,
 }
 
-/**
- * Hook for fetching security statistics
- */
 export function useSecurityStats() {
   const {
     data: stats,
@@ -24,7 +20,7 @@ export function useSecurityStats() {
   } = useQuery<SecurityStats>({
     queryKey: securityKeys.stats(),
     queryFn: () => securityAPI.getSecurityStats(),
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 2 * 60 * 1000,
   })
 
   return {
@@ -35,9 +31,6 @@ export function useSecurityStats() {
   }
 }
 
-/**
- * Hook for managing blocked IPs
- */
 export function useBlockedIPs() {
   const {
     data: blockedIPs = [],
@@ -47,10 +40,9 @@ export function useBlockedIPs() {
   } = useQuery<BlockedIP[]>({
     queryKey: securityKeys.blockedIPs(),
     queryFn: () => securityAPI.getBlockedIPs(),
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 2 * 60 * 1000,
   })
 
-  // Mutations with automatic cache invalidation
   const blockIPMutation = useMutationWithCache({
     mutationFn: (data: CreateIPBlockRequest) => securityAPI.blockIP(data),
     invalidateQueries: [securityKeys.blockedIPs(), securityKeys.stats()],
@@ -91,9 +83,6 @@ export function useBlockedIPs() {
   }
 }
 
-/**
- * Hook for managing blocked HWIDs
- */
 export function useBlockedHWIDs() {
   const {
     data: blockedHWIDs = [],
@@ -103,10 +92,9 @@ export function useBlockedHWIDs() {
   } = useQuery<BlockedHWID[]>({
     queryKey: securityKeys.blockedHWIDs(),
     queryFn: () => securityAPI.getBlockedHWIDs(),
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 2 * 60 * 1000,
   })
 
-  // Mutations with automatic cache invalidation
   const blockHWIDMutation = useMutationWithCache({
     mutationFn: (data: CreateHWIDBlockRequest) => securityAPI.blockHWID(data),
     invalidateQueries: [securityKeys.blockedHWIDs(), securityKeys.stats()],
@@ -146,8 +134,3 @@ export function useBlockedHWIDs() {
     refetch,
   }
 }
-
-
-
-
-

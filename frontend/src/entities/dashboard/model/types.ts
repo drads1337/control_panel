@@ -1,4 +1,4 @@
-// Dashboard types
+
 export interface ApiMetrics {
   api_requests: {
     successful: number

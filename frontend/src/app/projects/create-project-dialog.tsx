@@ -21,12 +21,10 @@ import {
 } from '@/components/ui/select'
 import { Plus, Loader2 } from 'lucide-react'
 import type { CreateProjectData, Project } from '@/entities/project';
-
 interface CreateProjectDialogProps {
   onCreateProject: (data: CreateProjectData) => Promise<void>
   isLoading?: boolean
 }
-
 export function CreateProjectDialog({
   onCreateProject,
   isLoading,
@@ -39,10 +37,8 @@ export function CreateProjectDialog({
     subscription_days: 7,
     storage_limit_gb: 3,
   })
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
     try {
       await onCreateProject(formData)
       setFormData({
@@ -54,11 +50,8 @@ export function CreateProjectDialog({
       })
       setOpen(false)
     } catch (error) {
-      console.error('Failed to create project:', error)
-      // Optionally, show a toast notification for the error
     }
   }
-
   const handleInputChange = (
     field: keyof CreateProjectData,
     value: string | number
@@ -68,7 +61,6 @@ export function CreateProjectDialog({
       [field]: value,
     }))
   }
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>

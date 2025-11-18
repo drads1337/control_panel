@@ -19,7 +19,6 @@ from ..utils.rbac_utils import RBACManager
 
 logs_bp = Blueprint("logs", __name__)
 
-
 def _get_logs_query_filter(user, user_id, project_id_param=None):
     """
     Get the appropriate query filter based on user permissions.
@@ -30,45 +29,34 @@ def _get_logs_query_filter(user, user_id, project_id_param=None):
     """
     from flask import g
 
-    # Check if user is owner
     user_roles = RBACManager.get_user_role_names(user)
     is_owner = user_roles and user_roles[0] == "owner"
 
-    # SECURITY: Use g.project_id from require_project_isolation decorator
-    # This ensures strict project isolation for all users
     project_id = getattr(g, "project_id", None)
 
-    # For owners: allow project_id from query parameter or use None to see all projects
     if is_owner:
-        # If project_id is provided in query params, use it to filter
+
         if project_id_param:
             return {"project_id": project_id_param}, True
-        # If g.project_id is set (from decorator), use it
+
         if project_id:
             return {"project_id": project_id}, True
-        # Owner without project_id can see all logs (no project filter)
+
         return None, True
 
-    # For non-owners: require project_id
-    # If project_id is not set, use user's project_id
     if project_id is None:
         if not user.project_id:
-            # If user has no project_id, this is a security error
+
             return None, False
         project_id = user.project_id
 
-    # Check permissions
     has_logs_view_all = rbac_service.check_permission(user_id, "logs.view_all")
     has_logs_view = rbac_service.check_permission(user_id, "logs.view")
 
-    # SECURITY: Always apply project_id filtering for non-owners
-    # Admin with logs.view_all or logs.view sees all logs in their project
     if has_logs_view_all or has_logs_view:
         return {"project_id": project_id}, True
 
-    # Other users see only their own logs
     return {"project_id": project_id, "user_id": user_id}, False
-
 
 @logs_bp.route("", methods=["GET"])
 @jwt_required()
@@ -83,18 +71,16 @@ def get_logs():
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    # Ensure user has project_id (except for owner)
     user_roles = RBACManager.get_user_role_names(user)
     is_owner = user_roles and user_roles[0] == "owner"
-    
+
     if not is_owner:
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        # Check if user has permission to view logs (owners bypass this check)
         has_logs_view_all = rbac_service.check_permission(user_id, "logs.view_all")
         has_logs_view = rbac_service.check_permission(user_id, "logs.view")
-        
+
         if not has_logs_view_all and not has_logs_view:
             return jsonify({"error": "Insufficient permissions. logs.view or logs.view_all permission required"}), 403
 
@@ -109,14 +95,11 @@ def get_logs():
 
     query = UserActivity.query
 
-    # Check if user is owner
     user_roles = RBACManager.get_user_role_names(user)
     is_owner = user_roles and user_roles[0] == "owner"
 
-    # SECURITY: Use g.project_id from require_project_isolation decorator
     project_id = getattr(g, "project_id", None)
-    
-    # For non-owners: require project_id and ignore project_id_param from request (security)
+
     if not is_owner:
         if project_id is None:
             if not user.project_id:
@@ -129,30 +112,19 @@ def get_logs():
                     403,
                 )
             project_id = user.project_id
-        # SECURITY: Non-owners cannot use project_id_param to view other projects
-        # Always use their own project_id
+
         project_id_param = None
 
-    # Get query filter based on permissions
-    # For non-owners, project_id_param will be None, so they'll only see their project
     query_filters, can_view_all_project_logs = _get_logs_query_filter(user, user_id, project_id_param)
 
-    # For owners: query_filters can be None (means no project filter - see all projects)
-    # For non-owners: query_filters must not be None
     if query_filters is None and not is_owner:
         return jsonify({"error": "Project isolation required"}), 403
 
-    # Apply base filters - for owners without project_id, don't filter by project
     if query_filters:
         query = query.filter_by(**query_filters)
 
-    # SECURITY: Removed logic for owner without filtering
-    # All queries must be filtered by project_id
-
-    # Admin with logs.view can filter by user_id if specified
     if can_view_all_project_logs and user_filter:
-        # For owners: check user exists (no project restriction)
-        # For non-owners: ensure filtered user belongs to same project
+
         if is_owner and not project_id_param:
             filtered_user = User.query.filter_by(id=user_filter).first()
         else:
@@ -181,7 +153,7 @@ def get_logs():
             pass
 
     if ip_filter:
-        # Using PostgreSQL tsvector for efficient full-text search
+
         query = fulltext_search_filter(query, ip_filter, "search_vector")
 
     try:
@@ -189,12 +161,10 @@ def get_logs():
             page=page, per_page=per_page, error_out=False
         )
 
-        # Get users for all activities in one query (fixes N+1)
         activity_user_ids = list(set([a.user_id for a in pagination.items if a.user_id]))
         users_dict = {}
         if activity_user_ids:
-            # For owners: get users from all projects if no project filter
-            # For non-owners: filter by user's project_id
+
             if is_owner and not project_id_param and query_filters is None:
                 users_list = User.query.filter(User.id.in_(activity_user_ids)).all()
             else:
@@ -244,7 +214,6 @@ def get_logs():
             500,
         )
 
-
 @logs_bp.route("/connects", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -256,7 +225,6 @@ def get_connection_logs():
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    # Ensure user has project_id (except for owner)
     user_roles = RBACManager.get_user_role_names(user)
     if not user_roles or user_roles[0] != "owner":
         if not user.project_id:
@@ -293,15 +261,14 @@ def get_connection_logs():
 
     user_roles = RBACManager.get_user_role_names(user)
     is_owner = user_roles and user_roles[0] == "owner"
-    
-    # SECURITY: For non-owners, ignore project_id_param and always use their project_id
+
     if not is_owner:
-        # Non-owners can only see logs from their own project
+
         if user.project_id:
             query = query.filter_by(project_id=user.project_id)
-        project_id_param = None  # Security: ignore project_id_param for non-owners
+        project_id_param = None
     elif project_id_param:
-        # Owner filtering by specific project
+
         query = query.filter_by(project_id=project_id_param)
 
     if status_filter:
@@ -328,12 +295,11 @@ def get_connection_logs():
             pass
 
     if ip_filter:
-        # Using PostgreSQL tsvector for efficient full-text search
+
         query = fulltext_search_filter(query, ip_filter, "search_vector")
 
     if game_filter:
-        # Using PostgreSQL tsvector for efficient full-text search
-        # Search for game filter in details field (included in search_vector)
+
         query = fulltext_search_filter(query, game_filter, "search_vector")
 
     try:
@@ -341,12 +307,10 @@ def get_connection_logs():
             page=page, per_page=per_page, error_out=False
         )
 
-        # Get users for all activities in one query (fixes N+1)
         activity_user_ids = list(set([a.user_id for a in pagination.items if a.user_id]))
         users_dict = {}
         if activity_user_ids:
-            # For owners: get users from all projects if no project filter
-            # For non-owners: filter by user's project_id
+
             if is_owner and not project_id_param:
                 users_list = User.query.filter(User.id.in_(activity_user_ids)).all()
             else:
@@ -415,7 +379,6 @@ def get_connection_logs():
             500,
         )
 
-
 @logs_bp.route("/connects/stats", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
@@ -426,7 +389,6 @@ def get_connection_log_stats():
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    # Ensure user has project_id (except for owner)
     user_roles = RBACManager.get_user_role_names(user)
     if not user_roles or user_roles[0] != "owner":
         if not user.project_id:
@@ -543,7 +505,6 @@ def get_connection_log_stats():
             500,
         )
 
-
 @logs_bp.route("/stats", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -555,7 +516,6 @@ def get_log_stats():
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    # Ensure user has project_id (except for owner)
     user_roles = RBACManager.get_user_role_names(user)
     if not user_roles or user_roles[0] != "owner":
         if not user.project_id:
@@ -565,7 +525,7 @@ def get_log_stats():
 
     user_roles = RBACManager.get_user_role_names(user)
     if not user_roles or user_roles[0] != "owner":
-        # Filter by project_id for non-owner users
+
         query = query.filter_by(project_id=user.project_id, user_id=user_id)
 
     total_logs = query.count()
@@ -650,7 +610,6 @@ def get_log_stats():
         }
     )
 
-
 @logs_bp.route("/export", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -662,7 +621,6 @@ def export_logs():
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    # Ensure user has project_id (except for owner)
     user_roles = RBACManager.get_user_role_names(user)
     if not user_roles or user_roles[0] != "owner":
         if not user.project_id:
@@ -677,10 +635,10 @@ def export_logs():
 
     user_roles = RBACManager.get_user_role_names(user)
     if not user_roles or user_roles[0] != "owner":
-        # Filter by project_id for non-owner users
+
         query = query.filter_by(project_id=user.project_id, user_id=user_id)
     elif user_filter:
-        # For owner users, still filter by project_id if specified
+
         project_filter = request.args.get("project_id", type=int)
         if project_filter:
             query = query.filter_by(project_id=project_filter)
@@ -703,7 +661,6 @@ def export_logs():
         except:
             pass
 
-    # Limit to 10000 records but use streaming to avoid memory issues
     query = query.order_by(UserActivity.created_at.desc()).limit(10000)
 
     def generate_csv():
@@ -714,7 +671,6 @@ def export_logs():
         buffer = StringIO()
         writer = csv.writer(buffer)
 
-        # Write header
         header = [
             "ID",
             "User ID",
@@ -732,7 +688,6 @@ def export_logs():
         buffer.seek(0)
         buffer.truncate(0)
 
-        # Process logs in batches to avoid memory issues
         batch_size = 1000
         offset = 0
 
@@ -742,7 +697,6 @@ def export_logs():
             if not logs_batch:
                 break
 
-            # Get usernames for this batch in one query (optimized)
             user_ids = [log.user_id for log in logs_batch if log.user_id]
             users_dict = {}
             if user_ids:
@@ -751,7 +705,6 @@ def export_logs():
                 ).all()
                 users_dict = {u.id: u.username for u in users}
 
-            # Write logs in batch
             for activity in logs_batch:
                 activity_username = users_dict.get(activity.user_id, "") if activity.user_id else ""
 
@@ -770,7 +723,6 @@ def export_logs():
                     ]
                 )
 
-            # Yield batch and clear buffer
             yield buffer.getvalue()
             buffer.seek(0)
             buffer.truncate(0)
@@ -790,7 +742,6 @@ def export_logs():
         headers={"Content-Disposition": "attachment; filename=activity_logs_export.csv"},
     )
 
-
 @logs_bp.route("/cleanup", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -802,7 +753,6 @@ def cleanup_logs():
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    # Ensure user has project_id (except for owner)
     user_roles = RBACManager.get_user_role_names(user)
     if not user_roles or user_roles[0] != "owner":
         if not user.project_id:
@@ -814,7 +764,6 @@ def cleanup_logs():
     ):
         return jsonify({"error": "Access denied"}), 403
 
-    # Use constant: 60 days retention
     days_old = 60
 
     cutoff_date = datetime.utcnow() - timedelta(days=days_old)
@@ -839,7 +788,6 @@ def cleanup_logs():
         db.session.rollback()
         return jsonify({"error": f"Failed to cleanup logs: {str(e)}"}), 500
 
-
 @logs_bp.route("/auto-cleanup", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -852,7 +800,6 @@ def trigger_auto_cleanup():
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    # Ensure user has project_id (except for owner)
     user_roles = RBACManager.get_user_role_names(user)
     if not user_roles or user_roles[0] != "owner":
         if not user.project_id:
@@ -867,7 +814,6 @@ def trigger_auto_cleanup():
     try:
         from ..services.logs import log_cleanup_service
 
-        # Clean up logs for the user's project
         result = log_cleanup_service.cleanup_old_logs(user.project_id)
 
         if result["success"]:
@@ -885,7 +831,6 @@ def trigger_auto_cleanup():
     except Exception as e:
         return jsonify({"error": f"Failed to trigger auto cleanup: {str(e)}"}), 500
 
-
 @logs_bp.route("/search", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -897,7 +842,6 @@ def search_logs():
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    # Ensure user has project_id (except for owner)
     user_roles = RBACManager.get_user_role_names(user)
     if not user_roles or user_roles[0] != "owner":
         if not user.project_id:
@@ -915,30 +859,25 @@ def search_logs():
     user_roles = RBACManager.get_user_role_names(user)
     is_owner = user_roles and user_roles[0] == "owner"
     project_id_param = request.args.get("project_id", type=int)
-    
-    # SECURITY: For non-owners, ignore project_id_param and always use their project_id
+
     if not is_owner:
-        # Non-owners can only see logs from their own project
+
         query = query.filter_by(project_id=user.project_id, user_id=user_id)
-        project_id_param = None  # Security: ignore project_id_param for non-owners
+        project_id_param = None
     elif project_id_param:
-        # Owner filtering by specific project
+
         query = query.filter_by(project_id=project_id_param)
 
-    # Using PostgreSQL tsvector for efficient full-text search
-    # search_vector includes: action, ip_address, country, city, details, user_agent
     query = fulltext_search_filter(query, search_term, "search_vector")
 
     pagination = query.order_by(UserActivity.created_at.desc()).paginate(
         page=page, per_page=per_page, error_out=False
     )
 
-    # Get users for all activities in one query (fixes N+1)
     activity_user_ids = list(set([a.user_id for a in pagination.items if a.user_id]))
     users_dict = {}
     if activity_user_ids:
-        # For owners: get users from all projects if no project filter
-        # For non-owners: filter by user's project_id
+
         if is_owner and not project_id_param:
             users_list = User.query.filter(User.id.in_(activity_user_ids)).all()
         else:
@@ -978,7 +917,6 @@ def search_logs():
         }
     )
 
-
 @logs_bp.route("/realtime", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -990,7 +928,6 @@ def get_realtime_logs():
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    # Ensure user has project_id (except for owner)
     user_roles = RBACManager.get_user_role_names(user)
     if not user_roles or user_roles[0] != "owner":
         if not user.project_id:
@@ -1001,24 +938,21 @@ def get_realtime_logs():
     user_roles = RBACManager.get_user_role_names(user)
     is_owner = user_roles and user_roles[0] == "owner"
     project_id_param = request.args.get("project_id", type=int)
-    
-    # SECURITY: For non-owners, ignore project_id_param and always use their project_id
+
     if not is_owner:
-        # Non-owners can only see logs from their own project
+
         query = query.filter_by(project_id=user.project_id, user_id=user_id)
-        project_id_param = None  # Security: ignore project_id_param for non-owners
+        project_id_param = None
     elif project_id_param:
-        # Owner filtering by specific project
+
         query = query.filter_by(project_id=project_id_param)
 
     logs = query.order_by(UserActivity.created_at.desc()).limit(50).all()
 
-    # Get users for all activities in one query (fixes N+1)
     activity_user_ids = list(set([a.user_id for a in logs if a.user_id]))
     users_dict = {}
     if activity_user_ids:
-        # For owners: get users from all projects if no project filter
-        # For non-owners: filter by user's project_id
+
         if is_owner and not project_id_param:
             users_list = User.query.filter(User.id.in_(activity_user_ids)).all()
         else:

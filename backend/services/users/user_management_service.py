@@ -25,7 +25,6 @@ from ...utils.fulltext_search import fulltext_search_filter
 from ...utils.rbac_utils import RBACManager
 from werkzeug.security import generate_password_hash
 
-
 class UserManagementService:
     """Service for handling user management operations"""
 
@@ -54,21 +53,19 @@ class UserManagementService:
             Tuple of (User object or None, error message or None)
         """
         try:
-            # Validate input
+
             if not username or not password:
                 return None, "Username and password are required"
 
             if len(password) < 8:
                 return None, "Password must be at least 8 characters long"
 
-            # Check if user already exists
             if User.query.filter_by(username=username).first():
                 return None, "Username already exists"
 
             if email and User.query.filter_by(email=email.lower()).first():
                 return None, "Email already exists"
 
-            # Create user
             user = User(
                 username=username,
                 email=email.lower() if email else None,
@@ -78,9 +75,8 @@ class UserManagementService:
             )
 
             db.session.add(user)
-            db.session.flush()  # Get user ID
+            db.session.flush()
 
-            # Assign role if project_id is provided
             if project_id:
                 self._assign_user_role(user.id, project_id, role)
 
@@ -172,10 +168,9 @@ class UserManagementService:
             Dictionary with users data and pagination info
         """
         try:
-            # Build base query
+
             query = User.query
 
-            # Apply project scoping based on user role
             if RBACManager.is_owner(current_user):
                 if project_id:
                     query = query.filter_by(project_id=project_id)
@@ -190,28 +185,23 @@ class UserManagementService:
                 else:
                     return {"error": "User must be assigned to a project"}, 403
 
-            # Apply full-text search filter
-            # Using PostgreSQL tsvector for efficient full-text search
             if search:
                 query = fulltext_search_filter(query, search, "search_vector")
 
-            # Apply role filtering BEFORE pagination (at SQL level)
-            # This ensures correct pagination and total count
             if role_filter or roles_filter:
-                # Determine which roles to filter by
+
                 roles_to_filter = []
                 if role_filter:
                     roles_to_filter.append(role_filter)
                 if roles_filter:
                     roles_to_filter.extend(roles_filter)
 
-                # Remove duplicates
                 roles_to_filter = list(set(roles_to_filter))
 
                 self.logger.info(f"Filtering users by roles: {roles_to_filter}")
 
                 if roles_to_filter:
-                    # Get project_id for role filtering
+
                     project_id_for_roles = None
                     if RBACManager.is_owner(current_user):
                         project_id_for_roles = project_id
@@ -220,11 +210,10 @@ class UserManagementService:
 
                     self.logger.info(f"Filtering users by roles in project: {project_id_for_roles}")
 
-                    # Normalize role names to lowercase for comparison
                     roles_to_filter_lower = [r.lower() for r in roles_to_filter]
 
                     if project_id_for_roles:
-                        # Filter by roles in the user's project (case-insensitive)
+
                         role_subquery = (
                             db.session.query(UserRole.user_id)
                             .join(Role, UserRole.role_id == Role.id)
@@ -235,7 +224,7 @@ class UserManagementService:
                             .distinct()
                         )
                     else:
-                        # If no project_id, filter by roles without project constraint (case-insensitive)
+
                         role_subquery = (
                             db.session.query(UserRole.user_id)
                             .join(Role, UserRole.role_id == Role.id)
@@ -243,21 +232,16 @@ class UserManagementService:
                             .distinct()
                         )
 
-                    # Apply RBAC roles filter (single source of truth)
-                    # All users must be migrated to RBAC - no legacy role support
                     query = query.filter(User.id.in_(role_subquery))
 
                     self.logger.info(
                         f"Applied RBAC role filter, query will return users matching roles: {roles_to_filter}"
                     )
 
-            # Get pagination (now with role filtering applied)
             pagination = query.order_by(User.created_at.desc()).paginate(
                 page=page, per_page=per_page, error_out=False
             )
 
-            # Use denormalized key counters from User model (no need for JOIN query)
-            # This significantly improves performance on large tables
             key_counts_dict = {}
             for user in pagination.items:
                 key_counts_dict[user.id] = {
@@ -265,15 +249,12 @@ class UserManagementService:
                     "active": user.active_keys or 0
                 }
 
-            # Get RBAC roles for all users in one query (fixes N+1)
             rbac_roles_dict = {}
             user_ids = [user.id for user in pagination.items]
             if user_ids:
                 try:
                     from sqlalchemy.orm import joinedload
 
-                    # Load all user roles - only load Role, don't try to eager load permissions
-                    # (Role.permissions uses lazy="dynamic" which doesn't support eager loading)
                     user_roles_query = (
                         db.session.query(UserRole)
                         .filter(UserRole.user_id.in_(user_ids))
@@ -282,41 +263,35 @@ class UserManagementService:
                     )
 
                     self.logger.info(f"RBAC_ROLES_DEBUG: Loaded {len(user_roles_query)} user roles for {len(user_ids)} users")
-                    
-                    # Group roles by user_id
+
                     for ur in user_roles_query:
                         if ur.user_id not in rbac_roles_dict:
                             rbac_roles_dict[ur.user_id] = []
 
-                        # Build role data - don't load permissions (they use lazy="dynamic" and cause N+1)
-                        # Permissions are not needed for displaying user list, only role name matters
                         role_data = {
                             "id": ur.role.id,
                             "name": ur.role.name,
                             "description": ur.role.description,
-                            "permissions": [],  # Empty for now - can be loaded separately if needed
+                            "permissions": [],
                             "is_system_role": ur.role.is_system_role,
                             "assigned_at": ur.assigned_at.isoformat() if ur.assigned_at else None,
                         }
                         rbac_roles_dict[ur.user_id].append(role_data)
                         self.logger.debug(f"RBAC_ROLES_DEBUG: User {ur.user_id} has role {ur.role.name}")
-                    
+
                     self.logger.info(f"RBAC_ROLES_DEBUG: Final rbac_roles_dict has {len(rbac_roles_dict)} users with roles")
                     for user_id, roles in rbac_roles_dict.items():
                         self.logger.info(f"RBAC_ROLES_DEBUG: User {user_id} roles: {[r['name'] for r in roles]}")
                 except Exception as e:
                     self.logger.error(f"Failed to get RBAC roles in batch: {e}", exc_info=True)
 
-            # Build user data
             users = []
             for user in pagination.items:
                 user_key_data = key_counts_dict.get(user.id, {"total": 0, "active": 0})
 
-                # Get RBAC roles from preloaded dict
                 rbac_roles = rbac_roles_dict.get(user.id, [])
                 role_names = [role["name"] for role in rbac_roles] if rbac_roles else []
-                
-                # Log warning if user has no roles
+
                 if not rbac_roles and user.id in user_ids:
                     self.logger.warning(
                         f"RBAC_ROLES_EMPTY user_id={user.id} username={user.username} - no roles found in database. "
@@ -349,8 +324,6 @@ class UserManagementService:
                     }
                 )
 
-            # Return paginated and filtered results
-            # Note: pagination.total now reflects the filtered count
             return {
                 "users": users,
                 "total": pagination.total,
@@ -388,7 +361,6 @@ class UserManagementService:
             game_ids = data.get("game_ids", [])
             rbac_role_ids = data.get("rbac_role_ids", [])
 
-            # Debug logging
             self.logger.info(
                 f"CREATE_USER_DEBUG: Received game_ids={game_ids}, type={type(game_ids)}"
             )
@@ -405,7 +377,6 @@ class UserManagementService:
 
             from ...services.rbac import rbac_service
 
-            # Check moderator balance (moderator role check via permissions)
             has_moderator_permission = rbac_service.check_permission(
                 current_user.id, "employees.create"
             ) or rbac_service.check_permission(current_user.id, "clients.create")
@@ -416,7 +387,6 @@ class UserManagementService:
                         f"Insufficient balance. Required: {token_balance}, Available: {current_user.token_balance}",
                     )
 
-            # Determine project_id
             project_id = data.get("project_id")
             can_manage_all = rbac_service.check_permission(
                 current_user.id, "employees.view"
@@ -428,7 +398,6 @@ class UserManagementService:
 
                 project_id = getattr(g, "project_id", project_id)
 
-            # Validate that all roles exist and belong to the correct project BEFORE creating user
             if rbac_role_ids and project_id:
                 for role_id in rbac_role_ids:
                     role = Role.query.filter_by(id=role_id).first()
@@ -440,16 +409,15 @@ class UserManagementService:
                             f"Role '{role.name}' belongs to a different project (role project_id: {role.project_id}, target project_id: {project_id})",
                         )
 
-            # Create user
             user = User(
                 username=username,
                 password=generate_password_hash(password),
-                role="user",  # Default role, will be overridden by RBAC roles
+                role="user",
                 first_name=first_name,
                 last_name=last_name,
                 email=email,
                 project_id=project_id,
-                is_admin=False,  # Will be determined by RBAC roles
+                is_admin=False,
                 token_balance=token_balance,
                 created_at=datetime.utcnow(),
             )
@@ -463,16 +431,14 @@ class UserManagementService:
                     pass
 
             db.session.add(user)
-            db.session.flush()  # Get user.id without committing
+            db.session.flush()
 
-            # Handle token deduction for moderators
             has_moderator_permission = rbac_service.check_permission(
                 current_user.id, "employees.create"
             ) or rbac_service.check_permission(current_user.id, "clients.create")
             if has_moderator_permission and token_balance > 0:
                 current_user.token_balance -= token_balance
 
-                # Create transaction records
                 moderator_transaction = TokenTransaction(
                     user_id=current_user.id,
                     amount=token_balance,
@@ -493,14 +459,13 @@ class UserManagementService:
                 )
                 db.session.add(user_transaction)
 
-            # Assign game permissions
             if project_id:
-                # Convert game_ids to list of integers if needed
+
                 processed_game_ids = []
                 if game_ids:
-                    # Handle different input types
+
                     if isinstance(game_ids, str):
-                        # Try to parse string as JSON array
+
                         try:
                             import json
 
@@ -515,12 +480,11 @@ class UserManagementService:
                         )
                         game_ids = []
 
-                    # Ensure all game_ids are integers and valid
                     processed_game_ids = []
                     for gid in game_ids:
                         try:
                             gid_int = int(gid)
-                            if gid_int > 0:  # Only positive game IDs
+                            if gid_int > 0:
                                 processed_game_ids.append(gid_int)
                         except (ValueError, TypeError):
                             self.logger.warning(f"Invalid game_id: {gid}, skipping")
@@ -530,7 +494,6 @@ class UserManagementService:
                     f"Creating user {user.id} with game_ids: {processed_game_ids} (raw: {game_ids})"
                 )
 
-                # Get all games in the project
                 all_project_games = Game.query.filter_by(project_id=project_id).all()
                 all_game_ids = {game.id for game in all_project_games}
                 selected_game_ids = set(processed_game_ids) if processed_game_ids else set()
@@ -539,7 +502,6 @@ class UserManagementService:
                     f"Project has {len(all_game_ids)} games, selected: {len(selected_game_ids)}"
                 )
 
-                # First, check if any permissions already exist (shouldn't happen, but just in case)
                 existing_permissions = UserGamePermission.query.filter_by(user_id=user.id).all()
                 existing_game_ids = {perm.game_id for perm in existing_permissions}
 
@@ -547,24 +509,21 @@ class UserManagementService:
                     self.logger.warning(
                         f"User {user.id} already has permissions for games: {existing_game_ids}"
                     )
-                    # Delete existing permissions first
+
                     for perm in existing_permissions:
                         db.session.delete(perm)
                     db.session.flush()
 
-                # IMPORTANT: Only create permissions for SELECTED games with has_access=True
-                # Do NOT create permissions for unselected games - they should have no permission at all
-                # This way, if permission doesn't exist, access is denied (default)
                 for game_id in selected_game_ids:
                     if game_id in all_game_ids:
                         try:
-                            # Get or create permission - use query first to avoid duplicates
+
                             permission = UserGamePermission.query.filter_by(
                                 user_id=user.id, game_id=game_id
                             ).first()
 
                             if permission:
-                                # Update existing permission
+
                                 permission.has_access = True
                                 permission.can_generate_keys = True
                                 permission.max_keys_per_day = 100
@@ -573,7 +532,7 @@ class UserManagementService:
                                     f"Updated permission for user {user.id}, game {game_id} to has_access=True"
                                 )
                             else:
-                                # Create new permission
+
                                 permission = UserGamePermission(
                                     user_id=user.id,
                                     game_id=game_id,
@@ -589,20 +548,18 @@ class UserManagementService:
                         except Exception as e:
                             self.logger.error(f"Error creating permission for game {game_id}: {e}")
                 else:
-                    # If no games selected, log it but don't create any permissions
+
                     self.logger.info(
                         f"No games selected for user {user.id}, no permissions will be created"
                     )
 
-            # Assign RBAC roles - now in the same transaction
             if rbac_role_ids and project_id:
-                assigned_role_ids = set()  # Track assigned roles to avoid duplicates
+                assigned_role_ids = set()
                 for role_id in rbac_role_ids:
-                    # Skip if already assigned (duplicate in list)
+
                     if role_id in assigned_role_ids:
                         continue
-                    # Directly create UserRole without separate commit
-                    # (we already validated roles exist above)
+
                     role = Role.query.get(role_id)
                     user_role = UserRole(
                         user_id=user.id, role_id=role_id, assigned_at=datetime.utcnow()
@@ -618,13 +575,11 @@ class UserManagementService:
                     f"RBAC_ROLES_NOT_ASSIGNED user_id={user.id} username={user.username} rbac_role_ids={rbac_role_ids} project_id={project_id} - missing required data"
                 )
 
-            # Update project user counters
             if project_id:
                 from ...utils.project_counters import increment_project_user_counters
                 is_active = user.expires_at is None or user.expires_at > datetime.utcnow()
                 increment_project_user_counters(project_id, is_active=is_active)
-            
-            # Commit all changes together: user, transactions, game permissions, and roles
+
             db.session.commit()
 
             return user, None
@@ -652,7 +607,6 @@ class UserManagementService:
             if not target_user:
                 return False, "User not found"
 
-            # Check permissions
             from ...services.rbac import rbac_service
 
             can_delete_all = rbac_service.check_permission(
@@ -661,7 +615,7 @@ class UserManagementService:
             if not can_delete_all:
                 if current_user.project_id != target_user.project_id:
                     return False, "Access denied"
-                # Prevent deletion of owner and admin users
+
                 if RBACManager.is_admin(target_user) or RBACManager.is_owner(target_user):
                     return False, "Cannot delete owner or admin users"
             else:
@@ -669,15 +623,13 @@ class UserManagementService:
 
                 if getattr(g, "project_id", None) != target_user.project_id:
                     return False, "Access denied"
-                # Even owners cannot delete other owners or admins
+
                 if RBACManager.is_admin(target_user) or RBACManager.is_owner(target_user):
                     return False, "Cannot delete owner or admin users"
 
             if current_user.id == target_user.id:
                 return False, "Cannot delete yourself"
 
-            # Delete related data
-            # Reset key counters before deletion (will be 0 after deletion)
             target_user.total_keys = 0
             target_user.active_keys = 0
             Key.query.filter_by(user_id=target_user_id).delete()
@@ -685,13 +637,10 @@ class UserManagementService:
             DeveloperGamePermission.query.filter_by(user_id=target_user_id).delete()
             UserActivity.query.filter_by(user_id=target_user_id).delete()
 
-            # Delete UserRole records explicitly to avoid foreign key constraint issues
             UserRole.query.filter_by(user_id=target_user_id).delete()
 
-            # Delete ProjectUserRole records explicitly to avoid foreign key constraint issues
             ProjectUserRole.query.filter_by(user_id=target_user_id).delete()
 
-            # Update project user counters before deletion
             project_id = target_user.project_id
             if project_id:
                 from ...utils.project_counters import decrement_project_user_counters
@@ -726,7 +675,6 @@ class UserManagementService:
             from ...utils.role_constants import RolePermissions
             from ...services.rbac import rbac_service
 
-            # Build query for users
             query = User.query.filter(User.id.in_(user_ids))
 
             can_view_all = rbac_service.check_permission(
@@ -742,11 +690,10 @@ class UserManagementService:
 
             deleted_count = 0
             for user in users:
-                # Check if user can be deleted
+
                 if RBACManager.is_admin(user) or RBACManager.is_owner(user):
                     continue
 
-                # Reset key counters before deletion
                 user.total_keys = 0
                 user.active_keys = 0
                 Key.query.filter_by(user_id=user.id).delete()
@@ -754,13 +701,10 @@ class UserManagementService:
                 DeveloperGamePermission.query.filter_by(user_id=user.id).delete()
                 UserActivity.query.filter_by(user_id=user.id).delete()
 
-                # Delete UserRole records
                 UserRole.query.filter_by(user_id=user.id).delete()
 
-                # Delete ProjectUserRole records
                 ProjectUserRole.query.filter_by(user_id=user.id).delete()
 
-                # Update project user counters before deletion
                 if user.project_id:
                     from ...utils.project_counters import decrement_project_user_counters
                     was_active = user.expires_at is None or user.expires_at > datetime.utcnow()
@@ -796,11 +740,9 @@ class UserManagementService:
             from ...utils.role_constants import RolePermissions
             from ...services.rbac import rbac_service
 
-            # Validate role
             if new_role not in RolePermissions.ASSIGNABLE_ROLES:
                 return 0, f'Invalid role. Allowed: {", ".join(RolePermissions.ASSIGNABLE_ROLES)}'
 
-            # Build query for users
             query = User.query.filter(User.id.in_(user_ids))
 
             can_view_all = rbac_service.check_permission(
@@ -813,10 +755,6 @@ class UserManagementService:
                     query = query.filter_by(project_id=project_id)
 
             users = query.all()
-
-            # Note: Role assignment should be handled through RBAC service
-            # This is a placeholder for the actual RBAC role assignment logic
-            # TODO: Implement proper RBAC role assignment
 
             db.session.commit()
             return len(users), None
@@ -851,13 +789,12 @@ class UserManagementService:
             if not email:
                 return None, "Email is required"
 
-            # Determine allowed roles based on current user's permissions
             allowed_roles = RolePermissions.ASSIGNABLE_ROLES.copy()
             can_view_all = rbac_service.check_permission(
                 current_user.id, "employees.view"
             ) or rbac_service.check_permission(current_user.id, "clients.view")
             if not can_view_all:
-                # Non-owners cannot invite admins
+
                 allowed_roles = [r for r in allowed_roles if r not in RolePermissions.ADMIN_ROLES]
 
             if role not in allowed_roles:
@@ -970,7 +907,6 @@ class UserManagementService:
             if not target_user:
                 return None, "User not found"
 
-            # Check access permissions
             can_view_all = rbac_service.check_permission(
                 current_user.id, "employees.view"
             ) or rbac_service.check_permission(current_user.id, "clients.view")
@@ -982,11 +918,9 @@ class UserManagementService:
                 if project_id and target_user.project_id != project_id:
                     return None, "Access denied"
 
-            # Use project_id for filtering
             if not project_id:
                 project_id = target_user.project_id
 
-            # Get key statistics
             key_stats = (
                 db.session.query(
                     func.count(Key.id).label("total_keys"),
@@ -1013,7 +947,6 @@ class UserManagementService:
                 )
             ).count()
 
-            # Get activity statistics
             activity_count = UserActivity.query.filter(
                 and_(UserActivity.user_id == user_id, UserActivity.project_id == project_id)
             ).count()
@@ -1078,7 +1011,6 @@ class UserManagementService:
             if not target_user:
                 return None, "User not found"
 
-            # Check access permissions
             can_view_all = rbac_service.check_permission(
                 current_user.id, "employees.view"
             ) or rbac_service.check_permission(current_user.id, "clients.view")
@@ -1141,7 +1073,6 @@ class UserManagementService:
             if not target_user:
                 return None, "User not found"
 
-            # Check access permissions
             can_view_all = rbac_service.check_permission(
                 current_user.id, "employees.view"
             ) or rbac_service.check_permission(current_user.id, "clients.view")
@@ -1149,7 +1080,6 @@ class UserManagementService:
                 if current_user.project_id != target_user.project_id:
                     return None, "Access denied"
 
-            # Limit per_page to prevent excessive memory usage
             if per_page > 1000:
                 per_page = 1000
 
@@ -1195,7 +1125,4 @@ class UserManagementService:
                 "per_page": per_page,
             }, None
 
-
-# Create service instance
 user_management_service = UserManagementService()
-

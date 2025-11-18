@@ -21,7 +21,7 @@ export function useProfileData() {
     email: user?.email || '',
     firstName: user?.first_name || '',
     lastName: user?.last_name || '',
-    bio: '', // bio is not part of User type, will be loaded from profile
+    bio: '',
   })
 
   const [passwordData, setPasswordData] = useState({
@@ -75,7 +75,7 @@ export function useProfileData() {
       email: user?.email || '',
       firstName: user?.first_name || '',
       lastName: user?.last_name || '',
-      bio: '', // bio is not part of User type, will be loaded from profile
+      bio: '',
     })
     setIsEditing(false)
   }
@@ -153,7 +153,7 @@ export function useProfileData() {
       toast.error(error instanceof Error ? error.message : 'Error uploading avatar')
     } finally {
       setIsAvatarUploading(false)
-      // Clear input
+
       if (event.target) {
         event.target.value = ''
       }
@@ -177,4 +177,3 @@ export function useProfileData() {
     handleAvatarUpload,
   }
 }
-

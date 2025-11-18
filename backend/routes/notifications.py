@@ -27,9 +27,6 @@ from ..utils.rbac_utils import RBACManager
 
 notifications_bp = Blueprint("notifications", __name__)
 
-
-
-
 @notifications_bp.route("", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -42,8 +39,6 @@ def get_notifications():
     if not user:
 
         return jsonify({"error": "User not found"}), 404
-
-    # Ensure user has project_id
 
     if not user.project_id:
 
@@ -58,7 +53,6 @@ def get_notifications():
 
     from ..services.rbac import rbac_service
 
-    # Check if user can view all notifications (admin-level)
     can_view_all = rbac_service.check_permission(
         user.id, "employees.view"
     ) or rbac_service.check_permission(user.id, "clients.view")
@@ -69,7 +63,7 @@ def get_notifications():
             | (Notification.project_id == user.project_id)
         )
     else:
-        # Regular users see only their own notifications or project-wide notifications (user_id is None)
+
         query = query.filter(Notification.project_id == user.project_id).filter(
             (Notification.user_id == user_id) | (Notification.user_id.is_(None))
         )
@@ -116,7 +110,6 @@ def get_notifications():
         }
     )
 
-
 @notifications_bp.route("/<int:notification_id>/read", methods=["PUT"])
 @jwt_required()
 @require_project_with_grace_period
@@ -129,11 +122,9 @@ def mark_as_read(notification_id):
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    # Ensure user has project_id
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    # Use notification service to mark as read
     success, error = notification_service.mark_notification_read(user, notification_id)
 
     if not success:
@@ -148,14 +139,13 @@ def mark_as_read(notification_id):
 
     return jsonify({"message": "Notification marked as read"})
 
-
 @notifications_bp.route("/<int:notification_id>/show", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
 def increment_show_count(notification_id, current_user=None, project_id=None):
     """Increment the show count of a notification"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -163,7 +153,6 @@ def increment_show_count(notification_id, current_user=None, project_id=None):
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
-    # Ensure user has project_id
     if not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
     notification = Notification.query.filter_by(
@@ -203,7 +192,6 @@ def increment_show_count(notification_id, current_user=None, project_id=None):
         db.session.rollback()
         return jsonify({"error": f"Failed to increment show count: {str(e)}"}), 500
 
-
 @notifications_bp.route("/mark-all-read", methods=["PUT"])
 @jwt_required()
 @require_project_with_grace_period
@@ -217,8 +205,6 @@ def mark_all_as_read():
 
         return jsonify({"error": "User not found"}), 404
 
-    # Ensure user has project_id
-
     if not user.project_id:
 
         return jsonify({"error": "User must be assigned to a project"}), 403
@@ -227,7 +213,6 @@ def mark_all_as_read():
         from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
 
-        # Owner can mark all notifications as read, others only their own
         if RBACManager.is_owner(user):
             Notification.query.filter_by(is_read=False).update({"is_read": True})
         else:
@@ -248,7 +233,6 @@ def mark_all_as_read():
         db.session.rollback()
         return jsonify({"error": f"Failed to mark notifications as read: {str(e)}"}), 500
 
-
 @notifications_bp.route("", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -256,7 +240,7 @@ def mark_all_as_read():
 @validate_request(NotificationCreateSchema)
 def create_notification(current_user=None, project_id=None, validated_data=None):
     """Create a new notification"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -264,19 +248,16 @@ def create_notification(current_user=None, project_id=None, validated_data=None)
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
-    # Ensure user has project_id
     if not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
     from ..services.rbac import rbac_service
 
-    # Creating notifications requires send_notification permission
     can_send = rbac_service.check_permission(
         current_user.id, "employees.send_notification"
     ) or rbac_service.check_permission(current_user.id, "clients.send_notification")
     if not can_send:
         return jsonify({"error": "Access denied"}), 403
 
-    # Use validated data
     data = validated_data or request.get_json()
 
     message = data.get("message")
@@ -284,7 +265,6 @@ def create_notification(current_user=None, project_id=None, validated_data=None)
     target_user_id = data.get("target_user_id") or data.get("user_id")
     repeat_count = data.get("repeat_count", 1)
 
-    # Use notification service to create notification
     notification, error = notification_service.create_notification(
         user=current_user,
         message=message,
@@ -319,7 +299,6 @@ def create_notification(current_user=None, project_id=None, validated_data=None)
         201,
     )
 
-
 @notifications_bp.route("/send", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -327,7 +306,7 @@ def create_notification(current_user=None, project_id=None, validated_data=None)
 @validate_request(NotificationSendSchema)
 def send_notification(current_user=None, project_id=None, validated_data=None):
     """Send notifications to specific users"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -335,20 +314,17 @@ def send_notification(current_user=None, project_id=None, validated_data=None):
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
-    # Ensure user has project_id
     if not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
     from ..services.rbac import rbac_service
 
-    # Creating notifications requires send_notification permission
     can_send = rbac_service.check_permission(
         current_user.id, "employees.send_notification"
     ) or rbac_service.check_permission(current_user.id, "clients.send_notification")
     if not can_send:
         return jsonify({"error": "Access denied"}), 403
 
-    # Use validated data
     data = validated_data or request.get_json()
 
     title = data.get("title", "")
@@ -357,7 +333,6 @@ def send_notification(current_user=None, project_id=None, validated_data=None):
     target_users = data.get("target_users", [])
     repeat_count = data.get("repeat_count", 1)
 
-    # Use notification service to send notifications
     notifications_created, notification_ids, error = notification_service.send_notifications(
         user=current_user,
         message=message,
@@ -389,14 +364,13 @@ def send_notification(current_user=None, project_id=None, validated_data=None):
         201,
     )
 
-
 @notifications_bp.route("/<int:notification_id>", methods=["DELETE"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
 def delete_notification(notification_id, current_user=None, project_id=None):
     """Delete a notification (soft delete)"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -404,11 +378,9 @@ def delete_notification(notification_id, current_user=None, project_id=None):
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
-    # Ensure user has project_id
     if not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    # Use notification service to delete notification
     success, error = notification_service.delete_notification(current_user, notification_id)
 
     if not success:
@@ -425,7 +397,6 @@ def delete_notification(notification_id, current_user=None, project_id=None):
 
     return jsonify({"message": "Notification deleted successfully"})
 
-
 @notifications_bp.route("/bulk", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -433,7 +404,7 @@ def delete_notification(notification_id, current_user=None, project_id=None):
 @validate_request(NotificationBulkActionSchema)
 def bulk_action(current_user=None, project_id=None, validated_data=None):
     """Bulk operations on notifications"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -441,11 +412,9 @@ def bulk_action(current_user=None, project_id=None, validated_data=None):
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
-    # Ensure user has project_id
     if not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    # Use validated data
     data = validated_data or request.get_json()
     action = data.get("action")
     notification_ids = data.get("notification_ids", [])
@@ -526,14 +495,13 @@ def bulk_action(current_user=None, project_id=None, validated_data=None):
     else:
         return jsonify({"error": "Invalid action"}), 400
 
-
 @notifications_bp.route("/stats", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
 def get_notification_stats(current_user=None, project_id=None):
     """Get notification statistics"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -541,7 +509,6 @@ def get_notification_stats(current_user=None, project_id=None):
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
-    # Ensure user has project_id
     if not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -600,14 +567,13 @@ def get_notification_stats(current_user=None, project_id=None):
         }
     )
 
-
 @notifications_bp.route("/unread-count", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
 def get_unread_count(current_user=None, project_id=None):
     """Get the count of unread notifications"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -615,7 +581,6 @@ def get_unread_count(current_user=None, project_id=None):
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
-    # Ensure user has project_id
     if not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -635,7 +600,6 @@ def get_unread_count(current_user=None, project_id=None):
 
     return jsonify({"unread_count": unread_count})
 
-
 @notifications_bp.route("/system", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -645,12 +609,10 @@ def create_system_notification():
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
-    # Ensure user has project_id
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
     from ..services.rbac import rbac_service
 
-    # Creating notifications requires send_notification permission
     can_send = rbac_service.check_permission(
         user.id, "employees.send_notification"
     ) or rbac_service.check_permission(user.id, "clients.send_notification")
@@ -681,7 +643,6 @@ def create_system_notification():
 
     return jsonify({"message": "System notification created", "notification_id": notification.id})
 
-
 @notifications_bp.route("/bulk-create", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -691,12 +652,10 @@ def create_bulk_notifications():
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
-    # Ensure user has project_id
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
     from ..services.rbac import rbac_service
 
-    # Creating notifications requires send_notification permission
     can_send = rbac_service.check_permission(
         user.id, "employees.send_notification"
     ) or rbac_service.check_permission(user.id, "clients.send_notification")
@@ -716,7 +675,7 @@ def create_bulk_notifications():
         query = User.query.filter_by(project_id=user.project_id)
 
         if target_roles:
-            # Get users with specific roles using RBAC
+
             role_user_ids = (
                 db.session.query(User.id)
                 .join(UserRole)
@@ -729,7 +688,6 @@ def create_bulk_notifications():
 
         target_users = query.all()
 
-        # Filter out admin and owner users - they should not receive notifications
         from ..utils.rbac_utils import RBACManager
 
         workers_only = [
@@ -778,7 +736,6 @@ def create_bulk_notifications():
         db.session.rollback()
         return jsonify({"error": f"Failed to create bulk notifications: {str(e)}"}), 500
 
-
 @notifications_bp.route("/game-update", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -788,12 +745,10 @@ def create_game_update_notification():
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
-    # Ensure user has project_id
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
     from ..services.rbac import rbac_service
 
-    # Creating notifications requires send_notification permission
     can_send = rbac_service.check_permission(
         user.id, "employees.send_notification"
     ) or rbac_service.check_permission(user.id, "clients.send_notification")
@@ -823,7 +778,6 @@ def create_game_update_notification():
 
         project_users = User.query.filter_by(project_id=user.project_id).all()
 
-        # Filter out admin and owner users - they should not receive notifications
         from ..utils.rbac_utils import RBACManager
 
         workers_only = [
@@ -891,7 +845,6 @@ def create_game_update_notification():
         current_app.logger.error(f"Error creating game update notifications: {str(e)}")
         return jsonify({"error": f"Failed to create game update notifications: {str(e)}"}), 500
 
-
 @notifications_bp.route("/cleanup", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -901,12 +854,10 @@ def cleanup_old_notifications():
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
-    # Ensure user has project_id
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
     from ..services.rbac import rbac_service
 
-    # Creating notifications requires send_notification permission
     can_send = rbac_service.check_permission(
         user.id, "employees.send_notification"
     ) or rbac_service.check_permission(user.id, "clients.send_notification")
@@ -916,7 +867,6 @@ def cleanup_old_notifications():
     data = request.get_json()
     days_old = data.get("days_old", 30)
 
-    # Use notification service to cleanup old notifications
     deleted_count, error = notification_service.cleanup_old_notifications(user, days_old)
 
     if error:
@@ -936,7 +886,6 @@ def cleanup_old_notifications():
         }
     )
 
-
 @notifications_bp.route("/loader-update", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -950,8 +899,6 @@ def create_loader_update_notification():
 
         return jsonify({"error": "User not found"}), 404
 
-    # Ensure user has project_id
-
     if not user.project_id:
 
         return jsonify({"error": "User must be assigned to a project"}), 403
@@ -961,7 +908,6 @@ def create_loader_update_notification():
 
     from ..services.rbac import rbac_service
 
-    # Creating notifications requires send_notification permission
     can_send = rbac_service.check_permission(
         user.id, "employees.send_notification"
     ) or rbac_service.check_permission(user.id, "clients.send_notification")
@@ -994,7 +940,6 @@ def create_loader_update_notification():
 
         project_users = User.query.filter_by(project_id=user.project_id).all()
 
-        # Filter out admin and owner users - they should not receive notifications
         from ..utils.rbac_utils import RBACManager
 
         workers_only = [
@@ -1036,7 +981,6 @@ def create_loader_update_notification():
         db.session.rollback()
         return jsonify({"error": f"Failed to create loader update notification: {str(e)}"}), 500
 
-
 @notifications_bp.route("/loaders/<int:loader_id>/notifications", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -1049,8 +993,6 @@ def get_loader_notifications(loader_id):
     if not user:
 
         return jsonify({"error": "User not found"}), 404
-
-    # Ensure user has project_id
 
     if not user.project_id:
 
@@ -1101,7 +1043,6 @@ def get_loader_notifications(loader_id):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch loader notifications: {str(e)}"}), 500
 
-
 @notifications_bp.route("/games/<int:game_id>/notifications", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -1115,8 +1056,6 @@ def get_game_notifications(game_id):
 
         return jsonify({"error": "User not found"}), 404
 
-    # Ensure user has project_id
-
     if not user.project_id:
 
         return jsonify({"error": "User must be assigned to a project"}), 403
@@ -1126,7 +1065,6 @@ def get_game_notifications(game_id):
 
     from ..services.rbac import rbac_service
 
-    # Creating notifications requires send_notification permission
     can_send = rbac_service.check_permission(
         user.id, "employees.send_notification"
     ) or rbac_service.check_permission(user.id, "clients.send_notification")
@@ -1242,7 +1180,6 @@ def get_game_notifications(game_id):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch game notifications: {str(e)}"}), 500
 
-
 @notifications_bp.route("/loaders/<int:loader_id>/notifications", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -1256,8 +1193,6 @@ def create_loader_notification(loader_id):
 
         return jsonify({"error": "User not found"}), 404
 
-    # Ensure user has project_id
-
     if not user.project_id:
 
         return jsonify({"error": "User must be assigned to a project"}), 403
@@ -1267,7 +1202,6 @@ def create_loader_notification(loader_id):
 
     from ..services.rbac import rbac_service
 
-    # Creating notifications requires send_notification permission
     can_send = rbac_service.check_permission(
         user.id, "employees.send_notification"
     ) or rbac_service.check_permission(user.id, "clients.send_notification")
@@ -1306,7 +1240,6 @@ def create_loader_notification(loader_id):
         if not is_scheduled:
             project_users = User.query.filter_by(project_id=user.project_id).all()
 
-            # Filter out admin and owner users - they should not receive notifications
             from ..utils.rbac_utils import RBACManager
 
             workers_only = [

@@ -13,7 +13,6 @@ from ...utils.role_constants import RolePermissions
 
 balance_bp = Blueprint("users_balance", __name__)
 
-
 @balance_bp.route("/topup", methods=["POST"])
 @jwt_required()
 @require_user
@@ -21,7 +20,7 @@ balance_bp = Blueprint("users_balance", __name__)
 @require_project_isolation
 def topup_user_balance(current_user=None):
     """Top up user balance"""
-    # Fallback to g for backward compatibility if not passed explicitly
+
     if current_user is None:
         current_user = g.current_user
     data = request.get_json()
@@ -40,17 +39,14 @@ def topup_user_balance(current_user=None):
     except (ValueError, TypeError):
         return jsonify({"error": "Invalid amount format"}), 400
 
-    # Get target user for access check
     target_user = User.query.get(user_id)
     if not target_user:
         return jsonify({"error": "User not found"}), 404
 
-    # Check access permissions
     has_access, error_msg = balance_service.check_balance_access(current_user, target_user)
     if not has_access:
         return jsonify({"error": error_msg or "Access denied"}), 403
 
-    # Perform top-up using service
     success, error_msg, result_data = balance_service.topup_balance(
         current_user=current_user,
         target_user_id=user_id,
@@ -63,7 +59,6 @@ def topup_user_balance(current_user=None):
 
     return jsonify({"message": f"Successfully topped up {amount} tokens", **result_data})
 
-
 @balance_bp.route("/deduct", methods=["POST"])
 @jwt_required()
 @require_user
@@ -71,7 +66,7 @@ def topup_user_balance(current_user=None):
 @require_project_isolation
 def deduct_user_balance(current_user=None):
     """Deduct from user balance"""
-    # Fallback to g for backward compatibility if not passed explicitly
+
     if current_user is None:
         current_user = g.current_user
     data = request.get_json()
@@ -91,17 +86,14 @@ def deduct_user_balance(current_user=None):
     except (ValueError, TypeError):
         return jsonify({"error": "Invalid amount format"}), 400
 
-    # Get target user for access check
     target_user = User.query.get(user_id)
     if not target_user:
         return jsonify({"error": "User not found"}), 404
 
-    # Check access permissions
     has_access, error_msg = balance_service.check_balance_access(current_user, target_user)
     if not has_access:
         return jsonify({"error": error_msg or "Access denied"}), 403
 
-    # Perform deduction using service
     success, error_msg, result_data = balance_service.deduct_balance(
         current_user=current_user,
         target_user_id=user_id,

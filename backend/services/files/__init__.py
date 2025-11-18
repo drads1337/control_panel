@@ -5,7 +5,6 @@ Contains business logic for file management
 
 from .file_service import FileService, file_service
 
-# Auto-generate __all__ from imports to avoid duplication
 import sys
 _current_module = sys.modules[__name__]
 __all__ = sorted([

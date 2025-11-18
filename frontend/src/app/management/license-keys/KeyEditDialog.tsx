@@ -29,7 +29,7 @@ interface KeyEditDialogProps {
 const KeyEditDialog: React.FC<KeyEditDialogProps> = ({ open, onOpenChange, keyData, onSuccess }) => {
   const { hasPermission } = usePermissions();
   const canEdit = hasPermission('keys.edit');
-  
+
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     max_devices: 1,
@@ -61,12 +61,12 @@ const KeyEditDialog: React.FC<KeyEditDialogProps> = ({ open, onOpenChange, keyDa
       await updateLicenseKey(keyData.id, {
         max_devices: formData.max_devices
       });
-      
+
       toast.success('License key updated successfully');
       onSuccess();
       onOpenChange(false);
     } catch (error) {
-      console.error('Error updating license key:', error);
+
       toast.error('Error updating license key');
     } finally {
       setLoading(false);

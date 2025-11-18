@@ -16,14 +16,10 @@ from ..config.config import Config
 
 loaders_bp = Blueprint("loaders", __name__)
 
-# Use configuration from config.py
 ALLOWED_EXTENSIONS = Config.ALLOWED_LOADER_EXTENSIONS
-# MAX_FILE_SIZE removed - now using project storage limits instead
-
 
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
-
 
 @loaders_bp.route("", methods=["GET"])
 @jwt_required()
@@ -38,8 +34,6 @@ def get_loaders():
         if not user:
 
             return jsonify({"error": "User not found"}), 404
-
-        # Ensure user has project_id
 
         if not user.project_id:
 
@@ -110,7 +104,6 @@ def get_loaders():
         current_app.logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": f"Failed to get loaders: {str(e)}", "success": False}), 500
 
-
 @loaders_bp.route("/available-games", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -124,24 +117,21 @@ def get_available_games_for_loaders():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        # Use cached game service for consistency
         from ..services.games import game_service
 
-        # Force cache invalidation to ensure we get fresh data
         game_service.invalidate_game_cache(user.project_id)
-        # Get all games to debug the issue
+
         result = game_service.get_games_cached(
             project_id=user.project_id,
-            game_type="all",  # Get all games for debugging
+            game_type="all",
             user_id=user_id,
         )
 
         if result.get("success"):
-            # Filter only multi-app games and format for loaders
+
             games_data = []
             all_games = result.get("games", [])
             current_app.logger.info(f"Total games found: {len(all_games)}")
@@ -150,7 +140,7 @@ def get_available_games_for_loaders():
                 current_app.logger.info(
                     f"Game: {game.get('name')}, is_multi_app: {game.get('is_multi_app')}"
                 )
-                # Temporarily include all games for debugging
+
                 game_data = {
                     "id": game["id"],
                     "name": game["name"],
@@ -158,13 +148,12 @@ def get_available_games_for_loaders():
                     "status": game.get("status", "active"),
                     "logo": game.get("logo", ""),
                     "version": game.get("version", "1.0.0"),
-                    "is_multi_app": game.get("is_multi_app", False),  # Add this for debugging
+                    "is_multi_app": game.get("is_multi_app", False),
                 }
                 games_data.append(game_data)
 
             current_app.logger.info(f"Multi-app games found: {len(games_data)}")
 
-            # Debug: also return raw games data
             debug_info = {
                 "total_games": len(all_games),
                 "multi_app_games": len(games_data),
@@ -196,7 +185,6 @@ def get_available_games_for_loaders():
         current_app.logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": f"Failed to get available games: {str(e)}", "success": False}), 500
 
-
 @loaders_bp.route("", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -210,8 +198,6 @@ def create_loader():
         if not user:
 
             return jsonify({"error": "User not found"}), 404
-
-        # Ensure user has project_id
 
         if not user.project_id:
 
@@ -278,7 +264,6 @@ def create_loader():
             "assigned_games": [],
         }
 
-        # Invalidate loader cache immediately after creation
         try:
             from ..services.cache import cache_service
 
@@ -294,7 +279,6 @@ def create_loader():
         db.session.rollback()
         return jsonify({"error": "Failed to create loader", "success": False}), 500
 
-
 @loaders_bp.route("/<int:loader_id>", methods=["PUT"])
 @jwt_required()
 @require_project_with_grace_period
@@ -308,8 +292,6 @@ def update_loader(loader_id):
         if not user:
 
             return jsonify({"error": "User not found"}), 404
-
-        # Ensure user has project_id
 
         if not user.project_id:
 
@@ -367,7 +349,6 @@ def update_loader(loader_id):
 
         db.session.commit()
 
-        # Invalidate loader cache immediately after update
         try:
             from ..services.cache import cache_service
 
@@ -380,7 +361,6 @@ def update_loader(loader_id):
         current_app.logger.error(f"Error updating loader: {str(e)}")
         db.session.rollback()
         return jsonify({"error": "Failed to update loader", "success": False}), 500
-
 
 @loaders_bp.route("/<int:loader_id>", methods=["DELETE"])
 @jwt_required()
@@ -395,8 +375,6 @@ def delete_loader(loader_id):
         if not user:
 
             return jsonify({"error": "User not found"}), 404
-
-        # Ensure user has project_id
 
         if not user.project_id:
 
@@ -416,7 +394,6 @@ def delete_loader(loader_id):
         db.session.delete(loader)
         db.session.commit()
 
-        # Invalidate loader cache immediately after deletion
         try:
             from ..services.cache import cache_service
 
@@ -429,7 +406,6 @@ def delete_loader(loader_id):
         current_app.logger.error(f"Error deleting loader: {str(e)}")
         db.session.rollback()
         return jsonify({"error": "Failed to delete loader", "success": False}), 500
-
 
 @loaders_bp.route("/<int:loader_id>/assign-games", methods=["POST"])
 @jwt_required()
@@ -444,8 +420,6 @@ def assign_games_to_loader(loader_id):
         if not user:
 
             return jsonify({"error": "User not found"}), 404
-
-        # Ensure user has project_id
 
         if not user.project_id:
 
@@ -464,25 +438,22 @@ def assign_games_to_loader(loader_id):
         if not isinstance(game_ids, list):
             return jsonify({"error": "game_ids must be a list", "success": False}), 400
 
-        # Get currently assigned games for this loader (to allow keeping them)
         current_assignments = LoaderGameAssignment.query.filter_by(
             loader_id=loader_id, project_id=user.project_id
         ).all()
         current_game_ids = {assignment.game_id for assignment in current_assignments}
 
-        # Check if any of the new game_ids are already assigned to OTHER loaders
         for game_id in game_ids:
             if game_id in current_game_ids:
-                # This game is already assigned to this loader, skip validation
+
                 continue
 
-            # Check if this game is assigned to any other loader
             existing_assignment = LoaderGameAssignment.query.filter_by(
                 game_id=game_id, project_id=user.project_id
             ).first()
 
             if existing_assignment and existing_assignment.loader_id != loader_id:
-                # Get the loader name for the error message
+
                 other_loader = Loader.query.get(existing_assignment.loader_id)
                 loader_name = (
                     other_loader.name if other_loader else f"Loader {existing_assignment.loader_id}"
@@ -499,12 +470,10 @@ def assign_games_to_loader(loader_id):
                     400,
                 )
 
-        # Delete existing assignments for this loader
         LoaderGameAssignment.query.filter_by(
             loader_id=loader_id, project_id=user.project_id
         ).delete()
 
-        # Create new assignments
         for game_id in game_ids:
             game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
             if game:
@@ -524,7 +493,6 @@ def assign_games_to_loader(loader_id):
         db.session.rollback()
         return jsonify({"error": "Failed to assign games to loader", "success": False}), 500
 
-
 @loaders_bp.route("/<int:loader_id>/files", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -538,8 +506,6 @@ def upload_loader_files(loader_id):
         if not user:
 
             return jsonify({"error": "User not found"}), 404
-
-        # Ensure user has project_id
 
         if not user.project_id:
 
@@ -572,8 +538,6 @@ def upload_loader_files(loader_id):
                     file.seek(0, 2)
                     file_size = file.tell()
                     file.seek(0)
-
-                    # File size check removed - now only checking against project storage limits
 
                     filename = secure_filename(file.filename)
                     unique_filename = f"{file_type}_{loader_id}_{uuid.uuid4().hex}_{filename}"
@@ -618,7 +582,6 @@ def upload_loader_files(loader_id):
         db.session.rollback()
         return jsonify({"error": "Failed to upload files", "success": False}), 500
 
-
 @loaders_bp.route("/<int:loader_id>/status", methods=["PUT"])
 @jwt_required()
 @require_project_with_grace_period
@@ -650,7 +613,6 @@ def update_loader_status(loader_id):
 
         db.session.commit()
 
-        # Invalidate loader cache immediately after status update
         try:
             from ..services.cache import cache_service
 
@@ -658,7 +620,6 @@ def update_loader_status(loader_id):
         except ImportError:
             pass
 
-        # Log activity
         try:
             from ..services.activity import activity_service
 
@@ -675,7 +636,6 @@ def update_loader_status(loader_id):
         current_app.logger.error(f"Error updating loader status: {str(e)}")
         db.session.rollback()
         return jsonify({"error": "Failed to update loader status", "success": False}), 500
-
 
 @loaders_bp.route("/cache/refresh", methods=["POST"])
 @jwt_required()
@@ -706,7 +666,6 @@ def refresh_loader_cache():
         current_app.logger.error(f"Error refreshing loader cache: {str(e)}")
         return jsonify({"error": "Failed to refresh cache", "success": False}), 500
 
-
 @loaders_bp.route("/<int:loader_id>/download", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -736,7 +695,6 @@ def download_loader(loader_id):
         db.session.rollback()
         return jsonify({"error": "Failed to record download", "success": False}), 500
 
-
 @loaders_bp.route("/stats", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -750,11 +708,9 @@ def get_loader_stats():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        # SECURITY FIX: Filter all queries by project_id for proper isolation
         project_id = user.project_id
 
         total_loaders = Loader.query.filter_by(project_id=project_id).count()
@@ -793,7 +749,6 @@ def get_loader_stats():
         current_app.logger.error(f"Error getting loader stats: {str(e)}")
         return jsonify({"error": "Failed to get loader stats", "success": False}), 500
 
-
 @loaders_bp.route("/<int:loader_id>/config", methods=["PUT"])
 @jwt_required()
 @require_project_with_grace_period
@@ -804,11 +759,9 @@ def update_loader_config(loader_id):
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
 
-        # Ensure user has project_id
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
             return jsonify({"error": "Access denied", "success": False}), 403

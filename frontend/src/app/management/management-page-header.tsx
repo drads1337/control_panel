@@ -10,4 +10,3 @@ export function ManagementPageHeader() {
     </div>
   )
 }
-

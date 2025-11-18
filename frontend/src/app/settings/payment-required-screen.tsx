@@ -45,7 +45,7 @@ export function PaymentRequiredScreen({
               <div className="mx-auto w-14 h-14 bg-destructive/10 rounded-full flex items-center justify-center">
                 <CreditCard className="h-7 w-7 text-destructive" />
               </div>
-              
+
               <div>
                 <h1 className="text-xl font-semibold">Project Expired</h1>
                 <p className="text-sm text-muted-foreground mt-1">
@@ -131,7 +131,7 @@ export function PaymentRequiredScreen({
                   <CreditCard className="h-4 w-4 mr-2" />
                   {isProcessing ? 'Processing...' : 'Pay Now'}
                 </Button>
-                
+
                 <div className="flex gap-2">
                   <Button
                     variant="outline"

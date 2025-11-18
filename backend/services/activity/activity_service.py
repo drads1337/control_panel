@@ -12,7 +12,6 @@ from ...utils.fulltext_search import fulltext_search_filter
 from ...utils.ip_utils import get_location_from_ip
 from ...utils.structured_logging import get_logger
 
-
 class ActivityService:
     """Service for managing user activity logging"""
 
@@ -47,26 +46,23 @@ class ActivityService:
             return None
 
         try:
-            # SECURITY FIX: Mask sensitive data in logs
+
             masked_username = mask_username(user.username) if user.username else "unknown"
             self.logger.debug(
                 f"Logging activity: {action} for user {masked_username} (ID: {user.id})"
             )
 
-            # Get geolocation information
             country = None
             city = None
 
             if ip and ip not in ("127.0.0.1", "localhost", "::1"):
                 try:
                     country, city = get_location_from_ip(ip)
-                    # SECURITY FIX: Don't log full IP in debug messages
+
                     self.logger.debug(f"Got location for IP: {country}, {city}")
                 except Exception as e:
                     self.logger.warning(f"Failed to get geolocation: {e}")
 
-            # Use details as-is since they're already processed by ActivityLoggerMiddleware
-            # Create activity record
             activity = UserActivity(
                 user_id=user.id,
                 action=action,
@@ -75,13 +71,12 @@ class ActivityService:
                 country=country,
                 city=city,
                 project_id=user.project_id,
-                details=details,  # Details are already safe from ActivityLoggerMiddleware
+                details=details,
                 session_id=session_id,
             )
 
             self.logger.debug(f"Created UserActivity record: action={action}, user_id={user.id}")
 
-            # Add to session and commit
             db.session.add(activity)
             db.session.commit()
 
@@ -94,7 +89,6 @@ class ActivityService:
 
             self.logger.warning(f"log_activity traceback: {traceback.format_exc()}")
 
-            # Don't break execution on logging errors
             try:
                 db.session.rollback()
             except Exception as rollback_error:
@@ -170,7 +164,7 @@ class ActivityService:
                 query = query.filter(UserActivity.project_id == project_id)
 
             if action:
-                # Using PostgreSQL tsvector for efficient full-text search
+
                 query = fulltext_search_filter(query, action, "search_vector")
 
             return query.order_by(UserActivity.created_at.desc()).offset(offset).limit(limit).all()
@@ -202,10 +196,8 @@ class ActivityService:
             if project_id:
                 query = query.filter(UserActivity.project_id == project_id)
 
-            # Total activities
             total_activities = query.count()
 
-            # Activities by action
             action_stats = db.session.query(
                 UserActivity.action, db.func.count(UserActivity.id)
             ).filter(UserActivity.created_at >= date_from)
@@ -220,7 +212,6 @@ class ActivityService:
                 .all()
             )
 
-            # Activities by country
             country_stats = db.session.query(
                 UserActivity.country, db.func.count(UserActivity.id)
             ).filter(UserActivity.created_at >= date_from, UserActivity.country.isnot(None))
@@ -235,7 +226,6 @@ class ActivityService:
                 .all()
             )
 
-            # Unique users
             unique_users = query.with_entities(UserActivity.user_id).distinct().count()
 
             return {
@@ -254,6 +244,4 @@ class ActivityService:
             self.logger.error(f"Failed to get activity statistics: {e}")
             return {}
 
-
-# Global instance
 activity_service = ActivityService()

@@ -13,10 +13,8 @@ try:
 except ImportError:
     CELERY_AVAILABLE = False
 
-    # Dummy Task class for fallback
     class Task:
         pass
-
 
 try:
     import paramiko
@@ -33,7 +31,6 @@ from ..services.tasks import task_service
 
 logger = logging.getLogger(__name__)
 
-# Only import celery_app if Celery is available
 if CELERY_AVAILABLE:
     try:
         from ..core.celery_app import celery_app
@@ -43,15 +40,12 @@ if CELERY_AVAILABLE:
 else:
     celery_app = None
 
-# Create database engine for Celery workers
-# Only create if Celery is available
 if CELERY_AVAILABLE and celery_app:
     db_engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
     Session = sessionmaker(bind=db_engine)
 else:
     db_engine = None
     Session = None
-
 
 class DatabaseTask(Task):
     """
@@ -86,21 +80,17 @@ class DatabaseTask(Task):
                 self._db_session.close()
                 self._db_session = None
 
-
-# Helper to conditionally apply decorator
 def task_decorator(*args, **kwargs):
     """Conditional task decorator - only applies if Celery is available"""
     if CELERY_AVAILABLE and celery_app:
         return celery_app.task(*args, **kwargs)
     else:
-        # Return identity decorator if Celery is not available
+
         def decorator(func):
             return func
 
         return decorator
 
-
-# Only register tasks if Celery is available
 @task_decorator(
     bind=True,
     base=DatabaseTask,
@@ -121,7 +111,7 @@ def server_status_check(self, server_id, task_id=None, project_id=None):
         task_id: Optional task ID for status tracking
         project_id: Project ID for isolation
     """
-    # Get database session from task instance
+
     if not hasattr(self, "_db_session") or self._db_session is None:
         if Session is None:
             error_msg = "Database session not available. Celery may not be properly configured."
@@ -135,7 +125,6 @@ def server_status_check(self, server_id, task_id=None, project_id=None):
         if task_id:
             task_service.update_task_status(task_id, "in_progress", progress=10)
 
-        # Get server with project isolation
         if project_id:
             server = session.query(Server).filter_by(id=server_id, project_id=project_id).first()
         else:
@@ -148,7 +137,6 @@ def server_status_check(self, server_id, task_id=None, project_id=None):
                 task_service.update_task_status(task_id, "failed", error=error_msg)
             return {"status": "error", "error": error_msg}
 
-        # Get project master key for decryption
         project_settings = (
             session.query(ProjectSettings).filter_by(project_id=server.project_id).first()
         )
@@ -164,7 +152,6 @@ def server_status_check(self, server_id, task_id=None, project_id=None):
         if task_id:
             task_service.update_task_status(task_id, "in_progress", progress=30)
 
-        # Decrypt password for SSH connection
         try:
             decrypted_password = server.get_password(project_settings.project_master_key)
         except Exception as e:
@@ -176,7 +163,6 @@ def server_status_check(self, server_id, task_id=None, project_id=None):
                 task_service.update_task_status(task_id, "failed", error=error_msg)
             return {"status": "error", "error": error_msg}
 
-        # Attempt SSH connection
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
@@ -220,7 +206,6 @@ def server_status_check(self, server_id, task_id=None, project_id=None):
             task_service.update_task_status(task_id, "failed", error=str(e))
         raise
 
-
 @task_decorator(
     bind=True,
     base=DatabaseTask,
@@ -241,7 +226,7 @@ def server_start(self, server_id, task_id=None, project_id=None):
         task_id: Optional task ID for status tracking
         project_id: Project ID for isolation
     """
-    # Get database session from task instance
+
     if not hasattr(self, "_db_session") or self._db_session is None:
         if Session is None:
             error_msg = "Database session not available. Celery may not be properly configured."
@@ -255,7 +240,6 @@ def server_start(self, server_id, task_id=None, project_id=None):
         if task_id:
             task_service.update_task_status(task_id, "in_progress", progress=10)
 
-        # Get server with project isolation
         if project_id:
             server = session.query(Server).filter_by(id=server_id, project_id=project_id).first()
         else:
@@ -268,7 +252,6 @@ def server_start(self, server_id, task_id=None, project_id=None):
                 task_service.update_task_status(task_id, "failed", error=error_msg)
             return {"status": "error", "error": error_msg}
 
-        # Get project master key for decryption
         project_settings = (
             session.query(ProjectSettings).filter_by(project_id=server.project_id).first()
         )
@@ -287,7 +270,6 @@ def server_start(self, server_id, task_id=None, project_id=None):
         if task_id:
             task_service.update_task_status(task_id, "in_progress", progress=30)
 
-        # Decrypt password for SSH connection
         try:
             decrypted_password = server.get_password(project_settings.project_master_key)
         except Exception as e:
@@ -299,7 +281,6 @@ def server_start(self, server_id, task_id=None, project_id=None):
                 task_service.update_task_status(task_id, "failed", error=error_msg)
             return {"status": "error", "error": error_msg}
 
-        # Attempt SSH connection and start server
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
@@ -312,7 +293,6 @@ def server_start(self, server_id, task_id=None, project_id=None):
                 timeout=10,
             )
 
-            # Simulate server start (replace with actual start command)
             time.sleep(3)
 
             server.status = "online"
@@ -345,7 +325,6 @@ def server_start(self, server_id, task_id=None, project_id=None):
             task_service.update_task_status(task_id, "failed", error=str(e))
         raise
 
-
 @task_decorator(
     bind=True,
     base=DatabaseTask,
@@ -366,7 +345,7 @@ def server_stop(self, server_id, task_id=None, project_id=None):
         task_id: Optional task ID for status tracking
         project_id: Project ID for isolation
     """
-    # Get database session from task instance
+
     if not hasattr(self, "_db_session") or self._db_session is None:
         if Session is None:
             error_msg = "Database session not available. Celery may not be properly configured."
@@ -380,7 +359,6 @@ def server_stop(self, server_id, task_id=None, project_id=None):
         if task_id:
             task_service.update_task_status(task_id, "in_progress", progress=10)
 
-        # Get server with project isolation
         if project_id:
             server = session.query(Server).filter_by(id=server_id, project_id=project_id).first()
         else:
@@ -393,7 +371,6 @@ def server_stop(self, server_id, task_id=None, project_id=None):
                 task_service.update_task_status(task_id, "failed", error=error_msg)
             return {"status": "error", "error": error_msg}
 
-        # Get project master key for decryption
         project_settings = (
             session.query(ProjectSettings).filter_by(project_id=server.project_id).first()
         )
@@ -412,7 +389,6 @@ def server_stop(self, server_id, task_id=None, project_id=None):
         if task_id:
             task_service.update_task_status(task_id, "in_progress", progress=30)
 
-        # Decrypt password for SSH connection
         try:
             decrypted_password = server.get_password(project_settings.project_master_key)
         except Exception as e:
@@ -424,7 +400,6 @@ def server_stop(self, server_id, task_id=None, project_id=None):
                 task_service.update_task_status(task_id, "failed", error=error_msg)
             return {"status": "error", "error": error_msg}
 
-        # Attempt SSH connection and stop server
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
@@ -437,7 +412,6 @@ def server_stop(self, server_id, task_id=None, project_id=None):
                 timeout=10,
             )
 
-            # Simulate server stop (replace with actual stop command)
             time.sleep(3)
 
             server.status = "offline"
@@ -456,7 +430,7 @@ def server_stop(self, server_id, task_id=None, project_id=None):
 
         except Exception as e:
             logger.error(f"Error stopping server {server.name}: {str(e)}")
-            # Try to check status as fallback
+
             try:
                 ssh.connect(
                     hostname=server.ip_address,
@@ -483,7 +457,6 @@ def server_stop(self, server_id, task_id=None, project_id=None):
             task_service.update_task_status(task_id, "failed", error=str(e))
         raise
 
-
 @task_decorator(
     bind=True,
     base=DatabaseTask,
@@ -508,7 +481,6 @@ def server_restart(self, server_id, task_id=None, project_id=None):
         if task_id:
             task_service.update_task_status(task_id, "in_progress", progress=10)
 
-        # Get database session
         if not hasattr(self, "_db_session") or self._db_session is None:
             self._db_session = Session()
         session = self._db_session
@@ -516,7 +488,6 @@ def server_restart(self, server_id, task_id=None, project_id=None):
         if task_id:
             task_service.update_task_status(task_id, "in_progress", progress=20)
 
-        # Get server
         if project_id:
             server = session.query(Server).filter_by(id=server_id, project_id=project_id).first()
         else:
@@ -528,11 +499,10 @@ def server_restart(self, server_id, task_id=None, project_id=None):
                 task_service.update_task_status(task_id, "failed", error=error_msg)
             return {"status": "error", "error": error_msg}
 
-        # Call stop_server as Celery task (synchronously for restart)
         stop_task = server_stop.apply(
             args=[server_id], kwargs={"task_id": None, "project_id": project_id}
         )
-        stop_result = stop_task.get(timeout=60)  # Wait up to 60 seconds
+        stop_result = stop_task.get(timeout=60)
 
         if task_id:
             task_service.update_task_status(task_id, "in_progress", progress=50)
@@ -543,14 +513,12 @@ def server_restart(self, server_id, task_id=None, project_id=None):
                 task_service.update_task_status(task_id, "failed", error=error_msg)
             return {"status": "error", "error": error_msg}
 
-        # Wait before starting
         time.sleep(2)
 
-        # Start server as Celery task (synchronously for restart)
         start_task = server_start.apply(
             args=[server_id], kwargs={"task_id": None, "project_id": project_id}
         )
-        start_result = start_task.get(timeout=60)  # Wait up to 60 seconds
+        start_result = start_task.get(timeout=60)
 
         if task_id:
             if start_result and start_result.get("status") == "online":

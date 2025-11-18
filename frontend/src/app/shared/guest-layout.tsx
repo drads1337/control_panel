@@ -3,7 +3,6 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { AnimatedPage } from '@/app/shared/page-transition'
 import { Spinner } from '@/components/ui/spinner'
 
-// Lazy load guest page components for code splitting
 const LoginPage = React.lazy(() => import('@/app/auth/login-page'))
 const SignUpPage = React.lazy(() => import('@/app/auth/signup-page'))
 

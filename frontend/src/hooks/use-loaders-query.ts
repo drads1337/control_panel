@@ -19,7 +19,6 @@ import type {
 import type { Game } from '@/entities/game'
 import { useMutationWithCache } from './use-mutation-helpers'
 
-// Cache keys for loaders
 export const loaderKeys = {
   all: ['loaders'] as const,
   lists: () => [...loaderKeys.all, 'list'] as const,
@@ -39,16 +38,14 @@ interface UseLoadersQueryReturn {
   games: Game[]
   gamesLoading: boolean
   gamesError: string | null
-  
-  // Actions
+
   createLoader: (data: CreateLoaderData) => Promise<{ loader: any; success: boolean; message: string }>
   updateLoader: (id: number, data: UpdateLoaderData) => Promise<{ success: boolean; message: string }>
   deleteLoader: (id: number) => Promise<{ success: boolean; message: string }>
   updateStatus: (id: number, status: 'active' | 'inactive' | 'maintenance' | 'testing') => Promise<{ success: boolean; message: string }>
   assignGames: (loaderId: number, gameIds: number[]) => Promise<{ success: boolean; message: string }>
   unassignGames: (loaderId: number, gameIds: number[]) => Promise<{ success: boolean; message: string }>
-  
-  // Data updates
+
   refetch: () => void
   refetchStats: () => void
   refetchGames: () => void
@@ -57,7 +54,6 @@ interface UseLoadersQueryReturn {
 export function useLoadersQuery(): UseLoadersQueryReturn {
   const queryClient = useQueryClient()
 
-  // Fetch loaders
   const {
     data: loadersData,
     isLoading: loadersLoading,
@@ -69,14 +65,14 @@ export function useLoadersQuery(): UseLoadersQueryReturn {
       const response = await getLoaders()
       return response
     },
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 2 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
     retry: (failureCount, error: any) => {
-      // Don't retry on auth errors
+
       if (error?.response?.status === 401 || error?.response?.status === 403) {
         return false
       }
-      // Don't retry on rate limit errors
+
       if (error?.response?.status === 429) {
         return false
       }
@@ -86,7 +82,6 @@ export function useLoadersQuery(): UseLoadersQueryReturn {
     refetchOnReconnect: true,
   })
 
-  // Fetch loader stats
   const {
     data: statsData,
     isLoading: statsLoading,
@@ -95,11 +90,11 @@ export function useLoadersQuery(): UseLoadersQueryReturn {
     queryKey: loaderKeys.stats(),
     queryFn: async () => {
       const response = await getLoaderStats()
-      // getLoaderStats returns { stats: LoaderStats, success: boolean }
+
       return response.stats || null
     },
-    staleTime: 1 * 60 * 1000, // 1 minute
-    gcTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 1 * 60 * 1000,
+    gcTime: 2 * 60 * 1000,
     retry: (failureCount, error: any) => {
       if (error?.response?.status === 401 || error?.response?.status === 403) {
         return false
@@ -112,7 +107,6 @@ export function useLoadersQuery(): UseLoadersQueryReturn {
     refetchOnWindowFocus: false,
   })
 
-  // Fetch available games
   const {
     data: gamesData,
     isLoading: gamesLoading,
@@ -124,8 +118,8 @@ export function useLoadersQuery(): UseLoadersQueryReturn {
       const response = await getAvailableGames()
       return response
     },
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 2 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
     retry: (failureCount, error: any) => {
       if (error?.response?.status === 401 || error?.response?.status === 403) {
         return false
@@ -139,7 +133,6 @@ export function useLoadersQuery(): UseLoadersQueryReturn {
     refetchOnReconnect: true,
   })
 
-  // Mutations with cache invalidation
   const createLoaderMutation = useMutationWithCache({
     mutationFn: createLoader,
     invalidateQueries: [loaderKeys.list(), loaderKeys.stats()],
@@ -186,7 +179,6 @@ export function useLoadersQuery(): UseLoadersQueryReturn {
     errorMessage: 'Failed to unassign games',
   })
 
-  // Convert error to string
   const errorMessage = loadersError
     ? (loadersError as any)?.response?.data?.message ||
       (loadersError as any)?.message ||
@@ -208,7 +200,7 @@ export function useLoadersQuery(): UseLoadersQueryReturn {
     games: gamesData?.games || [],
     gamesLoading,
     gamesError: gamesErrorMessage,
-    
+
     createLoader: createLoaderMutation.mutateAsync,
     updateLoader: (id: number, data: UpdateLoaderData) =>
       updateLoaderMutation.mutateAsync({ id, data }),
@@ -219,7 +211,7 @@ export function useLoadersQuery(): UseLoadersQueryReturn {
       assignGamesMutation.mutateAsync({ loaderId, gameIds }),
     unassignGames: (loaderId: number, gameIds: number[]) =>
       unassignGamesMutation.mutateAsync({ loaderId, gameIds }),
-    
+
     refetch: () => {
       refetchLoaders()
       refetchStats()
@@ -228,4 +220,3 @@ export function useLoadersQuery(): UseLoadersQueryReturn {
     refetchGames,
   }
 }
-

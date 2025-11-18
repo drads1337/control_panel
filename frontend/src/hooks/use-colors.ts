@@ -1,22 +1,18 @@
 import { useState, useEffect } from "react"
 import { ColorFormat } from "@/lib/colors"
-
 type Config = {
   format: ColorFormat
   lastCopied: string
 }
-
 export function useColors() {
   const [colors, setColors] = useState<Config>({
     format: "hsl",
     lastCopied: "",
   })
   const [mounted, setMounted] = useState(false)
-
   useEffect(() => {
     setMounted(true)
   }, [])
-
   return {
     isLoading: !mounted,
     format: colors.format,

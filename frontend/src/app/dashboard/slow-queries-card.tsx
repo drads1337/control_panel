@@ -28,7 +28,7 @@ export function SlowQueriesCard({ data }: SlowQueriesCardProps) {
 
   return (
     <div className="space-y-6">
-      {/* Summary Card */}
+      {}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -58,7 +58,7 @@ export function SlowQueriesCard({ data }: SlowQueriesCardProps) {
               <p className="text-2xl font-bold text-red-600">{summary.max_query_time_ms.toFixed(2)}ms</p>
             </div>
           </div>
-          
+
           <div className="mt-6 pt-6 border-t">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -89,7 +89,7 @@ export function SlowQueriesCard({ data }: SlowQueriesCardProps) {
         </CardContent>
       </Card>
 
-      {/* Recent Slow Queries */}
+      {}
       {recent_slow_queries && recent_slow_queries.length > 0 && (
         <Card>
           <CardHeader>
@@ -146,7 +146,7 @@ export function SlowQueriesCard({ data }: SlowQueriesCardProps) {
         </Card>
       )}
 
-      {/* Top Slow Patterns */}
+      {}
       {top_slow_patterns && top_slow_patterns.length > 0 && (
         <Card>
           <CardHeader>
@@ -205,4 +205,3 @@ export function SlowQueriesCard({ data }: SlowQueriesCardProps) {
     </div>
   )
 }
-

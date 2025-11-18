@@ -1,12 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Upload, FileText, Image, Package, Cloud, CheckCircle } from 'lucide-react';
+import { Upload, Image, Package, Cloud, CheckCircle } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { uploadLoaderFiles } from '@/entities/loader';
-import { useAuth } from '@/hooks/use-auth';
 import FileUpload from '@/components/ui/file-upload';
 import { toast } from 'sonner';
 import type { Loader } from '@/entities/loader';
@@ -17,9 +15,7 @@ interface UploadLoaderFilesDialogProps {
   onSuccess: () => void;
   loader: Loader | null;
 }
-
 const UploadLoaderFilesDialog: React.FC<UploadLoaderFilesDialogProps> = ({ open, onOpenChange, onSuccess, loader }) => {
-  const { token } = useAuth();
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedFiles, setSelectedFiles] = useState<{
@@ -28,7 +24,6 @@ const UploadLoaderFilesDialog: React.FC<UploadLoaderFilesDialogProps> = ({ open,
     background?: File;
     file?: File;
   }>({});
-
   const handleFilesSelect = (files: any[], fileType: string) => {
     if (files.length > 0) {
       setSelectedFiles(prev => ({
@@ -37,28 +32,22 @@ const UploadLoaderFilesDialog: React.FC<UploadLoaderFilesDialogProps> = ({ open,
       }));
     }
   };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token || !loader) return;
-
+    if (!loader) return;
     try {
       setLoading(true);
       setUploadProgress(0);
-      
       const formData = new FormData();
       Object.entries(selectedFiles).forEach(([key, file]) => {
         if (file) {
           formData.append(key, file);
         }
       });
-
-      await uploadLoaderFiles(token, loader.id, formData);
+      await uploadLoaderFiles(loader.id, formData);
       toast.success('Files uploaded successfully!');
       onSuccess();
       onOpenChange(false);
-      
-      // Reset files
       setSelectedFiles({});
       setUploadProgress(0);
     } catch (error) {
@@ -67,13 +56,7 @@ const UploadLoaderFilesDialog: React.FC<UploadLoaderFilesDialogProps> = ({ open,
       setLoading(false);
     }
   };
-
-  const handleUploadProgress = (progress: number) => {
-    setUploadProgress(progress);
-  };
-
   if (!loader) return null;
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
@@ -86,11 +69,8 @@ const UploadLoaderFilesDialog: React.FC<UploadLoaderFilesDialogProps> = ({ open,
             Upload files for the loader "{loader.name}". Supported formats: PNG, JPG, JPEG, GIF, EXE, APK, SO, DMG, DEB, RPM.
           </DialogDescription>
         </DialogHeader>
-        
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* 2x2 Grid Layout for File Uploads */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Logo Upload - Top Left */}
             <div className="space-y-3">
               <Label className="text-sm font-medium flex items-center gap-2">
                 <Image className="w-4 h-4 text-blue-500" />
@@ -100,21 +80,12 @@ const UploadLoaderFilesDialog: React.FC<UploadLoaderFilesDialogProps> = ({ open,
                 onFilesSelect={(files) => handleFilesSelect(files, 'logo')}
                 multiple={false}
                 accept="image/*"
-                maxSize={5 * 1024 * 1024} // 5MB
+                maxSize={5 * 1024 * 1024}
                 maxFiles={1}
                 showPreview={true}
                 showProgress={false}
-                className="min-h-[140px]"
               />
-              {selectedFiles.logo && (
-                <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-                  <CheckCircle className="w-4 h-4" />
-                  File selected: {selectedFiles.logo.name}
-                </div>
-              )}
             </div>
-
-            {/* Banner Upload - Top Right */}
             <div className="space-y-3">
               <Label className="text-sm font-medium flex items-center gap-2">
                 <Image className="w-4 h-4 text-purple-500" />
@@ -124,21 +95,12 @@ const UploadLoaderFilesDialog: React.FC<UploadLoaderFilesDialogProps> = ({ open,
                 onFilesSelect={(files) => handleFilesSelect(files, 'banner')}
                 multiple={false}
                 accept="image/*"
-                maxSize={10 * 1024 * 1024} // 10MB
+                maxSize={10 * 1024 * 1024}
                 maxFiles={1}
                 showPreview={true}
                 showProgress={false}
-                className="min-h-[140px]"
               />
-              {selectedFiles.banner && (
-                <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-                  <CheckCircle className="w-4 h-4" />
-                  File selected: {selectedFiles.banner.name}
-                </div>
-              )}
             </div>
-
-            {/* Background Upload - Bottom Left */}
             <div className="space-y-3">
               <Label className="text-sm font-medium flex items-center gap-2">
                 <Image className="w-4 h-4 text-indigo-500" />
@@ -148,21 +110,12 @@ const UploadLoaderFilesDialog: React.FC<UploadLoaderFilesDialogProps> = ({ open,
                 onFilesSelect={(files) => handleFilesSelect(files, 'background')}
                 multiple={false}
                 accept="image/*"
-                maxSize={15 * 1024 * 1024} // 15MB
+                maxSize={15 * 1024 * 1024}
                 maxFiles={1}
                 showPreview={true}
                 showProgress={false}
-                className="min-h-[140px]"
               />
-              {selectedFiles.background && (
-                <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-                  <CheckCircle className="w-4 h-4" />
-                  File selected: {selectedFiles.background.name}
-                </div>
-              )}
             </div>
-
-            {/* Loader File Upload - Bottom Right */}
             <div className="space-y-3">
               <Label className="text-sm font-medium flex items-center gap-2">
                 <Package className="w-4 h-4 text-orange-500" />
@@ -172,7 +125,7 @@ const UploadLoaderFilesDialog: React.FC<UploadLoaderFilesDialogProps> = ({ open,
                 onFilesSelect={(files) => handleFilesSelect(files, 'file')}
                 multiple={false}
                 accept=".exe,.apk,.so,.dmg,.deb,.rpm"
-                maxSize={50 * 1024 * 1024} // 50MB
+                maxSize={50 * 1024 * 1024}
                 maxFiles={1}
                 showPreview={false}
                 showProgress={false}
@@ -186,8 +139,6 @@ const UploadLoaderFilesDialog: React.FC<UploadLoaderFilesDialogProps> = ({ open,
               )}
             </div>
           </div>
-
-          {/* File Requirements Info */}
           <div className="bg-muted/50 rounded-lg p-4 space-y-2">
             <h4 className="text-sm font-medium text-foreground">File Requirements:</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-muted-foreground">
@@ -209,8 +160,6 @@ const UploadLoaderFilesDialog: React.FC<UploadLoaderFilesDialogProps> = ({ open,
               </div>
             </div>
           </div>
-
-          {/* Upload Progress */}
           {loading && (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
@@ -225,14 +174,13 @@ const UploadLoaderFilesDialog: React.FC<UploadLoaderFilesDialogProps> = ({ open,
               </div>
             </div>
           )}
-          
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
               Cancel
             </Button>
             <Button 
               type="submit" 
-              disabled={loading || !selectedFiles.file} // Loader file is required
+              disabled={loading || !selectedFiles.file}
               className="min-w-[140px]"
             >
               {loading ? (
@@ -250,5 +198,4 @@ const UploadLoaderFilesDialog: React.FC<UploadLoaderFilesDialogProps> = ({ open,
     </Dialog>
   );
 };
-
 export default UploadLoaderFilesDialog;

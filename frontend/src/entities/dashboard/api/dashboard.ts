@@ -81,17 +81,12 @@ export interface DashboardData {
   }
 }
 
-// Dashboard API functions
-// All functions use centralized axios instance with CSRF protection
 export async function getApiMetrics(): Promise<ApiMetrics> {
-  // CSRF token and credentials are automatically handled by axios interceptors
+
   const response = await api.get(API_ENDPOINTS.DASHBOARD_API_METRICS)
   return response.data
 }
 
-/**
- * Get dashboard statistics
- */
 export async function getDashboardStats(): Promise<DashboardData> {
   const response = await api.get(API_ENDPOINTS.DASHBOARD_STATS)
   return response.data

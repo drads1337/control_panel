@@ -124,7 +124,6 @@ export const schema = z.object({
   reviewer: z.string(),
 })
 
-// New schemas for real data
 export const gameSchema = z.object({
   game: z.string(),
   keys: z.number(),
@@ -142,7 +141,6 @@ export const userSchema = z.object({
   activities: z.number(),
 })
 
-// Create a separate component for the drag handle
 function DragHandle({ id }: { id: number }) {
   const { attributes, listeners } = useSortable({
     id,
@@ -162,7 +160,6 @@ function DragHandle({ id }: { id: number }) {
   )
 }
 
-// Game columns
 const gameColumns: ColumnDef<z.infer<typeof gameSchema>>[] = [
   {
     id: "select",
@@ -220,7 +217,7 @@ const gameColumns: ColumnDef<z.infer<typeof gameSchema>>[] = [
       const keys = row.original.keys
       const popularity = keys > 1000 ? 'High' : keys > 500 ? 'Medium' : 'Low'
       const color = keys > 1000 ? 'bg-green-500/10 text-green-700 dark:text-green-400' : keys > 500 ? 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400' : 'bg-gray-500/10 text-gray-700 dark:text-gray-400'
-      
+
       return (
         <Badge className={color}>
           {popularity}
@@ -254,7 +251,6 @@ const gameColumns: ColumnDef<z.infer<typeof gameSchema>>[] = [
   },
 ]
 
-// User columns
 const userColumns: ColumnDef<z.infer<typeof userSchema>>[] = [
   {
     id: "select",
@@ -312,7 +308,7 @@ const userColumns: ColumnDef<z.infer<typeof userSchema>>[] = [
       const activities = row.original.activities
       const level = activities > 100 ? 'Very Active' : activities > 50 ? 'Active' : activities > 20 ? 'Moderate' : 'Low'
       const color = activities > 100 ? 'bg-green-500/10 text-green-700 dark:text-green-400' : activities > 50 ? 'bg-blue-500/10 text-blue-700 dark:text-blue-400' : activities > 20 ? 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400' : 'bg-gray-500/10 text-gray-700 dark:text-gray-400'
-      
+
       return (
         <Badge className={color}>
           {level}
@@ -346,7 +342,6 @@ const userColumns: ColumnDef<z.infer<typeof userSchema>>[] = [
   },
 ]
 
-// Announcement columns
 const announcementColumns: ColumnDef<z.infer<typeof announcementSchema>>[] = [
   {
     id: "select",
@@ -401,7 +396,7 @@ const announcementColumns: ColumnDef<z.infer<typeof announcementSchema>>[] = [
       const date = new Date(row.original.created_at)
       const now = new Date()
       const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60))
-      
+
       let timeAgo = ''
       if (diffInHours < 1) {
         timeAgo = 'Just now'
@@ -411,7 +406,7 @@ const announcementColumns: ColumnDef<z.infer<typeof announcementSchema>>[] = [
         const diffInDays = Math.floor(diffInHours / 24)
         timeAgo = `${diffInDays}d ago`
       }
-      
+
       return (
         <div className="text-sm text-muted-foreground">
           {timeAgo}
@@ -445,7 +440,6 @@ const announcementColumns: ColumnDef<z.infer<typeof announcementSchema>>[] = [
   },
 ]
 
-// Original columns for backward compatibility
 const columns: ColumnDef<z.infer<typeof schema>>[] = [
   {
     id: "drag",
@@ -665,7 +659,6 @@ export function DataTable({ data, announcements, topUsers }: DataTableProps) {
     pageSize: 10,
   })
 
-  // Determine which data and columns to use based on active tab
   const currentData = React.useMemo(() => {
     switch (activeTab) {
       case "games":
@@ -703,7 +696,7 @@ export function DataTable({ data, announcements, topUsers }: DataTableProps) {
       pagination,
     },
     getRowId: (row: any, index) => {
-      // Use different ID strategies based on data type
+
       if ('id' in row) {
         return row.id.toString()
       } else if ('game' in row) {
@@ -797,7 +790,7 @@ export function DataTable({ data, announcements, topUsers }: DataTableProps) {
           </DropdownMenu>
         </div>
       </div>
-      
+
       <TabsContent
         value="games"
         className="relative flex flex-col gap-6 overflow-auto pb-8"
@@ -924,7 +917,7 @@ export function DataTable({ data, announcements, topUsers }: DataTableProps) {
           </div>
         </div>
       </TabsContent>
-      
+
       <TabsContent
         value="users"
         className="relative flex flex-col gap-6 overflow-auto pb-8"
@@ -1051,7 +1044,7 @@ export function DataTable({ data, announcements, topUsers }: DataTableProps) {
           </div>
         </div>
       </TabsContent>
-      
+
       <TabsContent
         value="announcements"
         className="relative flex flex-col gap-6 overflow-auto pb-8"

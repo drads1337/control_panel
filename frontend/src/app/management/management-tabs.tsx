@@ -54,7 +54,6 @@ export function ManagementTabs({ availableTabs }: ManagementTabsProps) {
     )
   }
 
-  // Single tab - show content directly without tabs
   return (
     <Card className="@container/card border-border bg-card mt-4">
       <CardContent className="p-6 min-h-[600px]">
@@ -69,4 +68,3 @@ export function ManagementTabs({ availableTabs }: ManagementTabsProps) {
     </Card>
   )
 }
-

@@ -8,7 +8,6 @@ from pydantic import BaseModel, EmailStr, Field, field_validator, validator
 
 from .common import BaseSchema, PhoneValidator, UsernameValidator
 
-
 class UserProfileUpdateSchema(BaseSchema):
     """User profile update request schema"""
 
@@ -33,7 +32,6 @@ class UserProfileUpdateSchema(BaseSchema):
             return PhoneValidator.validate_phone(v)
         return v
 
-
 class UserCreateSchema(BaseSchema):
     """User creation request schema"""
 
@@ -55,10 +53,10 @@ class UserCreateSchema(BaseSchema):
     @field_validator("email", mode="before")
     @classmethod
     def validate_email(cls, v):
-        # Allow empty string or None - convert to None
+
         if v == "" or v is None:
             return None
-        # Basic email validation - can be enhanced if needed
+
         if "@" not in str(v):
             raise ValueError("Invalid email format")
         return v
@@ -72,7 +70,6 @@ class UserCreateSchema(BaseSchema):
         if v is not None:
             return PhoneValidator.validate_phone(v)
         return v
-
 
 class UserUpdateSchema(BaseSchema):
     """User update request schema (admin)"""
@@ -100,7 +97,6 @@ class UserUpdateSchema(BaseSchema):
             return PhoneValidator.validate_phone(v)
         return v
 
-
 class UserResponseSchema(BaseSchema):
     """User response schema"""
 
@@ -116,7 +112,6 @@ class UserResponseSchema(BaseSchema):
     created_at: Optional[str] = Field(default=None, description="Creation timestamp")
     updated_at: Optional[str] = Field(default=None, description="Last update timestamp")
     two_factor_enabled: bool = Field(default=False, description="Whether 2FA is enabled")
-
 
 class UserListResponseSchema(BaseSchema):
     """User list response schema"""

@@ -13,7 +13,6 @@ from backend.models.core import Project, User
 from backend.models.games import Game
 from backend.models.keys import Key
 
-
 @pytest.fixture
 def project1(db_session) -> Project:
     """Create first test project"""
@@ -27,7 +26,6 @@ def project1(db_session) -> Project:
     db_session.commit()
     db_session.refresh(project)
     return project
-
 
 @pytest.fixture
 def project2(db_session) -> Project:
@@ -43,13 +41,12 @@ def project2(db_session) -> Project:
     db_session.refresh(project)
     return project
 
-
 @pytest.fixture
 def user1(db_session, project1: Project) -> User:
     """Create user in project 1"""
     from werkzeug.security import generate_password_hash
     from datetime import datetime
-    
+
     user = User(
         username="user1",
         email="user1@test.com",
@@ -64,13 +61,12 @@ def user1(db_session, project1: Project) -> User:
     db_session.refresh(user)
     return user
 
-
 @pytest.fixture
 def user2(db_session, project2: Project) -> User:
     """Create user in project 2"""
     from werkzeug.security import generate_password_hash
     from datetime import datetime
-    
+
     user = User(
         username="user2",
         email="user2@test.com",
@@ -84,7 +80,6 @@ def user2(db_session, project2: Project) -> User:
     db_session.commit()
     db_session.refresh(user)
     return user
-
 
 @pytest.fixture
 def game1(db_session, project1: Project) -> Game:
@@ -101,7 +96,6 @@ def game1(db_session, project1: Project) -> Game:
     db_session.refresh(game)
     return game
 
-
 @pytest.fixture
 def game2(db_session, project2: Project) -> Game:
     """Create game in project 2"""
@@ -116,7 +110,6 @@ def game2(db_session, project2: Project) -> Game:
     db_session.commit()
     db_session.refresh(game)
     return game
-
 
 @pytest.fixture
 def key1(db_session, project1: Project, game1: Game) -> Key:
@@ -135,7 +128,6 @@ def key1(db_session, project1: Project, game1: Game) -> Key:
     db_session.refresh(key)
     return key
 
-
 @pytest.fixture
 def key2(db_session, project2: Project, game2: Game) -> Key:
     """Create key in project 2"""
@@ -153,7 +145,6 @@ def key2(db_session, project2: Project, game2: Game) -> Key:
     db_session.refresh(key)
     return key
 
-
 @pytest.fixture
 def auth_headers_user1(user1: User, app: Flask):
     """Create auth headers for user1"""
@@ -161,14 +152,12 @@ def auth_headers_user1(user1: User, app: Flask):
         access_token = create_access_token(identity=str(user1.id))
         return {"Authorization": f"Bearer {access_token}"}
 
-
 @pytest.fixture
 def auth_headers_user2(user2: User, app: Flask):
     """Create auth headers for user2"""
     with app.app_context():
         access_token = create_access_token(identity=str(user2.id))
         return {"Authorization": f"Bearer {access_token}"}
-
 
 class TestProjectIsolation:
     """Test project isolation for various endpoints"""
@@ -179,7 +168,7 @@ class TestProjectIsolation:
             f"/api/projects/{project2.id}",
             headers=auth_headers_user1
         )
-        # Should be 403 (forbidden) or 404 (not found)
+
         assert response.status_code in [403, 404], \
             f"Expected 403 or 404, got {response.status_code}. Response: {response.get_json()}"
 
@@ -190,7 +179,7 @@ class TestProjectIsolation:
             headers=auth_headers_user1,
             json={"name": "Hacked Project"}
         )
-        # Should be 403 (forbidden) or 404 (not found)
+
         assert response.status_code in [403, 404], \
             f"Expected 403 or 404, got {response.status_code}. Response: {response.get_json()}"
 
@@ -200,7 +189,7 @@ class TestProjectIsolation:
             f"/api/games/{game2.id}",
             headers=auth_headers_user1
         )
-        # Should be 403 (forbidden) or 404 (not found)
+
         assert response.status_code in [403, 404], \
             f"Expected 403 or 404, got {response.status_code}. Response: {response.get_json()}"
 
@@ -211,7 +200,7 @@ class TestProjectIsolation:
             headers=auth_headers_user1,
             json={"name": "Hacked Game"}
         )
-        # Should be 403 (forbidden) or 404 (not found)
+
         assert response.status_code in [403, 404], \
             f"Expected 403 or 404, got {response.status_code}. Response: {response.get_json()}"
 
@@ -221,7 +210,7 @@ class TestProjectIsolation:
             f"/api/keys/{key2.id}",
             headers=auth_headers_user1
         )
-        # Should be 403 (forbidden) or 404 (not found)
+
         assert response.status_code in [403, 404], \
             f"Expected 403 or 404, got {response.status_code}. Response: {response.get_json()}"
 
@@ -232,7 +221,7 @@ class TestProjectIsolation:
             headers=auth_headers_user1,
             json={"status": 0}
         )
-        # Should be 403 (forbidden) or 404 (not found)
+
         assert response.status_code in [403, 404], \
             f"Expected 403 or 404, got {response.status_code}. Response: {response.get_json()}"
 
@@ -242,7 +231,7 @@ class TestProjectIsolation:
             f"/api/keys/{key2.id}",
             headers=auth_headers_user1
         )
-        # Should be 403 (forbidden) or 404 (not found)
+
         assert response.status_code in [403, 404], \
             f"Expected 403 or 404, got {response.status_code}. Response: {response.get_json()}"
 
@@ -281,14 +270,13 @@ class TestProjectIsolation:
         )
         assert response.status_code == 200, \
             f"Expected 200, got {response.status_code}. Response: {response.get_json()}"
-        
+
         data = response.get_json()
         keys = data.get("keys", [])
         key_ids = [k.get("id") for k in keys]
-        
-        # Should contain key1 (from project1)
+
         assert key1.id in key_ids, "User's own key should be in the list"
-        # Should NOT contain key2 (from project2)
+
         assert key2.id not in key_ids, "Other project's key should NOT be in the list"
 
     def test_games_list_filtered_by_project(self, client, auth_headers_user1, game1: Game, game2: Game):
@@ -299,13 +287,11 @@ class TestProjectIsolation:
         )
         assert response.status_code == 200, \
             f"Expected 200, got {response.status_code}. Response: {response.get_json()}"
-        
+
         data = response.get_json()
         games = data.get("games", [])
         game_ids = [g.get("id") for g in games]
-        
-        # Should contain game1 (from project1)
-        assert game1.id in game_ids, "User's own game should be in the list"
-        # Should NOT contain game2 (from project2)
-        assert game2.id not in game_ids, "Other project's game should NOT be in the list"
 
+        assert game1.id in game_ids, "User's own game should be in the list"
+
+        assert game2.id not in game_ids, "Other project's game should NOT be in the list"

@@ -20,7 +20,7 @@ interface GameDatabaseProps {
 }
 
 const GameDatabase: React.FC<GameDatabaseProps> = ({ onViewGame, onCreateGame, onCreateGameRequested, onCreateGameRequestHandled }) => {
-  // Permissions logic - extracted to custom hook
+
   const {
     canViewGames,
     canCreateGames,
@@ -33,7 +33,6 @@ const GameDatabase: React.FC<GameDatabaseProps> = ({ onViewGame, onCreateGame, o
     canManageStatus,
   } = useGamePermissions();
 
-  // Game management logic - extracted to custom hook
   const {
     games,
     loading,
@@ -71,7 +70,6 @@ const GameDatabase: React.FC<GameDatabaseProps> = ({ onViewGame, onCreateGame, o
     setSelectedGame,
   } = useGameManagement(onViewGame, onCreateGame);
 
-  // Handle external create game request from parent
   React.useEffect(() => {
     if (onCreateGameRequested) {
       setShowCreateDialog(true);
@@ -79,11 +77,8 @@ const GameDatabase: React.FC<GameDatabaseProps> = ({ onViewGame, onCreateGame, o
     }
   }, [onCreateGameRequested, onCreateGameRequestHandled, setShowCreateDialog]);
 
-  // Filtering logic - extracted to custom hook
   const { filteredGames } = useGameFilters(games);
 
-
-  // Early returns for permission and error states
   if (!canViewGames) {
     return <GameDatabaseAccessDenied />;
   }
@@ -94,7 +89,7 @@ const GameDatabase: React.FC<GameDatabaseProps> = ({ onViewGame, onCreateGame, o
 
   return (
     <div className="space-y-6">
-      {/* Bulk Actions */}
+      {}
       {games.length > 0 && (
         <BulkActionsPanel
           selectedCount={selectedGames.length}
@@ -107,14 +102,14 @@ const GameDatabase: React.FC<GameDatabaseProps> = ({ onViewGame, onCreateGame, o
         />
       )}
 
-      {/* Empty State */}
+      {}
       {!loading && filteredGames.length === 0 ? (
         <GameDatabaseEmptyState 
           onCreateGame={() => setShowCreateDialog(true)}
           canCreateGames={canCreateGames}
         />
       ) : (
-        /* Games Table */
+
         <>
           {loading ? (
             <div className="p-8">
@@ -148,7 +143,7 @@ const GameDatabase: React.FC<GameDatabaseProps> = ({ onViewGame, onCreateGame, o
         </>
       )}
 
-      {/* Dialogs Container */}
+      {}
       <GameDatabaseDialogs
         showCreateDialog={showCreateDialog}
         showEditDialog={showEditDialog}
@@ -180,7 +175,7 @@ const GameDatabase: React.FC<GameDatabaseProps> = ({ onViewGame, onCreateGame, o
         }}
       />
 
-      {/* Notification */}
+      {}
       {notification && (
         <div className={`fixed bottom-4 right-4 p-4 rounded-lg shadow-lg ${
           notification.type === 'error' ? 'bg-destructive text-destructive-foreground' : 'bg-success text-success-foreground'

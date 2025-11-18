@@ -9,13 +9,11 @@ import { toast } from 'sonner';
 import { usePermissions } from '@/hooks/use-permissions';
 import { Download, FileText, Tag, Activity, Plus } from 'lucide-react';
 import type { CreateLoaderData, Loader } from '@/entities/loader';
-
 interface CreateLoaderDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
 }
-
 const CreateLoaderDialog: React.FC<CreateLoaderDialogProps> = ({ open, onOpenChange, onSuccess }) => {
   const { hasPermission } = usePermissions();
   const canCreate = hasPermission('loaders.create');
@@ -26,30 +24,20 @@ const CreateLoaderDialog: React.FC<CreateLoaderDialogProps> = ({ open, onOpenCha
     status: 'active',
     version: '1.0.0'
   });
-  
-  console.log('CreateLoaderDialog rendered, open:', open);
-  
   if (!canCreate) {
     return null;
   }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Form submitted!');
-    console.log('Form data:', formData);
-
     try {
-      console.log('Starting loader creation...');
       setLoading(true);
       const response = await createLoader(formData);
       if (response.success) {
         toast.success('Loader created successfully!');
-        // Add a small delay to ensure cache invalidation is complete
         setTimeout(() => {
           onSuccess();
         }, 100);
         onOpenChange(false);
-        // Reset form
         setFormData({
           name: '',
           description: '',
@@ -65,7 +53,6 @@ const CreateLoaderDialog: React.FC<CreateLoaderDialogProps> = ({ open, onOpenCha
       setLoading(false);
     }
   };
-
   const handleCancel = () => {
     onOpenChange(false);
     setFormData({
@@ -75,7 +62,6 @@ const CreateLoaderDialog: React.FC<CreateLoaderDialogProps> = ({ open, onOpenCha
       version: '1.0.0'
     });
   };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
@@ -85,7 +71,6 @@ const CreateLoaderDialog: React.FC<CreateLoaderDialogProps> = ({ open, onOpenCha
             Fill in the information for the new loader.
           </DialogDescription>
         </DialogHeader>
-        
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Name *</Label>
@@ -97,7 +82,6 @@ const CreateLoaderDialog: React.FC<CreateLoaderDialogProps> = ({ open, onOpenCha
               required
             />
           </div>
-          
           <div className="space-y-2">
             <Label htmlFor="description">Description *</Label>
             <Input
@@ -108,7 +92,6 @@ const CreateLoaderDialog: React.FC<CreateLoaderDialogProps> = ({ open, onOpenCha
               required
             />
           </div>
-          
           <div className="space-y-2">
             <Label htmlFor="status">Status</Label>
             <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value as any }))}>
@@ -123,7 +106,6 @@ const CreateLoaderDialog: React.FC<CreateLoaderDialogProps> = ({ open, onOpenCha
               </SelectContent>
             </Select>
           </div>
-          
           <div className="space-y-2">
             <Label htmlFor="version">Version *</Label>
             <Input
@@ -134,7 +116,6 @@ const CreateLoaderDialog: React.FC<CreateLoaderDialogProps> = ({ open, onOpenCha
               required
             />
           </div>
-          
           <DialogFooter>
             <Button type="button" variant="outline" onClick={handleCancel}>
               Cancel
@@ -151,5 +132,4 @@ const CreateLoaderDialog: React.FC<CreateLoaderDialogProps> = ({ open, onOpenCha
     </Dialog>
   );
 };
-
 export default CreateLoaderDialog;

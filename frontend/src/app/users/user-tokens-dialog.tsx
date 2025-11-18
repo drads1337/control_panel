@@ -17,7 +17,7 @@ interface Token {
   created_at: string;
   last_used?: string;
   permissions: string[];
-  api_key?: string; // Only available on creation
+  api_key?: string;
 }
 
 interface UserTokensDialogProps {
@@ -51,11 +51,11 @@ const UserTokensDialog: React.FC<UserTokensDialogProps> = ({
   const fetchTokens = async () => {
     try {
       setLoading(true);
-      // CSRF token and credentials are automatically handled by axios interceptors
+
       const response = await api.get(`/api/users/${userId}/tokens`);
       setTokens(response.data.tokens || []);
     } catch (error: any) {
-      console.error('Error fetching tokens:', error);
+
       const errorMessage = error?.response?.data?.message || error?.message || 'Failed to load tokens';
       toast.error(errorMessage);
     } finally {
@@ -71,7 +71,7 @@ const UserTokensDialog: React.FC<UserTokensDialogProps> = ({
 
     try {
       setCreating(true);
-      // CSRF token and credentials are automatically handled by axios interceptors
+
       const response = await api.post(`/api/users/${userId}/tokens`, {
         name: newTokenName.trim(),
         permissions: []
@@ -83,7 +83,7 @@ const UserTokensDialog: React.FC<UserTokensDialogProps> = ({
       toast.success('Token created successfully');
       await fetchTokens();
     } catch (error: any) {
-      console.error('Error creating token:', error);
+
       const errorMessage = error?.response?.data?.error || error?.response?.data?.message || error?.message || 'Failed to create token';
       toast.error(errorMessage);
     } finally {
@@ -93,7 +93,7 @@ const UserTokensDialog: React.FC<UserTokensDialogProps> = ({
 
   const handleToggleToken = async (tokenId: number, currentStatus: boolean) => {
     try {
-      // CSRF token and credentials are automatically handled by axios interceptors
+
       await api.put(`/api/users/${userId}/tokens/${tokenId}`, {
         is_active: !currentStatus
       });
@@ -101,7 +101,7 @@ const UserTokensDialog: React.FC<UserTokensDialogProps> = ({
       toast.success(`Token ${!currentStatus ? 'activated' : 'deactivated'}`);
       await fetchTokens();
     } catch (error: any) {
-      console.error('Error updating token:', error);
+
       const errorMessage = error?.response?.data?.message || error?.message || 'Failed to update token';
       toast.error(errorMessage);
     }
@@ -113,14 +113,14 @@ const UserTokensDialog: React.FC<UserTokensDialogProps> = ({
     }
 
     try {
-      // CSRF token and credentials are automatically handled by axios interceptors
+
       await api.delete(`/api/users/${userId}/tokens/${tokenId}`);
 
       toast.success('Token deleted successfully');
       await fetchTokens();
-      setNewTokenKey(null); // Clear new token key if it was deleted
+      setNewTokenKey(null);
     } catch (error: any) {
-      console.error('Error deleting token:', error);
+
       const errorMessage = error?.response?.data?.message || error?.message || 'Failed to delete token';
       toast.error(errorMessage);
     }
@@ -149,7 +149,7 @@ const UserTokensDialog: React.FC<UserTokensDialogProps> = ({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {/* New Token Key Display */}
+          {}
           {newTokenKey && (
             <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
               <div className="flex items-center justify-between mb-2">
@@ -185,7 +185,7 @@ const UserTokensDialog: React.FC<UserTokensDialogProps> = ({
             </div>
           )}
 
-          {/* Create Token Form */}
+          {}
           {showCreateForm && (
             <div className="p-4 border rounded-lg space-y-4">
               <div className="space-y-2">
@@ -219,7 +219,7 @@ const UserTokensDialog: React.FC<UserTokensDialogProps> = ({
             </div>
           )}
 
-          {/* Tokens List */}
+          {}
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <div className="text-muted-foreground">Loading tokens...</div>
@@ -309,4 +309,3 @@ const UserTokensDialog: React.FC<UserTokensDialogProps> = ({
 };
 
 export default UserTokensDialog;
-

@@ -42,7 +42,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
   onOpenChange,
   onSuccess
 }) => {
-  // Form with react-hook-form and zod
+
   const form = useForm<CreateUserInput>({
     resolver: zodResolver(createUserSchema),
     defaultValues: {
@@ -58,30 +58,25 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
     },
   });
 
-  // Loading states
   const [loading, setLoading] = useState(false);
   const [rbacLoading, setRbacLoading] = useState(false);
   const [gamesLoading, setGamesLoading] = useState(false);
 
-  // Error states
   const [rbacError, setRbacError] = useState<string | null>(null);
   const [gamesError, setGamesError] = useState<string | null>(null);
 
-  // Data states
   const [roles, setRoles] = useState<Role[]>([]);
   const [games, setGames] = useState<Game[]>([]);
 
-  // Load roles
   const loadRoles = useCallback(async () => {
     try {
       setRbacLoading(true);
       setRbacError(null);
-      
+
       const response = await enhancedApi.get('/api/rbac/roles');
       setRoles(response.data.roles || []);
     } catch (error) {
-      // Error is already handled by interceptor in enhanced-client.ts
-      // Only set local error state for UI feedback
+
       const errorMessage = getErrorMessage(error);
       setRbacError(errorMessage);
     } finally {
@@ -89,7 +84,6 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
     }
   }, []);
 
-  // Load games
   const loadGames = useCallback(async () => {
     try {
       setGamesLoading(true);
@@ -98,8 +92,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
       const response = await enhancedApi.get('/api/games');
       setGames(response.data.games || []);
     } catch (error) {
-      // Error is already handled by interceptor in enhanced-client.ts
-      // Only set local error state for UI feedback
+
       const errorMessage = getErrorMessage(error);
       setGamesError(errorMessage);
     } finally {
@@ -107,7 +100,6 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
     }
   }, []);
 
-  // Load data when dialog opens
   useEffect(() => {
     if (open) {
       loadRoles();
@@ -115,7 +107,6 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
     }
   }, [open, loadRoles, loadGames]);
 
-  // Reset form when dialog closes
   useEffect(() => {
     if (!open) {
       form.reset({
@@ -134,12 +125,10 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
     }
   }, [open, form]);
 
-  // Handle form submission
   const handleCreate = form.handleSubmit(async (data) => {
     try {
       setLoading(true);
 
-      // Create user data
       const userData = {
         username: data.username,
         password: data.password,
@@ -152,7 +141,6 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
         rbac_role_ids: data.selected_rbac_role ? [data.selected_rbac_role] : []
       };
 
-      // Track performance of user creation
       await measurePerformance(
         'user_creation',
         () => createUser(userData),
@@ -163,15 +151,12 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
           token_balance: data.token_balance,
         }
       );
-      
+
       toast.success('Employee created successfully');
       onOpenChange(false);
       onSuccess();
     } catch (error) {
-      // Log error details for debugging
-      console.error('Failed to create user:', error);
-      
-      // Use standardized error message utility for user-friendly messages
+
       const errorMessage = getErrorMessage(error);
       toast.error(errorMessage);
     } finally {
@@ -424,4 +409,3 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
 };
 
 export default CreateUserDialog;
-

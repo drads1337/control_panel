@@ -11,7 +11,6 @@ from flask import current_app
 
 logger = logging.getLogger(__name__)
 
-
 class ValidationError(Exception):
     """Custom validation error"""
 
@@ -19,7 +18,6 @@ class ValidationError(Exception):
         self.message = message
         self.field = field
         super().__init__(message)
-
 
 class AuthValidator:
     """Validator for authentication-related data"""
@@ -44,7 +42,6 @@ class AuthValidator:
         if len(username) > 50:
             return False, "Username must be no more than 50 characters long"
 
-        # Check for valid characters (alphanumeric, underscore, hyphen)
         if not re.match(r"^[a-zA-Z0-9_-]+$", username):
             return False, "Username can only contain letters, numbers, underscores, and hyphens"
 
@@ -69,7 +66,6 @@ class AuthValidator:
         if len(email) > 254:
             return False, "Email is too long"
 
-        # Basic email regex
         email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
         if not re.match(email_pattern, email):
             return False, "Invalid email format"
@@ -100,14 +96,12 @@ class AuthValidator:
         if len(password) > 128:
             return False, "Password is too long"
 
-        # Basic validation - at least one letter and one number
         if not re.search(r"[A-Za-z]", password):
             return False, "Password must contain at least one letter"
 
         if not re.search(r"[0-9]", password):
             return False, "Password must contain at least one number"
 
-        # Complex password validation if required
         if complexity_required:
             if not re.search(r"[A-Z]", password):
                 return False, "Password must contain at least one uppercase letter"
@@ -134,7 +128,6 @@ class AuthValidator:
         try:
             validated_data = {}
 
-            # Check for simple login (username/password)
             if "username" in data and "password" in data:
                 username = data.get("username", "").strip()
                 password = data.get("password", "")
@@ -159,7 +152,6 @@ class AuthValidator:
             logger.error(f"Error validating login data: {str(e)}")
             return False, "Invalid request data", None
 
-
 class UserValidator:
     """Validator for user-related data"""
 
@@ -177,21 +169,18 @@ class UserValidator:
         try:
             validated_data = {}
 
-            # Validate username if provided
             if "username" in data and data["username"]:
                 is_valid, error = AuthValidator.validate_username(data["username"])
                 if not is_valid:
                     return False, error, None
                 validated_data["username"] = data["username"].strip()
 
-            # Validate email if provided
             if "email" in data and data["email"]:
                 is_valid, error = AuthValidator.validate_email(data["email"])
                 if not is_valid:
                     return False, error, None
                 validated_data["email"] = data["email"].strip().lower()
 
-            # Validate optional fields
             if "first_name" in data:
                 first_name = data["first_name"]
                 if first_name and len(first_name) > 100:
@@ -207,7 +196,7 @@ class UserValidator:
             if "phone" in data:
                 phone = data["phone"]
                 if phone:
-                    # Basic phone validation
+
                     phone_clean = re.sub(r"[^\d+]", "", phone)
                     if len(phone_clean) < 10 or len(phone_clean) > 15:
                         return False, "Invalid phone number format", None
@@ -248,7 +237,6 @@ class UserValidator:
             if not new_password:
                 return False, "New password is required", None
 
-            # Validate new password
             is_valid, error = AuthValidator.validate_password(new_password)
             if not is_valid:
                 return False, error, None
@@ -258,7 +246,6 @@ class UserValidator:
         except Exception as e:
             logger.error(f"Error validating password change data: {str(e)}")
             return False, "Invalid password change data", None
-
 
 class InviteValidator:
     """Validator for invitation-related data"""
@@ -285,7 +272,6 @@ class InviteValidator:
         if len(code) > 20:
             return False, "Invite code is too long"
 
-        # Check for valid characters (alphanumeric)
         if not re.match(r"^[A-Z0-9]+$", code):
             return False, "Invite code can only contain letters and numbers"
 
@@ -313,7 +299,6 @@ class InviteValidator:
         if len(code) > 20:
             return False, "Referral code is too long"
 
-        # Check for valid characters (alphanumeric)
         if not re.match(r"^[A-Z0-9]+$", code):
             return False, "Referral code can only contain letters and numbers"
 
@@ -335,7 +320,6 @@ class InviteValidator:
         try:
             validated_data = {}
 
-            # Validate duration if provided
             if "duration_days" in data and data["duration_days"]:
                 try:
                     duration = int(data["duration_days"])
@@ -345,7 +329,6 @@ class InviteValidator:
                 except (ValueError, TypeError):
                     return False, "Invalid duration format", None
 
-            # Validate max uses if provided
             if "max_uses" in data and data["max_uses"]:
                 try:
                     max_uses = int(data["max_uses"])
@@ -360,7 +343,6 @@ class InviteValidator:
         except Exception as e:
             logger.error(f"Error validating invite generation data: {str(e)}")
             return False, "Invalid invite generation data", None
-
 
 class AdminValidator:
     """Validator for admin operations"""
@@ -406,7 +388,6 @@ class AdminValidator:
         try:
             validated_data = {}
 
-            # Validate new expiry date if provided
             if "new_expiry_date" in data and data["new_expiry_date"]:
                 try:
                     expiry_date = datetime.fromisoformat(
@@ -423,7 +404,6 @@ class AdminValidator:
         except Exception as e:
             logger.error(f"Error validating project reactivation data: {str(e)}")
             return False, "Invalid reactivation data", None
-
 
 def validate_request_data(
     validator_class, method_name: str, data: Dict[str, Any]

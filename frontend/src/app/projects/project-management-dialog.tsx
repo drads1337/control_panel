@@ -24,8 +24,6 @@ import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { Project } from '@/entities/project';
 
-// --- PROPS INTERFACE ---
-
 interface ProjectManagementDialogProps {
   project: Project | null
   isOpen: boolean
@@ -34,8 +32,6 @@ interface ProjectManagementDialogProps {
   onDelete: (projectId: number) => Promise<void>
   isLoading?: boolean
 }
-
-// --- HELPER FUNCTIONS ---
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -49,8 +45,6 @@ const getStatusColor = (status: string) => {
       return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
   }
 }
-
-// --- SUB-COMPONENTS ---
 
 const StatusSelect = ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
   <Select value={value} onValueChange={onChange}>
@@ -277,8 +271,6 @@ const ProjectForm = ({
   </form>
 )
 
-// --- MAIN COMPONENT ---
-
 export function ProjectManagementDialog({
   project,
   isOpen,
@@ -297,7 +289,6 @@ export function ProjectManagementDialog({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
-  // Update form data when project changes
   useEffect(() => {
     if (project) {
       setFormData({
@@ -320,7 +311,7 @@ export function ProjectManagementDialog({
       toast.success('Project updated successfully')
       onClose()
     } catch (error) {
-      console.error('Failed to update project:', error)
+
       toast.error('Failed to update project')
     } finally {
       setIsSubmitting(false)
@@ -336,7 +327,7 @@ export function ProjectManagementDialog({
       toast.success('Project deleted successfully')
       onClose()
     } catch (error) {
-      console.error('Failed to delete project:', error)
+
       toast.error('Failed to delete project')
     } finally {
       setIsSubmitting(false)

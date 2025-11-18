@@ -19,21 +19,18 @@ from ...utils.rbac_utils import RBACManager
 from ...utils.role_constants import UserRoles
 from ...utils.structured_logging import get_logger
 
-
 class SessionService:
     """Service for managing user sessions"""
 
     def __init__(self):
         self.logger = get_logger("session_service")
 
-        # Session configuration
-        self.SESSION_TIMEOUT = 24 * 60 * 60  # 24 hours in seconds
-        self.ACTIVE_THRESHOLD = 30 * 60  # 30 minutes in seconds
-        self.MAX_SESSIONS_PER_USER = 5  # Constant: 5 sessions per user
+        self.SESSION_TIMEOUT = 24 * 60 * 60
+        self.ACTIVE_THRESHOLD = 30 * 60
+        self.MAX_SESSIONS_PER_USER = 5
 
-        # Security settings
-        self.SUSPICIOUS_ACTIVITY_THRESHOLD = 10  # Failed attempts
-        self.IP_CHANGE_THRESHOLD = 3  # Different IPs in short time
+        self.SUSPICIOUS_ACTIVITY_THRESHOLD = 10
+        self.IP_CHANGE_THRESHOLD = 3
 
     def create_session(
         self,
@@ -48,14 +45,11 @@ class SessionService:
             if not user:
                 raise ValueError("User not found")
 
-            # Check session limits
             if self._check_session_limit(user_id):
                 raise ValueError("Maximum number of sessions reached")
 
-            # Generate session ID
             session_id = self._generate_session_id(user_id, ip_address, user_agent)
 
-            # Create session data
             session_data = {
                 "session_id": session_id,
                 "user_id": user_id,
@@ -68,8 +62,6 @@ class SessionService:
                 "login_count": 1,
             }
 
-            # Store session in database (using UserActivity for now)
-            # In a real implementation, you might want a dedicated sessions table
             self._store_session(session_data)
 
             self.logger.info(
@@ -97,17 +89,15 @@ class SessionService:
     ) -> Tuple[bool, Optional[Dict[str, Any]]]:
         """Validate an existing session"""
         try:
-            # Get session data
+
             session_data = self._get_session(session_id)
             if not session_data:
                 return False, None
 
-            # Check if session is expired
             if self._is_session_expired(session_data):
                 self._invalidate_session(session_id, "expired")
                 return False, None
 
-            # Check IP address consistency (optional security check)
             if session_data.get("ip_address") != ip_address:
                 self.logger.warning(
                     f"IP address mismatch for session {session_id}",
@@ -115,7 +105,6 @@ class SessionService:
                     actual=ip_address,
                 )
 
-            # Update last activity
             self._update_session_activity(session_id, ip_address, user_agent)
 
             return True, session_data
@@ -133,7 +122,6 @@ class SessionService:
             if not session_data:
                 return False
 
-            # Invalidate session
             self._invalidate_session(session_id, reason)
 
             self.logger.info(
@@ -157,7 +145,6 @@ class SessionService:
             if not user:
                 return 0
 
-            # Get all active sessions for user
             sessions = self._get_user_sessions(user_id)
             terminated_count = 0
 
@@ -188,8 +175,7 @@ class SessionService:
     ) -> List[Dict[str, Any]]:
         """Get all active sessions"""
         try:
-            # Get sessions from UserActivity (last login activities)
-            # Get user roles using subquery
+
             from sqlalchemy import case, func
 
             user_roles_subquery = (
@@ -211,14 +197,12 @@ class SessionService:
                 User.project_id,
             ).outerjoin(user_roles_subquery, User.id == user_roles_subquery.c.user_id)
 
-            # Apply filters
             if project_id:
                 query = query.filter(User.project_id == project_id)
 
             if user_id:
                 query = query.filter(User.id == user_id)
 
-            # Only active sessions (logged in within last 24 hours)
             active_threshold = datetime.utcnow() - timedelta(hours=24)
             query = query.filter(User.last_login >= active_threshold)
 
@@ -226,19 +210,17 @@ class SessionService:
             sessions = []
 
             for user in users:
-                # Get last activity
+
                 last_activity = (
                     UserActivity.query.filter_by(user_id=user.id)
                     .order_by(UserActivity.created_at.desc())
                     .first()
                 )
 
-                # Calculate session duration
                 session_duration = self._calculate_session_duration(
                     user.last_login, last_activity.created_at if last_activity else user.last_login
                 )
 
-                # Determine if session is active (activity within last 30 minutes)
                 is_active = False
                 if last_activity:
                     time_since_activity = (
@@ -286,15 +268,12 @@ class SessionService:
             week_start = now - timedelta(days=7)
             month_start = now - timedelta(days=30)
 
-            # Base query
             query = User.query
             if project_id:
                 query = query.filter(User.project_id == project_id)
 
-            # Active sessions (logged in within last 24 hours)
             active_sessions = query.filter(User.last_login >= now - timedelta(hours=24)).count()
 
-            # Currently active (activity within last 30 minutes)
             currently_active = 0
             for user in query.filter(User.last_login >= now - timedelta(hours=24)).all():
                 last_activity = (
@@ -309,7 +288,6 @@ class SessionService:
                 ):
                     currently_active += 1
 
-            # Daily statistics
             daily_stats = []
             for i in range(7):
                 day_start = today_start - timedelta(days=i)
@@ -323,7 +301,6 @@ class SessionService:
                     {"date": day_start.strftime("%Y-%m-%d"), "sessions": day_sessions}
                 )
 
-            # Hourly statistics for today
             hourly_stats = []
             for hour in range(24):
                 hour_start = today_start + timedelta(hours=hour)
@@ -358,7 +335,6 @@ class SessionService:
         try:
             suspicious_activities = []
 
-            # Check for multiple IP addresses in short time
             recent_sessions = UserActivity.query.filter(
                 UserActivity.user_id == user_id,
                 UserActivity.created_at >= datetime.utcnow() - timedelta(hours=1),
@@ -383,7 +359,6 @@ class SessionService:
                     }
                 )
 
-            # Check for unusual user agent changes
             recent_user_agents = set()
             for session in recent_sessions:
                 if session.user_agent:
@@ -418,13 +393,12 @@ class SessionService:
 
     def _store_session(self, session_data: Dict[str, Any]):
         """Store session data (placeholder implementation)"""
-        # In a real implementation, you would store this in a dedicated sessions table
-        # For now, we'll use the existing UserActivity system
+
         pass
 
     def _get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
         """Get session data (placeholder implementation)"""
-        # In a real implementation, you would retrieve from a dedicated sessions table
+
         return None
 
     def _is_session_expired(self, session_data: Dict[str, Any]) -> bool:
@@ -440,22 +414,22 @@ class SessionService:
 
     def _invalidate_session(self, session_id: str, reason: str):
         """Invalidate a session (placeholder implementation)"""
-        # In a real implementation, you would mark the session as invalid
+
         pass
 
     def _update_session_activity(self, session_id: str, ip_address: str, user_agent: str):
         """Update session activity (placeholder implementation)"""
-        # In a real implementation, you would update the session's last activity
+
         pass
 
     def _get_user_sessions(self, user_id: int) -> List[Dict[str, Any]]:
         """Get all sessions for a user (placeholder implementation)"""
-        # In a real implementation, you would retrieve from a dedicated sessions table
+
         return []
 
     def _check_session_limit(self, user_id: int) -> bool:
         """Check if user has reached session limit and enforce first-device logout"""
-        # Count active sessions for user (last 24 hours)
+
         cutoff_time = datetime.utcnow() - timedelta(hours=24)
         active_sessions = (
             UserActivity.query.filter(
@@ -468,7 +442,7 @@ class SessionService:
         )
 
         if len(active_sessions) >= self.MAX_SESSIONS_PER_USER:
-            # If limit reached, terminate the oldest session (first device)
+
             if active_sessions:
                 oldest_session = active_sessions[0]
                 self.logger.info(
@@ -477,15 +451,12 @@ class SessionService:
                     oldest_session_id=oldest_session.id,
                 )
 
-                # Mark the oldest session as terminated by updating its action
                 oldest_session.action = "logout_forced"
                 oldest_session.details = "Session terminated due to session limit enforcement"
                 db.session.commit()
 
-                # Remove the oldest session from the list
                 active_sessions = active_sessions[1:]
 
-            # Return True if still at limit after cleanup
             return len(active_sessions) >= self.MAX_SESSIONS_PER_USER
 
         return False
@@ -501,7 +472,6 @@ class SessionService:
             if not last_activity:
                 last_activity = datetime.utcnow()
 
-            # Ensure timezone awareness
             if last_login.tzinfo is None:
                 last_login = last_login.replace(tzinfo=None)
             if last_activity.tzinfo is None:
@@ -527,6 +497,4 @@ class SessionService:
             self.logger.error(f"Error calculating session duration: {e}")
             return "Unknown"
 
-
-# Global instance
 session_service = SessionService()

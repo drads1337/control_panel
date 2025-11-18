@@ -10,7 +10,6 @@ from typing import Optional, Tuple
 import geoip2.database
 from flask import request
 
-
 def get_real_ip() -> str:
     """
     Get the real client IP address, considering proxy and headers
@@ -18,12 +17,12 @@ def get_real_ip() -> str:
     Returns:
         Real IP address as string
     """
-    # Check various headers to get the real IP
+
     headers_to_check = [
         "X-Forwarded-For",
         "X-Real-IP",
         "X-Client-IP",
-        "CF-Connecting-IP",  # Cloudflare
+        "CF-Connecting-IP",
         "X-Forwarded",
         "Forwarded-For",
         "Forwarded",
@@ -32,15 +31,13 @@ def get_real_ip() -> str:
     for header in headers_to_check:
         ip = request.headers.get(header)
         if ip:
-            # If IP is in X-Forwarded-For header, take the first one (client IP)
+
             if "," in ip:
                 ip = ip.split(",")[0].strip()
             if ip and ip not in ("unknown", "127.0.0.1", "localhost", "::1"):
                 return ip
 
-    # If headers didn't help, use remote_addr
     return request.remote_addr or "127.0.0.1"
-
 
 def get_location_from_ip(ip: str) -> Tuple[Optional[str], Optional[str]]:
     """
@@ -56,7 +53,7 @@ def get_location_from_ip(ip: str) -> Tuple[Optional[str], Optional[str]]:
         return None, None
 
     try:
-        # Path to GeoIP database
+
         db_path = os.path.join(os.path.dirname(__file__), "..", "GeoLite2-City.mmdb")
 
         if not os.path.exists(db_path):
@@ -70,10 +67,9 @@ def get_location_from_ip(ip: str) -> Tuple[Optional[str], Optional[str]]:
             return country, city
 
     except Exception as e:
-        # Log at debug level since this is expected for private IPs and IPs not in the database
+
         logging.debug(f"[WARNING] Failed to get geolocation for IP {ip}: {e}")
         return None, None
-
 
 def get_ip_info(ip: str) -> dict:
     """

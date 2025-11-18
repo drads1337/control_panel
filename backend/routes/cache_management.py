@@ -13,7 +13,6 @@ from ..utils.rbac_utils import RBACManager
 
 cache_bp = Blueprint("cache", __name__, url_prefix="/api/cache")
 
-
 @cache_bp.route("/stats", methods=["GET"])
 @jwt_required()
 @require_project_isolation
@@ -25,7 +24,6 @@ def get_cache_stats():
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    # Only admins and owners can view cache stats
     from ..services.rbac import rbac_service
 
     if not rbac_service.check_permission(user.id, "system.view_logs"):
@@ -36,7 +34,6 @@ def get_cache_stats():
         return jsonify({"success": True, "stats": stats})
     except Exception as e:
         return jsonify({"error": f"Failed to get cache stats: {str(e)}"}), 500
-
 
 @cache_bp.route("/clear", methods=["POST"])
 @jwt_required()
@@ -49,7 +46,6 @@ def clear_cache():
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    # Only admins and owners can clear cache
     if not RBACManager.has_any_role(user, ["admin", "owner"]):
         return jsonify({"error": "Access denied"}), 403
 
@@ -65,7 +61,6 @@ def clear_cache():
     except Exception as e:
         return jsonify({"error": f"Failed to clear cache: {str(e)}"}), 500
 
-
 @cache_bp.route("/cleanup", methods=["POST"])
 @jwt_required()
 @require_project_isolation
@@ -77,7 +72,6 @@ def cleanup_cache():
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    # Only admins and owners can cleanup cache
     if not RBACManager.has_any_role(user, ["admin", "owner"]):
         return jsonify({"error": "Access denied"}), 403
 
@@ -88,7 +82,6 @@ def cleanup_cache():
         )
     except Exception as e:
         return jsonify({"error": f"Failed to cleanup cache: {str(e)}"}), 500
-
 
 @cache_bp.route("/invalidate/<cache_type>", methods=["POST"])
 @jwt_required()
@@ -101,12 +94,11 @@ def invalidate_cache_type(cache_type):
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    # Only admins and owners can invalidate cache
     if not RBACManager.has_any_role(user, ["admin", "owner"]):
         return jsonify({"error": "Access denied"}), 403
 
     try:
-        # Get project_id from request or use user's project
+
         project_id = request.json.get("project_id") if request.json else None
         if not project_id:
             project_id = user.project_id
@@ -116,7 +108,7 @@ def invalidate_cache_type(cache_type):
 
             deleted_count = game_service.invalidate_game_cache(project_id)
         else:
-            # Generic cache invalidation
+
             pattern = f"{cache_type}:*"
             if project_id:
                 pattern = f"{cache_type}:project_id={project_id}:*"

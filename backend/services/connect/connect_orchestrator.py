@@ -22,7 +22,6 @@ from .token_generation_service import TokenGenerationService
 
 logger = logging.getLogger(__name__)
 
-
 class ConnectOrchestrator:
     """
     Orchestrates the connect authentication flow
@@ -31,14 +30,13 @@ class ConnectOrchestrator:
 
     def __init__(self):
         """Initialize orchestrator with all required services"""
-        # Core services
+
         self.decryption_service = DecryptionService()
         self.request_validator = RequestValidationService()
         self.key_lookup = KeyLookupService()
         self.challenge_validator = ChallengeValidationService()
         self.token_generator = TokenGenerationService()
 
-        # Supporting services
         self.security_checker = SecurityChecker()
         self.device_manager = DeviceManager()
         self.analytics_tracker = AnalyticsTracker()
@@ -68,7 +66,7 @@ class ConnectOrchestrator:
         used_global_key = False
 
         try:
-            # Step 1: Security pre-check
+
             suspicious, reason = self.security_checker.check_suspicious_request(user_agent, {})
             if suspicious:
                 logger.warning(
@@ -77,7 +75,6 @@ class ConnectOrchestrator:
                 self.security_checker.log_suspicious_activity(ip, reason, user_agent)
                 return self._build_error_response("Access denied", used_global_key, successful_project_id), 403
 
-            # Step 2: Decrypt request
             data, used_global_key, successful_project_id = self.decryption_service.decrypt_request_data(
                 enc_data, project_id=project_id, ip=ip
             )
@@ -86,16 +83,14 @@ class ConnectOrchestrator:
                 self.security_checker.log_suspicious_activity(ip, "EMPTY_DATA")
                 return self._build_error_response("Invalid request data", used_global_key, successful_project_id), 400
 
-            # Step 3: Validate request structure
             is_valid, error_msg = self.request_validator.validate_request_data(data)
             if not is_valid:
                 logger.error(f"VALIDATION_ERROR ip={ip} error={error_msg}")
                 return self._build_error_response(error_msg, used_global_key, successful_project_id), 400
 
-            # Step 4: Extract and validate fields
             fields = self.request_validator.extract_request_fields(data)
             user_key = fields.get("user_key")
-            
+
             is_valid, error_msg = self.request_validator.validate_user_key_format(user_key)
             if not is_valid:
                 logger.error(f"INVALID_USER_KEY ip={ip} user_key={user_key}")
@@ -106,7 +101,6 @@ class ConnectOrchestrator:
                 f"CONNECT_DATA ip={ip} user_key={user_key} game={fields.get('game')} serial={fields.get('serial')}"
             )
 
-            # Step 5: Lookup key and project
             key_obj, project_id, error_msg = self.key_lookup.find_key_in_project(
                 user_key, fields.get("project_id")
             )
@@ -116,7 +110,6 @@ class ConnectOrchestrator:
                 )
                 return self._build_error_response(error_msg, used_global_key, successful_project_id), 403
 
-            # Step 6: Validate project status
             is_valid, error_msg, project = key_validator.validate_project_status(project_id)
             if not is_valid:
                 logger.warning(
@@ -131,7 +124,6 @@ class ConnectOrchestrator:
                 )
                 return encrypted_response, 403
 
-            # Step 7: Security checks
             if self.security_checker.check_fingerprint_blocked(fields.get("fingerprint"), project_id):
                 logger.warning(
                     f"FINGERPRINT_BLOCKED ip={ip} user_key={user_key} project_id={project_id}"
@@ -169,7 +161,6 @@ class ConnectOrchestrator:
                 )
                 return encrypted_response, 403
 
-            # Step 8: Validate game access
             is_valid, error_msg, game_obj = key_validator.validate_game_access(
                 key_obj, fields.get("game"), project_id
             )
@@ -189,7 +180,6 @@ class ConnectOrchestrator:
                 )
                 return encrypted_response, 403
 
-            # Step 9: Validate user authorization
             is_valid, error_msg = key_validator.validate_user_authorization(key_obj, project_id)
             if not is_valid:
                 logger.warning(
@@ -197,7 +187,6 @@ class ConnectOrchestrator:
                 )
                 return self._build_error_response(error_msg, used_global_key, project_id), 403
 
-            # Step 10: Validate single device fingerprint
             is_valid, error_msg = key_validator.validate_single_device_fingerprint(
                 key_obj, fields.get("fingerprint")
             )
@@ -206,7 +195,6 @@ class ConnectOrchestrator:
                 self._log_user_activity(key_obj, project_id, "api_connect_error", f"user_key={user_key}, reason=DEVICE_MISMATCH", ip)
                 return self._build_error_response("Device mismatch", used_global_key, project_id), 403
 
-            # Step 11: Validate challenge response
             is_valid, error_msg = self.challenge_validator.validate_challenge_response(
                 user_key,
                 fields.get("fingerprint"),
@@ -218,23 +206,18 @@ class ConnectOrchestrator:
                 self._log_user_activity(key_obj, project_id, "api_connect_error", f"user_key={user_key}, reason=CHALLENGE_FAIL", ip)
                 return self._build_error_response(error_msg, used_global_key, project_id), 403
 
-            # Step 12: Clean up challenge
             self.challenge_validator.cleanup_challenge(user_key, fields.get("fingerprint"))
 
-            # Step 13: Behavioral analysis
             geo = self.security_checker.behavioral_analysis(user_key, ip, fields.get("fingerprint"))
 
-            # Step 14: Validate key status
             is_valid, error_msg = key_validator.validate_key_status(key_obj)
             if not is_valid:
                 logger.warning(f"KEY_INVALID ip={ip} user_key={user_key} error={error_msg}")
                 self._log_user_activity(key_obj, project_id, "api_connect_error", f"user_key={user_key}, reason=KEY_INVALID", ip)
                 return self._build_error_response(error_msg, used_global_key, project_id), 403
 
-            # Step 15: Activate key if needed
             key_validator.activate_key_if_needed(key_obj)
 
-            # Step 16: Validate device limit
             is_valid, error_msg = key_validator.validate_device_limit(key_obj, fields.get("serial"))
             if not is_valid:
                 logger.warning(
@@ -243,7 +226,6 @@ class ConnectOrchestrator:
                 self._log_user_activity(key_obj, project_id, "api_connect_error", f"user_key={user_key}, reason=MAX_DEVICES", ip)
                 return self._build_error_response(error_msg, used_global_key, project_id), 403
 
-            # Step 17: Register device
             success, msg = self.device_manager.register_device(
                 key_obj,
                 fields.get("serial"),
@@ -263,10 +245,8 @@ class ConnectOrchestrator:
                 f"LOGIN_SUCCESS ip={ip} user_key={user_key} game={fields.get('game')} serial={fields.get('serial')}"
             )
 
-            # Step 18: Update analytics
             self.analytics_tracker.update_key_analytics(key_obj.id, fields.get("game"), ip)
 
-            # Step 19: Create heartbeat session
             heartbeat_session = self.analytics_tracker.create_heartbeat_session(
                 user_key,
                 fields.get("fingerprint"),
@@ -275,12 +255,10 @@ class ConnectOrchestrator:
                 ip,
             )
 
-            # Step 20: Get expiration info
             expires_at, seconds_left, seconds_left_human = (
                 key_validator.get_key_expiration_info(key_obj)
             )
 
-            # Step 21: Generate connect token
             token = self.token_generator.generate_connect_token(
                 game=fields.get("game"),
                 user_key=user_key,
@@ -291,10 +269,8 @@ class ConnectOrchestrator:
                 is_classic=False,
             )
 
-            # Step 22: Get notifications
             notifications = self.analytics_tracker.get_notifications(project_id, key_obj.user_id)
 
-            # Step 23: Generate offline ticket if enabled
             offline_ticket = self._generate_offline_ticket(
                 user_key=user_key,
                 fingerprint=fields.get("fingerprint"),
@@ -302,7 +278,6 @@ class ConnectOrchestrator:
                 key_obj=key_obj,
             )
 
-            # Step 24: Build success response
             response = self.response_builder.build_success_response(
                 token,
                 project_id,
@@ -314,7 +289,6 @@ class ConnectOrchestrator:
                 offline_ticket=offline_ticket,
             )
 
-            # Step 25: Encrypt response
             logger.info(
                 f"ENCRYPTING_RESPONSE used_global_key={used_global_key} project_id={project_id}"
             )
@@ -322,7 +296,6 @@ class ConnectOrchestrator:
                 response, used_global_key=used_global_key, project_id=project_id, use_legacy=True
             )
 
-            # Step 26: Log successful connection
             self._log_user_activity(
                 key_obj, project_id, "api_connect",
                 f"user_key={user_key}, game={fields.get('game')}, serial={fields.get('serial')}", ip
@@ -390,35 +363,29 @@ class ConnectOrchestrator:
             import jwt
             from datetime import timedelta
 
-            # Check if offline authentication is enabled for this project
             project_settings = ProjectSettings.query.filter_by(project_id=project_id).first()
             if not project_settings or not project_settings.offline_auth_enabled:
                 logger.debug(f"OFFLINE_AUTH_DISABLED project_id={project_id}")
                 return None
 
-            # Get expiration hours from project settings (default: 12 hours)
             expiration_hours = project_settings.offline_ticket_expiration_hours or 12
 
-            # Validate expiration hours (min: 1 hour, max: 168 hours = 7 days)
             expiration_hours = max(1, min(168, expiration_hours))
 
-            # Get game ID from key (if available)
             game_id = key_obj.game_id if key_obj.game_id else None
 
-            # Build JWT payload
             from datetime import datetime
             now = datetime.utcnow()
             payload = {
-                "iss": "panel-offline-auth",  # Issuer
-                "sub": user_key,  # Subject (the key itself)
-                "fid": fingerprint,  # Fingerprint - device binding
-                "iat": int(now.timestamp()),  # Issued at
-                "exp": int((now + timedelta(hours=expiration_hours)).timestamp()),  # Expiration
-                "prj": project_id,  # Project ID
-                "gms": [game_id] if game_id else [],  # List of accessible game IDs
+                "iss": "panel-offline-auth",
+                "sub": user_key,
+                "fid": fingerprint,
+                "iat": int(now.timestamp()),
+                "exp": int((now + timedelta(hours=expiration_hours)).timestamp()),
+                "prj": project_id,
+                "gms": [game_id] if game_id else [],
             }
 
-            # Encode JWT with offline ticket secret
             from ...config.config import Config
             offline_ticket = jwt.encode(payload, Config.OFFLINE_TICKET_SECRET, algorithm="HS256")
 
@@ -430,6 +397,5 @@ class ConnectOrchestrator:
 
         except Exception as e:
             logger.error(f"Error generating offline ticket: {e}")
-            # Don't fail the entire authentication if offline ticket generation fails
-            return None
 
+            return None

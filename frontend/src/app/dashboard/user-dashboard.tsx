@@ -8,16 +8,15 @@ import { Card, CardContent } from '@/components/ui/card'
 import { BarChart3 } from 'lucide-react'
 import { Spinner } from '@/components/ui/spinner'
 
-// Lazy load heavy components for better code splitting
 const ChartAreaInteractive = React.lazy(() => import('./chart-area-interactive').then(module => ({ default: module.ChartAreaInteractive })))
 const DataTable = React.lazy(() => import('@/app/shared/data-table').then(module => ({ default: module.DataTable })))
 
 export function UserDashboard() {
   const { data, loading, error, refetch } = useDashboardStats()
   const { hasPermission } = usePermissions()
-  
+
   const canViewAnalytics = hasPermission('analytics.view')
-  
+
   if (!canViewAnalytics) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">

@@ -19,7 +19,6 @@ from ..utils.role_constants import UserRoles
 
 projects_bp = Blueprint("projects", __name__)
 
-
 @projects_bp.route("/projects", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
@@ -37,7 +36,6 @@ def get_projects():
         if not user:
             return jsonify({"error": "Access denied"}), 403
 
-        # Check if user is owner using RBAC only
         is_owner = RBACManager.is_owner(user)
 
         logging.info(
@@ -47,9 +45,6 @@ def get_projects():
             f"user.project_id: {user.project_id}"
         )
 
-        # Allow access for:
-        # 1. Owner users (can see all projects)
-        # 2. Users with a project_id (can see their own project)
         if not is_owner and not user.project_id:
             logging.warning(
                 f"Access denied - user {user_id} is not owner and has no project_id"
@@ -66,17 +61,14 @@ def get_projects():
             f"search={search}, force_refresh={force_refresh}"
         )
 
-        # Check total projects in database for debugging
         total_projects_in_db = Project.query.count()
         logging.info(f"DEBUG: Total projects in database: {total_projects_in_db}")
         if total_projects_in_db > 0:
             all_project_ids = [p.id for p in Project.query.all()]
             logging.info(f"DEBUG: All project IDs in database: {all_project_ids}")
 
-        # Use cached project service
         from ..services.projects import project_service
-        
-        # If force_refresh is requested, invalidate cache first
+
         if force_refresh:
             try:
                 from ..services.cache import cache_service
@@ -89,7 +81,7 @@ def get_projects():
         result = project_service.get_projects_cached(
             user_id=user_id, page=page, per_page=per_page, search=search
         )
-        
+
         logging.info(
             f"get_projects result - projects count: {len(result.get('projects', []))}, "
             f"total: {result.get('total', 0)}, "
@@ -98,7 +90,7 @@ def get_projects():
             f"has_error: {'error' in result}, "
             f"result_keys: {list(result.keys())}"
         )
-        
+
         if result.get('projects'):
             project_ids = [p.get('id') for p in result.get('projects', [])]
             logging.info(f"DEBUG: Returning project IDs: {project_ids}")
@@ -135,7 +127,6 @@ def get_projects():
             500,
         )
 
-
 @projects_bp.route("/projects", methods=["POST"])
 @jwt_required()
 @require_auth
@@ -156,7 +147,6 @@ def create_project(validated_data=None):
         name = data.get("name", "").strip()
         description = data.get("description", "").strip()
 
-        # Use service to create project
         from ..services.projects import project_service
         result = project_service.create_project(
             user_id=user.id,
@@ -179,7 +169,6 @@ def create_project(validated_data=None):
         logging.error(f"Error creating project: {str(e)}")
         return jsonify({"error": "Failed to create project"}), 500
 
-
 @projects_bp.route("/projects/<int:project_id>", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -197,7 +186,6 @@ def get_project(project_id):
         if not user:
             return jsonify({"error": "Access denied"}), 403
 
-        # Use cached project service
         from ..services.projects import project_service
 
         result = project_service.get_project_cached(project_id=project_id, user_id=user_id)
@@ -221,7 +209,6 @@ def get_project(project_id):
         logging.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": "Failed to retrieve project"}), 500
 
-
 @projects_bp.route("/projects/<int:project_id>", methods=["PUT"])
 @jwt_required()
 @require_project_with_grace_period
@@ -241,7 +228,6 @@ def update_project(project_id, validated_data=None):
         if not data:
             return jsonify({"error": "No data provided"}), 400
 
-        # Use service to update project
         from ..services.projects import project_service
         result = project_service.update_project(
             project_id=project_id,
@@ -272,7 +258,6 @@ def update_project(project_id, validated_data=None):
             "message": str(e)
         }), 500
 
-
 @projects_bp.route("/projects/<int:project_id>", methods=["DELETE"])
 @jwt_required()
 @require_auth
@@ -282,7 +267,6 @@ def delete_project(project_id):
     try:
         user = g.current_user
 
-        # Use service to delete project
         from ..services.projects import project_service
         result = project_service.delete_project(
             project_id=project_id,
@@ -301,7 +285,6 @@ def delete_project(project_id):
         logging.error(f"Error deleting project {project_id}: {str(e)}")
         return jsonify({"error": "Failed to delete project"}), 500
 
-
 @projects_bp.route("/projects/<int:project_id>/stats", methods=["GET"])
 @jwt_required()
 @require_owner
@@ -315,7 +298,6 @@ def get_project_stats(project_id):
         if not user:
             return jsonify({"error": "Access denied"}), 403
 
-        # Use cached project service
         from ..services.projects import project_service
 
         result = project_service.get_project_stats_cached(project_id=project_id, user_id=user_id)
@@ -334,8 +316,6 @@ def get_project_stats(project_id):
         logging.error(f"Error getting project stats {project_id}: {str(e)}")
         return jsonify({"error": "Failed to retrieve project statistics"}), 500
 
-
-# Project Invite Code endpoints
 @projects_bp.route("/project-codes", methods=["GET"])
 @jwt_required()
 @require_owner
@@ -344,12 +324,11 @@ def get_project_invite_codes():
     try:
         current_user = g.current_user
 
-        # Use service to get invite codes
         from ..services.projects import project_service
         result = project_service.get_project_invite_codes(user_id=current_user.id)
 
         if "error" in result:
-            # Return 400 for client errors (missing project), 500 for server errors
+
             error_message = result.get("error", "")
             if "must be assigned to a project" in error_message or "User not found" in error_message:
                 return jsonify(result), 400
@@ -361,7 +340,6 @@ def get_project_invite_codes():
         logging.error(f"Error getting project invite codes: {str(e)}")
         return jsonify({"error": "Failed to retrieve project invite codes"}), 500
 
-
 @projects_bp.route("/project-codes/latest", methods=["GET"])
 @jwt_required()
 @require_owner
@@ -370,12 +348,11 @@ def get_latest_project_invite_code():
     try:
         current_user = g.current_user
 
-        # Use service to get latest invite code
         from ..services.projects import project_service
         result = project_service.get_latest_project_invite_code(user_id=current_user.id)
 
         if "error" in result:
-            # Return 400 for client errors (missing project), 500 for server errors
+
             error_message = result.get("error", "")
             if "must be assigned to a project" in error_message or "User not found" in error_message:
                 return jsonify(result), 400
@@ -387,7 +364,6 @@ def get_latest_project_invite_code():
         logging.error(f"Error getting latest project invite code: {str(e)}")
         return jsonify({"error": "Failed to retrieve latest project invite code"}), 500
 
-
 @projects_bp.route("/project-codes", methods=["POST"])
 @jwt_required()
 @require_owner
@@ -397,10 +373,8 @@ def create_project_invite_code():
         current_user = g.current_user
         data = request.get_json() or {}
 
-        # Get expiration days (default to 7 days)
         expires_in_days = data.get("expires_in_days", 7)
 
-        # Use service to create invite code
         from ..services.projects import project_service
         result = project_service.create_project_invite_code(
             user_id=current_user.id,
@@ -410,7 +384,7 @@ def create_project_invite_code():
         )
 
         if "error" in result:
-            # Return 400 for client errors (missing project), 500 for server errors
+
             error_message = result.get("error", "")
             if "must be assigned to a project" in error_message or "User not found" in error_message:
                 return jsonify(result), 400
@@ -422,7 +396,6 @@ def create_project_invite_code():
         logging.error(f"Error creating project invite code: {str(e)}")
         return jsonify({"error": "Failed to create project invite code"}), 500
 
-
 @projects_bp.route("/project-codes/<int:code_id>", methods=["DELETE"])
 @jwt_required()
 @require_owner
@@ -431,7 +404,6 @@ def delete_project_invite_code(code_id):
     try:
         current_user = g.current_user
 
-        # Use service to delete invite code
         from ..services.projects import project_service
         result = project_service.delete_project_invite_code(
             code_id=code_id,
@@ -451,6 +423,3 @@ def delete_project_invite_code(code_id):
     except Exception as e:
         logging.error(f"Error deleting project invite code: {str(e)}")
         return jsonify({"error": "Failed to delete project invite code"}), 500
-
-
-# CORS is handled globally by Flask-CORS configuration

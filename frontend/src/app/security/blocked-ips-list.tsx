@@ -107,7 +107,6 @@ export default function BlockedIPsList({
     (ip.city && ip.city.toLowerCase().includes(searchTerm.toLowerCase()))
   )
 
-  // If user doesn't have view permission, don't render anything
   if (!canViewIPs) {
     return null;
   }

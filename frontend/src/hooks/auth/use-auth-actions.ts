@@ -21,10 +21,6 @@ interface UseAuthActionsRefs {
 
 const MAX_LOGIN_ATTEMPTS = 3
 
-/**
- * Hook for authentication actions (login, register, logout)
- * Separated from state management for better organization
- */
 export function useAuthActions(
   params: UseAuthActionsParams,
   refs: UseAuthActionsRefs
@@ -33,8 +29,7 @@ export function useAuthActions(
   const { isLoggingIn, loginAttempts, abortControllerRef, justLoggedIn } = refs
   const navigate = useNavigate()
   const navigateRef = useRef(navigate)
-  
-  // Keep navigate ref updated
+
   navigateRef.current = navigate
 
   const clearCookies = useCallback(() => {
@@ -108,7 +103,7 @@ export function useAuthActions(
 
     try {
       const data = await authService.login(username, password, controller)
-      
+
       if (!data.login_success) {
         throw new Error('Invalid response format: login not successful')
       }
@@ -116,16 +111,13 @@ export function useAuthActions(
       loginAttempts.current = 0
       const isClassicUser = data.login_type === 'classic_web'
 
-      // Pre-fetch CSRF token immediately after successful login
-      // This prevents CSRF errors on the first request after login
       prefetchCsrfToken().catch((error) => {
-        // Log but don't block login flow - token will be fetched on first request if this fails
-        console.warn('Failed to prefetch CSRF token after login:', error)
+
       })
 
       try {
         const userData = await authService.getFullUserData(controller)
-        
+
         if (userData && !controller.signal.aborted) {
           const userWithClassicFlag = { ...userData, isClassicUser }
           setUser(userWithClassicFlag)
@@ -139,7 +131,7 @@ export function useAuthActions(
             justLoggedIn.current = false
           }, 5000)
         } else {
-          // Fallback to basic user info
+
           const fallbackUser = createFallbackUser(data, username)
           authService.saveUserToCache(fallbackUser)
           setUser(fallbackUser)
@@ -154,7 +146,7 @@ export function useAuthActions(
           }, 5000)
         }
       } catch (error) {
-        // Fallback to basic user info from login response
+
         const fallbackUser = createFallbackUser(data, username)
         authService.saveUserToCache(fallbackUser)
         setUser(fallbackUser)
@@ -311,16 +303,14 @@ export function useAuthActions(
       loginAttempts.current = 0
 
       await authService.logout()
-      
-      // Set loading to false and initialized to true after logout completes
-      // This prevents the spinner from showing on the login page
+
       updateState({
         isLoading: false,
         isInitialized: true,
         isAuthenticated: false,
         user: null
       })
-      
+
       navigateRef.current('/login')
     } finally {
       isLoggingIn.current = false
@@ -334,4 +324,3 @@ export function useAuthActions(
     logout
   }
 }
-

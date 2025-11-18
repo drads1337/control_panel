@@ -11,22 +11,18 @@ import { updateLoader } from '@/entities/loader';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 import type { Loader, UpdateLoaderData } from '@/entities/loader';
-
 interface EditLoaderDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
   loader: Loader | null;
 }
-
 const EditLoaderDialog: React.FC<EditLoaderDialogProps> = ({ open, onOpenChange, onSuccess, loader }) => {
   const { token } = useAuth();
   const { hasPermission } = usePermissions();
-  
   const canEditLoaders = hasPermission('loaders.edit');
   const canEditChangelog = hasPermission('loaders.changelog_edit') || hasPermission('changelog.edit');
   const canEditNotifications = hasPermission('loaders.notifications_edit') || hasPermission('notifications.edit');
-  
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<UpdateLoaderData>({
     name: '',
@@ -36,7 +32,6 @@ const EditLoaderDialog: React.FC<EditLoaderDialogProps> = ({ open, onOpenChange,
     changelog: '',
     notifications: ''
   });
-
   useEffect(() => {
     if (loader) {
       setFormData({
@@ -49,16 +44,13 @@ const EditLoaderDialog: React.FC<EditLoaderDialogProps> = ({ open, onOpenChange,
       });
     }
   }, [loader]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token || !loader) return;
-
     if (!canEditLoaders) {
       toast.error('You do not have permission to edit loaders');
       return;
     }
-
     try {
       setLoading(true);
       await updateLoader(loader.id, formData);
@@ -71,13 +63,10 @@ const EditLoaderDialog: React.FC<EditLoaderDialogProps> = ({ open, onOpenChange,
       setLoading(false);
     }
   };
-
   if (!loader) return null;
-  
   if (!canEditLoaders) {
     return null;
   }
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
@@ -87,7 +76,6 @@ const EditLoaderDialog: React.FC<EditLoaderDialogProps> = ({ open, onOpenChange,
             Edit the information for the loader "{loader.name}".
           </DialogDescription>
         </DialogHeader>
-        
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -100,7 +88,6 @@ const EditLoaderDialog: React.FC<EditLoaderDialogProps> = ({ open, onOpenChange,
                 required
               />
             </div>
-            
             <div className="space-y-2">
               <Label htmlFor="version">Version *</Label>
               <Input
@@ -112,7 +99,6 @@ const EditLoaderDialog: React.FC<EditLoaderDialogProps> = ({ open, onOpenChange,
               />
             </div>
           </div>
-          
           <div className="space-y-2">
             <Label htmlFor="status">Status</Label>
             <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value as any }))}>
@@ -126,7 +112,6 @@ const EditLoaderDialog: React.FC<EditLoaderDialogProps> = ({ open, onOpenChange,
               </SelectContent>
             </Select>
           </div>
-          
           <div className="space-y-2">
             <Label htmlFor="description">Description *</Label>
             <Textarea
@@ -138,7 +123,6 @@ const EditLoaderDialog: React.FC<EditLoaderDialogProps> = ({ open, onOpenChange,
               required
             />
           </div>
-          
           <ConditionalRender permission="loaders.changelog_edit" fallback={null}>
           <div className="space-y-2">
             <Label htmlFor="changelog">Changelog</Label>
@@ -152,7 +136,6 @@ const EditLoaderDialog: React.FC<EditLoaderDialogProps> = ({ open, onOpenChange,
             />
           </div>
           </ConditionalRender>
-          
           <ConditionalRender permission="loaders.notifications_edit" fallback={null}>
           <div className="space-y-2">
             <Label htmlFor="notifications">Notifications</Label>
@@ -166,7 +149,6 @@ const EditLoaderDialog: React.FC<EditLoaderDialogProps> = ({ open, onOpenChange,
             />
           </div>
           </ConditionalRender>
-          
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
@@ -180,5 +162,4 @@ const EditLoaderDialog: React.FC<EditLoaderDialogProps> = ({ open, onOpenChange,
     </Dialog>
   );
 };
-
 export default EditLoaderDialog;

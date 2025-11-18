@@ -21,7 +21,6 @@ interface NotificationsDialogProps {
   game: Game | null;
 }
 
-// Cache keys for notifications
 const notificationKeys = {
   all: ['notifications'] as const,
   game: (gameId: number) => [...notificationKeys.all, 'game', gameId] as const,
@@ -34,19 +33,17 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
 }) => {
   const queryClient = useQueryClient();
   const { hasPermission } = usePermissions();
-  
+
   const canViewNotifications = hasPermission('games.notifications_view');
   const canCreateNotifications = hasPermission('games.notifications_create');
   const canDeleteNotifications = hasPermission('games.notifications_delete');
-  
-  // Early return if user doesn't have permission to view notifications
+
   if (!canViewNotifications) {
     return null;
   }
-  
+
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
-  // Load notifications using React Query
   const { data: notificationsData, isLoading: loading } = useQuery({
     queryKey: notificationKeys.game(game?.id || 0),
     queryFn: async () => {
@@ -54,8 +51,8 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
       return await getGameNotifications(game.id);
     },
     enabled: open && !!game && canViewNotifications,
-    staleTime: 30 * 1000, // 30 seconds
-    gcTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 30 * 1000,
+    gcTime: 2 * 60 * 1000,
     retry: (failureCount, error: any) => {
       if (error?.response?.status === 401 || error?.response?.status === 403 || error?.response?.status === 429) {
         return false;
@@ -67,47 +64,43 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
 
   const notifications = notificationsData?.notifications || [];
 
-  // Delete notification mutation
   const deleteNotificationMutation = useMutation({
     mutationFn: deleteNotification,
     onSuccess: () => {
-      // Invalidate and refetch notifications
+
       if (game) {
         queryClient.invalidateQueries({ queryKey: notificationKeys.game(game.id) });
       }
       toast.success('Notification deleted');
     },
     onError: (error: any) => {
-      console.error('Error deleting notification:', error);
+
       toast.error('Error deleting notification');
     },
   });
 
-  // Virtualization setup - only enable if we have many notifications
-  // Always call useVirtualizer with consistent parameters to avoid hook order issues
   const parentRef = useRef<HTMLDivElement>(null);
-  const shouldVirtualize = notifications.length > 30; // Only virtualize if more than 30 items
-  
+  const shouldVirtualize = notifications.length > 30;
+
   const rowVirtualizer = useVirtualizer({
-    count: notifications.length, // Always use actual count, not conditional
+    count: notifications.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 128, // Estimated notification card height in pixels (including gap)
-    overscan: 3, // Render 3 extra items outside visible area
-    enabled: true, // Always enabled - we control rendering via shouldVirtualize in JSX
+    estimateSize: () => 128,
+    overscan: 3,
+    enabled: true,
   });
 
-  // All hooks must be called before any early returns
   const handleDeleteNotification = useCallback(async (notificationId: number) => {
     if (!canDeleteNotifications) {
       toast.error('You do not have permission to delete notifications');
       return;
     }
-    
+
     deleteNotificationMutation.mutate(notificationId);
   }, [canDeleteNotifications, deleteNotificationMutation]);
 
   const handleNotificationCreated = useCallback(() => {
-    // Invalidate and refetch notifications when a new one is created
+
     if (game) {
       queryClient.invalidateQueries({ queryKey: notificationKeys.game(game.id) });
     }
@@ -128,17 +121,17 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
       error: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
       success: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
     };
-    
+
     const getTypeLabel = (type: string) => {
       switch (type) {
         case 'info': return 'Info';
         case 'warning': return 'Warning';
         case 'error': return 'Error';
         case 'success': return 'Success';
-        default: return type; // For custom types
+        default: return type;
       }
     };
-    
+
     return (
       <Badge className={colors[type as keyof typeof colors] || 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300'}>
         {getTypeLabel(type)}
@@ -150,7 +143,7 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
     const date = new Date(dateString);
     const now = new Date();
     const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-    
+
     if (diffInHours < 24) {
       return date.toLocaleTimeString('en-US', { 
         hour: '2-digit', 
@@ -173,7 +166,6 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
     }
   };
 
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-4xl max-h-[80vh] w-[90vw] overflow-hidden">
@@ -186,8 +178,8 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
             Make necessary changes to the settings for the game "{game.name}".
           </DialogDescription>
         </DialogHeader>
-        
-        {/* Header and create button immediately after the description */}
+
+        {}
         <div className="flex items-center justify-between mb-1 px-1">
           <h3 className="text-base font-semibold">Notifications ({notifications.length})</h3>
           <ConditionalRender permission="games.notifications_create" fallback={null}>
@@ -202,12 +194,12 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
           </Button>
           </ConditionalRender>
         </div>
-        
+
         <div className="space-y-4 overflow-y-auto max-h-[calc(80vh-120px)] pr-2">
-          {/* Existing notifications */}
+          {}
           <Card className="border">
             <CardContent className="p-4">
-              
+
               {loading ? (
                 <Spinner message="Loading notifications..." />
               ) : notifications.length === 0 ? (
@@ -418,7 +410,7 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
         </DialogFooter>
       </DialogContent>
 
-      {/* Dialog for creating a new notification */}
+      {}
       <CreateNotificationDialog
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}

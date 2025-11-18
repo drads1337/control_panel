@@ -18,6 +18,3 @@ For services and utilities, import directly from their source modules:
 - from ...services.connect import SecurityChecker, ResponseBuilder
 - from ...services.keys import KeyValidator
 """
-
-# Note: This package only contains route handlers.
-# Services should be imported directly from their source modules for clarity.

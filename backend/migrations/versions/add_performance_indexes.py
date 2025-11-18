@@ -8,19 +8,13 @@ Create Date: 2025-01-XX XX:XX:XX.XXXXXX
 from alembic import op
 import sqlalchemy as sa
 
-
-# revision identifiers, used by Alembic.
 revision = 'add_perf_indexes_001'
 down_revision = 'cafc38e2b822'
 branch_labels = None
 depends_on = None
 
-
 def upgrade():
-    # Indexes for project_id - the most frequently used field for filtering
-    # These indexes are critically important for performance under high load
-    
-    # Core models
+
     op.create_index('idx_user_project_id', 'user', ['project_id'], unique=False)
     op.create_index('idx_user_activity_project_id', 'user_activity', ['project_id'], unique=False)
     op.create_index('idx_user_activity_created_at', 'user_activity', ['created_at'], unique=False)
@@ -28,15 +22,13 @@ def upgrade():
     op.create_index('idx_user_action_log_project_id', 'user_action_log', ['project_id'], unique=False)
     op.create_index('idx_user_action_log_user_id', 'user_action_log', ['user_id'], unique=False)
     op.create_index('idx_user_action_log_created_at', 'user_action_log', ['created_at'], unique=False)
-    
-    # Project-related models
+
     op.create_index('idx_project_user_role_project_id', 'project_user_role', ['project_id'], unique=False)
     op.create_index('idx_project_user_role_user_id', 'project_user_role', ['user_id'], unique=False)
     op.create_index('idx_project_invite_code_project_id', 'project_invite_code', ['project_id'], unique=False)
     op.create_index('idx_project_invite_code_is_used', 'project_invite_code', ['is_used'], unique=False)
     op.create_index('idx_project_invite_code_expires_at', 'project_invite_code', ['expires_at'], unique=False)
-    
-    # Game models
+
     op.create_index('idx_game_project_id', 'game', ['project_id'], unique=False)
     op.create_index('idx_game_status', 'game', ['status'], unique=False)
     op.create_index('idx_game_is_active', 'game', ['is_active'], unique=False)
@@ -55,8 +47,7 @@ def upgrade():
     op.create_index('idx_announcement_game_id', 'announcement', ['game_id'], unique=False)
     op.create_index('idx_file_meta_project_id', 'file_meta', ['project_id'], unique=False)
     op.create_index('idx_file_meta_game_id', 'file_meta', ['game_id'], unique=False)
-    
-    # Key models
+
     op.create_index('idx_key_project_id', 'key', ['project_id'], unique=False)
     op.create_index('idx_key_user_id', 'key', ['user_id'], unique=False)
     op.create_index('idx_key_game_id', 'key', ['game_id'], unique=False)
@@ -65,23 +56,20 @@ def upgrade():
     op.create_index('idx_key_created_at', 'key', ['created_at'], unique=False)
     op.create_index('idx_key_analytics_key_id', 'key_analytics', ['key_id'], unique=False)
     op.create_index('idx_key_analytics_date', 'key_analytics', ['date'], unique=False)
-    
-    # Token and referral models
+
     op.create_index('idx_token_transaction_project_id', 'token_transaction', ['project_id'], unique=False)
     op.create_index('idx_token_transaction_user_id', 'token_transaction', ['user_id'], unique=False)
     op.create_index('idx_token_transaction_created_at', 'token_transaction', ['created_at'], unique=False)
     op.create_index('idx_referral_code_project_id', 'referral_code', ['project_id'], unique=False)
     op.create_index('idx_referral_code_used', 'referral_code', ['used'], unique=False)
     op.create_index('idx_referral_code_expires_at', 'referral_code', ['expires_at'], unique=False)
-    
-    # Permission models
+
     op.create_index('idx_user_game_permission_project_id', 'user_game_permission', ['project_id'], unique=False)
     op.create_index('idx_user_game_permission_user_id', 'user_game_permission', ['user_id'], unique=False)
     op.create_index('idx_user_game_permission_game_id', 'user_game_permission', ['game_id'], unique=False)
     op.create_index('idx_developer_game_permission_project_id', 'developer_game_permission', ['project_id'], unique=False)
     op.create_index('idx_developer_game_permission_user_id', 'developer_game_permission', ['user_id'], unique=False)
-    
-    # RBAC models
+
     op.create_index('idx_role_project_id', 'role', ['project_id'], unique=False)
     op.create_index('idx_permission_project_id', 'permission', ['project_id'], unique=False)
     op.create_index('idx_user_role_user_id', 'user_role', ['user_id'], unique=False)
@@ -92,8 +80,7 @@ def upgrade():
     op.create_index('idx_attribute_rule_is_active', 'attribute_rule', ['is_active'], unique=False)
     op.create_index('idx_resource_attribute_project_id', 'resource_attribute', ['project_id'], unique=False)
     op.create_index('idx_resource_attribute_resource', 'resource_attribute', ['resource_type', 'resource_id'], unique=False)
-    
-    # Chat models
+
     op.create_index('idx_chat_message_project_id', 'chat_message', ['project_id'], unique=False)
     op.create_index('idx_chat_message_created_at', 'chat_message', ['created_at'], unique=False)
     op.create_index('idx_chat_message_game_id', 'chat_message', ['game_id'], unique=False)
@@ -101,27 +88,23 @@ def upgrade():
     op.create_index('idx_chat_group_game_project_id', 'chat_group_game', ['project_id'], unique=False)
     op.create_index('idx_telegram_bot_project_id', 'telegram_bot', ['project_id'], unique=False)
     op.create_index('idx_discord_webhook_project_id', 'discord_webhook', ['project_id'], unique=False)
-    
-    # Notification models
+
     op.create_index('idx_notification_project_id', 'notification', ['project_id'], unique=False)
     op.create_index('idx_notification_user_id', 'notification', ['user_id'], unique=False)
     op.create_index('idx_notification_is_read', 'notification', ['is_read'], unique=False)
     op.create_index('idx_notification_created_at', 'notification', ['created_at'], unique=False)
     op.create_index('idx_notification_is_scheduled', 'notification', ['is_scheduled'], unique=False)
-    
-    # Webhook models
+
     op.create_index('idx_webhook_project_id', 'webhook', ['project_id'], unique=False)
     op.create_index('idx_webhook_is_active', 'webhook', ['is_active'], unique=False)
     op.create_index('idx_webhook_log_webhook_id', 'webhook_log', ['webhook_id'], unique=False)
     op.create_index('idx_webhook_log_created_at', 'webhook_log', ['created_at'], unique=False)
-    
-    # Server models
+
     op.create_index('idx_server_project_id', 'server', ['project_id'], unique=False)
     op.create_index('idx_server_is_active', 'server', ['is_active'], unique=False)
     op.create_index('idx_billing_project_id', 'billing', ['project_id'], unique=False)
     op.create_index('idx_project_api_key_project_id', 'project_api_key', ['project_id'], unique=False)
-    
-    # Security models
+
     op.create_index('idx_login_attempt_project_id', 'login_attempt', ['project_id'], unique=False)
     op.create_index('idx_login_attempt_ip_address', 'login_attempt', ['ip_address'], unique=False)
     op.create_index('idx_login_attempt_created_at', 'login_attempt', ['created_at'], unique=False)
@@ -138,8 +121,7 @@ def upgrade():
     op.create_index('idx_security_analytics_date', 'security_analytics', ['date'], unique=False)
     op.create_index('idx_security_rule_project_id', 'security_rule', ['project_id'], unique=False)
     op.create_index('idx_security_rule_is_active', 'security_rule', ['is_active'], unique=False)
-    
-    # Two-factor auth models
+
     op.create_index('idx_two_factor_auth_project_id', 'two_factor_auth', ['project_id'], unique=False)
     op.create_index('idx_two_factor_backup_code_project_id', 'two_factor_backup_code', ['project_id'], unique=False)
     op.create_index('idx_two_factor_backup_code_user_id', 'two_factor_backup_code', ['user_id'], unique=False)
@@ -147,29 +129,24 @@ def upgrade():
     op.create_index('idx_two_factor_session_project_id', 'two_factor_session', ['project_id'], unique=False)
     op.create_index('idx_two_factor_session_user_id', 'two_factor_session', ['user_id'], unique=False)
     op.create_index('idx_two_factor_session_expires_at', 'two_factor_session', ['expires_at'], unique=False)
-    
-    # Loader models
+
     op.create_index('idx_loader_project_id', 'loader', ['project_id'], unique=False)
     op.create_index('idx_loader_changelog_project_id', 'loader_changelog', ['project_id'], unique=False)
     op.create_index('idx_loader_configuration_project_id', 'loader_configuration', ['project_id'], unique=False)
     op.create_index('idx_loader_download_log_project_id', 'loader_download_log', ['project_id'], unique=False)
     op.create_index('idx_loader_game_assignment_project_id', 'loader_game_assignment', ['project_id'], unique=False)
     op.create_index('idx_loader_notification_project_id', 'loader_notification', ['project_id'], unique=False)
-    
-    # Remote control models
+
     op.create_index('idx_remote_category_project_id', 'remote_category', ['project_id'], unique=False)
     op.create_index('idx_remote_feature_project_id', 'remote_feature', ['project_id'], unique=False)
     op.create_index('idx_remote_feature_log_project_id', 'remote_feature_log', ['project_id'], unique=False)
     op.create_index('idx_remote_feature_log_feature_id', 'remote_feature_log', ['feature_id'], unique=False)
-    
-    # Message models
+
     op.create_index('idx_message_project_id', 'message', ['project_id'], unique=False)
     op.create_index('idx_message_created_at', 'message', ['created_at'], unique=False)
     op.create_index('idx_file_download_log_project_id', 'file_download_log', ['project_id'], unique=False)
     op.create_index('idx_file_download_log_timestamp', 'file_download_log', ['timestamp'], unique=False)
-    
-    # Composite indexes for common query patterns
-    # Frequently used queries by project_id + created_at for sorting
+
     op.create_index('idx_user_activity_project_created', 'user_activity', ['project_id', 'created_at'], unique=False)
     op.create_index('idx_key_project_status', 'key', ['project_id', 'status'], unique=False)
     op.create_index('idx_key_project_created', 'key', ['project_id', 'created_at'], unique=False)
@@ -177,33 +154,32 @@ def upgrade():
     op.create_index('idx_chat_message_project_created', 'chat_message', ['project_id', 'created_at'], unique=False)
     op.create_index('idx_game_project_active', 'game', ['project_id', 'is_active'], unique=False)
 
-
 def downgrade():
-    # Drop indexes in reverse order
+
     op.drop_index('idx_game_project_active', table_name='game')
     op.drop_index('idx_chat_message_project_created', table_name='chat_message')
     op.drop_index('idx_notification_project_user_read', table_name='notification')
     op.drop_index('idx_key_project_created', table_name='key')
     op.drop_index('idx_key_project_status', table_name='key')
     op.drop_index('idx_user_activity_project_created', table_name='user_activity')
-    
+
     op.drop_index('idx_file_download_log_timestamp', table_name='file_download_log')
     op.drop_index('idx_file_download_log_project_id', table_name='file_download_log')
     op.drop_index('idx_message_created_at', table_name='message')
     op.drop_index('idx_message_project_id', table_name='message')
-    
+
     op.drop_index('idx_remote_feature_log_feature_id', table_name='remote_feature_log')
     op.drop_index('idx_remote_feature_log_project_id', table_name='remote_feature_log')
     op.drop_index('idx_remote_feature_project_id', table_name='remote_feature')
     op.drop_index('idx_remote_category_project_id', table_name='remote_category')
-    
+
     op.drop_index('idx_loader_notification_project_id', table_name='loader_notification')
     op.drop_index('idx_loader_game_assignment_project_id', table_name='loader_game_assignment')
     op.drop_index('idx_loader_download_log_project_id', table_name='loader_download_log')
     op.drop_index('idx_loader_configuration_project_id', table_name='loader_configuration')
     op.drop_index('idx_loader_changelog_project_id', table_name='loader_changelog')
     op.drop_index('idx_loader_project_id', table_name='loader')
-    
+
     op.drop_index('idx_two_factor_session_expires_at', table_name='two_factor_session')
     op.drop_index('idx_two_factor_session_user_id', table_name='two_factor_session')
     op.drop_index('idx_two_factor_session_project_id', table_name='two_factor_session')
@@ -211,7 +187,7 @@ def downgrade():
     op.drop_index('idx_two_factor_backup_code_user_id', table_name='two_factor_backup_code')
     op.drop_index('idx_two_factor_backup_code_project_id', table_name='two_factor_backup_code')
     op.drop_index('idx_two_factor_auth_project_id', table_name='two_factor_auth')
-    
+
     op.drop_index('idx_security_rule_is_active', table_name='security_rule')
     op.drop_index('idx_security_rule_project_id', table_name='security_rule')
     op.drop_index('idx_security_analytics_date', table_name='security_analytics')
@@ -228,23 +204,23 @@ def downgrade():
     op.drop_index('idx_login_attempt_created_at', table_name='login_attempt')
     op.drop_index('idx_login_attempt_ip_address', table_name='login_attempt')
     op.drop_index('idx_login_attempt_project_id', table_name='login_attempt')
-    
+
     op.drop_index('idx_project_api_key_project_id', table_name='project_api_key')
     op.drop_index('idx_billing_project_id', table_name='billing')
     op.drop_index('idx_server_is_active', table_name='server')
     op.drop_index('idx_server_project_id', table_name='server')
-    
+
     op.drop_index('idx_webhook_log_created_at', table_name='webhook_log')
     op.drop_index('idx_webhook_log_webhook_id', table_name='webhook_log')
     op.drop_index('idx_webhook_is_active', table_name='webhook')
     op.drop_index('idx_webhook_project_id', table_name='webhook')
-    
+
     op.drop_index('idx_notification_is_scheduled', table_name='notification')
     op.drop_index('idx_notification_created_at', table_name='notification')
     op.drop_index('idx_notification_is_read', table_name='notification')
     op.drop_index('idx_notification_user_id', table_name='notification')
     op.drop_index('idx_notification_project_id', table_name='notification')
-    
+
     op.drop_index('idx_discord_webhook_project_id', table_name='discord_webhook')
     op.drop_index('idx_telegram_bot_project_id', table_name='telegram_bot')
     op.drop_index('idx_chat_group_game_project_id', table_name='chat_group_game')
@@ -252,7 +228,7 @@ def downgrade():
     op.drop_index('idx_chat_message_game_id', table_name='chat_message')
     op.drop_index('idx_chat_message_created_at', table_name='chat_message')
     op.drop_index('idx_chat_message_project_id', table_name='chat_message')
-    
+
     op.drop_index('idx_resource_attribute_resource', table_name='resource_attribute')
     op.drop_index('idx_resource_attribute_project_id', table_name='resource_attribute')
     op.drop_index('idx_attribute_rule_is_active', table_name='attribute_rule')
@@ -263,20 +239,20 @@ def downgrade():
     op.drop_index('idx_user_role_user_id', table_name='user_role')
     op.drop_index('idx_permission_project_id', table_name='permission')
     op.drop_index('idx_role_project_id', table_name='role')
-    
+
     op.drop_index('idx_developer_game_permission_user_id', table_name='developer_game_permission')
     op.drop_index('idx_developer_game_permission_project_id', table_name='developer_game_permission')
     op.drop_index('idx_user_game_permission_game_id', table_name='user_game_permission')
     op.drop_index('idx_user_game_permission_user_id', table_name='user_game_permission')
     op.drop_index('idx_user_game_permission_project_id', table_name='user_game_permission')
-    
+
     op.drop_index('idx_referral_code_expires_at', table_name='referral_code')
     op.drop_index('idx_referral_code_used', table_name='referral_code')
     op.drop_index('idx_referral_code_project_id', table_name='referral_code')
     op.drop_index('idx_token_transaction_created_at', table_name='token_transaction')
     op.drop_index('idx_token_transaction_user_id', table_name='token_transaction')
     op.drop_index('idx_token_transaction_project_id', table_name='token_transaction')
-    
+
     op.drop_index('idx_key_analytics_date', table_name='key_analytics')
     op.drop_index('idx_key_analytics_key_id', table_name='key_analytics')
     op.drop_index('idx_key_created_at', table_name='key')
@@ -285,7 +261,7 @@ def downgrade():
     op.drop_index('idx_key_game_id', table_name='key')
     op.drop_index('idx_key_user_id', table_name='key')
     op.drop_index('idx_key_project_id', table_name='key')
-    
+
     op.drop_index('idx_file_meta_game_id', table_name='file_meta')
     op.drop_index('idx_file_meta_project_id', table_name='file_meta')
     op.drop_index('idx_announcement_game_id', table_name='announcement')
@@ -304,13 +280,13 @@ def downgrade():
     op.drop_index('idx_game_is_active', table_name='game')
     op.drop_index('idx_game_status', table_name='game')
     op.drop_index('idx_game_project_id', table_name='game')
-    
+
     op.drop_index('idx_project_invite_code_expires_at', table_name='project_invite_code')
     op.drop_index('idx_project_invite_code_is_used', table_name='project_invite_code')
     op.drop_index('idx_project_invite_code_project_id', table_name='project_invite_code')
     op.drop_index('idx_project_user_role_user_id', table_name='project_user_role')
     op.drop_index('idx_project_user_role_project_id', table_name='project_user_role')
-    
+
     op.drop_index('idx_user_action_log_created_at', table_name='user_action_log')
     op.drop_index('idx_user_action_log_user_id', table_name='user_action_log')
     op.drop_index('idx_user_action_log_project_id', table_name='user_action_log')
@@ -318,4 +294,3 @@ def downgrade():
     op.drop_index('idx_user_activity_created_at', table_name='user_activity')
     op.drop_index('idx_user_activity_project_id', table_name='user_activity')
     op.drop_index('idx_user_project_id', table_name='user')
-

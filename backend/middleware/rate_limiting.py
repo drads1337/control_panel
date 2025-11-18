@@ -12,7 +12,6 @@ from flask import current_app, jsonify, request
 
 logger = logging.getLogger(__name__)
 
-
 def rate_limit(limit_string):
     """
     Decorator for applying rate limiting to specific endpoints
@@ -25,21 +24,19 @@ def rate_limit(limit_string):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             try:
-                # Get limiter from app context
+
                 limiter = current_app.limiter
                 if limiter:
-                    # Apply rate limiting
+
                     limiter.limit(limit_string)(lambda: None)()
             except Exception as e:
                 logger.warning(f"Rate limiting failed for {request.endpoint}: {e}")
-                # Continue execution even if rate limiting fails
 
             return f(*args, **kwargs)
 
         return decorated_function
 
     return decorator
-
 
 def apply_auth_rate_limits():
     """
@@ -52,11 +49,10 @@ def apply_auth_rate_limits():
 
         from ..routes.auth import auth_bp
 
-        # Get the limiter from app context
         limiter = current_app.limiter
 
         if limiter:
-            # Apply strict rate limiting to auth blueprint
+
             limiter.limit("5 per minute")(auth_bp)
             logger.info("Applied rate limiting to authentication endpoints")
         else:
@@ -64,7 +60,6 @@ def apply_auth_rate_limits():
 
     except Exception as e:
         logger.error(f"Failed to apply auth rate limits: {e}")
-
 
 def check_rate_limit_for_endpoint(endpoint_name, limit_string="10 per minute"):
     """
@@ -82,7 +77,6 @@ def check_rate_limit_for_endpoint(endpoint_name, limit_string="10 per minute"):
         if not limiter:
             return True
 
-        # Create a temporary function to test rate limiting
         @limiter.limit(limit_string)
         def test_function():
             return True
@@ -92,8 +86,7 @@ def check_rate_limit_for_endpoint(endpoint_name, limit_string="10 per minute"):
 
     except Exception as e:
         logger.warning(f"Rate limit check failed for {endpoint_name}: {e}")
-        return True  # Allow request if rate limiting fails
-
+        return True
 
 def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10):
     """
@@ -115,22 +108,19 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10):
                 security_checker = SecurityChecker()
                 response_builder = ResponseBuilder()
 
-                # Use centralized Redis client for consistency and connection management
                 redis_client = get_redis_client()
 
                 ip = request.remote_addr
                 req_json = request.get_json(silent=True) or {}
                 user_key = req_json.get("user_key") or ""
 
-                # Multiple rate limiting keys for better protection
                 minute_key = f"rl_min:{user_key}:{ip}"
                 burst_key = f"rl_burst:{user_key}:{ip}"
                 progressive_key = f"rl_prog:{user_key}:{ip}"
 
-                # Check burst limit (first 10 seconds)
                 burst_count = redis_client.incr(burst_key)
                 if burst_count == 1:
-                    redis_client.expire(burst_key, 10)  # 10 second window
+                    redis_client.expire(burst_key, 10)
 
                 if burst_count > rate_limit_burst:
                     security_checker.log_suspicious_activity(ip, "BURST_RATE_LIMIT", user_key)
@@ -140,18 +130,15 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10):
                     encrypted_response = response_builder.encrypt_response(error_response, True)
                     return encrypted_response, 429
 
-                # Check minute limit
                 minute_count = redis_client.incr(minute_key)
                 if minute_count == 1:
                     redis_client.expire(minute_key, 60)
 
-                # Progressive delay for repeated attempts
                 if minute_count > 1:
                     progressive_count = redis_client.incr(progressive_key)
                     if progressive_count == 1:
-                        redis_client.expire(progressive_key, 300)  # 5 minutes
+                        redis_client.expire(progressive_key, 300)
 
-                    # Progressive delay: 1s, 2s, 4s, 8s, 16s...
                     delay = min(2 ** (progressive_count - 1), 16)
                     time.sleep(delay)
 
@@ -168,7 +155,7 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10):
                 import traceback
 
                 logger.error(f"Rate limiting traceback: {traceback.format_exc()}")
-                # If rate limiting fails, still try to execute the function
+
                 return func(*args, **kwargs)
 
         return wrapper

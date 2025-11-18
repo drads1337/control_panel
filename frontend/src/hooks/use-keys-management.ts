@@ -16,7 +16,7 @@ interface UseKeysManagementParams {
 }
 
 interface UseKeysManagementReturn {
-  // Data
+
   keys: LicenseKey[];
   loading: boolean;
   games: Array<{ id: number; name: string; is_multi_app: boolean }>;
@@ -27,9 +27,8 @@ interface UseKeysManagementReturn {
     pages: number;
   };
 
-  // UI State
   showKey: Record<number, boolean>;
-  fullKeys: Record<number, string>; // Full keys cache
+  fullKeys: Record<number, string>;
   selectedKeys: Set<number>;
   actionLoading: Set<number>;
   selectedKey: LicenseKey | null;
@@ -37,7 +36,6 @@ interface UseKeysManagementReturn {
   editDialogOpen: boolean;
   extendDialogOpen: boolean;
 
-  // Actions
   handleToggleKeyVisibility: (keyId: number) => void;
   handleSelectKey: (keyId: number, selected: boolean) => void;
   handleSelectAll: (selected: boolean) => void;
@@ -52,10 +50,6 @@ interface UseKeysManagementReturn {
   setSelectedKey: (key: LicenseKey | null) => void;
 }
 
-/**
- * Composite hook that combines data and UI management
- * For better separation, consider using useKeysData and useKeysUI directly
- */
 export function useKeysManagement({
   viewMode,
   filters,
@@ -64,7 +58,6 @@ export function useKeysManagement({
 }: UseKeysManagementParams): UseKeysManagementReturn {
   const [games, setGames] = useState<Array<{ id: number; name: string; is_multi_app: boolean }>>([]);
 
-  // Use separated hooks
   const keysData = useKeysData({
     viewMode,
     filters,
@@ -72,7 +65,6 @@ export function useKeysManagement({
     canViewKeys,
   });
 
-  // Wrap loadGames to also update local games state
   const loadGames = useCallback(async () => {
     try {
       const response = await getGames('all');
@@ -84,7 +76,7 @@ export function useKeysManagement({
         }))
       );
     } catch (error) {
-      console.error('Error loading games:', error);
+
     }
   }, []);
 
@@ -95,17 +87,14 @@ export function useKeysManagement({
   });
 
   return {
-    // Data
+
     keys: keysData.keys as LicenseKey[],
     loading: keysData.loading,
     games,
     pagination: keysData.pagination,
 
-    // UI State
     ...keysUI,
 
-    // Actions
     loadGames,
   };
 }
-

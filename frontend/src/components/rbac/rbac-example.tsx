@@ -13,10 +13,6 @@ import {
 import { usePermissions } from '@/hooks/use-permissions'
 import { useRBACApi } from '@/hooks/use-rbac-api'
 
-/**
- * Example component demonstrating RBAC usage
- * Shows how to use permission guards, conditional rendering, and API integration
- */
 export function RBACExample() {
   const { 
     user, 
@@ -43,7 +39,7 @@ export function RBACExample() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* User Info */}
+          {}
           <div className="space-y-2">
             <h3 className="text-lg font-semibold">User Information</h3>
             <div className="flex items-center space-x-2">
@@ -57,11 +53,11 @@ export function RBACExample() {
             </div>
           </div>
 
-          {/* Permission-based Conditional Rendering */}
+          {}
           <div className="space-y-2">
             <h3 className="text-lg font-semibold">Conditional Rendering Examples</h3>
-            
-            {/* Admin only content */}
+
+            {}
             <AdminRender>
               <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-sm text-red-800">
@@ -70,7 +66,7 @@ export function RBACExample() {
               </div>
             </AdminRender>
 
-            {/* Owner only content */}
+            {}
             <OwnerRender>
               <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
                 <p className="text-sm text-purple-800">
@@ -79,7 +75,7 @@ export function RBACExample() {
               </div>
             </OwnerRender>
 
-            {/* Seller or above content */}
+            {}
             <SellerRender>
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-sm text-blue-800">
@@ -88,7 +84,7 @@ export function RBACExample() {
               </div>
             </SellerRender>
 
-            {/* Developer or above content */}
+            {}
             <DeveloperRender>
               <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
                 <p className="text-sm text-orange-800">
@@ -97,7 +93,7 @@ export function RBACExample() {
               </div>
             </DeveloperRender>
 
-            {/* Permission-based content */}
+            {}
             <ConditionalRender
               permission="users.create"
               fallback={<p className="text-sm text-muted-foreground">You don't have permission to create users</p>}
@@ -109,7 +105,7 @@ export function RBACExample() {
               </div>
             </ConditionalRender>
 
-            {/* Feature-based content */}
+            {}
             <ConditionalRender
               feature="users_management"
               fallback={<p className="text-sm text-muted-foreground">You don't have access to user management</p>}
@@ -122,14 +118,14 @@ export function RBACExample() {
             </ConditionalRender>
           </div>
 
-          {/* Permission-based Buttons */}
+          {}
           <div className="space-y-2">
             <h3 className="text-lg font-semibold">Permission-based Buttons</h3>
             <div className="flex flex-wrap gap-2">
               <PermissionButton
                 permission="users.create"
                 variant="default"
-                onClick={() => console.log('Create user clicked')}
+                onClick={() => }
               >
                 Create User
               </PermissionButton>
@@ -137,7 +133,7 @@ export function RBACExample() {
               <PermissionButton
                 permission="users.edit"
                 variant="outline"
-                onClick={() => console.log('Edit user clicked')}
+                onClick={() => }
               >
                 Edit User
               </PermissionButton>
@@ -145,7 +141,7 @@ export function RBACExample() {
               <PermissionButton
                 permission="users.delete"
                 variant="destructive"
-                onClick={() => console.log('Delete user clicked')}
+                onClick={() => }
               >
                 Delete User
               </PermissionButton>
@@ -153,7 +149,7 @@ export function RBACExample() {
               <PermissionButton
                 roles={['admin', 'owner']}
                 variant="secondary"
-                onClick={() => console.log('Admin action clicked')}
+                onClick={() => }
               >
                 Admin Action
               </PermissionButton>
@@ -161,14 +157,14 @@ export function RBACExample() {
               <PermissionButton
                 feature="key_management"
                 variant="outline"
-                onClick={() => console.log('Key management clicked')}
+                onClick={() => }
               >
                 Manage Keys
               </PermissionButton>
             </div>
           </div>
 
-          {/* RBAC Data Display */}
+          {}
           <div className="space-y-2">
             <h3 className="text-lg font-semibold">RBAC Data</h3>
             {loading && <p className="text-sm text-muted-foreground">Loading RBAC data...</p>}
@@ -198,7 +194,7 @@ export function RBACExample() {
             )}
           </div>
 
-          {/* Permission Checks */}
+          {}
           <div className="space-y-2">
             <h3 className="text-lg font-semibold">Permission Checks</h3>
             <div className="grid grid-cols-2 gap-2 text-sm">

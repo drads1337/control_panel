@@ -18,12 +18,6 @@ from ..utils.rbac_utils import RBACManager
 
 servers_bp = Blueprint("servers", __name__)
 
-
-# Deprecated functions removed - all server operations now use server_service and task_service
-# These functions were kept for backward compatibility but are no longer needed
-# as all operations are handled through Celery tasks in tasks/server_tasks.py
-
-
 @servers_bp.route("", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -41,7 +35,6 @@ def get_servers():
     search = request.args.get("search")
     include_password = request.args.get("include_password", "false").lower() == "true"
 
-    # Use service to get servers
     result = server_service.get_servers(
         user=current_user,
         page=page,
@@ -51,11 +44,10 @@ def get_servers():
         include_password=include_password,
     )
 
-    # Create tasks for server status checks (uses Celery)
     for server_data in result["servers"]:
         server_id = server_data.get("id")
         if server_id:
-            # Get project_id from server data
+
             server_obj = server_service.get_server_by_id(server_id, current_user)
             if server_obj:
                 task_service.create_task(
@@ -70,7 +62,6 @@ def get_servers():
                 )
 
     return jsonify(result)
-
 
 @servers_bp.route("", methods=["POST"])
 @jwt_required()
@@ -97,14 +88,12 @@ def create_server():
     if not all([name, ip_address, username, password]):
         return jsonify({"error": "Name, IP address, username and password are required"}), 400
 
-    # Determine project_id based on user role
     project_id = (
         current_user.project_id
         if not RBACManager.is_owner(current_user)
         else data.get("project_id")
     )
 
-    # Use service to create server
     server, error = server_service.create_server(
         user=current_user,
         name=name,
@@ -120,7 +109,6 @@ def create_server():
     if error:
         return jsonify({"error": error}), 400 if "already exists" in error else 500
 
-    # Create task for server status check (uses Celery)
     task_service.create_task(
         task_type="server_status_check",
         task_data={
@@ -155,7 +143,6 @@ def create_server():
         201,
     )
 
-
 @servers_bp.route("/<int:server_id>", methods=["DELETE"])
 @jwt_required()
 @require_project_with_grace_period
@@ -167,14 +154,12 @@ def delete_server(server_id):
     if not current_user:
         return jsonify({"error": "Access denied"}), 403
 
-    # Get server to get its name for logging
     server = server_service.get_server_by_id(server_id, current_user)
     if not server:
         return jsonify({"error": "Server not found"}), 404
 
     server_name = server.name
 
-    # Use service to delete server
     success, error = server_service.delete_server(server_id, current_user)
 
     if not success:
@@ -189,7 +174,6 @@ def delete_server(server_id):
 
     return jsonify({"message": "Server deleted successfully"})
 
-
 @servers_bp.route("/<int:server_id>/start", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -202,7 +186,6 @@ def start_server_route(server_id):
     if not server:
         return jsonify({"error": "Server not found"}), 404
 
-    # Create task for server start operation
     task_id = task_service.create_task(
         task_type="server_start",
         task_data={
@@ -230,7 +213,6 @@ def start_server_route(server_id):
         }
     )
 
-
 @servers_bp.route("/<int:server_id>/stop", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -246,7 +228,6 @@ def stop_server_route(server_id):
     if not server:
         return jsonify({"error": "Server not found"}), 404
 
-    # Create task for server stop operation (uses Celery)
     task_id = task_service.create_task(
         task_type="server_stop",
         task_data={
@@ -274,7 +255,6 @@ def stop_server_route(server_id):
         }
     )
 
-
 @servers_bp.route("/<int:server_id>/restart", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -290,7 +270,6 @@ def restart_server_route(server_id):
     if not server:
         return jsonify({"error": "Server not found"}), 404
 
-    # Create task for server restart operation (uses Celery)
     task_id = task_service.create_task(
         task_type="server_restart",
         task_data={
@@ -318,7 +297,6 @@ def restart_server_route(server_id):
         }
     )
 
-
 @servers_bp.route("/<int:server_id>/status", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -334,7 +312,6 @@ def get_server_status(server_id):
     if not server:
         return jsonify({"error": "Server not found"}), 404
 
-    # Create task for server status check (uses Celery)
     task_id = task_service.create_task(
         task_type="server_status_check",
         task_data={
@@ -356,7 +333,6 @@ def get_server_status(server_id):
         }
     )
 
-
 @servers_bp.route("/bulk/status", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -374,12 +350,11 @@ def bulk_check_status():
     if not server_ids:
         return jsonify({"error": "server_ids is required"}), 400
 
-    # Use service to get servers with proper project isolation
     servers = server_service.get_servers_by_ids(server_ids, current_user)
 
     task_ids = []
     for server in servers:
-        # Create task for server status check (uses Celery)
+
         task_id = task_service.create_task(
             task_type="server_status_check",
             task_data={
@@ -406,7 +381,6 @@ def bulk_check_status():
         }
     )
 
-
 @servers_bp.route("/stats", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -418,10 +392,8 @@ def get_server_stats():
     if not current_user:
         return jsonify({"error": "Access denied"}), 403
 
-    # Use service to get server stats
     stats = server_service.get_server_stats(current_user)
-    
-    # Add random uptime_rate for backward compatibility
+
     import random
     stats["overview"]["uptime_rate"] = round(random.uniform(98.9, 99.9), 1)
 

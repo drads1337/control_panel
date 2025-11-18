@@ -1,4 +1,4 @@
-// Constants for statuses
+
 export const STATUS = {
   ACTIVE: 'active',
   INACTIVE: 'inactive',
@@ -6,7 +6,6 @@ export const STATUS = {
   PENDING: 'pending'
 } as const;
 
-// Constants for user roles
 export const USER_ROLES = {
   ADMIN: 'admin',
   USER: 'user',
@@ -16,7 +15,6 @@ export const USER_ROLES = {
   CUSTOM: 'custom'
 } as const;
 
-// Constants for log levels
 export const LOG_LEVELS = {
   INFO: 'info',
   WARNING: 'warning',
@@ -25,7 +23,6 @@ export const LOG_LEVELS = {
   DEBUG: 'debug'
 } as const;
 
-// Constants for actions
 export const ACTIONS = {
   LOGIN: 'login',
   LOGOUT: 'logout',
@@ -37,14 +34,12 @@ export const ACTIONS = {
   UPLOAD: 'upload'
 } as const;
 
-// Constants for key types
 export const KEY_TYPES = {
   STANDARD: 'standard',
   PREMIUM: 'premium',
   ENTERPRISE: 'enterprise'
 } as const;
 
-// Constants for key statuses
 export const KEY_STATUS = {
   ACTIVE: 1,
   BLOCKED: 0,
@@ -52,13 +47,11 @@ export const KEY_STATUS = {
   EXPIRED: 2
 } as const;
 
-// Constants for pagination
 export const PAGINATION = {
   DEFAULT_PAGE_SIZE: 10,
   PAGE_SIZE_OPTIONS: [5, 10, 25, 50, 100]
 } as const;
 
-// Constants for filters
 export const FILTERS = {
   ALL: 'all',
   TODAY: 'today',
@@ -67,19 +60,16 @@ export const FILTERS = {
   YEAR: 'year'
 } as const;
 
-// Constants for themes
 export const THEMES = {
   LIGHT: 'light',
   DARK: 'dark'
 } as const;
 
-// Constants for languages
 export const LANGUAGES = {
   EN: 'en',
   RU: 'ru'
 } as const;
 
-// Constants for API endpoints
 export const API_ENDPOINTS = {
   AUTH: {
     LOGIN: '/api/login',
@@ -114,10 +104,8 @@ export const API_ENDPOINTS = {
   }
 } as const;
 
-// Base URL for API
 export const API_BASE_URL = '';
 
-// Constants for messages
 export const MESSAGES = {
   SUCCESS: {
     CREATED: 'Record successfully created',
@@ -150,15 +138,13 @@ export const MESSAGES = {
   }
 } as const;
 
-// Constants for validation
 export const VALIDATION = {
-  PASSWORD_MIN_LENGTH: 8, // Match backend default
+  PASSWORD_MIN_LENGTH: 8,
   USERNAME_MIN_LENGTH: 3,
   EMAIL_REGEX: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
   PHONE_REGEX: /^\+?[\d\s\-\(\)]+$/
 } as const;
 
-// Constants for date formats
 export const DATE_FORMATS = {
   DISPLAY: 'DD.MM.YYYY HH:mm',
   API: 'YYYY-MM-DDTHH:mm:ss.SSSZ',
@@ -166,21 +152,18 @@ export const DATE_FORMATS = {
   TIME_ONLY: 'HH:mm'
 } as const;
 
-// Constants for file sizes
 export const FILE_SIZES = {
-  MAX_AVATAR: 5 * 1024 * 1024, // 5MB
-  MAX_DOCUMENT: 10 * 1024 * 1024, // 10MB
-  MAX_IMAGE: 2 * 1024 * 1024 // 2MB
+  MAX_AVATAR: 5 * 1024 * 1024,
+  MAX_DOCUMENT: 10 * 1024 * 1024,
+  MAX_IMAGE: 2 * 1024 * 1024
 } as const;
 
-// Constants for file types
 export const FILE_TYPES = {
   IMAGE: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
   DOCUMENT: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
   SPREADSHEET: ['application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
 } as const;
 
-// Constants for colors
 export const COLORS = {
   PRIMARY: '#7F5AF0',
   SECONDARY: '#2CB67D',
@@ -190,7 +173,6 @@ export const COLORS = {
   INFO: '#3DA9FC'
 } as const;
 
-// Constants for animations
 export const ANIMATIONS = {
   DURATION: {
     FAST: 150,
@@ -204,7 +186,6 @@ export const ANIMATIONS = {
   }
 } as const;
 
-// Constants for breakpoints
 export const BREAKPOINTS = {
   XS: 0,
   SM: 600,
@@ -213,7 +194,6 @@ export const BREAKPOINTS = {
   XL: 1536
 } as const;
 
-// Constants for z-index
 export const Z_INDEX = {
   DRAWER: 1200,
   APP_BAR: 1100,
@@ -222,7 +202,6 @@ export const Z_INDEX = {
   SNACKBAR: 1400
 } as const;
 
-// Constants for permissions
 export const PERMISSION_CATEGORIES = {
   USERS: {
     id: 'users',

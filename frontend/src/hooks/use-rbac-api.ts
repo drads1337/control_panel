@@ -52,9 +52,6 @@ interface RBACData {
   user_permissions: UserPermission[]
 }
 
-/**
- * Hook for managing RBAC data from API
- */
 export function useRBACApi() {
   const { user, isAuthenticated } = useAuthContext()
   const [rbacData, setRbacData] = useState<RBACData | null>(null)
@@ -70,7 +67,6 @@ export function useRBACApi() {
       setLoading(true)
       setError(null)
 
-      // Fetch roles
       const rolesResponse = await fetch(getApiUrl('/api/rbac/roles'), {
         method: 'GET',
         credentials: 'include',
@@ -85,7 +81,6 @@ export function useRBACApi() {
 
       const rolesData = await rolesResponse.json()
 
-      // Fetch permissions
       const permissionsResponse = await fetch(getApiUrl('/api/rbac/permissions'), {
         method: 'GET',
         credentials: 'include',
@@ -100,7 +95,6 @@ export function useRBACApi() {
 
       const permissionsData = await permissionsResponse.json()
 
-      // Fetch user roles
       const userRolesResponse = await fetch(getApiUrl(`/api/rbac/users/${user.id}/roles`), {
         method: 'GET',
         credentials: 'include',
@@ -115,7 +109,6 @@ export function useRBACApi() {
 
       const userRolesData = await userRolesResponse.json()
 
-      // Fetch user permissions
       const userPermissionsResponse = await fetch(getApiUrl(`/api/rbac/users/${user.id}/permissions`), {
         method: 'GET',
         credentials: 'include',
@@ -125,22 +118,20 @@ export function useRBACApi() {
       })
 
       let userPermissionsData: { user_permissions?: string[] } = { user_permissions: [] }
-      
-      // Handle expected "Static roles cannot manage RBAC" error gracefully
+
       if (!userPermissionsResponse.ok) {
         try {
           const errorData = await userPermissionsResponse.json()
           const errorMessage = errorData?.error || errorData?.message || ''
-          
-          // If it's the expected static role error, return empty permissions
+
           if (errorMessage.includes('Static roles cannot manage RBAC')) {
-            // Silently continue with empty permissions - this is expected for static roles
+
             userPermissionsData = { user_permissions: [] }
           } else {
             throw new Error('Failed to fetch user permissions')
           }
         } catch (parseError) {
-          // If we can't parse the error, treat it as a real error
+
           throw new Error('Failed to fetch user permissions')
         }
       } else {
@@ -157,7 +148,7 @@ export function useRBACApi() {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch RBAC data'
       setError(errorMessage)
-      console.error('RBAC API Error:', errorMessage)
+
     } finally {
       setLoading(false)
     }
@@ -179,10 +170,9 @@ export function useRBACApi() {
       }
 
       const result = await response.json()
-      
-      // Refresh RBAC data
+
       await fetchRBACData()
-      
+
       return result
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to create role'
@@ -207,10 +197,9 @@ export function useRBACApi() {
       }
 
       const result = await response.json()
-      
-      // Refresh RBAC data
+
       await fetchRBACData()
-      
+
       return result
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to update role'
@@ -233,9 +222,8 @@ export function useRBACApi() {
         throw new Error('Failed to delete role')
       }
 
-      // Refresh RBAC data
       await fetchRBACData()
-      
+
       return true
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to delete role'
@@ -260,10 +248,9 @@ export function useRBACApi() {
       }
 
       const result = await response.json()
-      
-      // Refresh RBAC data
+
       await fetchRBACData()
-      
+
       return result
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to assign role to user'
@@ -286,9 +273,8 @@ export function useRBACApi() {
         throw new Error('Failed to remove role from user')
       }
 
-      // Refresh RBAC data
       await fetchRBACData()
-      
+
       return true
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to remove role from user'
@@ -313,10 +299,9 @@ export function useRBACApi() {
       }
 
       const result = await response.json()
-      
-      // Refresh RBAC data
+
       await fetchRBACData()
-      
+
       return result
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to assign permission to role'
@@ -339,9 +324,8 @@ export function useRBACApi() {
         throw new Error('Failed to remove permission from role')
       }
 
-      // Refresh RBAC data
       await fetchRBACData()
-      
+
       return true
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to remove permission from role'
@@ -350,7 +334,6 @@ export function useRBACApi() {
     }
   }, [fetchRBACData])
 
-  // Fetch RBAC data on mount and when user changes
   useEffect(() => {
     if (isAuthenticated && user) {
       fetchRBACData()

@@ -38,9 +38,8 @@ interface SearchResult {
   roles?: string[]
 }
 
-// All available search items with permissions
 const getAllSearchItems = (): SearchResult[] => [
-  // Core pages
+
   { 
     id: 'dashboard', 
     title: 'Dashboard', 
@@ -155,8 +154,7 @@ const getAllSearchItems = (): SearchResult[] => [
     icon: <Key className="h-4 w-4" />, 
     href: '/invite-codes' 
   },
-  
-  // Quick actions
+
   { 
     id: 'new-user', 
     title: 'Create User', 
@@ -189,7 +187,6 @@ const getAllSearchItems = (): SearchResult[] => [
   },
 ]
 
-// Detect if platform is Mac
 const isMac = () => {
   if (typeof window === 'undefined') return false
   return navigator.platform.toUpperCase().indexOf('MAC') >= 0 || 
@@ -212,29 +209,27 @@ export function SearchBar({ className = '', placeholder = 'Search the system...'
   const { hasPermission, hasAnyRole } = usePermissions()
   const platformIsMac = useMemo(() => isMac(), [])
 
-  // Filter search items based on user permissions
   const availableSearchItems = useMemo(() => {
     const allItems = getAllSearchItems()
     return allItems.filter(item => {
-      // If item requires permission, check it
+
       if (item.permission && !hasPermission(item.permission)) {
         return false
       }
-      
-      // If item requires role, check it
+
       if (item.roles && item.roles.length > 0) {
         if (!hasAnyRole(item.roles)) {
           return false
         }
       }
-      
+
       return true
     })
   }, [hasPermission, hasAnyRole])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Check for Cmd+K (Mac) or Ctrl+K (Windows/Linux)
+
       if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault()
         setIsOpen(true)

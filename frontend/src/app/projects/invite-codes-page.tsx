@@ -8,24 +8,23 @@ import { isAdmin } from '@/lib/rbac-utils'
 export default function InviteCodes() {
   const { user } = useAuthContext()
 
-  // Only admin or owner can view this page
   if (!user || !isAdmin(user)) {
     return <Navigate to="/dashboard" replace />
   }
 
   return (
     <div className="flex h-screen bg-background dark:bg-background">
-      {/* Sidebar */}
+      {}
       <AppSidebar />
 
-      {/* Main Content */}
+      {}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
+        {}
         <AppHeader title="Invite Code Management">
-          {/* Additional actions can be added here */}
+          {}
         </AppHeader>
 
-        {/* Main Content */}
+        {}
         <main className="flex-1 overflow-y-auto p-6">
           <div className="mb-6">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
@@ -36,7 +35,7 @@ export default function InviteCodes() {
             </p>
           </div>
 
-          {/* Invite Code Manager */}
+          {}
           <InviteCodeManager />
         </main>
       </div>

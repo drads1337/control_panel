@@ -5,7 +5,6 @@ Contains business logic for heartbeat monitoring
 
 from .heartbeat_service import HeartbeatService, heartbeat_service
 
-# Auto-generate __all__ from imports to avoid duplication
 import sys
 _current_module = sys.modules[__name__]
 __all__ = sorted([

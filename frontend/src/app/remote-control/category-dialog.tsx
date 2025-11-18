@@ -66,7 +66,7 @@ export default function CategoryDialog({
         </DialogHeader>
 
         <div className="space-y-6 overflow-y-auto max-h-[calc(90vh-180px)] pr-2">
-          {/* Add/Edit Category Form */}
+          {}
           <Card className="border-2">
             <CardContent className="p-4">
               <div className="space-y-4">
@@ -75,7 +75,7 @@ export default function CategoryDialog({
                     {editingCategory ? 'Edit Section' : 'Add Section'}
                   </h4>
                 </div>
-                
+
                 <div className="grid gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="category-name">Name</Label>
@@ -87,7 +87,7 @@ export default function CategoryDialog({
                       className="h-9"
                     />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="category-description">Description</Label>
                     <Input
@@ -98,7 +98,7 @@ export default function CategoryDialog({
                       className="h-9"
                     />
                   </div>
-                  
+
                   <div className="flex items-end gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="category-color">Color</Label>
@@ -110,7 +110,7 @@ export default function CategoryDialog({
                         className="h-9 w-20"
                       />
                     </div>
-                    
+
                     <div className="flex gap-2 ml-auto">
                       <ConditionalRender permission="remote_control.create" fallback={null}>
                         <Button
@@ -155,7 +155,7 @@ export default function CategoryDialog({
             </CardContent>
           </Card>
 
-          {/* Categories List */}
+          {}
           <div>
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-sm font-medium">Existing Sections</h4>
@@ -163,7 +163,7 @@ export default function CategoryDialog({
                 {categories.length}/8 sections used
               </span>
             </div>
-            
+
             {categories.length === 0 ? (
               <Card className="border-dashed">
                 <CardContent className="p-8 text-center">
@@ -189,7 +189,7 @@ export default function CategoryDialog({
                             <p className="text-xs text-muted-foreground mt-1">{category.description}</p>
                           </div>
                         </div>
-                        
+
                         <div className="flex items-center gap-2 shrink-0">
                           <ConditionalRender permission="remote_control.edit" fallback={null}>
                             <Button

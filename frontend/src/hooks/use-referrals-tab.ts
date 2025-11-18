@@ -17,11 +17,10 @@ interface ReferralCodeForm {
 }
 
 interface UseReferralsTabReturn {
-  // State
+
   referralCodeForm: ReferralCodeForm;
   isCreateReferralDialogOpen: boolean;
-  
-  // Data
+
   referralCodes: any[];
   roles: Role[];
   availableGames: Game[];
@@ -32,8 +31,7 @@ interface UseReferralsTabReturn {
   gamesLoading: boolean;
   gamesError: Error | null;
   isCreating: boolean;
-  
-  // Actions
+
   setReferralCodeForm: (form: ReferralCodeForm | ((prev: ReferralCodeForm) => ReferralCodeForm)) => void;
   setIsCreateReferralDialogOpen: (open: boolean) => void;
   handleCreateReferralCode: () => Promise<void>;
@@ -41,10 +39,6 @@ interface UseReferralsTabReturn {
   refetchReferralCodes: () => void;
 }
 
-/**
- * Hook for managing referrals tab logic (form state, data fetching, operations)
- * Separates data management from UI rendering (SRP)
- */
 export function useReferralsTab(): UseReferralsTabReturn {
   const [referralCodeForm, setReferralCodeForm] = useState<ReferralCodeForm>({
     code: '',
@@ -64,14 +58,13 @@ export function useReferralsTab(): UseReferralsTabReturn {
     isCreating, 
     refetch: refetchReferralCodes 
   } = useReferrals();
-  
+
   const { 
     data: roles = [], 
     isLoading: rbacLoading, 
     error: rbacError 
   } = useRBACRoles();
-  
-  // Load games when dialog opens
+
   const { 
     data: gamesData, 
     isLoading: gamesLoading, 
@@ -83,8 +76,8 @@ export function useReferralsTab(): UseReferralsTabReturn {
       return response.games || [];
     },
     enabled: isCreateReferralDialogOpen,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 2 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
     retry: (failureCount, error: any) => {
       if (error?.response?.status === 401 || error?.response?.status === 403 || error?.response?.status === 429) {
         return false;
@@ -127,7 +120,7 @@ export function useReferralsTab(): UseReferralsTabReturn {
       });
       setIsCreateReferralDialogOpen(false);
     } catch (error) {
-      // Error handling is done in the hook
+
     }
   }, [referralCodeForm, createCode]);
 
@@ -141,11 +134,10 @@ export function useReferralsTab(): UseReferralsTabReturn {
   }, []);
 
   return {
-    // State
+
     referralCodeForm,
     isCreateReferralDialogOpen,
-    
-    // Data
+
     referralCodes,
     roles,
     availableGames,
@@ -156,8 +148,7 @@ export function useReferralsTab(): UseReferralsTabReturn {
     gamesLoading,
     gamesError: gamesError instanceof Error ? gamesError : null,
     isCreating,
-    
-    // Actions
+
     setReferralCodeForm,
     setIsCreateReferralDialogOpen,
     handleCreateReferralCode,
@@ -165,4 +156,3 @@ export function useReferralsTab(): UseReferralsTabReturn {
     refetchReferralCodes,
   };
 }
-

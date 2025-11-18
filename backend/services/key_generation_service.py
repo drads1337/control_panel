@@ -12,7 +12,6 @@ from ..models.keys import Key
 from ..models.loaders import Loader
 from ..utils.structured_logging import get_logger
 
-
 class KeyGenerationService:
     """Service for generating key strings"""
 
@@ -43,7 +42,6 @@ class KeyGenerationService:
         random_length = max(8, length - 20)
         characters = string.ascii_letters + string.digits
 
-        # Use cryptographically secure random generator
         random_part = "".join(secrets.choice(characters) for _ in range(random_length))
 
         if game and game.login_type == "license_generation":
@@ -53,7 +51,6 @@ class KeyGenerationService:
         else:
             prefix = f"KEY-{random_part}"
 
-        # Ensure uniqueness
         while True:
             if not Key.query.filter_by(key=prefix, project_id=project_id).first():
                 return prefix
@@ -90,7 +87,4 @@ class KeyGenerationService:
 
         return prefix
 
-
-# Create service instance
 key_generation_service = KeyGenerationService()
-

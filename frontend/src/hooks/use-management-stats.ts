@@ -15,7 +15,6 @@ export interface ManagementStats {
   totalLoaders: number
 }
 
-// Cache keys
 export const managementStatsKeys = {
   all: ['management-stats'] as const,
   detail: () => [...managementStatsKeys.all, 'stats'] as const,
@@ -23,8 +22,7 @@ export const managementStatsKeys = {
 
 export function useManagementStats() {
   const { isAuthenticated, user } = useAuthContext()
-  
-  // Check if user has access to management
+
   const permissionChecks = hasManagementAccess(user)
   const { canViewKeys, canViewFiles, canViewGames, canViewLoaders, hasAccess } = permissionChecks
 
@@ -45,14 +43,12 @@ export function useManagementStats() {
         totalLoaders: 0,
       }
 
-      // Build array of promises for parallel execution
       const promises: Promise<unknown>[] = []
       const promiseHandlers: Array<{
         handler: (result: any) => void
         errorHandler: (error: any) => void
       }> = []
 
-      // Load keys stats only if user has permission
       if (canViewKeys) {
         promises.push(getKeysStats())
         promiseHandlers.push({
@@ -62,12 +58,11 @@ export function useManagementStats() {
             statsData.expiredKeys = keysStats.expired || 0
           },
           errorHandler: (error) => {
-            console.warn('Failed to load keys stats:', error)
+
           },
         })
       }
 
-      // Load games only if user has permission
       if (canViewGames) {
         promises.push(getGames())
         promiseHandlers.push({
@@ -75,12 +70,11 @@ export function useManagementStats() {
             statsData.totalGames = gamesResponse.games?.length || 0
           },
           errorHandler: (error) => {
-            console.warn('Failed to load games:', error)
+
           },
         })
       }
 
-      // Load file stats only if user has permission
       if (canViewFiles) {
         promises.push(getFileStats())
         promiseHandlers.push({
@@ -88,12 +82,11 @@ export function useManagementStats() {
             statsData.totalFiles = fileStats.overview?.total_files || 0
           },
           errorHandler: (error) => {
-            console.warn('Failed to load file stats:', error)
+
           },
         })
       }
 
-      // Load loader stats only if user has permission
       if (canViewLoaders) {
         promises.push(getLoaderStats())
         promiseHandlers.push({
@@ -101,12 +94,11 @@ export function useManagementStats() {
             statsData.totalLoaders = loaderStats.stats?.total_loaders || 0
           },
           errorHandler: (error) => {
-            console.warn('Failed to load loader stats:', error)
+
           },
         })
       }
 
-      // Execute all promises in parallel and handle each result independently
       const results = await Promise.allSettled(promises)
 
       results.forEach((result, index) => {
@@ -120,16 +112,16 @@ export function useManagementStats() {
       return statsData
     },
     enabled: isAuthenticated && hasAccess,
-    staleTime: 30 * 1000, // 30 seconds
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
     retry: (failureCount, error: any) => {
-      // Don't retry on auth errors (401, 403)
+
       if (error?.response?.status === 401 || error?.response?.status === 403) {
         return false
       }
-      // Retry up to 2 times for other errors
+
       return failureCount < 2
     },
   })
@@ -148,4 +140,3 @@ export function useManagementStats() {
     refetch,
   }
 }
-

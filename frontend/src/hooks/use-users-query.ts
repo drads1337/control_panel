@@ -5,7 +5,6 @@ import type { User, CreateUserData, UpdateUserData, UsersResponse } from '@/enti
 import { usePaginatedResource } from './use-paginated-resource'
 import { useMutationWithCache } from './use-mutation-helpers'
 
-// Cache keys
 export const userKeys = {
   all: ['users'] as const,
   lists: () => [...userKeys.all, 'list'] as const,
@@ -39,27 +38,24 @@ interface UseUsersReturn {
     admins: number
   } | null
   statsLoading: boolean
-  
-  // Actions
+
   createUser: (data: CreateUserData) => Promise<User>
   updateUser: (id: number, data: UpdateUserData) => Promise<User>
   deleteUser: (id: number) => Promise<void>
-  
-  // Pagination and search
+
   setPage: (page: number) => void
   setPerPage: (perPage: number) => void
   setSearch: (search: string) => void
   setRole: (role: string | undefined) => void
   setRoles: (roles: string[] | undefined) => void
   setProjectId: (projectId: number | undefined) => void
-  
-  // Data updates
+
   refetch: () => void
   refetchStats: () => void
 }
 
 export function useUsersQuery(initialParams: UseUsersParams = {}): UseUsersReturn {
-  // Используем универсальный хук для пагинации
+
   const {
     items: users,
     loading,
@@ -76,12 +72,11 @@ export function useUsersQuery(initialParams: UseUsersParams = {}): UseUsersRetur
     itemsField: 'users',
     initialParams,
     queryOptions: {
-      staleTime: 2 * 60 * 1000, // 2 minutes
+      staleTime: 2 * 60 * 1000,
     },
     requireAuth: false,
   })
 
-  // Statistics query
   const {
     data: statsData,
     isLoading: statsLoading,
@@ -89,8 +84,7 @@ export function useUsersQuery(initialParams: UseUsersParams = {}): UseUsersRetur
   } = useQuery({
     queryKey: userKeys.stats(),
     queryFn: async () => {
-      // Here should be API for getting statistics
-      // For now return basic statistics
+
       return {
         total: usersData?.total || 0,
         active: usersData?.users?.filter(u => !u.expires_at || new Date(u.expires_at) > new Date()).length || 0,
@@ -99,10 +93,9 @@ export function useUsersQuery(initialParams: UseUsersParams = {}): UseUsersRetur
       }
     },
     enabled: !!usersData,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   })
 
-  // Мутации с автоматической инвалидацией кэша
   const createUserMutation = useMutationWithCache({
     mutationFn: createUser,
     invalidateQueries: [userKeys.lists(), userKeys.stats()],
@@ -125,7 +118,6 @@ export function useUsersQuery(initialParams: UseUsersParams = {}): UseUsersRetur
     errorMessage: 'Failed to delete user',
   })
 
-  // Обработчики для изменения параметров
   const setSearch = React.useCallback((search: string) => {
     setParams((prev) => ({ ...prev, search, page: 1 }))
   }, [setParams])
@@ -152,19 +144,19 @@ export function useUsersQuery(initialParams: UseUsersParams = {}): UseUsersRetur
     perPage: pagination.perPage,
     stats: statsData || null,
     statsLoading,
-    
+
     createUser: createUserMutation.mutateAsync,
     updateUser: (id: number, data: UpdateUserData) => 
       updateUserMutation.mutateAsync({ id, data }),
     deleteUser: deleteUserMutation.mutateAsync,
-    
+
     setPage,
     setPerPage,
     setSearch,
     setRole,
     setRoles,
     setProjectId,
-    
+
     refetch,
     refetchStats,
   }

@@ -22,16 +22,14 @@ from ...models.security import (
 )
 from ...utils.ip_utils import get_location_from_ip
 
-
 @dataclass
 class ThreatAssessment:
     """Data class for threat assessment results"""
 
-    score: int  # 0-100
-    level: str  # low, medium, high, critical
+    score: int
+    level: str
     factors: List[str]
     recommendations: List[str]
-
 
 @dataclass
 class SecurityContext:
@@ -46,7 +44,6 @@ class SecurityContext:
     city: Optional[str] = None
     timestamp: Optional[datetime] = None
 
-
 class SecurityService:
     """Enhanced security service for advanced fingerprint management"""
 
@@ -58,32 +55,26 @@ class SecurityService:
         factors = []
         score = 0
 
-        # Check for suspicious user agents
         if self._is_suspicious_user_agent(context.user_agent):
             factors.append("Suspicious user agent")
             score += 20
 
-        # Check for known bad IPs
         if self._is_known_bad_ip(context.ip_address):
             factors.append("Known malicious IP")
             score += 30
 
-        # Check for rapid requests
         if self._is_rapid_request(context.fingerprint):
             factors.append("Rapid request pattern")
             score += 15
 
-        # Check for geographic anomalies
         if self._is_geographic_anomaly(context):
             factors.append("Geographic anomaly")
             score += 25
 
-        # Check for fingerprint reuse
         if self._is_fingerprint_reuse(context.fingerprint):
             factors.append("Fingerprint reuse detected")
             score += 10
 
-        # Determine threat level
         if score >= 80:
             level = "critical"
         elif score >= 60:
@@ -93,7 +84,6 @@ class SecurityService:
         else:
             level = "low"
 
-        # Generate recommendations
         recommendations = self._generate_recommendations(score, factors)
 
         return ThreatAssessment(
@@ -112,24 +102,22 @@ class SecurityService:
     ) -> BlockedFingerprint:
         """Create an enhanced fingerprint block with comprehensive data"""
 
-        # Get geolocation if not provided
         if not context.country:
             country, city = get_location_from_ip(context.ip_address)
             context.country = country
             if not context.city:
                 context.city = city
 
-        # Use a retry mechanism to handle race conditions
         max_retries = 3
         for attempt in range(max_retries):
             try:
-                # Check if already blocked (using composite key: fingerprint + project_id)
+
                 existing = BlockedFingerprint.query.filter_by(
                     fingerprint=context.fingerprint, project_id=context.project_id, is_active=True
                 ).first()
 
                 if existing:
-                    # Update existing block
+
                     existing.attempt_count += 1
                     existing.last_seen = datetime.utcnow()
                     existing.threat_score = max(existing.threat_score, threat_score)
@@ -148,7 +136,6 @@ class SecurityService:
                     db.session.commit()
                     return existing
 
-                # Create new block
                 blocked_fingerprint = BlockedFingerprint(
                     fingerprint=context.fingerprint,
                     project_id=context.project_id,
@@ -182,7 +169,6 @@ class SecurityService:
                 db.session.add(blocked_fingerprint)
                 db.session.commit()
 
-                # Log security event
                 self._log_security_event(
                     event_type="fingerprint_blocked",
                     context=context,
@@ -195,15 +181,14 @@ class SecurityService:
                 return blocked_fingerprint
 
             except Exception as e:
-                # Rollback the transaction
+
                 db.session.rollback()
 
-                # Check if it's a unique constraint violation
                 if "duplicate key value violates unique constraint" in str(e) and (
                     "blocked_fingerprint_fingerprint_key" in str(e)
                     or "blocked_fingerprint_fingerprint_project_key" in str(e)
                 ):
-                    # Another process created the block, try to fetch it
+
                     existing = BlockedFingerprint.query.filter_by(
                         fingerprint=context.fingerprint,
                         project_id=context.project_id,
@@ -211,7 +196,7 @@ class SecurityService:
                     ).first()
 
                     if existing:
-                        # Update the existing block
+
                         existing.attempt_count += 1
                         existing.last_seen = datetime.utcnow()
                         existing.threat_score = max(existing.threat_score, threat_score)
@@ -230,27 +215,22 @@ class SecurityService:
                         db.session.commit()
                         return existing
 
-                # If it's the last attempt, re-raise the exception
                 if attempt == max_retries - 1:
                     self.logger.error(
                         f"Failed to create enhanced block after {max_retries} attempts: {e}"
                     )
                     raise
 
-                # Wait a bit before retrying
                 import time
 
                 time.sleep(0.1 * (attempt + 1))
 
-        # This should never be reached, but just in case
         raise Exception("Failed to create enhanced block after all retries")
 
     def check_automated_rules(self, context: SecurityContext) -> List[Dict[str, Any]]:
         """Check and execute automated security rules"""
         triggered_rules = []
 
-        # Get active security rules for the project
-        # Always include Rapid Request Detection even if marked as inactive
         rules = (
             SecurityRule.query.filter(
                 SecurityRule.project_id == context.project_id,
@@ -268,13 +248,12 @@ class SecurityService:
                         {"rule_id": rule.id, "rule_name": rule.name, "action_result": action_result}
                     )
 
-                    # Update rule statistics
                     rule.trigger_count += 1
                     rule.last_triggered = datetime.utcnow()
                     db.session.commit()
 
             except Exception as e:
-                # Rollback the transaction to prevent PendingRollbackError
+
                 db.session.rollback()
                 self.logger.error(f"Error executing rule {rule.id}: {e}")
 
@@ -285,17 +264,14 @@ class SecurityService:
         end_date = datetime.now().date()
         start_date = end_date - timedelta(days=days)
 
-        # Get blocked fingerprints
         blocked_fingerprints = BlockedFingerprint.query.filter(
             BlockedFingerprint.project_id == project_id, BlockedFingerprint.blocked_at >= start_date
         ).all()
 
-        # Get security events
         security_events = SecurityEvent.query.filter(
             SecurityEvent.project_id == project_id, SecurityEvent.created_at >= start_date
         ).all()
 
-        # Calculate statistics
         stats = {
             "total_blocked": len(blocked_fingerprints),
             "block_types": {},
@@ -308,7 +284,7 @@ class SecurityService:
         }
 
         if blocked_fingerprints:
-            # Block types distribution
+
             for fp in blocked_fingerprints:
                 stats["block_types"][fp.block_type] = stats["block_types"].get(fp.block_type, 0) + 1
                 stats["severity_distribution"][fp.severity] = (
@@ -321,22 +297,19 @@ class SecurityService:
                     )
 
                 if fp.user_agent:
-                    # Truncate long user agents
+
                     ua = fp.user_agent[:50] + "..." if len(fp.user_agent) > 50 else fp.user_agent
                     stats["top_user_agents"][ua] = stats["top_user_agents"].get(ua, 0) + 1
 
-            # Average threat score
             total_score = sum(fp.threat_score for fp in blocked_fingerprints)
             stats["threat_score_avg"] = round(total_score / len(blocked_fingerprints), 2)
 
-        # Timeline data
         for i in range(days):
             date = start_date + timedelta(days=i)
             day_blocks = [fp for fp in blocked_fingerprints if fp.blocked_at.date() == date]
             stats["timeline"][date.isoformat()] = len(day_blocks)
 
-        # Recent events
-        recent_events = security_events[-10:]  # Last 10 events
+        recent_events = security_events[-10:]
         stats["recent_events"] = [
             {
                 "id": event.id,
@@ -380,19 +353,16 @@ class SecurityService:
     def _is_known_bad_ip(self, ip_address: str) -> bool:
         """Check if IP is known to be malicious"""
         try:
-            # Check against known bad IP ranges (simplified implementation)
+
             bad_ip_ranges = [
-                "10.0.0.0/8",  # Private networks (can be suspicious in some contexts)
-                "192.168.0.0/16",  # Private networks
-                "172.16.0.0/12",  # Private networks
+                "10.0.0.0/8",
+                "192.168.0.0/16",
+                "172.16.0.0/12",
             ]
 
-            # For now, we'll check for obviously suspicious patterns
             if ip_address.startswith("0.0.0.") or ip_address == "127.0.0.1":
                 return True
 
-            # In a real implementation, this would check against threat intelligence feeds
-            # like AbuseIPDB, VirusTotal, etc.
             return False
 
         except Exception:
@@ -413,7 +383,6 @@ class SecurityService:
                 decode_responses=True,
             )
 
-            # Check request frequency in last minute
             rate_key = f"request_rate:{fingerprint}"
             current_count = redis_client.get(rate_key)
 
@@ -425,12 +394,10 @@ class SecurityService:
                 except (ValueError, TypeError):
                     current_count = 0
 
-            # Increment counter
             new_count = redis_client.incr(rate_key)
             if new_count == 1:
-                redis_client.expire(rate_key, 60)  # 1 minute window
+                redis_client.expire(rate_key, 60)
 
-            # Consider rapid if more than 20 requests per minute
             return new_count > 20
 
         except Exception:
@@ -439,20 +406,16 @@ class SecurityService:
     def _is_geographic_anomaly(self, context: SecurityContext) -> bool:
         """Check for geographic anomalies"""
         try:
-            # Get geolocation if not available
+
             if not context.country and context.ip_address:
                 from ...utils.ip_utils import get_location_from_ip
 
                 country, city = get_location_from_ip(context.ip_address)
                 context.country = country
 
-            # If still no country, cannot check for anomalies
             if not context.country:
                 return False
 
-            # Check for VPN/Proxy indicators (simplified)
-            # In a real implementation, this would use specialized services
-            # For now, always return False (no geographic anomaly detected)
             return False
 
         except Exception:
@@ -465,7 +428,6 @@ class SecurityService:
 
             from ...models.security import SecurityEvent
 
-            # Check if this fingerprint has been used with multiple user keys recently
             start_time = datetime.utcnow() - timedelta(hours=24)
             unique_keys = (
                 db.session.query(SecurityEvent.user_key)
@@ -478,7 +440,6 @@ class SecurityService:
                 .count()
             )
 
-            # Consider it suspicious if used with more than 3 different keys
             return unique_keys > 3
 
         except Exception:
@@ -504,13 +465,11 @@ class SecurityService:
         try:
             conditions = json.loads(rule.conditions)
 
-            # Check cooldown
             if rule.last_triggered:
                 cooldown_end = rule.last_triggered + timedelta(minutes=rule.cooldown_minutes)
                 if datetime.utcnow() < cooldown_end:
                     return False
 
-            # Evaluate conditions based on rule type
             if rule.rule_type == "fingerprint_block":
                 return self._evaluate_fingerprint_conditions(conditions, context)
             elif rule.rule_type == "rate_limit":
@@ -532,7 +491,7 @@ class SecurityService:
             action_params = json.loads(rule.action_params or "{}")
 
             if rule.action_type == "block":
-                # Create automatic block
+
                 block = self.create_enhanced_block(
                     context=context,
                     reason=f"Automated block by rule: {rule.name}",
@@ -545,7 +504,7 @@ class SecurityService:
                 return {"action": "blocked", "block_id": block.id}
 
             elif rule.action_type == "warn":
-                # Log warning
+
                 self._log_security_event(
                     event_type="security_warning",
                     context=context,
@@ -556,7 +515,7 @@ class SecurityService:
                 return {"action": "warned"}
 
             elif rule.action_type == "log":
-                # Log event
+
                 self._log_security_event(
                     event_type="rule_triggered",
                     context=context,
@@ -575,7 +534,7 @@ class SecurityService:
     def _evaluate_fingerprint_conditions(self, conditions: Dict, context: SecurityContext) -> bool:
         """Evaluate fingerprint-specific conditions"""
         try:
-            # Check user agent patterns
+
             if "user_agent_patterns" in conditions:
                 patterns = conditions["user_agent_patterns"]
                 match_type = conditions.get("match_type", "contains_any")
@@ -590,7 +549,6 @@ class SecurityService:
                             return False
                     return True
 
-            # Check threat score threshold
             if "min_threat_score" in conditions:
                 min_score = conditions["min_threat_score"]
                 threat_assessment = self.assess_threat(context)
@@ -621,10 +579,8 @@ class SecurityService:
             max_requests = conditions.get("max_requests_per_minute", 10)
             time_window = conditions.get("time_window_minutes", 5)
 
-            # Create rate limit key
             rate_key = f"rate_limit:{context.fingerprint}:{context.project_id}"
 
-            # Get current count
             current_count = redis_client.get(rate_key)
             if current_count is None:
                 current_count = 0
@@ -634,13 +590,11 @@ class SecurityService:
                 except (ValueError, TypeError):
                     current_count = 0
 
-            # Increment counter
             new_count = redis_client.incr(rate_key)
             if new_count == 1:
-                # Set expiration on first request
+
                 redis_client.expire(rate_key, time_window * 60)
 
-            # Check if limit exceeded
             return new_count > max_requests
 
         except Exception as e:
@@ -650,7 +604,7 @@ class SecurityService:
     def _evaluate_geo_conditions(self, conditions: Dict, context: SecurityContext) -> bool:
         """Evaluate geographic conditions"""
         try:
-            # Get geolocation if not already available
+
             if not context.country:
                 from ...utils.ip_utils import get_location_from_ip
 
@@ -659,7 +613,6 @@ class SecurityService:
                 if not context.city:
                     context.city = city
 
-            # Check blocked countries
             if "blocked_countries" in conditions:
                 blocked_countries = conditions["blocked_countries"]
                 if context.country and context.country.upper() in [
@@ -667,7 +620,6 @@ class SecurityService:
                 ]:
                     return True
 
-            # Check allowed countries (whitelist)
             if "allowed_countries" in conditions:
                 allowed_countries = conditions["allowed_countries"]
                 if context.country and context.country.upper() not in [
@@ -684,12 +636,11 @@ class SecurityService:
     def _evaluate_behavioral_conditions(self, conditions: Dict, context: SecurityContext) -> bool:
         """Evaluate behavioral conditions"""
         try:
-            # Check fingerprint reuse
+
             if "fingerprint_reuse_threshold" in conditions:
                 threshold = conditions["fingerprint_reuse_threshold"]
                 time_window_hours = conditions.get("time_window_hours", 24)
 
-                # Count unique user keys using this fingerprint in time window
                 from datetime import datetime, timedelta
 
                 from ...models.security import SecurityEvent
@@ -710,13 +661,11 @@ class SecurityService:
                 if unique_keys >= threshold:
                     return True
 
-            # Check rapid connections
             if "rapid_connections" in conditions.get("check_patterns", []):
                 from datetime import datetime, timedelta
 
                 from ...models.security import SecurityEvent
 
-                # Count connections in last hour
                 start_time = datetime.utcnow() - timedelta(hours=1)
                 connection_count = SecurityEvent.query.filter(
                     SecurityEvent.fingerprint == context.fingerprint,
@@ -725,7 +674,7 @@ class SecurityService:
                     SecurityEvent.event_type == "connection_attempt",
                 ).count()
 
-                if connection_count >= 10:  # More than 10 connections per hour
+                if connection_count >= 10:
                     return True
 
             return False
@@ -765,7 +714,7 @@ class SecurityService:
             db.session.add(event)
             db.session.commit()
         except Exception as e:
-            # Rollback the transaction to prevent PendingRollbackError
+
             db.session.rollback()
             self.logger.error(f"Error logging security event: {e}")
 
@@ -781,23 +730,20 @@ class SecurityService:
             True if IP is blocked, False otherwise
         """
         try:
-            # Check for manually blocked IPs
+
             blocked_ip = BlockedIP.query.filter_by(
                 ip_address=ip_address, project_id=project_id, is_active=True
             ).first()
 
             if blocked_ip:
-                # Check if block has expired
+
                 if blocked_ip.expires_at and blocked_ip.expires_at < datetime.utcnow():
-                    # Block expired, deactivate it
+
                     blocked_ip.is_active = False
                     db.session.commit()
                     return False
                 return True
 
-            # Check for automatic blocking due to failed login attempts
-            # Temporarily disabled to prevent blocking legitimate logins
-            # TODO: Implement proper IP blocking with whitelist for localhost
             return False
         except Exception as e:
             self.logger.error(f"Error checking IP block status: {e}")
@@ -815,10 +761,7 @@ class SecurityService:
             True if session limit exceeded, False otherwise
         """
         try:
-            # Temporarily disable session limiting due to flawed logic
-            # The current implementation counts login activities rather than active sessions,
-            # which causes legitimate logins to be blocked.
-            # TODO: Implement proper session tracking with JWT token validation
+
             return False
         except Exception as e:
             self.logger.error(f"Error checking session limit: {e}")
@@ -858,7 +801,6 @@ class SecurityService:
             db.session.add(attempt)
             db.session.commit()
 
-            # Check if IP should be blocked after failed attempt
             if not success:
                 self._check_and_block_ip_if_needed(ip_address, project_id)
         except Exception as e:
@@ -879,7 +821,7 @@ class SecurityService:
             block_duration = settings.ip_block_duration_minutes
 
             if not max_attempts or max_attempts <= 0:
-                return  # IP blocking disabled
+                return
 
             cutoff_time = datetime.utcnow() - timedelta(minutes=block_duration)
 
@@ -891,13 +833,13 @@ class SecurityService:
             ).count()
 
             if failed_attempts >= max_attempts:
-                # Check if IP is already blocked
+
                 existing_block = BlockedIP.query.filter_by(
                     ip_address=ip_address, project_id=project_id, is_active=True
                 ).first()
 
                 if not existing_block:
-                    # Create automatic block
+
                     expires_at = datetime.utcnow() + timedelta(minutes=block_duration)
                     blocked_ip = BlockedIP(
                         ip_address=ip_address,
@@ -941,6 +883,4 @@ class SecurityService:
             db.session.commit()
         return settings
 
-
-# Global security service instance
 security_service = SecurityService()

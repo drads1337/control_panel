@@ -21,10 +21,6 @@ interface ManagementStatCardProps {
   loading?: boolean
 }
 
-/**
- * Reusable stat card component for management page
- * Follows DRY principle by eliminating duplication
- */
 export function ManagementStatCard({
   permission,
   title,
@@ -64,4 +60,3 @@ export function ManagementStatCard({
     </ConditionalRender>
   )
 }
-

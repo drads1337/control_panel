@@ -19,7 +19,7 @@ interface UseKeysUIParams {
 }
 
 interface UseKeysUIReturn {
-  // UI State
+
   showKey: Record<number, boolean>;
   fullKeys: Record<number, string>;
   selectedKeys: Set<number>;
@@ -29,7 +29,6 @@ interface UseKeysUIReturn {
   editDialogOpen: boolean;
   extendDialogOpen: boolean;
 
-  // UI Actions
   handleToggleKeyVisibility: (keyId: number) => void;
   handleSelectKey: (keyId: number, selected: boolean) => void;
   handleSelectAll: (selected: boolean) => void;
@@ -43,10 +42,6 @@ interface UseKeysUIReturn {
   setSelectedKey: (key: LicenseKey | null) => void;
 }
 
-/**
- * Hook for managing keys UI state (dialogs, selections, visibility)
- * Separated from data management for better reusability
- */
 export function useKeysUI({
   keys,
   loadGames,
@@ -56,7 +51,6 @@ export function useKeysUI({
   const { hasPermission } = usePermissions();
   const keyMutations = useKeyMutations();
 
-  // Permissions
   const canDeleteKeys = hasPermission('keys.delete');
   const canEditKeys = hasPermission('keys.edit');
   const canResetPcBinding = hasPermission('keys.reset_pc_binding');
@@ -65,9 +59,8 @@ export function useKeysUI({
   const canBlock = hasPermission('keys.block');
   const canGenerateKeys = hasPermission('keys.generate');
 
-  // UI State
   const [showKey, setShowKey] = useState<Record<number, boolean>>({});
-  const [fullKeys, setFullKeys] = useState<Record<number, string>>({}); // Store full keys when revealed
+  const [fullKeys, setFullKeys] = useState<Record<number, string>>({});
   const [selectedKeys, setSelectedKeys] = useState<Set<number>>(new Set());
   const [actionLoading, setActionLoading] = useState<Set<number>>(new Set());
   const [selectedKey, setSelectedKey] = useState<LicenseKey | null>(null);
@@ -75,12 +68,10 @@ export function useKeysUI({
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [extendDialogOpen, setExtendDialogOpen] = useState(false);
 
-  // Handlers
   const handleToggleKeyVisibility = useCallback(async (keyId: number) => {
-    // Check current visibility state
+
     const isCurrentlyVisible = showKey[keyId];
-    
-    // If hiding, just toggle visibility
+
     if (isCurrentlyVisible) {
       setShowKey((prev) => ({
         ...prev,
@@ -88,24 +79,21 @@ export function useKeysUI({
       }));
       return;
     }
-    
-    // If showing, check if we have full key cached
+
     if (fullKeys[keyId]) {
-      // We have the full key, just show it
+
       setShowKey((prev) => ({
         ...prev,
         [keyId]: true,
       }));
       return;
     }
-    
-    // SECURITY: Use explicit /reveal endpoint to get full key
-    // This endpoint requires keys.view permission and logs the request
+
     try {
       const revealResponse = await revealLicenseKey(keyId);
-      
+
       if (revealResponse.key && !revealResponse.key_masked && !isMaskedKey(revealResponse.key)) {
-        // Store full key and show it
+
         setFullKeys((prev) => ({
           ...prev,
           [keyId]: revealResponse.key,
@@ -115,13 +103,11 @@ export function useKeysUI({
           [keyId]: true,
         }));
       } else {
-        // Key is still masked - user doesn't have permission
+
         toast.error('You do not have permission to view full keys. Contact your administrator.');
       }
     } catch (error: any) {
-      console.error('Failed to reveal key:', error);
-      
-      // Check if it's a permission error
+
       if (error.response?.status === 403) {
         toast.error('You do not have permission to view full keys. Contact your administrator.');
       } else {
@@ -156,7 +142,7 @@ export function useKeysUI({
 
   const handleKeyAction = useCallback(
     async (action: string, keyId: number) => {
-      // Check permissions before executing actions
+
       switch (action) {
         case 'delete':
           if (!canDeleteKeys) {
@@ -197,7 +183,7 @@ export function useKeysUI({
           }
           break;
         case 'copy':
-          // No permission check needed for copying to clipboard
+
           break;
         case 'duplicate':
           if (!canGenerateKeys) {
@@ -207,7 +193,6 @@ export function useKeysUI({
           break;
       }
 
-      // Add key to loading state (skip for copy action as it's instant)
       if (action !== 'copy' && action !== 'edit' && action !== 'extend') {
         setActionLoading((prev) => new Set(prev).add(keyId));
       }
@@ -218,32 +203,29 @@ export function useKeysUI({
             const keyToCopy = keys.find((k) => k.id === keyId);
             if (keyToCopy) {
               try {
-                // SECURITY: Use /reveal endpoint to get full key for copying
-                // This ensures we have permission and get the real key, not masked version
+
                 let fullKey: string;
                 try {
-                  // First check if we have it cached
+
                   if (fullKeys[keyId] && !isMaskedKey(fullKeys[keyId])) {
                     fullKey = fullKeys[keyId];
                   } else {
-                    // Use /reveal endpoint to get full key
+
                     const revealResponse = await revealLicenseKey(keyId);
                     fullKey = revealResponse.key;
-                    
-                    // Double-check: if still masked, user doesn't have permission
+
                     if (isMaskedKey(fullKey) || revealResponse.key_masked) {
                       toast.error('You do not have permission to copy full keys. Contact your administrator.');
                       return;
                     }
-                    
-                    // Cache the full key
+
                     setFullKeys((prev) => ({
                       ...prev,
                       [keyId]: fullKey,
                     }));
                   }
                 } catch (error: any) {
-                  console.error('Failed to reveal key for copying:', error);
+
                   if (error.response?.status === 403) {
                     toast.error('You do not have permission to copy full keys. Contact your administrator.');
                   } else {
@@ -251,12 +233,11 @@ export function useKeysUI({
                   }
                   return;
                 }
-                
+
                 await navigator.clipboard.writeText(fullKey);
                 toast.success('Key copied to clipboard');
               } catch (clipboardError) {
-                // Fallback for browsers that don't support clipboard API
-                // Still fetch full key first
+
                 let fullKey: string;
                 try {
                   if (fullKeys[keyId] && !isMaskedKey(fullKeys[keyId])) {
@@ -264,19 +245,19 @@ export function useKeysUI({
                   } else {
                     const revealResponse = await revealLicenseKey(keyId);
                     fullKey = revealResponse.key;
-                    
+
                     if (isMaskedKey(fullKey) || revealResponse.key_masked) {
                       toast.error('You do not have permission to copy full keys. Contact your administrator.');
                       return;
                     }
-                    
+
                     setFullKeys((prev) => ({
                       ...prev,
                       [keyId]: fullKey,
                     }));
                   }
                 } catch (error: any) {
-                  console.error('Failed to reveal key for copying:', error);
+
                   if (error.response?.status === 403) {
                     toast.error('You do not have permission to copy full keys. Contact your administrator.');
                   } else {
@@ -284,7 +265,7 @@ export function useKeysUI({
                   }
                   return;
                 }
-                
+
                 const textArea = document.createElement('textarea');
                 textArea.value = fullKey;
                 textArea.style.position = 'fixed';
@@ -303,7 +284,7 @@ export function useKeysUI({
             } else {
               toast.error('Key not found');
             }
-            return; // Early return for copy action
+            return;
           case 'delete':
             await keyMutations.deleteKey(keyId);
             break;
@@ -345,13 +326,12 @@ export function useKeysUI({
             }
             break;
           default:
-            console.warn('Unknown action:', action);
+
         }
       } catch (error) {
-        // Error handling is done in mutations, but we still need to remove loading state
-        console.error('Error performing key action:', error);
+
       } finally {
-        // Remove key from loading state (skip for copy, edit, extend actions)
+
         if (action !== 'copy' && action !== 'edit' && action !== 'extend') {
           setActionLoading((prev) => {
             const newSet = new Set(prev);
@@ -382,7 +362,7 @@ export function useKeysUI({
   }, []);
 
   const handleKeyCreated = useCallback(async (createdKeyId?: number) => {
-    console.log('🔑 handleKeyCreated called, invalidating queries...', { createdKeyId });
+
     invalidateQueries();
   }, [invalidateQueries]);
 
@@ -392,9 +372,9 @@ export function useKeysUI({
   }, [invalidateQueries, loadGames]);
 
   return {
-    // UI State
+
     showKey,
-    fullKeys, // Export fullKeys so components can use full keys when showing
+    fullKeys,
     selectedKeys,
     actionLoading,
     selectedKey,
@@ -402,7 +382,6 @@ export function useKeysUI({
     editDialogOpen,
     extendDialogOpen,
 
-    // UI Actions
     handleToggleKeyVisibility,
     handleSelectKey,
     handleSelectAll,
@@ -416,4 +395,3 @@ export function useKeysUI({
     setSelectedKey,
   };
 }
-

@@ -26,7 +26,6 @@ from ...utils.rbac_utils import RBACManager
 
 loader_bp = Blueprint("keys_loader", __name__)
 
-
 @loader_bp.route("/loader", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -34,7 +33,7 @@ loader_bp = Blueprint("keys_loader", __name__)
 @validate_request(LoaderKeyCreateSchema)
 def create_loader_key(current_user=None, project_id=None, validated_data=None):
     """Create a loader key"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -45,7 +44,6 @@ def create_loader_key(current_user=None, project_id=None, validated_data=None):
     if not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    # Use validated data
     data = validated_data or request.get_json()
 
     duration_hours = data.get("duration_hours", 24)
@@ -137,7 +135,6 @@ def create_loader_key(current_user=None, project_id=None, validated_data=None):
         db.session.rollback()
         return jsonify({"error": f"Failed to create loader key: {str(e)}"}), 500
 
-
 @loader_bp.route("/loader/custom", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -145,7 +142,7 @@ def create_loader_key(current_user=None, project_id=None, validated_data=None):
 @validate_request(CustomLoaderKeyCreateSchema)
 def create_custom_loader_key(current_user=None, project_id=None, validated_data=None):
     """Create a custom loader key"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -156,7 +153,6 @@ def create_custom_loader_key(current_user=None, project_id=None, validated_data=
     if not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    # Use validated data
     data = validated_data or request.get_json()
 
     custom_key = data.get("custom_key", "").strip()
@@ -250,7 +246,6 @@ def create_custom_loader_key(current_user=None, project_id=None, validated_data=
         db.session.rollback()
         return jsonify({"error": f"Failed to create custom loader key: {str(e)}"}), 500
 
-
 @loader_bp.route("/bulk/loader", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -258,7 +253,7 @@ def create_custom_loader_key(current_user=None, project_id=None, validated_data=
 @validate_request(BulkLoaderKeyCreateSchema)
 def bulk_create_loader_keys(current_user=None, project_id=None, validated_data=None):
     """Bulk create loader keys - uses async tasks for large operations"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -269,7 +264,6 @@ def bulk_create_loader_keys(current_user=None, project_id=None, validated_data=N
     if not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    # Use validated data
     data = validated_data or request.get_json()
 
     count = data.get("count", 1)
@@ -286,12 +280,10 @@ def bulk_create_loader_keys(current_user=None, project_id=None, validated_data=N
     if len(games) != len(game_ids):
         return jsonify({"error": "Some games not found or access denied"}), 404
 
-    # For small operations (<= 10 keys), execute synchronously for immediate response
-    # For larger operations, use async task to prevent blocking
     ASYNC_THRESHOLD = 10
 
     if count <= ASYNC_THRESHOLD:
-        # Synchronous execution for small operations
+
         created_keys = []
 
         try:
@@ -341,13 +333,11 @@ def bulk_create_loader_keys(current_user=None, project_id=None, validated_data=N
                 ip=request.remote_addr,
             )
 
-            # Return full keys when creating - user needs to see them to use them
-            # Masking is only for list endpoints (GET /keys), not for creation endpoints
             return (
                 jsonify(
                     {
                         "message": f"Successfully created {count} loader keys for {len(games)} games",
-                        "keys": list(set(created_keys)),  # Full keys - user needs them
+                        "keys": list(set(created_keys)),
                         "summary": {
                             "count": count,
                             "games_count": len(games),
@@ -364,12 +354,11 @@ def bulk_create_loader_keys(current_user=None, project_id=None, validated_data=N
             db.session.rollback()
             return jsonify({"error": f"Failed to create loader keys: {str(e)}"}), 500
     else:
-        # Asynchronous execution for large operations
+
         try:
             from ...services.tasks import task_service
             from ...tasks.key_tasks import bulk_create_loader_keys_task
 
-            # Create task for tracking
             task_id = task_service.create_task(
                 task_type="bulk_create_loader_keys",
                 task_data={
@@ -384,7 +373,6 @@ def bulk_create_loader_keys(current_user=None, project_id=None, validated_data=N
                 project_id=current_user.project_id,
             )
 
-            # Queue async task
             bulk_create_loader_keys_task.apply_async(
                 args=[
                     current_user.id,
@@ -421,10 +409,10 @@ def bulk_create_loader_keys(current_user=None, project_id=None, validated_data=N
                         },
                     }
                 ),
-                202,  # Accepted - processing asynchronously
+                202,
             )
         except ImportError:
-            # Fallback to synchronous if Celery is not available
+
             import logging
 
             logger = logging.getLogger(__name__)
@@ -437,7 +425,6 @@ def bulk_create_loader_keys(current_user=None, project_id=None, validated_data=N
             logger.error(f"Failed to queue async task: {str(e)}")
             return jsonify({"error": f"Failed to start bulk creation: {str(e)}"}), 500
 
-
 @loader_bp.route("/bulk/loader/pause", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -445,7 +432,7 @@ def bulk_create_loader_keys(current_user=None, project_id=None, validated_data=N
 @validate_request(BulkLoaderKeyActionSchema)
 def bulk_pause_loader_keys(current_user=None, project_id=None, validated_data=None):
     """Bulk pause loader keys"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -456,7 +443,6 @@ def bulk_pause_loader_keys(current_user=None, project_id=None, validated_data=No
     if not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    # Use validated data
     data = validated_data or request.get_json()
     loader_id = data.get("loader_id")
     game_ids = data.get("game_ids", [])
@@ -473,7 +459,7 @@ def bulk_pause_loader_keys(current_user=None, project_id=None, validated_data=No
         return jsonify({"message": "No keys found for the specified games"}), 200
 
     try:
-        # Collect affected user IDs for counter recalculation
+
         affected_user_ids = set()
         for key in keys:
             if key.user_id:
@@ -481,8 +467,7 @@ def bulk_pause_loader_keys(current_user=None, project_id=None, validated_data=No
             key.status = 0
 
         db.session.commit()
-        
-        # Recalculate key counters for affected users
+
         from ...utils.key_counters import update_user_key_counters
         for user_id in affected_user_ids:
             update_user_key_counters(user_id, project_id=current_user.project_id)
@@ -503,7 +488,6 @@ def bulk_pause_loader_keys(current_user=None, project_id=None, validated_data=No
         db.session.rollback()
         return jsonify({"error": f"Failed to pause keys: {str(e)}"}), 500
 
-
 @loader_bp.route("/bulk/loader/resume", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -511,7 +495,7 @@ def bulk_pause_loader_keys(current_user=None, project_id=None, validated_data=No
 @validate_request(BulkLoaderKeyActionSchema)
 def bulk_resume_loader_keys(current_user=None, project_id=None, validated_data=None):
     """Bulk resume loader keys"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -522,7 +506,6 @@ def bulk_resume_loader_keys(current_user=None, project_id=None, validated_data=N
     if not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    # Use validated data
     data = validated_data or request.get_json()
     loader_id = data.get("loader_id")
     game_ids = data.get("game_ids", [])
@@ -539,7 +522,7 @@ def bulk_resume_loader_keys(current_user=None, project_id=None, validated_data=N
         return jsonify({"message": "No keys found for the specified games"}), 200
 
     try:
-        # Collect affected user IDs for counter recalculation
+
         affected_user_ids = set()
         for key in keys:
             if key.user_id:
@@ -547,8 +530,7 @@ def bulk_resume_loader_keys(current_user=None, project_id=None, validated_data=N
             key.status = 1
 
         db.session.commit()
-        
-        # Recalculate key counters for affected users
+
         from ...utils.key_counters import update_user_key_counters
         for user_id in affected_user_ids:
             update_user_key_counters(user_id, project_id=current_user.project_id)
@@ -569,7 +551,6 @@ def bulk_resume_loader_keys(current_user=None, project_id=None, validated_data=N
         db.session.rollback()
         return jsonify({"error": f"Failed to resume keys: {str(e)}"}), 500
 
-
 @loader_bp.route("/bulk/loader/reset", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -577,7 +558,7 @@ def bulk_resume_loader_keys(current_user=None, project_id=None, validated_data=N
 @validate_request(BulkLoaderKeyActionSchema)
 def bulk_reset_loader_keys(current_user=None, project_id=None, validated_data=None):
     """Bulk reset loader keys"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -588,7 +569,6 @@ def bulk_reset_loader_keys(current_user=None, project_id=None, validated_data=No
     if not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    # Use validated data
     data = validated_data or request.get_json()
     loader_id = data.get("loader_id")
     game_ids = data.get("game_ids", [])
@@ -627,7 +607,6 @@ def bulk_reset_loader_keys(current_user=None, project_id=None, validated_data=No
         db.session.rollback()
         return jsonify({"error": f"Failed to reset keys: {str(e)}"}), 500
 
-
 @loader_bp.route("/bulk/loader/addHours", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -635,7 +614,7 @@ def bulk_reset_loader_keys(current_user=None, project_id=None, validated_data=No
 @validate_request(BulkAddHoursSchema)
 def bulk_add_hours_loader_keys(current_user=None, project_id=None, validated_data=None):
     """Bulk add hours to loader keys"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -646,7 +625,6 @@ def bulk_add_hours_loader_keys(current_user=None, project_id=None, validated_dat
     if not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    # Use validated data
     data = validated_data or request.get_json()
     loader_id = data.get("loader_id")
     game_ids = data.get("game_ids", [])
@@ -689,7 +667,6 @@ def bulk_add_hours_loader_keys(current_user=None, project_id=None, validated_dat
         db.session.rollback()
         return jsonify({"error": f"Failed to add hours: {str(e)}"}), 500
 
-
 @loader_bp.route("/bulk/loader/deleteUnused", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -697,7 +674,7 @@ def bulk_add_hours_loader_keys(current_user=None, project_id=None, validated_dat
 @validate_request(BulkLoaderKeyActionSchema)
 def bulk_delete_unused_loader_keys(current_user=None, project_id=None, validated_data=None):
     """Bulk delete unused loader keys"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -708,7 +685,6 @@ def bulk_delete_unused_loader_keys(current_user=None, project_id=None, validated
     if not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    # Use validated data
     data = validated_data or request.get_json()
     loader_id = data.get("loader_id")
     game_ids = data.get("game_ids", [])
@@ -717,7 +693,6 @@ def bulk_delete_unused_loader_keys(current_user=None, project_id=None, validated
     if not loader:
         return jsonify({"error": "Loader not found or access denied"}), 404
 
-    # Use key service for bulk operation
     deleted_count, error = key_service.bulk_delete_unused_loader_keys(current_user, loader_id)
 
     if error:
@@ -726,7 +701,6 @@ def bulk_delete_unused_loader_keys(current_user=None, project_id=None, validated
     if deleted_count == 0:
         return jsonify({"message": "No unused keys found for the specified games"}), 200
 
-    # Log activity
     activity_service.log_activity(
         current_user,
         "bulk_delete_unused_loader_keys",
@@ -738,7 +712,6 @@ def bulk_delete_unused_loader_keys(current_user=None, project_id=None, validated
         {"message": f"Successfully deleted {deleted_count} unused keys for {len(game_ids)} games"}
     )
 
-
 @loader_bp.route("/bulk/loader/deleteExpired", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -746,7 +719,7 @@ def bulk_delete_unused_loader_keys(current_user=None, project_id=None, validated
 @validate_request(BulkLoaderKeyActionSchema)
 def bulk_delete_expired_loader_keys(current_user=None, project_id=None, validated_data=None):
     """Bulk delete expired loader keys"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -757,7 +730,6 @@ def bulk_delete_expired_loader_keys(current_user=None, project_id=None, validate
     if not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    # Use validated data
     data = validated_data or request.get_json()
     loader_id = data.get("loader_id")
     game_ids = data.get("game_ids", [])
@@ -766,7 +738,6 @@ def bulk_delete_expired_loader_keys(current_user=None, project_id=None, validate
     if not loader:
         return jsonify({"error": "Loader not found or access denied"}), 404
 
-    # Use key service for bulk operation
     deleted_count, error = key_service.bulk_delete_expired_loader_keys(current_user, loader_id)
 
     if error:
@@ -775,7 +746,6 @@ def bulk_delete_expired_loader_keys(current_user=None, project_id=None, validate
     if deleted_count == 0:
         return jsonify({"message": "No expired keys found for the specified games"}), 200
 
-    # Log activity
     activity_service.log_activity(
         current_user,
         "bulk_delete_expired_loader_keys",

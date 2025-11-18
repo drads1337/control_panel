@@ -85,11 +85,6 @@ const BLOCK_CONFIGS: Record<BlockType, BlockTypeConfig> = {
   },
 }
 
-/**
- * Hook to get block dialog configuration based on block type
- * This centralizes all block type configurations to avoid duplication
- */
 export function useBlockDialogConfig(blockType: BlockType): AddBlockDialogConfig {
   return BLOCK_CONFIGS[blockType]
 }
-

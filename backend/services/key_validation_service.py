@@ -11,7 +11,6 @@ from ..models.keys import Key
 from ..models.loaders import Loader
 from ..utils.structured_logging import get_logger
 
-
 class KeyValidationService:
     """Service for validating key data and operations"""
 
@@ -31,11 +30,10 @@ class KeyValidationService:
         Returns:
             Tuple of (is_valid, error_message)
         """
-        # Validate required fields
+
         if not key_data.get("game_id") and not key_data.get("loader_id"):
             return False, "Either game_id or loader_id is required"
 
-        # Validate game/loader access
         game = None
         loader = None
 
@@ -53,12 +51,10 @@ class KeyValidationService:
             if not loader:
                 return False, "Loader not found or access denied"
 
-        # Validate duration
         duration_hours = key_data.get("duration_hours", 24)
-        if duration_hours <= 0 or duration_hours > 8760:  # Max 1 year
+        if duration_hours <= 0 or duration_hours > 8760:
             return False, "Invalid duration_hours"
 
-        # Validate max_devices
         max_devices = key_data.get("max_devices", 1)
         if max_devices <= 0 or max_devices > 1000:
             return False, "Invalid max_devices"
@@ -82,7 +78,4 @@ class KeyValidationService:
             return False, "Count must be greater than 0"
         return True, None
 
-
-# Create service instance
 key_validation_service = KeyValidationService()
-

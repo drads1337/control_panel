@@ -53,10 +53,7 @@ If you encounter import issues, check:
 - Consider moving imports inside functions for truly optional dependencies
 - Ensure SQLAlchemy relationships use string references, not direct model classes
 """
-# Explicit imports for all models - provides better IDE support and makes dependencies clear
-# Models are organized by domain to keep related models together
 
-# Core models
 from .core import (
     APIKey,
     DeveloperGamePermission,
@@ -72,7 +69,6 @@ from .core import (
     UserGamePermission,
 )
 
-# Game models
 from .games import (
     Announcement,
     ChangelogEntry,
@@ -91,7 +87,6 @@ from .games import (
     Message,
 )
 
-# Key models
 from .keys import (
     ConnectToken,
     DeviceInfo,
@@ -101,7 +96,6 @@ from .keys import (
     TokenTransaction,
 )
 
-# Loader models
 from .loaders import (
     Loader,
     LoaderChangelog,
@@ -111,7 +105,6 @@ from .loaders import (
     LoaderNotification,
 )
 
-# RBAC models
 from .rbac import (
     AttributeRule,
     Permission,
@@ -123,7 +116,6 @@ from .rbac import (
     UserRole,
 )
 
-# Security models
 from .security import (
     BlockedFingerprint,
     BlockedHWID,
@@ -137,13 +129,11 @@ from .security import (
     TwoFactorSession,
 )
 
-# Project-User models
 from .project_user import (
     ProjectAdmin,
     ProjectUserRole,
 )
 
-# Other models
 from .notifications import Notification
 from .webhooks import Webhook, WebhookLog
 from .servers import Billing, ProjectAPIKey, Server
@@ -160,8 +150,6 @@ from .remote_control import (
     RemoteFeatureLog,
 )
 
-# Auto-generate __all__ from imports to avoid duplication
-# This keeps the list in sync with imports automatically
 import sys
 _current_module = sys.modules[__name__]
 __all__ = sorted([

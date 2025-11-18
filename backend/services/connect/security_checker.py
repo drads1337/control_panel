@@ -15,7 +15,6 @@ from ...core.extensions import db
 from ...models import BlockedFingerprint, User
 from ...services.security import SecurityContext, security_service
 
-
 class SecurityChecker:
     """Handles security validations and checks"""
 
@@ -40,12 +39,10 @@ class SecurityChecker:
         """
         ua = user_agent.lower()
 
-        # Check for bad user agent keywords
         for bad in self.bad_ua_keywords:
             if bad in ua:
                 return True, f"BAD_UA_{bad}"
 
-        # Check for bad headers
         for h in self.bad_headers:
             if h in (k.lower() for k in headers.keys()):
                 return True, f"BAD_HEADER_{h}"
@@ -82,7 +79,6 @@ class SecurityChecker:
             if cached_result is not None:
                 return cached_result == "1"
 
-            # Check database
             blocked = BlockedFingerprint.query.filter_by(
                 fingerprint=fingerprint, project_id=project_id, is_active=True
             ).first()
@@ -91,7 +87,6 @@ class SecurityChecker:
                 redis_client.setex(cache_key, 300, "0")
                 return False
 
-            # Check if block has expired
             now = datetime.utcnow()
             if blocked.expires_at and blocked.expires_at < now:
                 blocked.is_active = False
@@ -209,11 +204,9 @@ class SecurityChecker:
                 decode_responses=True,
             )
 
-            # Store geographic data
             last_geo = redis_client.get(f"geo:{user_key}")
             redis_client.set(f"geo:{user_key}", geo, ex=86400)
 
-            # Track timing
             last_time = redis_client.get(f"last_time:{user_key}")
             if hasattr(last_time, "__await__") or isinstance(last_time, types.CoroutineType):
                 delta = 9999
@@ -228,7 +221,6 @@ class SecurityChecker:
 
             redis_client.set(f"last_time:{user_key}", now, ex=86400)
 
-            # Track fingerprint changes
             last_fp = redis_client.get(f"last_fp:{user_key}")
             redis_client.set(f"last_fp:{user_key}", fingerprint, ex=86400)
 

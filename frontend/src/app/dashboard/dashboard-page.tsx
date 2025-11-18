@@ -14,7 +14,6 @@ import { usePermissions } from '@/hooks/use-permissions'
 import { SlowQueriesCard } from './slow-queries-card'
 import { Spinner } from '@/components/ui/spinner'
 
-// Lazy load heavy components for better code splitting
 const ChartAreaInteractive = React.lazy(() => import('@/app/dashboard/chart-area-interactive').then(module => ({ default: module.ChartAreaInteractive })))
 const DataTable = React.lazy(() => import('@/app/shared/data-table').then(module => ({ default: module.DataTable })))
 
@@ -27,19 +26,16 @@ export function DashboardPage({ type }: DashboardPageProps) {
   const navigate = useNavigate()
   const { hasPermission } = usePermissions()
 
-  // Check permissions
   const canViewAnalytics = hasPermission('analytics.view')
 
-  // Redirect to login if not authenticated
   useEffect(() => {
     if (!isAuthenticated || !user || !user.id) {
-      console.log('🔧 DASHBOARD: Redirecting to login - not authenticated')
+
       navigate('/login', { replace: true })
       return
     }
   }, [isAuthenticated, user, navigate])
 
-  // Use appropriate hook based on dashboard type
   const dashboardStats = useDashboardStats()
   const ownerDashboard = useOwnerDashboard()
 
@@ -64,13 +60,11 @@ export function DashboardPage({ type }: DashboardPageProps) {
     }
   }, [type, dashboardStats, ownerDashboard])
 
-  // Don't render anything if not authenticated
   if (!isAuthenticated || !user || !user.id) {
-    console.log('🔧 DASHBOARD: Not authenticated, redirecting to login')
+
     return null
   }
 
-  // Check if user has permission to view analytics
   if (!canViewAnalytics) {
     return (
       <div>
@@ -102,12 +96,12 @@ export function DashboardPage({ type }: DashboardPageProps) {
   const { data, loading, error, refetch } = getCurrentData
 
   useEffect(() => {
-    // Handle role-based redirects
+
     if (user?.roles?.includes('owner') && type !== 'owner') {
       navigate('/owner-dashboard', { replace: true })
       return
     }
-    
+
     if (user && !user.roles?.includes('owner') && type === 'owner') {
       navigate('/dashboard', { replace: true })
       return
@@ -201,7 +195,6 @@ export function DashboardPage({ type }: DashboardPageProps) {
           </>
         )
 
-
       default:
         return null
     }
@@ -231,7 +224,7 @@ export function DashboardPage({ type }: DashboardPageProps) {
 
   return (
     <div>
-      {/* Page Header */}
+      {}
       <div className="mb-8">
         <h2 className="text-3xl font-bold text-foreground mb-2">
           {getPageTitle()}

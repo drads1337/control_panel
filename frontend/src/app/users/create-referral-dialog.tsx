@@ -220,4 +220,3 @@ const CreateReferralDialog: React.FC<CreateReferralDialogProps> = ({
 };
 
 export default CreateReferralDialog;
-

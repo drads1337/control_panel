@@ -39,15 +39,14 @@ const UsersList: React.FC<UsersListProps> = ({
   const allSelected = users.length > 0 && users.every(user => selectedUsers.has(user.id));
   const someSelected = users.some(user => selectedUsers.has(user.id));
 
-  // Virtualization setup - only enable if we have many users
   const parentRef = useRef<HTMLDivElement>(null);
-  const shouldVirtualize = users.length > 50; // Only virtualize if more than 50 items
-  
+  const shouldVirtualize = users.length > 50;
+
   const rowVirtualizer = useVirtualizer({
     count: shouldVirtualize ? users.length : 0,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 73, // Estimated row height in pixels
-    overscan: 5, // Render 5 extra items outside visible area
+    estimateSize: () => 73,
+    overscan: 5,
     enabled: shouldVirtualize,
   });
 
@@ -74,7 +73,6 @@ const UsersList: React.FC<UsersListProps> = ({
     );
   }
 
-  // Memoized User Row Component
   const UserRow = React.memo<{
     user: User;
     isSelected: boolean;
@@ -200,7 +198,6 @@ const UsersList: React.FC<UsersListProps> = ({
 
   UserRow.displayName = 'UserRow';
 
-  // Render user row cells (kept for backward compatibility, but UserRow is now used)
   const renderUserRowCells = (user: User) => (
     <>
       <TableCell>
@@ -337,7 +334,7 @@ const UsersList: React.FC<UsersListProps> = ({
             </TableRow>
           </TableHeader>
         </Table>
-        {/* Virtualized table body - only if many users */}
+        {}
         {shouldVirtualize ? (
           <div
             ref={parentRef}

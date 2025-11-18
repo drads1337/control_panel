@@ -19,7 +19,6 @@ from typing import List
 
 from ..models.core import User
 
-
 class StaticRoleManager:
     """Manager for static roles using User.role field"""
 
@@ -64,9 +63,7 @@ class StaticRoleManager:
         if not user:
             return False
 
-        # Owner can access any project
         if StaticRoleManager.is_owner(user):
             return True
 
-        # User can only access their own project
         return user.project_id == project_id

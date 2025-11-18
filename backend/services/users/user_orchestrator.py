@@ -15,7 +15,6 @@ from .user_service import user_service
 
 logger = logging.getLogger(__name__)
 
-
 class UserOrchestrator:
     """
     Orchestrates complex user management operations
@@ -47,32 +46,28 @@ class UserOrchestrator:
             Tuple of (User object or None, error message or None)
         """
         try:
-            # Step 1: Validate input data
+
             validation_result = self._validate_user_creation_data(user_data)
             if not validation_result[0]:
                 return None, validation_result[1]
 
-            # Step 2: Check permissions
             permission_result = self._check_creation_permissions(current_user, user_data)
             if not permission_result[0]:
                 return None, permission_result[1]
 
-            # Step 3: Check balance if needed
             token_balance = user_data.get("token_balance", 0)
             if token_balance > 0:
                 balance_result = self._check_and_reserve_balance(current_user, token_balance)
                 if not balance_result[0]:
                     return None, balance_result[1]
 
-            # Step 4: Create user with roles and games (orchestrated by user_service)
             user, error = self.user_service.create_user_with_roles_and_games(current_user, user_data)
             if error:
-                # Release reserved balance if creation failed
+
                 if token_balance > 0:
                     self._release_reserved_balance(current_user, token_balance)
                 return None, error
 
-            # Step 5: Log activity
             try:
                 self.activity_service.log_activity(
                     current_user,
@@ -88,7 +83,7 @@ class UserOrchestrator:
 
         except Exception as e:
             logger.error(f"Error in create_user_with_full_setup: {str(e)}", exc_info=True)
-            # Release reserved balance on error
+
             token_balance = user_data.get("token_balance", 0)
             if token_balance > 0:
                 try:
@@ -118,23 +113,20 @@ class UserOrchestrator:
             Tuple of (success, error message)
         """
         try:
-            # Step 1: Check update permissions
+
             permission_result = self._check_update_permissions(current_user, target_user)
             if not permission_result[0]:
                 return False, permission_result[1]
 
-            # Step 2: Update user profile
             success, error = self.user_service.update_user_profile(target_user, user_data)
             if not success:
                 return False, error
 
-            # Step 3: Update roles if provided
             if "rbac_role_ids" in user_data:
                 role_result = self._update_user_roles(target_user, user_data["rbac_role_ids"])
                 if not role_result[0]:
                     return False, role_result[1]
 
-            # Step 4: Update game permissions if provided
             if "game_ids" in user_data:
                 game_result = self._update_user_game_permissions(
                     target_user, user_data["game_ids"]
@@ -142,7 +134,6 @@ class UserOrchestrator:
                 if not game_result[0]:
                     return False, game_result[1]
 
-            # Step 5: Log activity
             try:
                 self.activity_service.log_activity(
                     current_user,
@@ -179,7 +170,7 @@ class UserOrchestrator:
             Tuple of (success, error message)
         """
         try:
-            # Step 1: Check deletion permissions
+
             target_user = User.query.get(target_user_id)
             if not target_user:
                 return False, "User not found"
@@ -188,12 +179,10 @@ class UserOrchestrator:
             if not permission_result[0]:
                 return False, permission_result[1]
 
-            # Step 2: Delete user safely (orchestrated by user_service)
             success, error = self.user_service.delete_user_safely(current_user, target_user_id)
             if not success:
                 return False, error
 
-            # Step 3: Log activity
             try:
                 self.activity_service.log_activity(
                     current_user,
@@ -236,7 +225,6 @@ class UserOrchestrator:
         if not rbac_role_ids:
             return False, "At least one RBAC role must be selected"
 
-        # Check if user has permission to create employees/clients
         has_employee_permission = self.rbac_service.check_permission(
             current_user.id, "employees.create"
         )
@@ -255,7 +243,6 @@ class UserOrchestrator:
         """Check if current user can update target user"""
         from ...utils.rbac_utils import RBACManager
 
-        # Check if user has permission to update employees/clients
         has_employee_permission = self.rbac_service.check_permission(
             current_user.id, "employees.update"
         )
@@ -266,7 +253,6 @@ class UserOrchestrator:
         if not (has_employee_permission or has_client_permission):
             return False, "Insufficient permissions to update users"
 
-        # Check project scope
         if not RBACManager.is_owner(current_user):
             if current_user.project_id != target_user.project_id:
                 return False, "Cannot update users from different project"
@@ -279,11 +265,9 @@ class UserOrchestrator:
         """Check if current user can delete target user"""
         from ...utils.rbac_utils import RBACManager
 
-        # Prevent deletion of admins and owners
         if RBACManager.is_admin(target_user) or RBACManager.is_owner(target_user):
             return False, "Cannot delete admin or owner users"
 
-        # Check if user has permission to delete employees/clients
         has_employee_permission = self.rbac_service.check_permission(
             current_user.id, "employees.delete"
         )
@@ -294,7 +278,6 @@ class UserOrchestrator:
         if not (has_employee_permission or has_client_permission):
             return False, "Insufficient permissions to delete users"
 
-        # Check project scope
         if not RBACManager.is_owner(current_user):
             if current_user.project_id != target_user.project_id:
                 return False, "Cannot delete users from different project"
@@ -321,12 +304,11 @@ class UserOrchestrator:
     ) -> Tuple[bool, Optional[str]]:
         """Update user RBAC roles"""
         try:
-            # Remove existing roles
+
             from ...models.rbac import UserRole
 
             UserRole.query.filter_by(user_id=target_user.id).delete()
 
-            # Add new roles
             for role_id in rbac_role_ids:
                 user_role = UserRole(user_id=target_user.id, role_id=role_id)
                 db.session.add(user_role)
@@ -346,10 +328,8 @@ class UserOrchestrator:
         try:
             from ...models.core import UserGamePermission
 
-            # Remove existing permissions
             UserGamePermission.query.filter_by(user_id=target_user.id).delete()
 
-            # Add new permissions
             for game_id in game_ids:
                 permission = UserGamePermission(user_id=target_user.id, game_id=game_id)
                 db.session.add(permission)
@@ -362,7 +342,4 @@ class UserOrchestrator:
             logger.error(f"Error updating user game permissions: {str(e)}")
             return False, "Failed to update user game permissions"
 
-
-# Create orchestrator instance
 user_orchestrator = UserOrchestrator()
-

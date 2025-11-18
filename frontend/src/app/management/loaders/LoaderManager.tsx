@@ -37,7 +37,7 @@ interface LoaderManagerProps {
 const LoaderManager: React.FC<LoaderManagerProps> = ({ onCreateLoaderRequested, onCreateLoaderRequestHandled }) => {
   const { isAuthenticated, user } = useAuth();
   const { hasPermission } = usePermissions();
-  
+
   const canViewLoaders = hasPermission('loaders.view');
   const canCreateLoaders = hasPermission('loaders.create');
   const canEditLoaders = hasPermission('loaders.edit');
@@ -54,8 +54,7 @@ const LoaderManager: React.FC<LoaderManagerProps> = ({ onCreateLoaderRequested, 
   const canManageStatus = hasPermission('loaders.status');
   const canAssignGames = hasPermission('loaders.assign_games');
   const canConfigurationSettings = hasPermission('loaders.configuration_settings');
-  
-  // Use React Query hook for server state management
+
   const {
     loaders,
     games,
@@ -72,7 +71,7 @@ const LoaderManager: React.FC<LoaderManagerProps> = ({ onCreateLoaderRequested, 
     refetch,
     refetchStats,
   } = useLoadersQuery();
-  
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedLoaders, setSelectedLoaders] = useState<number[]>([]);
@@ -85,8 +84,7 @@ const LoaderManager: React.FC<LoaderManagerProps> = ({ onCreateLoaderRequested, 
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
   const [assignGamesDialogOpen, setAssignGamesDialogOpen] = useState(false);
   const [createGameDialogOpen, setCreateGameDialogOpen] = useState(false);
-  
-  // Check access
+
   if (!canViewLoaders) {
     return (
       <Card className="text-center p-8">
@@ -97,7 +95,6 @@ const LoaderManager: React.FC<LoaderManagerProps> = ({ onCreateLoaderRequested, 
     );
   }
 
-  // Handle external create loader request from parent
   React.useEffect(() => {
     if (onCreateLoaderRequested) {
       setCreateDialogOpen(true);
@@ -111,7 +108,7 @@ const LoaderManager: React.FC<LoaderManagerProps> = ({ onCreateLoaderRequested, 
 
   const handleBulkAction = async () => {
     if (!bulkAction || selectedLoaders.length === 0) return;
-    
+
     try {
       const actions = selectedLoaders.map(loaderId => {
         switch (bulkAction) {
@@ -131,33 +128,32 @@ const LoaderManager: React.FC<LoaderManagerProps> = ({ onCreateLoaderRequested, 
       });
 
       await Promise.all(actions);
-      
+
       setSelectedLoaders([]);
       setBulkAction('');
-      
-      // Data will be automatically refetched via React Query cache invalidation
+
     } catch (err) {
-      console.error('Bulk action error:', err);
+
     }
   };
 
   const handleStatusChange = async (loaderId: number, newStatus: Loader['status']) => {
     try {
       await updateStatusMutation(loaderId, newStatus);
-      // Data and stats will be automatically refetched via React Query cache invalidation
+
     } catch (err) {
-      console.error('Status update error:', err);
+
     }
   };
 
   const handleDeleteLoader = async (loaderId: number) => {
     if (!confirm('Are you sure you want to delete this loader?')) return;
-    
+
     try {
       await deleteLoaderMutation(loaderId);
-      // Data and stats will be automatically refetched via React Query cache invalidation
+
     } catch (err) {
-      console.error('Delete error:', err);
+
     }
   };
 
@@ -165,22 +161,21 @@ const LoaderManager: React.FC<LoaderManagerProps> = ({ onCreateLoaderRequested, 
     try {
       const response = await recordLoaderDownload(loaderId);
       if (response.success && response.download_url) {
-        // Create download link
+
         const link = document.createElement('a');
         link.href = response.download_url;
         link.download = response.filename || 'loader';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        
+
         toast.success('Download started');
-        
-        // Refetch to update download count
+
         refetch();
       }
     } catch (err) {
       toast.error('Failed to download loader.');
-      console.error('Download error:', err);
+
     }
   };
 
@@ -211,12 +206,12 @@ const LoaderManager: React.FC<LoaderManagerProps> = ({ onCreateLoaderRequested, 
 
   const handleNotificationsGame = (loader: Loader) => {
     setSelectedLoader(loader);
-    // TODO: Open notifications dialog
+
   };
 
   const handleChangelogGame = (loader: Loader) => {
     setSelectedLoader(loader);
-    // TODO: Open changelog dialog
+
   };
 
   const getStatusBadge = (status: string) => {
@@ -235,7 +230,6 @@ const LoaderManager: React.FC<LoaderManagerProps> = ({ onCreateLoaderRequested, 
     return searchMatch && statusMatch;
   });
 
-
   if (error) {
     return (
       <Card className="text-center p-8">
@@ -250,7 +244,7 @@ const LoaderManager: React.FC<LoaderManagerProps> = ({ onCreateLoaderRequested, 
   return (
     <div className="space-y-6">
 
-      {/* Bulk Actions - only show when there are loaders and some are selected */}
+      {}
       {loaders.length > 0 && selectedLoaders.length > 0 && (
         <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
           <span className="text-sm text-muted-foreground">
@@ -281,7 +275,7 @@ const LoaderManager: React.FC<LoaderManagerProps> = ({ onCreateLoaderRequested, 
         </div>
       )}
 
-      {/* Empty State */}
+      {}
       {!loading && filteredLoaders.length === 0 ? (
         <Card className="border-dashed border-2 border-muted-foreground/25">
           <CardContent className="p-12">
@@ -320,7 +314,7 @@ const LoaderManager: React.FC<LoaderManagerProps> = ({ onCreateLoaderRequested, 
           </CardContent>
         </Card>
       ) : (
-        /* Loaders Table */
+
         <>
           {loading ? (
             <div className="p-8">
@@ -526,8 +520,7 @@ const LoaderManager: React.FC<LoaderManagerProps> = ({ onCreateLoaderRequested, 
         </>
       )}
 
-
-      {/* Create Loader Dialog */}
+      {}
       {canCreateLoaders && (
         <CreateLoaderDialog
           open={createDialogOpen}
@@ -539,7 +532,7 @@ const LoaderManager: React.FC<LoaderManagerProps> = ({ onCreateLoaderRequested, 
         />
       )}
 
-      {/* Edit Loader Dialog */}
+      {}
       {canEditLoaders && (
         <EditLoaderDialog
           open={editDialogOpen}
@@ -552,7 +545,7 @@ const LoaderManager: React.FC<LoaderManagerProps> = ({ onCreateLoaderRequested, 
         />
       )}
 
-      {/* Upload Files Dialog */}
+      {}
       {canUploadFiles && (
         <UploadLoaderFilesDialog
           open={uploadFilesDialogOpen}
@@ -565,7 +558,7 @@ const LoaderManager: React.FC<LoaderManagerProps> = ({ onCreateLoaderRequested, 
         />
       )}
 
-      {/* Loader Details Dialog */}
+      {}
       <LoaderDetailsDialog
         open={detailsDialogOpen}
         onOpenChange={setDetailsDialogOpen}
@@ -573,7 +566,7 @@ const LoaderManager: React.FC<LoaderManagerProps> = ({ onCreateLoaderRequested, 
         games={games}
       />
 
-      {/* Loader Config Dialog */}
+      {}
       {canConfigurationSettings && (
         <LoaderConfigDialog
           open={configDialogOpen}
@@ -586,7 +579,7 @@ const LoaderManager: React.FC<LoaderManagerProps> = ({ onCreateLoaderRequested, 
         />
       )}
 
-      {/* Assign Games Dialog */}
+      {}
       {canAssignGames && (
         <AssignGamesDialog
         open={assignGamesDialogOpen}
@@ -595,23 +588,23 @@ const LoaderManager: React.FC<LoaderManagerProps> = ({ onCreateLoaderRequested, 
         onAssign={async (loaderId, gameIds) => {
           try {
             await assignGamesMutation(loaderId, gameIds);
-            // Data will be automatically refetched via React Query cache invalidation
+
           } catch (error) {
-            console.error('Failed to assign games:', error);
+
           }
         }}
         onUnassign={async (loaderId, gameIds) => {
           try {
             await unassignGamesMutation(loaderId, gameIds);
-            // Data will be automatically refetched via React Query cache invalidation
+
           } catch (error) {
-            console.error('Failed to unassign games:', error);
+
           }
         }}
         />
       )}
 
-      {/* Create Game Dialog */}
+      {}
       <CreateGameDialog
         open={createGameDialogOpen}
         onOpenChange={setCreateGameDialogOpen}

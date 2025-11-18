@@ -1,4 +1,4 @@
-// Changelog types
+
 export interface ChangelogEntry {
   id: number
   version: string

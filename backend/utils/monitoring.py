@@ -20,7 +20,6 @@ from ..utils.structured_logging import get_logger, metrics
 
 logger = get_logger(__name__)
 
-
 class HealthCheck:
     """Individual health check component"""
 
@@ -43,11 +42,10 @@ class HealthCheck:
         start_time = time.time()
 
         try:
-            # Run check with timeout
+
             result = self.check_func()
             duration = time.time() - start_time
 
-            # Add metadata
             result.update(
                 {
                     "name": self.name,
@@ -61,7 +59,6 @@ class HealthCheck:
             self.last_check = datetime.utcnow()
             self.last_result = result
 
-            # Log metrics
             metrics.observe_histogram(
                 "health_check_duration_ms",
                 duration * 1000,
@@ -93,19 +90,18 @@ class HealthCheck:
 
             return error_result
 
-
 class DatabaseHealthCheck:
     """Database connectivity and performance health check"""
 
     @staticmethod
     def check_connection():
         """Check database connection
-        
+
         SECURITY: Uses hardcoded constant query with no user input. Safe from SQL injection.
         """
         try:
             start_time = time.time()
-            # SECURITY: Safe - hardcoded constant query with no user input
+
             db.session.execute(text("SELECT 1"))
             duration = time.time() - start_time
 
@@ -120,14 +116,12 @@ class DatabaseHealthCheck:
     @staticmethod
     def check_performance():
         """Check database performance
-        
+
         SECURITY: Uses hardcoded constant queries with no user input. Safe from SQL injection.
         """
         try:
             start_time = time.time()
 
-            # SECURITY: Safe - hardcoded constant queries with no user input
-            # Test query performance
             result = db.session.execute(
                 text(
                     """
@@ -141,11 +135,9 @@ class DatabaseHealthCheck:
 
             duration = time.time() - start_time
 
-            # Get slow query statistics
             slow_query_monitor = get_slow_query_monitor()
             slow_query_stats = slow_query_monitor.get_statistics()
 
-            # Check if there are too many slow queries
             slow_query_ratio = 0.0
             if slow_query_stats["stats"]["total_queries"] > 0:
                 slow_query_ratio = (
@@ -153,7 +145,6 @@ class DatabaseHealthCheck:
                     / slow_query_stats["stats"]["total_queries"]
                 ) * 100
 
-            # Consider unhealthy if more than 5% of queries are slow
             is_healthy = duration < 1.0 and slow_query_ratio < 5.0
 
             return {
@@ -174,7 +165,6 @@ class DatabaseHealthCheck:
                 "error": str(e),
                 "details": "Database performance check failed",
             }
-
 
 class RedisHealthCheck:
     """Redis connectivity and performance health check"""
@@ -198,7 +188,6 @@ class RedisHealthCheck:
             redis_client.ping()
             duration = time.time() - start_time
 
-            # Get Redis info
             info = redis_client.info()
 
             return {
@@ -212,7 +201,6 @@ class RedisHealthCheck:
         except Exception as e:
             return {"healthy": False, "error": str(e), "details": "Redis connection failed"}
 
-
 class StorageHealthCheck:
     """Storage system health check"""
 
@@ -223,17 +211,13 @@ class StorageHealthCheck:
             storage_manager = get_storage_manager()
             stats = storage_manager.get_storage_stats()
 
-            # Test file operations
             test_file_path = f"health_check_{int(time.time())}.txt"
             test_content = b"Health check test file"
 
-            # Upload test file
             upload_result = storage_manager.upload_file(test_content, test_file_path, "text/plain")
 
-            # Download test file
             downloaded_content = storage_manager.download_file(test_file_path)
 
-            # Delete test file
             storage_manager.delete_file(test_file_path)
 
             return {
@@ -246,7 +230,6 @@ class StorageHealthCheck:
         except Exception as e:
             return {"healthy": False, "error": str(e), "details": "Storage system check failed"}
 
-
 class SystemHealthCheck:
     """System resource health check"""
 
@@ -254,16 +237,13 @@ class SystemHealthCheck:
     def check_resources():
         """Check system resources"""
         try:
-            # CPU usage
+
             cpu_percent = psutil.cpu_percent(interval=1)
 
-            # Memory usage
             memory = psutil.virtual_memory()
 
-            # Disk usage
             disk = psutil.disk_usage("/")
 
-            # Load average (Unix systems)
             load_avg = psutil.getloadavg() if hasattr(psutil, "getloadavg") else None
 
             return {
@@ -279,7 +259,6 @@ class SystemHealthCheck:
         except Exception as e:
             return {"healthy": False, "error": str(e), "details": "System resource check failed"}
 
-
 class ApplicationHealthCheck:
     """Application-specific health checks"""
 
@@ -287,10 +266,9 @@ class ApplicationHealthCheck:
     def check_application():
         """Check application health"""
         try:
-            # Check if Flask app is running
+
             app_healthy = current_app is not None
 
-            # Check recent activity
             from models.core import UserActivity
 
             recent_activities = UserActivity.query.filter(
@@ -306,7 +284,6 @@ class ApplicationHealthCheck:
         except Exception as e:
             return {"healthy": False, "error": str(e), "details": "Application health check failed"}
 
-
 class MonitoringSystem:
     """Main monitoring system"""
 
@@ -317,7 +294,6 @@ class MonitoringSystem:
     def _init_health_checks(self):
         """Initialize all health checks"""
 
-        # Database checks
         self.add_health_check(
             "database_connection", DatabaseHealthCheck.check_connection, critical=True
         )
@@ -325,16 +301,12 @@ class MonitoringSystem:
             "database_performance", DatabaseHealthCheck.check_performance, critical=False
         )
 
-        # Redis checks
         self.add_health_check("redis_connection", RedisHealthCheck.check_connection, critical=True)
 
-        # Storage checks
         self.add_health_check("storage_system", StorageHealthCheck.check_storage, critical=True)
 
-        # System checks
         self.add_health_check("system_resources", SystemHealthCheck.check_resources, critical=False)
 
-        # Application checks
         self.add_health_check(
             "application", ApplicationHealthCheck.check_application, critical=True
         )
@@ -398,12 +370,11 @@ class MonitoringSystem:
     def get_metrics_summary(self) -> Dict[str, Any]:
         """Get metrics summary for monitoring"""
         try:
-            # Get system metrics
+
             cpu_percent = psutil.cpu_percent()
             memory = psutil.virtual_memory()
             disk = psutil.disk_usage("/")
 
-            # Get application metrics
             from models.core import Project, User, UserActivity
 
             total_users = User.query.count()
@@ -431,10 +402,7 @@ class MonitoringSystem:
             logger.error(f"Failed to get metrics summary: {e}")
             return {"error": str(e), "timestamp": datetime.utcnow().isoformat()}
 
-
-# Global monitoring system instance
 monitoring_system = MonitoringSystem()
-
 
 def setup_monitoring_endpoints(app):
     """Setup monitoring endpoints for Flask app"""
@@ -457,12 +425,11 @@ def setup_monitoring_endpoints(app):
     @app.route("/api/status", methods=["GET"])
     def status():
         """Simple status endpoint
-        
+
         SECURITY: Uses hardcoded constant query with no user input. Safe from SQL injection.
         """
         try:
-            # SECURITY: Safe - hardcoded constant query with no user input
-            # Quick database check
+
             db.session.execute(text("SELECT 1"))
             db_status = "healthy"
         except Exception as e:
@@ -477,7 +444,6 @@ def setup_monitoring_endpoints(app):
             }
         )
 
-    # Slow query monitoring endpoints
     @app.route("/api/monitoring/slow-queries", methods=["GET"])
     def get_slow_queries():
         """Get recent slow queries"""
@@ -587,7 +553,6 @@ def setup_monitoring_endpoints(app):
             "/api/monitoring/table-stats",
         ],
     )
-
 
 def get_monitoring_system() -> MonitoringSystem:
     """Get global monitoring system instance"""

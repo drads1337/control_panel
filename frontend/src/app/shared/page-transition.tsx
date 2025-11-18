@@ -1,29 +1,26 @@
-// --- START OF FILE AnimatedPage.tsx ---
 
 import { motion } from 'framer-motion';
 import React from 'react';
 
-// Определяем варианты анимации
 const pageVariants = {
   initial: {
     opacity: 0,
-    y: 20, // Начинаем на 20px ниже
+    y: 20,
   },
   in: {
     opacity: 1,
-    y: 0, // Поднимаемся в исходное положение
+    y: 0,
   },
   out: {
     opacity: 0,
-    y: -20, // Уходим на 20px вверх
+    y: -20,
   },
 };
 
-// Определяем свойства перехода (длительность, тип)
 const pageTransition = {
-  type: 'tween' as const, // Плавный переход
-  ease: 'anticipate' as const, // Эффектный тип замедления
-  duration: 0.5, // Длительность 0.5 секунды
+  type: 'tween' as const,
+  ease: 'anticipate' as const,
+  duration: 0.5,
 };
 
 interface AnimatedPageProps {
@@ -33,17 +30,16 @@ interface AnimatedPageProps {
 export function AnimatedPage({ children }: AnimatedPageProps) {
   return (
     <motion.div
-      initial="initial" // Начальное состояние
-      animate="in"      // Анимация при появлении
-      exit="out"        // Анимация при исчезновении
+      initial="initial"
+      animate="in"
+      exit="out"
       variants={pageVariants}
       transition={pageTransition}
-      style={{ width: '100%', height: '100%' }} // Сохраняем размеры
+      style={{ width: '100%', height: '100%' }}
     >
       {children}
     </motion.div>
   );
 }
 
-// Экспортируем PageTransition как алиас для AnimatedPage для совместимости
 export const PageTransition = AnimatedPage;

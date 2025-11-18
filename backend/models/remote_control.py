@@ -7,24 +7,21 @@ from datetime import datetime
 
 from ..core.extensions import db
 
-
 class RemoteCategory(db.Model):
     """Model for remote control categories (ESP, Aimbot, Misc, etc.)"""
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64), nullable=False)
     description = db.Column(db.Text, nullable=True)
-    color = db.Column(db.String(7), default="#3b82f6")  # Hex color code
+    color = db.Column(db.String(7), default="#3b82f6")
     project_id = db.Column(
         db.Integer, db.ForeignKey("project.id", ondelete="CASCADE"), nullable=False
     )
     project = db.relationship("Project", backref="remote_categories")
 
-    # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Unique constraint: category name must be unique within a project
     __table_args__ = (
         db.UniqueConstraint("name", "project_id", name="uq_remote_category_name_project"),
     )
@@ -43,7 +40,6 @@ class RemoteCategory(db.Model):
     def __repr__(self):
         return f"<RemoteCategory {self.name} (project_id={self.project_id})>"
 
-
 class RemoteFeature(db.Model):
     """Model for remote control features (Player ESP, Smooth Aimbot, etc.)"""
 
@@ -60,21 +56,16 @@ class RemoteFeature(db.Model):
     )
     project = db.relationship("Project", backref="remote_features")
 
-    # Feature configuration (JSON string for additional settings)
-    configuration = db.Column(db.Text, nullable=True)  # JSON string
+    configuration = db.Column(db.Text, nullable=True)
 
-    # Status tracking
-    status = db.Column(db.String(16), default="offline")  # online, offline, error
+    status = db.Column(db.String(16), default="offline")
 
-    # Usage statistics
     usage_count = db.Column(db.Integer, default=0)
     last_used_at = db.Column(db.DateTime, nullable=True)
 
-    # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Unique constraint: feature name must be unique within a project
     __table_args__ = (
         db.UniqueConstraint("name", "project_id", name="uq_remote_feature_name_project"),
     )
@@ -114,7 +105,6 @@ class RemoteFeature(db.Model):
     def __repr__(self):
         return f"<RemoteFeature {self.name} (category_id={self.category_id}, project_id={self.project_id})>"
 
-
 class RemoteFeatureLog(db.Model):
     """Model for logging remote feature usage and changes"""
 
@@ -128,19 +118,15 @@ class RemoteFeatureLog(db.Model):
     )
     project = db.relationship("Project", backref="remote_feature_logs")
 
-    # Action details
-    action = db.Column(db.String(64), nullable=False)  # enabled, disabled, configured, used
-    details = db.Column(db.Text, nullable=True)  # Additional details about the action
+    action = db.Column(db.String(64), nullable=False)
+    details = db.Column(db.Text, nullable=True)
 
-    # User who performed the action (if applicable)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id", ondelete="SET NULL"), nullable=True)
     user = db.relationship("User", backref="remote_feature_actions")
 
-    # Client information (if action was from a client)
     client_ip = db.Column(db.String(64), nullable=True)
     client_user_agent = db.Column(db.String(512), nullable=True)
 
-    # Timestamp
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self):

@@ -12,14 +12,8 @@ import { Building2, Users, Key, Gamepad2, Server, TrendingUp, Activity } from 'l
 import { format } from 'date-fns'
 import { Spinner } from '@/components/ui/spinner'
 
-// Lazy load heavy components for better code splitting
 const ChartAreaInteractive = React.lazy(() => import('@/app/dashboard/chart-area-interactive').then(module => ({ default: module.ChartAreaInteractive })))
 
-/**
- * Компонент дашборда для владельцев системы
- * Отвечает только за отображение системных данных
- * Оформлен в стиле обычного dashboard
- */
 export default function OwnerDashboard() {
   const { stats, loading, error, refetch } = useOwnerDashboard()
   const { data: dashboardStats } = useDashboardStats()
@@ -34,15 +28,15 @@ export default function OwnerDashboard() {
 
   return (
     <div className="flex flex-1 flex-col gap-6">
-      {/* Stat Cards Grid - в том же стиле что и обычный dashboard */}
+      {}
       <StatCardsGrid data={stats} type="owner" />
 
-      {/* Chart Area - в том же стиле что и обычный dashboard */}
+      {}
       <Suspense fallback={<div className="flex items-center justify-center min-h-[400px]"><Spinner size="lg" message="Loading charts..." /></div>}>
         <ChartAreaInteractive />
       </Suspense>
 
-      {/* Projects Overview Card */}
+      {}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -133,7 +127,7 @@ export default function OwnerDashboard() {
         </CardContent>
       </Card>
 
-      {/* User Analytics by Role */}
+      {}
       {stats?.user_analytics?.by_role && stats.user_analytics.by_role.length > 0 && (
         <Card>
           <CardHeader>
@@ -163,7 +157,7 @@ export default function OwnerDashboard() {
         </Card>
       )}
 
-      {/* System Health Metrics */}
+      {}
       {stats?.system_health && (
         <Card>
           <CardHeader>
@@ -232,7 +226,7 @@ export default function OwnerDashboard() {
         </Card>
       )}
 
-      {/* Security Metrics */}
+      {}
       {stats?.security_metrics && (
         <Card>
           <CardHeader>
@@ -267,7 +261,7 @@ export default function OwnerDashboard() {
         </Card>
       )}
 
-      {/* Slow Queries Monitoring - Only for Owner */}
+      {}
       <SlowQueriesCard data={dashboardStats} />
     </div>
   )

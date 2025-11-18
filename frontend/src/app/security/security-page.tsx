@@ -8,13 +8,11 @@ import { SecurityAccessDenied } from './security-access-denied';
 function SecurityPageContent() {
   const { isAuthenticated, user } = useAuthContext();
   const securityPermissions = useSecurityPermissions();
-  
-  // State for security tabs
+
   const [activeTab, setActiveTab] = useState('blocked-ips');
   const [ipSearchTerm, setIPSearchTerm] = useState('');
   const [hwidSearchTerm, setHWIDSearchTerm] = useState('');
-  
-  // Use custom hook for security actions and data
+
   const {
     stats,
     loading,
@@ -31,14 +29,14 @@ function SecurityPageContent() {
   if (!isAuthenticated || !user) {
     return <SecurityAccessDenied message="You need to be logged in to view the security panel." />;
   }
-  
+
   if (!securityPermissions.canViewSecurity) {
     return <SecurityAccessDenied message="You don't have permission to access the security panel." />;
   }
 
   return (
     <div>
-      {/* Page Header */}
+      {}
       <div className="mb-8">
         <div className="flex items-center gap-3">
           <div>

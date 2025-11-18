@@ -9,13 +9,12 @@ interface RoleForm {
 }
 
 interface UseRBACTabReturn {
-  // State
+
   roleForm: RoleForm;
   selectedRole: Role | null;
   createDialogOpen: boolean;
   editDialogOpen: boolean;
-  
-  // Data
+
   roles: Role[];
   permissions: Permission;
   isLoading: boolean;
@@ -23,8 +22,7 @@ interface UseRBACTabReturn {
   isCreating: boolean;
   isUpdating: boolean;
   isDeleting: boolean;
-  
-  // Actions
+
   setRoleForm: (form: RoleForm | ((prev: RoleForm) => RoleForm)) => void;
   setSelectedRole: (role: Role | null) => void;
   setCreateDialogOpen: (open: boolean) => void;
@@ -35,10 +33,6 @@ interface UseRBACTabReturn {
   resetRoleForm: () => void;
 }
 
-/**
- * Hook for managing RBAC tab logic (form state, dialogs, data operations)
- * Separates data management from UI rendering (SRP)
- */
 export function useRBACTab(): UseRBACTabReturn {
   const [roleForm, setRoleForm] = useState<RoleForm>({
     name: '',
@@ -86,10 +80,10 @@ export function useRBACTab(): UseRBACTabReturn {
         await createRole(roleForm);
         setCreateDialogOpen(false);
       }
-      
+
       resetRoleForm();
     } catch (error) {
-      // Error handling is done in the hook
+
     }
   }, [roleForm, selectedRole, createRole, updateRole, resetRoleForm]);
 
@@ -98,7 +92,7 @@ export function useRBACTab(): UseRBACTabReturn {
       try {
         await deleteRole(roleId);
       } catch (error) {
-        // Error handling is done in the hook
+
       }
     }
   }, [deleteRole]);
@@ -114,13 +108,12 @@ export function useRBACTab(): UseRBACTabReturn {
   }, []);
 
   return {
-    // State
+
     roleForm,
     selectedRole,
     createDialogOpen,
     editDialogOpen,
-    
-    // Data
+
     roles,
     permissions,
     isLoading,
@@ -128,8 +121,7 @@ export function useRBACTab(): UseRBACTabReturn {
     isCreating,
     isUpdating,
     isDeleting,
-    
-    // Actions
+
     setRoleForm,
     setSelectedRole,
     setCreateDialogOpen,
@@ -140,4 +132,3 @@ export function useRBACTab(): UseRBACTabReturn {
     resetRoleForm,
   };
 }
-

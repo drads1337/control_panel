@@ -1,4 +1,4 @@
-// Re-export all app components from their respective folders
+
 export * from './auth';
 export * from './dashboard';
 export * from './projects';
@@ -14,7 +14,6 @@ export * from './servers/index';
 export * from './webhooks';
 export * from './logs';
 
-// Export page components
 export { default as Dashboard } from './dashboard/dashboard-page-wrapper';
 export { default as InviteCodes } from './projects/invite-codes-page';
 export { default as LoginPage } from './auth/login-page';

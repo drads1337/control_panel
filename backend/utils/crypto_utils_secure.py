@@ -30,7 +30,6 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.x509 import CertificateBuilder, Name, NameAttribute, SubjectAlternativeName
 from cryptography.x509.oid import NameOID
 
-
 class SecureCryptoManager:
     """
     SECURITY FIX: Secure cryptographic operations manager.
@@ -43,7 +42,7 @@ class SecureCryptoManager:
         SECURITY FIX: Generate a secure 256-bit key for AES-256-GCM.
         Returns hex-encoded key (64 characters).
         """
-        key = os.urandom(32)  # 32 bytes = 256 bits for AES-256
+        key = os.urandom(32)
         return key.hex()
 
     @staticmethod
@@ -53,18 +52,16 @@ class SecureCryptoManager:
         Returns (private_key_pem, public_key_pem).
         """
         private_key = rsa.generate_private_key(
-            public_exponent=65537, key_size=2048, backend=default_backend()  # Minimum secure size
+            public_exponent=65537, key_size=2048, backend=default_backend()
         )
         public_key = private_key.public_key()
 
-        # Serialize private key
         private_pem = private_key.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.PKCS8,
             encryption_algorithm=serialization.NoEncryption(),
         )
 
-        # Serialize public key
         public_pem = public_key.public_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo,
@@ -99,9 +96,8 @@ class SecureCryptoManager:
         cert_builder = cert_builder.not_valid_before(datetime.utcnow())
         cert_builder = cert_builder.not_valid_after(
             datetime.utcnow() + timedelta(days=365 * 2)
-        )  # 2 years max
+        )
 
-        # Add subject alternative names
         from cryptography.x509.general_name import DNSName
 
         cert_builder = cert_builder.add_extension(
@@ -126,26 +122,24 @@ class SecureCryptoManager:
         SECURITY FIX: Encrypt private key using AES-256-GCM.
         Replaces dangerous custom AES implementation.
         """
-        # Derive key from password
+
         salt = os.urandom(16)
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
-            length=32,  # 32 bytes = 256 bits for AES-256
+            length=32,
             salt=salt,
-            iterations=100000,  # OWASP recommended minimum
+            iterations=100000,
             backend=default_backend(),
         )
         key = kdf.derive(project_password.encode("utf-8"))
 
-        # Encrypt using AES-256-GCM
-        iv = os.urandom(12)  # 12 bytes for GCM
+        iv = os.urandom(12)
         cipher = Cipher(algorithms.AES(key), modes.GCM(iv), backend=default_backend())
         encryptor = cipher.encryptor()
 
         encrypted_data = encryptor.update(private_key_pem.encode("utf-8")) + encryptor.finalize()
         tag = encryptor.tag
 
-        # Combine salt + IV + ciphertext + tag
         combined = salt + iv + encrypted_data + tag
         return base64.b64encode(combined).decode("utf-8")
 
@@ -158,7 +152,7 @@ class SecureCryptoManager:
         try:
             combined = base64.b64decode(encrypted_private_key)
 
-            if len(combined) < 44:  # 16 (salt) + 12 (IV) + 16 (tag) minimum
+            if len(combined) < 44:
                 raise ValueError("Encrypted private key too short")
 
             salt = combined[:16]
@@ -166,17 +160,15 @@ class SecureCryptoManager:
             tag = combined[-16:]
             encrypted_data = combined[28:-16]
 
-            # Derive key from password
             kdf = PBKDF2HMAC(
                 algorithm=hashes.SHA256(),
-                length=32,  # 32 bytes = 256 bits for AES-256
+                length=32,
                 salt=salt,
                 iterations=100000,
                 backend=default_backend(),
             )
             key = kdf.derive(project_password.encode("utf-8"))
 
-            # Decrypt using AES-256-GCM
             cipher = Cipher(algorithms.AES(key), modes.GCM(iv, tag), backend=default_backend())
             decryptor = cipher.decryptor()
             decrypted_data = decryptor.update(encrypted_data) + decryptor.finalize()
@@ -194,11 +186,11 @@ class SecureCryptoManager:
         Key should be a hex string (64 characters for 32 bytes).
         """
         try:
-            # Convert hex key to bytes
+
             if len(aes_key_hex) == 64:
                 key = bytes.fromhex(aes_key_hex)
             else:
-                # Fallback to base64 for backward compatibility
+
                 key = base64.b64decode(aes_key_hex)
 
             if len(key) != 32:
@@ -211,15 +203,13 @@ class SecureCryptoManager:
             elif not isinstance(data, bytes):
                 data = json.dumps(data).encode("utf-8")
 
-            # Encrypt using AES-256-GCM
-            iv = os.urandom(12)  # 12 bytes for GCM
+            iv = os.urandom(12)
             cipher = Cipher(algorithms.AES(key), modes.GCM(iv), backend=default_backend())
             encryptor = cipher.encryptor()
 
             encrypted = encryptor.update(data) + encryptor.finalize()
             tag = encryptor.tag
 
-            # Combine IV + ciphertext + tag
             combined = iv + encrypted + tag
             return base64.b64encode(combined).decode("utf-8")
 
@@ -234,11 +224,11 @@ class SecureCryptoManager:
         Key should be a hex string (64 characters for 32 bytes).
         """
         try:
-            # Convert hex key to bytes
+
             if len(aes_key_hex) == 64:
                 key = bytes.fromhex(aes_key_hex)
             else:
-                # Fallback to base64 for backward compatibility
+
                 key = base64.b64decode(aes_key_hex)
 
             if len(key) != 32:
@@ -248,15 +238,13 @@ class SecureCryptoManager:
 
             combined = base64.b64decode(encrypted_data_b64)
 
-            if len(combined) < 28:  # 12 (IV) + 16 (tag) minimum
+            if len(combined) < 28:
                 raise ValueError(f"Encrypted data too short: {len(combined)} bytes (minimum 28)")
 
-            # Extract IV, ciphertext, and tag
             iv = combined[:12]
             tag = combined[-16:]
             ciphertext = combined[12:-16]
 
-            # Decrypt using AES-256-GCM
             cipher = Cipher(algorithms.AES(key), modes.GCM(iv, tag), backend=default_backend())
             decryptor = cipher.decryptor()
             decrypted = decryptor.update(ciphertext) + decryptor.finalize()
@@ -323,37 +311,31 @@ class SecureCryptoManager:
             logging.warning(f"Signature verification failed: {str(e)}")
             return False
 
-
 def generate_project_keys_secure(project_name: str) -> Dict[str, Any]:
     """
     SECURITY FIX: Generate all encryption keys for a project using secure methods.
     Replaces dangerous custom implementations.
     """
-    # Generate secure AES key
+
     aes_key = SecureCryptoManager.generate_secure_aes_key()
 
-    # Generate secure RSA key pair
     private_key_pem, public_key_pem = SecureCryptoManager.generate_secure_rsa_key_pair()
 
-    # Generate secure certificate
     certificate = SecureCryptoManager.generate_secure_self_signed_certificate(
         project_name, private_key_pem
     )
 
-    # Generate secure project password
     project_password = f"{project_name}_{secrets.token_hex(16)}"
 
-    # Encrypt private key securely
     encrypted_private_key = SecureCryptoManager.encrypt_private_key_secure(
         private_key_pem, project_password
     )
 
-    # Create metadata
     metadata = {
         "algorithm": "AES-256-GCM + RSA-2048",
-        "aes_key_size": 256,  # AES-256
+        "aes_key_size": 256,
         "rsa_key_size": 2048,
-        "certificate_validity_days": 730,  # 2 years
+        "certificate_validity_days": 730,
         "encryption_method": "AES-256-GCM with PBKDF2 key derivation",
         "generated_at": datetime.utcnow().isoformat(),
         "security_level": "high",
@@ -367,8 +349,6 @@ def generate_project_keys_secure(project_name: str) -> Dict[str, Any]:
         "metadata": metadata,
     }
 
-
-# Backward compatibility functions with security warnings
 def generate_aes_key():
     """
     DEPRECATED: Use SecureCryptoManager.generate_secure_aes_key() instead.
@@ -379,7 +359,6 @@ def generate_aes_key():
     )
     return SecureCryptoManager.generate_secure_aes_key()
 
-
 def generate_rsa_key_pair():
     """
     DEPRECATED: Use SecureCryptoManager.generate_secure_rsa_key_pair() instead.
@@ -389,7 +368,6 @@ def generate_rsa_key_pair():
         "DEPRECATED: generate_rsa_key_pair() is deprecated. Use SecureCryptoManager.generate_secure_rsa_key_pair()"
     )
     return SecureCryptoManager.generate_secure_rsa_key_pair()
-
 
 def encrypt_data_with_project_aes(data, aes_key):
     """
@@ -402,7 +380,6 @@ def encrypt_data_with_project_aes(data, aes_key):
     )
     return SecureCryptoManager.encrypt_data_secure(data, aes_key)
 
-
 def decrypt_data_with_project_aes(encrypted_data_b64, aes_key):
     """
     DEPRECATED: Use SecureCryptoManager.decrypt_data_secure() instead.
@@ -413,7 +390,6 @@ def decrypt_data_with_project_aes(encrypted_data_b64, aes_key):
         "DEPRECATED: decrypt_data_with_project_aes() is deprecated. Use SecureCryptoManager.decrypt_data_secure()"
     )
     return SecureCryptoManager.decrypt_data_secure(encrypted_data_b64, aes_key)
-
 
 def generate_project_keys(project_name):
     """

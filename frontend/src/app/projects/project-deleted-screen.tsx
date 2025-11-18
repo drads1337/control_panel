@@ -42,7 +42,7 @@ export function ProjectDeletedScreen({
               <div className="mx-auto w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center">
                 <Trash2 className="h-8 w-8 text-destructive" />
               </div>
-              
+
               <div className="space-y-2">
                 <h1 className="text-2xl font-bold">Project Deleted</h1>
                 <p className="text-muted-foreground">
@@ -103,7 +103,7 @@ export function ProjectDeletedScreen({
                     Refresh
                   </Button>
                 </div>
-                
+
                 <Button 
                   onClick={handleLogout}
                   variant="outline"

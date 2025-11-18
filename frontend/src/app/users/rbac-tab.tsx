@@ -9,14 +9,9 @@ import EditRoleDialog from './edit-role-dialog';
 import { Plus, Shield, Key, Edit, Trash2 } from 'lucide-react';
 import { useRBACTab } from '@/hooks/use-rbac-tab';
 
-/**
- * RBAC Tab Component
- * Follows SRP: Component only handles UI rendering, data logic is in useRBACTab hook
- */
 const RBACTab: React.FC = () => {
   const [rbacActiveTab, setRbacActiveTab] = useState('roles');
-  
-  // Use hook for all data management and business logic
+
   const {
     roleForm,
     selectedRole,
@@ -38,7 +33,6 @@ const RBACTab: React.FC = () => {
     resetRoleForm,
   } = useRBACTab();
 
-  // Handle create dialog open
   const handleCreateDialogOpen = (open: boolean) => {
     setCreateDialogOpen(open);
     if (!open) {
@@ -46,7 +40,6 @@ const RBACTab: React.FC = () => {
     }
   };
 
-  // Handle edit dialog open
   const handleEditDialogOpen = (open: boolean) => {
     setEditDialogOpen(open);
     if (!open) {
@@ -163,7 +156,7 @@ const RBACTab: React.FC = () => {
                   </div>
                 )}
               </TabsContent>
-              
+
               <TabsContent value="permissions" className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">System Permissions</h3>
@@ -171,7 +164,7 @@ const RBACTab: React.FC = () => {
                     {Object.keys(permissions).length} resource groups
                   </div>
                 </div>
-                
+
                 {Object.keys(permissions).length === 0 ? (
                   <div className="text-center py-8">
                     <Key className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -192,7 +185,7 @@ const RBACTab: React.FC = () => {
                             {resourcePermissions.length} permissions
                           </Badge>
                         </div>
-                        
+
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                           {resourcePermissions.map((permission) => (
                             <div 
@@ -228,7 +221,7 @@ const RBACTab: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Create Role Dialog */}
+      {}
       <CreateRoleDialog
         open={createDialogOpen}
         onOpenChange={handleCreateDialogOpen}
@@ -239,7 +232,7 @@ const RBACTab: React.FC = () => {
         permissions={permissions}
       />
 
-      {/* Edit Role Dialog */}
+      {}
       <EditRoleDialog
         open={editDialogOpen}
         onOpenChange={handleEditDialogOpen}
@@ -254,4 +247,3 @@ const RBACTab: React.FC = () => {
 };
 
 export default RBACTab;
-

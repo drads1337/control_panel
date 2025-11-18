@@ -19,10 +19,6 @@ const initialState: AuthState = {
   isInitialized: false
 }
 
-/**
- * Hook for managing authentication state
- * Separated from business logic for better reusability and testability
- */
 export function useAuthState() {
   const [authState, setAuthState] = useState<AuthState>(initialState)
 
@@ -31,7 +27,7 @@ export function useAuthState() {
       ...prev,
       user,
       isAuthenticated: !!user,
-      token: null // Token is stored in httpOnly cookies
+      token: null
     }))
   }, [])
 
@@ -82,4 +78,3 @@ export function useAuthState() {
     reset
   }
 }
-

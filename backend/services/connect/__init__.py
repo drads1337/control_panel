@@ -17,7 +17,6 @@ from .response_builder import ResponseBuilder
 from .security_checker import SecurityChecker
 from .token_generation_service import TokenGenerationService
 
-# Auto-generate __all__ from imports to avoid duplication
 import sys
 _current_module = sys.modules[__name__]
 __all__ = sorted([
@@ -25,4 +24,3 @@ __all__ = sorted([
     if not name.startswith('_') and name not in ('sys', '_current_module')
 ])
 del sys, _current_module
-

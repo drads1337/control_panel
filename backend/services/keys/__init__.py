@@ -6,7 +6,6 @@ Contains business logic for key management and validation
 from .key_service import KeyService, key_service
 from .key_validator import KeyValidator, key_validator
 
-# Auto-generate __all__ from imports to avoid duplication
 import sys
 _current_module = sys.modules[__name__]
 __all__ = sorted([
@@ -14,4 +13,3 @@ __all__ = sorted([
     if not name.startswith('_') and name not in ('sys', '_current_module')
 ])
 del sys, _current_module
-

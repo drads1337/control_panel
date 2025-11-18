@@ -40,11 +40,11 @@ export function CreateWebhookDialog({
 }: CreateWebhookDialogProps) {
   const { hasPermission } = usePermissions();
   const canCreate = hasPermission('webhooks.create');
-  
+
   if (!canCreate) {
     return null;
   }
-  
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">

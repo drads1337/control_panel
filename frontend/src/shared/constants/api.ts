@@ -1,6 +1,3 @@
-/**
- * API-related constants
- */
 
 export const API_ENDPOINTS = {
   AUTH: {
@@ -38,4 +35,3 @@ export const API_ENDPOINTS = {
     BASE: '/api/webhooks',
   },
 } as const;
-

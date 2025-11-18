@@ -8,17 +8,9 @@ import { useAuthRedirect } from './auth/use-auth-redirect'
 import { useAuthErrors } from './auth/use-auth-errors'
 import type { User } from '@/entities/user'
 
-/**
- * Main authentication hook
- * Composed from smaller focused hooks following Single Responsibility Principle
- * 
- * This hook manages authentication state, initialization, actions, redirects, and errors
- * Separated into smaller hooks for better maintainability and testability
- */
 export function useAuth() {
   const navigate = useNavigate()
-  
-  // State management
+
   const {
     authState,
     setUser,
@@ -31,14 +23,12 @@ export function useAuth() {
     reset
   } = useAuthState()
 
-  // Refs for coordination between hooks
   const isLoggingIn = useRef(false)
   const loginAttempts = useRef(0)
   const abortControllerRef = useRef<AbortController | null>(null)
   const isInitializing = useRef(false)
   const justLoggedIn = useRef(false)
 
-  // Initialize authentication check
   useAuthInit(
     {
       setUser,
@@ -55,7 +45,6 @@ export function useAuth() {
     }
   )
 
-  // Authentication actions (login, register, logout)
   const { login, register, registerWithInvite, logout } = useAuthActions(
     {
       setUser,
@@ -72,7 +61,6 @@ export function useAuth() {
     }
   )
 
-  // Handle redirects based on auth state
   useAuthRedirect({
     isInitialized: authState.isInitialized,
     isLoading: authState.isLoading,
@@ -80,17 +68,14 @@ export function useAuth() {
     user: authState.user
   })
 
-  // Handle authentication errors from API interceptor
   useAuthErrors({ updateState })
 
-  // Update cache when user data changes
   useEffect(() => {
     if (authState.user) {
       authService.saveUserToCache(authState.user)
     }
   }, [authState.user])
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (abortControllerRef.current) {
@@ -99,7 +84,6 @@ export function useAuth() {
     }
   }, [])
 
-  // Update user and cache
   const updateUserWithCache = (userData: Partial<User>) => {
     updateUser(userData)
     if (authState.user) {
@@ -108,7 +92,7 @@ export function useAuth() {
   }
 
   return {
-    // State
+
     user: authState.user,
     token: authState.token,
     isAuthenticated: authState.isAuthenticated,
@@ -116,7 +100,6 @@ export function useAuth() {
     error: authState.error,
     isInitialized: authState.isInitialized,
 
-    // Actions
     login,
     register,
     registerWithInvite,

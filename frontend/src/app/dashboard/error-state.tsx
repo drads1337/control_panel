@@ -10,9 +10,9 @@ interface ErrorStateProps {
 
 export function ErrorState({ error, onRetry, className = "" }: ErrorStateProps) {
   const navigate = useNavigate()
-  
+
   const isAuthError = error.includes('Authentication') || error.includes('Session expired')
-  
+
   return (
     <div className={`flex items-center justify-center h-full ${className}`}>
       <div className="text-center">

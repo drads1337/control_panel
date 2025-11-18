@@ -89,4 +89,3 @@ export function ProfileSecurityTab({
     </Card>
   )
 }
-

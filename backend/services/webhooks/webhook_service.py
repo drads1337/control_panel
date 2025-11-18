@@ -24,18 +24,16 @@ from ...models.games import Game
 from ...models.keys import Key
 from ...models.webhooks import Webhook, WebhookLog
 
-
 class WebhookService:
     """Service for managing webhook notifications"""
 
     def __init__(self):
         self.webhook_queue = Queue()
         self.max_retries = 3
-        self.retry_delay = 5  # seconds
-        self.timeout = 10  # seconds
+        self.retry_delay = 5
+        self.timeout = 10
         self.max_workers = 5
 
-        # Start background worker
         self._start_worker()
 
     def _start_worker(self):
@@ -52,14 +50,13 @@ class WebhookService:
                     self.webhook_queue.task_done()
 
                 except Empty:
-                    # Timeout is expected - just continue the loop
+
                     continue
                 except Exception as e:
                     logging.error(f"WEBHOOK_WORKER_ERROR: {e}")
                     logging.error(f"WEBHOOK_WORKER_TRACEBACK: {traceback.format_exc()}")
                     time.sleep(1)
 
-        # Start worker threads
         for i in range(self.max_workers):
             thread = threading.Thread(target=worker, daemon=True)
             thread.start()
@@ -74,17 +71,17 @@ class WebhookService:
         secret: Optional[str] = None,
         is_active: bool = True,
         headers: Optional[Dict] = None,
-        # Telegram fields
+
         telegram_bot_token: Optional[str] = None,
         telegram_chat_id: Optional[str] = None,
-        # Discord fields
+
         discord_webhook_url: Optional[str] = None,
         discord_bot_token: Optional[str] = None,
         discord_channel_id: Optional[str] = None,
     ) -> Dict:
         """Create a new webhook"""
         try:
-            # Validate based on webhook type
+
             if webhook_type == "custom":
                 if not url or not self._validate_url(url):
                     raise ValueError("Invalid webhook URL for custom type")
@@ -99,7 +96,6 @@ class WebhookService:
             else:
                 raise ValueError(f"Invalid webhook type: {webhook_type}")
 
-            # Validate events
             if events:
                 valid_events = self._get_valid_events()
                 for event in events:
@@ -108,11 +104,9 @@ class WebhookService:
             else:
                 events = []
 
-            # Generate secret if not provided
             if not secret:
                 secret = self._generate_secret()
 
-            # Create webhook
             webhook = Webhook(
                 project_id=project_id,
                 name=name,
@@ -159,7 +153,6 @@ class WebhookService:
             if not webhook:
                 raise ValueError("Webhook not found")
 
-            # Update fields
             if "name" in kwargs:
                 webhook.name = kwargs["name"]
 
@@ -212,10 +205,8 @@ class WebhookService:
             if not webhook:
                 return False
 
-            # Delete webhook logs
             WebhookLog.query.filter_by(webhook_id=webhook_id).delete()
 
-            # Delete webhook
             db.session.delete(webhook)
             db.session.commit()
 
@@ -247,10 +238,10 @@ class WebhookService:
                     "secret": webhook.secret,
                     "is_active": webhook.is_active,
                     "headers": json.loads(webhook.headers or "{}"),
-                    # Telegram fields
+
                     "telegram_bot_token": webhook.telegram_bot_token,
                     "telegram_chat_id": webhook.telegram_chat_id,
-                    # Discord fields
+
                     "discord_webhook_url": webhook.discord_webhook_url,
                     "discord_bot_token": webhook.discord_bot_token,
                     "discord_channel_id": webhook.discord_channel_id,
@@ -272,14 +263,13 @@ class WebhookService:
     def trigger_webhook(self, event: str, data: Dict, project_id: Optional[int] = None) -> bool:
         """Trigger webhooks for a specific event"""
         try:
-            # SECURITY: Always require project_id for webhook isolation
+
             if project_id is None:
                 logging.warning(
                     f"WEBHOOK_TRIGGER_BLOCKED: project_id is None for event={event} - webhook not triggered for security"
                 )
                 return False
 
-            # Get webhooks for this event and project
             query = Webhook.query.filter(
                 Webhook.is_active == True,
                 Webhook.events.contains(f'"{event}"'),
@@ -292,7 +282,6 @@ class WebhookService:
                 logging.info(f"WEBHOOK_NO_WEBHOOKS_FOUND event={event} project_id={project_id}")
                 return True
 
-            # Queue webhook requests
             for webhook in webhooks:
                 webhook_data = {
                     "webhook_id": webhook.id,
@@ -303,14 +292,14 @@ class WebhookService:
                     "secret": webhook.secret,
                     "headers": json.loads(webhook.headers or "{}"),
                     "project_id": webhook.project_id,
-                    # Telegram fields
+
                     "telegram_bot_token": webhook.telegram_bot_token,
                     "telegram_chat_id": webhook.telegram_chat_id,
-                    # Discord fields
+
                     "discord_webhook_url": webhook.discord_webhook_url,
                     "discord_bot_token": webhook.discord_bot_token,
                     "discord_channel_id": webhook.discord_channel_id,
-                    # Message template
+
                     "message_template": webhook.message_template,
                 }
 
@@ -341,13 +330,11 @@ class WebhookService:
             elif webhook_type == "discord":
                 success, error_message = self._send_discord_message(webhook_data)
             else:
-                # Custom webhook
+
                 success, error_message = self._send_custom_webhook(webhook_data)
 
-            # Log webhook result (with Flask app context)
             self._log_webhook_result_with_context(webhook_id, event, success, error_message, data)
 
-            # Update webhook statistics (with Flask app context)
             self._update_webhook_stats_with_context(webhook_id, success)
 
         except Exception as e:
@@ -364,13 +351,12 @@ class WebhookService:
             event = webhook_data["event"]
             data = webhook_data["data"]
 
-            # Format message
             message_template = webhook_data.get("message_template")
             message = self._format_telegram_message(event, data, message_template)
 
             url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
             payload = {
-                "chat_id": chat_id,  # Telegram API supports both numeric IDs and @username
+                "chat_id": chat_id,
                 "text": message,
                 "parse_mode": "HTML",
             }
@@ -408,15 +394,14 @@ class WebhookService:
             event = webhook_data["event"]
             data = webhook_data["data"]
 
-            # Format message
             embed = self._format_discord_embed(event, data)
 
             if webhook_url:
-                # Use webhook URL
+
                 url = webhook_url
                 payload = {"embeds": [embed]}
             elif bot_token and channel_id:
-                # Use bot API
+
                 url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
                 headers = {"Authorization": f"Bot {bot_token}"}
                 payload = {"embeds": [embed]}
@@ -461,7 +446,6 @@ class WebhookService:
             event = webhook_data["event"]
             data = webhook_data["data"]
 
-            # Prepare payload
             payload = {
                 "event": event,
                 "data": data,
@@ -469,12 +453,10 @@ class WebhookService:
                 "id": str(uuid.uuid4()),
             }
 
-            # Add signature if secret is provided
             if secret:
                 signature = self._generate_signature(json.dumps(payload), secret)
                 headers["X-Webhook-Signature"] = f"sha256={signature}"
 
-            # Add content type
             headers["Content-Type"] = "application/json"
 
             for attempt in range(self.max_retries):
@@ -633,20 +615,18 @@ class WebhookService:
             if not webhook:
                 raise ValueError("Webhook not found")
 
-            # Create test payload
             test_data = {
                 "test": True,
                 "message": "This is a test webhook",
                 "timestamp": datetime.utcnow().isoformat(),
             }
 
-            # Test based on webhook type
             if webhook.webhook_type == "telegram":
                 return self._test_telegram_webhook(webhook, test_data)
             elif webhook.webhook_type == "discord":
                 return self._test_discord_webhook(webhook, test_data)
             else:
-                # Custom webhook
+
                 return self._test_custom_webhook(webhook, test_data)
 
         except Exception as e:
@@ -669,7 +649,6 @@ class WebhookService:
                     "error_message": "Telegram bot token and chat ID are required",
                 }
 
-            # Format message
             message = self._format_telegram_message("test", test_data, webhook.message_template)
 
             url = f"https://api.telegram.org/bot{webhook.telegram_bot_token}/sendMessage"
@@ -710,16 +689,15 @@ class WebhookService:
                     "error_message": "Discord webhook URL or bot token with channel ID are required",
                 }
 
-            # Format message
             embed = self._format_discord_embed("test", test_data)
 
             if webhook_url:
-                # Use webhook URL
+
                 url = webhook_url
                 payload = {"embeds": [embed]}
                 headers = {}
             else:
-                # Use bot API
+
                 url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
                 headers = {"Authorization": f"Bot {bot_token}"}
                 payload = {"embeds": [embed]}
@@ -755,7 +733,6 @@ class WebhookService:
                     "error_message": "Webhook URL is required for custom webhooks",
                 }
 
-            # Prepare payload
             payload = {
                 "event": "test",
                 "data": test_data,
@@ -763,7 +740,6 @@ class WebhookService:
                 "id": str(uuid.uuid4()),
             }
 
-            # Add signature if secret is provided
             headers = json.loads(webhook.headers or "{}")
             if webhook.secret:
                 signature = self._generate_signature(json.dumps(payload), webhook.secret)
@@ -771,7 +747,6 @@ class WebhookService:
 
             headers["Content-Type"] = "application/json"
 
-            # Send test webhook
             response = requests.post(
                 webhook.url, json=payload, headers=headers, timeout=self.timeout
             )
@@ -798,19 +773,18 @@ class WebhookService:
     def _validate_url(self, url: str) -> bool:
         """Validate webhook URL"""
         try:
-            # Check for empty or None URL
+
             if not url or not url.strip():
                 return False
 
             import re
 
-            # Basic URL validation
             url_pattern = re.compile(
-                r"^https?://"  # http:// or https://
-                r"(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|"  # domain...
-                r"localhost|"  # localhost...
-                r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"  # ...or ip
-                r"(?::\d+)?"  # optional port
+                r"^https?://"
+                r"(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|"
+                r"localhost|"
+                r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"
+                r"(?::\d+)?"
                 r"(?:/?|[/?]\S+)$",
                 re.IGNORECASE,
             )
@@ -833,7 +807,7 @@ class WebhookService:
         """Format message for Telegram"""
         if custom_template:
             try:
-                # Use custom template with variable substitution
+
                 message = custom_template
                 for key, value in data.items():
                     placeholder = f"{{{key}}}"
@@ -842,7 +816,6 @@ class WebhookService:
                 return message
             except Exception as e:
                 logging.error(f"Error processing custom template: {e}")
-                # Fall back to default template
 
         event_names = {
             "key.created": "🔑 New key created",
@@ -1016,7 +989,6 @@ class WebhookService:
             total_success = sum(w.success_count for w in webhooks)
             total_failures = sum(w.failure_count for w in webhooks)
 
-            # Get recent activity
             recent_logs = WebhookLog.query.filter(
                 WebhookLog.created_at >= datetime.utcnow() - timedelta(hours=24)
             )
@@ -1064,19 +1036,16 @@ class WebhookService:
             if not user:
                 return False, "User not found"
 
-            # SECURITY: Ensure user has project_id for webhook isolation
             if not user.project_id:
                 logging.warning(
                     f"WEBHOOK_ACCESS_BLOCKED: user_id={user.id} has no project_id - access denied"
                 )
                 return False, "User must be assigned to a project to manage webhooks"
 
-            # Check permissions
             if not rbac_service.check_permission(user.id, "webhooks.view"):
                 logging.warning(f"WEBHOOK_ACCESS_BLOCKED: user_id={user.id} insufficient permissions")
                 return False, "Insufficient permissions"
 
-            # If project_id is provided, check if user has access to it
             if project_id is not None:
                 user_roles = RBACManager.get_user_role_names(user)
                 is_owner = user_roles and user_roles[0] == "owner" if user_roles else False
@@ -1106,19 +1075,16 @@ class WebhookService:
         try:
             from ...utils.rbac_utils import RBACManager
 
-            # First check general access
             has_access, error = self.validate_webhook_access(user_id)
             if not has_access:
                 return False, error, None
 
             user = User.query.get(user_id)
 
-            # Check if webhook exists and user has access
             webhook = Webhook.query.filter_by(id=webhook_id, project_id=user.project_id).first()
             if not webhook:
                 return False, "Webhook not found", None
 
-            # If user is not owner, check project access
             user_roles = RBACManager.get_user_role_names(user)
             is_owner = user_roles and user_roles[0] == "owner" if user_roles else False
 
@@ -1161,11 +1127,10 @@ class WebhookService:
             Tuple of (is_valid, error_message)
         """
         try:
-            # Validate required fields
+
             if not all([name, events]):
                 return False, "Missing required fields: name and events are required"
 
-            # Validate based on webhook type
             if webhook_type == "custom":
                 if not url:
                     return False, "URL is required for custom webhooks"
@@ -1180,7 +1145,6 @@ class WebhookService:
             else:
                 return False, f"Invalid webhook type: {webhook_type}"
 
-            # Validate events
             if events:
                 valid_events = self._get_valid_events()
                 for event in events:
@@ -1193,10 +1157,7 @@ class WebhookService:
             logging.error(f"WEBHOOK_VALIDATION_ERROR error={e}")
             return False, "Internal server error"
 
-
-# Global instance - will be initialized when needed
 webhook_service = None
-
 
 def get_webhook_service():
     """Get webhook service instance"""

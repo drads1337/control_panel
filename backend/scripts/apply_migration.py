@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 Script to apply database migrations
 """
@@ -6,13 +6,11 @@ import os
 import sys
 import traceback
 
-# Add project root to path (two levels up from scripts/)
 script_dir = os.path.dirname(os.path.abspath(__file__))
 backend_dir = os.path.dirname(script_dir)
 project_root = os.path.dirname(backend_dir)
 sys.path.insert(0, project_root)
 
-# Change to backend directory for proper imports
 os.chdir(backend_dir)
 
 from backend.core.app import create_app
@@ -20,7 +18,6 @@ from backend.utils.structured_logging import get_logger
 from flask_migrate import upgrade
 
 logger = get_logger(__name__)
-
 
 def apply_migrations():
     """Apply pending migrations"""
@@ -44,4 +41,3 @@ def apply_migrations():
 if __name__ == "__main__":
     success = apply_migrations()
     sys.exit(0 if success else 1)
-

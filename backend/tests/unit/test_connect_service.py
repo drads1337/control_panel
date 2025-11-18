@@ -6,7 +6,6 @@ import pytest
 
 from backend.services.connect_service import ConnectService
 
-
 @pytest.mark.unit
 @pytest.mark.connect
 class TestConnectService:
@@ -21,14 +20,12 @@ class TestConnectService:
         self, connect_service, test_key, test_project, mocker, mock_redis
     ):
         """Test successful challenge request"""
-        # Mock Redis client creation in _store_challenge_in_redis method
-        # The method imports redis inside, so we need to patch it where it's used
+
         mocker.patch(
             "redis.Redis",
             return_value=mock_redis
         )
-        
-        # Mock challenge service
+
         from backend.services.challenge_service import challenge_service
         mocker.patch.object(
             challenge_service,
@@ -82,17 +79,16 @@ class TestConnectService:
         """Test offline ticket generation when disabled"""
         from backend.models.core import ProjectSettings
 
-        # Check if settings already exist for this project
         settings = ProjectSettings.query.filter_by(project_id=test_project.id).first()
         if not settings:
-            # Create project settings with offline auth disabled
+
             settings = ProjectSettings(
                 project_id=test_project.id,
                 offline_auth_enabled=False,
             )
             db_session.add(settings)
         else:
-            # Update existing settings
+
             settings.offline_auth_enabled = False
         db_session.commit()
 
@@ -111,10 +107,9 @@ class TestConnectService:
         """Test offline ticket generation when enabled"""
         from backend.models.core import ProjectSettings
 
-        # Check if settings already exist for this project
         settings = ProjectSettings.query.filter_by(project_id=test_project.id).first()
         if not settings:
-            # Create project settings with offline auth enabled
+
             settings = ProjectSettings(
                 project_id=test_project.id,
                 offline_auth_enabled=True,
@@ -122,7 +117,7 @@ class TestConnectService:
             )
             db_session.add(settings)
         else:
-            # Update existing settings
+
             settings.offline_auth_enabled = True
             settings.offline_ticket_expiration_hours = 24
         db_session.commit()
@@ -136,8 +131,8 @@ class TestConnectService:
 
         assert ticket is not None
         assert isinstance(ticket, str)
-        # Ticket should be a JWT token
-        assert len(ticket.split(".")) == 3  # JWT has 3 parts
+
+        assert len(ticket.split(".")) == 3
 
     def test_handle_classic_connect_token_success(
         self, connect_service, test_user, test_project, db_session, mocker
@@ -147,7 +142,6 @@ class TestConnectService:
         from datetime import datetime
         import hashlib
 
-        # Create a connect token
         token_value = hashlib.sha256(b"test_token").hexdigest()
         connect_token = ConnectToken(
             token=token_value,
@@ -157,7 +151,6 @@ class TestConnectService:
         db_session.add(connect_token)
         db_session.commit()
 
-        # Mock analytics tracker
         mocker.patch.object(connect_service.analytics_tracker, "log_user_activity")
 
         response_data, status_code = connect_service.handle_classic_connect_request(
@@ -168,7 +161,7 @@ class TestConnectService:
         )
 
         assert status_code == 200
-        # Classic connect response has obfuscated fields (a, b, c, d, etc.)
+
         assert "project_id" in response_data
         assert "login_type" in response_data
 
@@ -190,7 +183,7 @@ class TestConnectService:
         self, connect_service, test_user, mocker
     ):
         """Test classic connect with username/password"""
-        # Mock analytics tracker
+
         mocker.patch.object(connect_service.analytics_tracker, "log_user_activity")
 
         response_data, status_code = connect_service.handle_classic_connect_request(
@@ -218,4 +211,3 @@ class TestConnectService:
 
         assert status_code == 400
         assert "error" in response_data
-

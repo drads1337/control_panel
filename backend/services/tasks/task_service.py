@@ -15,7 +15,6 @@ from flask import current_app
 from ...config.config import Config
 from ...core.extensions import db
 
-# Import Celery tasks
 try:
     from ...tasks.server_tasks import server_restart, server_start, server_status_check, server_stop
 
@@ -24,13 +23,12 @@ except ImportError:
     CELERY_AVAILABLE = False
     logging.warning("Celery tasks not available. Task processing may be limited.")
 
-
 class TaskService:
     """Service for managing async tasks with status tracking"""
 
     def __init__(self):
         self.redis_client = self._init_redis_client()
-        self.task_timeout = 300  # 5 minutes default timeout
+        self.task_timeout = 300
 
     def _init_redis_client(self):
         """Initialize Redis client for task management"""
@@ -75,15 +73,12 @@ class TaskService:
             "error": None,
         }
 
-        # Store task info in Redis with expiration
         task_key = f"task:{task_id}"
         self.redis_client.setex(task_key, self.task_timeout, json.dumps(task_info))
 
-        # Queue task using Celery if available
         if CELERY_AVAILABLE:
             server_id = task_data.get("server_id")
 
-            # Map task types to Celery tasks
             celery_task_map = {
                 "server_start": server_start,
                 "server_stop": server_stop,
@@ -93,13 +88,13 @@ class TaskService:
 
             celery_task = celery_task_map.get(task_type)
             if celery_task:
-                # Queue Celery task asynchronously
+
                 celery_task.apply_async(
                     args=[server_id], kwargs={"task_id": task_id, "project_id": project_id}
                 )
                 logging.info(f"Task queued with Celery: {task_id} type={task_type}")
             else:
-                # Fallback to old queue system for unknown task types
+
                 logging.warning(f"Unknown task type {task_type}, using fallback queue")
                 queue_data = {
                     "task_id": task_id,
@@ -111,7 +106,7 @@ class TaskService:
                 self.redis_client.lpush("task_queue", json.dumps(queue_data))
                 self.redis_client.ltrim("task_queue", 0, 1000)
         else:
-            # Fallback to old queue system if Celery is not available
+
             queue_data = {
                 "task_id": task_id,
                 "type": task_type,
@@ -168,10 +163,8 @@ class TaskService:
             if error is not None:
                 task_info["error"] = error
 
-            # Update task info
             self.redis_client.setex(task_key, self.task_timeout, json.dumps(task_info))
 
-            # Publish status update for real-time notifications
             self._publish_task_update(task_id, task_info)
 
             logging.info(f"Task {task_id} status updated to {status}")
@@ -195,15 +188,12 @@ class TaskService:
                 "timestamp": datetime.utcnow().isoformat(),
             }
 
-            # Publish to task updates channel
             self.redis_client.publish("task_updates", json.dumps(update_data))
 
-            # Also publish to user-specific channel if user_id exists
             if task_info.get("user_id"):
                 user_channel = f"user_tasks:{task_info['user_id']}"
                 self.redis_client.publish(user_channel, json.dumps(update_data))
 
-            # Publish to project-specific channel if project_id exists
             if task_info.get("project_id"):
                 project_channel = f"project_tasks:{task_info['project_id']}"
                 self.redis_client.publish(project_channel, json.dumps(update_data))
@@ -216,7 +206,7 @@ class TaskService:
         Get recent tasks for a user
         """
         try:
-            # Get task IDs from user's task list
+
             user_tasks_key = f"user_tasks:{user_id}"
             task_ids = self.redis_client.lrange(user_tasks_key, 0, limit - 1)
 
@@ -239,7 +229,6 @@ class TaskService:
         try:
             cutoff_date = datetime.utcnow() - timedelta(days=days)
 
-            # Get all task keys
             task_keys = self.redis_client.keys("task:*")
 
             cleaned_count = 0
@@ -248,7 +237,6 @@ class TaskService:
                 if task_data:
                     task_info = json.loads(task_data)
 
-                    # Check if task is old and completed
                     created_at = datetime.fromisoformat(task_info["created_at"])
                     if created_at < cutoff_date and task_info["status"] in ["completed", "failed"]:
 
@@ -262,6 +250,4 @@ class TaskService:
             logging.error(f"Failed to cleanup old tasks: {e}")
             return 0
 
-
-# Global instance
 task_service = TaskService()

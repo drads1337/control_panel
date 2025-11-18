@@ -22,7 +22,6 @@ import { enUS } from 'date-fns/locale'
 import { Spinner } from '@/components/ui/spinner'
 import type { User } from '@/entities/user';
 import type { SessionDetails, Session } from '@/entities/session';
-
 interface SessionDetailsDialogProps {
   isOpen: boolean
   onClose: () => void
@@ -30,7 +29,6 @@ interface SessionDetailsDialogProps {
   username: string
   token: string
 }
-
 export function SessionDetailsDialog({ 
   isOpen, 
   onClose, 
@@ -41,13 +39,11 @@ export function SessionDetailsDialog({
   const [sessionDetails, setSessionDetails] = useState<SessionDetails | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
   useEffect(() => {
     if (isOpen && userId && token) {
       fetchSessionDetails()
     }
   }, [isOpen, userId, token])
-
   const fetchSessionDetails = async () => {
     try {
       setLoading(true)
@@ -60,7 +56,6 @@ export function SessionDetailsDialog({
       setLoading(false)
     }
   }
-
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Unknown'
     try {
@@ -70,7 +65,6 @@ export function SessionDetailsDialog({
       return 'Unknown'
     }
   }
-
   const formatDateTime = (dateString: string | null) => {
     if (!dateString) return 'Unknown'
     try {
@@ -80,7 +74,6 @@ export function SessionDetailsDialog({
       return 'Unknown'
     }
   }
-
   const getActionIcon = (action: string) => {
     switch (action.toLowerCase()) {
       case 'login':
@@ -93,7 +86,6 @@ export function SessionDetailsDialog({
         return <Activity className="h-4 w-4 text-gray-600" />
     }
   }
-
   const getActionColor = (action: string) => {
     switch (action.toLowerCase()) {
       case 'login':
@@ -106,7 +98,6 @@ export function SessionDetailsDialog({
         return 'bg-gray-100 text-gray-800'
     }
   }
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -119,7 +110,6 @@ export function SessionDetailsDialog({
             Detailed information about user session and activity
           </DialogDescription>
         </DialogHeader>
-
         {loading ? (
           <Spinner message="Loading details..." />
         ) : error ? (
@@ -162,9 +152,8 @@ export function SessionDetailsDialog({
                 <span>Details</span>
               </TabsTrigger>
             </TabsList>
-
             <TabsContent value="overview" className="space-y-4">
-              {/* User Info Card */}
+              {}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -198,8 +187,7 @@ export function SessionDetailsDialog({
                   </div>
                 </CardContent>
               </Card>
-
-              {/* Session Info Card */}
+              {}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -239,7 +227,6 @@ export function SessionDetailsDialog({
                 </CardContent>
               </Card>
             </TabsContent>
-
             <TabsContent value="activities" className="space-y-4">
               <Card>
                 <CardHeader>
@@ -294,7 +281,6 @@ export function SessionDetailsDialog({
                 </CardContent>
               </Card>
             </TabsContent>
-
             <TabsContent value="details" className="space-y-4">
               <Card>
                 <CardHeader>
@@ -314,7 +300,6 @@ export function SessionDetailsDialog({
                         }
                       </p>
                     </div>
-                    
                     <div>
                       <h4 className="font-medium mb-2">Network Information</h4>
                       <div className="grid grid-cols-2 gap-4 text-sm">
@@ -332,7 +317,6 @@ export function SessionDetailsDialog({
                         </div>
                       </div>
                     </div>
-
                     <div>
                       <h4 className="font-medium mb-2">Session Statistics</h4>
                       <div className="grid grid-cols-2 gap-4 text-sm">
@@ -352,7 +336,6 @@ export function SessionDetailsDialog({
             </TabsContent>
           </Tabs>
         ) : null}
-
         <div className="flex justify-end gap-2 pt-4 border-t">
           <Button variant="outline" onClick={onClose}>
             Close

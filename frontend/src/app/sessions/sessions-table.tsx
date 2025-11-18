@@ -30,7 +30,6 @@ interface SessionsTableProps {
   onChangePage: (page: number) => void
 }
 
-// Memoized Session Row Component
 const SessionRow = React.memo<{
   session: Session;
   isSelected: boolean;
@@ -136,7 +135,7 @@ export default function SessionsTable({
   onTerminateSession,
   onChangePage
 }: SessionsTableProps) {
-  // Format date
+
   const formatDate = React.useCallback((dateString: string | null) => {
     if (!dateString) return 'Unknown'
     try {
@@ -215,7 +214,7 @@ export default function SessionsTable({
               </table>
             </div>
 
-            {/* Pagination */}
+            {}
             {pagination.pages > 1 && (
               <div className="mt-6 flex items-center justify-between">
                 <div className="text-sm text-muted-foreground">

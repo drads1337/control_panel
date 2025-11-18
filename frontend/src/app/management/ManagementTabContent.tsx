@@ -7,7 +7,6 @@ import { ConditionalRender } from '@/components/rbac/conditional-render'
 import { useManagementData } from '@/hooks/use-management-data'
 import { useManagementStore } from '@/stores/management-store'
 
-// Lazy load heavy management components
 const LicenseKeysMain = React.lazy(() => import('./license-keys').then(module => ({ default: module.LicenseKeysMain })))
 const GameDatabase = React.lazy(() => import('./games').then(module => ({ default: module.GameDatabase })))
 const FileManager = React.lazy(() => import('./files').then(module => ({ default: module.FileManager })))
@@ -30,14 +29,14 @@ export const ManagementTabContent: React.FC<ManagementTabContentProps> = ({
     activeTab,
     setActiveTab,
   } = useManagementData()
-  
+
   const {
     dialogs,
     setCreateGameDialogRequested,
     setCreateLoaderDialogRequested,
     openViewGameDialog,
   } = useManagementStore()
-  
+
   const { createGameDialogRequested, createLoaderDialogRequested } = dialogs
   const renderContent = (content: React.ReactNode) => {
     if (wrapInTabsContent) {
@@ -144,4 +143,3 @@ export const ManagementTabContent: React.FC<ManagementTabContentProps> = ({
 
   return null
 }
-

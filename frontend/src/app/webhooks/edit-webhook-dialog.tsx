@@ -42,11 +42,11 @@ export function EditWebhookDialog({
 }: EditWebhookDialogProps) {
   const { hasPermission } = usePermissions();
   const canEdit = hasPermission('webhooks.edit');
-  
+
   if (!editingWebhook || !canEdit) {
     return null;
   }
-  
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">

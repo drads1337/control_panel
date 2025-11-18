@@ -6,12 +6,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { LoginForm } from '../auth/login-form'
 import { AuthContext } from '@/contexts/auth-context'
 
-// Mock FaultyTerminal component that uses WebGL
 vi.mock('../shared/faulty-terminal', () => ({
   default: () => <div data-testid="faulty-terminal">Terminal</div>
 }))
 
-// Mock auth context
 const mockLogin = vi.fn()
 const mockAuthContextValue = {
   user: null,
@@ -55,7 +53,7 @@ describe('Login Integration Test', () => {
 
   it('should render login form', () => {
     renderWithProviders(<LoginForm />)
-    
+
     expect(screen.getByLabelText(/username/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/password/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /login/i })).toBeInTheDocument()
@@ -63,23 +61,18 @@ describe('Login Integration Test', () => {
 
   it('should show validation errors for empty form', async () => {
     renderWithProviders(<LoginForm />)
-    
-    // Find the form element
+
     const form = document.querySelector('form')
     expect(form).toBeTruthy()
-    
-    // Submit the form directly using fireEvent to bypass HTML5 validation
+
     fireEvent.submit(form!)
-    
-    // Wait for validation to run and errors to appear
-    // The form should show validation errors after submit
+
     await waitFor(() => {
-      // Check for username error
+
       const usernameError = screen.queryByText('Username is required')
-      // Check for password error  
+
       const passwordError = screen.queryByText('Password is required')
-      
-      // At least one error should be present
+
       expect(usernameError || passwordError).toBeTruthy()
     }, { timeout: 3000 })
   })
@@ -88,15 +81,15 @@ describe('Login Integration Test', () => {
     mockLogin.mockResolvedValue(undefined)
     const user = userEvent.setup()
     renderWithProviders(<LoginForm />)
-    
+
     const usernameInput = screen.getByLabelText(/username/i)
     const passwordInput = screen.getByLabelText(/password/i)
     const submitButton = screen.getByRole('button', { name: /login/i })
-    
+
     await user.type(usernameInput, 'testuser')
     await user.type(passwordInput, 'password123')
     await user.click(submitButton)
-    
+
     await waitFor(() => {
       expect(mockLogin).toHaveBeenCalledWith('testuser', 'password123')
     })
@@ -105,7 +98,7 @@ describe('Login Integration Test', () => {
   it('should display error message on login failure', async () => {
     const errorMessage = 'Invalid credentials'
     mockLogin.mockRejectedValue(new Error(errorMessage))
-    
+
     const user = userEvent.setup()
     const errorContextValue = { ...mockAuthContextValue, error: errorMessage }
     renderWithProviders(
@@ -113,18 +106,17 @@ describe('Login Integration Test', () => {
         <LoginForm />
       </AuthContext.Provider>
     )
-    
+
     const usernameInput = screen.getByLabelText(/username/i)
     const passwordInput = screen.getByLabelText(/password/i)
     const submitButton = screen.getByRole('button', { name: /login/i })
-    
+
     await user.type(usernameInput, 'testuser')
     await user.type(passwordInput, 'wrongpassword')
     await user.click(submitButton)
-    
+
     await waitFor(() => {
       expect(screen.getByText(errorMessage)).toBeInTheDocument()
     })
   })
 })
-

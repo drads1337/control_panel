@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 Security Audit Script for IDOR (Insecure Direct Object Reference) / Multi-tenancy Isolation
 
@@ -21,7 +21,6 @@ from typing import Dict, List, Set, Tuple, Optional
 from dataclasses import dataclass, field
 from collections import defaultdict
 
-
 @dataclass
 class EndpointInfo:
     """Information about an endpoint"""
@@ -36,7 +35,6 @@ class EndpointInfo:
     models_used: Set[str] = field(default_factory=set)
     potential_vulnerabilities: List[str] = field(default_factory=list)
 
-
 @dataclass
 class AuditResult:
     """Results of security audit"""
@@ -47,57 +45,51 @@ class AuditResult:
     warnings: List[str] = field(default_factory=list)
     models_with_project_id: Set[str] = field(default_factory=set)
 
-
-# Models that have project_id field (from grep results)
 MODELS_WITH_PROJECT_ID = {
-    # Core models
+
     'ProjectEncryptionKeys', 'ProjectSettings', 'User', 'UserActivity', 'ProjectInviteCode',
-    # Keys models
+
     'Key', 'DeviceInfo', 'ConnectToken',
-    # Games models
+
     'Game', 'GameKeyPrice', 'Announcement', 'GameConfig', 'GameExtraFile', 'FileDownloadLog', 'FileMeta',
-    # Servers models
+
     'Server', 'ServerTask', 'ServerSession',
-    # Chat models
+
     'ChatMessage', 'ChatRoom', 'ChatRoomMember', 'ChatMessageReaction', 'ChatNotification',
-    # Notifications
+
     'Notification',
-    # Webhooks
+
     'Webhook',
-    # Remote Control
+
     'RemoteControlSession', 'RemoteControlCommand', 'RemoteControlFileTransfer',
-    # RBAC
+
     'Role', 'Permission', 'RolePermission', 'UserRole',
-    # Loaders
+
     'Loader', 'LoaderConfig', 'LoaderVersion', 'LoaderFile', 'LoaderLog', 'LoaderSession',
-    # Security
+
     'BlockedIP', 'BlockedHWID', 'SecurityEvent', 'LoginAttempt', 'Session', 'Fingerprint', 'SecurityRule', 'SecurityPolicy',
-    # Project User
+
     'ProjectUserRole', 'ProjectAdmin',
 }
 
-# Security decorators
 ISOLATION_DECORATORS = {
     'require_project_isolation',
     'enforce_project_scope',
 }
 
-# Decorators that might indicate admin/system endpoints (may not need project isolation)
 ADMIN_DECORATORS = {
     'require_owner',
-    'require_auth',  # Might be used for system-level endpoints
+    'require_auth',
 }
 
-# Endpoints that don't need project isolation (public, auth, etc.)
 PUBLIC_ENDPOINT_PATTERNS = [
     r'/auth/',
     r'/health',
     r'/health-check',
     r'/api/health',
-    r'/connect/challenge',  # Connect endpoints have their own security
+    r'/connect/challenge',
     r'/test-',
 ]
-
 
 class SecurityAuditor:
     """Audits codebase for IDOR vulnerabilities"""
@@ -128,7 +120,7 @@ class SecurityAuditor:
 
         for node in ast.walk(tree):
             if isinstance(node, ast.FunctionDef):
-                # Check if this is a route handler
+
                 route_info = self._extract_route_info(node, file_path, content)
                 if route_info:
                     endpoints.append(route_info)
@@ -141,14 +133,12 @@ class SecurityAuditor:
         route_path = None
         methods = []
 
-        # Extract decorators
         for decorator in node.decorator_list:
             decorator_str = self._decorator_to_string(decorator)
             decorators.append(decorator_str)
 
-            # Check for route decorator
             if '@' in decorator_str and 'route' in decorator_str.lower():
-                # Extract route path
+
                 if isinstance(decorator, ast.Call):
                     if isinstance(decorator.func, ast.Attribute) and decorator.func.attr == 'route':
                         if decorator.args:
@@ -161,16 +151,13 @@ class SecurityAuditor:
         if not route_path:
             return None
 
-        # Check for security decorators
         decorators_str = ' '.join(decorators)
         has_isolation = any(d in decorators_str for d in ISOLATION_DECORATORS)
         has_project_scope = 'enforce_project_scope' in decorators_str
         has_jwt_required = 'jwt_required' in decorators_str
 
-        # Extract models used in queries (simplified check)
         models_used = self._find_models_in_function(node, content)
 
-        # Get line number
         line_number = node.lineno
 
         return EndpointInfo(
@@ -210,10 +197,9 @@ class SecurityAuditor:
         """Find model classes used in function (simplified)"""
         models = set()
         func_content = ast.get_source_segment(content, node) or ""
-        
-        # Look for Model.query patterns
+
         for model_name in self.models_with_project_id:
-            # Check for model.query patterns
+
             patterns = [
                 f"{model_name}.query",
                 f"db.session.query({model_name})",
@@ -230,11 +216,9 @@ class SecurityAuditor:
         """Audit a single endpoint for vulnerabilities"""
         vulnerabilities = []
 
-        # Skip public endpoints
         if self.is_public_endpoint(endpoint.route_path):
             return vulnerabilities
 
-        # Check if endpoint accesses models with project_id but doesn't have protection
         if endpoint.models_used and not endpoint.has_isolation and endpoint.has_jwt_required:
             vulnerable_models = endpoint.models_used & self.models_with_project_id
             if vulnerable_models:
@@ -243,14 +227,13 @@ class SecurityAuditor:
                     f"without project isolation decorator"
                 )
 
-        # Check if endpoint has JWT but no project isolation
         if endpoint.has_jwt_required and not endpoint.has_isolation:
-            # This might be okay for admin endpoints, but flag it for review
+
             decorators_str = ' '.join(endpoint.decorators)
             has_admin_decorator = 'require_owner' in decorators_str or 'require_auth' in decorators_str
-            # Check if it's a project-related endpoint
+
             is_project_endpoint = 'project' in endpoint.route_path.lower() or 'project' in endpoint.function_name.lower()
-            # Check if it accesses models with project_id
+
             if endpoint.models_used & self.models_with_project_id and not has_admin_decorator:
                 vulnerabilities.append(
                     "Has @jwt_required but no project isolation decorator"
@@ -263,7 +246,6 @@ class SecurityAuditor:
         result = AuditResult()
         result.models_with_project_id = self.models_with_project_id.copy()
 
-        # Find all Python files in routes directory
         route_files = list(self.routes_dir.rglob("*.py"))
         route_files = [f for f in route_files if not f.name.startswith('__')]
 
@@ -273,10 +255,9 @@ class SecurityAuditor:
             endpoints = self.parse_file(route_file)
             self.endpoints.extend(endpoints)
 
-        # Audit each endpoint
         for endpoint in self.endpoints:
             result.endpoints_checked += 1
-            
+
             if endpoint.has_isolation:
                 result.endpoints_with_protection += 1
             else:
@@ -297,8 +278,7 @@ class SecurityAuditor:
         report.append("SECURITY AUDIT REPORT: IDOR / Multi-tenancy Isolation")
         report.append("=" * 80)
         report.append("")
-        
-        # Summary
+
         report.append("SUMMARY")
         report.append("-" * 80)
         report.append(f"Total endpoints checked: {result.endpoints_checked}")
@@ -307,7 +287,6 @@ class SecurityAuditor:
         report.append(f"Potentially vulnerable endpoints: {len(result.vulnerable_endpoints)}")
         report.append("")
 
-        # Vulnerable endpoints
         if result.vulnerable_endpoints:
             report.append("POTENTIALLY VULNERABLE ENDPOINTS")
             report.append("-" * 80)
@@ -335,14 +314,13 @@ class SecurityAuditor:
             report.append("✓ No vulnerable endpoints found!")
             report.append("")
 
-        # Endpoints without protection (for review)
         unprotected = [
             e for e in self.endpoints
             if not e.has_isolation
             and not self.is_public_endpoint(e.route_path)
             and e.has_jwt_required
         ]
-        
+
         if unprotected:
             report.append("ENDPOINTS WITHOUT PROJECT ISOLATION (FOR REVIEW)")
             report.append("-" * 80)
@@ -350,11 +328,10 @@ class SecurityAuditor:
             report.append("Verify they don't access project-scoped data or are admin-only endpoints.")
             report.append("")
             for endpoint in sorted(unprotected, key=lambda x: (x.file_path, x.line_number)):
-                if endpoint not in result.vulnerable_endpoints:  # Already shown above
+                if endpoint not in result.vulnerable_endpoints:
                     report.append(f"  {endpoint.file_path}:{endpoint.line_number} - {endpoint.route_path} ({endpoint.function_name})")
             report.append("")
 
-        # Recommendations
         report.append("RECOMMENDATIONS")
         report.append("-" * 80)
         report.append("1. Add @require_project_isolation to all endpoints that access project-scoped data")
@@ -368,10 +345,9 @@ class SecurityAuditor:
 
         return "\n".join(report)
 
-
 def main():
     """Main entry point"""
-    # Get the backend directory
+
     script_dir = Path(__file__).parent
     backend_dir = script_dir.parent
     routes_dir = backend_dir / "routes"
@@ -387,7 +363,6 @@ def main():
 
     print(report)
 
-    # Save report to file
     report_file = backend_dir / "docs" / "SECURITY_AUDIT_IDOR.md"
     report_file.parent.mkdir(parents=True, exist_ok=True)
     with open(report_file, 'w', encoding='utf-8') as f:
@@ -395,10 +370,7 @@ def main():
 
     print(f"\nReport saved to: {report_file}")
 
-    # Return exit code based on findings
     return 1 if result.vulnerable_endpoints else 0
-
 
 if __name__ == "__main__":
     exit(main())
-

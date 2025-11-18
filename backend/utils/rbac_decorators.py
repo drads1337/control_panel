@@ -15,8 +15,6 @@ This module now re-exports decorators from middleware.auth for backward compatib
 All new code should import directly from middleware.auth.
 """
 
-# Re-export all decorators from middleware.auth for backward compatibility
-# All decorators are now unified in middleware/auth.py
 from ..middleware.auth import (
     require_auth,
     require_user,
@@ -34,7 +32,3 @@ from ..middleware.auth import (
     require_any_permission,
     validate_project_access,
 )
-
-# All decorators above are re-exported from middleware.auth.
-# This module exists only for backward compatibility.
-# All new code should import directly from middleware.auth.

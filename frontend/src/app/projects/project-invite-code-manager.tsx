@@ -42,9 +42,9 @@ export function ProjectInviteCodeManager() {
       const codes = await getProjectInviteCodes()
       setInviteCodes(codes)
     } catch (error) {
-      console.error('Error fetching project invite codes:', error)
+
       if (error instanceof Error) {
-        // Don't show error toast for "must be assigned to a project" - it's expected for users without projects
+
         if (!error.message.includes('must be assigned to a project')) {
           toast.error(`Error loading project creation codes: ${error.message}`)
         }
@@ -61,10 +61,9 @@ export function ProjectInviteCodeManager() {
       const response = await getLatestProjectInviteCode()
       setLatestCode(response.invite_code)
     } catch (error) {
-      console.error('Error fetching latest project invite code:', error)
-      // Don't show error for "must be assigned to a project" - it's expected for users without projects
+
       if (error instanceof Error && !error.message.includes('must be assigned to a project')) {
-        // Only log, don't show toast for this background fetch
+
       }
     }
   }, [])
@@ -72,22 +71,19 @@ export function ProjectInviteCodeManager() {
   const handleGenerateCode = async () => {
     setIsGenerating(true)
     try {
-      console.log('Generating project creation code...')
-      
+
       const data: CreateProjectInviteCodeData = {
         expires_in_days: expiresInDays
       }
 
-      console.log('Sending data for project creation:', data)
       const result = await generateProjectInviteCode(data)
-      console.log('Project creation code generated successfully:', result)
-      
+
       toast.success('Project creation code generated successfully!')
       setShowGenerateDialog(false)
       await fetchInviteCodes()
       await fetchLatestCode()
     } catch (error) {
-      console.error('Error generating project invite code:', error)
+
       if (error instanceof Error) {
         toast.error(`Error creating project code: ${error.message}`)
       } else {
@@ -98,36 +94,26 @@ export function ProjectInviteCodeManager() {
     }
   }
 
-
   const handleDeleteUnusedCodes = async () => {
     setIsDeleting(true)
     try {
-      console.log('=== DELETE UNUSED PROJECT CODES DEBUG ===')
-      console.log('Total project invite codes:', inviteCodes.length)
-      console.log('All project codes:', inviteCodes)
-      
-      // Get only unused project codes
+
       const unusedCodes = inviteCodes.filter(code => !code.used)
-      console.log('Unused project codes found:', unusedCodes.length)
-      console.log('Unused project codes:', unusedCodes)
-      
+
       if (unusedCodes.length === 0) {
         toast.info('No unused project creation codes to delete.')
         return
       }
 
-      console.log('Calling API to delete unused project codes...')
       const result = await deleteUnusedProjectInviteCodes()
-      console.log('API result:', result)
-      
-      // Update local state: keep only codes that were used
+
       const remainingCodes = inviteCodes.filter(code => code.used)
-      console.log('Remaining project codes after deletion:', remainingCodes.length)
+
       setInviteCodes(remainingCodes)
-      
+
       toast.success(result.message || `Deleted ${result.deleted_count || 0} project creation codes`)
     } catch (error) {
-      console.error('Error deleting unused project codes:', error)
+
       if (error instanceof Error) {
         toast.error(`Error deleting: ${error.message}`)
       } else {
@@ -160,7 +146,7 @@ export function ProjectInviteCodeManager() {
     if (code.used) {
       return <Badge variant="secondary">Used</Badge>
     }
-    
+
     if (code.expires_at && new Date(code.expires_at) < new Date()) {
       return <Badge variant="destructive">Expired</Badge>
     }
@@ -192,7 +178,7 @@ export function ProjectInviteCodeManager() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Project Creation Codes</h2>
@@ -200,7 +186,7 @@ export function ProjectInviteCodeManager() {
         </div>
       </div>
 
-      {/* Latest Code Display */}
+      {}
       {latestCode && (
         <Card>
           <CardHeader>
@@ -238,7 +224,7 @@ export function ProjectInviteCodeManager() {
         </Card>
       )}
 
-      {/* Actions */}
+      {}
       <Card>
         <CardHeader>
           <CardTitle>Actions</CardTitle>
@@ -325,7 +311,7 @@ export function ProjectInviteCodeManager() {
         </CardContent>
       </Card>
 
-      {/* Codes List */}
+      {}
       <Card>
         <CardHeader>
           <CardTitle>

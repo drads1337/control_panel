@@ -11,7 +11,6 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-// Lazy load heavy FaultyTerminal component to improve initial load time
 const FaultyTerminal = React.lazy(() => import("../shared/faulty-terminal"))
 
 function LoginFormComponent({
@@ -39,18 +38,15 @@ function LoginFormComponent({
   }, [navigate])
 
   const handleForgotPassword = useCallback(() => {
-    // TODO: Implement forgot password functionality
-    console.log("Forgot password clicked")
+
   }, [])
 
   const handleTermsClick = useCallback(() => {
-    // TODO: Navigate to Terms of Service
-    console.log("Terms of Service clicked")
+
   }, [])
 
   const handlePrivacyClick = useCallback(() => {
-    // TODO: Navigate to Privacy Policy
-    console.log("Privacy Policy clicked")
+
   }, [])
 
   return (
@@ -66,7 +62,7 @@ function LoginFormComponent({
                 </p>
               </div>
 
-              {/* General error */}
+              {}
               {error && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
@@ -172,5 +168,4 @@ function LoginFormComponent({
   )
 }
 
-// Memoize component to prevent unnecessary re-renders
 export const LoginForm = React.memo(LoginFormComponent)

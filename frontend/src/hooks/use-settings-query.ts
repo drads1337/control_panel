@@ -11,7 +11,6 @@ import {
 import type { ProjectSettings, UpdateSettingsData, UpdateKeysData } from '@/entities/settings'
 import { toast } from 'sonner'
 
-// Cache keys
 export const settingsKeys = {
   all: ['settings'] as const,
   project: () => [...settingsKeys.all, 'project'] as const,
@@ -22,8 +21,7 @@ export interface UseSettingsQueryReturn {
   isLoading: boolean
   isSaving: boolean
   error: string | null
-  
-  // Actions
+
   saveSettings: (data: UpdateSettingsData) => Promise<void>
   regenerateKeys: (action?: 'aes' | 'rsa' | 'all') => Promise<void>
   updateKeys: (data: UpdateKeysData) => Promise<void>
@@ -38,7 +36,6 @@ export function useSettingsQuery(): UseSettingsQueryReturn {
   const [isSaving, setIsSaving] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
-  // Settings query
   const {
     data: settings,
     isLoading,
@@ -48,12 +45,11 @@ export function useSettingsQuery(): UseSettingsQueryReturn {
     queryKey: settingsKeys.project(),
     queryFn: getProjectSettings,
     enabled: isAuthenticated,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 2 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
     retry: 1,
   })
 
-  // Save settings mutation
   const saveSettingsMutation = useMutation({
     mutationFn: updateProjectSettings,
     onMutate: () => {
@@ -61,11 +57,10 @@ export function useSettingsQuery(): UseSettingsQueryReturn {
       setError(null)
     },
     onSuccess: async (_, variables) => {
-      // Optimistically update the cache
+
       queryClient.setQueryData<ProjectSettings>(settingsKeys.project(), (old) => {
         if (!old) return old
-        
-        // Deep merge the data
+
         const updated = { ...old }
         Object.keys(variables).forEach(key => {
           const k = key as keyof UpdateSettingsData
@@ -83,7 +78,7 @@ export function useSettingsQuery(): UseSettingsQueryReturn {
         })
         return updated
       })
-      
+
       toast.success('Settings saved successfully')
     },
     onError: (err: any) => {
@@ -93,12 +88,11 @@ export function useSettingsQuery(): UseSettingsQueryReturn {
     },
     onSettled: () => {
       setIsSaving(false)
-      // Refetch to ensure consistency
+
       queryClient.invalidateQueries({ queryKey: settingsKeys.project() })
     },
   })
 
-  // Regenerate keys mutation
   const regenerateKeysMutation = useMutation({
     mutationFn: regenerateKeys,
     onMutate: () => {
@@ -106,7 +100,7 @@ export function useSettingsQuery(): UseSettingsQueryReturn {
       setError(null)
     },
     onSuccess: async (newKeys) => {
-      // Update cache with new keys
+
       queryClient.setQueryData<ProjectSettings>(settingsKeys.project(), (old) => {
         if (!old) return old
         return { ...old, encryption_keys: newKeys }
@@ -123,7 +117,6 @@ export function useSettingsQuery(): UseSettingsQueryReturn {
     },
   })
 
-  // Update keys mutation
   const updateKeysMutation = useMutation({
     mutationFn: updateKeys,
     onMutate: () => {
@@ -144,7 +137,6 @@ export function useSettingsQuery(): UseSettingsQueryReturn {
     },
   })
 
-  // Regenerate master key mutation
   const regenerateMasterKeyMutation = useMutation({
     mutationFn: regenerateMasterKey,
     onMutate: () => {
@@ -174,7 +166,7 @@ export function useSettingsQuery(): UseSettingsQueryReturn {
     isLoading,
     isSaving,
     error: error || queryError?.message || null,
-    
+
     saveSettings: saveSettingsMutation.mutateAsync,
     regenerateKeys: async (action?: 'aes' | 'rsa' | 'all'): Promise<void> => {
       await regenerateKeysMutation.mutateAsync(action)
@@ -185,4 +177,3 @@ export function useSettingsQuery(): UseSettingsQueryReturn {
     clearError,
   }
 }
-

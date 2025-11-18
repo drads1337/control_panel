@@ -27,8 +27,6 @@ interface ProjectsNavigationProps {
   onTabChange: (tab: 'projects' | 'project-codes') => void
 }
 
-// Note: In a real application, this navigation logic should be shared
-// with the sidebar to avoid duplication.
 const getNavigationItems = (role?: string) => {
   if (role === 'owner') {
     return [
@@ -52,7 +50,7 @@ const getNavigationItems = (role?: string) => {
       { title: 'Profile', icon: <User className="mr-2 h-4 w-4" />, href: '/profile' },
     ]
   } else {
-    // Default for other roles
+
     return [
       { title: 'Dashboard', icon: <BarChart3 className="mr-2 h-4 w-4" />, href: '/dashboard' },
       { title: 'Management', icon: <Key className="mr-2 h-4 w-4" />, href: '/management-page' },
@@ -67,7 +65,7 @@ export function ProjectsNavigation({ activeTab, onTabChange }: ProjectsNavigatio
 
   return (
     <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
-      {/* Tab Navigation */}
+      {}
       <Tabs value={activeTab} onValueChange={(value) => onTabChange(value as any)}>
         <TabsList>
           <TabsTrigger value="projects">

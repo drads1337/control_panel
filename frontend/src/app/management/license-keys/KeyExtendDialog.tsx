@@ -27,7 +27,7 @@ interface KeyExtendDialogProps {
 const KeyExtendDialog: React.FC<KeyExtendDialogProps> = ({ open, onOpenChange, keyData, onSuccess }) => {
   const { hasPermission } = usePermissions();
   const canExtend = hasPermission('keys.extend');
-  
+
   const [loading, setLoading] = useState(false);
   const [extendType, setExtendType] = useState<'hours' | 'duration'>('hours');
   const [customHours, setCustomHours] = useState('');
@@ -82,12 +82,12 @@ const KeyExtendDialog: React.FC<KeyExtendDialogProps> = ({ open, onOpenChange, k
     setLoading(true);
     try {
       await extendLicenseKey(keyData.id, hours);
-      
+
       toast.success(`License key extended by ${hours} hours`);
       onSuccess();
       onOpenChange(false);
     } catch (error) {
-      console.error('Error extending license key:', error);
+
       toast.error('Error extending license key');
     } finally {
       setLoading(false);

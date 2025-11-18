@@ -22,14 +22,12 @@ export default function CurrentProjectInfo({ currentProject }: CurrentProjectInf
     return null
   }
 
-  // Calculate days until expiry
   const calculateDaysUntilExpiry = (): number | null => {
-    // First try to use server-provided value if available
+
     if (typeof currentProject.days_until_expiry === 'number') {
       return currentProject.days_until_expiry
     }
-    
-    // If not available, calculate from subscription_expires_at
+
     if (currentProject.subscription_expires_at) {
       try {
         const expiresAt = new Date(currentProject.subscription_expires_at)
@@ -44,7 +42,7 @@ export default function CurrentProjectInfo({ currentProject }: CurrentProjectInf
         return null
       }
     }
-    
+
     return null
   }
 
@@ -62,7 +60,7 @@ export default function CurrentProjectInfo({ currentProject }: CurrentProjectInf
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-0 space-y-4">
-        {/* Project IDs */}
+        {}
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -94,7 +92,7 @@ export default function CurrentProjectInfo({ currentProject }: CurrentProjectInf
           </div>
         </div>
 
-        {/* Subscription & Status */}
+        {}
         <div className="pt-2 border-t border-border/50 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Subscription</span>
@@ -128,7 +126,7 @@ export default function CurrentProjectInfo({ currentProject }: CurrentProjectInf
           </div>
         </div>
 
-        {/* Expiration Warning */}
+        {}
         {daysUntilExpiry !== null && daysUntilExpiry <= 7 && (
           <div className="pt-2 border-t border-border/50">
             <div className="p-2.5 rounded-lg bg-orange-50/50 dark:bg-orange-950/20 border border-orange-200/50 dark:border-orange-800/50">

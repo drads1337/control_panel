@@ -9,7 +9,6 @@ Usage:
 import sys
 import os
 
-# Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backend.core.app import create_app
@@ -17,30 +16,24 @@ from backend.core.extensions import db
 from backend.models import User
 from backend.utils.key_counters import recalculate_all_user_key_counters
 
-
 def main():
     """Initialize key counters for all users"""
     app = create_app()
-    
+
     with app.app_context():
         print("Initializing key counters for all users...")
-        
-        # Recalculate counters for all users
+
         recalculate_all_user_key_counters()
-        
-        # Commit changes
+
         db.session.commit()
-        
-        # Verify counts
+
         total_users = User.query.count()
         users_with_keys = User.query.filter(User.total_keys > 0).count()
-        
+
         print(f"✓ Initialization complete!")
         print(f"  Total users: {total_users}")
         print(f"  Users with keys: {users_with_keys}")
         print(f"  Users without keys: {total_users - users_with_keys}")
 
-
 if __name__ == "__main__":
     main()
-

@@ -14,40 +14,36 @@ export default function OfflineAuthSettings() {
   const [expirationHours, setExpirationHours] = useState(
     settings?.offline_auth?.offline_ticket_expiration_hours ?? 12
   )
-  // Initialize state from settings on mount
+
   useEffect(() => {
     if (settings?.offline_auth) {
       setOfflineAuthEnabled(settings.offline_auth.offline_auth_enabled ?? false)
       setExpirationHours(settings.offline_auth.offline_ticket_expiration_hours ?? 12)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Only run on mount
 
-  // Auto-save when enabled state changes
+  }, [])
+
   const handleEnabledChange = useCallback((checked: boolean) => {
     setOfflineAuthEnabled(checked)
-    
-    // Save in background
+
     saveSettings({
       offline_auth: {
         offline_auth_enabled: checked,
         offline_ticket_expiration_hours: expirationHours,
       },
     }).catch(() => {
-      // Revert on error
+
       setOfflineAuthEnabled(!checked)
     })
   }, [saveSettings, expirationHours])
 
-  // Debounced auto-save for expiration hours (only when enabled)
   useEffect(() => {
     if (!offlineAuthEnabled) return
-    
-    // Skip if this is the initial load (values match settings)
+
     if (settings?.offline_auth?.offline_ticket_expiration_hours === expirationHours) {
       return
     }
-    
+
     const timeoutId = setTimeout(async () => {
       try {
         await saveSettings({
@@ -57,7 +53,7 @@ export default function OfflineAuthSettings() {
           },
         })
       } catch (error) {
-        // Revert on error
+
         if (settings?.offline_auth?.offline_ticket_expiration_hours) {
           setExpirationHours(settings.offline_auth.offline_ticket_expiration_hours)
         }
@@ -122,4 +118,3 @@ export default function OfflineAuthSettings() {
     </Card>
   )
 }
-

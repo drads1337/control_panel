@@ -16,7 +16,6 @@ from ...services.auth import challenge_service
 
 logger = logging.getLogger(__name__)
 
-
 class ChallengeValidationService:
     """Handles challenge validation"""
 
@@ -38,12 +37,10 @@ class ChallengeValidationService:
         if not challenge_response or not canary:
             return False, "Challenge required"
 
-        # Check for enhanced challenge first, then fall back to legacy
         challenge_data = self._get_challenge_data(user_key, fingerprint)
         if not challenge_data:
             return False, "Challenge not found"
 
-        # Validate based on challenge type
         if challenge_data.get("type") == "legacy":
             return self._validate_legacy_challenge(
                 challenge_data, user_key, fingerprint, challenge_response
@@ -66,15 +63,12 @@ class ChallengeValidationService:
             if not redis_client:
                 return
 
-            # Clean up enhanced challenge
             challenge_id = f"enhanced_challenge:{user_key}:{fingerprint}"
             redis_client.delete(challenge_id)
 
-            # Clean up legacy challenge
             legacy_challenge_id = f"challenge:{user_key}:{fingerprint}"
             redis_client.delete(legacy_challenge_id)
 
-            # Clean up canary
             redis_client.delete(f"canary:{user_key}:{fingerprint}")
 
             logger.info(
@@ -90,7 +84,6 @@ class ChallengeValidationService:
             if not redis_client:
                 return None
 
-            # Try enhanced challenge first
             challenge_id = f"enhanced_challenge:{user_key}:{fingerprint}"
             enhanced_challenge_json = redis_client.get(challenge_id)
 
@@ -106,7 +99,6 @@ class ChallengeValidationService:
                         f"ENHANCED_CHALLENGE_JSON_ERROR user_key={user_key} fingerprint={fingerprint}"
                     )
 
-            # Fall back to legacy challenge
             legacy_challenge_id = f"challenge:{user_key}:{fingerprint}"
             legacy_challenge = redis_client.get(legacy_challenge_id)
 
@@ -144,31 +136,29 @@ class ChallengeValidationService:
     ) -> Tuple[bool, str]:
         """Validate enhanced challenge response"""
         try:
-            # Parse challenge response
+
             if isinstance(challenge_response, str):
                 try:
                     response_data = json.loads(challenge_response)
                 except json.JSONDecodeError:
-                    # If it's not JSON, it might be a simple hash (legacy format)
-                    # Check if it looks like a SHA256 hash (64 hex characters)
+
                     if len(challenge_response) == 64 and all(
                         c in "0123456789abcdef" for c in challenge_response.lower()
                     ):
                         logger.info(
                             f"ENHANCED_CHALLENGE_LEGACY_HASH user_key={user_key} - treating as legacy SHA256 hash"
                         )
-                        # Try to validate as legacy challenge first
-                        # Extract the crypto challenge input from enhanced challenge
+
                         crypto_challenge = challenge_data.get("challenges", {}).get("crypto", {})
                         if crypto_challenge:
-                            # Try to validate against SHA256 challenge
+
                             sha256_challenge = crypto_challenge.get("challenges", {}).get(
                                 "sha256", {}
                             )
                             if sha256_challenge:
                                 expected_input = sha256_challenge.get("input", "")
                                 expected_hash = sha256_challenge.get("expected", "")
-                                # Client might be sending SHA256(input) directly
+
                                 actual_hash = hashlib.sha256(expected_input.encode()).hexdigest()
                                 if (
                                     challenge_response == actual_hash
@@ -179,12 +169,10 @@ class ChallengeValidationService:
                                     )
                                     return True, ""
 
-                    # Fallback: wrap in response structure
                     response_data = {"result": challenge_response}
             else:
                 response_data = challenge_response
 
-            # Validate enhanced challenge
             is_valid, validation_message = challenge_service.validate_challenge_response(
                 challenge_data, response_data, user_key, fingerprint
             )
@@ -218,4 +206,3 @@ class ChallengeValidationService:
         except Exception as e:
             logger.error(f"Error connecting to Redis: {e}")
             return None
-

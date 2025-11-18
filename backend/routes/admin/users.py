@@ -29,7 +29,6 @@ from ...models import (
 )
 from ...services.activity import activity_service
 
-# Import services and utilities
 from ...services.users import user_service
 from ...middleware.auth import require_role, require_user
 from ...middleware.validation import validate_request
@@ -38,7 +37,6 @@ from ...utils.role_constants import RolePermissions
 
 admin_users_bp = Blueprint("admin_users", __name__)
 
-
 @admin_users_bp.route("", methods=["GET"])
 @jwt_required()
 @require_user
@@ -46,7 +44,7 @@ admin_users_bp = Blueprint("admin_users", __name__)
 @require_role(RolePermissions.ADMIN_ROLES)
 def get_users(current_user=None, project_id=None):
     """Get users with optimized key counts (fixes N+1 problem)"""
-    # Fallback to g for backward compatibility if not passed explicitly
+
     if current_user is None:
         current_user = g.current_user
     if project_id is None:
@@ -73,7 +71,6 @@ def get_users(current_user=None, project_id=None):
 
     return jsonify(result)
 
-
 @admin_users_bp.route("/add", methods=["POST"])
 @jwt_required()
 @require_user
@@ -83,14 +80,12 @@ def get_users(current_user=None, project_id=None):
 def add_user(current_user=None, validated_data=None):
     """Create a new user with roles and game permissions"""
     import logging
-    
+
     logger = logging.getLogger(__name__)
-    
-    # Fallback to g for backward compatibility if not passed explicitly
+
     if current_user is None:
         current_user = g.current_user
-    
-    # Use validated_data from decorator, fallback to request.get_json() for backward compatibility
+
     data = validated_data if validated_data is not None else request.get_json()
 
     if not data:
@@ -102,7 +97,6 @@ def add_user(current_user=None, validated_data=None):
         if error:
             return jsonify({"error": error}), 400
 
-        # Log activity (don't fail if logging fails)
         try:
             activity_service.log_activity(
                 current_user,
@@ -133,7 +127,6 @@ def add_user(current_user=None, validated_data=None):
         logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": f"Failed to create user: {str(e)}"}), 500
 
-
 @admin_users_bp.route("/<int:user_id>", methods=["DELETE"])
 @jwt_required()
 @require_user
@@ -141,7 +134,7 @@ def add_user(current_user=None, validated_data=None):
 @require_role(RolePermissions.ADMIN_ROLES)
 def delete_user(user_id, current_user=None):
     """Delete a user safely"""
-    # Fallback to g for backward compatibility if not passed explicitly
+
     if current_user is None:
         current_user = g.current_user
 
@@ -150,13 +143,11 @@ def delete_user(user_id, current_user=None):
     if not success:
         return jsonify({"error": error}), 400 if "not found" in error.lower() else 403
 
-    # Log activity
     activity_service.log_activity(
         current_user, "delete_user", details=f"Deleted user ID: {user_id}", ip=request.remote_addr
     )
 
     return jsonify({"message": "User deleted successfully"})
-
 
 @admin_users_bp.route("/bulk", methods=["POST"])
 @jwt_required()
@@ -165,7 +156,7 @@ def delete_user(user_id, current_user=None):
 @require_role(RolePermissions.USER_CREATION_ROLES)
 def bulk_action(current_user=None, project_id=None):
     """Perform bulk actions on users"""
-    # Fallback to g for backward compatibility if not passed explicitly
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -177,7 +168,6 @@ def bulk_action(current_user=None, project_id=None):
     if not action or not user_ids:
         return jsonify({"error": "Action and user_ids are required"}), 400
 
-    # Build query for users
     query = User.query.filter(User.id.in_(user_ids))
 
     from ...services.rbac import rbac_service
@@ -189,7 +179,7 @@ def bulk_action(current_user=None, project_id=None):
     if not can_view_all:
         query = query.filter_by(project_id=current_user.project_id)
     else:
-        # Use explicit project_id if provided, otherwise fallback to g.project_id
+
         if project_id is None:
             from flask import g
             project_id = getattr(g, "project_id", None)
@@ -201,14 +191,12 @@ def bulk_action(current_user=None, project_id=None):
     if action == "delete":
         try:
             for user in users:
-                # Check if user can be deleted
+
                 from ...utils.rbac_utils import RBACManager
 
                 if RBACManager.is_admin(user) or RBACManager.is_owner(user):
                     continue
 
-                # Delete related data
-                # Reset key counters before deletion (will be 0 after deletion)
                 user.total_keys = 0
                 user.active_keys = 0
                 Key.query.filter_by(user_id=user.id).delete()
@@ -216,17 +204,14 @@ def bulk_action(current_user=None, project_id=None):
                 DeveloperGamePermission.query.filter_by(user_id=user.id).delete()
                 UserActivity.query.filter_by(user_id=user.id).delete()
 
-                # Delete UserRole records explicitly to avoid foreign key constraint issues
                 UserRole.query.filter_by(user_id=user.id).delete()
 
-                # Delete ProjectUserRole records explicitly to avoid foreign key constraint issues
                 ProjectUserRole.query.filter_by(user_id=user.id).delete()
 
                 db.session.delete(user)
 
             db.session.commit()
 
-            # Log activity
             activity_service.log_activity(
                 current_user,
                 "bulk_delete_users",
@@ -245,7 +230,6 @@ def bulk_action(current_user=None, project_id=None):
         if not new_role:
             return jsonify({"error": "new_role is required"}), 400
 
-        # Only allow assignable roles
         if new_role not in RolePermissions.ASSIGNABLE_ROLES:
             return (
                 jsonify(
@@ -257,12 +241,9 @@ def bulk_action(current_user=None, project_id=None):
             )
 
         try:
-            # Note: Role assignment should be handled through RBAC service
-            # This is a placeholder for the actual RBAC role assignment logic
 
             db.session.commit()
 
-            # Log activity
             activity_service.log_activity(
                 current_user,
                 "bulk_change_role",
@@ -278,7 +259,6 @@ def bulk_action(current_user=None, project_id=None):
 
     else:
         return jsonify({"error": "Invalid action"}), 400
-
 
 @admin_users_bp.route("/export", methods=["GET"])
 @jwt_required()
@@ -312,11 +292,10 @@ def export_users():
 
     def generate_csv():
         """Generator function to stream CSV data"""
-        # Create a StringIO buffer for CSV writing
+
         buffer = StringIO()
         writer = csv.writer(buffer)
 
-        # Write header
         header = [
             "ID",
             "Username",
@@ -341,19 +320,16 @@ def export_users():
         buffer.seek(0)
         buffer.truncate(0)
 
-        # Process users in batches to avoid memory issues
         batch_size = 1000
         offset = 0
 
         while True:
-            # Get batch of users
+
             users_batch = query.order_by(User.id).offset(offset).limit(batch_size).all()
 
             if not users_batch:
                 break
 
-            # Use denormalized key counters from User model (no need for JOIN query)
-            # Write users in batch
             for user in users_batch:
                 keys_count = user.total_keys or 0
                 user_roles = RBACManager.get_user_role_names(user)
@@ -381,14 +357,12 @@ def export_users():
                     ]
                 )
 
-            # Yield batch and clear buffer
             yield buffer.getvalue()
             buffer.seek(0)
             buffer.truncate(0)
 
             offset += batch_size
 
-            # If we got fewer than batch_size, we're done
             if len(users_batch) < batch_size:
                 break
 
@@ -397,7 +371,6 @@ def export_users():
         mimetype="text/csv",
         headers={"Content-Disposition": "attachment; filename=users_export.csv"},
     )
-
 
 @admin_users_bp.route("/invite", methods=["POST"])
 @jwt_required()
@@ -415,7 +388,6 @@ def invite_user():
     if not email:
         return jsonify({"error": "Email is required"}), 400
 
-    # Determine allowed roles based on current user's permissions
     allowed_roles = RolePermissions.ASSIGNABLE_ROLES.copy()
     from ...services.rbac import rbac_service
     from ...utils.rbac_utils import RBACManager
@@ -424,7 +396,7 @@ def invite_user():
         current_user.id, "employees.view"
     ) or rbac_service.check_permission(current_user.id, "clients.view")
     if not can_view_all:
-        # Non-owners cannot invite admins
+
         allowed_roles = [r for r in allowed_roles if r not in RolePermissions.ADMIN_ROLES]
 
     if role not in allowed_roles:
@@ -445,7 +417,6 @@ def invite_user():
     db.session.add(ref)
     db.session.commit()
 
-    # Log activity
     activity_service.log_activity(
         current_user,
         "invite_user",
@@ -460,7 +431,6 @@ def invite_user():
             "expires_at": ref.expires_at.isoformat(),
         }
     )
-
 
 @admin_users_bp.route("/stats", methods=["GET"])
 @jwt_required()
@@ -508,7 +478,6 @@ def get_users_stats():
         }
     )
 
-
 @admin_users_bp.route("/<int:user_id>/stats", methods=["GET"])
 @jwt_required()
 @require_user
@@ -522,7 +491,6 @@ def get_user_stats(user_id):
     if not target_user:
         return jsonify({"error": "User not found"}), 404
 
-    # SECURITY: Проверяем доступ и применяем строгую фильтрацию по project_id
     from ...services.rbac import rbac_service
     from ...utils.rbac_utils import RBACManager
 
@@ -530,24 +498,19 @@ def get_user_stats(user_id):
         current_user.id, "employees.view"
     ) or rbac_service.check_permission(current_user.id, "clients.view")
 
-    # Всегда проверяем, что target_user принадлежит тому же проекту, что и current_user
-    # Это предотвращает утечку данных между проектами
     if not can_view_all:
         if current_user.project_id != target_user.project_id:
             return jsonify({"error": "Access denied"}), 403
     else:
-        # Даже если есть права на просмотр, применяем строгую фильтрацию по project_id
-        # Используем project_id из g (установлен декоратором enforce_project_scope)
+
         project_id = getattr(g, "project_id", current_user.project_id)
         if project_id and target_user.project_id != project_id:
             return jsonify({"error": "Access denied"}), 403
 
-    # SECURITY: Всегда применяем фильтрацию по project_id для всех запросов
     project_id = getattr(g, "project_id", current_user.project_id)
     if not project_id:
         project_id = target_user.project_id
 
-    # Get key statistics with single query - с фильтрацией по project_id
     key_stats = (
         db.session.query(
             func.count(Key.id).label("total_keys"),
@@ -574,7 +537,6 @@ def get_user_stats(user_id):
         )
     ).count()
 
-    # SECURITY: Фильтруем активность по project_id
     activity_count = UserActivity.query.filter(
         and_(UserActivity.user_id == user_id, UserActivity.project_id == project_id)
     ).count()
@@ -615,7 +577,6 @@ def get_user_stats(user_id):
         }
     )
 
-
 @admin_users_bp.route("/<int:user_id>/activities", methods=["GET"])
 @jwt_required()
 @require_user
@@ -629,7 +590,6 @@ def get_user_activities(user_id):
     if not target_user:
         return jsonify({"error": "User not found"}), 404
 
-    # Check access permissions
     from ...services.rbac import rbac_service
     from ...utils.rbac_utils import RBACManager
 
@@ -674,7 +634,6 @@ def get_user_activities(user_id):
         }
     )
 
-
 @admin_users_bp.route("/<int:user_id>/transactions", methods=["GET"])
 @jwt_required()
 @require_user
@@ -688,7 +647,6 @@ def get_user_transactions(user_id):
     if not target_user:
         return jsonify({"error": "User not found"}), 404
 
-    # Check access permissions
     from ...services.rbac import rbac_service
     from ...utils.rbac_utils import RBACManager
 
@@ -699,11 +657,9 @@ def get_user_transactions(user_id):
         if current_user.project_id != target_user.project_id:
             return jsonify({"error": "Access denied"}), 403
 
-    # Get pagination parameters
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 50, type=int)
 
-    # Limit per_page to prevent excessive memory usage
     if per_page > 1000:
         per_page = 1000
 

@@ -25,14 +25,12 @@ export default function RemoteControl() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Dialog states
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false)
   const [editingFeature, setEditingFeature] = useState<RemoteFeature | null>(null)
   const [editingCategory, setEditingCategory] = useState<RemoteCategory | null>(null)
 
-  // Form states
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -46,10 +44,8 @@ export default function RemoteControl() {
     color: '#3b82f6'
   })
 
-  // Permissions check
   const { hasPermission } = usePermissions()
 
-  // Load data from API
   const loadData = async () => {
     try {
       setLoading(true)
@@ -65,13 +61,12 @@ export default function RemoteControl() {
       setFeatures(featuresData)
       setStats(statsData)
 
-      // Set active tab to first category if none selected
       if (categoriesData.length > 0 && !activeTab) {
         setActiveTab(categoriesData[0].id)
       }
 
     } catch (err: any) {
-      console.error('Error loading remote control data:', err)
+
       setError(err.response?.data?.error || 'Failed to load data')
       toast.error(err.response?.data?.error || 'Failed to load data')
     } finally {
@@ -97,7 +92,7 @@ export default function RemoteControl() {
 
       toast.success(`${updatedFeature.name} ${updatedFeature.enabled ? 'enabled' : 'disabled'} for all clients`)
     } catch (err: any) {
-      console.error('Error toggling feature:', err)
+
       toast.error(err.response?.data?.error || 'Failed to toggle feature')
     }
   }
@@ -127,7 +122,7 @@ export default function RemoteControl() {
 
       toast.success(`${formData.name} successfully added`)
     } catch (err: any) {
-      console.error('Error creating feature:', err)
+
       toast.error(err.response?.data?.error || 'Failed to create feature')
     }
   }
@@ -177,7 +172,7 @@ export default function RemoteControl() {
 
       toast.success(`${formData.name} successfully updated`)
     } catch (err: any) {
-      console.error('Error updating feature:', err)
+
       toast.error(err.response?.data?.error || 'Failed to update feature')
     }
   }
@@ -196,7 +191,7 @@ export default function RemoteControl() {
 
       toast.success(`${feature?.name} removed from the system`)
     } catch (err: any) {
-      console.error('Error deleting feature:', err)
+
       toast.error(err.response?.data?.error || 'Failed to delete feature')
     }
   }
@@ -209,7 +204,6 @@ export default function RemoteControl() {
       enabled: false
     })
   }
-
 
   const handleAddCategory = async () => {
     if (!hasPermission('remote_control.create')) {
@@ -235,7 +229,7 @@ export default function RemoteControl() {
 
       toast.success(`${categoryFormData.name} successfully added`)
     } catch (err: any) {
-      console.error('Error creating category:', err)
+
       toast.error(err.response?.data?.error || 'Failed to create category')
     }
   }
@@ -283,7 +277,7 @@ export default function RemoteControl() {
 
       toast.success(`${categoryFormData.name} successfully updated`)
     } catch (err: any) {
-      console.error('Error updating category:', err)
+
       toast.error(err.response?.data?.error || 'Failed to update category')
     }
   }
@@ -296,7 +290,6 @@ export default function RemoteControl() {
 
     const category = categories.find(c => c.id === categoryId)
 
-    // Check if there are features in this category
     const featuresInCategory = features.filter(f => f.category === categoryId)
     if (featuresInCategory.length > 0) {
       toast.error(`Cannot delete a category with features. First, delete or move ${featuresInCategory.length} features.`)
@@ -309,7 +302,7 @@ export default function RemoteControl() {
 
       toast.success(`${category?.name} removed from the system`)
     } catch (err: any) {
-      console.error('Error deleting category:', err)
+
       toast.error(err.response?.data?.error || 'Failed to delete category')
     }
   }
@@ -322,16 +315,14 @@ export default function RemoteControl() {
     })
   }
 
-
   const getCategoryFeatures = (categoryId: string) => {
     return features.filter(feature => feature.category === categoryId)
   }
 
-  // Check if user has remote control access via permissions
   if (!hasPermission('remote_control.view')) {
     return (
       <div className="space-y-6">
-        {/* Page Header */}
+        {}
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Remote Control</h1>
           <p className="text-muted-foreground">
@@ -356,11 +347,10 @@ export default function RemoteControl() {
     )
   }
 
-  // Show error state
   if (error) {
     return (
       <div className="space-y-6">
-        {/* Page Header */}
+        {}
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Remote Control</h1>
           <p className="text-muted-foreground">
@@ -368,7 +358,7 @@ export default function RemoteControl() {
           </p>
         </div>
 
-        {/* Error Alert */}
+        {}
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
@@ -391,7 +381,7 @@ export default function RemoteControl() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
+      {}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Remote Control</h1>
         <p className="text-muted-foreground">
@@ -399,10 +389,10 @@ export default function RemoteControl() {
         </p>
       </div>
 
-      {/* Stats Cards */}
+      {}
       <RemoteControlStatsCards categories={categories} stats={stats} />
 
-      {/* Tabs Interface */}
+      {}
       <RemoteControlTabs
         categories={categories}
         features={features}
@@ -434,7 +424,7 @@ export default function RemoteControl() {
         canToggle={hasPermission('remote_control.toggle')}
       />
 
-      {/* Category Management Dialog */}
+      {}
       <CategoryDialog
         categoryDialogOpen={categoryDialogOpen}
         setCategoryDialogOpen={setCategoryDialogOpen}

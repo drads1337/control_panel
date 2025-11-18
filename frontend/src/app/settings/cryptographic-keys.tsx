@@ -47,7 +47,7 @@ export default function CryptographicKeys({ settings, isSaving }: CryptographicK
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4 flex-1">
-        {/* AES Key */}
+        {}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">AES Key</span>
@@ -77,7 +77,7 @@ export default function CryptographicKeys({ settings, isSaving }: CryptographicK
           </div>
         </div>
 
-        {/* Public Key */}
+        {}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">Public Key</span>
@@ -107,7 +107,7 @@ export default function CryptographicKeys({ settings, isSaving }: CryptographicK
           </div>
         </div>
 
-        {/* Regenerate All Button */}
+        {}
         <div className="pt-2">
           <Button
             variant="outline"

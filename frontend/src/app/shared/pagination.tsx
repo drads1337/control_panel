@@ -36,10 +36,9 @@ export function Pagination({
     }
   }
 
-  // Helper to generate page numbers with ellipses
   const getPageNumbers = () => {
     const pages = []
-    const delta = 2 // Number of pages to show around the current page
+    const delta = 2
     const left = currentPage - delta
     const right = currentPage + delta + 1
     let l

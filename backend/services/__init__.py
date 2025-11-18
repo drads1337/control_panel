@@ -14,5 +14,4 @@ Import services from their domain packages:
 See individual package __init__.py files for available exports.
 """
 
-# Empty __init__.py - all imports should be from domain packages
 __all__ = []

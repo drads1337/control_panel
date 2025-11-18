@@ -44,7 +44,6 @@ interface FileManagerProps {
   onSwitchToGameDatabase?: () => void;
 }
 
-// Memoized file item component for better performance
 interface FileItemProps {
   file: FileItem;
   isSelected: boolean;
@@ -112,7 +111,7 @@ const FileItemComponent = React.memo(function FileItemComponent({
             </div>
           </div>
         </div>
-        
+
         <ConditionalRender 
           permissions={['games.files_view', 'games.files_download', 'games.files_delete']}
           requireAll={false}
@@ -179,18 +178,16 @@ const FileItemComponent = React.memo(function FileItemComponent({
 const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => {
   const { isAuthenticated } = useAuth();
   const { hasPermission } = usePermissions();
-  
+
   const canViewFiles = hasPermission('games.files_view');
   const canUploadFiles = hasPermission('games.files_upload');
   const canDeleteFiles = hasPermission('games.files_delete');
   const canDownloadFiles = hasPermission('games.files_download');
-  
-  // Check permissions for target type selection
+
   const canViewGames = hasPermission('games.view');
   const canViewLoaders = hasPermission('loaders.view');
   const showTargetTypeToggle = canViewGames && canViewLoaders;
-  
-  // Early return if user doesn't have permission to view files
+
   if (!canViewFiles) {
     return (
       <Card className="text-center p-8">
@@ -200,8 +197,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
       </Card>
     );
   }
-  
-  // Main state
+
   const [games, setGames] = useState<Game[]>([]);
   const [loaders, setLoaders] = useState<Loader[]>([]);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
@@ -212,31 +208,25 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
   const [currentPath, setCurrentPath] = useState<string>('/');
   const [showConfigsFolder, setShowConfigsFolder] = useState(false);
   const [targetType, setTargetType] = useState<'application' | 'loader'>('application');
-  
-  // Rate limiting protection
+
   const [isLoadingGames, setIsLoadingGames] = useState(false);
   const [lastGamesLoad, setLastGamesLoad] = useState<number>(0);
-  const GAMES_LOAD_COOLDOWN = 5000; // 5 seconds cooldown between game loads
-  
-  // UI state
+  const GAMES_LOAD_COOLDOWN = 5000;
+
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
 
-  // Key for localStorage
   const FILTERS_STORAGE_KEY = 'fileManager_filters';
-  
-  // Dialogs
+
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [fileDetailsOpen, setFileDetailsOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
-  
-  // Upload
+
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [dragOver, setDragOver] = useState(false);
-  
-  // Upload form
+
   const [uploadForm, setUploadForm] = useState({
     name: '',
     description: '',
@@ -244,18 +234,16 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
     category: 'resource' as 'config' | 'resource',
     uploadPath: '/'
   });
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load data on mount
   useEffect(() => {
     if (isAuthenticated && canViewFiles) {
       loadInitialData();
       loadFiltersFromStorage();
     }
   }, [isAuthenticated, canViewFiles]);
-  
-  // Check access
+
   if (!canViewFiles) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -269,7 +257,6 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
     );
   }
 
-  // Load filters from localStorage
   const loadFiltersFromStorage = () => {
     try {
       const savedFilters = localStorage.getItem(FILTERS_STORAGE_KEY);
@@ -278,11 +265,10 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
         setCategoryFilter(filters.categoryFilter || 'all');
       }
     } catch (error) {
-      console.error('Failed to load filters from storage:', error);
+
     }
   };
 
-  // Save filters to localStorage
   const saveFiltersToStorage = () => {
     try {
       const filters = {
@@ -290,16 +276,14 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
       };
       localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(filters));
     } catch (error) {
-      console.error('Failed to save filters to storage:', error);
+
     }
   };
 
-  // Save filters when they change
   useEffect(() => {
     saveFiltersToStorage();
   }, [categoryFilter]);
 
-  // Filter games and loaders based on targetType (for auto-select)
   const filteredGamesForSelect = useMemo(() => {
     if (targetType === 'application') {
       return games.filter(g => g.is_multi_app === false);
@@ -308,7 +292,6 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
     }
   }, [games, targetType]);
 
-  // Automatically select the first game/loader
   useEffect(() => {
     if (targetType === 'application' && filteredGamesForSelect.length > 0 && !selectedGame) {
       setSelectedGame(filteredGamesForSelect[0]);
@@ -316,7 +299,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
     } else if (targetType === 'loader') {
       const allItems = [...loaders, ...filteredGamesForSelect];
       if (allItems.length > 0 && !selectedGame && !selectedLoader) {
-        // Prefer loader if available, otherwise game
+
         const firstLoader = loaders[0];
         if (firstLoader) {
           setSelectedLoader(firstLoader);
@@ -329,25 +312,22 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
     }
   }, [filteredGamesForSelect, loaders, selectedGame, selectedLoader, targetType]);
 
-  // Load files when the selected game/loader changes
   useEffect(() => {
     if ((selectedGame || selectedLoader) && isAuthenticated) {
       loadGameFiles();
     }
   }, [selectedGame, selectedLoader, isAuthenticated]);
 
-  // Debounced search effect
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if ((selectedGame || selectedLoader) && isAuthenticated) {
         loadGameFiles();
       }
-    }, 300); // 300ms debounce
+    }, 300);
 
     return () => clearTimeout(timeoutId);
   }, [searchTerm, categoryFilter]);
 
-  // Auto-set target type based on permissions
   useEffect(() => {
     if (!showTargetTypeToggle) {
       if (canViewGames && !canViewLoaders && targetType !== 'application') {
@@ -358,7 +338,6 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
     }
   }, [showTargetTypeToggle, canViewGames, canViewLoaders, targetType]);
 
-  // Clear selection when targetType changes
   useEffect(() => {
     setSelectedGame(null);
     setSelectedLoader(null);
@@ -366,10 +345,10 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
   }, [targetType]);
 
   const loadInitialData = async (retryCount = 0) => {
-    // Rate limiting protection
+
     const now = Date.now();
     if (isLoadingGames || (now - lastGamesLoad < GAMES_LOAD_COOLDOWN)) {
-      console.log('Games loading is rate limited, skipping request');
+
       return;
     }
 
@@ -377,33 +356,26 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
       setIsLoadingGames(true);
       setLoading(true);
       setLastGamesLoad(now);
-      
-      // Load games
+
       const response = await getGames('all');
       setGames(response.games);
-      
-      // Load loaders if in loader mode or always to have them available
+
       try {
         const loadersResponse = await getLoaders();
         setLoaders(loadersResponse.loaders || []);
       } catch (loaderError) {
-        console.error('Failed to load loaders:', loaderError);
-        // Don't show error for loaders as it's not critical if we're in application mode
+
       }
-      
-      // Automatically create a configs folder for each game
+
       await ensureConfigsFoldersExist(response.games);
     } catch (error: any) {
-      console.error('Failed to load games:', error);
-      
-      // Handle rate limiting specifically
+
       if (error.message?.includes('429') || error.message?.includes('TOO MANY REQUESTS')) {
-        const retryDelay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Exponential backoff, max 10s
-        
+        const retryDelay = Math.min(1000 * Math.pow(2, retryCount), 10000);
+
         if (retryCount < 3) {
-          console.log(`Rate limited, retrying in ${retryDelay}ms (attempt ${retryCount + 1}/3)`);
           toast.error(`Rate limited. Retrying in ${Math.ceil(retryDelay/1000)}s...`);
-          
+
           setTimeout(() => {
             loadInitialData(retryCount + 1);
           }, retryDelay);
@@ -422,9 +394,9 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
 
   const ensureConfigsFoldersExist = async (games: Game[]) => {
     if (!isAuthenticated) return;
-    
+
     try {
-      // Create a configs folder for each game
+
       const promises = games.map(async (game) => {
         try {
           await createFolder({
@@ -433,15 +405,13 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
             game_id: game.id
           });
         } catch (error) {
-          // Ignore errors if the folder already exists
-          console.log(`Configs folder might already exist for game ${game.name}:`, error);
+
         }
       });
-      
+
       await Promise.all(promises);
     } catch (error) {
-      console.error('Failed to ensure configs folders exist:', error);
-      // Do not show an error to the user as it is not critical
+
     }
   };
 
@@ -449,43 +419,20 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
     const targetId = selectedGame?.id || selectedLoader?.id;
     const targetType = selectedGame ? 'game' : 'loader';
     const targetName = selectedGame?.name || selectedLoader?.name || 'Unknown';
-    
-    console.log('📂 [FileManager] loadGameFiles called:', {
-      targetId,
-      targetType,
-      targetName,
-      selectedGame: selectedGame ? { id: selectedGame.id, name: selectedGame.name } : null,
-      selectedLoader: selectedLoader ? { id: selectedLoader.id, name: selectedLoader.name } : null,
-      categoryFilter,
-      status: 'all',
-      searchTerm,
-      timestamp: new Date().toISOString()
-    });
-    
+
     if (!targetId) {
-      console.warn('📂 [FileManager] No game or loader selected, cannot load files');
+
       return;
     }
-    
+
     try {
-      console.log('📂 [FileManager] Starting file load process:', {
-        targetId,
-        targetType,
-        targetName,
-        categoryFilter,
-        searchTerm,
-        isAuthenticated
-      });
-      
+
       setRefreshing(true);
-      
-      // Use game files API for both games and loaders
-      // Pass target_type to help backend identify if it's a game or loader
-      console.log('📂 [FileManager] Calling getGameFiles API...');
+
       const apiStartTime = performance.now();
-      
+
       const targetTypeForApi = selectedLoader ? 'loader' : selectedGame ? 'game' : 'auto';
-      
+
       const response = await getGameFiles(
         targetId, 
         categoryFilter, 
@@ -493,55 +440,25 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
         searchTerm,
         targetTypeForApi as 'game' | 'loader' | 'auto'
       );
-      
+
       const apiDuration = performance.now() - apiStartTime;
-      
-      console.log('📂 [FileManager] API call completed:', {
-        duration: `${apiDuration.toFixed(2)}ms`,
-        responseKeys: Object.keys(response),
-        filesCount: response.files?.length || 0,
-        total: response.total,
-        hasFiles: Array.isArray(response.files)
-      });
-      
+
       if (response.files) {
-        console.log('📂 [FileManager] Setting files state:', {
-          filesCount: response.files.length,
-          fileIds: response.files.map(f => f.id).slice(0, 5),
-          categories: [...new Set(response.files.map(f => f.category))],
-          sampleFile: response.files[0] || null
-        });
-        
         setFiles(response.files);
-        console.log('📂 [FileManager] Files loaded successfully:', response.files.length);
       } else {
-        console.warn('📂 [FileManager] No files in response, setting empty array:', {
-          response,
-          responseType: typeof response,
-          responseKeys: response ? Object.keys(response) : []
-        });
         setFiles([]);
       }
     } catch (error: unknown) {
-      // Log error details for debugging (in development)
+
       if (import.meta.env.DEV) {
-        console.error('📂 [FileManager] Failed to load files - detailed error:', {
-          error,
-          message: error instanceof Error ? error.message : 'Unknown error',
-          targetId,
-          targetType,
-          targetName,
-          categoryFilter,
-          searchTerm
-        });
+
       }
-      
-      // Use standardized error message utility for user-friendly messages
+
       const errorMessage = getErrorMessage(error)
       toast.error(`Failed to load files: ${errorMessage}`);
-      setFiles([]); // Set empty array on error
+      setFiles([]);
     } finally {
-      console.log('📂 [FileManager] loadGameFiles completed, setting refreshing to false');
+
       setRefreshing(false);
     }
   };
@@ -557,18 +474,17 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
       toast.info('Games are already loading, please wait...');
       return;
     }
-    
+
     const now = Date.now();
     if (now - lastGamesLoad < GAMES_LOAD_COOLDOWN) {
       const remainingTime = Math.ceil((GAMES_LOAD_COOLDOWN - (now - lastGamesLoad)) / 1000);
       toast.info(`Please wait ${remainingTime} seconds before refreshing again`);
       return;
     }
-    
+
     await loadInitialData();
   };
 
-  // File selection handlers
   const toggleFileSelection = (fileId: string) => {
     setSelectedFiles(prev => 
       prev.includes(fileId) 
@@ -585,7 +501,6 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
     setSelectedFiles([]);
   };
 
-  // File upload handlers
   const handleFileUpload = async (file: File) => {
     const targetId = selectedGame?.id || selectedLoader?.id;
     if (!targetId) {
@@ -598,13 +513,11 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
       return false;
     }
 
-    // File size validation removed - now handled by project storage limits on backend
-
     setUploading(true);
     setUploadProgress(0);
 
     try {
-      // Simulate progress updates
+
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => {
           if (prev >= 90) return prev;
@@ -613,14 +526,13 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
       }, 200);
 
       let uploadResult;
-      
+
       const gameId = selectedGame?.id || selectedLoader?.id;
       if (!gameId) {
         toast.error('No application or loader selected');
         return false;
       }
 
-      // If we are in the configs folder, upload as an extra file
       if (showConfigsFolder || uploadForm.uploadPath === '/configs') {
         uploadResult = await uploadGameExtraFile(
           file,
@@ -652,15 +564,12 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
       toast.success(`File "${file.name}" uploaded successfully`);
       setUploadDialogOpen(false);
       resetUploadForm();
-      
-      // Refresh the file list
+
       await loadGameFiles();
-      
+
       return true;
     } catch (error: any) {
-      console.error('Failed to upload file:', error);
-      
-      // Provide more specific error messages
+
       let errorMessage = 'Error uploading file';
       if (error.message) {
         if (error.message.includes('File too large')) {
@@ -675,7 +584,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
           errorMessage = error.message;
         }
       }
-      
+
       toast.error(errorMessage);
       return false;
     } finally {
@@ -697,7 +606,6 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
     }
   };
 
-  // Drag & Drop handlers
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -707,7 +615,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // Only set dragOver to false if we're leaving the drop zone entirely
+
     if (!e.currentTarget.contains(e.relatedTarget as Node)) {
       setDragOver(false);
     }
@@ -717,7 +625,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
     e.preventDefault();
     e.stopPropagation();
     setDragOver(false);
-    
+
     const files = Array.from(e.dataTransfer.files);
     if (files.length === 0) {
       toast.error('No files found in the drop');
@@ -730,34 +638,30 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
     }
 
     const file = files[0];
-    
-    // Validate file size
-    const maxSize = 5 * 1024 * 1024 * 1024; // 5GB
+
+    const maxSize = 5 * 1024 * 1024 * 1024;
     if (file.size > maxSize) {
       toast.error('File size exceeds 5GB limit');
       return;
     }
 
-    // Pre-populate the upload form with the dropped file
     setUploadForm(prev => ({
       ...prev,
       name: file.name,
       category: file.name.toLowerCase().includes('config') ? 'config' : 'resource'
     }));
-    
+
     setUploadDialogOpen(true);
     toast.success(`File "${file.name}" ready for upload`);
   };
 
-  // File handlers
   const handleFileDownload = async (file: FileItem) => {
     try {
       let blob: Blob;
       let filename: string = file.name;
-      
-      // Show loading state
+
       toast.loading(`Downloading ${file.name}...`);
-      
+
       if (file.category === 'config') {
         const configId = parseInt(file.id.replace('config_', ''));
         if (isNaN(configId)) {
@@ -773,7 +677,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
         }
         const result = await downloadGameExtraFile(fileId);
         blob = result.blob;
-        filename = result.filename || file.name; // Use the original file name
+        filename = result.filename || file.name;
       } else if (file.category === 'logo' || file.category === 'banner' || file.category === 'loader') {
         const gameId = file.gameId;
         if (!gameId) {
@@ -782,20 +686,18 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
         }
         const fileType = file.category as 'logo' | 'banner' | 'loader';
         blob = await downloadGameFile(gameId, fileType);
-        // Generate appropriate filename for game files
+
         filename = `${file.name}_${fileType}.${fileType === 'loader' ? 'exe' : 'png'}`;
       } else {
         toast.error('Unsupported file type for download');
         return;
       }
-      
-      // Validate blob
+
       if (!blob || blob.size === 0) {
         toast.error('Downloaded file is empty or corrupted');
         return;
       }
-      
-      // Create a link for downloading
+
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -805,12 +707,10 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      
+
       toast.success(`File "${filename}" downloaded successfully`);
     } catch (error: any) {
-      console.error('Failed to download file:', error);
-      
-      // Provide more specific error messages
+
       let errorMessage = 'Error downloading file';
       if (error.message) {
         if (error.message.includes('File not found')) {
@@ -823,22 +723,22 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
           errorMessage = error.message;
         }
       }
-      
+
       toast.error(errorMessage);
     }
   };
 
   const handleFileDelete = async (file: FileItem) => {
-    // More descriptive confirmation dialog
+
     const confirmMessage = `Are you sure you want to delete "${file.name}"?\n\nThis action cannot be undone.`;
     if (!confirm(confirmMessage)) {
       return false;
     }
 
     try {
-      // Show loading state
+
       toast.loading(`Deleting ${file.name}...`);
-      
+
       if (file.category === 'config') {
         const configId = parseInt(file.id.replace('config_', ''));
         if (isNaN(configId)) {
@@ -867,18 +767,14 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
       }
 
       toast.success(`File "${file.name}" deleted successfully`);
-      
-      // Remove from selected files if it was selected
+
       setSelectedFiles(prev => prev.filter(id => id !== file.id));
-      
-      // Refresh the file list
+
       await loadGameFiles();
-      
+
       return true;
     } catch (error: any) {
-      console.error('Failed to delete file:', error);
-      
-      // Provide more specific error messages
+
       let errorMessage = 'Error deleting file';
       if (error.message) {
         if (error.message.includes('File not found')) {
@@ -891,7 +787,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
           errorMessage = error.message;
         }
       }
-      
+
       toast.error(errorMessage);
       return false;
     }
@@ -902,31 +798,31 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
       toast.error('No files selected for download');
       return;
     }
-    
+
     const selectedFileObjects = files.filter(f => selectedFiles.includes(f.id));
     if (selectedFileObjects.length === 0) {
       toast.error('Selected files not found');
       return;
     }
-    
+
     toast.loading(`Downloading ${selectedFileObjects.length} files...`);
-    
+
     try {
       let successCount = 0;
       let errorCount = 0;
-      
+
       for (const file of selectedFileObjects) {
         try {
           await handleFileDownload(file);
           successCount++;
-          // Small delay between downloads to avoid overwhelming the browser
+
           await new Promise(resolve => setTimeout(resolve, 300));
         } catch (error) {
-          console.error(`Failed to download ${file.name}:`, error);
+
           errorCount++;
         }
       }
-      
+
       if (successCount > 0) {
         toast.success(`Successfully downloaded ${successCount} files`);
       }
@@ -934,7 +830,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
         toast.error(`Failed to download ${errorCount} files`);
       }
     } catch (error) {
-      console.error('Failed to bulk download:', error);
+
       toast.error('Bulk download failed');
     }
   };
@@ -944,24 +840,24 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
       toast.error('No files selected for deletion');
       return;
     }
-    
+
     const selectedFileObjects = files.filter(f => selectedFiles.includes(f.id));
     if (selectedFileObjects.length === 0) {
       toast.error('Selected files not found');
       return;
     }
-    
+
     const confirmMessage = `Are you sure you want to delete ${selectedFileObjects.length} files?\n\nThis action cannot be undone.`;
     if (!confirm(confirmMessage)) {
       return;
     }
 
     toast.loading(`Deleting ${selectedFileObjects.length} files...`);
-    
+
     try {
       let successCount = 0;
       let errorCount = 0;
-      
+
       for (const file of selectedFileObjects) {
         try {
           const success = await handleFileDelete(file);
@@ -971,13 +867,13 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
             errorCount++;
           }
         } catch (error) {
-          console.error(`Failed to delete ${file.name}:`, error);
+
           errorCount++;
         }
       }
-      
+
       setSelectedFiles([]);
-      
+
       if (successCount > 0) {
         toast.success(`Successfully deleted ${successCount} files`);
       }
@@ -985,7 +881,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
         toast.error(`Failed to delete ${errorCount} files`);
       }
     } catch (error) {
-      console.error('Failed to bulk delete:', error);
+
       toast.error('Bulk deletion failed');
     }
   };
@@ -1010,13 +906,13 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
   const hasActiveFilters = searchTerm !== '' || categoryFilter !== 'all';
 
   const getFileIcon = (fileName: string, fileType?: string) => {
-    // If it's a folder, show the folder icon
+
     if (fileType === 'folder') {
       return <Folder className="h-5 w-5 text-blue-500" />;
     }
-    
+
     const extension = fileName.split('.').pop()?.toLowerCase();
-    
+
     switch (extension) {
       case 'txt':
       case 'md':
@@ -1066,7 +962,6 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
     }
   };
 
-  // Filtering utilities
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 B';
     const k = 1024;
@@ -1075,48 +970,46 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  // Memoized calculations
   const filteredFiles = useMemo(() => {
     if (!files || files.length === 0) {
       return [];
     }
 
     if (showConfigsFolder) {
-      // Show only files from the configs folder
+
       return files.filter(file => {
         const searchMatch = searchTerm === '' || 
           file.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
           (file.description && file.description.toLowerCase().includes(searchTerm.toLowerCase()));
-        
+
         const categoryMatch = categoryFilter === 'all' || file.category === categoryFilter;
         const pathMatch = file.path && file.path.includes('/configs/');
-        
+
         return searchMatch && categoryMatch && pathMatch;
       }).sort((a, b) => {
-        // Sort folders first, then files
+
         if (a.type === 'folder' && b.type !== 'folder') return -1;
         if (a.type !== 'folder' && b.type === 'folder') return 1;
         return a.name.localeCompare(b.name);
       });
     } else {
-      // Show regular files + the configs folder
+
       const regularFiles = files.filter(file => {
         const searchMatch = searchTerm === '' || 
           file.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
           (file.description && file.description.toLowerCase().includes(searchTerm.toLowerCase()));
-        
+
         const categoryMatch = categoryFilter === 'all' || file.category === categoryFilter;
         const notInConfigs = !file.path || !file.path.includes('/configs/');
-        
+
         return searchMatch && categoryMatch && notInConfigs;
       }).sort((a, b) => {
-        // Sort folders first, then files
+
         if (a.type === 'folder' && b.type !== 'folder') return -1;
         if (a.type !== 'folder' && b.type === 'folder') return 1;
         return a.name.localeCompare(b.name);
       });
 
-      // Add the virtual configs folder if it matches the search
       const configsFolderMatches = searchTerm === '' || 
         'configs'.toLowerCase().includes(searchTerm.toLowerCase()) ||
         'user settings'.toLowerCase().includes(searchTerm.toLowerCase());
@@ -1151,28 +1044,25 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
     archived: files.filter(f => f.status === 'archived').length
   }), [files]);
 
-
-  // Filter games and loaders based on targetType
   const filteredGames = useMemo(() => {
     if (targetType === 'application') {
-      // Only show games from app library (is_multi_app === false)
+
       return games.filter(g => g.is_multi_app === false);
     } else {
-      // Show games with loaders (is_multi_app === true)
+
       return games.filter(g => g.is_multi_app === true);
     }
   }, [games, targetType]);
 
-  // Get display items for loader mode (loaders + games with loaders)
   const displayItems = useMemo(() => {
     if (targetType === 'loader') {
-      // Combine loaders and games with loaders
+
       return [
         ...loaders.map(l => ({ type: 'loader' as const, item: l })),
         ...filteredGames.map(g => ({ type: 'game' as const, item: g }))
       ];
     } else {
-      // Only games for application mode
+
       return filteredGames.map(g => ({ type: 'game' as const, item: g }));
     }
   }, [targetType, loaders, filteredGames]);
@@ -1192,7 +1082,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
   return (
     <div className="space-y-6">
 
-      {/* Empty State - No Games/Loaders */}
+      {}
       {!hasItems && !loading && (
         <Card className="border-dashed border-2 border-muted-foreground/25">
           <CardContent className="p-12">
@@ -1221,8 +1111,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
         </Card>
       )}
 
-
-      {/* Game/Loader Selection */}
+      {}
       {hasItems && (
         <Card>
           <CardHeader>
@@ -1236,7 +1125,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Target Type Selection - only show if user has both permissions */}
+            {}
             {showTargetTypeToggle ? (
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Type</Label>
@@ -1264,14 +1153,13 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
               </div>
             ) : null}
 
-
-            {/* Application/Loader Grid */}
+            {}
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {displayItems.map(({ type, item }) => {
                 const isSelected = type === 'loader' 
                   ? selectedLoader?.id === item.id
                   : selectedGame?.id === item.id;
-                
+
                 return (
                   <div
                     key={`${type}-${item.id}`}
@@ -1322,7 +1210,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
         </Card>
       )}
 
-      {/* Bulk Actions */}
+      {}
       {selectedFiles.length > 0 && (
         <Card>
           <CardContent className="pt-6">
@@ -1366,7 +1254,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
         </Card>
       )}
 
-      {/* Files Display */}
+      {}
       {hasItems && !selectedGame && !selectedLoader ? (
         <Card className="border-dashed border-2 border-muted-foreground/25">
           <CardContent className="p-12">
@@ -1484,8 +1372,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
         </Card>
       ) : null}
 
-
-      {/* File Details Dialog */}
+      {}
       <Dialog open={fileDetailsOpen} onOpenChange={setFileDetailsOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
@@ -1512,7 +1399,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
                   </div>
                 </div>
               </div>
-              
+
               {selectedFile.description && (
                 <div>
                   <Label className="text-sm font-medium">Description</Label>
@@ -1521,7 +1408,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
                   </div>
                 </div>
               )}
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-sm font-medium">File ID</Label>
@@ -1536,7 +1423,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
                   </div>
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-sm font-medium">Status</Label>
@@ -1553,7 +1440,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
                   </div>
                 </div>
               </div>
-              
+
               {selectedFile.version && (
                 <div>
                   <Label className="text-sm font-medium">Version</Label>
@@ -1562,7 +1449,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
                   </div>
                 </div>
               )}
-              
+
               <div>
                 <Label className="text-sm font-medium">Last Modified</Label>
                 <div className="text-sm text-muted-foreground">
@@ -1590,7 +1477,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
         </DialogContent>
       </Dialog>
 
-      {/* Upload Dialog */}
+      {}
       <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
@@ -1639,7 +1526,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
                 />
               </div>
             </div>
-            
+
             {!showConfigsFolder && (
               <div className="grid gap-2">
                 <Label htmlFor="upload-category">File type</Label>
@@ -1663,7 +1550,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
                 </Select>
               </div>
             )}
-            
+
             {showConfigsFolder && (
               <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
                 <p className="text-sm text-blue-700 dark:text-blue-300">
@@ -1671,7 +1558,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
                 </p>
               </div>
             )}
-            
+
             <div className="grid gap-2">
               <Label htmlFor="upload-name">Name (optional)</Label>
               <Input
@@ -1681,7 +1568,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
                 onChange={(e) => setUploadForm(prev => ({ ...prev, name: e.target.value }))}
               />
             </div>
-            
+
             <div className="grid gap-2">
               <Label htmlFor="upload-description">Description</Label>
               <Textarea
@@ -1691,7 +1578,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
                 onChange={(e) => setUploadForm(prev => ({ ...prev, description: e.target.value }))}
               />
             </div>
-            
+
             {!showConfigsFolder && uploadForm.category === 'config' && (
               <ConditionalRender permission="games.files_manage_configs" fallback={null}>
                 <div className="grid gap-2">
@@ -1705,8 +1592,8 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
                 </div>
               </ConditionalRender>
             )}
-            
-            {/* Upload Progress */}
+
+            {}
             {uploading && (
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">

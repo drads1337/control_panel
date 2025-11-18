@@ -1,6 +1,5 @@
 import { BaseEntity } from '@/shared/api'
 
-// Loader types
 export interface Loader extends BaseEntity {
   name: string
   description: string

@@ -45,7 +45,7 @@ interface PriceManagerProps {
 const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, gameId }) => {
   const { user, token } = useAuth();
   const { hasPermission } = usePermissions();
-  
+
   const canEditGames = hasPermission('games.edit');
 
   const [game, setGame] = useState<GameData | null>(null);
@@ -75,37 +75,35 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, gameId 
 
   const loadGameData = async () => {
     if (!gameId || !token) return;
-    
+
     try {
       setLoading(true);
-      
+
       const gamesResponse = await getGames('all');
       const foundGame = gamesResponse.games.find(g => g.id === gameId);
-      
+
       if (!foundGame) {
         throw new Error('Game not found');
       }
-      
+
       setGame(foundGame);
 
-      // Use enhancedApi instead of fetch - CSRF and credentials are handled automatically
       const pricesResponse = await enhancedApi.get(`/api/games/${gameId}/prices`);
       const pricesData = pricesResponse.data;
-      console.log('Prices data received:', pricesData);
-      
+
       const pricesArray = Object.entries(pricesData.prices || {}).map(([period, price]) => ({
         period,
         price: price as number
       }));
       setPrices(pricesArray);
-      
+
       const editingState: {[key: string]: number} = {};
       pricesArray.forEach(price => {
         editingState[price.period] = price.price;
       });
       setEditingPrices(editingState);
     } catch (error: any) {
-      console.error('Error loading game data:', error);
+
       const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Failed to load prices';
       toast.warning(`Failed to load prices: ${errorMessage}. Using an empty state.`);
       setPrices([]);
@@ -114,21 +112,19 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, gameId 
       setLoading(false);
     }
   };
-  
+
   const handlePriceChange = (period: string, value: string) => {
-    // Allow only numbers, a dot, and an empty string
+
     const cleanValue = value.replace(/[^0-9.]/g, '');
-    
-    // Check that the dot is not repeated
+
     const dotCount = (cleanValue.match(/\./g) || []).length;
     if (dotCount > 1) return;
-    
-    // Check for no more than 2 digits after the dot
+
     if (cleanValue.includes('.')) {
       const parts = cleanValue.split('.');
       if (parts[1] && parts[1].length > 2) return;
     }
-    
+
     const numValue = cleanValue === '' ? 0 : Math.max(0, parseFloat(cleanValue) || 0);
     setEditingPrices(prev => ({
       ...prev,
@@ -147,8 +143,7 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, gameId 
 
     try {
       setSaving(true);
-      
-      // Use enhancedApi instead of fetch - CSRF and credentials are handled automatically
+
       await enhancedApi.put(`/api/games/${gameId}/prices`, {
         prices: editingPrices
       });
@@ -157,7 +152,7 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, gameId 
 
       loadGameData();
     } catch (error: any) {
-      console.error('Error saving prices:', error);
+
       const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Failed to save prices';
       toast.error(errorMessage);
     } finally {
@@ -255,7 +250,7 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, gameId 
                       </ConditionalRender>
                     )}
                   </div>
-                  
+
                   {editingPrices[duration.value] !== undefined ? (
                     <div className="flex items-center gap-2">
                       <Input

@@ -14,17 +14,14 @@ from flask import Blueprint
 
 from .balance import balance_bp
 
-# Import all sub-blueprints
 from .clients import clients_user_bp
 from .management import management_bp
 from .profile import profile_bp
 from .referral_codes import referral_codes_bp
 from .tokens import tokens_bp
 
-# Create main blueprint
 users_bp = Blueprint("users", __name__)
 
-# Register sub-blueprints
 users_bp.register_blueprint(management_bp)
 users_bp.register_blueprint(profile_bp)
 users_bp.register_blueprint(balance_bp)

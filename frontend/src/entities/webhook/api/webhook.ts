@@ -58,44 +58,37 @@ export interface TriggerWebhookResponse {
   data?: any
 }
 
-// Webhook API functions
 export const webhookAPI = {
-  // Get all webhooks
+
   async getWebhooks(): Promise<WebhookData[]> {
     const response = await api.get<WebhooksResponse>(`${API_ENDPOINTS.WEBHOOKS}/`)
     return response.data.data || []
   },
 
-  // Get webhook statistics
   async getWebhookStats(): Promise<WebhookStats> {
     const response = await api.get<WebhookStatsResponse>(API_ENDPOINTS.WEBHOOKS_STATS)
     return response.data.data
   },
 
-  // Create a new webhook
   async createWebhook(data: CreateWebhookRequest): Promise<WebhookData> {
     const response = await api.post<WebhookResponse>(`${API_ENDPOINTS.WEBHOOKS}/`, data)
     return response.data.data
   },
 
-  // Update an existing webhook
   async updateWebhook(id: number, data: Partial<CreateWebhookRequest>): Promise<WebhookData> {
     const response = await api.put<WebhookResponse>(`${API_ENDPOINTS.WEBHOOKS}/${id}`, data)
     return response.data.data
   },
 
-  // Delete a webhook
   async deleteWebhook(id: number): Promise<void> {
     await api.delete(`${API_ENDPOINTS.WEBHOOKS}/${id}`)
   },
 
-  // Test a webhook
   async testWebhook(id: number): Promise<TestWebhookResponse['data']> {
     const response = await api.post<TestWebhookResponse>(`${API_ENDPOINTS.WEBHOOKS}/${id}/test`)
     return response.data.data
   },
 
-  // Get webhook logs
   async getWebhookLogs(id: number, limit: number = 100): Promise<WebhookLog[]> {
     const response = await api.get<WebhookLogsResponse>(`${API_ENDPOINTS.WEBHOOKS}/${id}/logs`, {
       params: { limit }
@@ -103,13 +96,11 @@ export const webhookAPI = {
     return response.data.data || []
   },
 
-  // Get available webhook events
   async getWebhookEvents(): Promise<{ events: string[], categories: Record<string, string[]> }> {
     const response = await api.get<{ status: string, data: { events: string[], categories: Record<string, string[]> } }>(API_ENDPOINTS.WEBHOOKS_EVENTS)
     return response.data.data
   },
 
-  // Trigger a webhook manually
   async triggerWebhook(event: string, data: any, projectId?: number): Promise<TriggerWebhookResponse> {
     const response = await api.post<TriggerWebhookResponse>(API_ENDPOINTS.WEBHOOKS_TRIGGER, {
       event,
@@ -119,7 +110,6 @@ export const webhookAPI = {
     return response.data
   },
 
-  // Test trigger a webhook with sample data
   async testTriggerWebhook(event: string = 'key.created', data?: any): Promise<TriggerWebhookResponse> {
     const response = await api.post<TriggerWebhookResponse>(API_ENDPOINTS.WEBHOOKS_TEST_TRIGGER, {
       event,
@@ -129,7 +119,6 @@ export const webhookAPI = {
   }
 }
 
-// Export individual functions for convenience
 export const {
   getWebhooks,
   getWebhookStats,
@@ -142,4 +131,3 @@ export const {
   triggerWebhook,
   testTriggerWebhook
 } = webhookAPI
-

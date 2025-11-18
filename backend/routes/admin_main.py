@@ -14,11 +14,9 @@ from ..services.admin import admin_service
 from ..services.rbac import rbac_service
 from ..services.users import user_service
 
-# Create admin blueprint
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 
 logger = logging.getLogger(__name__)
-
 
 @admin_bp.route("/projects/deactivate-expired", methods=["POST"])
 @jwt_required()
@@ -34,7 +32,6 @@ def deactivate_expired_projects():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Check admin permissions
         if not rbac_service.check_permission(user.id, "system.manage_all_projects"):
             return (
                 jsonify(
@@ -60,7 +57,6 @@ def deactivate_expired_projects():
         logger.error(f"Error in deactivate_expired_projects: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
 
-
 @admin_bp.route("/projects/cleanup-expired", methods=["POST"])
 @jwt_required()
 def cleanup_expired_projects():
@@ -75,7 +71,6 @@ def cleanup_expired_projects():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Check admin permissions
         if not rbac_service.check_permission(user.id, "system.manage_all_projects"):
             return (
                 jsonify(
@@ -101,7 +96,6 @@ def cleanup_expired_projects():
         logger.error(f"Error in cleanup_expired_projects: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
 
-
 @admin_bp.route("/system/stats", methods=["GET"])
 @jwt_required()
 def get_system_stats():
@@ -113,7 +107,6 @@ def get_system_stats():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Check admin permissions
         if not rbac_service.check_permission(user.id, "system.manage_all_projects"):
             return (
                 jsonify(
@@ -133,7 +126,6 @@ def get_system_stats():
         logger.error(f"Error in get_system_stats: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
 
-
 @admin_bp.route("/projects/expired", methods=["GET"])
 @jwt_required()
 def get_expired_projects():
@@ -145,7 +137,6 @@ def get_expired_projects():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Check admin permissions
         if not rbac_service.check_permission(user.id, "system.manage_all_projects"):
             return (
                 jsonify(
@@ -162,7 +153,6 @@ def get_expired_projects():
         logger.error(f"Error in get_expired_projects: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
 
-
 @admin_bp.route("/projects/<int:project_id>/suspend", methods=["POST"])
 @jwt_required()
 def suspend_project(project_id):
@@ -174,7 +164,6 @@ def suspend_project(project_id):
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Check admin permissions
         if not rbac_service.check_permission(user.id, "system.manage_all_projects"):
             return (
                 jsonify(
@@ -197,7 +186,6 @@ def suspend_project(project_id):
         logger.error(f"Error in suspend_project: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
 
-
 @admin_bp.route("/projects/<int:project_id>/reactivate", methods=["POST"])
 @jwt_required()
 def reactivate_project(project_id):
@@ -209,7 +197,6 @@ def reactivate_project(project_id):
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Check admin permissions
         if not rbac_service.check_permission(user.id, "system.manage_all_projects"):
             return (
                 jsonify(
@@ -221,7 +208,6 @@ def reactivate_project(project_id):
         data = request.get_json() or {}
         new_expiry_date_str = data.get("new_expiry_date")
 
-        # Use service to reactivate project (date parsing is handled in service)
         success, error = admin_service.reactivate_project(project_id, user, new_expiry_date_str=new_expiry_date_str)
 
         if not success:

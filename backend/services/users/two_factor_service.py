@@ -21,7 +21,6 @@ from ...models.security import TwoFactorAuth, TwoFactorBackupCode, TwoFactorSess
 from ...services.activity import activity_service
 from ...services.rbac import rbac_service
 
-
 class TwoFactorService:
     """Service for managing two-factor authentication"""
 
@@ -55,7 +54,6 @@ class TwoFactorService:
 
         img = qr.make_image(fill_color="black", back_color="white")
 
-        # Convert to base64 string
         buffer = io.BytesIO()
         img.save(buffer, format="PNG")
         buffer.seek(0)
@@ -70,7 +68,7 @@ class TwoFactorService:
 
         codes = []
         for _ in range(count):
-            # Generate 8-character alphanumeric code
+
             code = "".join(secrets.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") for _ in range(8))
             codes.append(code)
 
@@ -109,20 +107,17 @@ class TwoFactorService:
         if secret_key is None:
             secret_key = self.generate_secret_key()
 
-        # Generate backup codes
         backup_codes = self.generate_backup_codes()
 
-        # Create or update 2FA record
         two_factor = TwoFactorAuth.query.filter_by(user_id=user.id).first()
         if not two_factor:
             two_factor = TwoFactorAuth(user_id=user.id, project_id=user.project_id)
             db.session.add(two_factor)
 
         two_factor.secret_key = secret_key
-        two_factor.is_enabled = False  # Will be enabled after verification
+        two_factor.is_enabled = False
         two_factor.updated_at = datetime.utcnow()
 
-        # Store backup codes
         backup_codes_data = []
         for code in backup_codes:
             backup_code = TwoFactorBackupCode(
@@ -133,7 +128,6 @@ class TwoFactorService:
 
         db.session.commit()
 
-        # Generate QR code
         qr_code = self.generate_qr_code(user, secret_key)
 
         return {
@@ -154,7 +148,6 @@ class TwoFactorService:
             two_factor.updated_at = datetime.utcnow()
             db.session.commit()
 
-            # Log the activity
             activity_service.log_activity(
                 user,
                 "2fa_enabled",
@@ -172,20 +165,16 @@ class TwoFactorService:
         if not two_factor:
             return False
 
-        # Mark as disabled
         two_factor.is_enabled = False
         two_factor.secret_key = None
         two_factor.updated_at = datetime.utcnow()
 
-        # Mark all backup codes as used
         TwoFactorBackupCode.query.filter_by(user_id=user.id).update({"is_used": True})
 
-        # Clean up sessions
         TwoFactorSession.query.filter_by(user_id=user.id).delete()
 
         db.session.commit()
 
-        # Log the activity
         activity_service.log_activity(
             user,
             "2fa_disabled",
@@ -237,7 +226,6 @@ class TwoFactorService:
         if not user:
             return False, None
 
-        # SECURITY FIX: Ensure user has project_id
         if not user.project_id:
             return False, None
 
@@ -245,11 +233,9 @@ class TwoFactorService:
         if not two_factor or not two_factor.is_enabled:
             return False, None
 
-        # Check if account is locked
         if two_factor.locked_until and two_factor.locked_until > datetime.utcnow():
             return False, None
 
-        # Try TOTP code first
         if two_factor.secret_key and self.verify_totp_code(two_factor.secret_key, code):
             session.is_verified = True
             session.verified_at = datetime.utcnow()
@@ -259,7 +245,6 @@ class TwoFactorService:
             db.session.commit()
             return True, user
 
-        # Try backup code
         if self.verify_backup_code(user.id, code):
             session.is_verified = True
             session.verified_at = datetime.utcnow()
@@ -269,7 +254,6 @@ class TwoFactorService:
             db.session.commit()
             return True, user
 
-        # Increment failed attempts
         two_factor.failed_attempts += 1
         if two_factor.failed_attempts >= self.max_failed_attempts:
             two_factor.locked_until = datetime.utcnow() + timedelta(
@@ -292,7 +276,6 @@ class TwoFactorService:
                 "locked_until": None,
             }
 
-        # Count unused backup codes
         unused_backup_codes = TwoFactorBackupCode.query.filter_by(
             user_id=user.id, is_used=False
         ).count()
@@ -314,10 +297,8 @@ class TwoFactorService:
         if not two_factor or not two_factor.is_enabled:
             return []
 
-        # Mark existing backup codes as used
         TwoFactorBackupCode.query.filter_by(user_id=user.id).update({"is_used": True})
 
-        # Generate new backup codes
         backup_codes = self.generate_backup_codes()
         for code in backup_codes:
             backup_code = TwoFactorBackupCode(
@@ -327,7 +308,6 @@ class TwoFactorService:
 
         db.session.commit()
 
-        # Log the activity
         activity_service.log_activity(
             user,
             "2fa_backup_codes_regenerated",
@@ -351,13 +331,11 @@ class TwoFactorService:
 
     def is_2fa_required(self, user: User) -> bool:
         """Check if 2FA is required for a user"""
-        # 2FA is required for users with system.manage_all_projects permission or admin-level permissions
+
         if rbac_service.check_permission(user.id, "system.manage_all_projects"):
             return True
-        # Check for admin-level permissions (any of these indicates admin access)
+
         admin_permissions = ["rbac.view", "employees.view", "system.view_health"]
         return any(rbac_service.check_permission(user.id, perm) for perm in admin_permissions)
 
-
-# Global instance
 two_factor_service = TwoFactorService()

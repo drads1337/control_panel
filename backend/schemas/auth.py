@@ -8,7 +8,6 @@ from pydantic import BaseModel, EmailStr, Field, validator
 
 from .common import BaseSchema, PasswordValidator, UsernameValidator
 
-
 class LoginRequestSchema(BaseSchema):
     """Login request schema"""
 
@@ -22,7 +21,6 @@ class LoginRequestSchema(BaseSchema):
     @validator("password")
     def validate_password(cls, v):
         return PasswordValidator.validate_password(v, min_length=8)
-
 
 class RegisterRequestSchema(BaseSchema):
     """User registration request schema"""
@@ -41,7 +39,6 @@ class RegisterRequestSchema(BaseSchema):
     def validate_password(cls, v):
         return PasswordValidator.validate_password(v, min_length=8)
 
-
 class ChangePasswordRequestSchema(BaseSchema):
     """Change password request schema"""
 
@@ -52,12 +49,10 @@ class ChangePasswordRequestSchema(BaseSchema):
     def validate_new_password(cls, v):
         return PasswordValidator.validate_password(v, min_length=8)
 
-
 class ForgotPasswordRequestSchema(BaseSchema):
     """Forgot password request schema"""
 
     email: str = Field(..., description="Email address")
-
 
 class ResetPasswordRequestSchema(BaseSchema):
     """Reset password request schema"""
@@ -69,7 +64,6 @@ class ResetPasswordRequestSchema(BaseSchema):
     def validate_new_password(cls, v):
         return PasswordValidator.validate_password(v, min_length=8)
 
-
 class TwoFactorSetupRequestSchema(BaseSchema):
     """Two-factor authentication setup request schema"""
 
@@ -78,7 +72,6 @@ class TwoFactorSetupRequestSchema(BaseSchema):
     @validator("password")
     def validate_password(cls, v):
         return PasswordValidator.validate_password(v, min_length=8)
-
 
 class TwoFactorVerifyRequestSchema(BaseSchema):
     """Two-factor authentication verification request schema"""
@@ -90,7 +83,6 @@ class TwoFactorVerifyRequestSchema(BaseSchema):
         if not v.isdigit():
             raise ValueError("2FA code must contain only digits")
         return v
-
 
 class TwoFactorDisableRequestSchema(BaseSchema):
     """Two-factor authentication disable request schema"""
@@ -108,7 +100,6 @@ class TwoFactorDisableRequestSchema(BaseSchema):
             raise ValueError("2FA code must contain only digits")
         return v
 
-
 class LoginResponseSchema(BaseSchema):
     """Login response schema"""
 
@@ -118,7 +109,6 @@ class LoginResponseSchema(BaseSchema):
     username: str = Field(..., description="Username")
     email: str = Field(..., description="Email address")
     two_factor_required: bool = Field(default=False, description="Whether 2FA is required")
-
 
 class TwoFactorSetupResponseSchema(BaseSchema):
     """Two-factor setup response schema"""

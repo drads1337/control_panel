@@ -7,10 +7,10 @@ export interface WebhookData {
   secret?: string;
   is_active: boolean;
   headers?: Record<string, string>;
-  // Telegram fields
+
   telegram_bot_token?: string;
   telegram_chat_id?: string;
-  // Discord fields
+
   discord_webhook_url?: string;
   discord_bot_token?: string;
   discord_channel_id?: string;
@@ -44,10 +44,10 @@ export interface WebhookFormData {
   secret: string;
   is_active: boolean;
   headers: Record<string, string>;
-  // Telegram fields
+
   telegram_bot_token: string;
   telegram_chat_id: string;
-  // Discord fields
+
   discord_webhook_url: string;
   discord_bot_token: string;
   discord_channel_id: string;

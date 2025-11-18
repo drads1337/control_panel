@@ -72,7 +72,6 @@ export interface RecentSystemActivity {
   severity: 'info' | 'warning' | 'error' | 'critical'
 }
 
-// Cache keys for owner dashboard
 export const ownerDashboardKeys = {
   all: ['owner-dashboard'] as const,
   overview: () => [...ownerDashboardKeys.all, 'overview'] as const,
@@ -91,7 +90,6 @@ export function useOwnerDashboard(): UseOwnerDashboardReturn {
   const { isAuthenticated, user } = useAuthContext()
   const isOwner = user?.roles?.includes('owner')
 
-  // Fetch owner dashboard overview
   const {
     data: overviewData,
     isLoading: overviewLoading,
@@ -104,10 +102,10 @@ export function useOwnerDashboard(): UseOwnerDashboardReturn {
       return response.data.data as OwnerDashboardStats
     },
     enabled: isAuthenticated && !!isOwner,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 2 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
     retry: (failureCount, error: any) => {
-      // Don't retry on auth errors
+
       if (error?.response?.status === 401 || error?.response?.status === 403) {
         return false
       }
@@ -117,7 +115,6 @@ export function useOwnerDashboard(): UseOwnerDashboardReturn {
     refetchOnReconnect: true,
   })
 
-  // Fetch recent activity logs
   const {
     data: logsData,
     isLoading: logsLoading,
@@ -130,8 +127,8 @@ export function useOwnerDashboard(): UseOwnerDashboardReturn {
       return logsResponse.logs || []
     },
     enabled: isAuthenticated && !!isOwner,
-    staleTime: 1 * 60 * 1000, // 1 minute - activity logs update more frequently
-    gcTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 1 * 60 * 1000,
+    gcTime: 2 * 60 * 1000,
     retry: (failureCount, error: any) => {
       if (error?.response?.status === 401 || error?.response?.status === 403) {
         return false
@@ -142,7 +139,6 @@ export function useOwnerDashboard(): UseOwnerDashboardReturn {
     refetchOnReconnect: true,
   })
 
-  // Transform logs to recent activity format
   const recentActivity: RecentSystemActivity[] = (logsData || [])
     .slice(0, 10)
     .map((log: any) => ({
@@ -157,15 +153,12 @@ export function useOwnerDashboard(): UseOwnerDashboardReturn {
                  log.action?.includes('warning') ? 'warning' : 'info') as 'info' | 'warning' | 'error' | 'critical'
     }))
 
-  // Combine loading states
   const loading = overviewLoading || logsLoading
 
-  // Combine errors
   const error = overviewError || logsError
     ? (overviewError || logsError)?.message || 'Failed to load owner dashboard data'
     : null
 
-  // Combined refetch function
   const refetch = () => {
     refetchOverview()
     refetchLogs()

@@ -1,4 +1,4 @@
-// Notification types
+
 export interface GameNotification {
   id: number;
   message: string;
@@ -8,7 +8,7 @@ export interface GameNotification {
   user_id: number | null;
   repeat_count: number;
   show_count: number;
-  user_count?: number; // Количество пользователей, получивших это уведомление
+  user_count?: number;
 }
 
 export interface GameNotificationsResponse {

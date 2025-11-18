@@ -8,35 +8,32 @@ import { ManagementDialogs } from './management-dialogs'
 import type { Game } from '@/entities/game'
 
 export default function ManagementPage() {
-  // Use custom hook for management data and permissions
+
   const {
     isAuthenticated,
     user,
     hasAccess,
   } = useManagementData()
 
-  // Use Zustand store for UI state only (dialogs)
   const {
     openViewGameDialog,
     closeViewGameDialog,
   } = useManagementStore()
 
-  // Game dialog handlers
   const handleViewGame = (game: Game) => {
     openViewGameDialog(game)
   }
 
   const handleEditGame = (game: Game) => {
-    // Handle edit game logic
+
     closeViewGameDialog()
   }
 
   const handleUploadGame = (game: Game) => {
-    // Handle upload game logic
+
     closeViewGameDialog()
   }
 
-  // Show access denied if user doesn't have management access
   if (!isAuthenticated || !hasAccess) {
     return (
       <ManagementAccessDenied

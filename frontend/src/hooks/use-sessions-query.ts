@@ -11,7 +11,6 @@ import type { Session, SessionStats, SessionsResponse } from '@/entities/session
 import { usePaginatedResource } from './use-paginated-resource'
 import { useMutationWithCache } from './use-mutation-helpers'
 
-// Cache keys
 export const sessionKeys = {
   all: ['sessions'] as const,
   lists: () => [...sessionKeys.all, 'list'] as const,
@@ -39,16 +38,13 @@ interface UseSessionsReturn {
     currentPage: number
     perPage: number
   }
-  
-  // Actions
+
   terminateUserSession: (userId: number) => Promise<{ success: boolean; error?: string }>
   terminateMultipleSessions: (userIds: number[]) => Promise<{ success: boolean; error?: string }>
-  
-  // Pagination
+
   changePage: (page: number) => void
   changePerPage: (perPage: number) => void
-  
-  // Data updates
+
   refresh: () => void
   clearError: () => void
 }
@@ -59,10 +55,9 @@ export function useSessionsQuery(options: UseSessionsParams = {}): UseSessionsRe
     per_page = 20,
     userId,
     autoRefresh = false,
-    refreshInterval = 30000, // 30 seconds
+    refreshInterval = 30000,
   } = options
 
-  // Используем универсальный хук для пагинации
   const {
     items: sessions,
     loading: sessionsLoading,
@@ -79,13 +74,12 @@ export function useSessionsQuery(options: UseSessionsParams = {}): UseSessionsRe
     itemsField: 'sessions',
     initialParams: { page, per_page, userId },
     queryOptions: {
-      staleTime: 30 * 1000, // 30 seconds
+      staleTime: 30 * 1000,
     },
     autoRefresh,
     refreshInterval,
   })
 
-  // Stats query - использует более агрессивный refetchInterval для real-time данных
   const {
     data: statsData,
     isLoading: statsLoading,
@@ -93,29 +87,23 @@ export function useSessionsQuery(options: UseSessionsParams = {}): UseSessionsRe
   } = useQuery({
     queryKey: sessionKeys.stats(),
     queryFn: getSessionStats,
-    staleTime: 15 * 1000, // 15 seconds - статистика обновляется чаще
+    staleTime: 15 * 1000,
     enabled: true,
-    // Для статистики используем более частый интервал обновления при autoRefresh
+
     refetchInterval: autoRefresh ? Math.min(refreshInterval, 15 * 1000) : false,
   })
 
-  // Realtime sessions query (optional, for auto-refresh)
-  // Использует глобальную конфигурацию из query-provider для real-time данных
-  // (staleTime: 0, refetchInterval: 10s по умолчанию)
   const {
     data: realtimeData,
   } = useQuery({
     queryKey: sessionKeys.realtime(),
     queryFn: getRealtimeSessions,
-    staleTime: 0, // Always consider stale for realtime data
+    staleTime: 0,
     enabled: autoRefresh,
-    // Используем более агрессивный интервал для real-time данных (10 секунд)
-    // или переопределяем через параметр, если он меньше
+
     refetchInterval: autoRefresh ? Math.min(refreshInterval, 10 * 1000) : false,
   })
 
-  // Используем realtime данные, если доступны и включен autoRefresh
-  // Realtime данные имеют другую структуру, поэтому нужно их преобразовать
   const activeSessions = React.useMemo(() => {
     if (autoRefresh && realtimeData?.sessions) {
       return realtimeData.sessions
@@ -135,7 +123,6 @@ export function useSessionsQuery(options: UseSessionsParams = {}): UseSessionsRe
     return pagination
   }, [autoRefresh, realtimeData, pagination])
 
-  // Мутации с автоматической инвалидацией кэша
   const terminateSessionMutation = useMutationWithCache({
     mutationFn: (userId: number) => terminateSession(userId),
     invalidateQueries: [sessionKeys.lists(), sessionKeys.stats()],
@@ -150,7 +137,6 @@ export function useSessionsQuery(options: UseSessionsParams = {}): UseSessionsRe
     errorMessage: 'Failed to terminate sessions',
   })
 
-  // Handlers
   const terminateUserSession = React.useCallback(async (userId: number) => {
     try {
       await terminateSessionMutation.mutateAsync(userId)
@@ -197,4 +183,3 @@ export function useSessionsQuery(options: UseSessionsParams = {}): UseSessionsRe
     clearError,
   }
 }
-

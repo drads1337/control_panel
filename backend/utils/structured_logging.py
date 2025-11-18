@@ -15,18 +15,16 @@ from typing import Any, Dict, Optional, Union
 
 from flask import current_app, g, request
 
-# Context variables for request-scoped data
 request_id_var: ContextVar[str] = ContextVar("request_id", default="")
 user_id_var: ContextVar[Optional[int]] = ContextVar("user_id", default=None)
 project_id_var: ContextVar[Optional[int]] = ContextVar("project_id", default=None)
 correlation_id_var: ContextVar[str] = ContextVar("correlation_id", default="")
 
-
 class StructuredFormatter(logging.Formatter):
     """Custom formatter for structured JSON logging"""
 
     def format(self, record):
-        # Base log structure
+
         log_entry = {
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "level": record.levelname,
@@ -39,7 +37,6 @@ class StructuredFormatter(logging.Formatter):
             "process_id": record.process,
         }
 
-        # Add request context if available
         request_id = request_id_var.get()
         if request_id:
             log_entry["request_id"] = request_id
@@ -56,7 +53,6 @@ class StructuredFormatter(logging.Formatter):
         if correlation_id:
             log_entry["correlation_id"] = correlation_id
 
-        # Add Flask request context if available
         try:
             if hasattr(g, "start_time"):
                 log_entry["request_duration_ms"] = int(
@@ -69,10 +65,9 @@ class StructuredFormatter(logging.Formatter):
                 log_entry["remote_addr"] = request.remote_addr
                 log_entry["user_agent"] = request.headers.get("User-Agent", "")
         except RuntimeError:
-            # Outside of request context
+
             pass
 
-        # Add exception info if present
         if record.exc_info:
             log_entry["exception"] = {
                 "type": record.exc_info[0].__name__ if record.exc_info[0] else None,
@@ -80,7 +75,6 @@ class StructuredFormatter(logging.Formatter):
                 "traceback": self.formatException(record.exc_info),
             }
 
-        # Add extra fields from record
         for key, value in record.__dict__.items():
             if key not in [
                 "name",
@@ -108,7 +102,6 @@ class StructuredFormatter(logging.Formatter):
                 log_entry[key] = value
 
         return json.dumps(log_entry, ensure_ascii=False, default=str)
-
 
 class MetricsCollector:
     """Collects application metrics for monitoring"""
@@ -151,10 +144,7 @@ class MetricsCollector:
         with self._lock:
             self._metrics.clear()
 
-
-# Global metrics collector
 metrics = MetricsCollector()
-
 
 class StructuredLogger:
     """Enhanced logger with structured logging capabilities"""
@@ -222,11 +212,9 @@ class StructuredLogger:
             f"Security event: {event_type}", event_type=event_type, severity=severity, **kwargs
         )
 
-
 def get_logger(name: str) -> StructuredLogger:
     """Get a structured logger instance"""
     return StructuredLogger(name)
-
 
 def set_request_context(
     request_id: str,
@@ -243,14 +231,12 @@ def set_request_context(
     if correlation_id:
         correlation_id_var.set(correlation_id)
 
-
 def clear_request_context():
     """Clear request context"""
     request_id_var.set("")
     user_id_var.set(None)
     project_id_var.set(None)
     correlation_id_var.set("")
-
 
 def log_performance(operation: str):
     """Decorator to log function performance"""
@@ -280,7 +266,6 @@ def log_performance(operation: str):
 
     return decorator
 
-
 def log_business_event(event_type: str):
     """Decorator to log business events"""
 
@@ -303,33 +288,25 @@ def log_business_event(event_type: str):
 
     return decorator
 
-
-# Initialize default logger
 default_logger = get_logger("panel")
-
 
 def setup_structured_logging(app):
     """Setup structured logging for Flask app"""
 
-    # Configure root logger
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.INFO)
 
-    # Remove existing handlers
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
 
-    # Add structured handler
     handler = logging.StreamHandler()
     handler.setFormatter(StructuredFormatter())
     root_logger.addHandler(handler)
 
-    # Configure specific loggers
     logging.getLogger("werkzeug").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("requests").setLevel(logging.WARNING)
 
-    # Add request context middleware
     @app.before_request
     def setup_request_context():
         request_id = str(uuid.uuid4())
@@ -337,7 +314,6 @@ def setup_structured_logging(app):
         g.start_time = datetime.utcnow()
         set_request_context(request_id)
 
-        # Try to get user ID from JWT
         try:
             from flask_jwt_extended import get_jwt_identity
 
@@ -351,8 +327,6 @@ def setup_structured_logging(app):
     def log_request(response):
         g.response_status = response.status_code
 
-        # Skip logging for requests that are handled by ActivityLoggerMiddleware
-        # to avoid duplicate log entries
         excluded_paths = [
             "/api/logs",
             "/api/users",
@@ -382,7 +356,6 @@ def setup_structured_logging(app):
                 should_log = False
                 break
 
-        # Only log metrics for non-excluded paths to avoid duplication
         if should_log and hasattr(g, "start_time"):
             duration_ms = (datetime.utcnow() - g.start_time).total_seconds() * 1000
             metrics.observe_histogram(
@@ -405,7 +378,5 @@ def setup_structured_logging(app):
             )
 
         return response
-
-    # Metrics endpoint is handled by monitoring.py to avoid conflicts
 
     default_logger.info("Structured logging initialized", component="logging", version="1.0.0")

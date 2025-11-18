@@ -15,10 +15,6 @@ const defaultFilters: GameFilters = {
   sortOrder: 'asc',
 };
 
-/**
- * Hook for managing game filtering and sorting logic
- * Separates filtering logic from UI components
- */
 export function useGameFilters(games: Game[]) {
   const [filters, setFilters] = useState<GameFilters>(defaultFilters);
 
@@ -33,7 +29,6 @@ export function useGameFilters(games: Game[]) {
   const filteredGames = useMemo(() => {
     let result = [...games];
 
-    // Filter by search term
     if (filters.searchTerm) {
       const searchLower = filters.searchTerm.toLowerCase();
       result = result.filter(
@@ -44,12 +39,10 @@ export function useGameFilters(games: Game[]) {
       );
     }
 
-    // Filter by status
     if (filters.status !== 'all') {
       result = result.filter((game) => game.status === filters.status);
     }
 
-    // Sort
     result.sort((a, b) => {
       let comparison = 0;
 
@@ -82,4 +75,3 @@ export function useGameFilters(games: Game[]) {
     resetFilters,
   };
 }
-

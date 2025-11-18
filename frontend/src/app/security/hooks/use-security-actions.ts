@@ -16,11 +16,10 @@ export function useSecurityActions() {
   const { blockedIPs = [], loading: ipLoading, blockIP, unblockIP } = useBlockedIPs()
   const { blockedHWIDs = [], loading: hwidLoading, blockHWID, unblockHWID } = useBlockedHWIDs()
 
-  // Calculate stats from API data - MEMOIZED
   const stats: SecurityStats = useMemo(() => {
     const activeIPs = blockedIPs.filter(ip => ip.is_active)
     const activeHWIDs = blockedHWIDs.filter(hwid => hwid.is_active)
-    
+
     return {
       totalBlocks: blockedIPs.length + blockedHWIDs.length,
       activeBlocks: activeIPs.length + activeHWIDs.length,
@@ -40,7 +39,7 @@ export function useSecurityActions() {
     try {
       await unblockIP(ipId)
     } catch (error) {
-      console.error('Failed to unblock IP:', error)
+
     }
   }, [unblockIP, securityPermissions.canUnblockIPs])
 
@@ -51,18 +50,16 @@ export function useSecurityActions() {
     try {
       await unblockHWID(hwidId)
     } catch (error) {
-      console.error('Failed to unblock HWID:', error)
+
     }
   }, [unblockHWID, securityPermissions.canUnblockHWIDs])
 
   const handleViewIPDetails = useCallback((ip: any) => {
-    // TODO: Implement view IP details functionality
-    console.log('View IP details:', ip)
+
   }, [])
 
   const handleViewHWIDDetails = useCallback((hwid: any) => {
-    // TODO: Implement view HWID details functionality
-    console.log('View HWID details:', hwid)
+
   }, [])
 
   const handleBlockIP = useCallback(async (data: any) => {
@@ -72,7 +69,7 @@ export function useSecurityActions() {
     try {
       await blockIP(data)
     } catch (error) {
-      console.error('Failed to block IP:', error)
+
     }
   }, [blockIP, securityPermissions.canBlockIPs])
 
@@ -83,7 +80,7 @@ export function useSecurityActions() {
     try {
       await blockHWID(data)
     } catch (error) {
-      console.error('Failed to block HWID:', error)
+
     }
   }, [blockHWID, securityPermissions.canBlockHWIDs])
 
@@ -100,4 +97,3 @@ export function useSecurityActions() {
     handleBlockHWID,
   }
 }
-

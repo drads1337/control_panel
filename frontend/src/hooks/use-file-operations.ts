@@ -46,7 +46,7 @@ export const useFileOperations = () => {
       toast.success('Файл успешно загружен');
       return true;
     } catch (error) {
-      console.error('Failed to upload file:', error);
+
       toast.error('Ошибка загрузки файла');
       return false;
     } finally {
@@ -58,7 +58,7 @@ export const useFileOperations = () => {
   const handleFileDownload = useCallback(async (file: FileItem) => {
     try {
       let blob: Blob;
-      
+
       if (file.category === 'config') {
         const configId = parseInt(file.id.replace('config_', ''));
         blob = await downloadGameConfig(configId);
@@ -78,8 +78,7 @@ export const useFileOperations = () => {
         toast.error('Неподдерживаемый тип файла для скачивания');
         return;
       }
-      
-      // Создаем ссылку для скачивания
+
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -88,11 +87,11 @@ export const useFileOperations = () => {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      
+
       toast.success(`Файл ${file.name} успешно скачан`);
       return true;
     } catch (error) {
-      console.error('Failed to download file:', error);
+
       toast.error('Ошибка скачивания файла');
       return false;
     }
@@ -122,11 +121,11 @@ export const useFileOperations = () => {
         toast.error('Неподдерживаемый тип файла для удаления');
         return false;
       }
-      
+
       toast.success(`Файл ${file.name} удален`);
       return true;
     } catch (error) {
-      console.error('Failed to delete file:', error);
+
       toast.error('Ошибка удаления файла');
       return false;
     }
@@ -134,7 +133,7 @@ export const useFileOperations = () => {
 
   const handleBulkDownload = useCallback(async (files: FileItem[]) => {
     if (files.length === 0) return;
-    
+
     try {
       for (const file of files) {
         await handleFileDownload(file);
@@ -142,14 +141,14 @@ export const useFileOperations = () => {
       }
       toast.success(`Скачано ${files.length} файлов`);
     } catch (error) {
-      console.error('Failed to bulk download:', error);
+
       toast.error('Ошибка массового скачивания');
     }
   }, [handleFileDownload]);
 
   const handleBulkDelete = useCallback(async (files: FileItem[]) => {
     if (files.length === 0) return;
-    
+
     if (!confirm(`Вы уверены, что хотите удалить ${files.length} файлов?`)) {
       return;
     }
@@ -160,7 +159,7 @@ export const useFileOperations = () => {
       }
       toast.success(`Удалено ${files.length} файлов`);
     } catch (error) {
-      console.error('Failed to bulk delete:', error);
+
       toast.error('Ошибка массового удаления');
     }
   }, [handleFileDelete]);

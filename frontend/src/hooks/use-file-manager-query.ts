@@ -7,7 +7,6 @@ import { toast } from 'sonner'
 import type { Game } from '@/entities/game'
 import type { FileItem } from '@/entities/file'
 
-// Cache keys
 export const fileManagerKeys = {
   all: ['fileManager'] as const,
   games: () => [...fileManagerKeys.all, 'games'] as const,
@@ -25,7 +24,7 @@ export type SortBy = FileManagerFilters['sortBy']
 export type SortOrder = FileManagerFilters['sortOrder']
 
 interface UseFileManagerReturn {
-  // State
+
   games: Game[]
   selectedGame: Game | null
   files: FileItem[]
@@ -43,8 +42,7 @@ interface UseFileManagerReturn {
     configs: number
     resources: number
   }
-  
-  // Actions
+
   selectGame: (game: Game | null) => void
   updateFilters: (newFilters: Partial<FileManagerFilters>) => void
   refreshData: () => void
@@ -53,8 +51,7 @@ interface UseFileManagerReturn {
 
 export function useFileManagerQuery(): UseFileManagerReturn {
   const { isAuthenticated } = useAuthContext()
-  
-  // Local state
+
   const [selectedGameId, setSelectedGameId] = React.useState<number | null>(null)
   const [filters, setFilters] = React.useState<FileManagerFilters>({
     searchTerm: '',
@@ -63,17 +60,15 @@ export function useFileManagerQuery(): UseFileManagerReturn {
     sortOrder: 'asc',
   })
 
-  // Query for games
   const { data: gamesData, isLoading: gamesLoading } = useQuery({
     queryKey: fileManagerKeys.games(),
     queryFn: () => getGames('all'),
     enabled: isAuthenticated,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   })
 
   const games = gamesData?.games || []
 
-  // Auto-select first game
   React.useEffect(() => {
     if (games.length > 0 && !selectedGameId) {
       setSelectedGameId(games[0].id)
@@ -82,7 +77,6 @@ export function useFileManagerQuery(): UseFileManagerReturn {
 
   const selectedGame = games.find(g => g.id === selectedGameId) || null
 
-  // Query for files
   const { data: filesData, isLoading: filesLoading, refetch: refetchFiles } = useQuery({
     queryKey: fileManagerKeys.files(selectedGameId || 0, {
       category: filters.categoryFilter,
@@ -98,12 +92,11 @@ export function useFileManagerQuery(): UseFileManagerReturn {
       )
     },
     enabled: isAuthenticated && !!selectedGameId,
-    staleTime: 30 * 1000, // 30 seconds
+    staleTime: 30 * 1000,
   })
 
   const files = filesData?.files || []
 
-  // Filtered and sorted files
   const filteredFiles = useMemo(() => {
     return files.filter(file => {
       const searchMatch = file.name.toLowerCase().includes(filters.searchTerm.toLowerCase())
@@ -111,7 +104,7 @@ export function useFileManagerQuery(): UseFileManagerReturn {
       return searchMatch && categoryMatch
     }).sort((a, b) => {
       let comparison = 0
-      
+
       switch (filters.sortBy) {
         case 'name':
           comparison = a.name.localeCompare(b.name)
@@ -126,12 +119,11 @@ export function useFileManagerQuery(): UseFileManagerReturn {
           comparison = a.category.localeCompare(b.category)
           break
       }
-      
+
       return filters.sortOrder === 'asc' ? comparison : -comparison
     })
   }, [files, filters])
 
-  // Stats
   const stats = useMemo(() => ({
     total: files.length,
     files: files.filter(f => f.type === 'file').length,
@@ -143,7 +135,6 @@ export function useFileManagerQuery(): UseFileManagerReturn {
     resources: files.filter(f => f.category === 'resource').length,
   }), [files])
 
-  // Actions
   const selectGame = useCallback((game: Game | null) => {
     setSelectedGameId(game?.id || null)
   }, [])
@@ -165,7 +156,7 @@ export function useFileManagerQuery(): UseFileManagerReturn {
     selectedGame,
     files,
     loading: gamesLoading || filesLoading,
-    refreshing: false, // React Query handles this internally
+    refreshing: false,
     filters,
     filteredFiles,
     stats,

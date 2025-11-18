@@ -13,7 +13,6 @@ from ...models import DeviceInfo, KeyAnalytics, Notification, User
 from ...services.activity import activity_service
 from ...services.heartbeat import heartbeat_service
 
-
 class AnalyticsTracker:
     """Handles analytics tracking and related functionality"""
 
@@ -46,7 +45,6 @@ class AnalyticsTracker:
 
             analytics.total_connections += 1
 
-            # Update unique devices count
             unique_devices_today = (
                 db.session.query(db.func.count(db.func.distinct(DeviceInfo.serial)))
                 .filter(DeviceInfo.key_id == key_id, db.func.date(DeviceInfo.last_seen) == today)
@@ -54,7 +52,6 @@ class AnalyticsTracker:
             )
             analytics.unique_devices = unique_devices_today or 0
 
-            # Update games played list
             games_list = json.loads(analytics.games_played or "[]")
             if game not in games_list:
                 games_list.append(game)
@@ -90,7 +87,6 @@ class AnalyticsTracker:
                 project_id=project_id, is_read=False, is_deleted=False
             )
 
-            # Filter by user if specified
             if user_id:
                 query = query.filter(
                     (Notification.user_id.is_(None)) | (Notification.user_id == user_id)
@@ -104,7 +100,6 @@ class AnalyticsTracker:
                 title = ""
                 content = message
 
-                # Parse title and content if message contains colon
                 if ":" in message:
                     parts = message.split(":", 1)
                     if len(parts) == 2:
@@ -123,7 +118,6 @@ class AnalyticsTracker:
                     }
                 )
 
-                # Mark as read
                 notification.is_read = True
 
             db.session.commit()
@@ -209,7 +203,6 @@ class AnalyticsTracker:
             total_connections = sum(a.total_connections for a in analytics)
             total_unique_devices = max((a.unique_devices for a in analytics), default=0)
 
-            # Get unique games
             all_games = set()
             for a in analytics:
                 if a.games_played:
@@ -256,7 +249,6 @@ class AnalyticsTracker:
             end_date = date.today()
             start_date = end_date - timedelta(days=days)
 
-            # Get all keys for project
             keys = Key.query.filter_by(project_id=project_id).all()
             key_ids = [key.id for key in keys]
 
@@ -268,7 +260,6 @@ class AnalyticsTracker:
                     "unique_games": [],
                 }
 
-            # Get analytics for all keys
             analytics = KeyAnalytics.query.filter(
                 KeyAnalytics.key_id.in_(key_ids),
                 KeyAnalytics.date >= start_date,
@@ -277,11 +268,9 @@ class AnalyticsTracker:
 
             total_connections = sum(a.total_connections for a in analytics)
 
-            # Count active keys (keys with connections in period)
             active_key_ids = set(a.key_id for a in analytics)
             active_keys = len(active_key_ids)
 
-            # Get unique games
             all_games = set()
             for a in analytics:
                 if a.games_played:

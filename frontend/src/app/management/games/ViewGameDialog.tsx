@@ -22,10 +22,7 @@ const ViewGameDialog: React.FC<ViewGameDialogProps> = ({
   onUpload,
 }) => {
   const { canViewGames } = useGamePermissions();
-  
-  // If user doesn't have access to games at all, don't show dialog
-  // If game is provided and user has access to games, show dialog
-  // (game being in the list means user has access to it, as backend filters by permissions)
+
   if (!game || !canViewGames) return null;
 
   const getStatusBadge = (status: string) => {
@@ -51,7 +48,7 @@ const ViewGameDialog: React.FC<ViewGameDialogProps> = ({
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Basic Info */}
+          {}
           <div className="space-y-3">
             <div className="flex items-center justify-between py-2 border-b">
               <span className="text-sm font-medium text-muted-foreground">Version</span>
@@ -92,7 +89,7 @@ const ViewGameDialog: React.FC<ViewGameDialogProps> = ({
 
         <DialogFooter className="flex items-center justify-between">
           <span className="text-xs text-muted-foreground">ID: {game.id}</span>
-          
+
         </DialogFooter>
       </DialogContent>
     </Dialog>

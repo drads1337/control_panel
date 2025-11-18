@@ -179,4 +179,3 @@ const NotificationDialog: React.FC<NotificationDialogProps> = ({
 };
 
 export default NotificationDialog;
-

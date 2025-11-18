@@ -1,6 +1,3 @@
-/**
- * Role and permission related constants
- */
 
 export const SYSTEM_ROLES = {
   OWNER: 'owner',
@@ -19,4 +16,3 @@ export const PERMISSION_CATEGORIES = {
   RBAC: 'rbac',
   SECURITY: 'security',
 } as const;
-

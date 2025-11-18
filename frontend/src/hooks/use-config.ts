@@ -1,12 +1,10 @@
 import { useState, useEffect } from "react"
-
 type Config = {
   style: "new-york" | "default"
   theme: "light" | "dark" | "system"
   layout: "sidebar" | "topbar"
   packageManager: "npm" | "yarn" | "pnpm"
 }
-
 export function useConfig() {
   const [config, setConfig] = useState<Config>({
     style: "new-york",
@@ -14,24 +12,19 @@ export function useConfig() {
     layout: "sidebar",
     packageManager: "pnpm",
   })
-
   useEffect(() => {
-    // Load config from localStorage
     const savedConfig = localStorage.getItem("config")
     if (savedConfig) {
       try {
         setConfig(JSON.parse(savedConfig))
       } catch {
-        // Use default config if parsing fails
       }
     }
   }, [])
-
   const updateConfig = (newConfig: Partial<Config>) => {
     const updatedConfig = { ...config, ...newConfig }
     setConfig(updatedConfig)
     localStorage.setItem("config", JSON.stringify(updatedConfig))
   }
-
   return [config, updateConfig] as const
 } 

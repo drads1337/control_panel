@@ -5,7 +5,6 @@ Contains business logic for analytics
 
 from .analytics_service import AnalyticsService, analytics_service
 
-# Auto-generate __all__ from imports to avoid duplication
 import sys
 _current_module = sys.modules[__name__]
 __all__ = sorted([
@@ -13,4 +12,3 @@ __all__ = sorted([
     if not name.startswith('_') and name not in ('sys', '_current_module')
 ])
 del sys, _current_module
-

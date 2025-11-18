@@ -22,7 +22,7 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const showNotification = useCallback((options: NotificationOptions) => {
     const { title, message, type, duration = 5000 } = options
-    
+
     switch (type) {
       case 'error':
         toast.error(title, {
@@ -73,14 +73,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, [showNotification])
 
   const triggerProjectExpiration = useCallback((status: number, data: any) => {
-    // React Query in useProjectExpiration automatically handles 402/410 errors
-    // This function is kept for API compatibility but errors are handled by React Query
-    // No need to dispatch CustomEvent as useProjectExpiration uses React Query refetch mechanism
-    console.log('Project expiration triggered:', { status, data })
-    // React Query will automatically refetch and catch expiration errors through its query mechanism
+
   }, [])
 
-  // Register global notification handler so it can be used from non-React code
   useEffect(() => {
     const handler: GlobalNotificationHandler = {
       showNotification,
@@ -90,9 +85,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       showSuccess,
       triggerProjectExpiration,
     }
-    
+
     setGlobalNotificationHandler(handler)
-    
+
     return () => {
       clearGlobalNotificationHandler()
     }
@@ -121,4 +116,3 @@ export function useNotificationContext() {
   }
   return context
 }
-

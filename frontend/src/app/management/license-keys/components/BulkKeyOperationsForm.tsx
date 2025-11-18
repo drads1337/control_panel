@@ -45,14 +45,13 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
   canViewLoaders,
 }) => {
   const showTargetTypeToggle = canViewGames && canViewLoaders;
-  
-  // Determine initial target type based on permissions
+
   const getInitialTargetType = () => {
     if (canViewGames && !canViewLoaders) return 'game';
     if (canViewLoaders && !canViewGames) return 'loader';
-    return 'game'; // Default to game if both or neither
+    return 'game';
   };
-  
+
   const {
     formData,
     updateField,
@@ -63,8 +62,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
     loaders,
     initialTargetType: getInitialTargetType(),
   });
-  
-  // Ensure targetType matches available permissions
+
   useEffect(() => {
     if (!showTargetTypeToggle) {
       if (canViewGames && !canViewLoaders && formData.targetType !== 'game') {
@@ -77,7 +75,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
 
   const [bulkActionLoading, setBulkActionLoading] = useState<string | null>(null);
   const [keysCount, setKeysCount] = useState<number | null>(null);
-  
+
   const [filters, setFilters] = useState<FilterState>({
     status: 'all',
     activationStatus: 'all',
@@ -90,14 +88,14 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
 
   const buildFilters = () => {
     const filterParams: any = {};
-    
+
     if (formData.targetType === 'game' && formData.gameId) {
       filterParams.game_id = parseInt(formData.gameId);
     } else if (formData.targetType === 'loader' && formData.loaderId && formData.selectedGames.length > 0) {
       filterParams.loader_id = parseInt(formData.loaderId);
       filterParams.game_ids = formData.selectedGames;
     }
-    
+
     if (filters.status !== 'all') {
       filterParams.status = filters.status;
     }
@@ -114,9 +112,9 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
       if (filters.customDateFrom) filterParams.date_from = filters.customDateFrom;
       if (filters.customDateTo) filterParams.date_to = filters.customDateTo;
     } else if (filters.dateRange !== 'all') {
-      // Handle predefined date ranges if needed
+
     }
-    
+
     return filterParams;
   };
 
@@ -128,7 +126,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
       setKeysCount(result.count);
       toast.success(`Found ${result.count} keys matching the criteria`);
     } catch (error) {
-      console.error('Error getting key count:', error);
+
       toast.error(getErrorMessage(error));
     } finally {
       setBulkActionLoading(null);
@@ -140,7 +138,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
       toast.error('Please get the count first');
       return;
     }
-    
+
     setBulkActionLoading('delete');
     try {
       const filterParams = buildFilters();
@@ -149,7 +147,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
       setKeysCount(null);
       onOperationComplete();
     } catch (error) {
-      console.error('Error deleting keys:', error);
+
       toast.error(getErrorMessage(error));
     } finally {
       setBulkActionLoading(null);
@@ -161,7 +159,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
       toast.error('Please get the count first');
       return;
     }
-    
+
     setBulkActionLoading('reset');
     try {
       const filterParams = buildFilters();
@@ -170,7 +168,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
       setKeysCount(null);
       onOperationComplete();
     } catch (error) {
-      console.error('Error resetting keys:', error);
+
       toast.error(getErrorMessage(error));
     } finally {
       setBulkActionLoading(null);
@@ -182,7 +180,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
       toast.error('Please get the count first');
       return;
     }
-    
+
     setBulkActionLoading('extend');
     try {
       const filterParams = buildFilters();
@@ -191,7 +189,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
       setKeysCount(null);
       onOperationComplete();
     } catch (error) {
-      console.error('Error extending keys:', error);
+
       toast.error(getErrorMessage(error));
     } finally {
       setBulkActionLoading(null);
@@ -207,7 +205,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
       toast.error('Please select a loader and games');
       return;
     }
-    
+
     setBulkActionLoading(action);
     try {
       if (formData.targetType === 'game' && formData.gameId) {
@@ -225,7 +223,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
         toast.success(`Bulk ${action} operation completed`);
         onOperationComplete();
       } else {
-        // For loader, use loader-specific bulk operations
+
         if (formData.loaderId && formData.selectedGames && formData.selectedGames.length > 0) {
           switch (action) {
             case 'pause':
@@ -243,7 +241,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
         }
       }
     } catch (error) {
-      console.error(`Error performing bulk ${action}:`, error);
+
       toast.error(getErrorMessage(error));
     } finally {
       setBulkActionLoading(null);
@@ -266,7 +264,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 flex-grow">
-          {/* Target Type Selection */}
+          {}
           {showTargetTypeToggle && (
             <TargetTypeSelector
               value={formData.targetType}
@@ -274,7 +272,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
             />
           )}
 
-          {/* Game/Loader Selection */}
+          {}
           {(formData.targetType === 'game' && canViewGames) || (canViewGames && !canViewLoaders) ? (
             <GameSelector
               games={getGameLibraryGames()}
@@ -296,7 +294,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
             />
           ) : null}
 
-          {/* Filters */}
+          {}
           <AdvancedFilters
             filters={filters}
             onFiltersChange={setFilters}
@@ -311,7 +309,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
             Actions will be applied to all keys matching the selected targets above.
           </p>
 
-          {/* Filtered operations */}
+          {}
           <FilteredOperations
             keysCount={keysCount || 0}
             onDelete={handleBulkDelete}
@@ -320,7 +318,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
             isLoading={bulkActionLoading !== null}
           />
 
-          {/* Quick operations */}
+          {}
           <QuickOperations
             onPause={() => handleQuickOperation('pause')}
             onActivate={() => handleQuickOperation('activate')}
@@ -334,4 +332,3 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
     </ConditionalRender>
   );
 };
-

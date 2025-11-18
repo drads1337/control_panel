@@ -8,7 +8,6 @@ from .permission_service import PermissionService, permission_service
 from .rbac_service import RBACService, rbac_service
 from .role_service import RoleService, role_service
 
-# Auto-generate __all__ from imports to avoid duplication
 import sys
 _current_module = sys.modules[__name__]
 __all__ = sorted([
@@ -16,4 +15,3 @@ __all__ = sorted([
     if not name.startswith('_') and name not in ('sys', '_current_module')
 ])
 del sys, _current_module
-

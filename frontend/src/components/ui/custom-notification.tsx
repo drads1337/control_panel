@@ -12,7 +12,6 @@ import {
   Clock,
   Star
 } from 'lucide-react';
-
 export type CustomNotificationType = 
   | 'success' 
   | 'error' 
@@ -22,7 +21,6 @@ export type CustomNotificationType =
   | 'game_update' 
   | 'game_created' 
   | 'game_deleted';
-
 export interface CustomNotificationProps {
   id: string;
   type: CustomNotificationType;
@@ -37,7 +35,6 @@ export interface CustomNotificationProps {
     variant?: 'primary' | 'secondary' | 'outline';
   };
 }
-
 const CustomNotification: React.FC<CustomNotificationProps> = ({
   id,
   type,
@@ -50,17 +47,14 @@ const CustomNotification: React.FC<CustomNotificationProps> = ({
 }) => {
   const [progress, setProgress] = useState(100);
   const [isVisible, setIsVisible] = useState(true);
-
   useEffect(() => {
     if (duration > 0 && showProgress) {
       const startTime = Date.now();
       const endTime = startTime + duration;
-      
       const updateProgress = () => {
         const now = Date.now();
         const remaining = Math.max(0, endTime - now);
         const newProgress = (remaining / duration) * 100;
-        
         if (newProgress > 0) {
           setProgress(newProgress);
           requestAnimationFrame(updateProgress);
@@ -68,16 +62,13 @@ const CustomNotification: React.FC<CustomNotificationProps> = ({
           handleClose();
         }
       };
-      
       requestAnimationFrame(updateProgress);
     }
   }, [duration, showProgress]);
-
   const handleClose = () => {
     setIsVisible(false);
     setTimeout(() => onClose(id), 300);
   };
-
   const getIcon = () => {
     switch (type) {
       case 'success':
@@ -100,10 +91,8 @@ const CustomNotification: React.FC<CustomNotificationProps> = ({
         return <Info className="h-5 w-5 text-blue-600" />;
     }
   };
-
   const getStyles = () => {
     const baseStyles = 'border shadow-lg min-w-[320px] max-w-[400px]';
-    
     switch (type) {
       case 'success':
         return cn(baseStyles, 'border-green-200 bg-green-50 text-green-800');
@@ -125,7 +114,6 @@ const CustomNotification: React.FC<CustomNotificationProps> = ({
         return cn(baseStyles, 'border-gray-200 bg-gray-50 text-gray-800');
     }
   };
-
   const getActionStyles = (variant: 'primary' | 'secondary' | 'outline' = 'primary') => {
     switch (variant) {
       case 'primary':
@@ -138,7 +126,6 @@ const CustomNotification: React.FC<CustomNotificationProps> = ({
         return 'bg-blue-600 text-white hover:bg-blue-700';
     }
   };
-
   return (
     <div
       className={cn(
@@ -148,7 +135,7 @@ const CustomNotification: React.FC<CustomNotificationProps> = ({
         getStyles()
       )}
     >
-      {/* Header */}
+      {}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 flex-1">
           {getIcon()}
@@ -166,8 +153,7 @@ const CustomNotification: React.FC<CustomNotificationProps> = ({
           <X className="h-4 w-4" />
         </button>
       </div>
-
-      {/* Progress Bar */}
+      {}
       {showProgress && duration > 0 && (
         <div className="w-full bg-gray-200 rounded-full h-1 overflow-hidden">
           <div
@@ -176,8 +162,7 @@ const CustomNotification: React.FC<CustomNotificationProps> = ({
           />
         </div>
       )}
-
-      {/* Action Button */}
+      {}
       {action && (
         <div className="flex justify-end">
           <button
@@ -194,7 +179,6 @@ const CustomNotification: React.FC<CustomNotificationProps> = ({
     </div>
   );
 };
-
 export interface CustomNotificationContainerProps {
   notifications: Array<{
     id: string;
@@ -211,13 +195,11 @@ export interface CustomNotificationContainerProps {
   }>;
   onRemove: (id: string) => void;
 }
-
 export const CustomNotificationContainer: React.FC<CustomNotificationContainerProps> = ({
   notifications,
   onRemove
 }) => {
   if (notifications.length === 0) return null;
-
   return (
     <div className="fixed top-4 right-4 z-50 space-y-3">
       {notifications.map((notification) => (
@@ -236,5 +218,4 @@ export const CustomNotificationContainer: React.FC<CustomNotificationContainerPr
     </div>
   );
 };
-
 export { CustomNotification }; 

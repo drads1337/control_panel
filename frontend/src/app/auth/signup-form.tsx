@@ -9,7 +9,7 @@ import { AlertCircle, Loader2, ArrowLeft } from "lucide-react"
 import { useSignUpForm } from "@/hooks/use-signup-form"
 import { useNavigate } from "react-router-dom"
 import { usePerformanceDetection } from "@/hooks/use-performance-detection"
-// Lazy load heavy FaultyTerminal component to improve initial load time
+
 const FaultyTerminal = React.lazy(() => import("@/app/shared/faulty-terminal"))
 import type { Project } from '@/entities/project';
 import type { User } from '@/entities/user';
@@ -35,7 +35,7 @@ function SignUpFormComponent({
     checkInviteCode,
     setInviteCodeInfo
   } = useSignUpForm()
-  
+
   const { recommendedSettings } = usePerformanceDetection()
 
   const handleBackToLogin = useCallback(() => {
@@ -45,12 +45,11 @@ function SignUpFormComponent({
   const handleInviteCodeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     handleInputChange('inviteCode', value)
-    
-    // Проверяем invite код при каждом изменении
+
     if (value.trim()) {
       checkInviteCode(value)
     } else {
-      // Очищаем информацию о коде если поле пустое
+
       setInviteCodeInfo(null)
     }
   }, [handleInputChange, checkInviteCode, setInviteCodeInfo])
@@ -60,13 +59,11 @@ function SignUpFormComponent({
   }, [navigate])
 
   const handleTermsClick = useCallback(() => {
-    // TODO: Navigate to Terms of Service
-    console.log('Terms of Service clicked');
+
   }, [])
 
   const handlePrivacyClick = useCallback(() => {
-    // TODO: Navigate to Privacy Policy
-    console.log('Privacy Policy clicked');
+
   }, [])
 
   return (
@@ -75,7 +72,7 @@ function SignUpFormComponent({
         <CardContent className="grid p-0 md:grid-cols-2">
           <form className="p-6 md:p-8" onSubmit={handleSubmit}>
             <div className="flex flex-col gap-6">
-              {/* Back button */}
+              {}
               <button
                 type="button"
                 onClick={handleBackToLogin}
@@ -92,7 +89,7 @@ function SignUpFormComponent({
                 </p>
               </div>
 
-              {/* General error */}
+              {}
               {error && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
@@ -100,7 +97,7 @@ function SignUpFormComponent({
                 </Alert>
               )}
 
-              {/* Invite Code field */}
+              {}
               <div className="grid gap-3">
                 <Label htmlFor="inviteCode">Invite Code *</Label>
                 <Input
@@ -128,7 +125,7 @@ function SignUpFormComponent({
 
               </div>
 
-              {/* Project Name field - only shown for project invite codes that need it */}
+              {}
               {inviteCodeInfo?.code_type === 'project_invite' && inviteCodeInfo.requires_project_name && (
                 <div className="grid gap-3">
                   <Label htmlFor="projectName">Project Name *</Label>
@@ -148,7 +145,7 @@ function SignUpFormComponent({
                 </div>
               )}
 
-              {/* Username field */}
+              {}
               <div className="grid gap-3">
                 <Label htmlFor="username">Username *</Label>
                 <Input
@@ -166,8 +163,7 @@ function SignUpFormComponent({
                 )}
               </div>
 
-
-              {/* Password field */}
+              {}
               <div className="grid gap-3">
                 <Label htmlFor="password">Password *</Label>
                 <Input 
@@ -244,10 +240,8 @@ function SignUpFormComponent({
         </CardContent>
       </Card>
 
-     
     </div>
   )
 }
 
-// Мемоизируем компонент для предотвращения лишних перерендеров
 export const SignUpForm = React.memo(SignUpFormComponent) 

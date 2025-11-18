@@ -19,22 +19,19 @@ import { usePermissions } from '@/hooks/use-permissions';
 export default function WebhooksPage() {
   const { isAuthenticated, user } = useAuthContext();
   const { hasPermission } = usePermissions();
-  
-  // State management
+
   const [webhooks, setWebhooks] = useState<WebhookData[]>([]);
   const [stats, setStats] = useState<WebhookStatsType | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
-  // Dialog states
+
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [logsDialogOpen, setLogsDialogOpen] = useState(false);
   const [editingWebhook, setEditingWebhook] = useState<WebhookData | null>(null);
   const [viewingLogsWebhook, setViewingLogsWebhook] = useState<WebhookData | null>(null);
-  
-  // Form states
+
   const [formData, setFormData] = useState<WebhookFormData>({
     name: '',
     webhook_type: 'custom',
@@ -49,7 +46,7 @@ export default function WebhooksPage() {
     discord_bot_token: '',
     discord_channel_id: ''
   });
-  
+
   const [secretsVisibility, setSecretsVisibility] = useState<SecretsVisibility>({
     createTelegramToken: false,
     createDiscordToken: false,
@@ -58,7 +55,7 @@ export default function WebhooksPage() {
     editDiscordToken: false,
     editSecret: false
   });
-  
+
   const [customHeaders, setCustomHeaders] = useState<Array<{ key: string, value: string }>>([]);
 
   const loadData = useCallback(async (showLoading = true) => {
@@ -73,26 +70,26 @@ export default function WebhooksPage() {
         webhookAPI.getWebhooks(),
         webhookAPI.getWebhookStats()
       ]);
-      
+
       if (webhooksResponse.status === 'fulfilled') {
         setWebhooks(webhooksResponse.value);
       } else {
-        console.warn('Failed to load webhooks:', webhooksResponse.reason);
+
         if (showLoading) {
           setWebhooks([]);
         }
       }
-      
+
       if (statsResponse.status === 'fulfilled') {
         setStats(statsResponse.value);
       } else {
-        console.warn('Failed to load webhook stats:', statsResponse.reason);
+
         if (showLoading) {
           setStats(null);
         }
       }
     } catch (err: any) {
-      console.error('Error loading webhooks data:', err);
+
       const errorMessage = err.response?.data?.error || 'Error loading webhooks data';
       if (showLoading) {
         setError(errorMessage);
@@ -107,7 +104,6 @@ export default function WebhooksPage() {
     }
   }, []);
 
-  // Load data on component mount
   useEffect(() => {
     if (isAuthenticated) {
       loadData();
@@ -119,7 +115,7 @@ export default function WebhooksPage() {
       toast.error("You don't have permission to create webhooks");
       return;
     }
-    
+
     try {
       const webhookData = {
         ...formData,
@@ -130,14 +126,14 @@ export default function WebhooksPage() {
           return acc;
         }, {} as Record<string, string>)
       };
-      
+
       await webhookAPI.createWebhook(webhookData);
       toast.success('Webhook created successfully');
       setCreateDialogOpen(false);
       resetForm();
       await loadData();
     } catch (err: any) {
-      console.error('Error creating webhook:', err);
+
       const errorMessage = err.response?.data?.error || 'Error creating webhook';
       toast.error(errorMessage);
       setError(errorMessage);
@@ -146,12 +142,12 @@ export default function WebhooksPage() {
 
   const handleEditWebhook = async () => {
     if (!editingWebhook) return;
-    
+
     if (!hasPermission('webhooks.edit')) {
       toast.error("You don't have permission to edit webhooks");
       return;
     }
-    
+
     try {
       const webhookData = {
         ...formData,
@@ -162,7 +158,7 @@ export default function WebhooksPage() {
           return acc;
         }, {} as Record<string, string>)
       };
-      
+
       await webhookAPI.updateWebhook(editingWebhook.id, webhookData);
       toast.success('Webhook updated successfully');
       setEditDialogOpen(false);
@@ -170,7 +166,7 @@ export default function WebhooksPage() {
       resetForm();
       await loadData();
     } catch (err: any) {
-      console.error('Error updating webhook:', err);
+
       const errorMessage = err.response?.data?.error || 'Error updating webhook';
       toast.error(errorMessage);
       setError(errorMessage);
@@ -182,13 +178,13 @@ export default function WebhooksPage() {
       toast.error("You don't have permission to delete webhooks");
       return;
     }
-    
+
     try {
       await webhookAPI.deleteWebhook(webhookId);
       toast.success('Webhook deleted successfully');
       await loadData();
     } catch (err: any) {
-      console.error('Error deleting webhook:', err);
+
       const errorMessage = err.response?.data?.error || 'Error deleting webhook';
       toast.error(errorMessage);
       setError(errorMessage);
@@ -200,7 +196,7 @@ export default function WebhooksPage() {
       toast.error("You don't have permission to test webhooks");
       return;
     }
-    
+
     try {
       const result = await webhookAPI.testWebhook(webhookId);
       if (result.success) {
@@ -209,7 +205,7 @@ export default function WebhooksPage() {
         toast.error(`Test webhook failed: ${result.error_message}`);
       }
     } catch (err: any) {
-      console.error('Error testing webhook:', err);
+
       const errorMessage = err.response?.data?.error || 'Error testing webhook';
       toast.error(errorMessage);
     }
@@ -220,17 +216,15 @@ export default function WebhooksPage() {
       toast.error("You don't have permission to edit webhooks");
       return;
     }
-    
+
     const newStatus = !webhook.is_active;
-    
-    // Optimistic update - update UI immediately
+
     setWebhooks(prevWebhooks => 
       prevWebhooks.map(w => 
         w.id === webhook.id ? { ...w, is_active: newStatus } : w
       )
     );
-    
-    // Update stats optimistically
+
     if (stats) {
       setStats(prevStats => {
         if (!prevStats) return prevStats;
@@ -243,14 +237,13 @@ export default function WebhooksPage() {
         };
       });
     }
-    
+
     try {
       await webhookAPI.updateWebhook(webhook.id, {
         is_active: newStatus
       });
       toast.success(`Webhook ${webhook.is_active ? 'disabled' : 'enabled'} successfully`);
-      
-      // Silently refresh stats in background to sync with server
+
       webhookAPI.getWebhookStats()
         .then(updatedStats => {
           if (updatedStats) {
@@ -258,21 +251,19 @@ export default function WebhooksPage() {
           }
         })
         .catch(err => {
-          console.warn('Failed to refresh stats after toggle:', err);
+
         });
     } catch (err: any) {
-      console.error('Error toggling webhook status:', err);
+
       const errorMessage = err.response?.data?.error || 'Error updating webhook status';
       toast.error(errorMessage);
-      
-      // Revert optimistic update on error
+
       setWebhooks(prevWebhooks => 
         prevWebhooks.map(w => 
           w.id === webhook.id ? { ...w, is_active: webhook.is_active } : w
         )
       );
-      
-      // Revert stats
+
       if (stats) {
         setStats(prevStats => {
           if (!prevStats) return prevStats;
@@ -293,7 +284,7 @@ export default function WebhooksPage() {
       toast.error("You don't have permission to edit webhooks");
       return;
     }
-    
+
     setEditingWebhook(webhook);
     setFormData({
       name: webhook.name,
@@ -309,14 +300,13 @@ export default function WebhooksPage() {
       discord_bot_token: webhook.discord_bot_token || '',
       discord_channel_id: webhook.discord_channel_id || ''
     });
-    
-    // Convert headers to custom headers array
+
     const headersArray = Object.entries(webhook.headers || {}).map(([key, value]) => ({
       key,
       value
     }));
     setCustomHeaders(headersArray);
-    
+
     setEditDialogOpen(true);
   };
 
@@ -325,7 +315,7 @@ export default function WebhooksPage() {
       toast.error("You don't have permission to view webhook logs");
       return;
     }
-    
+
     setViewingLogsWebhook(webhook);
     setLogsDialogOpen(true);
   };
@@ -361,7 +351,6 @@ export default function WebhooksPage() {
     });
   };
 
-  // Check permissions using RBAC system
   const canView = hasPermission('webhooks.view');
   const canCreate = hasPermission('webhooks.create');
   const canEdit = hasPermission('webhooks.edit');
@@ -387,7 +376,6 @@ export default function WebhooksPage() {
     );
   }
 
-  // Check if user has permission to view webhooks
   if (!canView) {
     return (
       <div>
@@ -436,7 +424,7 @@ export default function WebhooksPage() {
 
   return (
     <div>
-      {/* Page Header */}
+      {}
       <div className="mb-8">
         <div className="flex items-center justify-between">
           <div>
@@ -464,10 +452,10 @@ export default function WebhooksPage() {
         </div>
       </div>
 
-      {/* Stats */}
+      {}
       {stats && webhooks.length > 0 && <WebhookStats stats={stats} />}
 
-      {/* Webhook Table */}
+      {}
       <WebhookTable
         webhooks={webhooks}
         onCreateClick={() => {
@@ -485,8 +473,7 @@ export default function WebhooksPage() {
         onCopyToClipboard={handleCopyToClipboard}
       />
 
-
-      {/* Dialogs */}
+      {}
       {canCreate && (
         <CreateWebhookDialog
           open={createDialogOpen}

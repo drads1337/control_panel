@@ -33,16 +33,12 @@ import { cn } from '@/lib/utils';
 import { getStatusClasses, getStatusText, type StatusType } from '@/lib/status-utils';
 import type { Project } from '@/entities/project';
 
-// --- PROPS INTERFACE ---
-
 interface ProjectCardProps {
   project: Project;
   onClick?: () => void;
   onManage?: (project: Project) => void;
   onQuickAction?: (project: Project, action: 'activate' | 'deactivate' | 'extend') => void;
 }
-
-// --- HELPER FUNCTIONS ---
 
 const formatRelativeTime = (dateString: string | null): string => {
   if (!dateString) return 'N/A';
@@ -73,8 +69,6 @@ const getIconColor = (status: string | null) => {
     default: return 'bg-accent text-accent-foreground';
   }
 };
-
-// --- SUB-COMPONENTS ---
 
 const StatusBadge = ({ status }: { status: string | null }) => {
   if (!status) return null;
@@ -169,7 +163,7 @@ const ProjectStats = ({ project }: { project: Project }) => {
     { icon: Server, label: 'Servers', value: project.stats.servers },
     { icon: Database, label: 'Storage', value: `${project.storage_limit_gb} GB` },
   ];
-  
+
   const expiryDays = project.days_until_expiry;
 
   return (
@@ -206,8 +200,6 @@ const ProjectCardFooter = ({ project }: { project: Project }) => (
     </div>
   </CardFooter>
 );
-
-// --- MAIN COMPONENT ---
 
 export const ProjectCard = React.memo(function ProjectCard({ project, onClick, onManage, onQuickAction }: ProjectCardProps) {
   return (

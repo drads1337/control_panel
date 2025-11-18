@@ -32,11 +32,11 @@ STRUCTURE STANDARDS:
 3. IMPORT GUIDELINES:
    - Import blueprints directly from their modules:
      from .auth import auth_bp
-     from .games import games_bp  # from package __init__.py
-   
+     from .games import games_bp
+
    - Import services/utilities directly from their source modules (NOT through routes):
-     from ...services.connect import SecurityChecker  # NOT from routes.connect
-     from ...services.keys import KeyValidator  # NOT from routes.connect
+     from ...services.connect import SecurityChecker
+     from ...services.keys import KeyValidator
 
 This structure provides clarity, maintainability, and follows Python best practices.
 """

@@ -26,8 +26,6 @@ import {
   LogsGuard
 } from '@/components/rbac/route-guard'
 
-// Lazy load all page components for code splitting
-// Using direct imports instead of barrel files for better tree-shaking
 const Dashboard = React.lazy(() => import('@/app/dashboard/protected-dashboard-components').then(module => ({ default: module.ProtectedUserDashboard })))
 const OwnerDashboard = React.lazy(() => import('@/app/dashboard/protected-dashboard-components').then(module => ({ default: module.ProtectedOwnerDashboard })))
 const SmartDashboardRouter = React.lazy(() => import('@/app/dashboard/smart-dashboard-router').then(module => ({ default: module.SmartDashboardRouter })))
@@ -48,8 +46,6 @@ export function UserLayout() {
   const { user, isInitialized } = useAuthContext()
   const pageConfig = usePageConfig()
 
-
-  // Regular users get the full layout with sidebar
   return (
     <AppLayout title={pageConfig.title} headerActions={pageConfig.actions}>
       <AnimatedPage>

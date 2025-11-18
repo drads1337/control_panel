@@ -1,6 +1,3 @@
-/**
- * Hook for duration conversion utilities
- */
 
 export const durationOptions = [
   { value: '1h', label: '1 hour', hours: 1 },
@@ -30,16 +27,10 @@ const durationMap: Record<string, number> = {
   '1yr': 8760
 }
 
-/**
- * Convert duration string to hours
- */
 export function getDurationHours(duration: string): number {
   return durationMap[duration] || 24
 }
 
-/**
- * Convert duration to hours, supporting custom hours input
- */
 export function parseDuration(duration: string | undefined, customHours: string | undefined): number {
   if (customHours && customHours.trim() !== '') {
     const parsed = parseInt(customHours)

@@ -10,7 +10,6 @@ from werkzeug.security import generate_password_hash
 from backend.models.core import User
 from backend.utils.role_constants import UserRoles
 
-
 @pytest.mark.integration
 @pytest.mark.auth
 class TestAuthRoutes:
@@ -40,7 +39,7 @@ class TestAuthRoutes:
         assert data["username"] == test_user.username
         assert "login_success" in data
         assert data["login_success"] is True
-        # Check for cookie - use response.headers instead
+
         set_cookie_header = response.headers.get("Set-Cookie", "")
         assert "access_token_cookie" in set_cookie_header or len(set_cookie_header) > 0
 
@@ -54,10 +53,10 @@ class TestAuthRoutes:
             },
             content_type="application/json",
         )
-        # Should return 401, but if there's an internal error, check for error in response
+
         assert response.status_code in [401, 500]
         if response.status_code == 500:
-            # Log the error for debugging
+
             data = json.loads(response.data) if response.data else {}
             print(f"Unexpected 500 error: {data}")
         data = json.loads(response.data)
@@ -73,10 +72,10 @@ class TestAuthRoutes:
             },
             content_type="application/json",
         )
-        # Should return 401, but if there's an internal error, check for error in response
+
         assert response.status_code in [401, 500]
         if response.status_code == 500:
-            # Log the error for debugging
+
             data = json.loads(response.data) if response.data else {}
             print(f"Unexpected 500 error: {data}")
         data = json.loads(response.data)
@@ -108,7 +107,6 @@ class TestAuthRoutes:
         assert data["username"] == "new_user"
         assert data["email"] == "new_user@test.com"
 
-        # Verify user was created in database
         user = User.query.filter_by(username="new_user").first()
         assert user is not None
         assert user.email == "new_user@test.com"
@@ -145,7 +143,7 @@ class TestAuthRoutes:
 
     def test_get_current_user(self, client, test_user, app, mocker):
         """Test getting current user information"""
-        # Mock user_service.get_user_profile to avoid potential errors
+
         mock_profile = {
             "id": test_user.id,
             "username": test_user.username,
@@ -156,13 +154,12 @@ class TestAuthRoutes:
             "backend.routes.auth.user_service.get_user_profile",
             return_value=mock_profile
         )
-        
-        # Ensure JWT is created with app context
+
         with app.app_context():
             from flask_jwt_extended import create_access_token
             access_token = create_access_token(identity=str(test_user.id))
             headers = {"Authorization": f"Bearer {access_token}"}
-        
+
         response = client.get("/api/auth/me", headers=headers)
         assert response.status_code == 200
         data = json.loads(response.data)
@@ -176,12 +173,12 @@ class TestAuthRoutes:
 
     def test_logout(self, client, auth_headers, test_user, app):
         """Test user logout"""
-        # Ensure JWT is created with app context
+
         with app.app_context():
             from flask_jwt_extended import create_access_token
             access_token = create_access_token(identity=str(test_user.id))
             headers = {"Authorization": f"Bearer {access_token}"}
-        
+
         response = client.post("/api/auth/logout", headers=headers)
         assert response.status_code == 200
         data = json.loads(response.data)
@@ -194,12 +191,12 @@ class TestAuthRoutes:
 
     def test_change_password_success(self, client, auth_headers, test_user, app):
         """Test successful password change"""
-        # Ensure JWT is created with app context
+
         with app.app_context():
             from flask_jwt_extended import create_access_token
             access_token = create_access_token(identity=str(test_user.id))
             headers = {"Authorization": f"Bearer {access_token}"}
-        
+
         response = client.post(
             "/api/auth/change-password",
             json={
@@ -213,7 +210,6 @@ class TestAuthRoutes:
         data = json.loads(response.data)
         assert "message" in data
 
-        # Verify new password works
         login_response = client.post(
             "/api/auth/login",
             json={
@@ -226,12 +222,12 @@ class TestAuthRoutes:
 
     def test_change_password_wrong_current(self, client, auth_headers, test_user, app):
         """Test password change with wrong current password"""
-        # Ensure JWT is created with app context
+
         with app.app_context():
             from flask_jwt_extended import create_access_token
             access_token = create_access_token(identity=str(test_user.id))
             headers = {"Authorization": f"Bearer {access_token}"}
-        
+
         response = client.post(
             "/api/auth/change-password",
             json={
@@ -241,19 +237,19 @@ class TestAuthRoutes:
             headers=headers,
             content_type="application/json",
         )
-        # Should return 400, but if there's an internal error, check for error in response
+
         assert response.status_code in [400, 500]
         data = json.loads(response.data)
         assert "error" in data
 
     def test_update_profile(self, client, auth_headers, test_user, app):
         """Test updating user profile"""
-        # Ensure JWT is created with app context
+
         with app.app_context():
             from flask_jwt_extended import create_access_token
             access_token = create_access_token(identity=str(test_user.id))
             headers = {"Authorization": f"Bearer {access_token}"}
-        
+
         response = client.put(
             "/api/auth/profile",
             json={"email": "updated_email@test.com"},
@@ -264,7 +260,6 @@ class TestAuthRoutes:
         data = json.loads(response.data)
         assert "message" in data
 
-        # Verify email was updated
         updated_user = User.query.get(test_user.id)
         assert updated_user.email == "updated_email@test.com"
 
@@ -272,7 +267,6 @@ class TestAuthRoutes:
         """Test validating access code"""
         from backend.models.games import Game
 
-        # Create a game with classic_login type
         game = Game(
             name="Test Game",
             project_id=test_key.project_id,
@@ -304,4 +298,3 @@ class TestAuthRoutes:
         assert response.status_code == 404
         data = json.loads(response.data)
         assert data["valid"] is False
-

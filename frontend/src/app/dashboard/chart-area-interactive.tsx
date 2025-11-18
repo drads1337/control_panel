@@ -81,10 +81,9 @@ export function ChartAreaInteractive() {
   const [chartType, setChartType] = React.useState("performance")
   const { data, isLoading, error } = useApiMetrics()
 
-  // Transform API performance data for the chart
   const performanceData = React.useMemo(() => {
     if (!data?.performance_data) return []
-    
+
     return data.performance_data.map(item => ({
       time: item.time,
       requests: item.requests,
@@ -93,10 +92,9 @@ export function ChartAreaInteractive() {
     }))
   }, [data?.performance_data])
 
-  // Transform user activity data for the chart
   const userActivityData = React.useMemo(() => {
     if (!data?.user_activity_data) return []
-    
+
     return data.user_activity_data.map(item => ({
       date: item.date,
       active: item.active,
@@ -109,20 +107,19 @@ export function ChartAreaInteractive() {
     }))
   }, [data?.user_activity_data])
 
-  // Filter data based on time range
   const filteredData = React.useMemo(() => {
     const currentData = chartType === "performance" ? performanceData : userActivityData
     const dateKey = chartType === "performance" ? "time" : "date"
-    
+
     if (!currentData.length) return []
-    
+
     let itemsToShow = currentData.length
     if (timeRange === "7d") {
       itemsToShow = Math.min(7, currentData.length)
     } else if (timeRange === "24h") {
       itemsToShow = Math.min(24, currentData.length)
     }
-    
+
     return currentData.slice(-itemsToShow)
   }, [performanceData, userActivityData, timeRange, chartType])
 
@@ -163,7 +160,6 @@ export function ChartAreaInteractive() {
     return chartType === "performance" ? "time" : "date"
   }
 
-  // Show loading state
   if (isLoading) {
     return (
       <Card className="@container/card">
@@ -178,7 +174,6 @@ export function ChartAreaInteractive() {
     )
   }
 
-  // Show error state
   if (error) {
     return (
       <Card className="@container/card">

@@ -7,14 +7,13 @@ from datetime import datetime
 
 from ..core.extensions import db
 
-
 class Loader(db.Model):
     """Model for managing loaders"""
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(128), nullable=False)
     description = db.Column(db.Text, nullable=True)
-    status = db.Column(db.String(32), default="active")  # active, inactive, maintenance, testing
+    status = db.Column(db.String(32), default="active")
     logo = db.Column(db.String(256), nullable=True)
     banner = db.Column(db.String(256), nullable=True)
     background = db.Column(db.String(256), nullable=True)
@@ -29,27 +28,23 @@ class Loader(db.Model):
     created_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
 
-    # New configuration fields for authentication
     login_type = db.Column(
         db.String(32), default="license_generation"
-    )  # 'license_generation' or 'invite_code'
+    )
     invite_code_required = db.Column(
         db.Boolean, default=False
-    )  # Require invite code for registration
+    )
 
-    # Custom key prefix configuration
-    custom_key_prefix = db.Column(db.String(64), nullable=True)  # Custom prefix for generated keys
+    custom_key_prefix = db.Column(db.String(64), nullable=True)
     key_prefix_format = db.Column(
         db.String(128), default="{name}-{duration}-{custom}"
-    )  # Format: {name}-{duration}-{custom}
+    )
 
-    # Relationships
     creator = db.relationship("User", backref="created_loaders")
     project = db.relationship("Project", backref="loaders")
 
     def __repr__(self):
         return f"<Loader {self.name}>"
-
 
 class LoaderGameAssignment(db.Model):
     """Model for assigning games to loaders"""
@@ -63,18 +58,15 @@ class LoaderGameAssignment(db.Model):
     assigned_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
 
-    # Relationships
     loader = db.relationship("Loader", backref="game_assignments")
     game = db.relationship("Game", backref="loader_assignments")
     assigner = db.relationship("User", backref="assigned_games")
     project = db.relationship("Project", backref="loader_game_assignments")
 
-    # Unique constraint to prevent duplicate assignments
     __table_args__ = (db.UniqueConstraint("loader_id", "game_id", name="uq_loader_game"),)
 
     def __repr__(self):
         return f"<LoaderGameAssignment {self.loader_id}:{self.game_id}>"
-
 
 class LoaderChangelog(db.Model):
     """Model for loader changelog entries"""
@@ -86,17 +78,16 @@ class LoaderChangelog(db.Model):
     version = db.Column(db.String(32), nullable=False)
     title = db.Column(db.String(256), nullable=False)
     description = db.Column(db.Text, nullable=True)
-    changes = db.Column(db.Text, nullable=False)  # JSON string of changes
+    changes = db.Column(db.Text, nullable=False)
     change_type = db.Column(
         db.String(32), default="release"
-    )  # release, bug, feature, security, performance, custom
-    custom_type_name = db.Column(db.String(64), nullable=True)  # For custom change types
+    )
+    custom_type_name = db.Column(db.String(64), nullable=True)
     release_date = db.Column(db.DateTime, default=datetime.utcnow)
     is_public = db.Column(db.Boolean, default=True)
     created_by = db.Column(db.Integer, db.ForeignKey("user.id", ondelete="SET NULL"), nullable=True)
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
 
-    # Relationships
     loader = db.relationship("Loader", backref="changelog_entries")
     creator = db.relationship("User", backref="created_loader_changelog_entries")
     project = db.relationship("Project", backref="loader_changelog_entries")
@@ -117,7 +108,6 @@ class LoaderChangelog(db.Model):
     def __repr__(self):
         return f"<LoaderChangelog {self.loader_id}:{self.version}>"
 
-
 class LoaderNotification(db.Model):
     """Model for loader notifications"""
 
@@ -126,7 +116,7 @@ class LoaderNotification(db.Model):
         db.Integer, db.ForeignKey("loader.id", ondelete="CASCADE"), nullable=False
     )
     message = db.Column(db.Text, nullable=False)
-    type = db.Column(db.String(32), default="info")  # info, warning, error, update
+    type = db.Column(db.String(32), default="info")
     is_scheduled = db.Column(db.Boolean, default=False)
     scheduled_at = db.Column(db.DateTime, nullable=True)
     sent_at = db.Column(db.DateTime, nullable=True)
@@ -134,14 +124,12 @@ class LoaderNotification(db.Model):
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # Relationships
     loader = db.relationship("Loader", backref="loader_notifications")
     creator = db.relationship("User", backref="created_loader_notifications")
     project = db.relationship("Project", backref="loader_notifications")
 
     def __repr__(self):
         return f"<LoaderNotification {self.loader_id}:{self.type}>"
-
 
 class LoaderDownloadLog(db.Model):
     """Model for tracking loader downloads"""
@@ -156,14 +144,12 @@ class LoaderDownloadLog(db.Model):
     download_date = db.Column(db.DateTime, default=datetime.utcnow)
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
 
-    # Relationships
     loader = db.relationship("Loader", backref="download_logs")
     user = db.relationship("User", backref="loader_downloads")
     project = db.relationship("Project", backref="loader_download_logs")
 
     def __repr__(self):
         return f"<LoaderDownloadLog {self.loader_id}:{self.download_date}>"
-
 
 class LoaderConfiguration(db.Model):
     """Model for storing loader-specific configuration"""
@@ -174,23 +160,19 @@ class LoaderConfiguration(db.Model):
     )
     loader = db.relationship("Loader", backref="configuration")
 
-    # Loader settings
     version = db.Column(db.String(32), default="1.0.0")
     update_url = db.Column(db.String(256), nullable=True)
     auto_update = db.Column(db.Boolean, default=True)
 
-    # Security settings
     checksum_verification = db.Column(db.Boolean, default=True)
     signature_verification = db.Column(db.Boolean, default=True)
     anti_debug = db.Column(db.Boolean, default=True)
     anti_vm = db.Column(db.Boolean, default=True)
 
-    # Performance settings
     memory_protection = db.Column(db.Boolean, default=True)
     process_isolation = db.Column(db.Boolean, default=True)
 
-    # Configuration data
-    config_data = db.Column(db.Text, nullable=True)  # JSON string for loader-specific config
+    config_data = db.Column(db.Text, nullable=True)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

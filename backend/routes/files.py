@@ -13,11 +13,9 @@ from ..services.files import file_service
 
 logger = logging.getLogger(__name__)
 
-# Load middleware decorators
 from ..middleware.auth import enforce_project_scope, require_project_isolation
 
 files_bp = Blueprint("files", __name__)
-
 
 @files_bp.route("", methods=["GET"])
 @jwt_required()
@@ -37,7 +35,6 @@ def get_files():
 
     result = file_service.list_files(user, page=page, per_page=per_page, search=search, file_type=file_type)
     return jsonify(result)
-
 
 @files_bp.route("/upload", methods=["POST"])
 @jwt_required()
@@ -70,7 +67,6 @@ def upload_file():
 
     return jsonify({"message": "File uploaded successfully", "file": file_data}), 201
 
-
 @files_bp.route("/<filename>", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
@@ -96,7 +92,6 @@ def download_file(filename):
     except Exception as e:
         return jsonify({"error": f"Failed to download file: {str(e)}"}), 500
 
-
 @files_bp.route("/<filename>", methods=["DELETE"])
 @jwt_required()
 @enforce_project_scope
@@ -113,7 +108,6 @@ def delete_file(filename):
     if not is_valid:
         return jsonify({"error": error}), 403
 
-    # Get file size for logging before deletion
     file_path, _ = file_service.get_file_path_for_download(filename)
     file_size = file_service.get_file_size(file_path) if file_path else 0
 
@@ -129,7 +123,6 @@ def delete_file(filename):
     )
 
     return jsonify({"message": "File deleted successfully"})
-
 
 @files_bp.route("/bulk", methods=["POST"])
 @jwt_required()
@@ -175,7 +168,6 @@ def bulk_action():
 
     return jsonify({"error": "Invalid action"}), 400
 
-
 @files_bp.route("/stats", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
@@ -189,7 +181,6 @@ def get_file_stats():
 
     stats = file_service.get_file_stats(user)
     return jsonify(stats)
-
 
 @files_bp.route("/storage-info", methods=["GET"])
 @jwt_required()
@@ -244,7 +235,6 @@ def get_storage_info():
 
     return jsonify(storage_info)
 
-
 @files_bp.route("/preview/<filename>", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
@@ -262,10 +252,6 @@ def preview_file(filename):
 
     return jsonify(preview_data)
 
-
-# ===== GAME FILES MANAGEMENT =====
-
-
 @files_bp.route("/games", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
@@ -276,7 +262,7 @@ def get_games():
     if not user:
 
         return jsonify({"error": "User not found"}), 404
-    # Ensure user has project_id
+
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -284,7 +270,7 @@ def get_games():
         return jsonify({"error": "User not associated with any project"}), 400
 
     try:
-        # Use cached game service for consistency
+
         from ..services.games import game_service
 
         result = game_service.get_games_cached(
@@ -332,7 +318,6 @@ def get_games():
     except Exception as e:
         return jsonify({"error": f"Failed to fetch games: {str(e)}"}), 500
 
-
 @files_bp.route("/games/<game_name>/configs", methods=["GET"])
 def get_game_configs_by_name(game_name):
     auth_header = request.headers.get("Authorization")
@@ -349,17 +334,16 @@ def get_game_configs_by_name(game_name):
             user_id = decoded["sub"]
             user = User.query.get(user_id)
 
-            # Ensure user has project_id
             if not user.project_id:
                 return jsonify({"error": "User must be assigned to a project"}), 403
         except Exception:
-            # Legacy connect token validation removed for security
+
             pass
 
     if not user:
 
         return jsonify({"error": "User not found"}), 404
-    # Ensure user has project_id
+
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -398,7 +382,6 @@ def get_game_configs_by_name(game_name):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch configs: {str(e)}"}), 500
 
-
 @files_bp.route("/games/<int:game_id>/configs", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
@@ -409,7 +392,7 @@ def get_game_configs(game_id):
     if not user:
 
         return jsonify({"error": "User not found"}), 404
-    # Ensure user has project_id
+
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -448,7 +431,6 @@ def get_game_configs(game_id):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch configs: {str(e)}"}), 500
 
-
 @files_bp.route("/games/<int:game_id>/extra-files", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
@@ -465,7 +447,6 @@ def get_game_extra_files(game_id):
         return jsonify({"error": error}), 404 if error == "Game not found" else 500
 
     return jsonify({"extra_files": files_data})
-
 
 @files_bp.route("/games/configs/<int:config_id>/download", methods=["GET"])
 def download_game_config(config_id):
@@ -488,16 +469,14 @@ def download_game_config(config_id):
             user_id = decoded["sub"]
             user = User.query.get(user_id)
 
-            # Ensure user has project_id
             if not user.project_id:
                 return jsonify({"error": "User must be assigned to a project"}), 403
             logging.debug(f"[DEBUG] JWT validation successful for user {user_id}")
         except Exception as e:
             logging.debug(f"[DEBUG] JWT verification failed: {e}")
-            # Legacy connect token validation removed for security
+
             pass
 
-    # Ensure user has project_id
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
     else:
@@ -516,7 +495,6 @@ def download_game_config(config_id):
         if not config:
             return jsonify({"error": "Config not found"}), 404
 
-        # Get the game object for logging
         game = Game.query.get(config.game_id)
         if not game:
             return jsonify({"error": "Game not found"}), 404
@@ -539,7 +517,6 @@ def download_game_config(config_id):
     except Exception as e:
         return jsonify({"error": f"Failed to download config: {str(e)}"}), 500
 
-
 @files_bp.route("/games/configs/<config_id>/download", methods=["GET"])
 def download_game_config_by_string_id(config_id):
     logging.debug(f"[DEBUG] Request: GET /api/files/games/configs/{config_id}/download")
@@ -561,16 +538,14 @@ def download_game_config_by_string_id(config_id):
             user_id = decoded["sub"]
             user = User.query.get(user_id)
 
-            # Ensure user has project_id
             if not user.project_id:
                 return jsonify({"error": "User must be assigned to a project"}), 403
             logging.debug(f"[DEBUG] JWT validation successful for user {user_id}")
         except Exception as e:
             logging.debug(f"[DEBUG] JWT verification failed: {e}")
-            # Legacy connect token validation removed for security
+
             pass
 
-    # Ensure user has project_id
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
     else:
@@ -607,7 +582,6 @@ def download_game_config_by_string_id(config_id):
     except Exception as e:
         return jsonify({"error": f"Failed to download config: {str(e)}"}), 500
 
-
 @files_bp.route("/games/extra-files/<int:file_id>/download", methods=["GET"])
 def download_game_extra_file(file_id):
     try:
@@ -624,7 +598,6 @@ def download_game_extra_file(file_id):
     except Exception as e:
         return jsonify({"error": f"Failed to download extra file: {str(e)}"}), 500
 
-
 @files_bp.route("/games/extra-files/<int:file_id>/status", methods=["PUT"])
 @jwt_required()
 @enforce_project_scope
@@ -632,7 +605,6 @@ def update_file_status(file_id):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
-    # Ensure user has project_id
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
     from ..services.rbac import rbac_service
@@ -673,7 +645,6 @@ def update_file_status(file_id):
     except Exception as e:
         return jsonify({"error": f"Failed to update status: {str(e)}"}), 500
 
-
 @files_bp.route("/games/<int:game_id>/storage-info", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
@@ -691,10 +662,6 @@ def get_game_storage_info(game_id):
 
     return jsonify(storage_info)
 
-
-# ===== USER CONFIG MANAGEMENT =====
-
-
 @files_bp.route("/games/<int:game_id>/configs/my", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
@@ -705,7 +672,7 @@ def get_my_game_configs(game_id):
     if not user:
 
         return jsonify({"error": "User not found"}), 404
-    # Ensure user has project_id
+
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -742,7 +709,6 @@ def get_my_game_configs(game_id):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch user configs: {str(e)}"}), 500
 
-
 @files_bp.route("/games/<int:game_id>/configs/public", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
@@ -753,7 +719,7 @@ def get_public_game_configs(game_id):
     if not user:
 
         return jsonify({"error": "User not found"}), 404
-    # Ensure user has project_id
+
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -795,7 +761,6 @@ def get_public_game_configs(game_id):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch public configs: {str(e)}"}), 500
 
-
 @files_bp.route("/games/configs/<int:config_id>/update", methods=["PUT"])
 @jwt_required()
 @enforce_project_scope
@@ -806,7 +771,7 @@ def update_game_config(config_id):
     if not user:
 
         return jsonify({"error": "User not found"}), 404
-    # Ensure user has project_id
+
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -819,7 +784,6 @@ def update_game_config(config_id):
         if not config:
             return jsonify({"error": "Config not found"}), 404
 
-        # Get the game object for logging
         game = Game.query.get(config.game_id)
         if not game:
             return jsonify({"error": "Game not found"}), 404
@@ -867,7 +831,6 @@ def update_game_config(config_id):
     except Exception as e:
         return jsonify({"error": f"Failed to update config: {str(e)}"}), 500
 
-
 @files_bp.route("/games/configs/<int:config_id>/rate", methods=["POST"])
 @jwt_required()
 @enforce_project_scope
@@ -878,7 +841,7 @@ def rate_game_config(config_id):
     if not user:
 
         return jsonify({"error": "User not found"}), 404
-    # Ensure user has project_id
+
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -925,7 +888,6 @@ def rate_game_config(config_id):
     except Exception as e:
         return jsonify({"error": f"Failed to submit rating: {str(e)}"}), 500
 
-
 @files_bp.route("/game-files", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
@@ -949,13 +911,13 @@ def get_game_files():
         if not user:
             logging.debug(f"[DEBUG] get_game_files: User not found for user_id={user_id}")
             return jsonify({"error": "User not found"}), 404
-        # Ensure user has project_id
+
         if not user.project_id:
             logging.debug(f"[DEBUG] get_game_files: User {user_id} has no project_id")
             return jsonify({"error": "User must be assigned to a project"}), 403
 
         game_id = request.args.get("game_id", type=int)
-        target_type = request.args.get("target_type", "auto")  # 'game', 'loader', or 'auto'
+        target_type = request.args.get("target_type", "auto")
         category = request.args.get("category", "all")
         status = request.args.get("status", "all")
         search = request.args.get("search", "")
@@ -971,13 +933,12 @@ def get_game_files():
         from ..models.games import Game
         from ..models.loaders import Loader
 
-        # Try to determine if this is a game or loader
         game = None
         loader = None
         is_loader = False
 
         if target_type == "loader":
-            # Explicitly look for loader
+
             loader = Loader.query.filter_by(id=game_id, project_id=user.project_id).first()
             if not loader:
                 logging.debug(
@@ -993,7 +954,7 @@ def get_game_files():
                 return jsonify({"error": "Loader not found"}), 404
             is_loader = True
         elif target_type == "game":
-            # Explicitly look for game
+
             game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
             if not game:
                 logging.debug(
@@ -1008,7 +969,7 @@ def get_game_files():
                     logging.debug(f"[DEBUG] get_game_files: Game {game_id} does not exist at all")
                 return jsonify({"error": "Game not found"}), 404
         else:
-            # Auto-detect: try game first, then loader
+
             game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
             if not game:
                 logging.debug(f"[DEBUG] get_game_files: Game {game_id} not found, trying loader...")
@@ -1020,7 +981,7 @@ def get_game_files():
                     logging.debug(
                         f"[DEBUG] get_game_files: Neither Game nor Loader {game_id} found for project_id={user.project_id}"
                     )
-                    # Check if exists at all
+
                     game_exists = Game.query.filter_by(id=game_id).first()
                     loader_exists = Loader.query.filter_by(id=game_id).first()
                     if game_exists or loader_exists:
@@ -1036,7 +997,7 @@ def get_game_files():
         files_list = []
 
         if is_loader:
-            # Handle Loader files
+
             logging.debug(f"[DEBUG] get_game_files: Processing Loader {game_id} files")
 
             if loader.logo:
@@ -1123,7 +1084,7 @@ def get_game_files():
                     }
                 )
         else:
-            # Handle Game files (existing logic)
+
             logging.debug(f"[DEBUG] get_game_files: Processing Game {game_id} files")
             config_files = GameFileConfig.query.filter_by(game_id=game_id, is_active=True).all()
             extra_files = GameExtraFile.query.filter_by(game_id=game_id, is_active=True).all()
@@ -1272,7 +1233,6 @@ def get_game_files():
         logging.error(f"[ERROR] get_game_files: Traceback: {traceback.format_exc()}")
         return jsonify({"error": f"Failed to fetch game files: {str(e)}"}), 500
 
-
 @files_bp.route("/game-files/<int:game_id>/download/<file_type>", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
@@ -1299,7 +1259,6 @@ def download_game_file(game_id, file_type):
 
     except Exception as e:
         return jsonify({"error": f"Failed to download file: {str(e)}"}), 500
-
 
 @files_bp.route("/game-files/<int:game_id>/<file_type>", methods=["DELETE"])
 @jwt_required()
@@ -1340,7 +1299,6 @@ def delete_game_file(game_id, file_type):
     except Exception as e:
         return jsonify({"error": f"Failed to delete game file: {str(e)}"}), 500
 
-
 @files_bp.route("/folders", methods=["POST"])
 @jwt_required()
 @enforce_project_scope
@@ -1378,7 +1336,6 @@ def create_folder():
         201,
     )
 
-
 @files_bp.route("/folders/<path:folder_path>", methods=["DELETE"])
 @jwt_required()
 def delete_folder(folder_path):
@@ -1405,7 +1362,6 @@ def delete_folder(folder_path):
 
     return jsonify({"message": "Folder deleted successfully"})
 
-
 @files_bp.route("/game-files/config", methods=["POST"])
 def upload_game_config():
     logging.debug(f"[DEBUG] Request: POST /api/files/game-files/config")
@@ -1414,7 +1370,6 @@ def upload_game_config():
     user_id = None
     user = None
 
-    # First, try to get user from cookies (for frontend requests)
     try:
         verify_jwt_in_request()
         user_id = get_jwt_identity()
@@ -1423,7 +1378,7 @@ def upload_game_config():
             logging.debug(f"[DEBUG] JWT from cookies validated successfully for user {user_id}")
     except Exception as e:
         logging.debug(f"[DEBUG] JWT from cookies not available: {e}")
-        # Fall back to checking Authorization header
+
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header[7:]
@@ -1436,7 +1391,6 @@ def upload_game_config():
                 user_id = decoded["sub"]
                 user = User.query.get(user_id)
 
-                # Ensure user has project_id
                 if user and not user.project_id:
                     return jsonify({"error": "User must be assigned to a project"}), 403
                 logging.debug(
@@ -1444,14 +1398,13 @@ def upload_game_config():
                 )
             except Exception as e:
                 logging.debug(f"[DEBUG] JWT verification from Bearer token failed: {e}")
-                # Legacy connect token validation removed for security
+
                 pass
 
     if not user:
         logging.debug(f"[DEBUG] Access denied - no valid user found")
         return jsonify({"error": "Access denied"}), 403
 
-    # Ensure user has project_id
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -1487,8 +1440,6 @@ def upload_game_config():
     file_size = file.tell()
     file.seek(0)
 
-    # File size check removed - now only checking against project storage limits
-
     can_upload, message = file_service.check_storage_limit(user, file_size)
     if not can_upload:
         return jsonify({"error": message}), 400
@@ -1520,7 +1471,6 @@ def upload_game_config():
     except Exception as e:
         return jsonify({"error": f"Failed to upload game config: {str(e)}"}), 500
 
-
 @files_bp.route("/game-files/extra", methods=["POST"])
 @jwt_required()
 @require_project_isolation
@@ -1532,7 +1482,7 @@ def upload_game_extra_file():
     if not user:
 
         return jsonify({"error": "User not found"}), 404
-    # Ensure user has project_id
+
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -1547,7 +1497,6 @@ def upload_game_extra_file():
     if not game_id:
         return jsonify({"error": "Game ID is required"}), 400
 
-    # SECURITY FIX: Verify game belongs to user's project
     from ..models.games import Game
 
     game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
@@ -1582,7 +1531,6 @@ def upload_game_extra_file():
     except Exception as e:
         return jsonify({"error": f"Failed to upload game extra file: {str(e)}"}), 500
 
-
 @files_bp.route("/game-files/config/<int:config_id>", methods=["DELETE"])
 @jwt_required()
 @require_project_isolation
@@ -1595,7 +1543,6 @@ def delete_game_config(config_id):
     if not user or not rbac_service.check_permission(user.id, "games.edit"):
         return jsonify({"error": "Access denied"}), 403
 
-    # Ensure user has project_id
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -1624,7 +1571,6 @@ def delete_game_config(config_id):
     except Exception as e:
         return jsonify({"error": f"Failed to delete game config: {str(e)}"}), 500
 
-
 @files_bp.route("/game-files/extra/<int:file_id>", methods=["DELETE"])
 @jwt_required()
 @require_project_isolation
@@ -1637,7 +1583,6 @@ def delete_game_extra_file(file_id):
     if not user or not rbac_service.check_permission(user.id, "games.edit"):
         return jsonify({"error": "Access denied"}), 403
 
-    # Ensure user has project_id
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -1666,7 +1611,6 @@ def delete_game_extra_file(file_id):
     except Exception as e:
         return jsonify({"error": f"Failed to delete game extra file: {str(e)}"}), 500
 
-
 @files_bp.route("/stats/game/<int:game_id>", methods=["GET"])
 @jwt_required()
 @require_project_isolation
@@ -1677,7 +1621,7 @@ def get_game_file_stats(game_id):
     if not user:
 
         return jsonify({"error": "User not found"}), 404
-    # Ensure user has project_id
+
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 

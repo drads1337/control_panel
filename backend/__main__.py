@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 Main entry point for backend package
 Run as: python -m backend

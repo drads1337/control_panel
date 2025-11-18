@@ -21,7 +21,6 @@ from ..utils.role_constants import RolePermissions
 
 webhooks_bp = Blueprint("webhooks", __name__)
 
-
 @webhooks_bp.route("/debug-simple", methods=["GET"])
 @jwt_required()
 @require_project_isolation
@@ -36,10 +35,9 @@ def debug_user_simple():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Get user roles from RBAC
         user_roles = RBACManager.get_user_role_names(user)
         is_admin = RBACManager.is_admin(user)
-        
+
         return jsonify(
             {
                 "status": "success",
@@ -57,7 +55,6 @@ def debug_user_simple():
         logging.error(f"WEBHOOKS_DEBUG_SIMPLE_ERROR: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-
 @webhooks_bp.route("/debug", methods=["GET"])
 @jwt_required()
 @require_project_isolation
@@ -72,14 +69,13 @@ def debug_user_info():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Get user roles
         user_roles = RBACManager.get_user_role_names(user)
         from ..services.rbac import rbac_service
 
         has_webhook_access = rbac_service.check_permission(user.id, "webhooks.view")
 
         is_admin = RBACManager.is_admin(user)
-        
+
         debug_info = {
             "user_id": user.id,
             "username": user.username,
@@ -96,7 +92,6 @@ def debug_user_info():
         logging.error(f"WEBHOOKS_DEBUG_ERROR user_id={user_id} error={e}")
         return jsonify({"error": "Internal server error"}), 500
 
-
 @webhooks_bp.route("/test", methods=["GET"])
 @jwt_required()
 @require_project_isolation
@@ -111,7 +106,6 @@ def test_webhooks_access():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Get user roles
         user_roles = RBACManager.get_user_role_names(user)
         from ..services.rbac import rbac_service
 
@@ -135,7 +129,6 @@ def test_webhooks_access():
     except Exception as e:
         logging.error(f"WEBHOOKS_TEST_ERROR: {e}")
         return jsonify({"error": "Internal server error"}), 500
-
 
 @webhooks_bp.route("/user-info", methods=["GET"])
 @jwt_required()
@@ -175,7 +168,6 @@ def get_user_info():
         logging.error(f"USER_INFO_ERROR: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-
 @webhooks_bp.route("/test-create", methods=["POST"])
 @jwt_required()
 def test_create_webhook():
@@ -206,7 +198,6 @@ def test_create_webhook():
         logging.error(f"TEST_CREATE_WEBHOOK_ERROR: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-
 @webhooks_bp.route("/", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -226,10 +217,8 @@ def get_webhooks():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Use service for validation and access checks
         webhook_service = get_webhook_service()
-        
-        # Validate access
+
         has_access, error = webhook_service.validate_webhook_access(user_id)
         if not has_access:
             status_code = 403 if error in [
@@ -239,13 +228,11 @@ def get_webhooks():
             ] else 404
             return jsonify({"error": error}), status_code
 
-        # Get project_id from user (decorator ensures user has project_id)
         project_id = user.project_id
         if not project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
         logging.info(f"WEBHOOKS_GET: using project_id={project_id}")
 
-        # Get webhooks
         webhooks = webhook_service.get_webhooks(project_id)
 
         logging.info(f"WEBHOOKS_GET: returning {len(webhooks)} webhooks for project {project_id}")
@@ -255,7 +242,6 @@ def get_webhooks():
     except Exception as e:
         logging.error(f"WEBHOOKS_GET_ERROR user_id={user_id} error={e}")
         return jsonify({"error": "Internal server error"}), 500
-
 
 @webhooks_bp.route("/", methods=["POST"])
 @jwt_required()
@@ -272,15 +258,12 @@ def create_webhook():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Get request data
         data = request.get_json()
         if not data:
             return jsonify({"error": "Request data required"}), 400
 
-        # Use service for validation and access checks
         webhook_service = get_webhook_service()
-        
-        # Validate access
+
         has_access, error = webhook_service.validate_webhook_access(user_id)
         if not has_access:
             status_code = 403 if error in [
@@ -290,7 +273,6 @@ def create_webhook():
             ] else 404
             return jsonify({"error": error}), status_code
 
-        # Extract data
         name = data.get("name")
         webhook_type = data.get("webhook_type", "custom")
         url = data.get("url")
@@ -299,16 +281,13 @@ def create_webhook():
         is_active = data.get("is_active", True)
         headers = data.get("headers", {})
 
-        # Telegram fields
         telegram_bot_token = data.get("telegram_bot_token")
         telegram_chat_id = data.get("telegram_chat_id")
 
-        # Discord fields
         discord_webhook_url = data.get("discord_webhook_url")
         discord_bot_token = data.get("discord_bot_token")
         discord_channel_id = data.get("discord_channel_id")
 
-        # Validate webhook creation data
         is_valid, validation_error = webhook_service.validate_webhook_creation_data(
             webhook_type=webhook_type,
             url=url,
@@ -324,7 +303,6 @@ def create_webhook():
         if not is_valid:
             return jsonify({"error": validation_error}), 400
 
-        # Get project_id from user (decorator ensures user has project_id)
         project_id = user.project_id
         if not project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
@@ -332,7 +310,6 @@ def create_webhook():
             f"WEBHOOKS_CREATE: using project_id={project_id}, webhook_type={webhook_type}, name={name}"
         )
 
-        # Create webhook
         webhook_data = webhook_service.create_webhook(
             project_id=project_id,
             name=name,
@@ -342,10 +319,10 @@ def create_webhook():
             secret=secret,
             is_active=is_active,
             headers=headers,
-            # Telegram fields
+
             telegram_bot_token=telegram_bot_token,
             telegram_chat_id=telegram_chat_id,
-            # Discord fields
+
             discord_webhook_url=discord_webhook_url,
             discord_bot_token=discord_bot_token,
             discord_channel_id=discord_channel_id,
@@ -358,7 +335,6 @@ def create_webhook():
     except Exception as e:
         logging.error(f"WEBHOOKS_CREATE_ERROR user_id={user_id} error={e}")
         return jsonify({"error": "Internal server error"}), 500
-
 
 @webhooks_bp.route("/<int:webhook_id>", methods=["PUT"])
 @jwt_required()
@@ -375,15 +351,12 @@ def update_webhook(webhook_id):
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Get request data
         data = request.get_json()
         if not data:
             return jsonify({"error": "Request data required"}), 400
 
-        # Use service for validation and access checks
         webhook_service = get_webhook_service()
-        
-        # Validate ownership
+
         has_access, error, webhook = webhook_service.validate_webhook_ownership(user_id, webhook_id)
         if not has_access:
             status_code = 403 if error in [
@@ -393,7 +366,6 @@ def update_webhook(webhook_id):
             ] else 404
             return jsonify({"error": error}), status_code
 
-        # Update webhook
         webhook_data = webhook_service.update_webhook(webhook_id, **data)
 
         return jsonify({"status": "success", "data": webhook_data})
@@ -403,7 +375,6 @@ def update_webhook(webhook_id):
     except Exception as e:
         logging.error(f"WEBHOOKS_UPDATE_ERROR user_id={user_id} webhook_id={webhook_id} error={e}")
         return jsonify({"error": "Internal server error"}), 500
-
 
 @webhooks_bp.route("/<int:webhook_id>", methods=["DELETE"])
 @jwt_required()
@@ -420,10 +391,8 @@ def delete_webhook(webhook_id):
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Use service for validation and access checks
         webhook_service = get_webhook_service()
-        
-        # Validate ownership
+
         has_access, error, webhook = webhook_service.validate_webhook_ownership(user_id, webhook_id)
         if not has_access:
             status_code = 403 if error in [
@@ -433,7 +402,6 @@ def delete_webhook(webhook_id):
             ] else 404
             return jsonify({"error": error}), status_code
 
-        # Delete webhook
         success = webhook_service.delete_webhook(webhook_id)
 
         if success:
@@ -444,7 +412,6 @@ def delete_webhook(webhook_id):
     except Exception as e:
         logging.error(f"WEBHOOKS_DELETE_ERROR user_id={user_id} webhook_id={webhook_id} error={e}")
         return jsonify({"error": "Internal server error"}), 500
-
 
 @webhooks_bp.route("/<int:webhook_id>/test", methods=["POST"])
 @jwt_required()
@@ -461,10 +428,8 @@ def test_webhook(webhook_id):
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Use service for validation and access checks
         webhook_service = get_webhook_service()
-        
-        # Validate ownership
+
         has_access, error, webhook = webhook_service.validate_webhook_ownership(user_id, webhook_id)
         if not has_access:
             status_code = 403 if error in [
@@ -474,7 +439,6 @@ def test_webhook(webhook_id):
             ] else 404
             return jsonify({"error": error}), status_code
 
-        # Test webhook
         test_result = webhook_service.test_webhook(webhook_id)
 
         return jsonify({"status": "success", "data": test_result})
@@ -482,7 +446,6 @@ def test_webhook(webhook_id):
     except Exception as e:
         logging.error(f"WEBHOOKS_TEST_ERROR user_id={user_id} webhook_id={webhook_id} error={e}")
         return jsonify({"error": "Internal server error"}), 500
-
 
 @webhooks_bp.route("/<int:webhook_id>/logs", methods=["GET"])
 @jwt_required()
@@ -499,10 +462,8 @@ def get_webhook_logs(webhook_id):
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Use service for validation and access checks
         webhook_service = get_webhook_service()
-        
-        # Validate ownership
+
         has_access, error, webhook = webhook_service.validate_webhook_ownership(user_id, webhook_id)
         if not has_access:
             status_code = 403 if error in [
@@ -512,11 +473,9 @@ def get_webhook_logs(webhook_id):
             ] else 404
             return jsonify({"error": error}), status_code
 
-        # Get query parameters
         limit = request.args.get("limit", 100, type=int)
         limit = min(max(limit, 1), 1000)
 
-        # Get webhook logs
         logs = webhook_service.get_webhook_logs(webhook_id, limit)
 
         return jsonify({"status": "success", "data": logs})
@@ -524,7 +483,6 @@ def get_webhook_logs(webhook_id):
     except Exception as e:
         logging.error(f"WEBHOOKS_LOGS_ERROR user_id={user_id} webhook_id={webhook_id} error={e}")
         return jsonify({"error": "Internal server error"}), 500
-
 
 @webhooks_bp.route("/events", methods=["GET"])
 @jwt_required()
@@ -541,10 +499,8 @@ def get_webhook_events():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Use service for validation and access checks
         webhook_service = get_webhook_service()
-        
-        # Validate access
+
         has_access, error = webhook_service.validate_webhook_access(user_id)
         if not has_access:
             status_code = 403 if error in [
@@ -554,10 +510,8 @@ def get_webhook_events():
             ] else 404
             return jsonify({"error": error}), status_code
 
-        # Get available events
         events = webhook_service._get_valid_events()
 
-        # Group events by category
         event_categories = {
             "keys": [e for e in events if e.startswith("key.")],
             "users": [e for e in events if e.startswith("user.")],
@@ -576,7 +530,6 @@ def get_webhook_events():
         logging.error(f"WEBHOOKS_EVENTS_ERROR user_id={user_id} error={e}")
         return jsonify({"error": "Internal server error"}), 500
 
-
 @webhooks_bp.route("/statistics", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -592,13 +545,10 @@ def get_webhook_statistics():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Get query parameters
         project_id = request.args.get("project_id", type=int)
 
-        # Use service for validation and access checks
         webhook_service = get_webhook_service()
-        
-        # Validate access
+
         has_access, error = webhook_service.validate_webhook_access(user_id, project_id)
         if not has_access:
             status_code = 403 if error in [
@@ -608,7 +558,6 @@ def get_webhook_statistics():
             ] else 404
             return jsonify({"error": error}), status_code
 
-        # If user is not owner, limit to their project
         from ..utils.rbac_utils import RBACManager
         user_roles = RBACManager.get_user_role_names(user)
         is_owner = user_roles and user_roles[0] == "owner" if user_roles else False
@@ -616,7 +565,6 @@ def get_webhook_statistics():
         if not is_owner:
             project_id = user.project_id
 
-        # Get webhook statistics
         stats = webhook_service.get_webhook_statistics(project_id)
 
         return jsonify({"status": "success", "data": stats})
@@ -624,7 +572,6 @@ def get_webhook_statistics():
     except Exception as e:
         logging.error(f"WEBHOOKS_STATISTICS_ERROR user_id={user_id} error={e}")
         return jsonify({"error": "Internal server error"}), 500
-
 
 @webhooks_bp.route("/stats", methods=["GET"])
 @jwt_required()
@@ -641,10 +588,8 @@ def get_webhook_stats():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Use service for validation and access checks
         webhook_service = get_webhook_service()
-        
-        # Validate access
+
         has_access, error = webhook_service.validate_webhook_access(user_id)
         if not has_access:
             status_code = 403 if error in [
@@ -654,13 +599,11 @@ def get_webhook_stats():
             ] else 404
             return jsonify({"error": error}), status_code
 
-        # Get project_id from user (decorator ensures user has project_id)
         project_id = user.project_id
         if not project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
         logging.info(f"WEBHOOKS_STATS: using project_id={project_id}")
 
-        # Get webhook statistics
         stats = webhook_service.get_webhook_statistics(project_id)
 
         return jsonify({"status": "success", "data": stats})
@@ -668,7 +611,6 @@ def get_webhook_stats():
     except Exception as e:
         logging.error(f"WEBHOOKS_STATS_ERROR user_id={user_id} error={e}")
         return jsonify({"error": "Internal server error"}), 500
-
 
 @webhooks_bp.route("/trigger", methods=["POST"])
 @jwt_required()
@@ -685,7 +627,6 @@ def trigger_webhook():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Get request data
         data = request.get_json()
         if not data:
             return jsonify({"error": "Request data required"}), 400
@@ -694,14 +635,11 @@ def trigger_webhook():
         webhook_data = data.get("data", {})
         project_id = data.get("project_id")
 
-        # Validate required fields
         if not event:
             return jsonify({"error": "Event is required"}), 400
 
-        # Use service for validation and access checks
         webhook_service = get_webhook_service()
-        
-        # Validate access
+
         has_access, error = webhook_service.validate_webhook_access(user_id, project_id)
         if not has_access:
             status_code = 403 if error in [
@@ -711,7 +649,6 @@ def trigger_webhook():
             ] else 404
             return jsonify({"error": error}), status_code
 
-        # If user is not owner, limit to their project
         from ..utils.rbac_utils import RBACManager
         user_roles = RBACManager.get_user_role_names(user)
         is_owner = user_roles and user_roles[0] == "owner" if user_roles else False
@@ -719,7 +656,6 @@ def trigger_webhook():
         if not is_owner:
             project_id = user.project_id
 
-        # Trigger webhook
         success = webhook_service.trigger_webhook(event, webhook_data, project_id)
 
         if success:
@@ -730,7 +666,6 @@ def trigger_webhook():
     except Exception as e:
         logging.error(f"WEBHOOKS_TRIGGER_ERROR user_id={user_id} error={e}")
         return jsonify({"error": "Internal server error"}), 500
-
 
 @webhooks_bp.route("/test-trigger", methods=["POST"])
 @jwt_required()
@@ -751,7 +686,6 @@ def test_trigger_webhook():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        # Get request data - all fields are required
         data = request.get_json()
         if not data:
             return jsonify({"error": "Request data required"}), 400
@@ -759,7 +693,6 @@ def test_trigger_webhook():
         event = data.get("event")
         webhook_data = data.get("data")
 
-        # Require both event and data to be provided
         if not event:
             return jsonify({"error": "Event type is required"}), 400
 
@@ -769,19 +702,16 @@ def test_trigger_webhook():
         if not isinstance(webhook_data, dict):
             return jsonify({"error": "Webhook data must be a dictionary"}), 400
 
-        # Ensure user_id in webhook_data matches authenticated user for security
         if "user_id" in webhook_data and webhook_data["user_id"] != user.id:
             logging.warning(
                 f"WEBHOOKS_TEST_TRIGGER_USER_MISMATCH user_id={user_id} provided_user_id={webhook_data.get('user_id')}"
             )
-            # Override with authenticated user_id for security
+
             webhook_data["user_id"] = user.id
 
-        # Add timestamp if not provided
         if "created_at" not in webhook_data:
             webhook_data["created_at"] = datetime.utcnow().isoformat()
 
-        # Trigger webhook
         webhook_service = get_webhook_service()
         success = webhook_service.trigger_webhook(event, webhook_data, user.project_id)
 

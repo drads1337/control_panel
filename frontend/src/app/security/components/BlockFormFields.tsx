@@ -41,7 +41,7 @@ export function BlockFormFields({
 
   return (
     <>
-      {/* Main field and block type - grid layout when fieldLayout is 'grid' */}
+      {}
       <div className={cn(isGridLayout ? "grid grid-cols-2 gap-4" : "space-y-4")}>
         <div className="space-y-2">
           <Label htmlFor={config.fieldName}>{config.fieldLabel} *</Label>
@@ -53,7 +53,7 @@ export function BlockFormFields({
             required
           />
         </div>
-        
+
         {isGridLayout && (
           <div className="space-y-2">
             <Label htmlFor="block_type">Block Type</Label>
@@ -73,7 +73,7 @@ export function BlockFormFields({
         )}
       </div>
 
-      {/* Reason field */}
+      {}
       <div className="space-y-2">
         <Label htmlFor="reason">Reason *</Label>
         <Textarea
@@ -86,7 +86,7 @@ export function BlockFormFields({
         />
       </div>
 
-      {/* Block type and category - shown after reason when fieldLayout is 'single' */}
+      {}
       {!isGridLayout && (
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
@@ -123,7 +123,7 @@ export function BlockFormFields({
         </div>
       )}
 
-      {/* Category and severity - grid layout */}
+      {}
       <div className="grid grid-cols-2 gap-4">
         {isGridLayout && (
           <div className="space-y-2">
@@ -160,7 +160,7 @@ export function BlockFormFields({
         </div>
       </div>
 
-      {/* Threat score and expiration - grid layout */}
+      {}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="threat_score">Threat Score (0-100)</Label>
@@ -203,7 +203,7 @@ export function BlockFormFields({
         )}
       </div>
 
-      {/* Expiration date - full width when fieldLayout is 'single' */}
+      {}
       {!isGridLayout && (
         <div className="space-y-2">
           <Label>Expiration Date (Optional)</Label>
@@ -234,4 +234,3 @@ export function BlockFormFields({
     </>
   )
 }
-

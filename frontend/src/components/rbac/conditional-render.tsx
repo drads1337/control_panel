@@ -14,20 +14,6 @@ interface ConditionalRenderProps {
   loadingComponent?: React.ReactNode
 }
 
-/**
- * Conditional Render Component
- * Renders children based on user permissions, roles, or features
- * Useful for showing/hiding UI elements
- * 
- * ⚠️ SECURITY WARNING: This component provides UX-level protection only.
- * It hides UI elements but does NOT prevent API access. A determined user can:
- * - Bypass these checks by calling APIs directly
- * - Inspect network requests and modify them
- * - Use browser dev tools to manipulate the UI
- * 
- * CRITICAL: Backend must validate ALL permissions on EVERY API endpoint.
- * Backend is the single source of truth for security. This component is for UX only.
- */
 export function ConditionalRender({
   children,
   fallback = null,
@@ -50,22 +36,18 @@ export function ConditionalRender({
     isInitialized
   } = usePermissions()
 
-  // Show loading if not initialized
   if (!isInitialized && showLoading) {
     return <>{loadingComponent || <div>Loading...</div>}</>
   }
 
-  // Check feature access
   if (feature && !canAccessFeature(feature)) {
     return <>{fallback}</>
   }
 
-  // Check single permission
   if (permission && !hasPermission(permission)) {
     return <>{fallback}</>
   }
 
-  // Check multiple permissions
   if (permissions && permissions.length > 0) {
     if (requireAll) {
       if (!hasAllPermissions(permissions)) {
@@ -78,7 +60,6 @@ export function ConditionalRender({
     }
   }
 
-  // Check roles
   if (roles && roles.length > 0) {
     if (requireAnyRole) {
       if (!hasAnyRole(roles)) {
@@ -94,10 +75,6 @@ export function ConditionalRender({
   return <>{children}</>
 }
 
-/**
- * Permission-based button component
- * Disables button if user doesn't have required permissions
- */
 export function PermissionButton({
   children,
   permission,
@@ -128,17 +105,14 @@ export function PermissionButton({
 
   let hasAccess = true
 
-  // Check feature access
   if (feature) {
     hasAccess = canAccessFeature(feature)
   }
 
-  // Check single permission
   if (permission) {
     hasAccess = hasPermission(permission)
   }
 
-  // Check multiple permissions
   if (permissions && permissions.length > 0) {
     if (requireAll) {
       hasAccess = hasAllPermissions(permissions)
@@ -147,7 +121,6 @@ export function PermissionButton({
     }
   }
 
-  // Check roles
   if (roles && roles.length > 0) {
     if (requireAnyRole) {
       hasAccess = hasAnyRole(roles)
@@ -168,10 +141,6 @@ export function PermissionButton({
   )
 }
 
-/**
- * Permission-based link component
- * Disables link if user doesn't have required permissions
- */
 export function PermissionLink({
   children,
   permission,
@@ -202,17 +171,14 @@ export function PermissionLink({
 
   let hasAccess = true
 
-  // Check feature access
   if (feature) {
     hasAccess = canAccessFeature(feature)
   }
 
-  // Check single permission
   if (permission) {
     hasAccess = hasPermission(permission)
   }
 
-  // Check multiple permissions
   if (permissions && permissions.length > 0) {
     if (requireAll) {
       hasAccess = hasAllPermissions(permissions)
@@ -221,7 +187,6 @@ export function PermissionLink({
     }
   }
 
-  // Check roles
   if (roles && roles.length > 0) {
     if (requireAnyRole) {
       hasAccess = hasAnyRole(roles)
@@ -249,9 +214,6 @@ export function PermissionLink({
   )
 }
 
-/**
- * Role-based conditional render
- */
 export function RoleRender({
   children,
   fallback = null,
@@ -274,9 +236,6 @@ export function RoleRender({
   )
 }
 
-/**
- * Admin-only render
- */
 export function AdminRender({
   children,
   fallback = null
@@ -291,9 +250,6 @@ export function AdminRender({
   )
 }
 
-/**
- * Owner-only render
- */
 export function OwnerRender({
   children,
   fallback = null
@@ -308,9 +264,6 @@ export function OwnerRender({
   )
 }
 
-/**
- * Seller or above render
- */
 export function SellerRender({
   children,
   fallback = null
@@ -325,9 +278,6 @@ export function SellerRender({
   )
 }
 
-/**
- * Developer or above render
- */
 export function DeveloperRender({
   children,
   fallback = null

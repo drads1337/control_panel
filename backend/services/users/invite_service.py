@@ -18,7 +18,6 @@ from ...models.rbac import Role, UserRole
 from ...utils.rbac_utils import RBACManager
 from ...services.activity import activity_service
 
-
 class InviteService:
     """Service for handling invitation and referral code operations"""
 
@@ -47,19 +46,16 @@ class InviteService:
             Tuple of (invite_code or None, error_message or None)
         """
         try:
-            # Validate project exists
+
             project = Project.query.get(project_id)
             if not project:
                 return None, "Project not found"
 
-            # Generate unique code
             code = self._generate_unique_code()
 
-            # Calculate expiry date
             duration = duration_days or self.default_invite_duration_days
             expires_at = datetime.utcnow() + timedelta(days=duration)
 
-            # Create invite code
             invite = ProjectInviteCode(
                 code=code,
                 project_id=project_id,
@@ -94,24 +90,20 @@ class InviteService:
             Tuple of (referral_code or None, error_message or None)
         """
         try:
-            # Validate user exists
+
             user = User.query.get(user_id)
             if not user:
                 return None, "User not found"
 
-            # Check if user already has a referral code
             existing_code = ReferralCode.query.filter_by(user_id=user_id, is_active=True).first()
             if existing_code:
                 return existing_code.code, None
 
-            # Generate unique code
             code = self._generate_unique_code(prefix="REF")
 
-            # Calculate expiry date
             duration = duration_days or self.default_referral_duration_days
             expires_at = datetime.utcnow() + timedelta(days=duration)
 
-            # Create referral code
             referral = ReferralCode(
                 code=code, user_id=user_id, expires_at=expires_at, is_active=True
             )
@@ -129,11 +121,10 @@ class InviteService:
     def _generate_unique_code(self, length: int = 8, prefix: str = "") -> str:
         """Generate a unique code"""
         while True:
-            # Generate random code
+
             characters = string.ascii_uppercase + string.digits
             code = prefix + "".join(secrets.choice(characters) for _ in range(length))
 
-            # Check uniqueness
             if not self._is_code_unique(code):
                 continue
 
@@ -156,7 +147,7 @@ class InviteService:
             Tuple of (code_info or None, error_message or None)
         """
         try:
-            # Validate format first
+
             if not code or not code.strip():
                 return None, "Invite code is required"
 
@@ -168,7 +159,6 @@ class InviteService:
             if len(code) > 20:
                 return None, "Invite code is too long"
 
-            # Check for valid characters (alphanumeric)
             import re
 
             if not re.match(r"^[A-Z0-9]+$", code):
@@ -184,14 +174,11 @@ class InviteService:
             if invite.is_used:
                 return None, "Invite code has already been used"
 
-            # Note: ProjectInviteCode doesn't have max_uses or used_count fields
-            # Each code can only be used once (is_used field)
-
             return {
                 "code": invite.code,
                 "project_id": invite.project_id,
                 "expires_at": invite.expires_at.isoformat() if invite.expires_at else None,
-                "max_uses": 1,  # Each project invite code can only be used once
+                "max_uses": 1,
                 "used_count": 1 if invite.is_used else 0,
                 "created_by": invite.created_by,
             }, None
@@ -247,7 +234,6 @@ class InviteService:
 
             invite.is_used = True
             invite.used_at = datetime.utcnow()
-            # Note: ProjectInviteCode doesn't have used_by or used_count fields
 
             db.session.commit()
 
@@ -385,7 +371,7 @@ class InviteService:
             Tuple of (cleaned_invites, cleaned_referrals)
         """
         try:
-            # Clean up expired invite codes
+
             expired_invites = ProjectInviteCode.query.filter(
                 ProjectInviteCode.expires_at < datetime.utcnow(), ProjectInviteCode.is_used == False
             ).all()
@@ -393,7 +379,6 @@ class InviteService:
             for invite in expired_invites:
                 invite.is_expired = True
 
-            # Clean up expired referral codes
             expired_referrals = ReferralCode.query.filter(
                 ReferralCode.expires_at < datetime.utcnow(), ReferralCode.is_active == True
             ).all()
@@ -421,7 +406,7 @@ class InviteService:
             Tuple of (deleted_invites, deleted_referrals)
         """
         try:
-            # Delete unused invite codes
+
             unused_invites = ProjectInviteCode.query.filter(
                 ProjectInviteCode.created_by == user_id,
                 ProjectInviteCode.is_used == False,
@@ -433,7 +418,6 @@ class InviteService:
                 db.session.delete(invite)
                 deleted_invites += 1
 
-            # Delete expired referral codes
             expired_referrals = ReferralCode.query.filter(
                 ReferralCode.user_id == user_id, ReferralCode.is_active == False
             ).all()
@@ -452,6 +436,4 @@ class InviteService:
             self.logger.error(f"Error deleting unused codes: {str(e)}")
             return 0, 0
 
-
-# Create service instance
 invite_service = InviteService()

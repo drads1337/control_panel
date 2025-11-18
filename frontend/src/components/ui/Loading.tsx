@@ -40,5 +40,3 @@ export function Loading({
 }
 
 export default Loading
-
-

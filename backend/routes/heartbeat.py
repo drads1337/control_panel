@@ -34,7 +34,6 @@ from .settings import decrypt_data_with_project_key, encrypt_data_with_project_k
 
 heartbeat_bp = Blueprint("heartbeat", __name__)
 
-
 def init_redis_client():
     try:
         client = redis.Redis(
@@ -55,7 +54,6 @@ def init_redis_client():
     except Exception as e:
         logging.debug(f"❌ Redis client initialization failed in heartbeat.py: {e}")
         raise RuntimeError("Redis is required but not available. Please start Redis server.")
-
 
 redis_client = init_redis_client()
 
@@ -81,7 +79,6 @@ PLAY_INTEGRITY_API_KEY = os.environ.get("PLAY_INTEGRITY_API_KEY")
 
 STATIC_WORD = "panel_auth_2024"
 
-
 def encrypt_data(data: dict) -> str:
     try:
         raw = json.dumps(data)
@@ -89,14 +86,12 @@ def encrypt_data(data: dict) -> str:
     except Exception as e:
         raise ValueError(f"Encryption error: {str(e)}")
 
-
 def decrypt_data(enc: str) -> dict:
     try:
         decrypted_raw = MasterKeyManager.decrypt_with_master_key(enc, Config.MASTER_KEY)
         return json.loads(decrypted_raw)
     except Exception as e:
         raise ValueError(f"Decryption error: {str(e)}")
-
 
 def rate_limited(func):
     @wraps(func)
@@ -121,7 +116,6 @@ def rate_limited(func):
 
     return wrapper
 
-
 @heartbeat_bp.route("/heartbeat", methods=["POST"])
 @rate_limited
 def api_heartbeat():
@@ -141,7 +135,6 @@ def api_heartbeat():
 
         req_json = request.get_json(silent=True) or {}
 
-        # Handle encrypted heartbeat request
         enc_data = req_json.get("blob")
         if not enc_data:
             logging.warning(f"HEARTBEAT_NO_BLOB ip={ip} user_agent={user_agent}")
@@ -168,11 +161,7 @@ def api_heartbeat():
                     )
                 except Exception as global_error:
                     logging.debug(f"[DEBUG] Global master key failed: {str(global_error)[:100]}...")
-                    
-                    # SECURITY: Do not iterate through all project keys to prevent DoS attacks.
-                    # If project-specific encryption is needed, project_id should be provided
-                    # in the request parameters or in the encrypted data (decrypted with global key).
-                    # Check if project_id is provided in request
+
                     project_id_param = req_json.get("project_id")
                     if project_id_param:
                         try:
@@ -188,10 +177,9 @@ def api_heartbeat():
                             )
                             raise global_error
                     else:
-                        # No project_id provided, cannot decrypt with project key
+
                         raise global_error
 
-            # Extract heartbeat data
             session_id = data.get("session_id")
             heartbeat_data = data.get("heartbeat_data", {})
 
@@ -199,7 +187,6 @@ def api_heartbeat():
                 logging.warning(f"HEARTBEAT_NO_SESSION_ID ip={ip}")
                 return jsonify({"error": "Session ID required"}), 400
 
-            # Process heartbeat
             is_valid, message, response_data = heartbeat_service.process_heartbeat(
                 session_id, heartbeat_data
             )
@@ -212,7 +199,6 @@ def api_heartbeat():
 
             logging.info(f"HEARTBEAT_SUCCESS ip={ip} session_id={session_id}")
 
-            # Create response
             resp = {
                 "status": "success",
                 "message": message,
@@ -221,7 +207,6 @@ def api_heartbeat():
                 "timestamp": int(time.time()),
             }
 
-            # Encrypt response
             if used_global_key:
                 encrypted_blob = encrypt_data(resp)
                 logging.debug(f"[DEBUG] Encrypted heartbeat response with global master key")
@@ -260,7 +245,6 @@ def api_heartbeat():
         )
         return jsonify({"error": "Internal server error"}), 500
 
-
 @heartbeat_bp.route("/heartbeat/status", methods=["POST"])
 @rate_limited
 def api_heartbeat_status():
@@ -279,7 +263,6 @@ def api_heartbeat_status():
 
         req_json = request.get_json(silent=True) or {}
 
-        # Handle encrypted status request
         enc_data = req_json.get("blob")
         if not enc_data:
             logging.warning(f"HEARTBEAT_STATUS_NO_BLOB ip={ip} user_agent={user_agent}")
@@ -306,11 +289,7 @@ def api_heartbeat_status():
                     )
                 except Exception as global_error:
                     logging.debug(f"[DEBUG] Global master key failed: {str(global_error)[:100]}...")
-                    
-                    # SECURITY: Do not iterate through all project keys to prevent DoS attacks.
-                    # If project-specific encryption is needed, project_id should be provided
-                    # in the request parameters or in the encrypted data (decrypted with global key).
-                    # Check if project_id is provided in request
+
                     project_id_param = req_json.get("project_id")
                     if project_id_param:
                         try:
@@ -326,24 +305,21 @@ def api_heartbeat_status():
                             )
                             raise global_error
                     else:
-                        # No project_id provided, cannot decrypt with project key
+
                         raise global_error
 
-            # Extract status request data
             session_id = data.get("session_id")
 
             if not session_id:
                 logging.warning(f"HEARTBEAT_STATUS_NO_SESSION_ID ip={ip}")
                 return jsonify({"error": "Session ID required"}), 400
 
-            # Check session status
             is_valid, message, status_data = heartbeat_service.check_session_status(session_id)
 
             logging.info(
                 f"HEARTBEAT_STATUS_CHECK ip={ip} session_id={session_id} is_valid={is_valid} message={message}"
             )
 
-            # Create response
             resp = {
                 "status": "success" if is_valid else "error",
                 "message": message,
@@ -352,7 +328,6 @@ def api_heartbeat_status():
                 "timestamp": int(time.time()),
             }
 
-            # Encrypt response
             if used_global_key:
                 encrypted_blob = encrypt_data(resp)
                 logging.debug(f"[DEBUG] Encrypted heartbeat status response with global master key")

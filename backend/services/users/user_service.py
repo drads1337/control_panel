@@ -11,14 +11,13 @@ from ...models.core import User
 from .user_profile_service import user_profile_service
 from .user_management_service import user_management_service
 
-
 class UserService:
     """Service for handling user management operations - delegates to specialized services"""
 
     def __init__(self, logger=None, upload_folder=None):
         self.logger = logger or logging.getLogger(__name__)
         self.upload_folder = upload_folder or "uploads"
-        # Delegate to specialized services
+
         self.profile_service = user_profile_service
         self.management_service = user_management_service
 
@@ -102,6 +101,4 @@ class UserService:
         """Delegates to UserManagementService"""
         return self.management_service.delete_user_safely(current_user, target_user_id)
 
-
-# Create service instance
 user_service = UserService()

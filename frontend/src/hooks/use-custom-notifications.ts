@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react';
 import { CustomNotificationType } from '@/components/ui/custom-notification';
-
 export interface CustomNotification {
   id: string;
   type: CustomNotificationType;
@@ -14,10 +13,8 @@ export interface CustomNotification {
     variant?: 'primary' | 'secondary' | 'outline';
   };
 }
-
 export const useCustomNotifications = () => {
   const [notifications, setNotifications] = useState<CustomNotification[]>([]);
-
   const addNotification = useCallback((
     type: CustomNotificationType,
     title: string,
@@ -42,28 +39,20 @@ export const useCustomNotifications = () => {
       showProgress: options?.showProgress,
       action: options?.action
     };
-    
     setNotifications(prev => [...prev, newNotification]);
-    
-    // Автоматически удаляем уведомление через указанное время
     if (options?.duration && options.duration > 0) {
       setTimeout(() => {
         removeNotification(id);
       }, options.duration);
     }
-    
     return id;
   }, []);
-
   const removeNotification = useCallback((id: string) => {
     setNotifications(prev => prev.filter(notification => notification.id !== id));
   }, []);
-
   const clearAllNotifications = useCallback(() => {
     setNotifications([]);
   }, []);
-
-  // Специализированные методы для игр
   const showGameUpdateNotification = useCallback((
     gameName: string,
     options?: {
@@ -82,7 +71,6 @@ export const useCustomNotifications = () => {
       action: options?.action
     });
   }, [addNotification]);
-
   const showGameCreatedNotification = useCallback((
     gameName: string,
     options?: {
@@ -101,7 +89,6 @@ export const useCustomNotifications = () => {
       action: options?.action
     });
   }, [addNotification]);
-
   const showGameDeletedNotification = useCallback((
     gameName: string,
     options?: {
@@ -120,7 +107,6 @@ export const useCustomNotifications = () => {
       action: options?.action
     });
   }, [addNotification]);
-
   const showLoadingNotification = useCallback((
     title: string,
     description?: string,
@@ -132,7 +118,6 @@ export const useCustomNotifications = () => {
       showProgress: false
     });
   }, [addNotification]);
-
   const showSuccessNotification = useCallback((
     title: string,
     description?: string,
@@ -152,7 +137,6 @@ export const useCustomNotifications = () => {
       action: options?.action
     });
   }, [addNotification]);
-
   const showErrorNotification = useCallback((
     title: string,
     description?: string,
@@ -172,7 +156,6 @@ export const useCustomNotifications = () => {
       action: options?.action
     });
   }, [addNotification]);
-
   const showWarningNotification = useCallback((
     title: string,
     description?: string,
@@ -192,7 +175,6 @@ export const useCustomNotifications = () => {
       action: options?.action
     });
   }, [addNotification]);
-
   const showInfoNotification = useCallback((
     title: string,
     description?: string,
@@ -212,13 +194,11 @@ export const useCustomNotifications = () => {
       action: options?.action
     });
   }, [addNotification]);
-
   return {
     notifications,
     addNotification,
     removeNotification,
     clearAllNotifications,
-    // Специализированные методы
     showGameUpdateNotification,
     showGameCreatedNotification,
     showGameDeletedNotification,

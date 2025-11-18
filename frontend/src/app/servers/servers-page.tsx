@@ -7,7 +7,7 @@ export default function ServersPage() {
 
   return (
     <div>
-          {/* SOON Message */}
+          {}
           <div className="flex items-center justify-center min-h-full">
             <Card className="w-full max-w-md text-center">
               <CardHeader>

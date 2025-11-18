@@ -22,53 +22,46 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
   const { user } = useAuthContext();
   const canCreate = hasPermission('keys.create');
   const canGenerate = hasPermission('keys.generate');
-  
+
   const [loading, setLoading] = useState({
     single: false,
     custom: false,
     bulk: false,
   });
 
-  // Loaders state
   const [loaders, setLoaders] = useState<Array<{ id: number; name: string; assigned_games: number[] }>>([]);
   const [loadersLoading, setLoadersLoading] = useState(false);
-  
-  // Game access state
+
   const [userGameAccess, setUserGameAccess] = useState<number[]>([]);
   const [gameAccessLoading, setGameAccessLoading] = useState(false);
 
-  // Load user game access
   const loadUserGameAccess = async () => {
     if (!user?.id) return;
-    
+
     try {
       setGameAccessLoading(true);
       const response = await enhancedApi.get(`/api/clients/${user.id}/games`);
       if (Array.isArray(response.data)) {
-        // Filter games where has_access is true
+
         const accessibleGames = response.data
           .filter((game: any) => game.has_access === true)
           .map((game: any) => game.game_id || game.id);
         setUserGameAccess(accessibleGames);
       }
     } catch (error: any) {
-      console.error('Failed to load user game access:', error);
+
       setUserGameAccess([]);
     } finally {
       setGameAccessLoading(false);
     }
   };
 
-  // Check if user has access to game library games (not multi-app)
-  // Games array is already filtered by backend based on UserGamePermission
-  // So if game library games exist in the array, user has access to them
   const gameLibraryGames = games.filter(game => !game.is_multi_app);
   const canViewGames = gameLibraryGames.length > 0;
-  
+
   const multiAppGames = games.filter(game => game.is_multi_app);
   const canViewLoaders = multiAppGames.length > 0;
-  
-  // Load loaders and game access on component mount and when games change
+
   useEffect(() => {
     loadLoaders();
     loadUserGameAccess();
@@ -86,7 +79,7 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
         })));
       }
     } catch (error) {
-      console.error('Error loading loaders:', error);
+
       toast.error('Error loading loaders');
     } finally {
       setLoadersLoading(false);
@@ -105,7 +98,7 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
       toast.error('You do not have permission to create keys');
       return;
     }
-    
+
     setLoading(prev => ({ ...prev, single: true }));
 
     try {
@@ -114,7 +107,6 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
           throw new Error('Please select a loader and at least one game');
         }
 
-        // Create keys for each selected game
         const promises = data.selectedGames.map(gameId =>
           createLicenseKey({
             game_id: gameId,
@@ -125,7 +117,7 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
 
         const results = await Promise.all(promises);
         toast.success(`${data.selectedGames.length} license keys created successfully!`);
-        // Get the first key ID from results
+
         const firstKeyId = results[0]?.key?.id;
         onKeyCreated(firstKeyId);
       } else {
@@ -142,7 +134,7 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
         onKeyCreated(result.key?.id);
       }
     } catch (error) {
-      console.error('Error creating license key:', error);
+
       toast.error(error instanceof Error ? error.message : 'Error creating license key');
       throw error;
     } finally {
@@ -163,7 +155,7 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
       toast.error('You do not have permission to create keys');
       return;
     }
-    
+
     setLoading(prev => ({ ...prev, custom: true }));
 
     try {
@@ -172,7 +164,6 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
           throw new Error('Please select a loader and at least one game');
         }
 
-        // Create custom keys for each selected game
         const promises = data.selectedGames.map(gameId =>
           createCustomLicenseKey({
             game_id: gameId,
@@ -200,7 +191,7 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
 
       onKeyCreated();
     } catch (error) {
-      console.error('Error creating custom key:', error);
+
       toast.error(error instanceof Error ? error.message : 'Error creating custom key');
       throw error;
     } finally {
@@ -221,7 +212,7 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
       toast.error('You do not have permission to create keys');
       return;
     }
-    
+
     setLoading(prev => ({ ...prev, bulk: true }));
 
     try {
@@ -230,7 +221,6 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
           throw new Error('Please select a loader and at least one game');
         }
 
-        // Create bulk keys for each selected game
         const promises = data.selectedGames.map(gameId =>
           bulkCreateLicenseKeys({
             game_id: gameId,
@@ -242,7 +232,7 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
 
         await Promise.all(promises);
         toast.success(`${data.quantity * data.selectedGames.length} keys created successfully!`);
-        onKeyCreated(); // Bulk loader doesn't return individual key IDs
+        onKeyCreated();
       } else {
         if (!data.gameId) {
           throw new Error('Please select a game');
@@ -255,10 +245,10 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
           max_devices: data.max_devices
         });
         toast.success(result.message || `${data.quantity} keys created successfully!`);
-        onKeyCreated(); // Bulk doesn't return individual key IDs
+        onKeyCreated();
       }
     } catch (error) {
-      console.error('Error creating bulk keys:', error);
+
       toast.error(error instanceof Error ? error.message : 'Error creating bulk keys');
       throw error;
     } finally {
@@ -266,7 +256,6 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
     }
   };
 
-  // Show empty state if no games are available at all
   if (games.length === 0) {
     return (
       <div className="space-y-6">
@@ -287,16 +276,15 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
     );
   }
 
-  // If user doesn't have create or generate permission, don't show the creation grid
   if (!canCreate && !canGenerate) {
     return null;
   }
 
   return (
     <div className="space-y-6">
-      {/* 2x2 Grid Layout */}
+      {}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Main Create License Key Form */}
+        {}
         <SingleKeyForm
           games={games}
           loaders={loaders}
@@ -307,7 +295,7 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
           canViewLoaders={canViewLoaders}
         />
 
-        {/* Custom Key Creation Block */}
+        {}
         <CustomKeyForm
           games={games}
           loaders={loaders}
@@ -318,7 +306,7 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
           canViewLoaders={canViewLoaders}
         />
 
-        {/* Bulk Key Creation Block */}
+        {}
         <BulkKeyForm
           games={games}
           loaders={loaders}
@@ -329,7 +317,7 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
           canViewLoaders={canViewLoaders}
         />
 
-        {/* Bulk Key Operations Block */}
+        {}
         <BulkKeyOperationsForm
           games={games}
           loaders={loaders}

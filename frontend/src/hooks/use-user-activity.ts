@@ -9,7 +9,6 @@ interface UseUserActivityOptions {
   refreshInterval?: number
 }
 
-// Мок-данные для тестирования
 const MOCK_ACTIVITIES: UserActivity[] = [
   {
     id: 1,
@@ -75,7 +74,7 @@ const MOCK_STATS: UserActivityStats = {
   month_activities: 15,
   unique_ips: 2,
   unique_locations: 2,
-  last_activity: new Date(Date.now() - 60 * 60 * 1000).toISOString() // 1 hour ago
+  last_activity: new Date(Date.now() - 60 * 60 * 1000).toISOString()
 }
 
 export function useUserActivity(options: UseUserActivityOptions = {}) {
@@ -83,7 +82,7 @@ export function useUserActivity(options: UseUserActivityOptions = {}) {
     page = 1,
     perPage = 20,
     autoRefresh = false,
-    refreshInterval = 60000 // 1 minute
+    refreshInterval = 60000
   } = options
 
   const [activities, setActivities] = useState<UserActivity[]>([])
@@ -98,16 +97,11 @@ export function useUserActivity(options: UseUserActivityOptions = {}) {
     perPage
   })
 
-  // Fetch user activity
   const fetchUserActivity = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
-      
-      // Use httpOnly cookies for authentication instead of localStorage
-      // No need to check for token as it's handled by the server
-      
-      // Пробуем загрузить реальные данные, если не получается - используем мок
+
       try {
         const response = await getUserActivity(pagination.currentPage, pagination.perPage)
         setActivities(response.activities)
@@ -118,12 +112,11 @@ export function useUserActivity(options: UseUserActivityOptions = {}) {
           perPage: response.per_page
         })
       } catch (apiError) {
-        console.warn('API not ready, using mock data:', apiError)
-        // Используем мок-данные
+
         const startIndex = (pagination.currentPage - 1) * pagination.perPage
         const endIndex = startIndex + pagination.perPage
         const paginatedActivities = MOCK_ACTIVITIES.slice(startIndex, endIndex)
-        
+
         setActivities(paginatedActivities)
         setPagination({
           total: MOCK_ACTIVITIES.length,
@@ -139,46 +132,37 @@ export function useUserActivity(options: UseUserActivityOptions = {}) {
     }
   }, [pagination.currentPage, pagination.perPage])
 
-  // Fetch user activity stats
   const fetchUserActivityStats = useCallback(async () => {
     try {
       setStatsLoading(true)
-      
-      // Use httpOnly cookies for authentication instead of localStorage
-      // No need to check for token as it's handled by the server
 
       try {
         const statsData = await getUserActivityStats('')
         setStats(statsData)
       } catch (apiError) {
-        console.warn('API stats not ready, using mock data:', apiError)
-        // Используем мок-статистику
+
         setStats(MOCK_STATS)
       }
     } catch (err) {
-      console.error('Failed to fetch user activity stats:', err)
+
     } finally {
       setStatsLoading(false)
     }
   }, [])
 
-  // Refresh activity data
   const refresh = useCallback(() => {
     fetchUserActivity()
     fetchUserActivityStats()
   }, [fetchUserActivity, fetchUserActivityStats])
 
-  // Change page
   const changePage = useCallback((newPage: number) => {
     setPagination(prev => ({ ...prev, currentPage: newPage }))
   }, [])
 
-  // Change per page
   const changePerPage = useCallback((newPerPage: number) => {
     setPagination(prev => ({ ...prev, perPage: newPerPage, currentPage: 1 }))
   }, [])
 
-  // Auto refresh effect
   useEffect(() => {
     if (autoRefresh) {
       const interval = setInterval(() => {
@@ -190,13 +174,11 @@ export function useUserActivity(options: UseUserActivityOptions = {}) {
     }
   }, [autoRefresh, refreshInterval, fetchUserActivity, fetchUserActivityStats])
 
-  // Initial fetch
   useEffect(() => {
     fetchUserActivity()
     fetchUserActivityStats()
   }, [fetchUserActivity, fetchUserActivityStats])
 
-  // Fetch when pagination changes
   useEffect(() => {
     fetchUserActivity()
   }, [pagination.currentPage, pagination.perPage, fetchUserActivity])

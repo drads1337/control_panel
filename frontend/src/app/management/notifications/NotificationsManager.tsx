@@ -8,12 +8,12 @@ import { ConditionalRender } from '@/components/rbac/conditional-render'
 
 export default function NotificationsManager() {
   const { hasPermission } = usePermissions()
-  
+
   const canViewNotifications = hasPermission('notifications.view')
   const canCreateNotifications = hasPermission('notifications.create')
   const canEditNotifications = hasPermission('notifications.edit')
   const canDeleteNotifications = hasPermission('notifications.delete')
-  
+
   if (!canViewNotifications) {
     return (
       <Card className="text-center p-8">
@@ -25,7 +25,7 @@ export default function NotificationsManager() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {}
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold">Notifications Management</h3>
@@ -56,7 +56,7 @@ export default function NotificationsManager() {
         </div>
       </div>
 
-      {/* Stats Cards */}
+      {}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -101,7 +101,7 @@ export default function NotificationsManager() {
         </Card>
       </div>
 
-      {/* Recent Notifications */}
+      {}
       <Card>
         <CardHeader>
           <CardTitle>Recent Notifications</CardTitle>

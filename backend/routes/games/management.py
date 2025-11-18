@@ -21,7 +21,6 @@ from ...utils.rbac_utils import RBACManager
 
 management_bp = Blueprint("games_management", __name__)
 
-
 @management_bp.route("", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -49,75 +48,62 @@ def get_games():
         game_type = request.args.get("type", "all")
         current_app.logger.info(f"Filtering games by type: {game_type}")
 
-        # Check if user has global permission to view all games
         has_view_permission = rbac_service.check_permission(user.id, "games.view")
 
-        # Use cached game service
         result = game_service.get_games_cached(
             project_id=scoped_project_id, game_type=game_type, user_id=user_id
         )
 
         if result.get("success"):
             original_games = result.get("games", [])
-            
-            # Always filter games by UserGamePermission if it exists
-            # Even if user has global games.view permission, UserGamePermission takes precedence
+
             from ...models import UserGamePermission
-            
-            # Get all UserGamePermission records for this user in one query (optimization)
+
             user_game_permissions = {
                 perm.game_id: perm.has_access
                 for perm in UserGamePermission.query.filter_by(user_id=user_id).all()
             }
-            
-            # Check if user has seller role - sellers require explicit UserGamePermission
-            # Load user roles once instead of checking for each game
+
             from ...models.rbac import UserRole, Role
             user_roles = db.session.query(Role.name).join(
                 UserRole, Role.id == UserRole.role_id
             ).filter(UserRole.user_id == user_id).all()
             user_role_names = [role[0] for role in user_roles]
             is_seller = 'seller' in user_role_names or any('seller' in str(role).lower() for role in user_role_names)
-            
+
             current_app.logger.info(
                 f"User {user_id} has {len(user_game_permissions)} UserGamePermission records. "
                 f"Has global games.view: {has_view_permission}. "
                 f"Is seller: {is_seller}. "
                 f"Total games before filter: {len(original_games)}"
             )
-            
+
             filtered_games = []
             for game in original_games:
                 game_id = game.get("id")
                 should_include = False
-                
-                # CRITICAL: Check UserGamePermission first - this takes highest priority
-                # If UserGamePermission exists for this game, use has_access from it
-                # This ensures that explicit permissions override global permissions
+
                 if game_id in user_game_permissions:
                     should_include = user_game_permissions[game_id]
                 else:
-                    # If no UserGamePermission record exists, check RBAC permissions
+
                     if is_seller:
-                        # Sellers require explicit UserGamePermission - no default access
+
                         should_include = False
                     elif not has_view_permission:
-                        # User doesn't have global permission, check specific game permission
+
                         should_include = rbac_service.check_permission(user.id, "games.view", game_id=game_id)
                     else:
-                        # User has global permission and no UserGamePermission record
-                        # IMPORTANT: For users with global games.view, if there's no UserGamePermission,
-                        # we allow access by default (backward compatibility)
-                        # But if UserGamePermission exists with has_access=False, it takes precedence
+
                         should_include = True
-                
+
                 if should_include:
                     filtered_games.append(game)
-            
+
             current_app.logger.info(
                 f"User {user_id}: Filtered {len(original_games)} games to {len(filtered_games)} games"
             )
-            
+
             result["games"] = filtered_games
             result["total_count"] = len(filtered_games)
 
@@ -132,7 +118,6 @@ def get_games():
 
         current_app.logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": f"Failed to fetch games: {str(e)}"}), 500
-
 
 @management_bp.route("/available-for-assignment", methods=["GET"])
 @jwt_required()
@@ -156,15 +141,13 @@ def get_available_games_for_assignment():
         return jsonify({"error": "No project associated"}), 400
 
     try:
-        # Get pagination parameters
+
         page = request.args.get("page", 1, type=int)
         per_page = request.args.get("per_page", 50, type=int)
-        
-        # Clamp per_page to reasonable limits (1-100)
+
         per_page = max(1, min(100, per_page))
         page = max(1, page)
 
-        # Get all game IDs that are already assigned to any loader in this project
         assigned_game_ids = (
             db.session.query(LoaderGameAssignment.game_id)
             .join(Game, LoaderGameAssignment.game_id == Game.id)
@@ -179,7 +162,6 @@ def get_available_games_for_assignment():
         )
         assigned_game_ids_set = {game_id[0] for game_id in assigned_game_ids}
 
-        # Query for multi-app games that are not assigned
         base_query = Game.query.filter(
             and_(
                 Game.project_id == scoped_project_id,
@@ -188,13 +170,10 @@ def get_available_games_for_assignment():
             )
         )
 
-        # Get total count before pagination
         total_count = base_query.count()
 
-        # Apply pagination
         games = base_query.order_by(Game.name).offset((page - 1) * per_page).limit(per_page).all()
 
-        # Build response data
         games_data = []
         for game in games:
             games_data.append(
@@ -227,7 +206,6 @@ def get_available_games_for_assignment():
         current_app.logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": f"Failed to fetch available games: {str(e)}"}), 500
 
-
 @management_bp.route("", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -246,7 +224,6 @@ def create_game(validated_data=None):
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    # Check RBAC permissions
     has_permission = RBACManager.has_permission(user.id, user.project_id, "games.create")
 
     if not has_permission:
@@ -256,18 +233,16 @@ def create_game(validated_data=None):
         )
 
     try:
-        # Use validated data from decorator
+
         if not validated_data:
             return jsonify({"error": "Invalid request data"}), 400
 
-        # Use service layer to create game
         new_game, error_msg = game_service.create_game(user, validated_data)
 
         if not new_game:
             status_code = 409 if error_msg == "Game already exists" else 500
             return jsonify({"error": error_msg or "Failed to create game"}), status_code
 
-        # Log activity
         activity_service.log_activity(user, "game_created", details=f"Created game: {new_game.id}")
 
         return (
@@ -293,7 +268,6 @@ def create_game(validated_data=None):
         current_app.logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": "Failed to create game"}), 500
 
-
 @management_bp.route("/<int:game_id>/status", methods=["PUT"])
 @jwt_required()
 @require_project_with_grace_period
@@ -310,7 +284,6 @@ def update_game_status(game_id, validated_data=None):
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    # Check RBAC permissions
     has_permission = RBACManager.has_permission(user.id, user.project_id, "games.edit")
 
     if not has_permission:
@@ -320,12 +293,11 @@ def update_game_status(game_id, validated_data=None):
         )
 
     try:
-        # Use validated data from decorator
+
         if not validated_data:
             return jsonify({"error": "Invalid request data"}), 400
         new_status = validated_data["status"]
 
-        # Check if game exists and belongs to user's project
         game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
         if not game:
             return jsonify({"error": "Game not found"}), 404
@@ -334,10 +306,8 @@ def update_game_status(game_id, validated_data=None):
         game.status = new_status
         db.session.commit()
 
-        # Invalidate game cache
         game_service.invalidate_game_cache(user.project_id, game_id)
 
-        # Log activity
         activity_service.log_activity(
             user,
             "game_status_updated",
@@ -356,7 +326,7 @@ def update_game_status(game_id, validated_data=None):
         )
 
     except ValueError as e:
-        # Pydantic validation error
+
         return jsonify({"error": str(e)}), 400
     except Exception as e:
         db.session.rollback()
@@ -365,7 +335,6 @@ def update_game_status(game_id, validated_data=None):
 
         current_app.logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": f"Failed to update game status: {str(e)}"}), 500
-
 
 @management_bp.route("/<int:game_id>", methods=["PUT"])
 @jwt_required()
@@ -383,7 +352,6 @@ def update_game(game_id, validated_data=None):
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    # Check RBAC permissions
     has_permission = RBACManager.has_permission(user.id, user.project_id, "games.edit")
 
     if not has_permission:
@@ -393,16 +361,14 @@ def update_game(game_id, validated_data=None):
         )
 
     try:
-        # Use validated data from decorator
+
         if not validated_data:
             validated_data = {}
 
-        # Check if game exists and belongs to user's project
         game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
         if not game:
             return jsonify({"error": "Game not found"}), 404
 
-        # Update game fields
         if "name" in validated_data and validated_data["name"] is not None:
             game.name = validated_data["name"]
         if "description" in validated_data and validated_data["description"] is not None:
@@ -415,14 +381,11 @@ def update_game(game_id, validated_data=None):
             game.login_type = validated_data["login_type"]
         if "invite_code_required" in validated_data and validated_data["invite_code_required"] is not None:
             game.invite_code_required = validated_data["invite_code_required"]
-        # Note: config field is handled through GameConfiguration model separately
 
         db.session.commit()
 
-        # Invalidate game cache
         game_service.invalidate_game_cache(user.project_id, game_id)
 
-        # Log activity
         activity_service.log_activity(
             user,
             "game_updated",
@@ -447,7 +410,7 @@ def update_game(game_id, validated_data=None):
         )
 
     except ValueError as e:
-        # Pydantic validation error
+
         return jsonify({"error": str(e)}), 400
     except Exception as e:
         db.session.rollback()
@@ -456,7 +419,6 @@ def update_game(game_id, validated_data=None):
 
         current_app.logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": f"Failed to update game: {str(e)}"}), 500
-
 
 @management_bp.route("/<int:game_id>", methods=["DELETE"])
 @jwt_required()
@@ -473,10 +435,8 @@ def delete_game(game_id):
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    # Check RBAC permissions - need delete permission
     has_permission = RBACManager.has_permission(user.id, user.project_id, "games.delete")
-    
-    # Fallback to edit permission if delete permission doesn't exist
+
     if not has_permission:
         has_permission = RBACManager.has_permission(user.id, user.project_id, "games.edit")
 
@@ -487,21 +447,18 @@ def delete_game(game_id):
         )
 
     try:
-        # Check if game exists and belongs to user's project
+
         game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
         if not game:
             return jsonify({"error": "Game not found"}), 404
 
         game_name = game.name
-        
-        # Delete the game (CASCADE will handle most related records)
+
         db.session.delete(game)
         db.session.commit()
 
-        # Invalidate game cache
         game_service.invalidate_game_cache(user.project_id, game_id)
 
-        # Log activity
         activity_service.log_activity(
             user,
             "game_deleted",
@@ -524,7 +481,3 @@ def delete_game(game_id):
 
         current_app.logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": f"Failed to delete game: {str(e)}"}), 500
-
-
-# NOTE: Additional endpoints like update_game should be added here
-# These are currently in the original games.py file and need to be migrated

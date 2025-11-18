@@ -25,13 +25,12 @@ from ...utils.rbac_utils import RBACManager
 from ...utils.role_constants import UserRoles
 from ...utils.structured_logging import get_logger
 
-
 class KeyService:
     """Service for handling key management operations"""
 
     def __init__(self):
         self.logger = get_logger("key_service")
-        self.max_bulk_operations = 1000  # Limit for bulk operations to prevent DoS
+        self.max_bulk_operations = 1000
         self.generation_service = key_generation_service
         self.validation_service = key_validation_service
 
@@ -82,11 +81,10 @@ class KeyService:
         try:
             key, error = self._create_key_within_transaction(user, key_data)
             if key:
-                # Flush to get the ID and ensure it's in the database
+
                 db.session.flush()
                 key_id = key.id
 
-                # Save key attributes before commit (in case object becomes detached)
                 key_attrs = {
                     "id": key_id,
                     "key": key.key,
@@ -102,43 +100,37 @@ class KeyService:
                     "key_metadata": key.key_metadata,
                 }
 
-                # Commit the transaction
                 db.session.commit()
 
-                # After commit, the key object may be expired but still in session
-                # Try to refresh it in-place, or just return it and let caller handle it
                 try:
-                    # Try to refresh the key object to ensure it's up-to-date
-                    # This will reload it from DB if needed
+
                     db.session.refresh(key)
                     self.logger.debug(f"Successfully refreshed key {key_id} after commit")
                     return key, None
                 except Exception as refresh_error:
-                    # Refresh failed - object may be detached
-                    # Try to get it from session or query it
+
                     self.logger.debug(
                         f"Refresh failed for key {key_id}, trying session.get(): {str(refresh_error)}"
                     )
                     try:
-                        # Use session.get() - it should find the key we just committed
+
                         reloaded_key = db.session.get(Key, key_id)
                         if reloaded_key:
                             self.logger.debug(f"Successfully got key {key_id} using session.get()")
                             return reloaded_key, None
                         else:
-                            # Key exists but session can't find it - return the key object anyway
-                            # The caller will need to reload it, but at least we have the ID
+
                             self.logger.warning(
                                 f"session.get() returned None for key {key_id}, but key exists. Returning key object anyway."
                             )
-                            # Return the key object - even if detached, caller can use the ID to reload
+
                             return key, None
                     except Exception as get_error:
-                        # Everything failed - but key WAS created
+
                         self.logger.warning(
                             f"All reload attempts failed for key {key_id}, but key exists. Returning key object: {str(get_error)}"
                         )
-                        # Return the key object anyway - it has the ID, caller can reload if needed
+
                 return key, None
             else:
                 db.session.rollback()
@@ -165,12 +157,11 @@ class KeyService:
         Returns:
             Tuple of (Key object or None, error message or None)
         """
-        # Validate key data using KeyValidationService
+
         is_valid, error_msg = self.validation_service.validate_key_data(user, key_data)
         if not is_valid:
             return None, error_msg
 
-        # Get game/loader objects for key generation
         game = None
         loader = None
 
@@ -189,7 +180,6 @@ class KeyService:
         duration_hours = key_data.get("duration_hours", 24)
         max_devices = key_data.get("max_devices", 1)
 
-        # Generate key string using KeyGenerationService
         key_string = self.generation_service.generate_key_string(
             length=key_data.get("length", 32),
             game=game,
@@ -198,12 +188,10 @@ class KeyService:
             project_id=user.project_id,
         )
 
-        # Calculate expiration
         expires_at = None
         if duration_hours:
             expires_at = datetime.utcnow() + timedelta(hours=duration_hours)
 
-        # Create key
         key = Key(
             key=key_string,
             user_id=user.id,
@@ -218,21 +206,17 @@ class KeyService:
         )
 
         db.session.add(key)
-        # Flush to get the key ID without committing
+
         db.session.flush()
-        
-        # Update user key counters (key is active with status=1)
+
         from ...utils.key_counters import increment_user_key_counters
         increment_user_key_counters(user.id, is_active=True)
 
-        # Trigger webhook for key creation (asynchronously to avoid blocking response)
-        # Do this after transaction commit to ensure it doesn't block the response
         try:
             from .webhook_service import get_webhook_service
 
             webhook_service = get_webhook_service()
 
-            # Prepare webhook data
             webhook_data = {
                 "key_id": key.id,
                 "key_value": key.key,
@@ -246,17 +230,15 @@ class KeyService:
                 "created_at": key.created_at.isoformat(),
             }
 
-            # Trigger webhook asynchronously (don't wait for it)
-            # This prevents webhook delays from blocking the API response
             try:
                 webhook_service.trigger_webhook("key.created", webhook_data, user.project_id)
                 self.logger.info(f"Triggered webhook for key creation: {key.id}")
             except Exception as webhook_error:
-                # Don't fail key creation if webhook fails
+
                 self.logger.warning(f"Webhook trigger failed (non-critical): {str(webhook_error)}")
 
         except Exception as e:
-            # Don't fail key creation if webhook system fails
+
             self.logger.warning(f"Webhook system error (non-critical): {str(e)}")
 
         self.logger.info(f"Created key {key.id} for user {user.id}")
@@ -290,7 +272,7 @@ class KeyService:
         Returns:
             Tuple of (created_count, list_of_errors)
         """
-        # Validate bulk operation count using KeyValidationService
+
         is_valid, error_msg = self.validation_service.validate_bulk_operation(
             len(keys_data), self.max_bulk_operations
         )
@@ -300,22 +282,20 @@ class KeyService:
         created_count = 0
         errors = []
 
-        # Create keys one at a time, each in its own transaction
-        # This ensures that failures don't affect other keys
         for i, key_data in enumerate(keys_data):
             try:
-                # Create key in its own transaction
+
                 key, error = self._create_key_individually(user, key_data)
                 if key:
                     created_count += 1
                 else:
                     errors.append(f"Key {i+1}: {error}")
             except Exception as e:
-                # Ensure transaction is rolled back on exception
+
                 try:
                     db.session.rollback()
                 except Exception:
-                    pass  # Already rolled back or connection lost
+                    pass
                 error_msg = str(e)
                 errors.append(f"Key {i+1}: Failed to create key: {error_msg}")
                 self.logger.error(f"Failed to create key {i+1} in bulk: {error_msg}")
@@ -339,25 +319,20 @@ class KeyService:
                 f"🔍 Getting keys for user {user.id}, project {user.project_id} with filters: {filters}"
             )
 
-            # Build query with joinedload to avoid N+1 problem
             query = Key.query.options(joinedload(Key.game)).filter_by(project_id=user.project_id)
 
-            # Check if filtering by my_keys only
             my_keys_only = filters.get("my_keys", False)
 
-            # Filter by user_id based on permissions and my_keys filter
-            # Owner/admin and users with keys.view permission can see all keys in project
-            # Other users see only their own keys
             if not RBACManager.is_owner(user) and not RBACManager.is_admin(user):
                 has_keys_view = rbac_service.check_permission(user.id, "keys.view")
                 if not has_keys_view:
-                    # User without view permission always sees only their own keys
+
                     query = query.filter_by(user_id=user.id)
                     self.logger.info(
                         f"🔒 Filtering keys by user_id={user.id} (user doesn't have keys.view permission)"
                     )
                 elif my_keys_only:
-                    # User with view permission but filtering for my keys only
+
                     query = query.filter_by(user_id=user.id)
                     self.logger.info(
                         f"🔒 Filtering keys by user_id={user.id} (my_keys filter enabled)"
@@ -367,32 +342,26 @@ class KeyService:
                         f"👁️ User {user.id} has keys.view permission - showing all keys in project"
                     )
             elif my_keys_only:
-                # Owner/admin filtering for their own keys
+
                 query = query.filter_by(user_id=user.id)
                 self.logger.info(
                     f"🔒 Filtering keys by user_id={user.id} (my_keys filter enabled for owner/admin)"
                 )
 
-            # Log initial query count
             initial_count = query.count()
             self.logger.info(f"📊 Initial query count (all keys in project): {initial_count}")
 
-            # Apply filters
             query = self._apply_filters(query, filters)
 
-            # Log filtered query count
             filtered_count = query.count()
             self.logger.info(f"🔧 Filtered query count: {filtered_count}")
 
-            # Get pagination info
             page = filters.get("page", 1)
-            per_page = min(filters.get("per_page", 20), 100)  # Max 100 per page
+            per_page = min(filters.get("per_page", 20), 100)
 
-            # Get total count before pagination
             total_count = query.count()
             self.logger.info(f"📄 Total count for pagination: {total_count}")
 
-            # Apply pagination
             pagination = query.order_by(Key.created_at.desc()).paginate(
                 page=page, per_page=per_page, error_out=False
             )
@@ -401,10 +370,9 @@ class KeyService:
                 f"📋 Pagination: page={page}, per_page={per_page}, items={len(pagination.items)}"
             )
 
-            # Build response
             keys = []
             for key in pagination.items:
-                # No additional DB query needed due to joinedload
+
                 game_name = key.game.name if key.game else None
 
                 is_expired = key.expires_at and key.expires_at <= datetime.utcnow()
@@ -414,34 +382,28 @@ class KeyService:
                     f"🔑 Key {key.id}: status={key.status}, expires_at={key.expires_at}, is_active={is_active}, game_name={game_name}"
                 )
 
-                # Calculate device_count from devices string
-                # Devices can be stored as:
-                # 1. Comma-separated string: "serial1,serial2,serial3"
-                # 2. JSON array: '["serial1","serial2"]'
                 device_count = 0
                 if key.devices:
                     try:
-                        # Try parsing as JSON first
+
                         devices_list = (
                             json.loads(key.devices) if isinstance(key.devices, str) else key.devices
                         )
                         if isinstance(devices_list, list):
                             device_count = len(devices_list)
                         else:
-                            # Fallback: treat as comma-separated string
+
                             devices_list = [d.strip() for d in key.devices.split(",") if d.strip()]
                             device_count = len(devices_list)
                     except (json.JSONDecodeError, AttributeError):
-                        # Not JSON, treat as comma-separated string
+
                         devices_list = [d.strip() for d in key.devices.split(",") if d.strip()]
                         device_count = len(devices_list)
 
-                # SECURITY: Mask keys in list endpoints - full keys only in /details or during creation
-                # This prevents mass data leakage if list endpoint is compromised
                 keys.append(
                     {
                         "id": key.id,
-                        "key": mask_license_key(key.key),  # Masked key - full key only in /details
+                        "key": mask_license_key(key.key),
                         "user_id": key.user_id,
                         "game_id": key.game_id,
                         "game_name": game_name,
@@ -470,7 +432,6 @@ class KeyService:
         """Apply filters to query"""
         self.logger.info(f"🔧 Applying filters: {filters}")
 
-        # Game/Loader filters
         if filters.get("game_id"):
             self.logger.info(f"🎮 Filtering by game_id: {filters['game_id']}")
             query = query.filter_by(game_id=filters["game_id"])
@@ -480,12 +441,11 @@ class KeyService:
             )
             query = query.filter(Key.game_id.in_(filters["game_ids"]))
 
-        # Status filters
         if filters.get("status") and filters["status"] != "all":
             status = filters["status"]
             self.logger.info(f"📊 Filtering by status: {status}")
             if status == "active":
-                # Active keys: status=1 AND (no expiration OR not expired)
+
                 self.logger.info(
                     "✅ Applying active status filter: status=1 AND (expires_at IS NULL OR expires_at > now)"
                 )
@@ -505,14 +465,12 @@ class KeyService:
         else:
             self.logger.info("📊 No status filter applied (status='all' or not provided)")
 
-        # Activation status filters
         if filters.get("activation_status") and filters["activation_status"] != "all":
             if filters["activation_status"] == "activated":
                 query = query.filter(Key.activated_at.isnot(None))
             elif filters["activation_status"] == "not_activated":
                 query = query.filter(Key.activated_at.is_(None))
 
-        # Date filters
         if filters.get("date_from"):
             date_from = datetime.fromisoformat(filters["date_from"].replace("Z", "+00:00"))
             query = query.filter(Key.created_at >= date_from)
@@ -521,21 +479,18 @@ class KeyService:
             date_to = datetime.fromisoformat(filters["date_to"].replace("Z", "+00:00"))
             query = query.filter(Key.created_at <= date_to)
 
-        # Device usage filters
         if filters.get("device_usage") and filters["device_usage"] != "all":
             if filters["device_usage"] == "used":
                 query = query.filter(Key.devices != "")
             elif filters["device_usage"] == "unused":
                 query = query.filter(or_(Key.devices == "", Key.devices.is_(None)))
 
-        # Max devices filters
         if filters.get("max_devices") and filters["max_devices"] != "all":
             if filters["max_devices"] == "single":
                 query = query.filter(Key.max_devices == 1)
             elif filters["max_devices"] == "multiple":
                 query = query.filter(Key.max_devices > 1)
 
-        # Search filter - using PostgreSQL tsvector for efficient full-text search
         if filters.get("search"):
             query = fulltext_search_filter(query, filters["search"], "search_vector")
 
@@ -584,34 +539,33 @@ class KeyService:
                 if action == "pause":
                     old_status = key.status
                     key.status = 0
-                    # Update user key counters
+
                     from ...utils.key_counters import update_user_key_counters_on_status_change
                     update_user_key_counters_on_status_change(key.user_id, old_status, 0)
                     affected_count += 1
                 elif action == "resume":
                     old_status = key.status
                     key.status = 1
-                    # Update user key counters
+
                     from ...utils.key_counters import update_user_key_counters_on_status_change
                     update_user_key_counters_on_status_change(key.user_id, old_status, 1)
                     affected_count += 1
                 elif action == "delete":
-                    # Store key info before deletion for counter update
+
                     user_id = key.user_id
                     was_active = key.status == 1
-                    
+
                     db.session.delete(key)
-                    
-                    # Update user key counters
+
                     from ...utils.key_counters import decrement_user_key_counters
                     decrement_user_key_counters(user_id, was_active=was_active)
-                    
+
                     affected_count += 1
                 elif action == "reset":
                     key.devices = ""
                     key.activated_at = None
                     key.fingerprint = None
-                    # Delete associated device info
+
                     DeviceInfo.query.filter_by(key_id=key.id).delete()
                     affected_count += 1
                 elif action == "extend":
@@ -676,12 +630,11 @@ class KeyService:
             Tuple of (created_count, error_message, list of created keys)
         """
         try:
-            # Validate game access
+
             game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
             if not game:
                 return 0, "Game not found or access denied", None
 
-            # Determine generation type based on game's login_type
             is_access_code = game.login_type == "classic_login"
             item_type = "access codes" if is_access_code else "license keys"
 
@@ -699,7 +652,6 @@ class KeyService:
                         length=32, game=game, duration_hours=duration_hours, project_id=user.project_id
                     )
 
-                    # Get user role for metadata
                     user_roles = RBACManager.get_user_role_names(user)
                     created_by_role = (
                         user_roles[0] if user_roles else UserRoles.CLIENT.value
@@ -728,7 +680,6 @@ class KeyService:
                     db.session.add(key)
                     db.session.flush()
 
-                    # Update user key counters (key is active with status=1)
                     from ...utils.key_counters import increment_user_key_counters
                     increment_user_key_counters(user.id, is_active=True)
 
@@ -781,11 +732,9 @@ class KeyService:
             if not keys:
                 return 0, "No keys found matching filters"
 
-            # Limit bulk operations
             if len(keys) > self.max_bulk_operations:
                 return 0, f"Too many keys to delete. Maximum: {self.max_bulk_operations}"
 
-            # Collect affected user IDs for counter recalculation
             affected_user_ids = set()
             for key in keys:
                 if key.user_id:
@@ -793,13 +742,12 @@ class KeyService:
                 db.session.delete(key)
 
             db.session.commit()
-            
-            # Recalculate key counters for affected users
+
             from ...utils.key_counters import update_user_key_counters
             for user_id in affected_user_ids:
                 update_user_key_counters(user_id, project_id=user.project_id)
             db.session.commit()
-            
+
             self.logger.info(f"Bulk deleted {len(keys)} keys by filters for user {user.id}")
             return len(keys), None
 
@@ -818,7 +766,6 @@ class KeyService:
             if not keys:
                 return 0, "No keys found matching filters"
 
-            # Limit bulk operations
             if len(keys) > self.max_bulk_operations:
                 return 0, f"Too many keys to reset. Maximum: {self.max_bulk_operations}"
 
@@ -829,7 +776,6 @@ class KeyService:
                 key.activated_at = None
                 key.fingerprint = None
 
-            # Delete associated device info
             DeviceInfo.query.filter(DeviceInfo.key_id.in_(key_ids)).delete()
 
             db.session.commit()
@@ -851,7 +797,6 @@ class KeyService:
             if not keys:
                 return 0, "No keys found matching filters"
 
-            # Limit bulk operations
             if len(keys) > self.max_bulk_operations:
                 return 0, f"Too many keys to extend. Maximum: {self.max_bulk_operations}"
 
@@ -876,16 +821,16 @@ class KeyService:
     ) -> Tuple[int, Optional[str], Optional[str]]:
         """
         Bulk pause keys by game
-        
+
         Args:
             user: User performing the operation
             game_id: Game ID
-            
+
         Returns:
             Tuple of (affected_count, error_message, game_name)
         """
         try:
-            # Validate game access
+
             game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
             if not game:
                 return 0, "Game not found or access denied", None
@@ -895,7 +840,6 @@ class KeyService:
             if not keys:
                 return 0, None, game.name
 
-            # Collect affected user IDs for counter recalculation
             affected_user_ids = set()
             for key in keys:
                 if key.user_id:
@@ -903,8 +847,7 @@ class KeyService:
                 key.status = 0
 
             db.session.commit()
-            
-            # Recalculate key counters for affected users
+
             from ...utils.key_counters import update_user_key_counters
             for user_id in affected_user_ids:
                 update_user_key_counters(user_id, project_id=user.project_id)
@@ -923,16 +866,16 @@ class KeyService:
     ) -> Tuple[int, Optional[str], Optional[str]]:
         """
         Bulk resume keys by game
-        
+
         Args:
             user: User performing the operation
             game_id: Game ID
-            
+
         Returns:
             Tuple of (affected_count, error_message, game_name)
         """
         try:
-            # Validate game access
+
             game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
             if not game:
                 return 0, "Game not found or access denied", None
@@ -942,7 +885,6 @@ class KeyService:
             if not keys:
                 return 0, None, game.name
 
-            # Collect affected user IDs for counter recalculation
             affected_user_ids = set()
             for key in keys:
                 if key.user_id:
@@ -950,8 +892,7 @@ class KeyService:
                 key.status = 1
 
             db.session.commit()
-            
-            # Recalculate key counters for affected users
+
             from ...utils.key_counters import update_user_key_counters
             for user_id in affected_user_ids:
                 update_user_key_counters(user_id, project_id=user.project_id)
@@ -970,16 +911,16 @@ class KeyService:
     ) -> Tuple[int, Optional[str], Optional[str]]:
         """
         Bulk reset keys by game
-        
+
         Args:
             user: User performing the operation
             game_id: Game ID
-            
+
         Returns:
             Tuple of (affected_count, error_message, game_name)
         """
         try:
-            # Validate game access
+
             game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
             if not game:
                 return 0, "Game not found or access denied", None
@@ -996,7 +937,6 @@ class KeyService:
                 key.fingerprint = None
                 key.activated_at = None
 
-            # Delete associated device info
             DeviceInfo.query.filter(DeviceInfo.key_id.in_(key_ids)).delete()
 
             db.session.commit()
@@ -1014,17 +954,17 @@ class KeyService:
     ) -> Tuple[int, Optional[str], Optional[str]]:
         """
         Bulk add hours to keys by game
-        
+
         Args:
             user: User performing the operation
             game_id: Game ID
             hours: Hours to add
-            
+
         Returns:
             Tuple of (affected_count, error_message, game_name)
         """
         try:
-            # Validate game access
+
             game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
             if not game:
                 return 0, "Game not found or access denied", None
@@ -1064,7 +1004,6 @@ class KeyService:
             expired_keys = query.filter(Key.expires_at <= datetime.utcnow()).count()
             inactive_keys = query.filter(Key.status == 0).count()
 
-            # Get keys by game
             keys_by_game = (
                 db.session.query(Game.name, func.count(Key.id).label("count"))
                 .join(Key, Game.id == Key.game_id)
@@ -1107,11 +1046,9 @@ class KeyService:
             if not keys:
                 return 0, "No unused loader keys found"
 
-            # Limit bulk operations
             if len(keys) > self.max_bulk_operations:
                 return 0, f"Too many keys to delete. Maximum: {self.max_bulk_operations}"
 
-            # Collect affected user IDs for counter recalculation
             affected_user_ids = set()
             for key in keys:
                 if key.user_id:
@@ -1119,13 +1056,12 @@ class KeyService:
                 db.session.delete(key)
 
             db.session.commit()
-            
-            # Recalculate key counters for affected users
+
             from ...utils.key_counters import update_user_key_counters
             for user_id in affected_user_ids:
                 update_user_key_counters(user_id, project_id=user.project_id)
             db.session.commit()
-            
+
             self.logger.info(f"Bulk deleted {len(keys)} unused loader keys for user {user.id}")
             return len(keys), None
 
@@ -1148,11 +1084,9 @@ class KeyService:
             if not keys:
                 return 0, "No expired loader keys found"
 
-            # Limit bulk operations
             if len(keys) > self.max_bulk_operations:
                 return 0, f"Too many keys to delete. Maximum: {self.max_bulk_operations}"
 
-            # Collect affected user IDs for counter recalculation
             affected_user_ids = set()
             for key in keys:
                 if key.user_id:
@@ -1160,13 +1094,12 @@ class KeyService:
                 db.session.delete(key)
 
             db.session.commit()
-            
-            # Recalculate key counters for affected users
+
             from ...utils.key_counters import update_user_key_counters
             for user_id in affected_user_ids:
                 update_user_key_counters(user_id, project_id=user.project_id)
             db.session.commit()
-            
+
             self.logger.info(f"Bulk deleted {len(keys)} expired loader keys for user {user.id}")
             return len(keys), None
 
@@ -1237,18 +1170,15 @@ class KeyService:
             if not key:
                 return False, "Key not found or access denied"
 
-            # Store key info before deletion for counter update
             user_id = key.user_id
             project_id = key.project_id
             was_active = key.status == 1
 
             db.session.delete(key)
 
-            # Update user key counters
             from ...utils.key_counters import decrement_user_key_counters
             decrement_user_key_counters(user_id, was_active=was_active)
 
-            # Update project key counters
             if project_id:
                 from ...utils.project_counters import decrement_project_key_counters
                 decrement_project_key_counters(project_id, was_active=was_active)
@@ -1308,13 +1238,11 @@ class KeyService:
                 return False, "Key not found or access denied"
 
             old_status = key.status
-            key.status = 0  # INACTIVE/PAUSED status (consistent with bulk_pause_keys)
+            key.status = 0
 
-            # Update user key counters
             from ...utils.key_counters import update_user_key_counters_on_status_change
             update_user_key_counters_on_status_change(key.user_id, old_status, 0)
 
-            # Update project key counters
             if key.project_id:
                 from ...utils.project_counters import update_project_key_counters_on_status_change
                 update_project_key_counters_on_status_change(key.project_id, old_status, 0)
@@ -1344,13 +1272,11 @@ class KeyService:
                 return False, "Key not found or access denied"
 
             old_status = key.status
-            key.status = 1  # ACTIVE status
+            key.status = 1
 
-            # Update user key counters
             from ...utils.key_counters import update_user_key_counters_on_status_change
             update_user_key_counters_on_status_change(key.user_id, old_status, 1)
 
-            # Update project key counters
             if key.project_id:
                 from ...utils.project_counters import update_project_key_counters_on_status_change
                 update_project_key_counters_on_status_change(key.project_id, old_status, 1)
@@ -1380,13 +1306,11 @@ class KeyService:
                 return False, "Key not found or access denied"
 
             old_status = key.status
-            key.status = 2  # BLOCKED status
+            key.status = 2
 
-            # Update user key counters
             from ...utils.key_counters import update_user_key_counters_on_status_change
             update_user_key_counters_on_status_change(key.user_id, old_status, 2)
 
-            # Update project key counters
             if key.project_id:
                 from ...utils.project_counters import update_project_key_counters_on_status_change
                 update_project_key_counters_on_status_change(key.project_id, old_status, 2)
@@ -1416,13 +1340,11 @@ class KeyService:
                 return False, "Key not found or access denied"
 
             old_status = key.status
-            key.status = 1  # ACTIVE status
+            key.status = 1
 
-            # Update user key counters
             from ...utils.key_counters import update_user_key_counters_on_status_change
             update_user_key_counters_on_status_change(key.user_id, old_status, 1)
 
-            # Update project key counters
             if key.project_id:
                 from ...utils.project_counters import update_project_key_counters_on_status_change
                 update_project_key_counters_on_status_change(key.project_id, old_status, 1)
@@ -1452,13 +1374,11 @@ class KeyService:
                 return False, "Key not found or access denied"
 
             old_status = key.status
-            key.status = 4  # ARCHIVED status
+            key.status = 4
 
-            # Update user key counters
             from ...utils.key_counters import update_user_key_counters_on_status_change
             update_user_key_counters_on_status_change(key.user_id, old_status, 4)
 
-            # Update project key counters
             if key.project_id:
                 from ...utils.project_counters import update_project_key_counters_on_status_change
                 update_project_key_counters_on_status_change(key.project_id, old_status, 4)
@@ -1488,13 +1408,11 @@ class KeyService:
                 return False, "Key not found or access denied"
 
             old_status = key.status
-            key.status = 1  # ACTIVE status
+            key.status = 1
 
-            # Update user key counters
             from ...utils.key_counters import update_user_key_counters_on_status_change
             update_user_key_counters_on_status_change(key.user_id, old_status, 1)
 
-            # Update project key counters
             if key.project_id:
                 from ...utils.project_counters import update_project_key_counters_on_status_change
                 update_project_key_counters_on_status_change(key.project_id, old_status, 1)
@@ -1564,12 +1482,10 @@ class KeyService:
             if not game:
                 return None, "Game not found"
 
-            # Generate new key string
             new_key_string = self.generate_key_string(
                 length=32, game=game, duration_hours=key.duration_hours, project_id=user.project_id
             )
 
-            # Create duplicate key
             duplicate_key = Key(
                 key=new_key_string,
                 user_id=key.user_id,
@@ -1585,12 +1501,10 @@ class KeyService:
             db.session.add(duplicate_key)
             db.session.flush()
 
-            # Update user key counters (if key is active)
             if duplicate_key.status == 1:
                 from ...utils.key_counters import increment_user_key_counters
                 increment_user_key_counters(duplicate_key.user_id, is_active=True)
 
-                # Update project key counters
                 if duplicate_key.project_id:
                     from ...utils.project_counters import increment_project_key_counters
                     increment_project_key_counters(duplicate_key.project_id, is_active=True)
@@ -1675,10 +1589,8 @@ class KeyService:
                 for device in devices
             ]
 
-            # SECURITY: Check if user can view full key
             can_view_full_key = RBACManager.is_owner(user) or RBACManager.is_admin(user)
 
-            # Regular users need keys.view permission
             if not can_view_full_key:
                 is_own_key = key.user_id == user.id
                 if is_own_key:
@@ -1686,7 +1598,6 @@ class KeyService:
                 else:
                     can_view_full_key = rbac_service.check_permission(user.id, "keys.view")
 
-            # Mask key if user doesn't have permission to view full key
             key_value = key.key if can_view_full_key else mask_license_key(key.key)
 
             key_data = {
@@ -1788,10 +1699,8 @@ class KeyService:
             if not key:
                 return None, "Key not found or access denied"
 
-            # SECURITY: Check if user can download full key
             can_download_full_key = RBACManager.is_owner(user) or RBACManager.is_admin(user)
 
-            # Regular users need keys.view permission
             if not can_download_full_key:
                 is_own_key = key.user_id == user.id
                 if is_own_key:
@@ -1799,7 +1708,6 @@ class KeyService:
                 else:
                     can_download_full_key = rbac_service.check_permission(user.id, "keys.view")
 
-            # Mask key if user doesn't have permission
             key_value = key.key if can_download_full_key else mask_license_key(key.key)
 
             game = (
@@ -1855,10 +1763,8 @@ class KeyService:
             if not key:
                 return None, "Key not found or access denied"
 
-            # SECURITY: Check if user can reveal full key
             can_reveal_key = RBACManager.is_owner(user) or RBACManager.is_admin(user)
 
-            # Regular users need keys.view permission
             if not can_reveal_key:
                 is_own_key = key.user_id == user.id
                 if is_own_key:
@@ -1867,7 +1773,7 @@ class KeyService:
                     can_reveal_key = rbac_service.check_permission(user.id, "keys.view")
 
             if not can_reveal_key:
-                # Log unauthorized attempt
+
                 self.logger.warning(
                     f"🚫 Unauthorized key reveal attempt: user_id={user.id}, key_id={key_id}, "
                     f"key_owner={key.user_id}, has_keys_view={rbac_service.check_permission(user.id, 'keys.view')}"
@@ -1878,7 +1784,6 @@ class KeyService:
                     "error": "Insufficient permissions to reveal key"
                 }, "Insufficient permissions to reveal key"
 
-            # Log successful reveal for audit purposes
             self.logger.info(
                 f"🔓 Key revealed: user_id={user.id}, key_id={key_id}, "
                 f"key_owner={key.user_id}, is_own_key={key.user_id == user.id}"
@@ -1894,6 +1799,4 @@ class KeyService:
             self.logger.error(f"Failed to reveal key: {str(e)}")
             return None, f"Failed to reveal key: {str(e)}"
 
-
-# Create service instance
 key_service = KeyService()

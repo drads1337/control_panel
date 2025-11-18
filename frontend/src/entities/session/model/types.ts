@@ -1,6 +1,5 @@
 import { BaseEntity, PaginatedResponse } from '@/shared/api'
 
-// Session types
 export interface Session {
   user_id: number
   username: string

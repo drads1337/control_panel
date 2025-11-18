@@ -54,14 +54,12 @@ export function useSignUpForm() {
       newErrors.username = 'Username must be at least 3 characters'
     }
 
-
     if (!formData.password) {
       newErrors.password = 'Password is required'
     } else if (formData.password.length < 8) {
       newErrors.password = 'Password must be at least 8 characters'
     }
 
-    // Project name is required only for project invite codes that need it
     if (inviteCodeInfo?.code_type === 'project_invite' && inviteCodeInfo.requires_project_name && !formData.projectName.trim()) {
       newErrors.projectName = 'Project name is required'
     }
@@ -72,13 +70,11 @@ export function useSignUpForm() {
 
   const handleInputChange = useCallback((field: keyof SignUpFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
-    
-    // Clear field-specific error when user starts typing
+
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: undefined }))
     }
 
-    // Clear general error when user makes changes
     if (error) {
       setError('')
     }
@@ -91,15 +87,14 @@ export function useSignUpForm() {
     }
 
     try {
-      // CSRF token and credentials are automatically handled by axios interceptors in base.ts
+
       const response = await api.post('/api/auth/validate_invite_code', {
         invite_code: code.trim()
       })
-      
+
       setInviteCodeInfo(response.data)
-      setError('') // Очищаем ошибку если код валиден
-      
-      // Clear project name if it's not needed
+      setError('')
+
       if (response.data.code_type === 'referral' || !response.data.requires_project_name) {
         setFormData(prev => ({ ...prev, projectName: '' }))
       }
@@ -111,31 +106,28 @@ export function useSignUpForm() {
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (isSubmitting.current || authIsLoading) {
       return
     }
-    
-    // Принудительно проверяем invite код перед отправкой
+
     if (formData.inviteCode.trim()) {
       await checkInviteCode(formData.inviteCode.trim())
     }
-    
+
     if (!validateForm()) {
       return
     }
 
-    // Проверяем, что invite код валиден
     if (!inviteCodeInfo) {
       setError('Please enter a valid invite code')
       return
     }
 
     isSubmitting.current = true
-    
+
     try {
-      // Используем registerWithInvite из auth context
-      // После успешной регистрации пользователь автоматически логинится
+
       await registerWithInvite(
         formData.username.trim(),
         formData.password,
@@ -145,7 +137,7 @@ export function useSignUpForm() {
           : undefined
       )
     } catch (err: any) {
-      // Ошибки обрабатываются в auth context, но можно показать дополнительную информацию
+
       setError(err.message || 'Registration failed')
     } finally {
       isSubmitting.current = false
@@ -157,10 +149,8 @@ export function useSignUpForm() {
     setError('')
   }, [])
 
-  // Используем ошибку из auth context или локальную ошибку
   const displayError = authError || error
 
-  // Мемоизируем возвращаемый объект
   const result = useMemo(() => ({
     formData,
     errors,

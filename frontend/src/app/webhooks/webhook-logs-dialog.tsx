@@ -39,7 +39,6 @@ export function WebhookLogsDialog({
   const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Load webhook logs when dialog opens
   useEffect(() => {
     if (open && webhook) {
       loadWebhookLogs();
@@ -48,7 +47,7 @@ export function WebhookLogsDialog({
 
   const loadWebhookLogs = async () => {
     if (!webhook) return;
-    
+
     setLoading(true);
     try {
       const logs = await webhookAPI.getWebhookLogs(webhook.id);

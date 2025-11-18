@@ -20,7 +20,6 @@ from ..models.core import User, UserActivity
 from ..models.keys import Key
 from ..services.activity import activity_service
 
-# Import services and utilities
 from ..services.users import user_service
 from ..middleware.auth import (
     require_project_assignment,
@@ -32,15 +31,12 @@ from ..config.config import Config
 
 profile_bp = Blueprint("profile", __name__)
 
-# Configuration from config.py
 UPLOAD_FOLDER = "uploads/avatars"
 ALLOWED_EXTENSIONS = Config.ALLOWED_AVATAR_EXTENSIONS
 MAX_SIZE = Config.MAX_AVATAR_DIMENSIONS
 
-
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
-
 
 def process_image(file_stream, crop_data=None):
     """Process and optimize uploaded image with security improvements"""
@@ -65,18 +61,15 @@ def process_image(file_stream, crop_data=None):
             except Exception as e:
                 logging.debug(f"Error during cropping: {str(e)}")
 
-        # Resize if needed
         width, height = image.size
         if width > MAX_SIZE[0] or height > MAX_SIZE[1]:
             ratio = min(MAX_SIZE[0] / width, MAX_SIZE[1] / height)
             new_size = (int(width * ratio), int(height * ratio))
             image = image.resize(new_size, Image.Resampling.LANCZOS)
 
-        # Create clean image to remove any embedded data
         new_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
         new_image.paste(image, (0, 0), image)
 
-        # Save as PNG to ensure clean format
         buffer = io.BytesIO()
         new_image.save(buffer, format="PNG", optimize=True)
         buffer.seek(0)
@@ -85,20 +78,18 @@ def process_image(file_stream, crop_data=None):
         logging.debug(f"Error processing image: {str(e)}")
         return None
 
-
 @profile_bp.route("/me", methods=["GET"])
 @jwt_required()
 @require_user
 @require_project_assignment
 def get_me(current_user=None):
     """Get current user profile with optimized queries"""
-    # Fallback to g for backward compatibility if not passed explicitly
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
     user = current_user
 
-    # Get key statistics with single query (fixes N+1)
     key_stats = (
         db.session.query(
             func.count(Key.id).label("total_keys"),
@@ -111,11 +102,9 @@ def get_me(current_user=None):
     keys_count = key_stats.total_keys if key_stats else 0
     active_keys = key_stats.active_keys if key_stats else 0
 
-    # Get user roles
     user_roles = RBACManager.get_user_role_names(user)
     primary_role = user_roles[0] if user_roles else "client"
 
-    # Get user permissions from RBAC system
     user_permissions = []
     try:
         from ..services.rbac import rbac_service
@@ -154,14 +143,13 @@ def get_me(current_user=None):
         }
     )
 
-
 @profile_bp.route("/update", methods=["PUT"])
 @jwt_required()
 @require_user
 @require_project_assignment
 def update_profile(current_user=None):
     """Update user profile information"""
-    # Fallback to g for backward compatibility if not passed explicitly
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -176,7 +164,6 @@ def update_profile(current_user=None):
     if not success:
         return jsonify({"error": error}), 400
 
-    # Log activity
     activity_service.log_activity(
         user,
         "profile_update",
@@ -200,14 +187,13 @@ def update_profile(current_user=None):
         }
     )
 
-
 @profile_bp.route("/change_password", methods=["POST"])
 @jwt_required()
 @require_user
 @require_project_assignment
 def change_password(current_user=None):
     """Change user password with security validation"""
-    # Fallback to g for backward compatibility if not passed explicitly
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -223,7 +209,6 @@ def change_password(current_user=None):
     if not current_password or not new_password:
         return jsonify({"error": "Current password and new password are required"}), 400
 
-    # Get project security settings for password validation
     try:
         from .settings import get_or_create_project_settings
 
@@ -232,13 +217,12 @@ def change_password(current_user=None):
             min_length = settings.min_password_length
             complexity_required = settings.password_complexity_required
         else:
-            min_length = 6  # Default for owners
+            min_length = 6
             complexity_required = False
     except ImportError:
-        min_length = 6  # Fallback
+        min_length = 6
         complexity_required = False
 
-    # Validate password with project settings
     from ..utils.validators import AuthValidator
 
     is_valid, error_msg = AuthValidator.validate_password(
@@ -253,7 +237,6 @@ def change_password(current_user=None):
     if not success:
         return jsonify({"error": error}), 400
 
-    # Log activity
     activity_service.log_activity(
         user,
         "password_change",
@@ -265,14 +248,13 @@ def change_password(current_user=None):
 
     return jsonify({"message": "Password changed successfully"})
 
-
 @profile_bp.route("/avatar", methods=["POST"])
 @jwt_required()
 @require_user
 @require_project_assignment
 def upload_avatar(current_user=None):
     """Upload user avatar with enhanced security"""
-    # Fallback to g for backward compatibility if not passed explicitly
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -288,7 +270,6 @@ def upload_avatar(current_user=None):
     if not allowed_file(file.filename):
         return jsonify({"error": "Invalid file type"}), 400
 
-    # Check file size
     file.seek(0, 2)
     file_size = file.tell()
     file.seek(0)
@@ -304,34 +285,27 @@ def upload_avatar(current_user=None):
 
             crop_data = json.loads(crop_data)
 
-        # Process image to remove any potential security issues
         processed_image = process_image(file.stream, crop_data)
         if not processed_image:
             return jsonify({"error": "Failed to process image"}), 500
 
-        # Generate secure filename
         filename = f"{user.id}_{uuid.uuid4().hex}.png"
         filepath = os.path.join(UPLOAD_FOLDER, filename)
 
-        # Ensure directory exists
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
-        # Save processed image
         with open(filepath, "wb") as f:
             f.write(processed_image.getvalue())
 
-        # Update user avatar
         old_avatar = user.avatar
         user.avatar = filename
         db.session.commit()
 
-        # Delete old avatar if exists
         if old_avatar:
             old_filepath = os.path.join(UPLOAD_FOLDER, old_avatar)
             if os.path.exists(old_filepath):
                 os.remove(old_filepath)
 
-        # Log activity
         activity_service.log_activity(
             user,
             "avatar_upload",
@@ -347,14 +321,13 @@ def upload_avatar(current_user=None):
         logging.error(f"Avatar upload error: {str(e)}")
         return jsonify({"error": f"Failed to upload avatar: {str(e)}"}), 500
 
-
 @profile_bp.route("/avatar", methods=["DELETE"])
 @jwt_required()
 @require_user
 @require_project_assignment
 def remove_avatar(current_user=None):
     """Remove user avatar"""
-    # Fallback to g for backward compatibility if not passed explicitly
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -373,7 +346,6 @@ def remove_avatar(current_user=None):
 
     return jsonify({"message": "No avatar to remove"})
 
-
 @profile_bp.route("/stats", methods=["GET"])
 @jwt_required()
 @require_user
@@ -381,13 +353,12 @@ def remove_avatar(current_user=None):
 @require_project_isolation
 def get_my_stats(current_user=None):
     """Get current user statistics with optimized queries"""
-    # Fallback to g for backward compatibility if not passed explicitly
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
     user = current_user
 
-    # Get key statistics with single query (fixes N+1)
     key_stats = (
         db.session.query(
             func.count(Key.id).label("total_keys"),
@@ -400,7 +371,6 @@ def get_my_stats(current_user=None):
     total_keys = key_stats.total_keys if key_stats else 0
     active_keys = key_stats.active_keys if key_stats else 0
 
-    # Get other statistics with optimized queries
     active_users = (
         db.session.query(Key.fingerprint)
         .filter(Key.user_id == user.id, Key.fingerprint.isnot(None), Key.fingerprint != "")
@@ -452,7 +422,6 @@ def get_my_stats(current_user=None):
         }
     )
 
-
 @profile_bp.route("/activity", methods=["GET"])
 @jwt_required()
 @require_user
@@ -460,7 +429,7 @@ def get_my_stats(current_user=None):
 @require_project_isolation
 def get_user_activity(current_user=None):
     """Get user activity with pagination"""
-    # Fallback to g for backward compatibility if not passed explicitly
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -490,7 +459,6 @@ def get_user_activity(current_user=None):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch user activity: {str(e)}"}), 500
 
-
 @profile_bp.route("/activity/stats", methods=["GET"])
 @jwt_required()
 @require_user
@@ -498,7 +466,7 @@ def get_user_activity(current_user=None):
 @require_project_isolation
 def get_user_activity_stats(current_user=None):
     """Get user activity statistics"""
-    # Fallback to g for backward compatibility if not passed explicitly
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -563,7 +531,6 @@ def get_user_activity_stats(current_user=None):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch user activity stats: {str(e)}"}), 500
 
-
 @profile_bp.route("/activity/export", methods=["GET"])
 @jwt_required()
 @require_user
@@ -571,7 +538,7 @@ def get_user_activity_stats(current_user=None):
 @require_project_isolation
 def export_user_activity(current_user=None):
     """Export user activity to CSV"""
-    # Fallback to g for backward compatibility if not passed explicitly
+
     if current_user is None:
         from flask import g
         current_user = g.current_user

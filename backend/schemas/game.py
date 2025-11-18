@@ -8,7 +8,6 @@ from pydantic import BaseModel, Field, validator
 
 from .common import BaseSchema
 
-
 class GameCreateSchema(BaseSchema):
     """Game creation request schema"""
 
@@ -49,7 +48,6 @@ class GameCreateSchema(BaseSchema):
         if v not in allowed_login_types:
             raise ValueError(f"login_type must be one of: {', '.join(allowed_login_types)}")
         return v
-
 
 class GameUpdateSchema(BaseSchema):
     """Game update request schema"""
@@ -92,7 +90,6 @@ class GameUpdateSchema(BaseSchema):
             raise ValueError(f"login_type must be one of: {', '.join(allowed_login_types)}")
         return v
 
-
 class GameResponseSchema(BaseSchema):
     """Game response schema"""
 
@@ -113,7 +110,6 @@ class GameResponseSchema(BaseSchema):
     created_at: Optional[str] = Field(default=None, description="Creation timestamp")
     updated_at: Optional[str] = Field(default=None, description="Last update timestamp")
 
-
 class GameListResponseSchema(BaseSchema):
     """Game list response schema"""
 
@@ -122,7 +118,6 @@ class GameListResponseSchema(BaseSchema):
     page: int = Field(..., description="Current page")
     per_page: int = Field(..., description="Items per page")
     pages: int = Field(..., description="Total pages")
-
 
 class GameConfigUpdateSchema(BaseSchema):
     """Game configuration update request schema"""
@@ -134,7 +129,6 @@ class GameConfigUpdateSchema(BaseSchema):
         if not isinstance(v, dict):
             raise ValueError("Configuration must be a dictionary")
         return v
-
 
 class GameStatusUpdateSchema(BaseSchema):
     """Game status update request schema"""

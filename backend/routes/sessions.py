@@ -16,16 +16,12 @@ from ..utils.rbac_utils import RBACManager
 
 sessions_bp = Blueprint("sessions", __name__)
 
-
-
-
 def get_utc_now():
     """Get current UTC time - compatible with both old and new Python versions"""
     try:
         return datetime.now(timezone.utc)
     except:
         return datetime.utcnow()
-
 
 def get_users_with_roles(role_names, project_id=None):
     """Get users with specific roles using RBAC system"""
@@ -34,17 +30,15 @@ def get_users_with_roles(role_names, project_id=None):
         query = query.filter(Role.project_id == project_id)
     return query
 
-
 def get_user_ids_with_roles(role_names, project_id=None):
     """Get user IDs with specific roles using RBAC system"""
     query = db.session.query(User.id).join(UserRole).join(Role).filter(Role.name.in_(role_names))
     if project_id:
         query = query.filter(Role.project_id == project_id)
     elif project_id is None:
-        # Handle case where we want users without project
+
         query = query.filter(Role.project_id.is_(None))
     return [uid[0] for uid in query.all()]
-
 
 @sessions_bp.route("", methods=["GET"])
 @jwt_required()
@@ -59,7 +53,6 @@ def get_sessions():
         if not user:
             return jsonify({"error": "Access denied"}), 403
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -87,7 +80,7 @@ def get_sessions():
                     query = query.filter(User.id == user_filter)
             else:
                 if user.project_id:
-                    # Get users with seller/developer roles in the same project
+
                     role_user_ids = (
                         get_users_with_roles(["seller", "developer"], user.project_id)
                         .with_entities(User.id)
@@ -96,7 +89,7 @@ def get_sessions():
                     role_user_ids = [uid[0] for uid in role_user_ids]
                     query = query.filter(User.id.in_(role_user_ids))
                 else:
-                    # Get users with seller/developer roles without project
+
                     role_user_ids = (
                         get_users_with_roles(["seller", "developer"])
                         .filter(User.project_id.is_(None))
@@ -117,15 +110,11 @@ def get_sessions():
 
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
-        # Get last activities for all sessions in one query (fixes N+1)
-        # Extract user IDs from paginated results to avoid N+1 queries
         user_ids = [session.id for session in pagination.items]
         last_activities_dict = {}
-        
+
         if user_ids:
-            # Optimized query: Get the most recent activity per user using window function
-            # This approach is more efficient than N+1 queries and works well with large datasets
-            # The window function with ROW_NUMBER() ensures we get exactly one activity per user
+
             from sqlalchemy import desc
 
             activity_subquery = (
@@ -146,11 +135,8 @@ def get_sessions():
                 .subquery()
             )
 
-            # Execute single query to get all last activities at once
             last_activities = db.session.query(activity_subquery).filter(activity_subquery.c.rn == 1).all()
 
-            # Build dictionary for O(1) lookup during session processing
-            # This avoids any additional queries in the loop below
             for activity in last_activities:
                 last_activities_dict[activity.user_id] = {
                     "id": activity.id,
@@ -166,7 +152,7 @@ def get_sessions():
                 last_activity_data = last_activities_dict.get(session.id)
                 last_activity = None
                 if last_activity_data:
-                    # Create a simple object-like structure for compatibility
+
                     class ActivityObj:
                         def __init__(self, data):
                             self.id = data["id"]
@@ -233,7 +219,6 @@ def get_sessions():
         logging.debug(f"Error in get_sessions: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-
 def calculate_session_duration_new(last_login, last_activity):
     """Calculate session duration - new version"""
     try:
@@ -270,11 +255,9 @@ def calculate_session_duration_new(last_login, last_activity):
         logging.debug(f"Error calculating session duration: {e}")
         return "Unknown"
 
-
 def calculate_session_duration(last_login, last_activity):
     """Calculate session duration"""
     return calculate_session_duration_new(last_login, last_activity)
-
 
 @sessions_bp.route("/test-duration", methods=["GET"])
 def test_duration():
@@ -301,7 +284,6 @@ def test_duration():
 
     return jsonify({"test_results": results})
 
-
 @sessions_bp.route("/stats", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -315,8 +297,6 @@ def get_session_stats():
         if not user:
 
             return jsonify({"error": "User not found"}), 404
-
-        # Ensure user has project_id
 
         if not user.project_id:
 
@@ -485,7 +465,6 @@ def get_session_stats():
         logging.debug(f"Error in get_session_stats: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-
 @sessions_bp.route("/<int:user_id>/terminate", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -515,7 +494,7 @@ def terminate_session(user_id):
             else:
                 if current_user.project_id != target_user.project_id:
                     return jsonify({"error": "Access denied"}), 403
-                # Check if target user has roles that can be managed
+
                 target_user_roles = RBACManager.get_user_role_names(target_user)
                 if not any(role in ["seller", "developer"] for role in target_user_roles):
                     return jsonify({"error": "Access denied"}), 403
@@ -545,7 +524,6 @@ def terminate_session(user_id):
     except Exception as e:
         logging.debug(f"Error in terminate_session: {e}")
         return jsonify({"error": "Internal server error"}), 500
-
 
 @sessions_bp.route("/bulk/terminate", methods=["POST"])
 @jwt_required()
@@ -619,7 +597,6 @@ def bulk_terminate_sessions():
     except Exception as e:
         logging.debug(f"Error in bulk_terminate_sessions: {e}")
         return jsonify({"error": "Internal server error"}), 500
-
 
 @sessions_bp.route("/<int:user_id>/details", methods=["GET"])
 @jwt_required()
@@ -729,7 +706,6 @@ def get_session_details(user_id):
         logging.debug(f"Error in get_session_details: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-
 @sessions_bp.route("/realtime", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -743,8 +719,6 @@ def get_realtime_sessions():
         if not user:
 
             return jsonify({"error": "User not found"}), 404
-
-        # Ensure user has project_id
 
         if not user.project_id:
 
@@ -823,7 +797,6 @@ def get_realtime_sessions():
         logging.debug(f"Error in get_realtime_sessions: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-
 @sessions_bp.route("/terminate/<int:user_id>", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -837,11 +810,9 @@ def terminate_user_session(user_id):
         if not current_user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not current_user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        # Check permissions
         from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
 
@@ -853,21 +824,17 @@ def terminate_user_session(user_id):
         if not can_view_all:
             return jsonify({"error": "Insufficient permissions"}), 403
 
-        # Check if target user belongs to the same project
         target_user = User.query.get(user_id)
         if not target_user or target_user.project_id != current_user.project_id:
             return jsonify({"error": "User not found"}), 404
 
-        # Use session service to terminate sessions
         terminated_count = session_service.terminate_user_sessions(
             user_id=user_id, reason="admin_termination", exclude_session=None
         )
 
-        # Update user's last_login to force logout
         target_user.last_login = None
         db.session.commit()
 
-        # Log the action
         activity_service.log_activity(
             user=current_user,
             action="session_terminated",
@@ -885,7 +852,6 @@ def terminate_user_session(user_id):
         logging.error(f"Error terminating session: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-
 @sessions_bp.route("/terminate-multiple", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -899,11 +865,9 @@ def terminate_multiple_sessions():
         if not current_user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not current_user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        # Check permissions
         from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
 
@@ -928,7 +892,7 @@ def terminate_multiple_sessions():
 
         for user_id in user_ids:
             try:
-                # Check if target user belongs to the same project
+
                 target_user = User.query.get(user_id)
                 if not target_user or target_user.project_id != current_user.project_id:
                     results.append(
@@ -940,12 +904,10 @@ def terminate_multiple_sessions():
                     )
                     continue
 
-                # Terminate sessions
                 count = session_service.terminate_user_sessions(
                     user_id=user_id, reason="bulk_termination", exclude_session=None
                 )
 
-                # Update user's last_login to force logout
                 target_user.last_login = None
 
                 terminated_count += count
@@ -963,7 +925,6 @@ def terminate_multiple_sessions():
 
         db.session.commit()
 
-        # Log the action
         activity_service.log_activity(
             user=current_user,
             action="sessions_terminated_bulk",
@@ -982,7 +943,6 @@ def terminate_multiple_sessions():
         logging.error(f"Error in bulk session termination: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-
 @sessions_bp.route("/suspicious-activity/<int:user_id>", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -996,11 +956,9 @@ def get_suspicious_activity(user_id):
         if not current_user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not current_user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        # Check permissions
         from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
 
@@ -1012,12 +970,10 @@ def get_suspicious_activity(user_id):
         if not can_view_all:
             return jsonify({"error": "Insufficient permissions"}), 403
 
-        # Check if target user belongs to the same project
         target_user = User.query.get(user_id)
         if not target_user or target_user.project_id != current_user.project_id:
             return jsonify({"error": "User not found"}), 404
 
-        # Get suspicious activities
         suspicious_activities = session_service.detect_suspicious_activity(
             user_id=user_id,
             ip_address=request.remote_addr or "unknown",
@@ -1037,7 +993,6 @@ def get_suspicious_activity(user_id):
         logging.error(f"Error getting suspicious activity: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-
 @sessions_bp.route("/enhanced-stats", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -1051,11 +1006,9 @@ def get_enhanced_session_stats():
         if not current_user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not current_user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        # Get enhanced statistics
         stats = session_service.get_session_statistics(project_id=current_user.project_id)
 
         return jsonify({"success": True, "statistics": stats})

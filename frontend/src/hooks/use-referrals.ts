@@ -3,7 +3,6 @@ import { enhancedApi as api } from '@/shared/api/enhanced-client'
 import { useAuthContext } from '@/contexts/auth-context'
 import { toast } from 'sonner'
 
-// Types
 export interface ReferralCode {
   id: number
   code: string
@@ -28,15 +27,11 @@ export interface CreateReferralCodeData {
   token_balance?: number
 }
 
-// Cache keys
 export const referralKeys = {
   all: ['referrals'] as const,
   codes: () => [...referralKeys.all, 'codes'] as const,
 }
 
-/**
- * Hook for fetching referral codes
- */
 export function useReferralCodes() {
   const { isAuthenticated } = useAuthContext()
 
@@ -47,18 +42,18 @@ export function useReferralCodes() {
       return Array.isArray(response.data) ? response.data : []
     },
     enabled: isAuthenticated,
-    staleTime: 1 * 60 * 1000, // 1 minute
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 1 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
     retry: (failureCount, error: any) => {
-      // Don't retry on auth errors
+
       if (error?.response?.status === 401 || error?.response?.status === 403) {
         return false
       }
-      // Don't retry on rate limit errors
+
       if (error?.response?.status === 429) {
         return false
       }
-      // Retry up to 2 times for other errors
+
       return failureCount < 2
     },
     refetchOnWindowFocus: false,
@@ -66,9 +61,6 @@ export function useReferralCodes() {
   })
 }
 
-/**
- * Hook for creating a referral code
- */
 export function useCreateReferralCode() {
   const queryClient = useQueryClient()
 
@@ -85,7 +77,7 @@ export function useCreateReferralCode() {
       return response.data
     },
     onSuccess: () => {
-      // Invalidate and refetch referral codes
+
       queryClient.invalidateQueries({ queryKey: referralKeys.codes() })
       toast.success('Referral code created successfully')
     },
@@ -96,25 +88,19 @@ export function useCreateReferralCode() {
   })
 }
 
-/**
- * Combined hook for referral code operations
- */
 export function useReferrals() {
   const codesQuery = useReferralCodes()
   const createCodeMutation = useCreateReferralCode()
 
   return {
-    // Query data
+
     codes: codesQuery.data || [],
     isLoading: codesQuery.isLoading,
     error: codesQuery.error,
-    
-    // Mutations
+
     createCode: createCodeMutation.mutateAsync,
     isCreating: createCodeMutation.isPending,
-    
-    // Refetch function
+
     refetch: codesQuery.refetch,
   }
 }
-

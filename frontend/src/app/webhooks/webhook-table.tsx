@@ -49,9 +49,9 @@ export function WebhookTable({
   onCopyToClipboard
 }: WebhookTableProps) {
   const { hasPermission } = usePermissions();
-  
+
   const canEdit = hasPermission('webhooks.edit');
-  const canToggle = canEdit; // Edit permission needed to toggle status
+  const canToggle = canEdit;
   if (webhooks.length === 0) {
     return (
       <div className="bg-muted/30 border border-dashed border-border rounded-lg p-6 text-center">

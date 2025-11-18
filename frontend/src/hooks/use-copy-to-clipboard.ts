@@ -1,5 +1,4 @@
 import * as React from "react"
-
 export function useCopyToClipboard({
   timeout = 2000,
   onCopy,
@@ -8,21 +7,16 @@ export function useCopyToClipboard({
   onCopy?: () => void
 } = {}) {
   const [isCopied, setIsCopied] = React.useState(false)
-
   const copyToClipboard = (value: string) => {
     if (typeof window === "undefined" || !navigator.clipboard.writeText) {
       return
     }
-
     if (!value) return
-
     navigator.clipboard.writeText(value).then(() => {
       setIsCopied(true)
-
       if (onCopy) {
         onCopy()
       }
-
       if (timeout !== 0) {
         setTimeout(() => {
           setIsCopied(false)
@@ -30,6 +24,5 @@ export function useCopyToClipboard({
       }
     }, console.error)
   }
-
   return { isCopied, copyToClipboard }
 } 

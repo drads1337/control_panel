@@ -66,4 +66,3 @@ export const BulkActionsPanel: React.FC<BulkActionsPanelProps> = ({
     </div>
   );
 };
-

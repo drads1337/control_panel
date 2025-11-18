@@ -9,26 +9,23 @@ import PriceManager from '../PriceManager'
 import type { Game } from '@/entities/game'
 
 interface GameDatabaseDialogsProps {
-  // Dialog states
+
   showCreateDialog: boolean
   showEditDialog: boolean
   showUploadDialog: boolean
   showPricesDialog: boolean
   showNotificationsDialog: boolean
   showChangelogDialog: boolean
-  
-  // Selected game
+
   selectedGame: Game | null
-  
-  // Permissions
+
   canEditGames: boolean
   canCreateGames: boolean
   canUploadFiles: boolean
   canManagePrices: boolean
   canManageNotifications: boolean
   canManageChangelog: boolean
-  
-  // Handlers
+
   setShowCreateDialog: (open: boolean) => void
   setShowEditDialog: (open: boolean) => void
   setShowUploadDialog: (open: boolean) => void
@@ -66,7 +63,7 @@ export function GameDatabaseDialogs({
 }: GameDatabaseDialogsProps) {
   return (
     <>
-      {/* Prices Dialog */}
+      {}
       {canManagePrices && showPricesDialog && selectedGame && (
           <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200" onClick={closeAllDialogs}>
             <div className="bg-background p-6 rounded-lg shadow-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
@@ -85,7 +82,7 @@ export function GameDatabaseDialogs({
           </div>
         )}
 
-      {/* Notifications Dialog */}
+      {}
       <NotificationsDialog
         key="notifications-dialog"
         open={showNotificationsDialog && canManageNotifications}
@@ -97,7 +94,7 @@ export function GameDatabaseDialogs({
         game={canManageNotifications ? selectedGame : null}
       />
 
-      {/* Upload Dialog */}
+      {}
       {canUploadFiles && (
         <GameFileUploadDialog
           open={showUploadDialog}
@@ -107,7 +104,7 @@ export function GameDatabaseDialogs({
         />
       )}
 
-      {/* Edit Game Dialog */}
+      {}
       {canEditGames && (
         <EditGameDialog
           open={showEditDialog}
@@ -117,7 +114,7 @@ export function GameDatabaseDialogs({
         />
       )}
 
-      {/* Create Game Dialog */}
+      {}
       {canCreateGames && (
         <CreateGameDialog
           open={showCreateDialog}
@@ -126,7 +123,7 @@ export function GameDatabaseDialogs({
         />
       )}
 
-      {/* Changelog Management Dialog */}
+      {}
       <ChangelogManagementDialog
         key="changelog-dialog"
         open={showChangelogDialog && canManageChangelog}
@@ -140,4 +137,3 @@ export function GameDatabaseDialogs({
     </>
   )
 }
-

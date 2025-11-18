@@ -11,7 +11,6 @@ from ...core.extensions import db
 from ...models.core import User
 from ...models.rbac import AttributeRule, ResourceAttribute, UserAttribute
 
-
 class ABACService:
     """Service for managing ABAC (Attribute-Based Access Control) rules"""
 
@@ -29,19 +28,17 @@ class ABACService:
     ) -> Optional[bool]:
         """Check ABAC rules for permission"""
         try:
-            # Get user's project
+
             user = User.query.get(user_id)
             if not user or not user.project_id:
                 return None
 
-            # Parse permission to get resource and action
             if "." in permission:
                 resource, action = permission.split(".", 1)
             else:
                 resource = permission
                 action = "view"
 
-            # Get applicable ABAC rules
             rules = (
                 AttributeRule.query.filter_by(project_id=user.project_id, is_active=True)
                 .filter(
@@ -59,26 +56,22 @@ class ABACService:
                 .all()
             )
 
-            # Get user attributes
             user_attributes = self.get_user_attributes(user_id)
 
-            # Get resource attributes if resource_id is provided
             resource_attributes = {}
             if resource_type and resource_id:
                 resource_attributes = self.get_resource_attributes(
                     user.project_id, resource_type, resource_id
                 )
 
-            # Evaluate rules
             for rule in rules:
                 if self._evaluate_rule(rule, user_attributes, resource_attributes, context):
                     if rule.rule_type == "allow":
                         return True
                     elif rule.rule_type == "deny":
                         return False
-                    # 'condition' rules don't directly grant/deny, they modify context
 
-            return None  # No applicable rules found
+            return None
 
         except Exception as e:
             logging.error(
@@ -95,7 +88,6 @@ class ABACService:
             for attr in attributes:
                 value = attr.attribute_value
 
-                # Convert value based on type
                 if attr.attribute_type == "number":
                     try:
                         value = float(value)
@@ -132,7 +124,6 @@ class ABACService:
             for attr in attributes:
                 value = attr.attribute_value
 
-                # Convert value based on type
                 if attr.attribute_type == "number":
                     try:
                         value = float(value)
@@ -169,16 +160,14 @@ class ABACService:
         try:
             conditions = rule.get_conditions()
             if not conditions:
-                return True  # No conditions means rule always applies
+                return True
 
-            # Combine all attributes
             all_attributes = {}
             all_attributes.update(user_attributes)
             all_attributes.update(resource_attributes)
             if context:
                 all_attributes.update(context)
 
-            # Simple condition evaluation (can be extended for more complex logic)
             return self._evaluate_conditions(conditions, all_attributes)
 
         except Exception as e:
@@ -188,16 +177,15 @@ class ABACService:
     def _evaluate_conditions(self, conditions: Dict, attributes: Dict) -> bool:
         """Evaluate conditions dictionary against attributes"""
         try:
-            # Handle simple key-value conditions
+
             for key, expected_value in conditions.items():
                 if key not in attributes:
                     return False
 
                 actual_value = attributes[key]
 
-                # Handle different comparison types
                 if isinstance(expected_value, dict):
-                    # Complex condition with operator
+
                     operator = expected_value.get("operator", "equals")
                     value = expected_value.get("value")
 
@@ -220,7 +208,7 @@ class ABACService:
                         if actual_value not in value:
                             return False
                 else:
-                    # Simple equality check
+
                     if actual_value != expected_value:
                         return False
 
@@ -243,11 +231,10 @@ class ABACService:
     ) -> Dict:
         """Create a new ABAC attribute rule"""
         try:
-            # Validate rule type
+
             if rule_type not in ["allow", "deny", "condition"]:
                 raise ValueError("Rule type must be 'allow', 'deny', or 'condition'")
 
-            # Create rule
             rule = AttributeRule(
                 project_id=project_id,
                 name=name,
@@ -296,7 +283,7 @@ class ABACService:
     ) -> Dict:
         """Set a user attribute for ABAC"""
         try:
-            # Check if attribute already exists
+
             existing = UserAttribute.query.filter_by(
                 user_id=user_id, attribute_name=attribute_name
             ).first()
@@ -344,7 +331,7 @@ class ABACService:
     ) -> Dict:
         """Set a resource attribute for ABAC"""
         try:
-            # Check if attribute already exists
+
             existing = ResourceAttribute.query.filter_by(
                 project_id=project_id,
                 resource_type=resource_type,
@@ -390,7 +377,4 @@ class ABACService:
             )
             raise ValueError(f"Failed to set resource attribute: {str(e)}")
 
-
-# Global instance
 abac_service = ABACService()
-

@@ -100,4 +100,3 @@ export const LoaderSelector: React.FC<LoaderSelectorProps> = ({
     </div>
   );
 };
-

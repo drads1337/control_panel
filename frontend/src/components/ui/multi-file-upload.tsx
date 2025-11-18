@@ -13,18 +13,17 @@ import {
   Trash2
 } from 'lucide-react';
 
-// Reference to the global File constructor
 const GlobalFile = globalThis.File;
 
 export interface MultiFileUploadProps {
   onFilesUpload: (files: FileWithPreview[]) => Promise<void>;
   multiple?: boolean;
   accept?: string;
-  maxSize?: number; // in bytes
+  maxSize?: number;
   maxFiles?: number;
   disabled?: boolean;
   className?: string;
-  autoUpload?: boolean; // automatically upload files after selection
+  autoUpload?: boolean;
 }
 
 interface FileWithPreview {
@@ -40,7 +39,7 @@ const MultiFileUpload: React.FC<MultiFileUploadProps> = ({
   onFilesUpload,
   multiple = true,
   accept,
-  maxSize = 100 * 1024 * 1024, // 100MB default
+  maxSize = 100 * 1024 * 1024,
   maxFiles = 10,
   disabled = false,
   className,
@@ -51,89 +50,141 @@ const MultiFileUpload: React.FC<MultiFileUploadProps> = ({
   const [uploading, setUploading] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
   const validateFile = (file: File): string | null => {
     if (maxSize && file.size > maxSize) {
       return `File exceeds maximum size of ${formatFileSize(maxSize)}`;
     }
-    if (accept) {
-      const acceptedTypes = accept.split(',').map(t => t.trim());
+    if (accept && accept !== '*') {
+      const acceptedTypes = accept.split(',').map((t) => t.trim());
       const fileType = file.type || '';
       const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
-      
-      const isAccepted = acceptedTypes.some(type => {
+
+      const isAccepted = acceptedTypes.some((type) => {
         if (type.startsWith('.')) {
           return fileExtension === type;
         }
         if (type.endsWith('/*')) {
-          return fileType.startsWith(type.slice(0, -2));
+          const baseType = type.slice(0, -2);
+          return fileType.startsWith(`${baseType}/`);
         }
         return fileType === type;
       });
-      
+
       if (!isAccepted) {
-        return `Invalid file type. Accepted types: ${accept}`;
+        return `File type not accepted. Accepted types: ${accept}`;
       }
     }
     return null;
   };
 
-  const processFiles = React.useCallback((files: FileList | File[]) => {
-    const fileArray = Array.from(files);
-    const validFiles: FileWithPreview[] = [];
-    
-    fileArray.forEach(file => {
-      const error = validateFile(file);
-      if (error) {
-        // Here you might want to show a toast notification to the user
-        console.warn(`Skipping file ${file.name}: ${error}`);
-        return;
+  const handleUpload = React.useCallback(async (filesToUpload: FileWithPreview[]) => {
+    if (filesToUpload.length === 0 || uploading) return;
+
+    setUploading(true);
+
+    for (const fileWithPreview of filesToUpload) {
+      if (fileWithPreview.status !== 'pending') continue;
+
+      setSelectedFiles((prev) =>
+        prev.map((f) =>
+          f.id === fileWithPreview.id ? { ...f, status: 'uploading' as const, progress: 0 } : f
+        )
+      );
+
+      try {
+        await onFilesUpload([fileWithPreview]);
+
+        setSelectedFiles((prev) =>
+          prev.map((f) =>
+            f.id === fileWithPreview.id ? { ...f, status: 'success' as const, progress: 100 } : f
+          )
+        );
+      } catch (error) {
+        setSelectedFiles((prev) =>
+          prev.map((f) =>
+            f.id === fileWithPreview.id
+              ? {
+                  ...f,
+                  status: 'error' as const,
+                  error: error instanceof Error ? error.message : 'Upload failed'
+                }
+              : f
+          )
+        );
       }
-      
-      const fileWithPreview: FileWithPreview = {
-        file: file,
-        id: `${file.name}-${file.size}-${Date.now()}`,
-        status: 'pending',
-        progress: 0
-      };
-      
-      if (file.type.startsWith('image/')) {
-        fileWithPreview.preview = URL.createObjectURL(file);
-      }
-      
-      validFiles.push(fileWithPreview);
-    });
-    
-    setSelectedFiles(prev => {
-      const newFiles = [...prev, ...validFiles].slice(0, maxFiles);
-      // Clean up old object URLs to prevent memory leaks
-      prev.forEach(f => {
-        if (f.preview) URL.revokeObjectURL(f.preview);
-      });
-      return newFiles;
-    });
-    
-    if (autoUpload && validFiles.length > 0) {
-      handleUpload(validFiles);
     }
-  }, [maxFiles, maxSize, accept, autoUpload]);
+
+    setUploading(false);
+  }, [uploading, onFilesUpload]);
+
+  const processFiles = React.useCallback((files: FileList | File[]) => {
+    setSelectedFiles((prev) => {
+      const fileArray = Array.from(files);
+      const newFiles: FileWithPreview[] = [];
+
+      fileArray.forEach((file) => {
+        if (prev.length + newFiles.length >= maxFiles) {
+          return;
+        }
+
+        const error = validateFile(file);
+        if (error) {
+          return;
+        }
+
+        const fileWithPreview: FileWithPreview = {
+          file,
+          id: `${Date.now()}-${Math.random()}`,
+          status: 'pending',
+          preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined
+        };
+
+        newFiles.push(fileWithPreview);
+      });
+
+      if (newFiles.length > 0) {
+        const updated = [...prev, ...newFiles];
+        if (autoUpload) {
+          setTimeout(() => handleUpload(newFiles), 0);
+        }
+        return updated;
+      }
+
+      return prev;
+    });
+  }, [accept, maxSize, maxFiles, autoUpload, handleUpload]);
 
   const handleDragOver = React.useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    if (!disabled) setIsDragOver(true);
+    e.stopPropagation();
+    if (!disabled) {
+      setIsDragOver(true);
+    }
   }, [disabled]);
 
   const handleDragLeave = React.useCallback((e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsDragOver(false);
   }, []);
 
   const handleDrop = React.useCallback((e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsDragOver(false);
+
     if (disabled) return;
-    
+
     const files = e.dataTransfer.files;
-    if (files && files.length > 0) {
+    if (files.length > 0) {
       processFiles(files);
     }
   }, [disabled, processFiles]);
@@ -143,59 +194,31 @@ const MultiFileUpload: React.FC<MultiFileUploadProps> = ({
     if (files && files.length > 0) {
       processFiles(files);
     }
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    e.target.value = '';
   }, [processFiles]);
 
   const removeFile = React.useCallback((id: string) => {
-    setSelectedFiles(prev => {
-      const fileToRemove = prev.find(f => f.id === id);
+    setSelectedFiles((prev) => {
+      const updated = prev.filter((f) => f.id !== id);
+      const fileToRemove = prev.find((f) => f.id === id);
       if (fileToRemove?.preview) {
         URL.revokeObjectURL(fileToRemove.preview);
       }
-      return prev.filter(f => f.id !== id);
+      return updated;
     });
   }, []);
 
   const clearAllFiles = React.useCallback(() => {
-    selectedFiles.forEach(f => {
-      if (f.preview) URL.revokeObjectURL(f.preview);
+    selectedFiles.forEach((file) => {
+      if (file.preview) {
+        URL.revokeObjectURL(file.preview);
+      }
     });
     setSelectedFiles([]);
   }, [selectedFiles]);
 
-  const handleUpload = React.useCallback(async (filesToUpload: FileWithPreview[]) => {
-    if (filesToUpload.length === 0) return;
-    
-    setUploading(true);
-
-    const uploadPromises = filesToUpload.map(async (file) => {
-      try {
-        setSelectedFiles(prev => prev.map(f => f.id === file.id ? { ...f, status: 'uploading' } : f));
-        await onFilesUpload([file]);
-        setSelectedFiles(prev => prev.map(f => f.id === file.id ? { ...f, status: 'success', progress: 100 } : f));
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Upload failed';
-        setSelectedFiles(prev => prev.map(f => f.id === file.id ? { ...f, status: 'error', error: errorMessage } : f));
-      }
-    });
-
-    await Promise.all(uploadPromises);
-    setUploading(false);
-  }, [onFilesUpload]);
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
   return (
-    <div className={cn("w-full space-y-4", className)}>
-      {/* Upload Zone */}
+    <div className={cn("w-full", className)}>
       <div 
         className={cn(
           "border-2 border-dashed rounded-lg p-8 text-center transition-colors",
@@ -229,7 +252,6 @@ const MultiFileUpload: React.FC<MultiFileUploadProps> = ({
         </Button>
       </div>
 
-      {/* Minimalist File List */}
       {selectedFiles.length > 0 && (
         <div className="space-y-3">
           <div className="flex justify-between items-center">
@@ -266,7 +288,7 @@ const MultiFileUpload: React.FC<MultiFileUploadProps> = ({
                         </div>
                       )}
                     </div>
-                    
+
                     <div className="flex-1 min-w-0">
                       <p className="truncate font-medium">{file.file.name}</p>
                       <p className="text-xs text-muted-foreground">
@@ -275,7 +297,7 @@ const MultiFileUpload: React.FC<MultiFileUploadProps> = ({
                       </p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     {file.status === 'success' && (
                       <CheckCircle className="w-5 h-5 text-green-500" />
@@ -286,7 +308,7 @@ const MultiFileUpload: React.FC<MultiFileUploadProps> = ({
                     {file.status === 'uploading' && (
                       <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                     )}
-                    
+
                     <Button
                       type="button"
                       variant="ghost"
@@ -302,7 +324,7 @@ const MultiFileUpload: React.FC<MultiFileUploadProps> = ({
               ))}
             </CardContent>
           </Card>
-          
+
           {!autoUpload && (
             <div className="flex justify-end gap-2 pt-2">
               <Button

@@ -16,7 +16,6 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const { isAuthenticated, isLoading, isInitialized } = useAuthContext()
   const { expirationStatus, handlePaymentClick } = useProjectExpiration()
 
-  // Show loading while authentication is initializing
   if (!isInitialized || isLoading) {
     return (
       <Spinner
@@ -28,12 +27,10 @@ export function AuthGuard({ children }: AuthGuardProps) {
     )
   }
 
-  // Show deleted project screen if project is deleted - BLOCK ALL ACCESS
   if (expirationStatus?.isDeleted) {
     return <ProjectDeletedScreen projectName={expirationStatus.projectName} />
   }
 
-  // Show payment required screen if project is expired - BLOCK ALL ACCESS TO SITE
   if (expirationStatus?.requiresPayment) {
     return (
       <PaymentRequiredScreen
@@ -44,7 +41,6 @@ export function AuthGuard({ children }: AuthGuardProps) {
     )
   }
 
-  // Show guest layout if not authenticated
   if (!isAuthenticated) {
     return <GuestLayout />
   }

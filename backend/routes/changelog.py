@@ -17,11 +17,6 @@ from ..utils.rbac_utils import RBACManager
 
 changelog_bp = Blueprint("changelog", __name__)
 
-# Removed unsafe validate_custom_token function
-# This function was vulnerable to DoS attacks and used insecure token generation
-# Use standard JWT authentication or API keys instead
-
-
 @changelog_bp.route("/games/<game_name>/changelog", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -37,12 +32,11 @@ def get_game_changelog_by_name(game_name):
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    # Ensure user has project_id
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
     try:
-        # SECURITY: Validate that game belongs to user's project
+
         game = Game.query.filter_by(name=game_name, project_id=user.project_id).first()
         if not game:
             return jsonify({"error": f'Game "{game_name}" not found'}), 404
@@ -82,7 +76,6 @@ def get_game_changelog_by_name(game_name):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch changelog: {str(e)}"}), 500
 
-
 @changelog_bp.route("/games/<int:game_id>/changelog", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -94,7 +87,6 @@ def get_game_changelog(game_id):
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    # Ensure user has project_id
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -141,7 +133,6 @@ def get_game_changelog(game_id):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch changelog: {str(e)}"}), 500
 
-
 @changelog_bp.route("/games/<int:game_id>/changelog", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -153,7 +144,6 @@ def create_changelog_entry(game_id):
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    # Ensure user has project_id
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -162,7 +152,6 @@ def create_changelog_entry(game_id):
 
     from ..services.rbac import rbac_service
 
-    # Changelog management requires applications.manage_changelog permission
     can_manage_changelog = rbac_service.check_permission(
         user.id, "applications.manage_changelog"
     ) or rbac_service.check_permission(user.id, "loaders.manage_changelog")
@@ -213,7 +202,6 @@ def create_changelog_entry(game_id):
 
         db.session.commit()
 
-        # Use safe logging without exposing sensitive data
         activity_service.log_activity(
             user,
             "create_changelog_entry",
@@ -244,7 +232,6 @@ def create_changelog_entry(game_id):
         db.session.rollback()
         return jsonify({"error": f"Failed to create changelog entry: {str(e)}"}), 500
 
-
 @changelog_bp.route("/changelog/<int:entry_id>", methods=["PUT"])
 @jwt_required()
 @require_project_with_grace_period
@@ -256,7 +243,6 @@ def update_changelog_entry(entry_id):
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    # Ensure user has project_id
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -265,7 +251,6 @@ def update_changelog_entry(entry_id):
 
     from ..services.rbac import rbac_service
 
-    # Changelog management requires applications.manage_changelog permission
     can_manage_changelog = rbac_service.check_permission(
         user.id, "applications.manage_changelog"
     ) or rbac_service.check_permission(user.id, "loaders.manage_changelog")
@@ -291,7 +276,6 @@ def update_changelog_entry(entry_id):
 
         db.session.commit()
 
-        # Use safe logging without exposing sensitive data
         activity_service.log_activity(
             user,
             "update_changelog_entry",
@@ -319,7 +303,6 @@ def update_changelog_entry(entry_id):
         db.session.rollback()
         return jsonify({"error": f"Failed to update changelog entry: {str(e)}"}), 500
 
-
 @changelog_bp.route("/changelog/<int:entry_id>", methods=["DELETE"])
 @jwt_required()
 @require_project_with_grace_period
@@ -331,7 +314,6 @@ def delete_changelog_entry(entry_id):
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    # Ensure user has project_id
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -340,7 +322,6 @@ def delete_changelog_entry(entry_id):
 
     from ..services.rbac import rbac_service
 
-    # Changelog management requires applications.manage_changelog permission
     can_manage_changelog = rbac_service.check_permission(
         user.id, "applications.manage_changelog"
     ) or rbac_service.check_permission(user.id, "loaders.manage_changelog")
@@ -359,7 +340,6 @@ def delete_changelog_entry(entry_id):
         db.session.delete(entry)
         db.session.commit()
 
-        # Use safe logging without exposing sensitive data
         activity_service.log_activity(
             user,
             "delete_changelog_entry",
@@ -373,7 +353,6 @@ def delete_changelog_entry(entry_id):
         db.session.rollback()
         return jsonify({"error": f"Failed to delete changelog entry: {str(e)}"}), 500
 
-
 @changelog_bp.route("/changelog/<int:entry_id>", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -385,7 +364,6 @@ def get_changelog_entry(entry_id):
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    # Ensure user has project_id
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -418,7 +396,6 @@ def get_changelog_entry(entry_id):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch changelog entry: {str(e)}"}), 500
 
-
 @changelog_bp.route("/games/<int:game_id>/changelog/latest", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -430,7 +407,6 @@ def get_latest_changelog(game_id):
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    # Ensure user has project_id
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -480,7 +456,6 @@ def get_latest_changelog(game_id):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch latest changelog: {str(e)}"}), 500
 
-
 @changelog_bp.route("/changelog/search", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -492,8 +467,6 @@ def search_changelog():
     if not user:
 
         return jsonify({"error": "User not found"}), 404
-
-    # Ensure user has project_id
 
     if not user.project_id:
 
@@ -513,12 +486,11 @@ def search_changelog():
             search_query = search_query.filter_by(game_id=game_id)
 
         if version:
-            # Using PostgreSQL tsvector for efficient full-text search
+
             search_query = fulltext_search_filter(search_query, version, "search_vector")
 
         if query:
-            # Using PostgreSQL tsvector for efficient full-text search
-            # search_vector includes: version, title, description, changes
+
             search_query = fulltext_search_filter(search_query, query, "search_vector")
 
         page = request.args.get("page", 1, type=int)
@@ -559,7 +531,6 @@ def search_changelog():
     except Exception as e:
         return jsonify({"error": f"Failed to search changelog: {str(e)}"}), 500
 
-
 @changelog_bp.route("/loaders/<int:loader_id>/changelog", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -571,8 +542,6 @@ def get_loader_changelog(loader_id):
     if not user:
 
         return jsonify({"error": "User not found"}), 404
-
-    # Ensure user has project_id
 
     if not user.project_id:
 
@@ -623,7 +592,6 @@ def get_loader_changelog(loader_id):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch changelog: {str(e)}"}), 500
 
-
 @changelog_bp.route("/loaders/<int:loader_id>/changelog", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -636,8 +604,6 @@ def create_loader_changelog_entry(loader_id):
 
         return jsonify({"error": "User not found"}), 404
 
-    # Ensure user has project_id
-
     if not user.project_id:
 
         return jsonify({"error": "User must be assigned to a project"}), 403
@@ -647,7 +613,6 @@ def create_loader_changelog_entry(loader_id):
 
     from ..services.rbac import rbac_service
 
-    # Changelog management requires applications.manage_changelog permission
     can_manage_changelog = rbac_service.check_permission(
         user.id, "applications.manage_changelog"
     ) or rbac_service.check_permission(user.id, "loaders.manage_changelog")
@@ -703,7 +668,6 @@ def create_loader_changelog_entry(loader_id):
         loader.updated_at = datetime.utcnow()
         db.session.commit()
 
-        # Use safe logging without exposing sensitive data
         activity_service.log_activity(
             user,
             "loader_changelog_created",
@@ -727,7 +691,6 @@ def create_loader_changelog_entry(loader_id):
         db.session.rollback()
         return jsonify({"error": f"Failed to create changelog entry: {str(e)}"}), 500
 
-
 @changelog_bp.route("/loaders/<int:loader_id>/changelog/latest", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -739,8 +702,6 @@ def get_latest_loader_changelog(loader_id):
     if not user:
 
         return jsonify({"error": "User not found"}), 404
-
-    # Ensure user has project_id
 
     if not user.project_id:
 

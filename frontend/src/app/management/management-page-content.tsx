@@ -11,19 +11,18 @@ export function ManagementPageContent() {
 
   return (
     <div className="space-y-6">
-      {/* Loading indicator */}
+      {}
       {loadingStats && (
         <div className="flex items-center justify-center p-8">
           <Spinner message="Loading management data..." />
         </div>
       )}
 
-      {/* Stats Cards */}
+      {}
       <ManagementStatsCards stats={stats} loading={loadingStats} />
 
-      {/* Tabs Interface */}
+      {}
       <ManagementTabs availableTabs={availableTabs} />
     </div>
   )
 }
-

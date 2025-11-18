@@ -12,7 +12,6 @@ from flask import request
 from ...core.extensions import db
 from ...models import DeviceInfo, Key
 
-
 class DeviceManager:
     """Handles device registration and management"""
 
@@ -42,14 +41,13 @@ class DeviceManager:
         devices = key_obj.devices.split(",") if key_obj.devices else []
 
         if serial not in devices:
-            # New device - check if we can add it
+
             if len(devices) < key_obj.max_devices:
-                # Add device to key
+
                 devices.append(serial)
                 key_obj.devices = ",".join(devices)
                 db.session.commit()
 
-                # Create device info record
                 device_info = DeviceInfo(
                     key_id=key_obj.id,
                     device_id=device_id,
@@ -64,7 +62,6 @@ class DeviceManager:
                 db.session.add(device_info)
                 db.session.commit()
 
-                # Verify device was saved
                 saved_device = DeviceInfo.query.filter_by(key_id=key_obj.id, serial=serial).first()
                 if saved_device:
                     logging.info(
@@ -79,11 +76,11 @@ class DeviceManager:
             else:
                 return False, "Max devices reached"
         else:
-            # Existing device - update info
+
             self._update_existing_device(
                 key_obj.id, serial, device_id, device_model, device_brand, ip
             )
-            # Verify device exists in DeviceInfo
+
             existing_device = DeviceInfo.query.filter_by(key_id=key_obj.id, serial=serial).first()
             if existing_device:
                 logging.info(
@@ -93,7 +90,7 @@ class DeviceManager:
                 logging.warning(
                     f"DEVICE_ALREADY_REGISTERED_BUT_NOT_IN_DB ip={ip} user_key={key_obj.key} serial={serial} - device in key.devices but not in DeviceInfo table!"
                 )
-                # Try to create DeviceInfo record if it doesn't exist
+
                 device_info = DeviceInfo(
                     key_id=key_obj.id,
                     device_id=device_id,
@@ -139,11 +136,9 @@ class DeviceManager:
             existing_device.ip_address = ip
             existing_device.user_agent = request.headers.get("User-Agent", "")
 
-            # Update device ID if provided and different
             if device_id and existing_device.device_id != device_id:
                 existing_device.device_id = device_id
 
-            # Set connected_at if not set
             if existing_device.connected_at is None:
                 existing_device.connected_at = datetime.utcnow()
 
@@ -199,7 +194,7 @@ class DeviceManager:
             True if device was removed successfully
         """
         try:
-            # Remove from key's devices list
+
             key_obj = Key.query.get(key_id)
             if key_obj and key_obj.devices:
                 devices = key_obj.devices.split(",")
@@ -208,7 +203,6 @@ class DeviceManager:
                     key_obj.devices = ",".join(devices)
                     db.session.commit()
 
-            # Remove device info record
             device_info = DeviceInfo.query.filter_by(key_id=key_id, serial=serial).first()
             if device_info:
                 db.session.delete(device_info)
@@ -241,7 +235,7 @@ class DeviceManager:
             count = len(old_devices)
 
             for device in old_devices:
-                # Remove from key's devices list
+
                 key_obj = Key.query.get(device.key_id)
                 if key_obj and key_obj.devices:
                     devices = key_obj.devices.split(",")
@@ -249,7 +243,6 @@ class DeviceManager:
                         devices.remove(device.serial)
                         key_obj.devices = ",".join(devices)
 
-                # Delete device record
                 db.session.delete(device)
 
             db.session.commit()
@@ -274,7 +267,6 @@ class DeviceManager:
         try:
             from ...models import Key
 
-            # Get all keys for project
             keys = Key.query.filter_by(project_id=project_id).all()
             key_ids = [key.id for key in keys]
 
@@ -286,16 +278,13 @@ class DeviceManager:
                     "keys_with_devices": 0,
                 }
 
-            # Count total devices
             total_devices = DeviceInfo.query.filter(DeviceInfo.key_id.in_(key_ids)).count()
 
-            # Count active devices (seen in last 7 days)
             active_cutoff = datetime.utcnow() - timedelta(days=7)
             active_devices = DeviceInfo.query.filter(
                 DeviceInfo.key_id.in_(key_ids), DeviceInfo.last_seen >= active_cutoff
             ).count()
 
-            # Count keys with devices
             keys_with_devices = (
                 db.session.query(DeviceInfo.key_id)
                 .filter(DeviceInfo.key_id.in_(key_ids))

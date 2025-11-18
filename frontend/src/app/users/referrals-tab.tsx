@@ -7,15 +7,10 @@ import { useAuthContext } from '@/contexts/auth-context';
 import { Plus, RefreshCw, Key, Edit, Trash2 } from 'lucide-react';
 import { useReferralsTab } from '@/hooks/use-referrals-tab';
 
-/**
- * Referrals Tab Component
- * Follows SRP: Component only handles UI rendering, data logic is in useReferralsTab hook
- */
 const ReferralsTab: React.FC = () => {
   const { user } = useAuthContext();
   const isAdmin = user?.roles?.includes('owner') || user?.roles?.includes('admin') || user?.roles?.includes('moderator');
 
-  // Use hook for all data management and business logic
   const {
     referralCodeForm,
     isCreateReferralDialogOpen,
@@ -70,7 +65,7 @@ const ReferralsTab: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
-            {/* Referral Codes Section */}
+            {}
             <div className="space-y-4">
               {referralCodesLoading ? (
                 <Spinner message="Loading referral codes..." />
@@ -154,7 +149,7 @@ const ReferralsTab: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Create Referral Code Dialog */}
+      {}
       <CreateReferralDialog
         open={isCreateReferralDialogOpen}
         onOpenChange={setIsCreateReferralDialogOpen}
@@ -175,4 +170,3 @@ const ReferralsTab: React.FC = () => {
 };
 
 export default ReferralsTab;
-

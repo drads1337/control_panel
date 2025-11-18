@@ -20,11 +20,9 @@ logger = logging.getLogger(__name__)
 
 chat_bp = Blueprint("chat", __name__)
 
-# Load middleware decorators dynamically (consistent with other routes)
 import os as _os
 
 from ..middleware.auth import enforce_project_scope
-
 
 class TelegramBotManager:
 
@@ -46,9 +44,7 @@ class TelegramBotManager:
         emoji = role_emoji.get(sender_type, "❓")
         return f"{emoji} <b>{sender_name}</b>\n{message}"
 
-
 bot_manager = TelegramBotManager()
-
 
 @chat_bp.route("/messages", methods=["GET"])
 @jwt_required()
@@ -61,11 +57,9 @@ def get_messages(project_id=None):
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # project_id is passed explicitly by enforce_project_scope decorator
         if not project_id:
             return jsonify({"error": "User not associated with any project"}), 400
 
-        # Optional filters for channels
         game_id = request.args.get("game_id", type=int)
         loader_id = request.args.get("loader_id", type=int)
         group_id = request.args.get("group_id", type=int)
@@ -102,7 +96,6 @@ def get_messages(project_id=None):
         logger.error(f"Error getting messages: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-
 @chat_bp.route("/messages", methods=["POST"])
 @jwt_required()
 @enforce_project_scope
@@ -114,7 +107,6 @@ def send_message(project_id=None):
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # project_id is passed explicitly by enforce_project_scope decorator
         if not project_id:
             return jsonify({"error": "User not associated with any project"}), 400
 
@@ -139,7 +131,6 @@ def send_message(project_id=None):
             )
         )
 
-        # Enforce chat limits (project-level, overridden by per-game settings)
         settings = ProjectSettings.query.filter_by(project_id=project_id).first()
         game_settings = None
         if game_id:
@@ -167,7 +158,7 @@ def send_message(project_id=None):
                     jsonify({"error": f"Message too long (>{settings.chat_message_max_length})"}),
                     400,
                 )
-            # per-minute limit
+
             if per_min and per_min > 0:
                 since = datetime.utcnow() - timedelta(minutes=1)
                 recent_count = ChatMessage.query.filter(
@@ -175,7 +166,7 @@ def send_message(project_id=None):
                 ).count()
                 if recent_count >= per_min:
                     return jsonify({"error": "Rate limit exceeded (per minute)"}), 429
-            # daily limit
+
             if daily and daily > 0:
                 start_of_day = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
                 daily_count = ChatMessage.query.filter(
@@ -184,7 +175,6 @@ def send_message(project_id=None):
                 if daily_count >= daily:
                     return jsonify({"error": "Daily message limit reached"}), 429
 
-        # Validate context if provided
         if game_id:
             game = Game.query.filter_by(id=game_id, project_id=project_id).first()
             if not game:
@@ -214,7 +204,6 @@ def send_message(project_id=None):
 
         telegram_bot = TelegramBot.query.filter_by(project_id=project_id, is_active=True).first()
 
-        # Respect per-game platform toggles if provided
         game_settings = None
         if game_id:
             game_settings = GameChatSettings.query.filter_by(
@@ -255,7 +244,6 @@ def send_message(project_id=None):
             except Exception as e:
                 logger.error(f"Error sending to Telegram: {e}")
 
-        # Send to Discord webhooks if configured
         try:
             discord_hooks = DiscordWebhook.query.filter_by(
                 project_id=project_id, is_active=True
@@ -292,7 +280,6 @@ def send_message(project_id=None):
         logger.error(f"Error sending message: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-
 @chat_bp.route("/telegram-bot", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
@@ -304,7 +291,6 @@ def get_telegram_bot():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -337,7 +323,6 @@ def get_telegram_bot():
         logger.error(f"Error getting telegram bot: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-
 @chat_bp.route("/telegram-bot", methods=["POST"])
 @jwt_required()
 @enforce_project_scope
@@ -349,7 +334,6 @@ def configure_telegram_bot():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -421,7 +405,6 @@ def configure_telegram_bot():
         logger.error(f"Error configuring telegram bot: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-
 @chat_bp.route("/telegram-bot", methods=["DELETE"])
 @jwt_required()
 @enforce_project_scope
@@ -433,7 +416,6 @@ def delete_telegram_bot():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -462,7 +444,6 @@ def delete_telegram_bot():
         logger.error(f"Error deleting telegram bot: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-
 @chat_bp.route("/client-message", methods=["POST"])
 def send_client_message():
     try:
@@ -488,7 +469,6 @@ def send_client_message():
         if not key:
             return jsonify({"error": "Invalid or inactive key"}), 403
 
-        # Enforce chat limits (project-level)
         settings = ProjectSettings.query.filter_by(project_id=project.id).first()
         if settings:
             if (
@@ -517,7 +497,6 @@ def send_client_message():
                 if daily_count >= settings.chat_daily_message_limit:
                     return jsonify({"error": "Daily message limit reached"}), 429
 
-        # Validate optional context
         if game_id:
             game = Game.query.filter_by(id=game_id, project_id=project.id).first()
             if not game:
@@ -569,7 +548,6 @@ def send_client_message():
             except Exception as e:
                 logger.error(f"Error sending to Telegram: {e}")
 
-        # Send to Discord webhooks if configured
         try:
             discord_hooks = DiscordWebhook.query.filter_by(
                 project_id=project.id, is_active=True
@@ -595,8 +573,6 @@ def send_client_message():
         logger.error(f"Error sending client message: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-
-# Discord webhook configuration
 @chat_bp.route("/games/<int:game_id>/settings", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
@@ -605,11 +581,9 @@ def get_game_chat_settings(game_id: int):
         current_user_id = get_jwt_identity()
         user = User.query.get(current_user_id).first()
 
-        # Ensure user has project_id
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
             return jsonify({"error": "User not found"}), 404
@@ -619,7 +593,7 @@ def get_game_chat_settings(game_id: int):
             return jsonify({"error": "Game not found"}), 404
         s = GameChatSettings.query.filter_by(game_id=game_id, project_id=project_id).first()
         if not s:
-            # inherit defaults
+
             ps = ProjectSettings.query.filter_by(project_id=project_id).first()
             return jsonify(
                 {
@@ -650,7 +624,6 @@ def get_game_chat_settings(game_id: int):
         logger.error(f"Error getting game chat settings: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-
 @chat_bp.route("/games/<int:game_id>/settings", methods=["PUT"])
 @jwt_required()
 @enforce_project_scope
@@ -662,7 +635,6 @@ def update_game_chat_settings(game_id: int):
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -701,7 +673,6 @@ def update_game_chat_settings(game_id: int):
         db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
 
-
 @chat_bp.route("/settings", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
@@ -710,11 +681,9 @@ def get_chat_settings():
         current_user_id = get_jwt_identity()
         user = User.query.get(current_user_id).first()
 
-        # Ensure user has project_id
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
             return jsonify({"error": "User not found"}), 404
@@ -723,7 +692,7 @@ def get_chat_settings():
             return jsonify({"error": "User not associated with any project"}), 400
         settings = ProjectSettings.query.filter_by(project_id=project_id).first()
         if not settings:
-            # create defaults
+
             settings = ProjectSettings(project_id=project_id)
             db.session.add(settings)
             db.session.commit()
@@ -738,7 +707,6 @@ def get_chat_settings():
         logger.error(f"Error getting chat settings: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-
 @chat_bp.route("/settings", methods=["PUT"])
 @jwt_required()
 @enforce_project_scope
@@ -750,7 +718,6 @@ def update_chat_settings():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -783,7 +750,6 @@ def update_chat_settings():
         db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
 
-
 @chat_bp.route("/discord-webhooks", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
@@ -792,11 +758,9 @@ def list_discord_webhooks():
         current_user_id = get_jwt_identity()
         user = User.query.get(current_user_id).first()
 
-        # Ensure user has project_id
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
             return jsonify({"error": "User not found"}), 404
@@ -825,7 +789,6 @@ def list_discord_webhooks():
         logger.error(f"Error listing discord webhooks: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-
 @chat_bp.route("/discord-webhooks", methods=["POST"])
 @jwt_required()
 @enforce_project_scope
@@ -834,7 +797,6 @@ def add_discord_webhook():
         current_user_id = get_jwt_identity()
         user = User.query.get(current_user_id).first()
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
         if (
@@ -860,7 +822,6 @@ def add_discord_webhook():
         db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
 
-
 @chat_bp.route("/discord-webhooks/<int:hook_id>", methods=["PUT"])
 @jwt_required()
 @enforce_project_scope
@@ -869,7 +830,6 @@ def update_discord_webhook(hook_id: int):
         current_user_id = get_jwt_identity()
         user = User.query.get(current_user_id).first()
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
         if (
@@ -896,7 +856,6 @@ def update_discord_webhook(hook_id: int):
         db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
 
-
 @chat_bp.route("/discord-webhooks/<int:hook_id>", methods=["DELETE"])
 @jwt_required()
 @enforce_project_scope
@@ -905,7 +864,6 @@ def delete_discord_webhook(hook_id: int):
         current_user_id = get_jwt_identity()
         user = User.query.get(current_user_id).first()
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
         if (
@@ -928,8 +886,6 @@ def delete_discord_webhook(hook_id: int):
         db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
 
-
-# Chat Groups CRUD
 @chat_bp.route("/groups", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
@@ -938,11 +894,9 @@ def list_groups():
         current_user_id = get_jwt_identity()
         user = User.query.get(current_user_id).first()
 
-        # Ensure user has project_id
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
             return jsonify({"error": "User not found"}), 404
@@ -972,7 +926,6 @@ def list_groups():
         logger.error(f"Error listing groups: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-
 @chat_bp.route("/groups", methods=["POST"])
 @jwt_required()
 @enforce_project_scope
@@ -981,11 +934,9 @@ def create_group():
         current_user_id = get_jwt_identity()
         user = User.query.get(current_user_id).first()
 
-        # Ensure user has project_id
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
             return jsonify({"error": "User not found"}), 404
@@ -1003,9 +954,8 @@ def create_group():
         project_id = getattr(g, "project_id", user.project_id)
         group = ChatGroup(project_id=project_id, name=name, description=description)
         db.session.add(group)
-        db.session.flush()  # get group.id
+        db.session.flush()
 
-        # Attach games
         valid_games = (
             Game.query.filter(Game.id.in_(game_ids), Game.project_id == project_id).all()
             if game_ids
@@ -1032,7 +982,6 @@ def create_group():
         db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
 
-
 @chat_bp.route("/groups/<int:group_id>", methods=["PUT"])
 @jwt_required()
 @enforce_project_scope
@@ -1041,11 +990,9 @@ def update_group(group_id: int):
         current_user_id = get_jwt_identity()
         user = User.query.get(current_user_id).first()
 
-        # Ensure user has project_id
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
             return jsonify({"error": "User not found"}), 404
@@ -1064,7 +1011,7 @@ def update_group(group_id: int):
         if "is_active" in data:
             group.is_active = bool(data.get("is_active"))
         if "game_ids" in data:
-            # Reset links
+
             ChatGroupGame.query.filter_by(group_id=group.id).delete()
             game_ids = data.get("game_ids") or []
             valid_games = (
@@ -1084,7 +1031,6 @@ def update_group(group_id: int):
         db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
 
-
 @chat_bp.route("/groups/<int:group_id>", methods=["DELETE"])
 @jwt_required()
 @enforce_project_scope
@@ -1093,11 +1039,9 @@ def delete_group(group_id: int):
         current_user_id = get_jwt_identity()
         user = User.query.get(current_user_id).first()
 
-        # Ensure user has project_id
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Ensure user has project_id
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
             return jsonify({"error": "User not found"}), 404
@@ -1108,7 +1052,6 @@ def delete_group(group_id: int):
         if not group:
             return jsonify({"error": "Group not found"}), 404
 
-        # Cascade delete is set on ChatGroupGame via ondelete, but ensure cleanup
         ChatGroupGame.query.filter_by(group_id=group.id).delete()
         db.session.delete(group)
         db.session.commit()

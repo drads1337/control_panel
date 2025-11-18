@@ -107,15 +107,14 @@ const GameFileUploadDialog: React.FC<GameFileUploadDialogProps> = ({
       const stats = await getFileStats();
       setStorageInfo(stats.storage_info);
     } catch (error) {
-      console.error('Failed to load storage info:', error);
+
     }
   };
 
   if (!game || !canUploadFiles) return null;
 
   const handleFileSelect = (files: any[], type: 'logo' | 'banner' | 'file' | 'additional') => {
-    console.log(`FileSelect called with type: ${type}, files:`, files);
-    
+
     const newFiles: SelectedFile[] = files.map((fileWithPreview, index) => ({
       file: fileWithPreview.file,
       type,
@@ -124,7 +123,7 @@ const GameFileUploadDialog: React.FC<GameFileUploadDialogProps> = ({
     }));
 
     setSelectedFiles(prev => {
-      // Remove old files of this type and add the new ones
+
       const filtered = prev.filter(f => f.type !== type);
       return [...filtered, ...newFiles];
     });
@@ -148,39 +147,36 @@ const GameFileUploadDialog: React.FC<GameFileUploadDialogProps> = ({
       failed: 0,
       current: ''
     });
-    
+
     try {
-      // Separate files into main (logo, banner, file) and additional
+
       const mainFiles = selectedFiles.filter(f => f.type !== 'additional');
       const additionalFiles = selectedFiles.filter(f => f.type === 'additional');
 
       let completedCount = 0;
       let failedCount = 0;
 
-      // Upload main files
       if (mainFiles.length > 0) {
         const filesToUpload = mainFiles.map(f => ({
           file: f.file,
           type: f.type as 'logo' | 'banner' | 'file'
         }));
-        
-        // Update status to uploading
+
         setSelectedFiles(prev => prev.map(f => 
           mainFiles.some(mf => mf.id === f.id) ? { ...f, status: 'uploading' } : f
         ));
 
         try {
           await uploadGameFiles(game.id, filesToUpload);
-          
-          // Update status to success
+
           setSelectedFiles(prev => prev.map(f => 
             mainFiles.some(mf => mf.id === f.id) ? { ...f, status: 'success' } : f
           ));
-          
+
           completedCount += mainFiles.length;
           toast.success(`Uploaded ${mainFiles.length} main files`);
         } catch (error) {
-          // Update status to error
+
           setSelectedFiles(prev => prev.map(f => 
             mainFiles.some(mf => mf.id === f.id) ? { 
               ...f, 
@@ -192,11 +188,10 @@ const GameFileUploadDialog: React.FC<GameFileUploadDialogProps> = ({
         }
       }
 
-      // Upload additional files via uploadGameExtraFile
       if (additionalFiles.length > 0) {
         for (const additionalFile of additionalFiles) {
           try {
-            // Update status to uploading
+
             setSelectedFiles(prev => prev.map(f => 
               f.id === additionalFile.id ? { ...f, status: 'uploading' } : f
             ));
@@ -210,16 +205,13 @@ const GameFileUploadDialog: React.FC<GameFileUploadDialogProps> = ({
               fileSettings.description || `Additional file for the application ${game.name}`
             );
 
-            // Update status to success
             setSelectedFiles(prev => prev.map(f => 
               f.id === additionalFile.id ? { ...f, status: 'success' } : f
             ));
-            
+
             completedCount++;
           } catch (error) {
-            console.error(`Failed to upload additional file ${additionalFile.file.name}:`, error);
-            
-            // Update status to error
+
             setSelectedFiles(prev => prev.map(f => 
               f.id === additionalFile.id ? { 
                 ...f, 
@@ -230,13 +222,11 @@ const GameFileUploadDialog: React.FC<GameFileUploadDialogProps> = ({
             failedCount++;
           }
 
-          // Update progress
           const totalProcessed = completedCount + failedCount;
           setUploadProgress((totalProcessed / selectedFiles.length) * 100);
         }
       }
 
-      // Final stats update
       setUploadStats(prev => ({
         ...prev,
         completed: completedCount,
@@ -252,15 +242,14 @@ const GameFileUploadDialog: React.FC<GameFileUploadDialogProps> = ({
         toast.error('All uploads failed');
       }
 
-      // Clear selected files and close the dialog after a delay
       setTimeout(() => {
         setSelectedFiles([]);
         onOpenChange(false);
         onUploadComplete?.();
       }, 2000);
-      
+
     } catch (error) {
-      console.error('Upload error:', error);
+
       toast.error('Error uploading files');
     } finally {
       setUploading(false);
@@ -305,7 +294,7 @@ const GameFileUploadDialog: React.FC<GameFileUploadDialogProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Upload Settings */}
+        {}
         <Card className="mb-4">
           <CardContent className="pt-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
@@ -313,7 +302,7 @@ const GameFileUploadDialog: React.FC<GameFileUploadDialogProps> = ({
                 <Settings className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Settings:</span>
               </div>
-              
+
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
                 <Label htmlFor="category" className="text-xs whitespace-nowrap">Category</Label>
                 <Select
@@ -331,7 +320,7 @@ const GameFileUploadDialog: React.FC<GameFileUploadDialogProps> = ({
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
                 <Label htmlFor="version" className="text-xs whitespace-nowrap">Version</Label>
                 <Input
@@ -344,7 +333,7 @@ const GameFileUploadDialog: React.FC<GameFileUploadDialogProps> = ({
                   className="h-8 w-24"
                 />
               </div>
-              
+
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 flex-1 w-full sm:w-auto">
                 <Label htmlFor="description" className="text-xs whitespace-nowrap">Description</Label>
                 <Input
@@ -361,9 +350,9 @@ const GameFileUploadDialog: React.FC<GameFileUploadDialogProps> = ({
           </CardContent>
         </Card>
 
-        {/* Upload Sections */}
+        {}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Logo Upload */}
+          {}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -380,25 +369,9 @@ const GameFileUploadDialog: React.FC<GameFileUploadDialogProps> = ({
                 onFilesSelect={(files) => handleFileSelect(files, 'logo')}
                 multiple={false}
                 accept="image/*"
-                maxSize={storageInfo?.available_space || undefined}
-                maxFiles={1}
-                showPreview={true}
-                showProgress={false}
-                className="min-h-[140px]"
               />
-              {getSelectedFilesCount('logo') > 0 && (
-                <div className="flex items-center gap-2 text-green-600 bg-green-50 p-3 rounded-lg border border-green-200">
-                  <CheckCircle className="w-4 h-4" />
-                  <span className="font-medium">Logo file selected successfully!</span>
-                </div>
-              )}
-              <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded border-l-2 border-primary/20">
-                <span className="font-medium">Recommended:</span> 512x512+ PNG, max {storageInfo?.available_space_human || '50.0GB'}
-              </div>
             </CardContent>
           </Card>
-
-          {/* Banner Upload */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -415,25 +388,9 @@ const GameFileUploadDialog: React.FC<GameFileUploadDialogProps> = ({
                 onFilesSelect={(files) => handleFileSelect(files, 'banner')}
                 multiple={false}
                 accept="image/*"
-                maxSize={storageInfo?.available_space || undefined}
-                maxFiles={1}
-                showPreview={true}
-                showProgress={false}
-                className="min-h-[120px]"
               />
-              {getSelectedFilesCount('banner') > 0 && (
-                <div className="text-sm text-green-600 flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4" />
-                  Banner file selected
-                </div>
-              )}
-              <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded border-l-2 border-primary/20">
-                <span className="font-medium">Recommended:</span> 1920x1080 PNG/JPG, max {storageInfo?.available_space_human || '50.0GB'}
-              </div>
             </CardContent>
           </Card>
-
-          {/* Game File Upload */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -450,25 +407,9 @@ const GameFileUploadDialog: React.FC<GameFileUploadDialogProps> = ({
                 onFilesSelect={(files) => handleFileSelect(files, 'file')}
                 multiple={false}
                 accept="*/*"
-                maxSize={storageInfo?.available_space || undefined}
-                maxFiles={1}
-                showPreview={false}
-                showProgress={false}
-                className="min-h-[120px]"
               />
-              {getSelectedFilesCount('file') > 0 && (
-                <div className="text-sm text-green-600 flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4" />
-                  Application file selected
-                </div>
-              )}
-              <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded border-l-2 border-primary/20">
-                <span className="font-medium">Any file type,</span> max {storageInfo?.available_space_human || '50.0GB'}
-              </div>
             </CardContent>
           </Card>
-
-          {/* Additional Files Upload */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -488,25 +429,10 @@ const GameFileUploadDialog: React.FC<GameFileUploadDialogProps> = ({
                 }}
                 multiple={true}
                 accept="*/*"
-                maxSize={storageInfo?.available_space || undefined}
-                maxFiles={10}
-                className="min-h-[120px]"
-                autoUpload={false}
               />
-              {getSelectedFilesCount('additional') > 0 && (
-                <div className="text-sm text-green-600 flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4" />
-                  Additional files selected: {getSelectedFilesCount('additional')}
-                </div>
-              )}
-              <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded border-l-2 border-primary/20">
-                <span className="font-medium">Multi-upload:</span> Up to 10 files, max {storageInfo?.available_space_human || '50.0GB'} each
-              </div>
             </CardContent>
           </Card>
         </div>
-
-        {/* Selected Files List */}
         {selectedFiles.length > 0 && (
           <Card>
             <CardHeader>
@@ -553,7 +479,7 @@ const GameFileUploadDialog: React.FC<GameFileUploadDialogProps> = ({
           </Card>
         )}
 
-        {/* Storage Information */}
+        {}
         {storageInfo && (
           <Card>
             <CardHeader>
@@ -589,7 +515,7 @@ const GameFileUploadDialog: React.FC<GameFileUploadDialogProps> = ({
           </Card>
         )}
 
-        {/* Upload Progress */}
+        {}
         {uploading && (
           <Card>
             <CardHeader>

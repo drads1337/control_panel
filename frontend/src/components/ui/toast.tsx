@@ -1,14 +1,12 @@
 import React from 'react';
 import { X, CheckCircle, AlertTriangle, Info, AlertCircle } from 'lucide-react';
 import { cn } from '../../lib/utils';
-
 export interface ToastProps {
   id: string;
   type: 'success' | 'error' | 'warning' | 'info';
   message: string;
   onRemove: (id: string) => void;
 }
-
 const Toast: React.FC<ToastProps> = ({ id, type, message, onRemove }) => {
   const getIcon = () => {
     switch (type) {
@@ -24,7 +22,6 @@ const Toast: React.FC<ToastProps> = ({ id, type, message, onRemove }) => {
         return <Info className="h-5 w-5 text-blue-600" />;
     }
   };
-
   const getStyles = () => {
     switch (type) {
       case 'success':
@@ -39,7 +36,6 @@ const Toast: React.FC<ToastProps> = ({ id, type, message, onRemove }) => {
         return 'border-gray-200 bg-gray-50 text-gray-800';
     }
   };
-
   return (
     <div
       className={cn(
@@ -59,7 +55,6 @@ const Toast: React.FC<ToastProps> = ({ id, type, message, onRemove }) => {
     </div>
   );
 };
-
 export interface ToastContainerProps {
   toasts: Array<{
     id: string;
@@ -68,10 +63,8 @@ export interface ToastContainerProps {
   }>;
   onRemove: (id: string) => void;
 }
-
 export const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, onRemove }) => {
   if (toasts.length === 0) return null;
-
   return (
     <div className="fixed top-4 right-4 z-50 space-y-2">
       {toasts.map((toast) => (
@@ -86,5 +79,4 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, onRemove
     </div>
   );
 };
-
 export { Toast }; 

@@ -5,7 +5,6 @@ Contains business logic for notification management
 
 from .notification_service import NotificationService, notification_service
 
-# Auto-generate __all__ from imports
 import sys
 _current_module = sys.modules[__name__]
 __all__ = sorted([
@@ -13,4 +12,3 @@ __all__ = sorted([
     if not name.startswith('_') and name not in ('sys', '_current_module')
 ])
 del sys, _current_module
-

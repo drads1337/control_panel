@@ -84,4 +84,3 @@ export function ManagementStatsCards({ stats, loading }: ManagementStatsCardsPro
     </div>
   )
 }
-

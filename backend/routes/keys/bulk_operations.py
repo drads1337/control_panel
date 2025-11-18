@@ -15,7 +15,6 @@ from ...services.keys import key_service
 
 bulk_operations_bp = Blueprint("keys_bulk", __name__)
 
-
 @bulk_operations_bp.route("/bulk", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -27,7 +26,6 @@ def bulk_create_keys(current_user=None, project_id=None):
     logger = logging.getLogger(__name__)
     logger.info(f"🔑 Bulk create keys request - Origin: {request.headers.get('Origin')}")
 
-    # Use explicit current_user from decorator
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -54,22 +52,18 @@ def bulk_create_keys(current_user=None, project_id=None):
     if duration_hours <= 0:
         return jsonify({"error": "Duration must be greater than 0"}), 400
 
-    # Validate game access using service
     from ...services.games import game_service
     game, error = game_service.get_game(current_user, game_id)
     if error or not game:
         return jsonify({"error": "Game not found or access denied"}), 404
 
-    # Determine generation type based on game's login_type
     is_access_code = game.login_type == "classic_login"
     item_type = "access codes" if is_access_code else "license keys"
 
-    # For small operations (<= 10 keys), execute synchronously for immediate response
-    # For larger operations, use async task to prevent blocking
     ASYNC_THRESHOLD = 10
 
     if count <= ASYNC_THRESHOLD:
-        # Synchronous execution using service
+
         created_count, error_message, created_keys = key_service.bulk_create_keys(
             user=current_user,
             count=count,
@@ -81,7 +75,6 @@ def bulk_create_keys(current_user=None, project_id=None):
         if error_message and created_count == 0:
             return jsonify({"error": error_message}), 400
 
-        # Clear cache if possible
         try:
             from ...routes.files import clear_storage_cache
 
@@ -89,7 +82,6 @@ def bulk_create_keys(current_user=None, project_id=None):
         except ImportError:
             pass
 
-        # Log activity
         activity_service.log_activity(
             current_user,
             "bulk_create_keys",
@@ -115,12 +107,11 @@ def bulk_create_keys(current_user=None, project_id=None):
             201,
         )
     else:
-        # Asynchronous execution for large operations
+
         try:
             from ...services.tasks import task_service
             from ...tasks.key_tasks import bulk_create_keys_task
 
-            # Create task for tracking
             task_id = task_service.create_task(
                 task_type="bulk_create_keys",
                 task_data={
@@ -134,7 +125,6 @@ def bulk_create_keys(current_user=None, project_id=None):
                 project_id=current_user.project_id,
             )
 
-            # Queue async task
             bulk_create_keys_task.apply_async(
                 args=[
                     current_user.id,
@@ -166,18 +156,16 @@ def bulk_create_keys(current_user=None, project_id=None):
                         },
                     }
                 ),
-                202,  # Accepted - processing asynchronously
+                202,
             )
         except ImportError:
-            # Fallback to synchronous if Celery is not available
+
             logger.warning("Celery not available, falling back to synchronous execution")
-            # This will be handled by the synchronous code above
-            # But we need to handle it here since we're in the else branch
+
             return jsonify({"error": "Async task processing not available"}), 503
         except Exception as e:
             logger.error(f"Failed to queue async task: {str(e)}")
             return jsonify({"error": f"Failed to start bulk creation: {str(e)}"}), 500
-
 
 @bulk_operations_bp.route("/bulk/delete", methods=["POST"])
 @bulk_operations_bp.route("", methods=["DELETE"])
@@ -186,7 +174,7 @@ def bulk_create_keys(current_user=None, project_id=None):
 @require_project_isolation
 def bulk_delete_keys(current_user=None, project_id=None):
     """Bulk delete keys"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -200,7 +188,6 @@ def bulk_delete_keys(current_user=None, project_id=None):
     if not key_ids:
         return jsonify({"error": "key_ids is required"}), 400
 
-    # Use key service for bulk operation
     deleted_count, error = key_service.bulk_delete_keys(current_user, key_ids)
 
     if error:
@@ -209,7 +196,6 @@ def bulk_delete_keys(current_user=None, project_id=None):
     if deleted_count == 0:
         return jsonify({"message": "No keys found or access denied"}), 200
 
-    # Clear cache if possible
     try:
         from ...routes.files import clear_storage_cache
 
@@ -217,13 +203,11 @@ def bulk_delete_keys(current_user=None, project_id=None):
     except ImportError:
         pass
 
-    # Log activity
     activity_service.log_activity(
         current_user, "bulk_delete_keys", details=f"Deleted {deleted_count} keys", ip=request.remote_addr
     )
 
     return jsonify({"message": f"Successfully deleted {deleted_count} keys"})
-
 
 @bulk_operations_bp.route("/bulk_reset", methods=["POST"])
 @jwt_required()
@@ -231,7 +215,7 @@ def bulk_delete_keys(current_user=None, project_id=None):
 @require_project_isolation
 def bulk_reset_keys(current_user=None, project_id=None):
     """Bulk reset keys"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -245,7 +229,6 @@ def bulk_reset_keys(current_user=None, project_id=None):
     if not key_ids:
         return jsonify({"error": "key_ids is required"}), 400
 
-    # Use key service for bulk operation
     affected_count, error = key_service.bulk_reset_keys(current_user, key_ids)
 
     if error:
@@ -254,13 +237,11 @@ def bulk_reset_keys(current_user=None, project_id=None):
     if affected_count == 0:
         return jsonify({"message": "No keys found or access denied"}), 200
 
-    # Log activity
     activity_service.log_activity(
         current_user, "bulk_reset_keys", details=f"Reset {affected_count} keys", ip=request.remote_addr
     )
 
     return jsonify({"message": f"Successfully reset {affected_count} keys"})
-
 
 @bulk_operations_bp.route("/bulk/pause", methods=["POST"])
 @jwt_required()
@@ -268,7 +249,7 @@ def bulk_reset_keys(current_user=None, project_id=None):
 @require_project_isolation
 def bulk_pause_keys(current_user=None, project_id=None):
     """Bulk pause keys"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -282,7 +263,6 @@ def bulk_pause_keys(current_user=None, project_id=None):
     if not key_ids:
         return jsonify({"error": "key_ids is required"}), 400
 
-    # Use key service for bulk operation
     affected_count, error = key_service.bulk_pause_keys(current_user, key_ids)
 
     if error:
@@ -291,13 +271,11 @@ def bulk_pause_keys(current_user=None, project_id=None):
     if affected_count == 0:
         return jsonify({"message": "No keys found or access denied"}), 200
 
-    # Log activity
     activity_service.log_activity(
         current_user, "bulk_pause_keys", details=f"Paused {affected_count} keys", ip=request.remote_addr
     )
 
     return jsonify({"message": f"Successfully paused {affected_count} keys"})
-
 
 @bulk_operations_bp.route("/bulk/resume", methods=["POST"])
 @jwt_required()
@@ -305,7 +283,7 @@ def bulk_pause_keys(current_user=None, project_id=None):
 @require_project_isolation
 def bulk_resume_keys(current_user=None, project_id=None):
     """Bulk resume keys"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -319,7 +297,6 @@ def bulk_resume_keys(current_user=None, project_id=None):
     if not key_ids:
         return jsonify({"error": "key_ids is required"}), 400
 
-    # Use key service for bulk operation
     affected_count, error = key_service.bulk_resume_keys(current_user, key_ids)
 
     if error:
@@ -328,13 +305,11 @@ def bulk_resume_keys(current_user=None, project_id=None):
     if affected_count == 0:
         return jsonify({"message": "No keys found or access denied"}), 200
 
-    # Log activity
     activity_service.log_activity(
         current_user, "bulk_resume_keys", details=f"Resumed {affected_count} keys", ip=request.remote_addr
     )
 
     return jsonify({"message": f"Successfully resumed {affected_count} keys"})
-
 
 @bulk_operations_bp.route("/bulk/add_hours", methods=["POST"])
 @jwt_required()
@@ -342,7 +317,7 @@ def bulk_resume_keys(current_user=None, project_id=None):
 @require_project_isolation
 def bulk_add_hours(current_user=None, project_id=None):
     """Bulk add hours to keys"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -360,7 +335,6 @@ def bulk_add_hours(current_user=None, project_id=None):
     if hours <= 0:
         return jsonify({"error": "hours must be positive"}), 400
 
-    # Use key service for bulk operation
     affected_count, error = key_service.bulk_extend_keys(current_user, key_ids, hours)
 
     if error:
@@ -369,7 +343,6 @@ def bulk_add_hours(current_user=None, project_id=None):
     if affected_count == 0:
         return jsonify({"message": "No keys found or access denied"}), 200
 
-    # Log activity
     activity_service.log_activity(
         current_user,
         "bulk_add_hours",
@@ -379,14 +352,13 @@ def bulk_add_hours(current_user=None, project_id=None):
 
     return jsonify({"message": f"Successfully added {hours} hours to {affected_count} keys"})
 
-
 @bulk_operations_bp.route("/bulk/pause/by_game", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
 def bulk_pause_keys_by_game(current_user=None, project_id=None):
     """Bulk pause keys by game"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -400,7 +372,6 @@ def bulk_pause_keys_by_game(current_user=None, project_id=None):
     if not game_id:
         return jsonify({"error": "game_id is required"}), 400
 
-    # Use key service for bulk operation
     affected_count, error, game_name = key_service.bulk_pause_keys_by_game(current_user, game_id)
 
     if error:
@@ -409,7 +380,6 @@ def bulk_pause_keys_by_game(current_user=None, project_id=None):
     if affected_count == 0:
         return jsonify({"message": "No keys found for this game"}), 200
 
-    # Log activity
     activity_service.log_activity(
         current_user,
         "bulk_pause_keys_by_game",
@@ -419,14 +389,13 @@ def bulk_pause_keys_by_game(current_user=None, project_id=None):
 
     return jsonify({"message": f"Successfully paused {affected_count} keys for game: {game_name}"})
 
-
 @bulk_operations_bp.route("/bulk/resume/by_game", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
 def bulk_resume_keys_by_game(current_user=None, project_id=None):
     """Bulk resume keys by game"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -440,7 +409,6 @@ def bulk_resume_keys_by_game(current_user=None, project_id=None):
     if not game_id:
         return jsonify({"error": "game_id is required"}), 400
 
-    # Use key service for bulk operation
     affected_count, error, game_name = key_service.bulk_resume_keys_by_game(current_user, game_id)
 
     if error:
@@ -449,7 +417,6 @@ def bulk_resume_keys_by_game(current_user=None, project_id=None):
     if affected_count == 0:
         return jsonify({"message": "No keys found for this game"}), 200
 
-    # Log activity
     activity_service.log_activity(
         current_user,
         "bulk_resume_keys_by_game",
@@ -459,14 +426,13 @@ def bulk_resume_keys_by_game(current_user=None, project_id=None):
 
     return jsonify({"message": f"Successfully resumed {affected_count} keys for game: {game_name}"})
 
-
 @bulk_operations_bp.route("/bulk/reset/by_game", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
 def bulk_reset_keys_by_game(current_user=None, project_id=None):
     """Bulk reset keys by game"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -480,7 +446,6 @@ def bulk_reset_keys_by_game(current_user=None, project_id=None):
     if not game_id:
         return jsonify({"error": "game_id is required"}), 400
 
-    # Use key service for bulk operation
     affected_count, error, game_name = key_service.bulk_reset_keys_by_game(current_user, game_id)
 
     if error:
@@ -489,7 +454,6 @@ def bulk_reset_keys_by_game(current_user=None, project_id=None):
     if affected_count == 0:
         return jsonify({"message": "No keys found for this game"}), 200
 
-    # Log activity
     activity_service.log_activity(
         current_user,
         "bulk_reset_keys_by_game",
@@ -499,14 +463,13 @@ def bulk_reset_keys_by_game(current_user=None, project_id=None):
 
     return jsonify({"message": f"Successfully reset {affected_count} keys for game: {game_name}"})
 
-
 @bulk_operations_bp.route("/bulk/addHours/by_game", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
 def bulk_add_hours_by_game(current_user=None, project_id=None):
     """Bulk add hours to keys by game"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -524,7 +487,6 @@ def bulk_add_hours_by_game(current_user=None, project_id=None):
     if hours <= 0:
         return jsonify({"error": "hours must be positive"}), 400
 
-    # Use key service for bulk operation
     affected_count, error, game_name = key_service.bulk_add_hours_by_game(
         current_user, game_id, hours
     )
@@ -535,7 +497,6 @@ def bulk_add_hours_by_game(current_user=None, project_id=None):
     if affected_count == 0:
         return jsonify({"message": "No keys found for this game"}), 200
 
-    # Log activity
     activity_service.log_activity(
         current_user,
         "bulk_add_hours_by_game",
@@ -549,14 +510,13 @@ def bulk_add_hours_by_game(current_user=None, project_id=None):
         }
     )
 
-
 @bulk_operations_bp.route("/bulk/deleteByFilters", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
 def bulk_delete_keys_by_filters(current_user=None, project_id=None):
     """Bulk delete keys by filters"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -566,7 +526,6 @@ def bulk_delete_keys_by_filters(current_user=None, project_id=None):
 
     data = request.get_json()
 
-    # Use key service for bulk operation by filters
     deleted_count, error = key_service.bulk_delete_keys_by_filters(current_user, data)
 
     if error:
@@ -575,7 +534,6 @@ def bulk_delete_keys_by_filters(current_user=None, project_id=None):
     if deleted_count == 0:
         return jsonify({"message": "No keys found matching the criteria"}), 200
 
-    # Log activity
     activity_service.log_activity(
         current_user,
         "bulk_delete_keys_by_filters",
@@ -587,14 +545,13 @@ def bulk_delete_keys_by_filters(current_user=None, project_id=None):
         {"message": f"Successfully deleted {deleted_count} keys", "deleted_count": deleted_count}
     )
 
-
 @bulk_operations_bp.route("/bulk/resetByFilters", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
 def bulk_reset_keys_by_filters(current_user=None, project_id=None):
     """Bulk reset keys by filters"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -604,7 +561,6 @@ def bulk_reset_keys_by_filters(current_user=None, project_id=None):
 
     data = request.get_json()
 
-    # Use key service for bulk operation by filters
     reset_count, error = key_service.bulk_reset_keys_by_filters(current_user, data)
 
     if error:
@@ -613,7 +569,6 @@ def bulk_reset_keys_by_filters(current_user=None, project_id=None):
     if reset_count == 0:
         return jsonify({"message": "No keys found matching the criteria"}), 200
 
-    # Log activity
     activity_service.log_activity(
         current_user,
         "bulk_reset_keys_by_filters",
@@ -625,14 +580,13 @@ def bulk_reset_keys_by_filters(current_user=None, project_id=None):
         {"message": f"Successfully reset {reset_count} keys", "reset_count": reset_count}
     )
 
-
 @bulk_operations_bp.route("/bulk/extendByFilters", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
 def bulk_extend_keys_by_filters(current_user=None, project_id=None):
     """Bulk extend keys by filters"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -646,7 +600,6 @@ def bulk_extend_keys_by_filters(current_user=None, project_id=None):
     if hours <= 0:
         return jsonify({"error": "Hours must be positive"}), 400
 
-    # Use key service for bulk operation by filters
     extended_count, error = key_service.bulk_extend_keys_by_filters(current_user, data, hours)
 
     if error:
@@ -655,7 +608,6 @@ def bulk_extend_keys_by_filters(current_user=None, project_id=None):
     if extended_count == 0:
         return jsonify({"message": "No keys found matching the criteria"}), 200
 
-    # Log activity
     activity_service.log_activity(
         current_user,
         "bulk_extend_keys_by_filters",

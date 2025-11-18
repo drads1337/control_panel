@@ -122,4 +122,3 @@ const CreateRoleDialog: React.FC<CreateRoleDialogProps> = ({
 };
 
 export default CreateRoleDialog;
-

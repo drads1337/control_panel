@@ -8,7 +8,7 @@ consistent configuration.
 
 Usage:
     from ..utils.redis_client import get_redis_client
-    
+
     redis_client = get_redis_client()
     redis_client.set("key", "value")
     value = redis_client.get("key")
@@ -24,11 +24,10 @@ from ..config.config import Config
 
 logger = logging.getLogger(__name__)
 
-
 class RedisClient:
     """
     Centralized Redis client with common operations.
-    
+
     This class provides a singleton Redis client instance with optimized
     connection settings for production use:
     - Connection timeouts to prevent hanging connections
@@ -43,10 +42,10 @@ class RedisClient:
     def _create_client(self) -> redis.Redis:
         """
         Create a new Redis client with optimized settings.
-        
+
         Returns:
             Configured Redis client instance
-            
+
         Raises:
             RuntimeError: If Redis connection cannot be established
         """
@@ -62,27 +61,25 @@ class RedisClient:
             "max_connections": 20,
         }
 
-        # Only add password if it's not None/empty
         if Config.REDIS_PASSWORD:
             redis_config["password"] = Config.REDIS_PASSWORD
 
         client = redis.Redis(**redis_config)
-        
-        # Verify connection
+
         try:
             client.ping()
             logger.debug("Redis client initialized successfully")
         except Exception as e:
             logger.error(f"Redis connection verification failed: {e}")
             raise RuntimeError(f"Redis is required but connection failed: {e}")
-        
+
         return client
 
     @property
     def client(self) -> redis.Redis:
         """
         Lazy initialization of Redis client.
-        
+
         Returns:
             Redis client instance (singleton)
         """
@@ -126,7 +123,7 @@ class RedisClient:
         """Increment counter in Redis"""
         try:
             result = self.client.incr(key)
-            # Handle async/coroutine results
+
             if hasattr(result, "__await__") or hasattr(result, "__iter__"):
                 return 0
             return int(result) if result else 0
@@ -190,30 +187,25 @@ class RedisClient:
             logger.error(f"Redis KEYS error for pattern {pattern}: {e}")
             return []
 
-
-# Global singleton instance
 _redis_client_instance = RedisClient()
-
 
 def get_redis_client() -> redis.Redis:
     """
     Get the centralized Redis client instance.
-    
+
     This function provides direct access to the underlying Redis client
     for cases where the wrapper methods are not sufficient.
-    
+
     Returns:
         Redis client instance (singleton, shared across the application)
-        
+
     Example:
         from ..utils.redis_client import get_redis_client
-        
+
         redis_client = get_redis_client()
-        redis_client.pubsub()  # Use pub/sub features
-        redis_client.ping()    # Check connection
+        redis_client.pubsub()
+        redis_client.ping()
     """
     return _redis_client_instance.client
 
-
-# For backward compatibility, also export the wrapper instance
 redis_client = _redis_client_instance

@@ -36,7 +36,6 @@ export function UserActivityList({ className }: UserActivityListProps) {
     changePerPage 
   } = useUserActivity()
 
-  // Function to format the date
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     const now = new Date()
@@ -64,7 +63,6 @@ export function UserActivityList({ className }: UserActivityListProps) {
     }
   }
 
-  // Function to get the action icon
   const getActionIcon = (action: string) => {
     switch (action.toLowerCase()) {
       case 'login':
@@ -82,7 +80,6 @@ export function UserActivityList({ className }: UserActivityListProps) {
     }
   }
 
-  // Function to get the action color
   const getActionColor = (action: string) => {
     switch (action.toLowerCase()) {
       case 'login':
@@ -100,7 +97,6 @@ export function UserActivityList({ className }: UserActivityListProps) {
     }
   }
 
-  // Function to get the readable action name
   const getActionLabel = (action: string) => {
     switch (action.toLowerCase()) {
       case 'login':
@@ -118,7 +114,6 @@ export function UserActivityList({ className }: UserActivityListProps) {
     }
   }
 
-  // Function to get the action description in Russian
   const getActionDescription = (action: string) => {
     switch (action.toLowerCase()) {
       case 'login':
@@ -136,10 +131,9 @@ export function UserActivityList({ className }: UserActivityListProps) {
     }
   }
 
-  // Function to get browser information
   const getBrowserInfo = (userAgent: string | null) => {
     if (!userAgent) return 'Unknown'
-    
+
     if (userAgent.includes('Chrome')) {
       const version = userAgent.match(/Chrome\/(\d+)/)?.[1]
       return `Chrome ${version || ''}`
@@ -157,7 +151,6 @@ export function UserActivityList({ className }: UserActivityListProps) {
     }
   }
 
-  // Error handling
   if (error) {
     return (
       <Card className={`@container/card ${className}`}>
@@ -182,14 +175,14 @@ export function UserActivityList({ className }: UserActivityListProps) {
 
   return (
     <div className="space-y-6">
-      {/* Activity Statistics */}
+      {}
       <UserActivityStats 
         stats={stats || undefined} 
         loading={loading}
         onRefresh={refresh}
       />
-      
-      {/* Activity List */}
+
+      {}
       <Card className={`@container/card ${className}`}>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -268,7 +261,7 @@ export function UserActivityList({ className }: UserActivityListProps) {
             </div>
           )}
 
-          {/* Pagination */}
+          {}
           {pagination.pages > 1 && (
             <div className="flex items-center justify-between mt-6 pt-4 border-t border-border">
               <div className="text-sm text-muted-foreground">

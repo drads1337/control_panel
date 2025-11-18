@@ -19,7 +19,6 @@ from ...utils.role_constants import RolePermissions, UserRoles
 referral_codes_bp = Blueprint("users_referral_codes", __name__)
 logger = logging.getLogger(__name__)
 
-
 @referral_codes_bp.route("/refcodes", methods=["GET"])
 @jwt_required()
 @require_user
@@ -28,7 +27,7 @@ logger = logging.getLogger(__name__)
 def get_refcodes(current_user=None, project_id=None):
     """Get referral codes for admin users"""
     try:
-        # Fallback to g for backward compatibility if not passed explicitly
+
         if current_user is None:
             current_user = g.current_user
         if project_id is None:
@@ -37,7 +36,6 @@ def get_refcodes(current_user=None, project_id=None):
         if not project_id:
             return jsonify({"error": "Project ID is required"}), 400
 
-        # Get all referral codes for this project
         referral_codes = (
             ReferralCode.query.filter_by(project_id=project_id)
             .order_by(desc(ReferralCode.created_at))
@@ -69,7 +67,6 @@ def get_refcodes(current_user=None, project_id=None):
         logger.error(f"Error getting referral codes: {str(e)}", exc_info=True)
         return jsonify({"error": "Failed to get referral codes"}), 500
 
-
 @referral_codes_bp.route("/refcodes", methods=["POST"])
 @jwt_required()
 @require_user
@@ -77,7 +74,7 @@ def get_refcodes(current_user=None, project_id=None):
 def create_refcode(current_user=None, project_id=None):
     """Create a new referral code"""
     try:
-        # Fallback to g for backward compatibility if not passed explicitly
+
         if current_user is None:
             current_user = g.current_user
         if project_id is None:
@@ -94,7 +91,6 @@ def create_refcode(current_user=None, project_id=None):
         import secrets
         import string
 
-        # Get parameters
         role = data.get("role", "client")
         token_balance = data.get("token_balance", 0)
         work_duration_days = data.get("work_duration_days")
@@ -102,16 +98,14 @@ def create_refcode(current_user=None, project_id=None):
         rbac_role_ids = data.get("rbac_role_ids", [])
         expires_in_days = data.get("expires_in_days", 90)
 
-        # Generate unique referral code
         def generate_code():
             return "".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(12))
 
         code = generate_code()
-        # Ensure uniqueness
+
         while ReferralCode.query.filter_by(code=code).first():
             code = generate_code()
 
-        # Create referral code
         referral_code = ReferralCode(
             code=code,
             role=role,
@@ -127,7 +121,6 @@ def create_refcode(current_user=None, project_id=None):
         db.session.add(referral_code)
         db.session.commit()
 
-        # Log activity
         activity_service.log_activity(
             current_user,
             "create_referral_code",
@@ -159,7 +152,6 @@ def create_refcode(current_user=None, project_id=None):
         logger.error(f"Error creating referral code: {str(e)}", exc_info=True)
         return jsonify({"error": "Failed to create referral code"}), 500
 
-
 @referral_codes_bp.route("/refcodes/<int:code_id>", methods=["DELETE"])
 @jwt_required()
 @require_user
@@ -167,7 +159,7 @@ def create_refcode(current_user=None, project_id=None):
 def delete_refcode(code_id, current_user=None, project_id=None):
     """Delete a referral code"""
     try:
-        # Fallback to g for backward compatibility if not passed explicitly
+
         if current_user is None:
             current_user = g.current_user
         if project_id is None:
@@ -177,9 +169,8 @@ def delete_refcode(code_id, current_user=None, project_id=None):
         if not referral_code:
             return jsonify({"error": "Referral code not found"}), 404
 
-        # Check access - ensure code belongs to user's project
         if not project_id or referral_code.project_id != project_id:
-            # Check if user has permission to view all projects
+
             from ...services.rbac import rbac_service
 
             can_view_all = rbac_service.check_permission(
@@ -192,7 +183,6 @@ def delete_refcode(code_id, current_user=None, project_id=None):
         db.session.delete(referral_code)
         db.session.commit()
 
-        # Log activity
         activity_service.log_activity(
             current_user,
             "delete_referral_code",
@@ -207,7 +197,6 @@ def delete_refcode(code_id, current_user=None, project_id=None):
         logger.error(f"Error deleting referral code: {str(e)}", exc_info=True)
         return jsonify({"error": "Failed to delete referral code"}), 500
 
-
 @referral_codes_bp.route("/refcodes/delete-unused", methods=["DELETE"])
 @jwt_required()
 @require_user
@@ -215,7 +204,7 @@ def delete_refcode(code_id, current_user=None, project_id=None):
 def delete_unused_refcodes(current_user=None, project_id=None):
     """Delete all unused referral codes"""
     try:
-        # Fallback to g for backward compatibility if not passed explicitly
+
         if current_user is None:
             current_user = g.current_user
         if project_id is None:
@@ -224,7 +213,6 @@ def delete_unused_refcodes(current_user=None, project_id=None):
         if not project_id:
             return jsonify({"error": "Project ID is required"}), 400
 
-        # Get unused referral codes (not used and expired)
         from datetime import datetime
 
         unused_codes = ReferralCode.query.filter(
@@ -240,7 +228,6 @@ def delete_unused_refcodes(current_user=None, project_id=None):
 
         db.session.commit()
 
-        # Log activity
         activity_service.log_activity(
             current_user,
             "delete_unused_referral_codes",

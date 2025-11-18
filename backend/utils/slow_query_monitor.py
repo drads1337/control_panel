@@ -27,7 +27,6 @@ from ..utils.structured_logging import get_logger
 
 logger = get_logger(__name__)
 
-
 class SlowQueryMonitor:
     """Monitor and track slow database queries"""
 
@@ -42,10 +41,8 @@ class SlowQueryMonitor:
         self.slow_query_threshold_ms = slow_query_threshold_ms
         self.max_queries_in_memory = max_queries_in_memory
 
-        # In-memory storage for recent slow queries
         self.slow_queries: deque = deque(maxlen=max_queries_in_memory)
 
-        # Statistics
         self.stats = {
             "total_queries": 0,
             "slow_queries": 0,
@@ -57,10 +54,8 @@ class SlowQueryMonitor:
             "queries_by_endpoint": defaultdict(int),
         }
 
-        # Query patterns for analysis
         self.query_patterns: Dict[str, Dict[str, Any]] = {}
 
-        # Redis keys for persistence
         self.redis_prefix = "slow_query_monitor"
         self.stats_key = f"{self.redis_prefix}:stats"
         self.slow_queries_key = f"{self.redis_prefix}:slow_queries"
@@ -74,7 +69,7 @@ class SlowQueryMonitor:
         @event.listens_for(Engine, "before_cursor_execute")
         def before_cursor_execute(conn, cursor, statement, parameters, context, executemany):
             """Called before a SQL statement is executed"""
-            # Store start time in context
+
             context._query_start_time = time.time()
             context._query_statement = statement
             context._query_parameters = parameters
@@ -85,10 +80,8 @@ class SlowQueryMonitor:
             if not hasattr(context, "_query_start_time"):
                 return
 
-            # Calculate query duration
             duration_ms = (time.time() - context._query_start_time) * 1000
 
-            # Track query
             self._track_query(
                 statement=statement, parameters=parameters, duration_ms=duration_ms, context=context
             )
@@ -96,7 +89,7 @@ class SlowQueryMonitor:
     def _track_query(self, statement: str, parameters: Any, duration_ms: float, context: Any):
         """Track a single query"""
         try:
-            # Update statistics
+
             self.stats["total_queries"] += 1
             self.stats["total_query_time_ms"] += duration_ms
             self.stats["avg_query_time_ms"] = (
@@ -106,25 +99,20 @@ class SlowQueryMonitor:
             if duration_ms > self.stats["max_query_time_ms"]:
                 self.stats["max_query_time_ms"] = duration_ms
 
-            # Detect query type
             query_type = self._detect_query_type(statement)
             self.stats["queries_by_type"][query_type] += 1
 
-            # Detect tables involved
             tables = self._extract_tables(statement)
             for table in tables:
                 self.stats["queries_by_table"][table] += 1
 
-            # Get endpoint if available
             if has_request_context() and request:
                 endpoint = request.endpoint or request.path
                 self.stats["queries_by_endpoint"][endpoint] += 1
 
-            # Track slow queries
             if duration_ms >= self.slow_query_threshold_ms:
                 self._track_slow_query(statement, parameters, duration_ms, query_type, tables)
 
-            # Track query patterns
             self._track_query_pattern(statement, duration_ms, query_type, tables)
 
         except Exception as e:
@@ -155,28 +143,26 @@ class SlowQueryMonitor:
         tables = []
         statement_upper = statement.upper()
 
-        # Common SQL keywords that might indicate table names
         keywords = ["FROM", "JOIN", "INTO", "UPDATE", "TABLE"]
 
         for keyword in keywords:
             if keyword in statement_upper:
-                # Simple extraction - this is a heuristic and may not be perfect
-                # For production, consider using SQL parsing library
+
                 parts = statement_upper.split(keyword)
                 if len(parts) > 1:
-                    # Try to extract table name from the part after keyword
+
                     after_keyword = parts[1].strip()
-                    # Remove common SQL syntax
+
                     for char in ["(", ")", ",", ";", "WHERE", "SET", "ON", "AS"]:
                         after_keyword = after_keyword.replace(char, " ")
-                    # Get first word (likely table name)
+
                     words = after_keyword.split()
                     if words:
                         table_name = words[0].strip()
                         if table_name and len(table_name) > 1:
                             tables.append(table_name.lower())
 
-        return list(set(tables))  # Remove duplicates
+        return list(set(tables))
 
     def _track_slow_query(
         self,
@@ -190,10 +176,8 @@ class SlowQueryMonitor:
         try:
             self.stats["slow_queries"] += 1
 
-            # Create query fingerprint (normalized query without parameters)
             query_fingerprint = self._create_query_fingerprint(statement)
 
-            # Get request context if available
             endpoint = None
             user_id = None
             project_id = None
@@ -204,7 +188,7 @@ class SlowQueryMonitor:
                     from flask import request as flask_request
 
                     endpoint = flask_request.endpoint or flask_request.path
-                    # Try to get user_id and project_id from request context
+
                     try:
                         from flask_jwt_extended import get_jwt_identity
 
@@ -212,7 +196,6 @@ class SlowQueryMonitor:
                     except:
                         pass
 
-                    # Try to get project_id from request args or headers
                     try:
                         project_id = flask_request.args.get(
                             "project_id"
@@ -222,7 +205,6 @@ class SlowQueryMonitor:
                     except:
                         pass
 
-                    # Get request ID if available
                     try:
                         from ..utils.structured_logging import request_id_var
 
@@ -232,25 +214,22 @@ class SlowQueryMonitor:
                 except:
                     pass
 
-            # Create slow query record
             slow_query = {
                 "timestamp": datetime.utcnow().isoformat(),
                 "duration_ms": round(duration_ms, 2),
                 "query_type": query_type,
                 "tables": tables,
-                "statement": statement[:500],  # Truncate long statements
+                "statement": statement[:500],
                 "query_fingerprint": query_fingerprint,
                 "endpoint": endpoint,
                 "user_id": user_id,
                 "project_id": project_id,
                 "request_id": request_id,
-                "parameters": str(parameters)[:200] if parameters else None,  # Truncate parameters
+                "parameters": str(parameters)[:200] if parameters else None,
             }
 
-            # Add to in-memory storage
             self.slow_queries.append(slow_query)
 
-            # Log slow query
             logger.warning(
                 f"Slow query detected: {duration_ms:.2f}ms",
                 query_type=query_type,
@@ -261,12 +240,11 @@ class SlowQueryMonitor:
                 threshold_ms=self.slow_query_threshold_ms,
             )
 
-            # Store in Redis for persistence (optional, can be disabled for high-volume systems)
             try:
                 if redis_client and redis_client.client:
-                    # Store last 100 slow queries in Redis
+
                     redis_key = f"{self.slow_queries_key}:{int(time.time())}"
-                    redis_client.set_json(redis_key, slow_query, ex=86400)  # 24 hours TTL
+                    redis_client.set_json(redis_key, slow_query, ex=86400)
             except Exception as e:
                 logger.debug(f"Could not store slow query in Redis: {e}")
 
@@ -275,22 +253,18 @@ class SlowQueryMonitor:
 
     def _create_query_fingerprint(self, statement: str) -> str:
         """Create a normalized fingerprint of the query for pattern matching"""
-        # Normalize whitespace
+
         normalized = " ".join(statement.split())
 
-        # Replace parameter placeholders with ?
         import re
 
         normalized = re.sub(r"%s|\?|:\w+", "?", normalized)
 
-        # Replace numbers with ?
         normalized = re.sub(r"\b\d+\b", "?", normalized)
 
-        # Replace strings with ?
         normalized = re.sub(r"'[^']*'", "?", normalized)
         normalized = re.sub(r'"[^"]*"', "?", normalized)
 
-        # Create hash
         return hashlib.md5(normalized.encode()).hexdigest()[:16]
 
     def _track_query_pattern(
@@ -337,11 +311,9 @@ class SlowQueryMonitor:
         """Get recent slow queries"""
         queries = list(self.slow_queries)
 
-        # Filter by minimum duration if specified
         if min_duration_ms:
             queries = [q for q in queries if q["duration_ms"] >= min_duration_ms]
 
-        # Sort by duration (descending)
         queries.sort(key=lambda x: x["duration_ms"], reverse=True)
 
         return queries[:limit]
@@ -359,10 +331,8 @@ class SlowQueryMonitor:
         """Get query patterns sorted by frequency or average duration"""
         patterns = list(self.query_patterns.values())
 
-        # Filter by minimum count
         patterns = [p for p in patterns if p["count"] >= min_count]
 
-        # Sort by average duration (descending) to find slowest patterns
         patterns.sort(key=lambda x: x["avg_duration_ms"], reverse=True)
 
         return patterns[:limit]
@@ -371,7 +341,6 @@ class SlowQueryMonitor:
         """Get top slowest query patterns"""
         patterns = self.get_query_patterns(limit=limit * 2, min_count=3)
 
-        # Sort by max duration (descending)
         patterns.sort(key=lambda x: x["max_duration_ms"], reverse=True)
 
         return patterns[:limit]
@@ -381,7 +350,7 @@ class SlowQueryMonitor:
         table_stats = {}
 
         for table, count in self.stats["queries_by_table"].items():
-            # Find slow queries for this table
+
             table_slow_queries = [q for q in self.slow_queries if table in q.get("tables", [])]
 
             if table_slow_queries:
@@ -424,21 +393,17 @@ class SlowQueryMonitor:
             self.slow_query_threshold_ms = slow_query_threshold_ms
             logger.info(f"Slow query threshold updated to {slow_query_threshold_ms}ms")
 
-
-# Global instance
 slow_query_monitor = SlowQueryMonitor(
-    slow_query_threshold_ms=1000.0, max_queries_in_memory=1000  # 1 second default threshold
+    slow_query_threshold_ms=1000.0, max_queries_in_memory=1000
 )
-
 
 def get_slow_query_monitor() -> SlowQueryMonitor:
     """Get global slow query monitor instance"""
     return slow_query_monitor
 
-
 def setup_slow_query_monitoring(app):
     """Setup slow query monitoring for Flask app"""
-    # Configure threshold from app config if available
+
     threshold = app.config.get("SLOW_QUERY_THRESHOLD_MS", 1000.0)
     slow_query_monitor.configure(slow_query_threshold_ms=threshold)
 

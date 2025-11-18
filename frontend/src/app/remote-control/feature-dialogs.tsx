@@ -63,7 +63,7 @@ export default function FeatureDialogs({
 }: FeatureDialogsProps) {
   return (
     <>
-      {/* Add Feature Dialog */}
+      {}
       <ConditionalRender permission="remote_control.create" fallback={null}>
         <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
           <DialogTrigger asChild>
@@ -150,7 +150,7 @@ export default function FeatureDialogs({
         </Dialog>
       </ConditionalRender>
 
-      {/* Edit Feature Dialog */}
+      {}
       <ConditionalRender permission="remote_control.edit" fallback={null}>
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
           <DialogContent className="sm:max-w-[400px]">

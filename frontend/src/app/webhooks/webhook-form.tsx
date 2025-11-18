@@ -34,7 +34,7 @@ export function WebhookForm({
   setCustomHeaders,
   isEdit = false
 }: WebhookFormProps) {
-  // Group events by category
+
   const eventsByCategory = WEBHOOK_EVENTS.reduce((acc, event) => {
     if (!acc[event.category]) {
       acc[event.category] = [];
@@ -43,7 +43,6 @@ export function WebhookForm({
     return acc;
   }, {} as Record<string, typeof WEBHOOK_EVENTS>);
 
-  // Toggle event selection
   const toggleEvent = (eventName: string) => {
     const updated = formData.events.includes(eventName)
       ? formData.events.filter(e => e !== eventName)
@@ -51,17 +50,14 @@ export function WebhookForm({
     setFormData({ ...formData, events: updated });
   };
 
-  // Add custom header
   const addCustomHeader = () => {
     setCustomHeaders([...customHeaders, { key: '', value: '' }]);
   };
 
-  // Remove custom header
   const removeCustomHeader = (index: number) => {
     setCustomHeaders(customHeaders.filter((_, i) => i !== index));
   };
 
-  // Update custom header
   const updateCustomHeader = (index: number, field: 'key' | 'value', value: string) => {
     const updated = [...customHeaders];
     updated[index][field] = value;

@@ -58,14 +58,14 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
     uploadInParallel: true,
     autoUpload: false,
     maxFiles: 50,
-    maxSize: 100 * 1024 * 1024, // 100MB
+    maxSize: 100 * 1024 * 1024,
     retryAttempts: 3,
-    chunkSize: 5 * 1024 * 1024, // 5MB chunks
+    chunkSize: 5 * 1024 * 1024,
     enableCompression: false,
     preserveFolderStructure: false,
     autoRenameDuplicates: true,
     uploadPriority: 'normal' as 'high' | 'normal' | 'low',
-    bandwidthLimit: 0, // 0 = unlimited
+    bandwidthLimit: 0,
     validateFiles: true,
     customNamingPattern: '',
     addTimestamp: true,
@@ -82,12 +82,8 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
 
   const handleUpload = async (files: FileWithPreview[]) => {
     if (!game) {
-      console.error('No game selected');
       return;
     }
-
-    console.log('MultiFileUploadDialog: Starting upload of', files.length, 'files');
-    console.log('Files:', files.map(f => ({ name: f.file.name, size: f.file.size })));
 
     try {
       const results = await uploadFiles(files, game.id, uploadForm, {
@@ -107,20 +103,16 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
           ));
         }
       });
-      
-      console.log('Upload results:', results);
-      console.log('Calling onUploadComplete callback...');
-      
-      // Add a small delay to ensure all files are processed on the server
+
       setTimeout(() => {
-        console.log('Executing onUploadComplete callback');
+
         onUploadComplete?.();
       }, 1000);
       setOpen(false);
       setSelectedFiles([]);
       resetStats();
     } catch (error) {
-      console.error('Upload failed:', error);
+
       toast.error(`Upload error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
@@ -170,7 +162,7 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Game Selection Section */}
+        {}
         {!game ? (
           <Card className="border-dashed border-2 border-muted-foreground/25">
             <CardContent className="p-12">
@@ -187,7 +179,7 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
           </Card>
         ) : (
           <div className="space-y-6">
-            {/* Basic Upload Settings */}
+            {}
             <Card className="mb-4">
               <CardContent className="pt-4">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 flex-wrap">
@@ -195,7 +187,7 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
                     <Settings className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm font-medium">Basic Settings:</span>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <Label htmlFor="parallel-upload" className="text-xs whitespace-nowrap">Parallel Upload</Label>
                     <Switch
@@ -206,7 +198,7 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
                       }
                     />
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <Label htmlFor="auto-upload" className="text-xs whitespace-nowrap">Auto Upload</Label>
                     <Switch
@@ -217,7 +209,7 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
                       }
                     />
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <Label htmlFor="max-files" className="text-xs whitespace-nowrap">Max Files</Label>
                     <Input
@@ -235,7 +227,7 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
                       className="h-8 w-16"
                     />
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <Label htmlFor="max-size" className="text-xs whitespace-nowrap">Max Size (MB)</Label>
                     <Input
@@ -257,7 +249,7 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
               </CardContent>
             </Card>
 
-            {/* Advanced Settings - Collapsible */}
+            {}
             <Collapsible open={advancedSettingsOpen} onOpenChange={setAdvancedSettingsOpen}>
               <Card>
                 <CollapsibleTrigger asChild>
@@ -280,7 +272,7 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <CardContent className="space-y-4 pt-0">
-                    {/* Retry & Reliability */}
+                    {}
                     <div className="space-y-3">
                       <div className="flex items-center gap-2">
                         <Shield className="h-4 w-4 text-muted-foreground" />
@@ -332,7 +324,7 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
 
                     <Separator />
 
-                    {/* File Processing */}
+                    {}
                     <div className="space-y-3">
                       <div className="flex items-center gap-2">
                         <Layers className="h-4 w-4 text-muted-foreground" />
@@ -396,7 +388,7 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
 
                     <Separator />
 
-                    {/* Upload Performance */}
+                    {}
                     <div className="space-y-3">
                       <div className="flex items-center gap-2">
                         <Zap className="h-4 w-4 text-muted-foreground" />
@@ -446,7 +438,7 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
 
                     <Separator />
 
-                    {/* File Naming */}
+                    {}
                     <div className="space-y-3">
                       <div className="flex items-center gap-2">
                         <Tag className="h-4 w-4 text-muted-foreground" />
@@ -503,7 +495,7 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
               </Card>
             </Collapsible>
 
-            {/* File Information - Compact */}
+            {}
             <Card className="mb-4">
               <CardContent className="pt-4">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
@@ -511,7 +503,7 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
                     <FileText className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm font-medium">File Info:</span>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <Label htmlFor="category" className="text-xs whitespace-nowrap">Category</Label>
                     <Select
@@ -529,7 +521,7 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
                       </SelectContent>
                     </Select>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <Label htmlFor="version" className="text-xs whitespace-nowrap">Version</Label>
                     <Input
@@ -542,7 +534,7 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
                       className="h-8 w-20"
                     />
                   </div>
-                  
+
                   <div className="flex items-center gap-2 flex-1">
                     <Label htmlFor="description" className="text-xs whitespace-nowrap">Description</Label>
                     <Input
@@ -559,7 +551,7 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
               </CardContent>
             </Card>
 
-            {/* File Upload Component */}
+            {}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -579,7 +571,7 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
               </CardContent>
             </Card>
 
-            {/* Upload Stats - Compact */}
+            {}
             {uploading && (
               <Card className="mb-4">
                 <CardContent className="pt-4">
@@ -612,7 +604,7 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
             )}
           </div>
         )}
-        
+
         <DialogFooter>
           <Button 
             variant="outline" 

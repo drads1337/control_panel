@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 Script to remove specific permissions from the database
 """
@@ -6,13 +6,11 @@ import sys
 import os
 from pathlib import Path
 
-# Add backend directory to path
 backend_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_dir))
 
 from dotenv import load_dotenv
 
-# Load environment variables
 project_root = backend_dir.parent
 env_path = project_root / ".env"
 load_dotenv(dotenv_path=env_path)
@@ -20,7 +18,6 @@ load_dotenv(dotenv_path=env_path)
 from sqlalchemy import create_engine, text
 from config.config import Config
 
-# Permissions to remove
 permissions_to_remove = [
     'loaders.manage_changelog',
     'loaders.manage_notifications',
@@ -31,16 +28,15 @@ permissions_to_remove = [
 def remove_permissions():
     """Remove permissions from the database"""
     try:
-        # Create database connection
+
         engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
-        
-        with engine.begin() as conn:  # Use begin() for transaction
+
+        with engine.begin() as conn:
             print("=" * 80)
             print("Removing permissions from database...")
             print("=" * 80)
             print()
-            
-            # First, check what will be removed
+
             print("Checking permissions to remove:")
             for perm_name in permissions_to_remove:
                 check_query = text("""
@@ -53,48 +49,45 @@ def remove_permissions():
                     WHERE p.name = :perm_name
                     GROUP BY p.id, p.name
                 """)
-                
+
                 result = conn.execute(check_query, {"perm_name": perm_name})
                 row = result.fetchone()
-                
+
                 if row:
                     print(f"  - {perm_name} (ID: {row.id}, assigned to {row.role_count} role(s))")
                 else:
                     print(f"  - {perm_name} (NOT FOUND)")
-            
+
             print()
-            # Auto-confirm deletion
+
             print("Proceeding with deletion...")
             print()
             print("Removing role_permission associations...")
-            
-            # Build placeholders for parameterized query
+
             placeholders = ','.join([f':perm{i}' for i in range(len(permissions_to_remove))])
             exact_params = {f'perm{i}': perm for i, perm in enumerate(permissions_to_remove)}
-            
-            # Delete role_permission associations first
+
             delete_role_perms_query = text(f"""
                 DELETE FROM role_permission
                 WHERE permission_id IN (
                     SELECT id FROM permission WHERE name IN ({placeholders})
                 )
             """)
-            
+
             result = conn.execute(delete_role_perms_query, exact_params)
             role_perms_deleted = result.rowcount
             print(f"  - Deleted {role_perms_deleted} role_permission associations")
-            
-            # Delete the permissions themselves
+
             print("Removing permissions...")
             delete_perms_query = text(f"""
                 DELETE FROM permission
                 WHERE name IN ({placeholders})
             """)
-            
+
             result = conn.execute(delete_perms_query, exact_params)
             perms_deleted = result.rowcount
             print(f"  - Deleted {perms_deleted} permissions")
-            
+
             print()
             print("=" * 80)
             print("✅ Permissions removed successfully!")
@@ -103,15 +96,14 @@ def remove_permissions():
             print(f"  - Role-permission associations deleted: {role_perms_deleted}")
             print(f"  - Permissions deleted: {perms_deleted}")
             print()
-            
+
     except Exception as e:
         print(f"❌ Error removing permissions: {e}")
         import traceback
         traceback.print_exc()
         return 1
-    
+
     return 0
 
 if __name__ == "__main__":
     sys.exit(remove_permissions())
-

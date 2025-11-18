@@ -17,13 +17,12 @@ from ...models.rbac import Role, UserRole
 from ...utils.rbac_utils import RBACManager
 from ...services.activity import activity_service
 
-
 class AdminService:
     """Service for handling administrative operations"""
 
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        self.grace_period_days = 14  # Grace period before permanent deletion
+        self.grace_period_days = 14
 
     def deactivate_expired_projects(self, admin_user: User) -> Tuple[int, int, Optional[str]]:
         """
@@ -36,29 +35,26 @@ class AdminService:
             Tuple of (deactivated_projects, cleaned_codes, error_message)
         """
         try:
-            # Check admin permissions
+
             if not RBACManager.is_owner(admin_user):
                 return 0, 0, "Access denied - owner role required"
 
-            # Find expired projects
             expired_projects = Project.query.filter(
                 Project.subscription_expires_at < datetime.utcnow(), Project.status == "active"
             ).all()
 
             deactivated_count = 0
             for project in expired_projects:
-                # Deactivate project
+
                 project.status = "expired"
                 project.subscription_status = "expired"
 
-                # Deactivate all keys for this project
                 keys = Key.query.filter_by(project_id=project.id).all()
                 for key in keys:
                     key.status = 0
 
                 deactivated_count += 1
 
-                # Log activity
                 try:
                     activity_service.log_activity(
                         admin_user,
@@ -69,7 +65,6 @@ class AdminService:
                 except Exception as e:
                     self.logger.warning(f"Failed to log project deactivation activity: {e}")
 
-            # Clean up expired invite codes
             expired_codes = ProjectInviteCode.query.filter(
                 ProjectInviteCode.auto_delete_at < datetime.utcnow(),
                 ProjectInviteCode.is_used == False,
@@ -98,14 +93,12 @@ class AdminService:
             Tuple of (deleted_count, deleted_project_names, error_message)
         """
         try:
-            # Check admin permissions
+
             if not RBACManager.is_owner(admin_user):
                 return 0, [], "Access denied - owner role required"
 
-            # Calculate grace period cutoff
             grace_period_cutoff = datetime.utcnow() - timedelta(days=self.grace_period_days)
 
-            # Find projects eligible for deletion
             expired_projects = Project.query.filter(
                 Project.subscription_expires_at < grace_period_cutoff, Project.status == "expired"
             ).all()
@@ -117,16 +110,14 @@ class AdminService:
                 project_name = project.name
 
                 try:
-                    # Delete related data
+
                     self._delete_project_data(project.id)
 
-                    # Delete the project itself
                     db.session.delete(project)
 
                     deleted_count += 1
                     deleted_project_names.append(project_name)
 
-                    # Log activity
                     try:
                         activity_service.log_activity(
                             admin_user,
@@ -153,22 +144,18 @@ class AdminService:
     def _delete_project_data(self, project_id: int) -> None:
         """Delete all data associated with a project"""
         try:
-            # Get user IDs before deleting keys for counter recalculation
+
             affected_user_ids = db.session.query(Key.user_id).filter_by(project_id=project_id).distinct().all()
             affected_user_ids = [uid[0] for uid in affected_user_ids if uid[0] is not None]
-            
-            # Delete keys
+
             Key.query.filter_by(project_id=project_id).delete()
-            
-            # Recalculate key counters for affected users
+
             from ...utils.key_counters import update_user_key_counters
             for user_id in affected_user_ids:
                 update_user_key_counters(user_id, project_id=project_id)
 
-            # Delete games
             Game.query.filter_by(project_id=project_id).delete()
 
-            # Get users with owner role to exclude them from deletion
             owner_user_ids = (
                 db.session.query(UserRole.user_id)
                 .join(Role)
@@ -177,8 +164,6 @@ class AdminService:
             )
             owner_user_ids = [user_id[0] for user_id in owner_user_ids]
 
-            # Delete UserRole records before deleting users to avoid foreign key constraint issues
-            # Get user IDs that will be deleted
             users_to_delete = (
                 User.query.filter(User.project_id == project_id, ~User.id.in_(owner_user_ids))
                 .with_entities(User.id)
@@ -186,18 +171,14 @@ class AdminService:
             )
             user_ids_to_delete = [user_id[0] for user_id in users_to_delete]
 
-            # Delete UserRole records for users that will be deleted
             if user_ids_to_delete:
                 UserRole.query.filter(UserRole.user_id.in_(user_ids_to_delete)).delete()
 
-            # Delete non-owner users
             User.query.filter(User.project_id == project_id, ~User.id.in_(owner_user_ids)).delete()
 
-            # Delete remaining roles and user roles (for owner users)
             UserRole.query.join(Role).filter(Role.project_id == project_id).delete()
             Role.query.filter_by(project_id=project_id).delete()
 
-            # Delete invite codes
             ProjectInviteCode.query.filter_by(project_id=project_id).delete()
 
         except Exception as e:
@@ -215,7 +196,7 @@ class AdminService:
             Dictionary with system statistics
         """
         try:
-            # Check admin permissions
+
             if not RBACManager.is_owner(admin_user):
                 return {"error": "Access denied - owner role required"}
 
@@ -272,7 +253,7 @@ class AdminService:
             List of expired project information
         """
         try:
-            # Check admin permissions
+
             if not RBACManager.is_owner(admin_user):
                 return []
 
@@ -283,13 +264,11 @@ class AdminService:
 
             projects_info = []
             for project in expired_projects:
-                # Count users in project
+
                 user_count = User.query.filter_by(project_id=project.id).count()
 
-                # Count active keys
                 active_keys = Key.query.filter_by(project_id=project.id, status=1).count()
 
-                # Calculate days since expiry
                 days_expired = (datetime.utcnow() - project.subscription_expires_at).days
 
                 projects_info.append(
@@ -327,7 +306,7 @@ class AdminService:
             Tuple of (success, error_message)
         """
         try:
-            # Check admin permissions
+
             if not RBACManager.is_owner(admin_user):
                 return False, "Access denied - owner role required"
 
@@ -335,17 +314,14 @@ class AdminService:
             if not project:
                 return False, "Project not found"
 
-            # Suspend project
             project.status = "suspended"
             project.suspended_at = datetime.utcnow()
             project.suspension_reason = reason
 
-            # Deactivate all keys
             Key.query.filter_by(project_id=project_id).update({"status": 0})
 
             db.session.commit()
 
-            # Log activity
             try:
                 activity_service.log_activity(
                     admin_user,
@@ -379,7 +355,7 @@ class AdminService:
             Tuple of (success, error_message)
         """
         try:
-            # Check admin permissions
+
             if not RBACManager.is_owner(admin_user):
                 return False, "Access denied - owner role required"
 
@@ -387,14 +363,12 @@ class AdminService:
             if not project:
                 return False, "Project not found"
 
-            # Parse new_expiry_date_str if provided
             if new_expiry_date_str and not new_expiry_date:
                 try:
                     new_expiry_date = datetime.fromisoformat(new_expiry_date_str.replace("Z", "+00:00"))
                 except ValueError:
                     return False, "Invalid date format"
 
-            # Reactivate project
             project.status = "active"
             project.subscription_status = "active"
             project.suspended_at = None
@@ -403,12 +377,10 @@ class AdminService:
             if new_expiry_date:
                 project.subscription_expires_at = new_expiry_date
 
-            # Reactivate keys
             Key.query.filter_by(project_id=project_id).update({"status": 1})
 
             db.session.commit()
 
-            # Log activity
             try:
                 activity_service.log_activity(
                     admin_user,
@@ -426,6 +398,4 @@ class AdminService:
             self.logger.error(f"Error reactivating project: {str(e)}")
             return False, f"Failed to reactivate project: {str(e)}"
 
-
-# Create service instance
 admin_service = AdminService()

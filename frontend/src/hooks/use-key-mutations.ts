@@ -15,12 +15,11 @@ import {
 import { keyKeys } from './use-keys-query'
 import { KEY_STATUS } from '@/constants'
 
-// Helper function to update all key list queries
 function updateAllKeyLists(
   queryClient: ReturnType<typeof useQueryClient>,
   updater: (keys: LicenseKey[]) => LicenseKey[]
 ) {
-  // Get all list queries
+
   const queryCache = queryClient.getQueryCache()
   const listQueries = queryCache.findAll({ queryKey: keyKeys.lists() })
 
@@ -38,20 +37,16 @@ function updateAllKeyLists(
 export function useKeyMutations() {
   const queryClient = useQueryClient()
 
-  // Delete mutation with optimistic update
   const deleteKeyMutation = useMutation({
     mutationFn: (keyId: number) => deleteLicenseKey(keyId),
     onMutate: async (keyId: number) => {
-      // Cancel any outgoing refetches
+
       await queryClient.cancelQueries({ queryKey: keyKeys.lists() })
 
-      // Snapshot the previous value
       const previousQueries = queryClient.getQueriesData({ queryKey: keyKeys.lists() })
 
-      // Optimistically remove the key from all lists
       updateAllKeyLists(queryClient, (keys) => keys.filter((k) => k.id !== keyId))
 
-      // Also update total count
       const queryCache = queryClient.getQueryCache()
       const listQueries = queryCache.findAll({ queryKey: keyKeys.lists() })
       listQueries.forEach((query) => {
@@ -67,7 +62,7 @@ export function useKeyMutations() {
       return { previousQueries }
     },
     onError: (error: any, keyId: number, context: any) => {
-      // Rollback on error
+
       if (context?.previousQueries) {
         context.previousQueries.forEach(([queryKey, data]: [any, any]) => {
           queryClient.setQueryData(queryKey, data)
@@ -79,20 +74,18 @@ export function useKeyMutations() {
       toast.success('Key deleted successfully')
     },
     onSettled: () => {
-      // Refetch to ensure consistency
+
       queryClient.invalidateQueries({ queryKey: keyKeys.lists() })
       queryClient.invalidateQueries({ queryKey: keyKeys.stats() })
     },
   })
 
-  // Pause mutation with optimistic update
   const pauseKeyMutation = useMutation({
     mutationFn: (keyId: number) => pauseLicenseKey(keyId),
     onMutate: async (keyId: number) => {
       await queryClient.cancelQueries({ queryKey: keyKeys.lists() })
       const previousQueries = queryClient.getQueriesData({ queryKey: keyKeys.lists() })
 
-      // Optimistically update status to paused
       updateAllKeyLists(queryClient, (keys) =>
         keys.map((k) => (k.id === keyId ? { ...k, status: KEY_STATUS.PAUSED } : k))
       )
@@ -115,14 +108,12 @@ export function useKeyMutations() {
     },
   })
 
-  // Resume mutation with optimistic update
   const resumeKeyMutation = useMutation({
     mutationFn: (keyId: number) => resumeLicenseKey(keyId),
     onMutate: async (keyId: number) => {
       await queryClient.cancelQueries({ queryKey: keyKeys.lists() })
       const previousQueries = queryClient.getQueriesData({ queryKey: keyKeys.lists() })
 
-      // Optimistically update status to active
       updateAllKeyLists(queryClient, (keys) =>
         keys.map((k) => (k.id === keyId ? { ...k, status: KEY_STATUS.ACTIVE } : k))
       )
@@ -145,14 +136,12 @@ export function useKeyMutations() {
     },
   })
 
-  // Block mutation with optimistic update
   const blockKeyMutation = useMutation({
     mutationFn: (keyId: number) => blockLicenseKey(keyId),
     onMutate: async (keyId: number) => {
       await queryClient.cancelQueries({ queryKey: keyKeys.lists() })
       const previousQueries = queryClient.getQueriesData({ queryKey: keyKeys.lists() })
 
-      // Optimistically update status to blocked
       updateAllKeyLists(queryClient, (keys) =>
         keys.map((k) => (k.id === keyId ? { ...k, status: KEY_STATUS.BLOCKED } : k))
       )
@@ -175,14 +164,12 @@ export function useKeyMutations() {
     },
   })
 
-  // Unblock mutation with optimistic update
   const unblockKeyMutation = useMutation({
     mutationFn: (keyId: number) => unblockLicenseKey(keyId),
     onMutate: async (keyId: number) => {
       await queryClient.cancelQueries({ queryKey: keyKeys.lists() })
       const previousQueries = queryClient.getQueriesData({ queryKey: keyKeys.lists() })
 
-      // Optimistically update status to active
       updateAllKeyLists(queryClient, (keys) =>
         keys.map((k) => (k.id === keyId ? { ...k, status: KEY_STATUS.ACTIVE } : k))
       )
@@ -205,14 +192,12 @@ export function useKeyMutations() {
     },
   })
 
-  // Reset mutation with optimistic update
   const resetKeyMutation = useMutation({
     mutationFn: (keyId: number) => resetLicenseKey(keyId),
     onMutate: async (keyId: number) => {
       await queryClient.cancelQueries({ queryKey: keyKeys.lists() })
       const previousQueries = queryClient.getQueriesData({ queryKey: keyKeys.lists() })
 
-      // Optimistically reset device count
       updateAllKeyLists(queryClient, (keys) =>
         keys.map((k) => (k.id === keyId ? { ...k, device_count: 0 } : k))
       )
@@ -235,7 +220,6 @@ export function useKeyMutations() {
     },
   })
 
-  // Extend mutation (no optimistic update as it changes expires_at which is complex)
   const extendKeyMutation = useMutation({
     mutationFn: ({ keyId, hours }: { keyId: number; hours: number }) =>
       extendLicenseKey(keyId, hours),
@@ -248,7 +232,6 @@ export function useKeyMutations() {
     },
   })
 
-  // Duplicate mutation (no optimistic update as it creates a new key)
   const duplicateKeyMutation = useMutation({
     mutationFn: (keyId: number) => duplicateLicenseKey(keyId),
     onSuccess: () => {
@@ -270,7 +253,7 @@ export function useKeyMutations() {
     resetKey: resetKeyMutation.mutateAsync,
     extendKey: extendKeyMutation.mutateAsync,
     duplicateKey: duplicateKeyMutation.mutateAsync,
-    // Expose mutation states for loading indicators
+
     isDeleting: deleteKeyMutation.isPending,
     isPausing: pauseKeyMutation.isPending,
     isResuming: resumeKeyMutation.isPending,
@@ -281,4 +264,3 @@ export function useKeyMutations() {
     isDuplicating: duplicateKeyMutation.isPending,
   }
 }
-

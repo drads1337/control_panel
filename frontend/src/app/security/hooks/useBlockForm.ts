@@ -55,4 +55,3 @@ export function useBlockForm(config: AddBlockDialogConfig) {
     getFormDataForSubmit,
   }
 }
-

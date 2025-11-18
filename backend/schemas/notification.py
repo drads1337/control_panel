@@ -8,7 +8,6 @@ from pydantic import Field, validator
 
 from .common import BaseSchema
 
-
 class NotificationCreateSchema(BaseSchema):
     """Notification creation request schema"""
 
@@ -29,7 +28,6 @@ class NotificationCreateSchema(BaseSchema):
         if not v or not v.strip():
             raise ValueError("Message is required")
         return v.strip()
-
 
 class NotificationSendSchema(BaseSchema):
     """Send notification request schema"""
@@ -61,7 +59,6 @@ class NotificationSendSchema(BaseSchema):
             raise ValueError("All user IDs must be positive integers")
         return v
 
-
 class NotificationBulkActionSchema(BaseSchema):
     """Bulk notification action request schema"""
 
@@ -83,7 +80,6 @@ class NotificationBulkActionSchema(BaseSchema):
             raise ValueError("All notification IDs must be positive integers")
         return v
 
-
 class NotificationBulkCreateSchema(BaseSchema):
     """Bulk notification creation request schema"""
 
@@ -104,7 +100,6 @@ class NotificationBulkCreateSchema(BaseSchema):
             raise ValueError("Message is required")
         return v.strip()
 
-
 class GameUpdateNotificationSchema(BaseSchema):
     """Game update notification request schema"""
 
@@ -122,7 +117,6 @@ class GameUpdateNotificationSchema(BaseSchema):
         if v not in allowed_types:
             raise ValueError(f'Invalid type. Allowed: {", ".join(allowed_types)}')
         return v
-
 
 class LoaderNotificationCreateSchema(BaseSchema):
     """Loader notification creation request schema"""
@@ -145,9 +139,7 @@ class LoaderNotificationCreateSchema(BaseSchema):
             raise ValueError("Message is required")
         return v.strip()
 
-
 class NotificationCleanupSchema(BaseSchema):
     """Notification cleanup request schema"""
 
     days_old: int = Field(default=30, ge=1, le=365, description="Days old threshold")
-

@@ -1,9 +1,8 @@
 import { BaseEntity } from '@/shared/api'
 
-// File entity types
 export interface FileItem {
   id: string
-  config_id?: string  // 8-digit ID for configs
+  config_id?: string
   name: string
   type: 'file' | 'folder'
   size: number

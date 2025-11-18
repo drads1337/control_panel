@@ -13,7 +13,6 @@ from ..core.extensions import db
 from ..models.core import User
 from ..models.rbac import Permission, Role, RolePermission, UserRole
 
-
 class RBACManager:
     """Centralized RBAC management"""
 
@@ -70,13 +69,12 @@ class RBACManager:
         try:
             from ..services.rbac import rbac_service
 
-            # Use rbac_service.check_permission which handles owner/admin correctly
             return rbac_service.check_permission(user_id, permission)
         except Exception as e:
             logging.error(
                 f"RBAC_HAS_PERMISSION_ERROR user_id={user_id} permission={permission} error={e}"
             )
-            # Fallback to old method
+
             permissions = RBACManager.get_user_permissions(user_id, project_id)
             return permission in permissions
 
@@ -90,7 +88,7 @@ class RBACManager:
     def is_admin(user: User) -> bool:
         """
         Check if user is admin using RBAC system only.
-        
+
         NOTE: This method uses ONLY RBAC roles. Static roles (user.role, user.is_admin)
         are deprecated and no longer supported. All users must be migrated to RBAC.
         """
@@ -98,22 +96,21 @@ class RBACManager:
             return False
 
         try:
-            # Get RBAC roles for the user
+
             user_roles = RBACManager.get_user_role_names(user)
-            
-            # Check for admin-level roles in RBAC
-            admin_roles = ["admin", "owner"]  # owner is also considered admin-level
+
+            admin_roles = ["admin", "owner"]
             return any(role in user_roles for role in admin_roles)
         except Exception as e:
             logging.error(f"Error checking admin status: {e}")
-            # Fail-safe: return False on error
+
             return False
 
     @staticmethod
     def is_owner(user: User) -> bool:
         """
         Check if user is owner using RBAC system only.
-        
+
         NOTE: This method uses ONLY RBAC roles. Static roles (user.role) are deprecated
         and no longer supported. All users must be migrated to RBAC.
         """
@@ -121,14 +118,13 @@ class RBACManager:
             return False
 
         try:
-            # Get RBAC roles for the user
+
             user_roles = RBACManager.get_user_role_names(user)
-            
-            # Check for owner role in RBAC
+
             return "owner" in user_roles
         except Exception as e:
             logging.error(f"Error checking owner status: {e}")
-            # Fail-safe: return False on error
+
             return False
 
     @staticmethod
@@ -137,25 +133,22 @@ class RBACManager:
         if not user:
             return False
 
-        # Owner can access any project
         if RBACManager.is_owner(user):
             return True
 
-        # User can only access their own project
         return user.project_id == project_id
 
     @staticmethod
     def user_has_role(user: User, role_name: str) -> bool:
         """
         Check if user has specific role using RBAC system only.
-        
+
         NOTE: This method uses ONLY RBAC roles. Static roles (user.role) are deprecated
         and no longer supported. All users must be migrated to RBAC.
         """
         if not user:
             return False
 
-        # Check RBAC roles (single source of truth)
         user_roles = RBACManager.get_user_role_names(user)
         return role_name in user_roles
 
@@ -163,27 +156,26 @@ class RBACManager:
     def get_user_role_names(user: User) -> List[str]:
         """
         Get all role names for a user using RBAC system only.
-        
+
         NOTE: This method uses ONLY RBAC roles. Static roles (user.role, user.is_admin)
         are deprecated and no longer supported. All users must be migrated to RBAC.
-        
+
         Returns:
             List of role names. Returns ["client"] as default if user has no RBAC roles.
         """
-        # Import UserRoles with error handling
+
         try:
             from .role_constants import UserRoles
             default_role = UserRoles.CLIENT.value
         except (ImportError, AttributeError) as import_error:
             logging.error(f"Error importing UserRoles: {import_error}")
-            # Fallback to hardcoded value if import fails
+
             default_role = "client"
-        
+
         try:
             if not user:
                 return [default_role]
 
-            # Get RBAC roles from UserRole table (single source of truth)
             if user.project_id:
                 try:
                     from ..models.rbac import Role, UserRole
@@ -196,16 +188,14 @@ class RBACManager:
                     )
                     rbac_roles = [role.name for role in user_roles]
 
-                    # If user has RBAC roles, return them
                     if rbac_roles:
                         return rbac_roles
 
                 except Exception as e:
                     logging.error(f"Error getting RBAC roles for user {getattr(user, 'username', 'unknown')}: {e}")
-                    # On error, return default role
+
                     return [default_role]
-            
-            # Default fallback for users without project_id or RBAC roles
+
             return [default_role]
 
         except Exception as e:
@@ -216,22 +206,20 @@ class RBACManager:
     def has_any_role(user: User, roles: List[str]) -> bool:
         """
         Check if user has any of the specified roles using RBAC system only.
-        
+
         NOTE: This method uses ONLY RBAC roles. Static roles (user.role) are deprecated
         and no longer supported. All users must be migrated to RBAC.
         """
         if not user:
             return False
 
-        # Check RBAC roles (single source of truth)
         user_roles = RBACManager.get_user_role_names(user)
         return any(role in user_roles for role in roles)
-
 
 def require_permission(permission: str):
     """
     Decorator to require specific permission.
-    
+
     NOTE: This decorator expects current_user to be passed explicitly via kwargs
     (typically by middleware decorators like enforce_project_scope, require_project_isolation).
     Prefer using middleware decorators that pass dependencies explicitly.
@@ -240,16 +228,15 @@ def require_permission(permission: str):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            # Prefer explicit current_user from kwargs (passed by middleware)
+
             current_user = kwargs.get("current_user")
             if not current_user:
-                # Fallback to g for backward compatibility (deprecated)
+
                 current_user = getattr(g, "current_user", None)
-            
+
             if not current_user:
                 return jsonify({"error": "Authentication required"}), 401
 
-            # Check if user has project_id (required for permission checks)
             if not current_user.project_id:
                 return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -262,11 +249,10 @@ def require_permission(permission: str):
 
     return decorator
 
-
 def require_role(role: str):
     """
     Decorator to require specific role.
-    
+
     NOTE: This decorator expects current_user to be passed explicitly via kwargs
     (typically by middleware decorators like enforce_project_scope, require_project_isolation).
     Prefer using middleware decorators that pass dependencies explicitly.
@@ -275,16 +261,15 @@ def require_role(role: str):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            # Prefer explicit current_user from kwargs (passed by middleware)
+
             current_user = kwargs.get("current_user")
             if not current_user:
-                # Fallback to g for backward compatibility (deprecated)
+
                 current_user = getattr(g, "current_user", None)
-            
+
             if not current_user:
                 return jsonify({"error": "Authentication required"}), 401
 
-            # Check if user has project_id (required for role checks)
             if not current_user.project_id:
                 return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -297,11 +282,10 @@ def require_role(role: str):
 
     return decorator
 
-
 def require_admin(f):
     """
     Decorator to require admin role.
-    
+
     NOTE: This decorator expects current_user to be passed explicitly via kwargs
     (typically by middleware decorators like enforce_project_scope, require_project_isolation).
     Prefer using middleware decorators that pass dependencies explicitly.
@@ -309,12 +293,12 @@ def require_admin(f):
 
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # Prefer explicit current_user from kwargs (passed by middleware)
+
         current_user = kwargs.get("current_user")
         if not current_user:
-            # Fallback to g for backward compatibility (deprecated)
+
             current_user = getattr(g, "current_user", None)
-        
+
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
 
@@ -325,11 +309,10 @@ def require_admin(f):
 
     return decorated_function
 
-
 def require_owner(f):
     """
     Decorator to require owner role.
-    
+
     NOTE: This decorator expects current_user to be passed explicitly via kwargs
     (typically by middleware decorators like enforce_project_scope, require_project_isolation).
     Prefer using middleware decorators that pass dependencies explicitly.
@@ -337,12 +320,12 @@ def require_owner(f):
 
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # Prefer explicit current_user from kwargs (passed by middleware)
+
         current_user = kwargs.get("current_user")
         if not current_user:
-            # Fallback to g for backward compatibility (deprecated)
+
             current_user = getattr(g, "current_user", None)
-        
+
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
 
@@ -353,7 +336,6 @@ def require_owner(f):
 
     return decorated_function
 
-
 def validate_project_access(user: User, project_id: int) -> Tuple[bool, str]:
     """Validate if user can access project"""
     if not user:
@@ -363,7 +345,6 @@ def validate_project_access(user: User, project_id: int) -> Tuple[bool, str]:
         return False, "Access denied to project"
 
     return True, ""
-
 
 def requires_project_assignment(user: User) -> Tuple[bool, str]:
     """
@@ -376,23 +357,19 @@ def requires_project_assignment(user: User) -> Tuple[bool, str]:
     if not user:
         return True, "User not found"
 
-    # Owners don't need project assignment
     if RBACManager.is_owner(user):
         return False, ""
 
-    # All other users need project assignment
     if not user.project_id:
         return True, "User must be assigned to a project"
 
     return False, ""
-
 
 def validate_game_access(user: User, game_id: int) -> Tuple[bool, str]:
     """Validate if user can access game"""
     if not user:
         return False, "User not found"
 
-    # Check if user has access to the game's project
     from ..models.games import Game
 
     game = Game.query.get(game_id)

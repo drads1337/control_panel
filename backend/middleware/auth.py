@@ -43,16 +43,14 @@ from ..utils.rbac_utils import RBACManager
 
 logger = logging.getLogger(__name__)
 
-
 def _is_owner_safe(user):
     """
     Check if user is owner using RBAC system only.
-    
+
     NOTE: This function uses RBACManager.is_owner() which is the single source of truth.
     Static roles (user.role) are deprecated and should not be used.
     """
     return RBACManager.is_owner(user)
-
 
 def require_auth(f):
     """
@@ -61,8 +59,7 @@ def require_auth(f):
     Usage:
     @require_auth
     def protected_route(current_user=None):
-        # current_user is passed explicitly (preferred)
-        # g.current_user is also available for backward compatibility
+
         pass
     """
     import inspect
@@ -80,10 +77,8 @@ def require_auth(f):
             if not user:
                 return jsonify({"error": "User not found"}), 404
 
-            # Store user in g for backward compatibility
             g.current_user = user
 
-            # Check if function accepts current_user parameter
             sig = inspect.signature(f)
             if "current_user" in sig.parameters and "current_user" not in kwargs:
                 kwargs["current_user"] = user
@@ -96,7 +91,6 @@ def require_auth(f):
 
     return decorated_function
 
-
 def require_user(f):
     """
     Decorator to get current user and add it to g.current_user
@@ -106,18 +100,17 @@ def require_user(f):
     Usage:
     @require_user
     def some_route(current_user=None):
-        # current_user is passed explicitly (preferred)
-        # g.current_user is also available for backward compatibility
+
         pass
-    
+
     Or for backward compatibility:
     @require_user
     def some_route():
-        # g.current_user is available (deprecated)
+
         pass
     """
     import inspect
-    
+
     @wraps(f)
     def decorated_function(*args, **kwargs):
         try:
@@ -131,13 +124,11 @@ def require_user(f):
             if not user:
                 return jsonify({"error": "User not found"}), 404
 
-            # Store user in g for backward compatibility
             g.current_user = user
 
-            # Check if function accepts current_user parameter
             sig = inspect.signature(f)
             if "current_user" in sig.parameters and "current_user" not in kwargs:
-                # Pass current_user explicitly if function accepts it
+
                 kwargs["current_user"] = user
 
             return f(*args, **kwargs)
@@ -147,7 +138,6 @@ def require_user(f):
             return jsonify({"error": "Authentication required"}), 401
 
     return decorated_function
-
 
 def require_role(role_name_or_list):
     """
@@ -167,7 +157,6 @@ def require_role(role_name_or_list):
     """
     from typing import List, Union
 
-    # Normalize to list
     if isinstance(role_name_or_list, str):
         required_roles = [role_name_or_list]
     elif isinstance(role_name_or_list, list):
@@ -191,17 +180,14 @@ def require_role(role_name_or_list):
                 if not user:
                     return jsonify({"error": "User not found"}), 404
 
-                # Check if user has any of the required roles
                 if not RBACManager.has_any_role(user, required_roles):
                     logger.warning(
                         f"User {user.username} attempted to access {f.__name__} without required role(s): {required_roles}"
                     )
                     return jsonify({"error": f"One of the following roles required: {', '.join(required_roles)}"}), 403
 
-                # Store user in g for backward compatibility
                 g.current_user = user
 
-                # Check if function accepts current_user parameter
                 sig = inspect.signature(f)
                 if "current_user" in sig.parameters and "current_user" not in kwargs:
                     kwargs["current_user"] = user
@@ -215,7 +201,6 @@ def require_role(role_name_or_list):
         return decorated_function
 
     return decorator
-
 
 def require_permission(permission_name: str):
     """
@@ -246,17 +231,14 @@ def require_permission(permission_name: str):
                 if not user:
                     return jsonify({"error": "User not found"}), 404
 
-                # Check if user has the required permission
                 if not RBACManager.has_permission(user.id, user.project_id, permission_name):
                     logger.warning(
                         f"User {user.username} attempted to access {f.__name__} without required permission: {permission_name}"
                     )
                     return jsonify({"error": f"Permission {permission_name} required"}), 403
 
-                # Store user in g for backward compatibility
                 g.current_user = user
 
-                # Check if function accepts current_user parameter
                 sig = inspect.signature(f)
                 if "current_user" in sig.parameters and "current_user" not in kwargs:
                     kwargs["current_user"] = user
@@ -270,7 +252,6 @@ def require_permission(permission_name: str):
         return decorated_function
 
     return decorator
-
 
 def require_any_permission(permissions):
     """
@@ -302,7 +283,6 @@ def require_any_permission(permissions):
                 if not user:
                     return jsonify({"error": "User not found"}), 404
 
-                # Check if user has any of the permissions
                 has_any_permission = False
                 for permission in permissions:
                     if rbac_service.check_permission(user.id, permission):
@@ -315,10 +295,8 @@ def require_any_permission(permissions):
                     )
                     return jsonify({"error": "Insufficient permissions"}), 403
 
-                # Store user in g for backward compatibility
                 g.current_user = user
 
-                # Check if function accepts current_user parameter
                 sig = inspect.signature(f)
                 if "current_user" in sig.parameters and "current_user" not in kwargs:
                     kwargs["current_user"] = user
@@ -333,7 +311,6 @@ def require_any_permission(permissions):
 
     return decorator
 
-
 def require_project_assignment(f):
     """
     Decorator to ensure user is assigned to a project (except owners)
@@ -341,8 +318,7 @@ def require_project_assignment(f):
     Usage:
     @require_project_assignment
     def project_scoped_route(current_user=None):
-        # current_user is passed explicitly (preferred)
-        # g.current_user is also available for backward compatibility
+
         pass
     """
     import inspect
@@ -360,29 +336,24 @@ def require_project_assignment(f):
             if not user:
                 return jsonify({"error": "User not found"}), 404
 
-            # Owners don't need project assignment
             if RBACManager.is_owner(user):
-                # Store user in g for backward compatibility
+
                 g.current_user = user
 
-                # Check if function accepts current_user parameter
                 sig = inspect.signature(f)
                 if "current_user" in sig.parameters and "current_user" not in kwargs:
                     kwargs["current_user"] = user
 
                 return f(*args, **kwargs)
 
-            # All other users must have project_id
             if not user.project_id:
                 logger.warning(
                     f"User {user.username} attempted to access {f.__name__} without project assignment"
                 )
                 return jsonify({"error": "User must be assigned to a project"}), 403
 
-            # Store user in g for backward compatibility
             g.current_user = user
 
-            # Check if function accepts current_user parameter
             sig = inspect.signature(f)
             if "current_user" in sig.parameters and "current_user" not in kwargs:
                 kwargs["current_user"] = user
@@ -395,7 +366,6 @@ def require_project_assignment(f):
 
     return decorated_function
 
-
 def require_admin(f):
     """
     Decorator to require admin role
@@ -403,8 +373,7 @@ def require_admin(f):
     Usage:
     @require_admin
     def admin_route(current_user=None):
-        # current_user is passed explicitly (preferred)
-        # g.current_user is also available for backward compatibility
+
         pass
     """
     import inspect
@@ -428,10 +397,8 @@ def require_admin(f):
                 )
                 return jsonify({"error": "Admin access required"}), 403
 
-            # Store user in g for backward compatibility
             g.current_user = user
 
-            # Check if function accepts current_user parameter
             sig = inspect.signature(f)
             if "current_user" in sig.parameters and "current_user" not in kwargs:
                 kwargs["current_user"] = user
@@ -444,7 +411,6 @@ def require_admin(f):
 
     return decorated_function
 
-
 def require_owner(f):
     """
     Decorator to require owner role
@@ -452,8 +418,7 @@ def require_owner(f):
     Usage:
     @require_owner
     def owner_route(current_user=None):
-        # current_user is passed explicitly (preferred)
-        # g.current_user is also available for backward compatibility
+
         pass
     """
     import inspect
@@ -477,10 +442,8 @@ def require_owner(f):
                 )
                 return jsonify({"error": "Owner access required"}), 403
 
-            # Store user in g for backward compatibility
             g.current_user = user
 
-            # Check if function accepts current_user parameter
             sig = inspect.signature(f)
             if "current_user" in sig.parameters and "current_user" not in kwargs:
                 kwargs["current_user"] = user
@@ -493,7 +456,6 @@ def require_owner(f):
 
     return decorated_function
 
-
 def require_project_active(f):
     """
     Decorator that requires an active project for the route
@@ -501,8 +463,7 @@ def require_project_active(f):
     Usage:
     @require_project_active
     def project_route(current_user=None, current_project=None):
-        # current_user and current_project are passed explicitly (preferred)
-        # g.current_user and g.current_project are also available for backward compatibility
+
         pass
     """
     import inspect
@@ -520,29 +481,25 @@ def require_project_active(f):
             if not user:
                 return jsonify({"error": "User not found"}), 404
 
-            # Skip check for owner users
             if _is_owner_safe(user):
-                # Store user in g for backward compatibility
+
                 g.current_user = user
 
-                # Check if function accepts current_user parameter
                 sig = inspect.signature(f)
                 if "current_user" in sig.parameters and "current_user" not in kwargs:
                     kwargs["current_user"] = user
 
                 return f(*args, **kwargs)
 
-            # Check if user has a project
             if not user.project_id:
                 return jsonify({"error": "User has no project"}), 403
 
-            # Check project status
             project = Project.query.get(user.project_id)
             if not project:
                 return jsonify({"error": "Project not found"}), 404
 
             if not project.is_active:
-                # Determine the specific reason for inactivity
+
                 if project.status == "inactive":
                     error_message = "Project has been paused. Please contact the project owner to reactivate it."
                 elif (
@@ -567,11 +524,9 @@ def require_project_active(f):
                     403,
                 )
 
-            # Store user and project in g for backward compatibility
             g.current_user = user
             g.current_project = project
 
-            # Check if function accepts current_user or current_project parameters
             sig = inspect.signature(f)
             if "current_user" in sig.parameters and "current_user" not in kwargs:
                 kwargs["current_user"] = user
@@ -586,7 +541,6 @@ def require_project_active(f):
 
     return decorated_function
 
-
 def require_project_with_grace_period(f):
     """
     Decorator that requires an active project or allows access during grace period
@@ -594,8 +548,7 @@ def require_project_with_grace_period(f):
     Usage:
     @require_project_with_grace_period
     def project_route(current_user=None, current_project=None):
-        # current_user and current_project are passed explicitly (preferred)
-        # g.current_user and g.current_project are also available for backward compatibility
+
         pass
     """
     import inspect
@@ -607,13 +560,10 @@ def require_project_with_grace_period(f):
                 f"🔒 require_project_with_grace_period - Starting, method: {request.method}, cookies: {list(request.cookies.keys()) if request.cookies else 'none'}, origin: {request.headers.get('Origin')}"
             )
 
-            # @jwt_required() already verified the token, so get_jwt_identity() should work
-            # If it fails, catch it and provide helpful error
             try:
                 user_id = get_jwt_identity()
             except RuntimeError as e:
-                # RuntimeError from flask-jwt-extended means JWT context not available
-                # This shouldn't happen if @jwt_required() worked, but log it for debugging
+
                 logger.error(
                     f"🔒 require_project_with_grace_period - RuntimeError from get_jwt_identity(): {str(e)}. This suggests JWT context wasn't set by @jwt_required(). Cookies: {list(request.cookies.keys()) if request.cookies else 'none'}"
                 )
@@ -627,11 +577,11 @@ def require_project_with_grace_period(f):
                     401,
                 )
             except Exception as jwt_error:
-                # Any other exception from get_jwt_identity()
+
                 logger.error(
                     f"🔒 require_project_with_grace_period - Exception from get_jwt_identity(): {type(jwt_error).__name__}: {str(jwt_error)}"
                 )
-                raise  # Re-raise to be caught by outer except
+                raise
 
             logger.debug(f"🔒 require_project_with_grace_period - user_id: {user_id}")
 
@@ -656,7 +606,7 @@ def require_project_with_grace_period(f):
             logger.error(
                 f"🔒 require_project_with_grace_period - Traceback: {traceback.format_exc()}"
             )
-            # Check if this is a JWT error - if so, provide more specific error
+
             error_str = str(e).lower()
             if (
                 "jwt" in error_str
@@ -675,33 +625,27 @@ def require_project_with_grace_period(f):
                 )
             return jsonify({"error": "Authentication required", "msg": str(e)}), 401
 
-        # Skip check for owner users
         if _is_owner_safe(user):
-            # Store user in g for backward compatibility
+
             g.current_user = user
 
-            # Check if function accepts current_user parameter
             sig = inspect.signature(f)
             if "current_user" in sig.parameters and "current_user" not in kwargs:
                 kwargs["current_user"] = user
 
             return f(*args, **kwargs)
 
-        # Check if user has a project
         if not user.project_id:
             return jsonify({"error": "User has no project"}), 403
 
-        # Check project status
         project = Project.query.get(user.project_id)
         if not project:
             return jsonify({"error": "Project not found"}), 404
 
-        # Check if project is in grace period
         if project.subscription_expires_at:
             now = datetime.utcnow()
             grace_period_end = project.subscription_expires_at + timedelta(days=14)
 
-            # If project is expired but still in grace period
             if now > project.subscription_expires_at and now <= grace_period_end:
                 days_left_in_grace = (grace_period_end - now).days
 
@@ -719,9 +663,8 @@ def require_project_with_grace_period(f):
                         }
                     ),
                     402,
-                )  # 402 Payment Required
+                )
 
-            # If grace period has passed
             elif now > grace_period_end:
                 return (
                     jsonify(
@@ -734,9 +677,8 @@ def require_project_with_grace_period(f):
                         }
                     ),
                     410,
-                )  # 410 Gone
+                )
 
-        # If project is not active for other reasons
         if not project.is_active:
             if project.status == "inactive":
                 error_message = (
@@ -759,11 +701,9 @@ def require_project_with_grace_period(f):
                 403,
             )
 
-        # Store user and project in g for backward compatibility
         g.current_user = user
         g.current_project = project
 
-        # Check if function accepts current_user or current_project parameters
         sig = inspect.signature(f)
         if "current_user" in sig.parameters and "current_user" not in kwargs:
             kwargs["current_user"] = user
@@ -773,7 +713,6 @@ def require_project_with_grace_period(f):
         return f(*args, **kwargs)
 
     return decorated_function
-
 
 def enforce_project_scope(f):
     """
@@ -787,13 +726,13 @@ def enforce_project_scope(f):
     Usage:
     @enforce_project_scope
     def project_scoped_route(project_id=None):
-        # project_id is passed explicitly
+
         pass
-    
+
     Or for backward compatibility:
     @enforce_project_scope
     def project_scoped_route():
-        # g.project_id is available (deprecated)
+
         pass
     """
     import inspect
@@ -809,11 +748,9 @@ def enforce_project_scope(f):
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Determine project_id based on user role
         project_id = None
         project = None
 
-        # For non-owners, always use their project
         user_roles = RBACManager.get_user_role_names(user)
         if not user_roles or user_roles[0] != "owner":
             if not user.project_id:
@@ -823,13 +760,13 @@ def enforce_project_scope(f):
             if not project:
                 return jsonify({"error": "Project not found"}), 404
         else:
-            # Owner: prefer explicit project_id; if absent, fall back to user's own project_id (if set)
+
             try:
-                # Prefer query param
+
                 if "project_id" in request.args:
                     project_id = int(request.args.get("project_id"))
                 else:
-                    # Fall back to JSON body if present
+
                     if request.is_json:
                         body = request.get_json(silent=True) or {}
                         if (
@@ -846,30 +783,24 @@ def enforce_project_scope(f):
                 if not project:
                     return jsonify({"error": "Project not found"}), 404
 
-        # Set g attributes for backward compatibility
         g.project_id = project_id
         g.current_user = user
         g.current_project = project
 
-        # Check function signature and pass dependencies explicitly
         sig = inspect.signature(f)
-        
-        # Pass project_id explicitly if function accepts it
+
         if "project_id" in sig.parameters and "project_id" not in kwargs:
             kwargs["project_id"] = project_id
-        
-        # Pass current_user explicitly if function accepts it
+
         if "current_user" in sig.parameters and "current_user" not in kwargs:
             kwargs["current_user"] = user
-        
-        # Pass current_project explicitly if function accepts it
+
         if "current_project" in sig.parameters and "current_project" not in kwargs:
             kwargs["current_project"] = project
 
         return f(*args, **kwargs)
 
     return decorated_function
-
 
 def require_project_isolation(f):
     """
@@ -884,8 +815,7 @@ def require_project_isolation(f):
     Usage:
     @require_project_isolation
     def some_route(current_user=None, current_project=None, project_id=None):
-        # current_user, current_project, and project_id are passed explicitly (preferred)
-        # g.project_id, g.current_user, and g.current_project are also available for backward compatibility
+
         pass
     """
     import inspect
@@ -897,13 +827,10 @@ def require_project_isolation(f):
                 f"🔒 require_project_isolation - Starting, method: {request.method}, cookies: {list(request.cookies.keys()) if request.cookies else 'none'}, origin: {request.headers.get('Origin')}"
             )
 
-            # @jwt_required() already verified the token, so get_jwt_identity() should work
-            # If it fails, catch it and provide helpful error
             try:
                 user_id = get_jwt_identity()
             except RuntimeError as e:
-                # RuntimeError from flask-jwt-extended means JWT context not available
-                # This shouldn't happen if @jwt_required() worked, but log it for debugging
+
                 logger.error(
                     f"🔒 require_project_isolation - RuntimeError from get_jwt_identity(): {str(e)}. This suggests JWT context wasn't set by @jwt_required(). Cookies: {list(request.cookies.keys()) if request.cookies else 'none'}"
                 )
@@ -917,11 +844,11 @@ def require_project_isolation(f):
                     401,
                 )
             except Exception as jwt_error:
-                # Any other exception from get_jwt_identity()
+
                 logger.error(
                     f"🔒 require_project_isolation - Exception from get_jwt_identity(): {type(jwt_error).__name__}: {str(jwt_error)}"
                 )
-                raise  # Re-raise to be caught by outer except
+                raise
 
             logger.debug(f"🔒 require_project_isolation - Got user_id: {user_id}")
 
@@ -938,21 +865,18 @@ def require_project_isolation(f):
                 )
                 return jsonify({"error": "User not found"}), 404
 
-            # SECURITY FIX: All users must have a project_id (except owners)
             if not user.project_id and not _is_owner_safe(user):
                 logger.warning(
                     f"SECURITY_VIOLATION: User {user.username} (ID: {user.id}) has no project_id"
                 )
                 return jsonify({"error": "User must be assigned to a project"}), 403
 
-            # For owner users without project_id, allow system-wide access
             if _is_owner_safe(user) and not user.project_id:
-                # Set g attributes for backward compatibility
+
                 g.project_id = None
                 g.current_user = user
                 g.current_project = None
 
-                # Check if function accepts parameters
                 sig = inspect.signature(f)
                 if "current_user" in sig.parameters and "current_user" not in kwargs:
                     kwargs["current_user"] = user
@@ -963,7 +887,6 @@ def require_project_isolation(f):
 
                 return f(*args, **kwargs)
 
-            # Validate project exists and is active
             project = Project.query.get(user.project_id)
             if not project:
                 logger.warning(
@@ -977,12 +900,10 @@ def require_project_isolation(f):
                 )
                 return jsonify({"error": "Project is inactive"}), 403
 
-            # Set g attributes for backward compatibility
             g.project_id = user.project_id
             g.current_user = user
             g.current_project = project
 
-            # Check if function accepts parameters
             sig = inspect.signature(f)
             if "current_user" in sig.parameters and "current_user" not in kwargs:
                 kwargs["current_user"] = user
@@ -1003,7 +924,6 @@ def require_project_isolation(f):
 
     return decorated_function
 
-
 def validate_project_access(resource_id=None, resource_model=None):
     """
     SECURITY DECORATOR: Validates that a resource belongs to the user's project.
@@ -1015,7 +935,7 @@ def validate_project_access(resource_id=None, resource_model=None):
     Usage:
     @validate_project_access(resource_id='game_id', resource_model=Game)
     def get_game(game_id):
-        # game_id is guaranteed to belong to user's project
+
         pass
     """
 
@@ -1026,10 +946,10 @@ def validate_project_access(resource_id=None, resource_model=None):
                 return jsonify({"error": "Project scope not set"}), 500
 
             if resource_id and resource_model:
-                # Get the resource ID from kwargs
+
                 actual_resource_id = kwargs.get(resource_id)
                 if actual_resource_id:
-                    # Check if resource belongs to project
+
                     resource = resource_model.query.filter_by(
                         id=actual_resource_id, project_id=g.project_id
                     ).first()
@@ -1046,12 +966,9 @@ def validate_project_access(resource_id=None, resource_model=None):
 
     return decorator
 
-
-# Legacy compatibility aliases
 def require_active_project(f):
     """Legacy alias for require_project_active"""
     return require_project_active(f)
-
 
 def check_project_status(f):
     """
@@ -1062,7 +979,7 @@ def check_project_status(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         try:
-            # Verify JWT token
+
             verify_jwt_in_request()
             user_id = get_jwt_identity()
 
@@ -1073,29 +990,25 @@ def check_project_status(f):
             if not user:
                 return jsonify({"error": "User not found"}), 404
 
-            # Skip check for owner users using RBAC
             if _is_owner_safe(user):
-                # Store user in g for backward compatibility
+
                 g.current_user = user
 
-                # Check if function accepts current_user parameter
                 sig = inspect.signature(f)
                 if "current_user" in sig.parameters and "current_user" not in kwargs:
                     kwargs["current_user"] = user
 
                 return f(*args, **kwargs)
 
-            # Check if user has a project
             if not user.project_id:
                 return jsonify({"error": "User has no project"}), 403
 
-            # Check project status
             project = Project.query.get(user.project_id)
             if not project:
                 return jsonify({"error": "Project not found"}), 404
 
             if not project.is_active:
-                # Determine the specific reason for inactivity
+
                 if project.status == "inactive":
                     error_message = "Project has been paused. Please contact the project owner to reactivate it."
                 elif (
@@ -1120,11 +1033,9 @@ def check_project_status(f):
                     403,
                 )
 
-            # Store user and project in g for backward compatibility
             g.current_user = user
             g.current_project = project
 
-            # Check if function accepts current_user or current_project parameters
             sig = inspect.signature(f)
             if "current_user" in sig.parameters and "current_user" not in kwargs:
                 kwargs["current_user"] = user
@@ -1134,28 +1045,22 @@ def check_project_status(f):
             return f(*args, **kwargs)
 
         except Exception as e:
-            # If JWT verification fails, continue with the request
-            # (this allows public endpoints to work)
+
             return f(*args, **kwargs)
 
     return decorated_function
 
-
-# Helper functions for use within routes
 def get_current_user():
     """Helper function to get current user from request context"""
     return getattr(g, "current_user", None)
-
 
 def get_current_project():
     """Helper function to get current project from request context"""
     return getattr(g, "current_project", None)
 
-
 def get_project_id():
     """Helper function to get project ID from request context"""
     return getattr(g, "project_id", None)
-
 
 def check_permission_in_route(permission):
     """
@@ -1165,14 +1070,13 @@ def check_permission_in_route(permission):
     def some_route():
         if not check_permission_in_route('users.create'):
             return jsonify({'error': 'Insufficient permissions'}), 403
-        # Continue with route logic
+
     """
     current_user = get_current_user()
     if not current_user:
         return False
 
     return RBACManager.has_permission(current_user.id, current_user.project_id, permission)
-
 
 def get_user_permissions_in_route():
     """
@@ -1182,7 +1086,7 @@ def get_user_permissions_in_route():
     def some_route():
         permissions = get_user_permissions_in_route()
         if 'users.create' in permissions:
-            # User can create users
+
     """
     current_user = get_current_user()
     if not current_user:

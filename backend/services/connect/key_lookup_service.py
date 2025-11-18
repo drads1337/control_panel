@@ -11,7 +11,6 @@ from ...models import Key, Project
 
 logger = logging.getLogger(__name__)
 
-
 class KeyLookupService:
     """Handles key lookup and validation"""
 
@@ -37,7 +36,6 @@ class KeyLookupService:
                 f"KEY_LOOKUP: user_key={user_key}, client_project_id={client_project_id}"
             )
 
-            # Find project by unique_id or id
             project = Project.query.filter_by(unique_id=str(client_project_id)).first()
             if project:
                 logger.debug(
@@ -63,7 +61,6 @@ class KeyLookupService:
                 )
                 return None, None, "Project not found"
 
-            # Find key within project
             key_obj = Key.query.filter_by(key=user_key, project_id=project.id).first()
             if key_obj:
                 logger.debug(
@@ -73,7 +70,7 @@ class KeyLookupService:
                 logger.warning(
                     f"KEY_LOOKUP: Key not found: key={user_key}, project_id={project.id}"
                 )
-                # Check if key exists in other projects
+
                 key_anywhere = Key.query.filter_by(key=user_key).first()
                 if key_anywhere:
                     logger.warning(
@@ -91,4 +88,3 @@ class KeyLookupService:
 
             logger.error(f"KEY_LOOKUP_TRACEBACK: {traceback.format_exc()}")
             return None, None, "Invalid project ID format"
-

@@ -21,4 +21,3 @@ export function SecurityAccessDenied({ message }: SecurityAccessDeniedProps) {
     </div>
   )
 }
-

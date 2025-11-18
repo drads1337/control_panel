@@ -65,7 +65,7 @@ const LoaderConfigDialog: React.FC<LoaderConfigDialogProps> = ({ open, onOpenCha
             {loader.name}
           </DialogTitle>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="login_type">Authentication Type</Label>
@@ -79,7 +79,7 @@ const LoaderConfigDialog: React.FC<LoaderConfigDialogProps> = ({ open, onOpenCha
               </SelectContent>
             </Select>
           </div>
-          
+
           {config.login_type === 'invite_code' && (
             <div className="flex items-center space-x-2">
               <Switch
@@ -90,7 +90,7 @@ const LoaderConfigDialog: React.FC<LoaderConfigDialogProps> = ({ open, onOpenCha
               <Label htmlFor="invite_code_required">Require invite code</Label>
             </div>
           )}
-          
+
           {config.login_type === 'license_generation' && (
             <>
               <div className="space-y-2">
@@ -102,7 +102,7 @@ const LoaderConfigDialog: React.FC<LoaderConfigDialogProps> = ({ open, onOpenCha
                   placeholder="Optional"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="key_prefix_format">Format</Label>
                 <Input
@@ -112,7 +112,7 @@ const LoaderConfigDialog: React.FC<LoaderConfigDialogProps> = ({ open, onOpenCha
                   placeholder="{name}-{duration}-{custom}"
                 />
               </div>
-              
+
               <div className="p-3 bg-muted rounded-lg">
                 <h4 className="font-medium mb-2 text-sm">Format Examples:</h4>
                 <div className="space-y-1 text-sm text-muted-foreground">
@@ -124,7 +124,7 @@ const LoaderConfigDialog: React.FC<LoaderConfigDialogProps> = ({ open, onOpenCha
               </div>
             </>
           )}
-          
+
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel

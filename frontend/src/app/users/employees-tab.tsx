@@ -17,7 +17,6 @@ import { isAdmin, isOwner } from '@/lib/rbac-utils';
 import type { User } from '@/entities/user';
 import { handleError } from '@/lib/error-handler';
 
-// Memoized User Item Component
 const UserItem = React.memo(({ 
   user, 
   loading, 
@@ -41,27 +40,25 @@ const UserItem = React.memo(({
   canDelete: boolean;
   employeeRolesFilter?: string[];
 }) => {
-  // Check if user is protected (admin or owner)
-  // RBAC roles are the ONLY source of truth
+
   const isProtected = React.useMemo(() => {
     if (!user) return false;
-    
+
     const rbacRoles = user.rbac_roles || [];
     if (rbacRoles.length === 0) {
-      return false; // No RBAC roles = not protected
+      return false;
     }
-    
-    // Check if any RBAC role is admin or owner
+
     const roleNames = rbacRoles
       .map(r => (typeof r === 'string' ? r : r?.name || ''))
       .map(name => name.toLowerCase());
-    
+
     const hasOwner = roleNames.includes('owner');
     const hasAdmin = roleNames.includes('admin') || roleNames.includes('administrator');
-    
+
     return hasOwner || hasAdmin;
   }, [user]);
-  
+
   return (
     <div 
       className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent transition-colors duration-200"
@@ -146,7 +143,6 @@ const UserItem = React.memo(({
 
 UserItem.displayName = 'UserItem';
 
-// Virtualized employees list component
 interface EmployeesListProps {
   users: User[];
   loading: boolean;
@@ -172,15 +168,15 @@ const EmployeesList: React.FC<EmployeesListProps> = ({
   canDelete,
   employeeRolesFilter
 }) => {
-  // Virtualization setup - only enable if we have many users
+
   const parentRef = useRef<HTMLDivElement>(null);
-  const shouldVirtualize = users.length > 50; // Only virtualize if more than 50 items
+  const shouldVirtualize = users.length > 50;
 
   const rowVirtualizer = useVirtualizer({
     count: shouldVirtualize ? users.length : 0,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 100, // Estimated row height in pixels (UserItem height)
-    overscan: 5, // Render 5 extra items outside visible area
+    estimateSize: () => 100,
+    overscan: 5,
     enabled: shouldVirtualize,
   });
 
@@ -234,7 +230,6 @@ const EmployeesList: React.FC<EmployeesListProps> = ({
     );
   }
 
-  // Non-virtualized list for smaller datasets
   return (
     <div className="space-y-3">
       {users.map((user) => (
@@ -272,7 +267,7 @@ interface EmployeesTabProps {
   error: string | null;
   total: number;
   deleteExistingUser: (userId: number) => Promise<void>;
-  employeeRolesFilter?: string[]; // Track which roles we're filtering for
+  employeeRolesFilter?: string[];
 }
 
 const EmployeesTab: React.FC<EmployeesTabProps> = ({ 
@@ -286,25 +281,18 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   deleteExistingUser,
   employeeRolesFilter = ['admin', 'seller', 'developer', 'moderator']
 }) => {
-  // Default employee roles filter for fallback protection check
+
   const activeRolesFilter = employeeRolesFilter || ['admin', 'seller', 'developer', 'moderator'];
 
   const { hasPermission } = usePermissions();
   const canCreateUsers = hasPermission('employees.create');
   const canEditUsers = hasPermission('employees.edit');
   const canDeleteUsers = hasPermission('employees.delete');
-  
-  // Debug: Log permissions
+
   React.useEffect(() => {
-    console.log('EmployeesTab permissions:', {
-      canCreateUsers,
-      canEditUsers,
-      canDeleteUsers,
-      usersCount: users.length
-    });
+
   }, [canCreateUsers, canEditUsers, canDeleteUsers, users.length]);
 
-  // Dialog states
   const [isCreateUserDialogOpen, setIsCreateUserDialogOpen] = useState(false);
   const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
   const [selectedUserForEdit, setSelectedUserForEdit] = useState<User | null>(null);
@@ -313,7 +301,6 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   const [selectedUserIdForTokens, setSelectedUserIdForTokens] = useState<number | null>(null);
   const [selectedUserNameForTokens, setSelectedUserNameForTokens] = useState<string>('');
 
-  // Notification form
   const [notificationForm, setNotificationForm] = useState({
     title: '',
     message: '',
@@ -323,7 +310,6 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     repeatCount: 1
   });
 
-  // Helper functions
   const getRoleDisplayName = useCallback((role: string) => {
     const roleNames: Record<string, string> = {
       'admin': 'Administrator',
@@ -343,53 +329,49 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   }, [])
 
   const getRoleBadge = useCallback((user: User, employeeRolesFilter?: string[]) => {
-    // RBAC roles are the ONLY source of truth - always use them
+
     const rbacRoles = user.rbac_roles || [];
-    
-    // Get role name from RBAC roles or fallback to legacy roles array
+
     let roleName = '';
-    
+
     if (rbacRoles.length > 0) {
-      // Get the first RBAC role name (they are objects with name property)
+
       const firstRole = rbacRoles[0];
       roleName = typeof firstRole === 'string' 
         ? firstRole 
         : (firstRole?.name || '');
     } else {
-      // Fallback: use legacy roles array if no RBAC roles
+
       const legacyRoles = user.roles || [];
       if (legacyRoles.length > 0) {
         roleName = legacyRoles[0];
       }
     }
-    
-    // If still no role name, show Employee
+
     if (!roleName) {
       return <span className="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium">Employee</span>
     }
-    
+
     const roleNameLower = roleName.toLowerCase();
-    
-    // Check for special roles
+
     if (roleNameLower === 'owner') {
       return <span className="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium">Owner</span>
     }
     if (roleNameLower === 'admin' || roleNameLower === 'administrator') {
       return <span className="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium">Admin</span>
     }
-    
-    // Display the actual role (seller, developer, moderator, etc.)
+
     return <span className="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium">{getRoleDisplayName(roleName)}</span>
   }, [getRoleDisplayName])
 
   const handleDeleteUser = useCallback(async (userId: number) => {
     const userToDelete = users.find(u => u.id === userId)
-    
+
     if (userToDelete && (isAdmin(userToDelete) || isOwner(userToDelete))) {
       toast.error('Cannot delete admin or owner users')
       return
     }
-    
+
     if (confirm('Are you sure you want to delete this user?')) {
       try {
         await deleteExistingUser(userId)
@@ -430,7 +412,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
 
   const handleSendNotification = useCallback(async () => {
     let targetUserIds: number[] = []
-    
+
     try {
       if (!notificationForm.title || !notificationForm.message) {
         toast.error('Title and message are required')
@@ -451,7 +433,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
         targetUserIds = users
           .filter(u => !isAdmin(u) && !isOwner(u))
           .map(u => u.id)
-        
+
         if (targetUserIds.length === 0) {
           toast.error('No workers found to send notifications to. Admin and owner users are excluded.')
           return
@@ -461,7 +443,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
           const user = users.find(u => u.id === userId)
           return user && !isAdmin(user) && !isOwner(user)
         })
-        
+
         if (targetUserIds.length === 0) {
           toast.error('Selected users include only admin/owner. Admin and owner users cannot receive notifications.')
           return
@@ -492,7 +474,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
       }
 
       const result = await response.json()
-      
+
       setNotificationForm({
         title: '',
         message: '',
@@ -502,7 +484,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
         repeatCount: 1
       })
       setIsNotificationDialogOpen(false)
-      
+
       toast.success(`Notification sent successfully to ${result.notifications_created} workers`)
     } catch (error) {
       await handleError(error, {
@@ -600,7 +582,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
         </CardContent>
       </Card>
 
-      {/* Create User Dialog */}
+      {}
       <CreateUserDialog
         open={isCreateUserDialogOpen}
         onOpenChange={setIsCreateUserDialogOpen}
@@ -612,7 +594,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
         }}
       />
 
-      {/* Edit User Dialog */}
+      {}
       <EditUserDialog
         open={isEditUserDialogOpen}
         onOpenChange={setIsEditUserDialogOpen}
@@ -626,7 +608,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
         }}
       />
 
-      {/* Send Notification Dialog */}
+      {}
       <NotificationDialog
         open={isNotificationDialogOpen}
         onOpenChange={setIsNotificationDialogOpen}
@@ -637,7 +619,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
         users={users}
       />
 
-      {/* User Tokens Dialog */}
+      {}
       {selectedUserIdForTokens !== null && (
         <UserTokensDialog
           open={isTokensDialogOpen}
@@ -651,4 +633,3 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
 };
 
 export default EmployeesTab;
-

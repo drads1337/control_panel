@@ -1,6 +1,5 @@
 import { BaseEntity, PaginatedResponse } from '@/shared/api'
 
-// License Key types
 export interface LicenseKey extends BaseEntity {
   key: string
   user_id: number | null

@@ -10,7 +10,6 @@ from .user_service import UserService, user_service
 from .user_profile_service import UserProfileService, user_profile_service
 from .user_management_service import UserManagementService, user_management_service
 
-# Auto-generate __all__ from imports to avoid duplication
 import sys
 _current_module = sys.modules[__name__]
 __all__ = sorted([
@@ -18,4 +17,3 @@ __all__ = sorted([
     if not name.startswith('_') and name not in ('sys', '_current_module')
 ])
 del sys, _current_module
-

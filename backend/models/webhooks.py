@@ -6,7 +6,6 @@ from datetime import datetime
 
 from ..core.extensions import db
 
-
 class Webhook(db.Model):
     """Model for storing webhook configurations"""
 
@@ -16,41 +15,34 @@ class Webhook(db.Model):
     )
     project = db.relationship("Project", backref="webhooks")
 
-    # Webhook configuration
     name = db.Column(db.String(255), nullable=False)
     webhook_type = db.Column(
         db.String(50), nullable=False, default="custom"
-    )  # 'telegram', 'discord', 'custom'
-    url = db.Column(db.String(512), nullable=True)  # For custom webhooks
-    events = db.Column(db.Text, nullable=False)  # JSON array of events
-    secret = db.Column(db.String(64), nullable=True)  # Webhook secret for signing
+    )
+    url = db.Column(db.String(512), nullable=True)
+    events = db.Column(db.Text, nullable=False)
+    secret = db.Column(db.String(64), nullable=True)
     is_active = db.Column(db.Boolean, default=True)
-    headers = db.Column(db.Text, nullable=True)  # JSON object of custom headers
+    headers = db.Column(db.Text, nullable=True)
 
-    # Telegram specific fields
     telegram_bot_token = db.Column(db.String(255), nullable=True)
     telegram_chat_id = db.Column(db.String(100), nullable=True)
 
-    # Discord specific fields
     discord_webhook_url = db.Column(db.String(512), nullable=True)
     discord_bot_token = db.Column(db.String(255), nullable=True)
     discord_channel_id = db.Column(db.String(100), nullable=True)
 
-    # Message template
-    message_template = db.Column(db.Text, nullable=True)  # Custom message template
+    message_template = db.Column(db.Text, nullable=True)
 
-    # Statistics
     success_count = db.Column(db.Integer, default=0)
     failure_count = db.Column(db.Integer, default=0)
     last_triggered = db.Column(db.DateTime, nullable=True)
 
-    # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def __repr__(self):
         return f"<Webhook id={self.id} name={self.name} url={self.url}>"
-
 
 class WebhookLog(db.Model):
     """Model for storing webhook execution logs"""
@@ -61,17 +53,14 @@ class WebhookLog(db.Model):
     )
     webhook = db.relationship("Webhook", backref="logs")
 
-    # Log data
     event = db.Column(db.String(100), nullable=False)
     success = db.Column(db.Boolean, nullable=False)
     error_message = db.Column(db.Text, nullable=True)
-    payload = db.Column(db.Text, nullable=False)  # JSON payload that was sent
+    payload = db.Column(db.Text, nullable=False)
 
-    # Response data
     response_status = db.Column(db.Integer, nullable=True)
     response_body = db.Column(db.Text, nullable=True)
 
-    # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def __repr__(self):

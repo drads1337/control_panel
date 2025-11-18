@@ -21,7 +21,6 @@ from ...utils.rbac_utils import RBACManager
 from ...services.activity import activity_service
 from ...services.security import security_service
 
-
 class AuthService:
     """Service for handling authentication operations"""
 
@@ -58,7 +57,6 @@ class AuthService:
                 self.logger.warning(f"Login failed: User not found for identifier: {identifier}")
                 return None, "Invalid credentials"
 
-            # Check if user has a password hash
             if not user.password:
                 self.logger.warning(
                     f"Login failed: User {user.id} ({user.username}) has no password hash"
@@ -94,14 +92,11 @@ class AuthService:
             Dictionary with login response data (without access_token for security)
         """
         try:
-            # Don't create token here - let the route handler do it
+
             session_id = str(uuid.uuid4())
 
-            # Get user roles from RBAC (single source of truth)
             user_roles = RBACManager.get_user_role_names(user)
 
-            # Don't return access_token in JSON response
-            # Token will be set as httpOnly cookie by the route handler
             response_data = {
                 "user_id": str(user.id),
                 "username": user.username,
@@ -185,7 +180,7 @@ class AuthService:
             return True, None
 
         try:
-            # Check if project exists and is active
+
             project = Project.query.get(user.project_id)
             if not project:
                 self.logger.warning(
@@ -199,11 +194,9 @@ class AuthService:
                 )
                 return False, "PROJECT_INACTIVE"
 
-            # Check IP blocking
             if security_service.is_ip_blocked(ip, user.project_id):
                 return False, "IP_BLOCKED"
 
-            # Check session limits
             if security_service.check_session_limit(user.id, user.project_id):
                 return False, "SESSION_LIMIT_EXCEEDED"
 
@@ -251,13 +244,11 @@ class AuthService:
 
             webhook_service = get_webhook_service()
 
-            # Get primary role from RBAC (for webhook data)
             from ...utils.rbac_utils import RBACManager
             from ...utils.role_constants import UserRoles
             user_roles = RBACManager.get_user_role_names(user)
             primary_role = user_roles[0] if user_roles else UserRoles.CLIENT.value
-            
-            # Prepare webhook data
+
             webhook_data = {
                 "user_id": user.id,
                 "username": user.username,
@@ -271,7 +262,6 @@ class AuthService:
                 "session_id": session_id,
             }
 
-            # Trigger webhook only if project_id exists
             if user.project_id:
                 webhook_service.trigger_webhook("user.login", webhook_data, user.project_id)
                 self.logger.info(f"Triggered webhook for user login: {user.id}")
@@ -305,14 +295,13 @@ class AuthService:
             On failure: (None, error_code, error_message)
         """
         try:
-            # Validate credentials
+
             self.logger.debug(f"Login attempt: username={username}, ip={ip}")
             user, error = self.validate_simple_login(username, password)
             if not user:
                 self.logger.warning(f"Login failed: username={username}, error={error}, ip={ip}")
                 return None, "INVALID_CREDENTIALS", "Invalid username or password"
 
-            # Check project security constraints
             is_allowed, security_error = self.check_project_security(user, ip, user_agent)
             if not is_allowed:
                 self.logger.warning(
@@ -320,24 +309,18 @@ class AuthService:
                 )
                 return None, security_error, "Access denied due to security constraints"
 
-            # Update user login info
             self.update_user_login_info(user, ip, user_agent)
 
-            # Create login response
             response_data = self.create_login_response(user)
             session_id = response_data.get("session_id", "")
 
-            # Create JWT token
             access_token = create_access_token(identity=str(user.id))
             response_data["access_token"] = access_token
 
-            # Log successful login
             self.log_login_activity(user, ip, user_agent, session_id)
 
-            # Record login attempt
             self.record_login_attempt(user, ip, user_agent, True)
 
-            # Trigger webhook for user login
             self._trigger_login_webhook(user, ip, user_agent, "simple", session_id)
 
             return response_data, None, None
@@ -346,7 +329,4 @@ class AuthService:
             self.logger.error(f"Error in process_simple_login: {str(e)}", exc_info=True)
             return None, "LOGIN_FAILED", "Authentication failed"
 
-
-
-# Create service instance
 auth_service = AuthService()

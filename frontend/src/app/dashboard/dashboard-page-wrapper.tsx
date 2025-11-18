@@ -12,7 +12,7 @@ interface DashboardPageWrapperProps {
 function DashboardPageWrapper({ type }: DashboardPageWrapperProps) {
   const { user } = useAuthContext()
   const { hasPermission } = usePermissions()
-  
+
   const canViewAnalytics = hasPermission('analytics.view')
 
   const getPageTitle = () => {
@@ -30,7 +30,7 @@ function DashboardPageWrapper({ type }: DashboardPageWrapperProps) {
   if (!canViewAnalytics) {
     return (
       <div>
-        {/* Page Header */}
+        {}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-foreground mb-2">
             {getPageTitle()}
@@ -58,7 +58,7 @@ function DashboardPageWrapper({ type }: DashboardPageWrapperProps) {
 
   return (
     <div>
-      {/* Page Header */}
+      {}
       <div className="mb-8">
         <h2 className="text-3xl font-bold text-foreground mb-2">
           {getPageTitle()}

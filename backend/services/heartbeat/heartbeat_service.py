@@ -18,16 +18,15 @@ from ...models.core import User
 from ...models.keys import Key
 from ...utils.redis_client import get_redis_client
 
-
 class HeartbeatService:
     """Service for managing client heartbeat mechanism"""
 
     def __init__(self):
-        self.heartbeat_interval = 300  # 5 minutes
-        self.heartbeat_tolerance = 60  # 1 minute tolerance
+        self.heartbeat_interval = 300
+        self.heartbeat_tolerance = 60
         self.max_missed_heartbeats = 3
-        self.session_ttl = 3600  # 1 hour
-        # Use centralized Redis client instead of creating a new instance
+        self.session_ttl = 3600
+
         self.redis_client = get_redis_client()
 
     def create_session(
@@ -52,11 +51,9 @@ class HeartbeatService:
             "next_heartbeat_due": current_time + self.heartbeat_interval,
         }
 
-        # Store session in Redis
         session_key = f"heartbeat_session:{session_id}"
         self.redis_client.setex(session_key, self.session_ttl, json.dumps(session_data))
 
-        # Store session ID for user/fingerprint lookup
         lookup_key = f"heartbeat_lookup:{user_key}:{fingerprint}:{serial}"
         self.redis_client.setex(lookup_key, self.session_ttl, session_id)
 
@@ -83,20 +80,16 @@ class HeartbeatService:
             session_data = json.loads(session_json)
             current_time = int(time.time())
 
-            # Check if session is still active
             if not session_data.get("is_active", False):
                 return False, "Session is not active", {}
 
-            # Validate heartbeat data
             if not self._validate_heartbeat_data(session_data, heartbeat_data):
                 return False, "Invalid heartbeat data", {}
 
-            # Update session
             session_data["last_heartbeat"] = current_time
             session_data["missed_heartbeats"] = 0
             session_data["next_heartbeat_due"] = current_time + self.heartbeat_interval
 
-            # Store updated session
             self.redis_client.setex(session_key, self.session_ttl, json.dumps(session_data))
 
             logging.info(
@@ -128,20 +121,18 @@ class HeartbeatService:
             session_data = json.loads(session_json)
             current_time = int(time.time())
 
-            # Check if session is active
             if not session_data.get("is_active", False):
                 return False, "Session is not active", {}
 
-            # Check if heartbeat is overdue
             last_heartbeat = session_data.get("last_heartbeat", 0)
             next_heartbeat_due = session_data.get("next_heartbeat_due", 0)
 
             if current_time > next_heartbeat_due + self.heartbeat_tolerance:
-                # Mark as missed heartbeat
+
                 session_data["missed_heartbeats"] = session_data.get("missed_heartbeats", 0) + 1
 
                 if session_data["missed_heartbeats"] >= self.max_missed_heartbeats:
-                    # Deactivate session
+
                     session_data["is_active"] = False
                     session_data["deactivated_at"] = current_time
                     session_data["deactivation_reason"] = "max_missed_heartbeats"
@@ -150,12 +141,11 @@ class HeartbeatService:
                         f"HEARTBEAT_SESSION_DEACTIVATED session_id={session_id} reason=max_missed_heartbeats"
                     )
 
-                    # Store updated session
                     self.redis_client.setex(session_key, self.session_ttl, json.dumps(session_data))
 
                     return False, "Session deactivated due to missed heartbeats", {}
                 else:
-                    # Update missed heartbeat count
+
                     self.redis_client.setex(session_key, self.session_ttl, json.dumps(session_data))
 
                     return (
@@ -195,7 +185,6 @@ class HeartbeatService:
             session_data["deactivated_at"] = int(time.time())
             session_data["deactivation_reason"] = reason
 
-            # Store updated session
             self.redis_client.setex(session_key, self.session_ttl, json.dumps(session_data))
 
             logging.info(f"HEARTBEAT_SESSION_DEACTIVATED session_id={session_id} reason={reason}")
@@ -218,10 +207,7 @@ class HeartbeatService:
     def cleanup_expired_sessions(self) -> int:
         """Clean up expired sessions (called by background task)"""
         try:
-            # Redis TTL will handle most cleanup, but we can do additional cleanup here
-            # This is mainly for logging and monitoring purposes
 
-            # Get all session keys
             session_keys = self.redis_client.keys("heartbeat_session:*")
             cleaned_count = 0
 
@@ -232,13 +218,12 @@ class HeartbeatService:
                         session_data = json.loads(session_json)
                         current_time = int(time.time())
 
-                        # Check if session is expired
                         created_at = session_data.get("created_at", 0)
                         if current_time - created_at > self.session_ttl:
-                            # Session is expired, clean up
+
                             session_id = session_data.get("session_id")
                             if session_id:
-                                # Clean up lookup key
+
                                 user_key = session_data.get("user_key")
                                 fingerprint = session_data.get("fingerprint")
                                 serial = session_data.get("serial")
@@ -248,7 +233,6 @@ class HeartbeatService:
                                     )
                                     self.redis_client.delete(lookup_key)
 
-                                # Delete session
                                 self.redis_client.delete(session_key)
                                 cleaned_count += 1
 
@@ -279,25 +263,21 @@ class HeartbeatService:
     def _validate_heartbeat_data(self, session_data: Dict, heartbeat_data: Dict) -> bool:
         """Validate heartbeat data from client"""
         try:
-            # Basic validation
+
             if not isinstance(heartbeat_data, dict):
                 return False
 
-            # Check required fields
             required_fields = ["timestamp", "client_id"]
             for field in required_fields:
                 if field not in heartbeat_data:
                     return False
 
-            # Validate timestamp (should be recent)
             client_timestamp = heartbeat_data.get("timestamp", 0)
             current_time = int(time.time())
 
-            # Allow 5 minute tolerance for clock differences
             if abs(current_time - client_timestamp) > 300:
                 return False
 
-            # Validate client_id matches session
             expected_client_id = f"{session_data.get('user_key')}:{session_data.get('serial')}"
             if heartbeat_data.get("client_id") != expected_client_id:
                 return False
@@ -328,7 +308,6 @@ class HeartbeatService:
                         if session_data.get("is_active", False):
                             active_sessions += 1
 
-                            # Check if overdue
                             next_heartbeat_due = session_data.get("next_heartbeat_due", 0)
                             if current_time > next_heartbeat_due + self.heartbeat_tolerance:
                                 overdue_sessions += 1
@@ -353,6 +332,4 @@ class HeartbeatService:
             logging.error(f"HEARTBEAT_STATISTICS_ERROR: {e}")
             return {}
 
-
-# Global instance
 heartbeat_service = HeartbeatService()

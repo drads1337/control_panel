@@ -34,13 +34,12 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToGameDatabas
   const canBlock = hasPermission('keys.block');
   const canManage = hasPermission('keys.manage');
 
-  const [viewMode, setViewMode] = useState<'my' | 'all'>('my'); // 'my' or 'all'
+  const [viewMode, setViewMode] = useState<'my' | 'all'>('my');
   const [filters, setFilters] = useState({ status: 'all', gameId: 'all', search: '' });
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Determine default view mode based on permissions
   useEffect(() => {
-    // If user has view permission, default to 'all' but allow switching
+
     if (canViewKeys) {
       setViewMode('all');
     } else {
@@ -48,12 +47,10 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToGameDatabas
     }
   }, [canViewKeys]);
 
-  // Reset to page 1 when filters or view mode change
   useEffect(() => {
     setCurrentPage(1);
   }, [filters, viewMode]);
 
-  // Use the management hook
   const {
     keys,
     loading,
@@ -86,7 +83,6 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToGameDatabas
     canViewKeys,
   });
 
-  // Reload games when switching to license-keys tab (after creating a game)
   useEffect(() => {
     if (activeTab === 'license-keys') {
       loadGames();
@@ -97,11 +93,10 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToGameDatabas
     setFilters({ status: 'all', gameId: 'all', search: '' });
   };
 
-  // Check if user has any key-related permission
   const hasAnyKeyPermission = canViewKeys || canCreateKeys || canEditKeys || canDeleteKeys || 
                                canGenerateKeys || canResetPcBinding || canPauseResume || 
                                canExtend || canBlock || canManage;
-  
+
   if (!hasAnyKeyPermission) {
     return (
       <div className="p-8">
@@ -113,7 +108,6 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToGameDatabas
     );
   }
 
-  // Show loading state
   if (loading) {
     return (
       <div className="p-8">
@@ -122,11 +116,10 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToGameDatabas
     );
   }
 
-  // Show "No Applications Found" state when there are no games
   if (games.length === 0) {
     return (
       <div className="space-y-6">
-        {/* Empty State - No Applications */}
+        {}
         <Card className="border-dashed border-2 border-muted-foreground/25">
           <CardContent className="p-12">
             <div className="text-center">
@@ -154,12 +147,12 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToGameDatabas
 
   return (
     <div className="space-y-6">
-      {/* License Key Creation Interface - 2x2 Grid */}
+      {}
       <ConditionalRender permission="keys.create" fallback={null}>
         <LicenseKeyCreationGrid games={games} onKeyCreated={handleKeyCreated} />
       </ConditionalRender>
 
-      {/* Filters */}
+      {}
       <LicenseKeysFilters
         filters={filters}
         onFiltersChange={setFilters}
@@ -167,7 +160,7 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToGameDatabas
         onClearFilters={handleClearFilters}
       />
 
-      {/* Keys List */}
+      {}
           <LicenseKeysList
             keys={keys}
             loading={loading}
@@ -196,7 +189,7 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToGameDatabas
             currentUserId={user?.id}
           />
 
-      {/* Dialogs */}
+      {}
       <KeyDetailsDialog
         open={detailsDialogOpen}
         onOpenChange={setDetailsDialogOpen}

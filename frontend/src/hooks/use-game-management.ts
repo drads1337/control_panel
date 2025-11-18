@@ -13,7 +13,6 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { useMutationWithCache } from './use-mutation-helpers';
 import { toast } from 'sonner';
 
-// Cache keys for games
 export const gameKeys = {
   all: ['games'] as const,
   lists: () => [...gameKeys.all, 'list'] as const,
@@ -23,12 +22,11 @@ export const gameKeys = {
 };
 
 interface UseGameManagementReturn {
-  // Data
+
   games: Game[];
   loading: boolean;
   error: string | null;
 
-  // UI State
   selectedGames: number[];
   bulkAction: string;
   showCreateDialog: boolean;
@@ -40,7 +38,6 @@ interface UseGameManagementReturn {
   selectedGame: Game | null;
   notification: { message: string; type: 'success' | 'error' } | null;
 
-  // Actions
   fetchGames: () => Promise<void>;
   toggleGameSelection: (gameId: number) => void;
   handleBulkAction: () => Promise<void>;
@@ -54,7 +51,6 @@ interface UseGameManagementReturn {
   handleChangelogGame: (game: Game) => void;
   closeAllDialogs: () => void;
 
-  // Setters
   setBulkAction: (action: string) => void;
   setSelectedGames: (games: number[]) => void;
   setShowCreateDialog: (open: boolean) => void;
@@ -74,7 +70,6 @@ export function useGameManagement(onViewGame?: (game: Game) => void, onCreateGam
   const canManageStatus = hasPermission('games.status');
   const canDeleteGames = hasPermission('games.delete');
 
-  // UI State
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [selectedGames, setSelectedGames] = useState<number[]>([]);
   const [bulkAction, setBulkAction] = useState('');
@@ -86,7 +81,6 @@ export function useGameManagement(onViewGame?: (game: Game) => void, onCreateGam
   const [showChangelogDialog, setShowChangelogDialog] = useState(false);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
 
-  // Fetch games with React Query
   const {
     data: gamesData,
     isLoading,
@@ -95,21 +89,15 @@ export function useGameManagement(onViewGame?: (game: Game) => void, onCreateGam
   } = useQuery({
     queryKey: gameKeys.list('all'),
     queryFn: async () => {
-      console.log('🎮 fetchGames: Starting fetch...');
+
       const response = await getGames('all');
-      console.log('🎮 fetchGames: Received response:', response);
-      console.log('🎮 fetchGames: Games data:', response.games);
-      console.log('🎮 fetchGames: Setting games, count:', response.games?.length || 0);
-      response.games.forEach((game) => {
-        console.log(`🎮 Game ${game.id} (${game.name}): login_type = ${game.login_type}`);
-      });
       return response.games || [];
     },
     enabled: isAuthenticated,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 2 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
     retry: (failureCount, error: any) => {
-      // Don't retry on auth errors
+
       if (error?.response?.status === 401 || error?.response?.status === 403) {
         return false
       }
@@ -125,14 +113,10 @@ export function useGameManagement(onViewGame?: (game: Game) => void, onCreateGam
     ? (gamesError as any)?.message || 'Failed to fetch games'
     : null;
 
-  // Handle external create game trigger - removed window object usage
-  // Use onCreateGameRequested prop instead
-
   const toggleGameSelection = useCallback((gameId: number) => {
     setSelectedGames((prev) => (prev.includes(gameId) ? prev.filter((id) => id !== gameId) : [...prev, gameId]));
   }, []);
 
-  // Mutations with automatic cache invalidation
   const updateStatusMutation = useMutationWithCache({
     mutationFn: ({ gameId, status }: { gameId: number; status: 'active' | 'inactive' | 'maintenance' | 'testing' }) =>
       updateGameStatus(gameId, status),
@@ -181,8 +165,7 @@ export function useGameManagement(onViewGame?: (game: Game) => void, onCreateGam
       setSelectedGames([]);
       setBulkAction('');
     } catch (err) {
-      // Error is handled by mutation
-      console.error('Bulk action error:', err);
+
     }
   }, [bulkAction, selectedGames, isAuthenticated, bulkDeleteGamesMutation, bulkUpdateStatusMutation]);
 
@@ -193,8 +176,7 @@ export function useGameManagement(onViewGame?: (game: Game) => void, onCreateGam
       try {
         await updateStatusMutation.mutateAsync({ gameId, status: newStatus });
       } catch (err) {
-        // Error is handled by mutation
-        console.error('Status update error:', err);
+
       }
     },
     [isAuthenticated, updateStatusMutation]
@@ -211,18 +193,16 @@ export function useGameManagement(onViewGame?: (game: Game) => void, onCreateGam
       try {
         await deleteGameMutation.mutateAsync(gameId);
       } catch (err) {
-        // Error is handled by mutation
-        console.error('Delete game error:', err);
+
       }
     },
     [isAuthenticated, deleteGameMutation]
   );
 
-  // Action handlers
   const handleViewGame = useCallback(
     (game: Game) => {
       setSelectedGame(game);
-      onViewGame?.(game); // Call the prop
+      onViewGame?.(game);
     },
     [onViewGame]
   );
@@ -263,12 +243,11 @@ export function useGameManagement(onViewGame?: (game: Game) => void, onCreateGam
   }, []);
 
   return {
-    // Data
+
     games,
     loading,
     error,
 
-    // UI State
     selectedGames,
     bulkAction,
     showCreateDialog,
@@ -280,7 +259,6 @@ export function useGameManagement(onViewGame?: (game: Game) => void, onCreateGam
     selectedGame,
     notification,
 
-    // Actions
     fetchGames: async () => {
       await refetch()
     },
@@ -296,7 +274,6 @@ export function useGameManagement(onViewGame?: (game: Game) => void, onCreateGam
     handleChangelogGame,
     closeAllDialogs,
 
-    // Setters
     setBulkAction,
     setSelectedGames,
     setShowCreateDialog,
@@ -309,4 +286,3 @@ export function useGameManagement(onViewGame?: (game: Game) => void, onCreateGam
     setNotification,
   };
 }
-

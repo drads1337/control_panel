@@ -7,17 +7,13 @@ interface UseAuthErrorsParams {
   updateState: (updates: any) => void
 }
 
-/**
- * Hook for handling authentication errors from API interceptor
- * Separated for better organization
- */
 export function useAuthErrors(params: UseAuthErrorsParams) {
   const { updateState } = params
   const navigate = useNavigate()
 
   useEffect(() => {
     const handleUnauthorized = (error: { status: number; message: string; response?: any }) => {
-      // Update auth state to unauthenticated
+
       updateState({
         isAuthenticated: false,
         user: null,
@@ -27,16 +23,13 @@ export function useAuthErrors(params: UseAuthErrorsParams) {
         isInitialized: true
       })
 
-      // Clear cookies and CSRF token
       document.cookie = 'access_token_cookie=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
       document.cookie = 'refresh_token_cookie=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
       clearCsrfToken()
 
-      // Redirect to login
       navigate('/login', { replace: true })
     }
 
-    // Register handler - returns unregister function
     const unregister = registerAuthErrorHandler(handleUnauthorized)
 
     return () => {
@@ -44,4 +37,3 @@ export function useAuthErrors(params: UseAuthErrorsParams) {
     }
   }, [navigate, updateState])
 }
-

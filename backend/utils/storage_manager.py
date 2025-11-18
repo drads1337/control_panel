@@ -21,7 +21,6 @@ from ..utils.structured_logging import get_logger, log_performance
 
 logger = get_logger(__name__)
 
-
 class StorageBackend(ABC):
     """Abstract base class for storage backends"""
 
@@ -56,7 +55,6 @@ class StorageBackend(ABC):
     def list_files(self, prefix: str = "") -> list:
         """List files with optional prefix"""
         pass
-
 
 class LocalStorageBackend(StorageBackend):
     """Local filesystem storage backend"""
@@ -137,7 +135,6 @@ class LocalStorageBackend(StorageBackend):
             logger.error(f"Failed to list files with prefix {prefix}: {e}")
             return []
 
-
 class S3StorageBackend(StorageBackend):
     """AWS S3 storage backend"""
 
@@ -151,7 +148,6 @@ class S3StorageBackend(StorageBackend):
         self.bucket_name = bucket_name
         self.region = region
 
-        # Initialize S3 client
         if access_key and secret_key:
             self.s3_client = boto3.client(
                 "s3",
@@ -160,7 +156,7 @@ class S3StorageBackend(StorageBackend):
                 aws_secret_access_key=secret_key,
             )
         else:
-            # Use default credentials (IAM role, environment variables, etc.)
+
             self.s3_client = boto3.client("s3", region_name=region)
 
     @log_performance("s3_file_upload")
@@ -168,11 +164,10 @@ class S3StorageBackend(StorageBackend):
         self, file_data: bytes, file_path: str, content_type: Optional[str] = None
     ) -> Dict[str, Any]:
         try:
-            # Generate content type if not provided
+
             if not content_type:
                 content_type = mimetypes.guess_type(file_path)[0] or "application/octet-stream"
 
-            # Upload to S3
             self.s3_client.put_object(
                 Bucket=self.bucket_name,
                 Key=file_path,
@@ -248,7 +243,6 @@ class S3StorageBackend(StorageBackend):
             logger.error(f"Failed to list S3 files with prefix {prefix}: {e}")
             return []
 
-
 class RedisCacheBackend:
     """Redis-based caching layer for file metadata"""
 
@@ -284,7 +278,6 @@ class RedisCacheBackend:
         except Exception as e:
             logger.error(f"Failed to invalidate metadata for {file_path}: {e}")
 
-
 class StorageManager:
     """Main storage manager with multiple backend support"""
 
@@ -294,21 +287,17 @@ class StorageManager:
         self.default_backend = config.get("default_backend", "local")
         self.cache_backend = None
 
-        # Initialize backends
         self._init_backends()
 
-        # Initialize cache if Redis is available
         self._init_cache()
 
     def _init_backends(self):
         """Initialize storage backends based on configuration"""
 
-        # Local storage
         if "local" in self.config.get("backends", {}):
             local_config = self.config["backends"]["local"]
             self.backends["local"] = LocalStorageBackend(base_path=local_config["base_path"])
 
-        # S3 storage
         if "s3" in self.config.get("backends", {}):
             s3_config = self.config["backends"]["s3"]
             try:
@@ -332,7 +321,7 @@ class StorageManager:
                     port=redis_config.get("port", 6379),
                     db=redis_config.get("db", 0),
                     password=redis_config.get("password"),
-                    decode_responses=False,  # Keep binary for metadata
+                    decode_responses=False,
                 )
                 self.cache_backend = RedisCacheBackend(
                     redis_client=redis_client, ttl=redis_config.get("cache_ttl", 3600)
@@ -358,16 +347,12 @@ class StorageManager:
     ) -> Dict[str, Any]:
         """Upload file to specified backend"""
 
-        # Sanitize file path
         file_path = secure_filename(file_path)
 
-        # Get backend
         storage_backend = self.get_backend(backend)
 
-        # Upload file
         result = storage_backend.upload_file(file_data, file_path, content_type)
 
-        # Cache metadata
         if self.cache_backend:
             self.cache_backend.set_file_metadata(file_path, result)
 
@@ -384,34 +369,27 @@ class StorageManager:
     def download_file(self, file_path: str, backend: Optional[str] = None) -> bytes:
         """Download file from specified backend"""
 
-        # Try cache first
         if self.cache_backend:
             metadata = self.cache_backend.get_file_metadata(file_path)
             if metadata and "backend" in metadata:
                 backend = metadata["backend"]
 
-        # Get backend
         storage_backend = self.get_backend(backend)
 
-        # Download file
         return storage_backend.download_file(file_path)
 
     def delete_file(self, file_path: str, backend: Optional[str] = None) -> bool:
         """Delete file from specified backend"""
 
-        # Try cache first
         if self.cache_backend:
             metadata = self.cache_backend.get_file_metadata(file_path)
             if metadata and "backend" in metadata:
                 backend = metadata["backend"]
 
-        # Get backend
         storage_backend = self.get_backend(backend)
 
-        # Delete file
         success = storage_backend.delete_file(file_path)
 
-        # Invalidate cache
         if self.cache_backend:
             self.cache_backend.invalidate_file_metadata(file_path)
 
@@ -423,16 +401,13 @@ class StorageManager:
     def file_exists(self, file_path: str, backend: Optional[str] = None) -> bool:
         """Check if file exists in specified backend"""
 
-        # Try cache first
         if self.cache_backend:
             metadata = self.cache_backend.get_file_metadata(file_path)
             if metadata:
                 return True
 
-        # Get backend
         storage_backend = self.get_backend(backend)
 
-        # Check existence
         return storage_backend.file_exists(file_path)
 
     def get_file_info(
@@ -440,19 +415,15 @@ class StorageManager:
     ) -> Optional[Dict[str, Any]]:
         """Get file metadata"""
 
-        # Try cache first
         if self.cache_backend:
             metadata = self.cache_backend.get_file_metadata(file_path)
             if metadata:
                 return metadata
 
-        # Get backend
         storage_backend = self.get_backend(backend)
 
-        # Get file info
         info = storage_backend.get_file_info(file_path)
 
-        # Cache result
         if info and self.cache_backend:
             self.cache_backend.set_file_metadata(file_path, info)
 
@@ -471,7 +442,6 @@ class StorageManager:
             "cache_enabled": self.cache_backend is not None,
         }
 
-        # Add backend-specific stats
         for name, backend in self.backends.items():
             try:
                 if hasattr(backend, "get_stats"):
@@ -481,10 +451,7 @@ class StorageManager:
 
         return stats
 
-
-# Global storage manager instance
 storage_manager: Optional[StorageManager] = None
-
 
 def init_storage_manager(config: Dict[str, Any]):
     """Initialize global storage manager"""
@@ -495,7 +462,6 @@ def init_storage_manager(config: Dict[str, Any]):
         backends=list(storage_manager.backends.keys()),
         default_backend=storage_manager.default_backend,
     )
-
 
 def get_storage_manager() -> StorageManager:
     """Get global storage manager instance"""

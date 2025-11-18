@@ -15,7 +15,6 @@ from ...utils.rbac_utils import RBACManager
 from ...utils.role_constants import UserRoles
 from ...utils.secure_crypto import MasterKeyManager, encrypt_data_with_project_key
 
-
 class ResponseBuilder:
     """Handles response building and encryption"""
 
@@ -67,7 +66,6 @@ class ResponseBuilder:
             "notifications": notifications,
         }
 
-        # Add heartbeat session if available
         if heartbeat_session:
             response["heartbeat_session"] = {
                 "session_id": heartbeat_session["session_id"],
@@ -76,7 +74,6 @@ class ResponseBuilder:
                 "tolerance": heartbeat_session["tolerance"],
             }
 
-        # Add offline ticket if available (for graceful offline authentication)
         if offline_ticket:
             response["offline_ticket"] = offline_ticket
 
@@ -124,9 +121,9 @@ class ResponseBuilder:
         try:
             if used_global_key:
                 if use_legacy:
-                    # Use AES-256-GCM for client compatibility
+
                     logging.info(f"[ENCRYPT_RESPONSE] Encrypting with AES-256-GCM (legacy)")
-                    # SECURITY: Never log full master key
+
                     logging.info(f"[ENCRYPT_RESPONSE] MASTER_KEY length: {len(Config.MASTER_KEY)}")
                     logging.info(f"[ENCRYPT_RESPONSE] MASTER_KEY prefix (masked): {Config.MASTER_KEY[:8]}...")
                     encrypted_blob = MasterKeyManager.encrypt_with_master_key_legacy(
@@ -152,13 +149,13 @@ class ResponseBuilder:
                     return encrypted_blob
                 except Exception as e:
                     logging.info(f"Failed to encrypt with project key, falling back to global: {e}")
-                    # Use AES-256-GCM for client compatibility
+
                     encrypted_blob = MasterKeyManager.encrypt_with_master_key_legacy(
                         json.dumps(response), Config.MASTER_KEY
                     )
                     return encrypted_blob
             else:
-                # If project_id is provided, try to use it
+
                 if project_id:
                     try:
                         project_keys = ProjectEncryptionKeys.query.filter_by(
@@ -180,7 +177,6 @@ class ResponseBuilder:
                             f"[ENCRYPT_RESPONSE] Failed to use project {project_id} AES Key, falling back to global: {e}"
                         )
 
-                # Default to AES-256-GCM with global key for client compatibility
                 encrypted_blob = MasterKeyManager.encrypt_with_master_key_legacy(
                     json.dumps(response), Config.MASTER_KEY
                 )
@@ -191,7 +187,7 @@ class ResponseBuilder:
 
         except Exception as e:
             logging.error(f"Error encrypting response: {e}")
-            # Return a safe error response using AES-256-GCM format for client compatibility
+
             error_response = {"error": "Internal server error", "r": os.urandom(16).hex()}
             return MasterKeyManager.encrypt_with_master_key_legacy(
                 json.dumps(error_response), Config.MASTER_KEY
@@ -215,7 +211,6 @@ class ResponseBuilder:
         now = datetime.utcnow()
         now_utc = now.isoformat() + "Z"
 
-        # For classic login, set 24 hour session
         expires_at = (now + timedelta(hours=24)).isoformat()
         seconds_left = 24 * 3600
         seconds_left_human = "24 h"

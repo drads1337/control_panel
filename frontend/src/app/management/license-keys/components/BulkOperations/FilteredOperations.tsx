@@ -61,4 +61,3 @@ export const FilteredOperations: React.FC<FilteredOperationsProps> = ({
     </div>
   );
 };
-

@@ -35,7 +35,7 @@ export function UserActivityStats({
   loading = false, 
   onRefresh
 }: UserActivityStatsProps) {
-  // If stats are not loaded, show a placeholder
+
   if (!stats) {
     return (
       <Card className={`@container/card ${className}`}>
@@ -63,7 +63,7 @@ export function UserActivityStats({
 
   const formatLastActivity = (dateString: string | null) => {
     if (!dateString) return 'No data'
-    
+
     const date = new Date(dateString)
     const now = new Date()
     const diffInMs = now.getTime() - date.getTime()

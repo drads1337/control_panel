@@ -1,6 +1,5 @@
 import { BaseEntity, PaginatedResponse } from '@/shared/api'
 
-// Project entity types
 export interface Project extends BaseEntity {
   unique_id: string
   name: string

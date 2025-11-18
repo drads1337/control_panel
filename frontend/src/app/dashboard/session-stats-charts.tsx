@@ -28,20 +28,19 @@ interface SessionStatsChartsProps {
 }
 
 export function SessionStatsCharts({ stats }: SessionStatsChartsProps) {
-  // Transform hour stats for the chart
+
   const hourData = React.useMemo(() => {
     if (!stats?.hour_stats || stats.hour_stats.length === 0) return []
-    
+
     return stats.hour_stats.map(item => ({
       hour: `${item.hour}:00`,
       count: item.count,
     }))
   }, [stats?.hour_stats])
 
-  // Transform day stats for the chart
   const dayData = React.useMemo(() => {
     if (!stats?.day_stats || stats.day_stats.length === 0) return []
-    
+
     return stats.day_stats.map(item => ({
       day: new Date(item.day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       count: item.count,
@@ -59,7 +58,7 @@ export function SessionStatsCharts({ stats }: SessionStatsChartsProps) {
 
   return (
     <div className="space-y-6">
-      {/* Hourly Sessions Chart */}
+      {}
       {hourData.length > 0 && (
         <Card>
           <CardHeader>
@@ -94,7 +93,7 @@ export function SessionStatsCharts({ stats }: SessionStatsChartsProps) {
         </Card>
       )}
 
-      {/* Daily Sessions Chart */}
+      {}
       {dayData.length > 0 && (
         <Card>
           <CardHeader>
@@ -129,7 +128,7 @@ export function SessionStatsCharts({ stats }: SessionStatsChartsProps) {
         </Card>
       )}
 
-      {/* No data message */}
+      {}
       {hourData.length === 0 && dayData.length === 0 && (
         <Card>
           <CardContent className="flex items-center justify-center h-[300px]">
@@ -140,4 +139,3 @@ export function SessionStatsCharts({ stats }: SessionStatsChartsProps) {
     </div>
   )
 }
-

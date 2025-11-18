@@ -15,7 +15,6 @@ from ...services.keys import key_validator
 
 validation_bp = Blueprint("keys_validation", __name__)
 
-
 @validation_bp.route("/validate", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
@@ -23,7 +22,7 @@ validation_bp = Blueprint("keys_validation", __name__)
 @validate_request(KeyValidateSchema)
 def validate_key(current_user=None, project_id=None, validated_data=None):
     """Validate a key"""
-    # Use explicit current_user from decorator
+
     if current_user is None:
         from flask import g
         current_user = g.current_user
@@ -34,7 +33,6 @@ def validate_key(current_user=None, project_id=None, validated_data=None):
     if not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    # Use validated data
     data = validated_data or request.get_json()
     key_value = data.get("key")
     device_id = data.get("device_id")
@@ -44,16 +42,13 @@ def validate_key(current_user=None, project_id=None, validated_data=None):
     if not key:
         return jsonify({"error": "Invalid key"}), 404
 
-    # Use KeyValidator for consistent validation logic
-    # Validate key status
     is_valid, error_msg = key_validator.validate_key_status(key)
     if not is_valid:
         return jsonify({"error": error_msg}), 403
 
-    # Validate project status
     is_valid, error_msg, project = key_validator.validate_project_status(key.project_id)
     if not is_valid:
-        # Return detailed project status information
+
         if project:
             return (
                 jsonify(
@@ -72,15 +67,13 @@ def validate_key(current_user=None, project_id=None, validated_data=None):
             )
         return jsonify({"error": error_msg}), 403
 
-    # Validate game access if game_id is provided
     if game_id:
         if key.game_id and key.game_id != game_id:
             return jsonify({"error": "Key is not valid for this game"}), 403
 
-        # SECURITY FIX: Ensure game belongs to the same project
         game = Game.query.filter_by(id=game_id, project_id=current_user.project_id).first()
         if game:
-            # Use KeyValidator for game validation
+
             is_valid, error_msg, game_obj = key_validator.validate_game_access(
                 key, game.name, key.project_id
             )
@@ -103,7 +96,6 @@ def validate_key(current_user=None, project_id=None, validated_data=None):
                     )
                 return jsonify({"error": error_msg}), 403
 
-    # Validate device limit
     devices = key.devices.split(",") if key.devices else []
     if device_id:
         is_valid, error_msg = key_validator.validate_device_limit(key, device_id)
@@ -121,5 +113,3 @@ def validate_key(current_user=None, project_id=None, validated_data=None):
             "project_id": key.project_id,
         }
     )
-
-

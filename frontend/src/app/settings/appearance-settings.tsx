@@ -46,7 +46,7 @@ export default function AppearanceSettings() {
       </CardHeader>
       <CardContent className="pt-0">
         <div className="space-y-4">
-          {/* Theme Toggle */}
+          {}
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">Theme</label>
             <DropdownMenu>
@@ -80,7 +80,7 @@ export default function AppearanceSettings() {
             </DropdownMenu>
           </div>
 
-          {/* Color Picker */}
+          {}
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">Accent Color</label>
           <ColorPicker />

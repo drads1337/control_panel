@@ -14,7 +14,6 @@ from ...services.rbac import rbac_service
 
 system_bp = Blueprint("system", __name__)
 
-
 def require_owner_role(f):
     """Декоратор для проверки разрешения system.manage_all_projects"""
     from functools import wraps
@@ -39,7 +38,6 @@ def require_owner_role(f):
 
     return decorated_function
 
-
 @system_bp.route("/settings", methods=["GET"])
 @jwt_required()
 @require_owner_role
@@ -51,7 +49,7 @@ def get_system_settings():
         settings_dict = {}
         for setting in settings:
             try:
-                # Пытаемся распарсить JSON значение
+
                 if setting.setting_value and (
                     setting.setting_value.startswith("{") or setting.setting_value.startswith("[")
                 ):
@@ -59,7 +57,7 @@ def get_system_settings():
                 else:
                     settings_dict[setting.setting_key] = setting.setting_value
             except (json.JSONDecodeError, AttributeError):
-                # Если не JSON, возвращаем как строку
+
                 settings_dict[setting.setting_key] = setting.setting_value
 
         return jsonify({"settings": settings_dict, "timestamp": datetime.utcnow().isoformat()})
@@ -67,7 +65,6 @@ def get_system_settings():
     except Exception as e:
         logging.error(f"Error getting system settings: {str(e)}")
         return jsonify({"error": "Failed to retrieve system settings"}), 500
-
 
 @system_bp.route("/settings/<setting_type>", methods=["PUT"])
 @jwt_required()
@@ -79,22 +76,20 @@ def update_system_settings(setting_type):
         if not data:
             return jsonify({"error": "No data provided"}), 400
 
-        # Валидация и очистка настроек
         cleaned_settings = _validate_and_clean_settings(data)
 
-        # Обновляем настройки
         for key, value in cleaned_settings.items():
             setting = SystemSettings.query.filter_by(setting_key=key).first()
 
             if setting:
-                # Преобразуем значение в строку для хранения
+
                 if isinstance(value, (dict, list)):
                     setting.setting_value = json.dumps(value)
                 else:
                     setting.setting_value = str(value)
                 setting.updated_at = datetime.utcnow()
             else:
-                # Создаем новую настройку
+
                 new_setting = SystemSettings(
                     setting_key=key,
                     setting_value=(
@@ -109,7 +104,6 @@ def update_system_settings(setting_type):
 
         db.session.commit()
 
-        # Создаем запись активности
         user_id = get_jwt_identity()
         activity = UserActivity(
             user_id=user_id,
@@ -129,7 +123,6 @@ def update_system_settings(setting_type):
         logging.error(f"Error updating system settings: {str(e)}")
         return jsonify({"error": "Failed to update system settings"}), 500
 
-
 @system_bp.route("/info", methods=["GET"])
 @jwt_required()
 @require_owner_role
@@ -140,7 +133,6 @@ def get_system_info():
 
         import psutil
 
-        # Информация о системе
         system_info = {
             "platform": platform.platform(),
             "system": platform.system(),
@@ -156,7 +148,6 @@ def get_system_info():
             "uptime": psutil.boot_time(),
         }
 
-        # Информация о базе данных
         db_info = {
             "engine": str(db.engine.url),
             "pool_size": db.engine.pool.size(),
@@ -172,7 +163,6 @@ def get_system_info():
     except Exception as e:
         logging.error(f"Error getting system info: {str(e)}")
         return jsonify({"error": "Failed to retrieve system information"}), 500
-
 
 @system_bp.route("/backup", methods=["GET"])
 @jwt_required()
@@ -199,7 +189,6 @@ def get_backups():
                     }
                 )
 
-        # Сортируем по дате создания (новые сначала)
         backups.sort(key=lambda x: x["created_at"], reverse=True)
 
         return jsonify({"backups": backups})
@@ -207,7 +196,6 @@ def get_backups():
     except Exception as e:
         logging.error(f"Error getting backups: {str(e)}")
         return jsonify({"error": "Failed to retrieve backups"}), 500
-
 
 @system_bp.route("/backup", methods=["POST"])
 @jwt_required()
@@ -222,12 +210,10 @@ def create_backup():
         backup_filename = f"backup_{timestamp}.sql"
         backup_path = os.path.join(backup_dir, backup_filename)
 
-        # Создаем резервную копию базы данных
-        # Примечание: Это упрощенная версия, в production нужно использовать pg_dump или аналогичный инструмент
         db_url = str(db.engine.url)
 
         if "postgresql" in db_url:
-            # Для PostgreSQL
+
             result = subprocess.run(["pg_dump", db_url], capture_output=True, text=True)
 
             if result.returncode == 0:
@@ -236,12 +222,11 @@ def create_backup():
             else:
                 return jsonify({"error": "Failed to create backup"}), 500
         else:
-            # Для SQLite
+
             import shutil
 
             shutil.copy2(db_url.replace("sqlite:///", ""), backup_path)
 
-        # Создаем запись активности
         user_id = get_jwt_identity()
         activity = UserActivity(
             user_id=user_id,
@@ -260,17 +245,15 @@ def create_backup():
         logging.error(f"Error creating backup: {str(e)}")
         return jsonify({"error": "Failed to create backup"}), 500
 
-
 def _validate_and_clean_settings(settings_dict):
     """Валидация и очистка настроек"""
     cleaned = {}
 
     for key, value in settings_dict.items():
-        # Базовая валидация ключа
+
         if not isinstance(key, str) or not key.strip():
             continue
 
-        # Очистка значения
         if isinstance(value, str):
             cleaned[key] = value.strip()
         elif isinstance(value, (int, float, bool)):
@@ -281,7 +264,6 @@ def _validate_and_clean_settings(settings_dict):
             cleaned[key] = str(value)
 
     return cleaned
-
 
 def _safe_log(level, message):
     """Безопасное логирование"""
@@ -295,8 +277,7 @@ def _safe_log(level, message):
         elif level == "error":
             logging.error(message)
     except Exception:
-        pass  # Игнорируем ошибки логирования
-
+        pass
 
 def _validate_critical_settings(settings_dict):
     """Валидация критических настроек"""

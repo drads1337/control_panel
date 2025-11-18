@@ -23,7 +23,6 @@ import {
   Users
 } from 'lucide-react';
 
-
 interface EditGameDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -34,13 +33,11 @@ interface EditGameDialogProps {
 const EditGameDialog: React.FC<EditGameDialogProps> = ({ open, onOpenChange, game, onSuccess }) => {
   const { isAuthenticated } = useAuth();
   const { canEditGames } = useGamePermissions();
-  
-  // Early return if user doesn't have permission to edit games
-  // canEditGames already checks for games.edit permission (global or game-specific)
+
   if (!canEditGames) {
     return null;
   }
-  
+
   const { showLoadingNotification, showGameUpdateNotification, showErrorNotification, showWarningNotification } = useCustomNotifications();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<UpdateGameData>({
@@ -53,33 +50,31 @@ const EditGameDialog: React.FC<EditGameDialogProps> = ({ open, onOpenChange, gam
     login_type: 'license_generation',
     invite_code_required: false
   });
-  
+
   const [activeTab, setActiveTab] = useState('basic');
   const [users, setUsers] = useState<ClassicUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
 
-  // Function to load users
   const fetchUsers = useCallback(async () => {
     if (!game || !game.id) {
-      console.log('fetchUsers: Missing required data', { game: !!game, gameId: game?.id });
+
       return;
     }
-    
+
     setUsersLoading(true);
-    
+
     try {
       const response = await getGameClassicUsers(game.id);
-      console.log('fetchUsers: Success data', response);
+
       setUsers(response.users || []);
     } catch (error: any) {
-      console.error('fetchUsers: Error fetching users:', error);
+
       setUsers([]);
     } finally {
       setUsersLoading(false);
     }
   }, [game]);
 
-  // Initialize form when dialog opens
   useEffect(() => {
     if (game && open) {
       const initialFormData = {
@@ -92,57 +87,53 @@ const EditGameDialog: React.FC<EditGameDialogProps> = ({ open, onOpenChange, gam
         login_type: (game.login_type as 'license_generation' | 'classic_login') || 'license_generation',
         invite_code_required: game.invite_code_required || false
       };
-      
+
       setFormData(initialFormData);
       setActiveTab('basic');
-      
-      // Load users if login type is classic and game is not multi app
+
       if (game && game.login_type === 'classic_login' && !game.is_multi_app) {
         fetchUsers();
       }
     }
   }, [game, open, fetchUsers]);
 
-  // Function to toggle user access
   const toggleUserAccess = async (userId: number) => {
     if (!game) return;
-    
+
     try {
       const response = await toggleUserGameAccess(userId, game.id);
-      // Update users state
+
       setUsers(prev => prev.map(user => 
         user.id === userId ? { ...user, has_access: response.has_access } : user
       ));
       showGameUpdateNotification('User access updated');
     } catch (error: any) {
-      console.error('Error toggling user access:', error);
+
       showErrorNotification('Error updating access');
     }
   };
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    
+
     if (!game) {
-      console.error('Missing game:', { game: !!game });
+
       return;
     }
 
     try {
       setLoading(true);
-      
-      // Show notification about process start
+
       showLoadingNotification('Updating game...', 'Please wait', 2000);
 
       await updateGame(game.id, formData);
-      
-      // Success notification with details
+
       showGameUpdateNotification(game.name, {
         description: `Game "${formData.name || game.name}" has been updated`,
         action: {
           label: 'View',
           onClick: () => {
-            // Can add logic to view updated game
+
           },
           variant: 'primary'
         }
@@ -151,14 +142,14 @@ const EditGameDialog: React.FC<EditGameDialogProps> = ({ open, onOpenChange, gam
       onSuccess();
       onOpenChange(false);
     } catch (error) {
-      // Detailed error notification
+
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       showErrorNotification('Game update error', errorMessage, {
         duration: 8000,
         action: {
           label: 'Try again',
           onClick: () => {
-            // Can add logic for retry
+
           },
           variant: 'outline'
         }
@@ -172,10 +163,6 @@ const EditGameDialog: React.FC<EditGameDialogProps> = ({ open, onOpenChange, gam
     onOpenChange(false);
   };
 
-
-  // canEditGames already checks for games.edit permission (global or game-specific)
-  // If game is provided and user has edit permission, show dialog
-  // (game being in the list means user has access to it, as backend filters by permissions)
   if (!game || !canEditGames) return null;
 
   return (
@@ -190,7 +177,7 @@ const EditGameDialog: React.FC<EditGameDialogProps> = ({ open, onOpenChange, gam
             {game.name}
           </DialogDescription>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
             <TabsList className={`grid w-full h-14 bg-muted border border-border rounded-lg ${!formData.is_multi_app && formData.login_type === 'classic_login' ? 'grid-cols-3' : 'grid-cols-2'}`}>
@@ -230,7 +217,7 @@ const EditGameDialog: React.FC<EditGameDialogProps> = ({ open, onOpenChange, gam
                     required
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="version">Version</Label>
                   <Input
@@ -241,7 +228,7 @@ const EditGameDialog: React.FC<EditGameDialogProps> = ({ open, onOpenChange, gam
                   />
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
                 <Textarea
@@ -278,7 +265,7 @@ const EditGameDialog: React.FC<EditGameDialogProps> = ({ open, onOpenChange, gam
                         value={formData.login_type} 
                         onValueChange={(value: 'license_generation' | 'classic_login') => {
                           setFormData(prev => ({ ...prev, login_type: value }));
-                          // If switching to classic login and game is not multi app, load users
+
                           if (value === 'classic_login' && game && !formData.is_multi_app) {
                             fetchUsers();
                           }
@@ -320,7 +307,7 @@ const EditGameDialog: React.FC<EditGameDialogProps> = ({ open, onOpenChange, gam
                           placeholder="GAME"
                         />
                       </div>
-                      
+
                       <div className="space-y-2">
                         <Label htmlFor="key_prefix_format">Prefix Format</Label>
                         <Input
@@ -410,7 +397,7 @@ const EditGameDialog: React.FC<EditGameDialogProps> = ({ open, onOpenChange, gam
               </TabsContent>
             )}
           </Tabs>
-          
+
           <DialogFooter>
             <Button type="button" variant="outline" onClick={handleCancel}>
               <X className="h-4 w-4 mr-2" />

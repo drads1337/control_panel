@@ -1,7 +1,3 @@
-/**
- * Error Boundary component for React error handling
- * Catches JavaScript errors anywhere in the child component tree
- */
 
 import React, { Component, ReactNode } from 'react'
 import { AlertCircle, RefreshCw, Home } from 'lucide-react'
@@ -40,16 +36,14 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-    // Update state with error details
+
     this.setState({
       error,
       errorInfo,
     })
 
-    // Use centralized error handler with Sentry integration
     handleErrorBoundaryError(error, errorInfo)
 
-    // Call custom error handler if provided
     if (this.props.onError) {
       this.props.onError(error, errorInfo)
     }
@@ -73,12 +67,11 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render(): ReactNode {
     if (this.state.hasError) {
-      // Use custom fallback if provided
+
       if (this.props.fallback) {
         return this.props.fallback
       }
 
-      // Default error UI
       return (
         <div className="flex items-center justify-center min-h-[400px] p-4">
           <Card className="w-full max-w-2xl">
@@ -149,9 +142,6 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 }
 
-/**
- * Higher-order component wrapper for Error Boundary
- */
 export function withErrorBoundary<P extends object>(
   Component: React.ComponentType<P>,
   errorBoundaryProps?: Omit<Props, 'children'>
@@ -166,4 +156,3 @@ export function withErrorBoundary<P extends object>(
 
   return WrappedComponent
 }
-

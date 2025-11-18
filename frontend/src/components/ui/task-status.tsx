@@ -1,6 +1,3 @@
-/**
- * Task Status Component for displaying async task progress
- */
 
 import React from 'react'
 import { Task } from '@/hooks/use-tasks'
@@ -105,14 +102,14 @@ export const TaskStatus = React.memo(function TaskStatus({ task, showDetails = f
             <Progress value={task.progress} />
           </div>
         )}
-        
+
         {task.error && (
           <div className="p-3 bg-red-50 border border-red-200 rounded-md">
             <p className="text-sm text-red-800 font-medium">Error:</p>
             <p className="text-sm text-red-700">{task.error}</p>
           </div>
         )}
-        
+
         {task.result && (
           <div className="p-3 bg-green-50 border border-green-200 rounded-md">
             <p className="text-sm text-green-800 font-medium">Result:</p>
@@ -121,7 +118,7 @@ export const TaskStatus = React.memo(function TaskStatus({ task, showDetails = f
             </p>
           </div>
         )}
-        
+
         <div className="text-xs text-gray-500 space-y-1">
           <p>Created: {formatDate(task.created_at)}</p>
           {task.updated_at && (

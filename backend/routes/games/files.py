@@ -19,9 +19,7 @@ from ...config.config import Config
 
 files_bp = Blueprint("games_files", __name__)
 
-# Use configuration from config.py
 ALLOWED_EXTENSIONS = Config.ALLOWED_GAME_FILE_EXTENSIONS
-
 
 def allowed_file(filename, file_type):
     has_extension = "." in filename
@@ -36,7 +34,6 @@ def allowed_file(filename, file_type):
     else:
         logging.debug(f"File {filename}: no extension found")
         return False
-
 
 def get_upload_path(file_type, project_id):
     from flask import current_app
@@ -53,5 +50,3 @@ def get_upload_path(file_type, project_id):
         return os.path.join(base_path, "loaders")
 
     return base_path
-
-

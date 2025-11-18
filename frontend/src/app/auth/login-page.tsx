@@ -6,14 +6,12 @@ import { Spinner } from "@/components/ui/spinner"
 function LoginPageComponent() {
   const { isAuthenticated, isInitialized, isLoading } = useAuthContext()
 
-  // If authentication is not yet initialized or loading, show loading state
   if (!isInitialized || isLoading) {
     return (
       <Spinner fullscreen message="Initializing..." size="md" />
     )
   }
 
-  // If the user is already authenticated, show a message
   if (isAuthenticated) {
     return (
       <div className="bg-muted flex min-h-svh flex-col items-center justify-center p-6 md:p-10">
@@ -34,5 +32,4 @@ function LoginPageComponent() {
   )
 }
 
-// Memoize the component to prevent unnecessary re-renders
 export default React.memo(LoginPageComponent)

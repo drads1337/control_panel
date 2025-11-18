@@ -15,7 +15,6 @@ from ...utils.secure_crypto import MasterKeyManager, decrypt_data_with_project_k
 
 logger = logging.getLogger(__name__)
 
-
 class DecryptionService:
     """Handles decryption of encrypted request data"""
 
@@ -24,17 +23,17 @@ class DecryptionService:
     ) -> Tuple[Optional[Dict], bool, Optional[int]]:
         """
         Decrypt request data with project-specific or global key.
-        
+
         SECURITY: This method does NOT iterate through project keys to prevent DoS attacks.
         - If project_id is provided: tries that project's key first, then falls back to global key.
         - If project_id is not provided: tries global key first, then tries project_id from Redis (if IP provided).
         - Never iterates through multiple projects to prevent DoS via expensive decryption operations.
-        
+
         DoS PROTECTION:
         - Maximum data size: 1MB to prevent memory exhaustion
         - Timeout protection: decryption operations are bounded
         - Rate limiting should be applied BEFORE calling this method (by IP address)
-        
+
         Args:
             enc_data: Encrypted data string
             project_id: Project ID to try first (if provided). Required for project-specific encryption.
@@ -42,38 +41,36 @@ class DecryptionService:
 
         Returns:
             Tuple of (decrypted_data, used_global_key, successful_project_id)
-            
+
         Raises:
             ValueError: If data size exceeds maximum allowed size
         """
-        # SECURITY: Validate input size to prevent DoS via large payloads
-        MAX_ENCRYPTED_DATA_SIZE = 1024 * 1024  # 1MB maximum
+
+        MAX_ENCRYPTED_DATA_SIZE = 1024 * 1024
         if len(enc_data) > MAX_ENCRYPTED_DATA_SIZE:
             logger.warning(
                 f"[DECRYPT] Data size exceeds maximum: {len(enc_data)} bytes (max: {MAX_ENCRYPTED_DATA_SIZE}) ip={ip}"
             )
             raise ValueError(f"Encrypted data size exceeds maximum allowed size ({MAX_ENCRYPTED_DATA_SIZE} bytes)")
-        
+
         try:
-            # Try base64 decode first (for unencrypted base64-encoded JSON)
+
             decoded_bytes = base64.b64decode(enc_data)
-            # Try to decode as UTF-8 - if it fails, it's likely encrypted binary data
+
             decoded = decoded_bytes.decode("utf-8")
             data = json.loads(decoded)
             logger.debug("[DEBUG] Successfully decoded base64 data")
             return data, False, None
         except base64.binascii.Error:
-            # Invalid base64 - try decryption
+
             logger.debug("[DEBUG] Invalid base64, trying decryption...")
         except UnicodeDecodeError:
-            # Base64 decode succeeded but UTF-8 decode failed - likely encrypted data
+
             logger.debug("[DEBUG] Base64 decoded but not UTF-8 text, trying decryption...")
         except json.JSONDecodeError:
-            # Valid base64 and UTF-8 but not JSON - try decryption
+
             logger.debug("[DEBUG] Not JSON after base64 decode, trying decryption...")
-        
-        # If we reach here, base64 decode failed or data is encrypted - proceed to decryption
-        # If project_id is provided, try project-specific key first
+
         if project_id:
             try:
                 logger.info(f"[DECRYPT] Trying project {project_id} key first...")
@@ -84,24 +81,18 @@ class DecryptionService:
                     )
                     return data, False, successful_project_id
             except Exception as project_error:
-                # Log at debug level since these failures are expected during key fallback attempts
+
                 logger.debug(
                     f"[DECRYPT] Project {project_id} master key failed: {type(project_error).__name__}: {str(project_error)[:100]}..."
                 )
 
-        # Try global master key
         logger.info(f"[DECRYPT] Trying global master key...")
         try:
             data = self._decrypt_with_global_key(enc_data)
             logger.info(f"[DECRYPT] Successfully decrypted with global master key")
             return data, True, None
         except Exception as global_error:
-            # SECURITY: If global key failed and project_id was not provided,
-            # try to get project_id from Redis (from recent challenge request).
-            # This is safe because:
-            # 1. We only try ONE project_id from Redis (not multiple)
-            # 2. The project_id is stored only for 5 minutes after challenge request
-            # 3. This prevents DoS while allowing legitimate clients to work
+
             if not project_id and ip:
                 fallback_project_id = self._get_project_id_from_redis(ip)
                 if fallback_project_id:
@@ -117,8 +108,7 @@ class DecryptionService:
                         logger.debug(
                             f"[DECRYPT] Fallback project {fallback_project_id} key failed: {type(fallback_error).__name__}: {str(fallback_error)[:100]}..."
                         )
-            
-            # If all attempts failed, raise the original global error
+
             logger.error(
                 f"[DECRYPT] All decryption attempts failed. Global master key error: {type(global_error).__name__}: {str(global_error)[:200]}..."
             )
@@ -131,7 +121,6 @@ class DecryptionService:
                 f"[DECRYPT_GLOBAL] Attempting decryption, data length: {len(enc_data)}"
             )
 
-            # Try AES-256-GCM first (client uses this format)
             try:
                 logger.info(f"[DECRYPT_GLOBAL] Trying AES-256-GCM decryption...")
                 json_str = MasterKeyManager.decrypt_with_master_key_legacy(
@@ -143,7 +132,7 @@ class DecryptionService:
                 logger.info(f"[DECRYPT_GLOBAL] Decrypted data preview: {json_str[:200]}...")
                 return json.loads(json_str)
             except Exception as gcm_error:
-                # Fallback to Fernet for backward compatibility
+
                 logger.debug(
                     f"[DECRYPT_GLOBAL] AES-256-GCM failed: {type(gcm_error).__name__}: {str(gcm_error)}"
                 )
@@ -158,7 +147,7 @@ class DecryptionService:
                     logger.debug(
                         f"[DECRYPT_GLOBAL] Fernet also failed: {type(fernet_error).__name__}: {str(fernet_error)}"
                     )
-                    raise gcm_error  # Raise the original GCM error
+                    raise gcm_error
         except Exception as e:
             logger.debug(f"[DECRYPT_GLOBAL] Global key decryption failed: {type(e).__name__}: {e}")
             raise
@@ -169,7 +158,6 @@ class DecryptionService:
         """Decrypt with specific project key using AES-256-GCM"""
         project_id_int = int(project_id)
 
-        # First, try AES Key from ProjectEncryptionKeys (this is what the client uses)
         try:
             encryption_keys = ProjectEncryptionKeys.query.filter_by(
                 project_id=project_id_int
@@ -190,7 +178,6 @@ class DecryptionService:
                 f"[DECRYPT_PROJECT] AES Key from ProjectEncryptionKeys failed: {type(aes_key_error).__name__}: {str(aes_key_error)[:100]}..."
             )
 
-        # Fallback to project_master_key from ProjectSettings
         try:
             logger.info(
                 f"[DECRYPT_PROJECT] Trying project_master_key from ProjectSettings for project {project_id}"
@@ -210,10 +197,10 @@ class DecryptionService:
         """
         Get project_id from Redis for fallback decryption.
         This is safe because project_id is stored only for 5 minutes after challenge request.
-        
+
         Args:
             ip: Client IP address
-            
+
         Returns:
             Project ID as string, or None if not found
         """
@@ -235,4 +222,3 @@ class DecryptionService:
         except Exception as e:
             logger.debug(f"[DECRYPT] Failed to get project_id from Redis: {type(e).__name__}: {str(e)[:100]}...")
         return None
-

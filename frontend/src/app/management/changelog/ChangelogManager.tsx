@@ -21,7 +21,7 @@ interface ChangelogManagerProps {
 
 const ChangelogManager: React.FC<ChangelogManagerProps> = ({ game, onUpdate }) => {
   const { hasPermission } = usePermissions();
-  
+
   const canViewChangelog = hasPermission('changelog.view');
   const canCreateChangelog = hasPermission('changelog.create');
   const canEditChangelog = hasPermission('changelog.edit');

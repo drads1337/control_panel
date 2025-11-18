@@ -17,19 +17,6 @@ interface PermissionGuardProps {
   loadingMessage?: string
 }
 
-/**
- * Permission Guard Component
- * Protects content based on user permissions, roles, or features
- * 
- * ⚠️ SECURITY WARNING: This component provides UX-level protection only.
- * It redirects unauthorized users but does NOT prevent API access. A determined user can:
- * - Bypass these checks by calling APIs directly
- * - Inspect network requests and modify them
- * - Use browser dev tools to manipulate the UI
- * 
- * CRITICAL: Backend must validate ALL permissions on EVERY API endpoint.
- * Backend is the single source of truth for security. This component is for UX only.
- */
 export function PermissionGuard({
   children,
   permission,
@@ -44,31 +31,26 @@ export function PermissionGuard({
 }: PermissionGuardProps) {
   const { user, isAuthenticated, isInitialized } = useAuthContext()
 
-  // Show loading while authentication is initializing
   if (!isInitialized && showLoading) {
     return <Spinner fullscreen size="lg" message={loadingMessage} />
   }
 
-  // Redirect to login if not authenticated
   if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />
   }
 
-  // Check feature access
   if (feature) {
     if (!canAccessFeature(user, feature)) {
       return <Navigate to={fallbackPath} replace />
     }
   }
 
-  // Check single permission
   if (permission) {
     if (!hasPermission(user, permission)) {
       return <Navigate to={fallbackPath} replace />
     }
   }
 
-  // Check multiple permissions
   if (permissions && permissions.length > 0) {
     if (requireAll) {
       if (!hasAllRoles(user, permissions)) {
@@ -81,7 +63,6 @@ export function PermissionGuard({
     }
   }
 
-  // Check roles
   if (roles && roles.length > 0) {
     if (requireAnyRole) {
       if (!hasAnyRole(user, roles)) {
@@ -97,9 +78,6 @@ export function PermissionGuard({
   return <>{children}</>
 }
 
-/**
- * Higher-Order Component for permission-based route protection
- */
 export function withPermissionGuard<P extends object>(
   WrappedComponent: React.ComponentType<P>,
   options: Omit<PermissionGuardProps, 'children'> = {}
@@ -116,9 +94,6 @@ export function withPermissionGuard<P extends object>(
   return PermissionGuardedComponent
 }
 
-/**
- * Conditional rendering component based on permissions
- */
 export function ConditionalPermission({
   children,
   fallback = null,
@@ -139,17 +114,14 @@ export function ConditionalPermission({
     feature
   } = permissionProps
 
-  // Check feature access
   if (feature && !canAccessFeature(user, feature)) {
     return <>{fallback}</>
   }
 
-  // Check single permission
   if (permission && !hasPermission(user, permission)) {
     return <>{fallback}</>
   }
 
-  // Check multiple permissions
   if (permissions && permissions.length > 0) {
     if (requireAll) {
       if (!hasAllRoles(user, permissions)) {
@@ -162,7 +134,6 @@ export function ConditionalPermission({
     }
   }
 
-  // Check roles
   if (roles && roles.length > 0) {
     if (requireAnyRole) {
       if (!hasAnyRole(user, roles)) {

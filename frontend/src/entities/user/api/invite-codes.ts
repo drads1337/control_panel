@@ -10,139 +10,128 @@ import type {
   ProjectInviteCode as ProjectInviteCodeType
 } from '../model/types'
 
-// Referral Code API functions (using panel_tools endpoints)
-// All functions use centralized axios instance with CSRF protection via interceptor in base.ts
 export async function generateInviteCode(data: CreateInviteCodeDataType): Promise<InviteCodeType> {
-  console.log('API: generateInviteCode called with:', { data })
-  
+
   try {
-    // CSRF token is automatically added by axios interceptor in base.ts
+
     const response = await api.post(API_ENDPOINTS.USERS_REFCODES, {
       code: data.code || '',
       expires_in_days: data.expires_in_days || 7,
       game_ids: data.game_ids || [],
       rbac_role_ids: data.rbac_role_ids || [],
     })
-    
-    console.log('API: Success response:', response.data)
+
     return response.data
   } catch (error: any) {
-    console.error('API: Error:', error)
+
     const errorData = error.response?.data || {}
     throw new Error(errorData.error || error.message || 'Failed to generate referral code')
   }
 }
 
 export async function getInviteCodes(): Promise<InviteCodeType[]> {
-  // CSRF token is automatically added by axios interceptor in base.ts
+
   const response = await api.get(API_ENDPOINTS.USERS_REFCODES)
   return response.data
 }
 
 export async function getLatestInviteCode(): Promise<{ invite_code: InviteCodeType }> {
-  // CSRF token is automatically added by axios interceptor in base.ts
+
   const response = await api.get(API_ENDPOINTS.USERS_REFCODES)
   const codes = response.data
-  
+
   if (codes.length === 0) {
     throw new Error('No referral codes found')
   }
-  
-  // Return the most recent unused code
+
   const latestCode = codes
     .filter((code: InviteCode) => !code.used)
     .sort((a: InviteCode, b: InviteCode) => 
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     )[0]
-  
+
   return { invite_code: latestCode }
 }
 
 export async function updateInviteCodeDuration(durationDays: number): Promise<{ msg: string }> {
-  // This functionality is not available for referral codes, so we'll return a message
+
   return { msg: 'Duration update not available for referral codes' }
 }
 
-// Project Invite Code API functions
 export async function generateProjectInviteCode(data: CreateProjectInviteCodeDataType): Promise<ProjectInviteCodeType> {
-  console.log('API: generateProjectInviteCode called with:', { data })
-  
+
   try {
-    // CSRF token is automatically added by axios interceptor in base.ts
+
     const response = await api.post(API_ENDPOINTS.PROJECT_CODES, {
       expires_in_days: data.expires_in_days || 7
     })
-    
-    console.log('API: Success response:', response.data)
+
     return response.data
   } catch (error: any) {
-    console.error('API: Error:', error)
+
     const errorData = error.response?.data || {}
-    
-    // Handle CSRF errors specifically (handled by interceptor, but log for debugging)
+
     if (error.response?.status === 403 && (errorData.error === 'CSRF_ERROR' || errorData.error?.includes('CSRF'))) {
       const { clearCsrfToken } = await import('@/lib/csrf')
       clearCsrfToken()
       throw new Error('CSRF token validation failed. Please refresh the page and try again.')
     }
-    
+
     throw new Error(errorData.error || error.message || 'Failed to generate project invite code')
   }
 }
 
 export async function getProjectInviteCodes(): Promise<ProjectInviteCodeType[]> {
   try {
-    // CSRF token is automatically added by axios interceptor in base.ts
+
     const response = await api.get(API_ENDPOINTS.PROJECT_CODES)
     return response.data
   } catch (error: any) {
     const errorData = error.response?.data || {}
-    
-    // Handle 400 errors (user not assigned to project) gracefully
+
     if (error.response?.status === 400) {
       throw new Error(errorData.error || 'User must be assigned to a project')
     }
-    
+
     throw new Error(errorData.error || error.message || 'Failed to fetch project invite codes')
   }
 }
 
 export async function getLatestProjectInviteCode(): Promise<{ invite_code: ProjectInviteCodeType | null }> {
   try {
-    // CSRF token is automatically added by axios interceptor in base.ts
+
     const response = await api.get(API_ENDPOINTS.PROJECT_CODES_LATEST)
     return response.data
   } catch (error: any) {
-    // Gracefully handle 404: no unused project invite codes
+
     if (error.response?.status === 404) {
       return { invite_code: null }
     }
-    
+
     const errorData = error.response?.data || {}
-    
-    // Handle 400 errors (user not assigned to project) gracefully
+
     if (error.response?.status === 400) {
       throw new Error(errorData.error || 'User must be assigned to a project')
     }
-    
+
     throw new Error(errorData.error || error.message || 'Failed to fetch latest project invite code')
   }
 }
 
 export async function deleteUnusedProjectInviteCodes(): Promise<{ message: string; deleted_count: number }> {
-  // CSRF token is automatically added by axios interceptor in base.ts
+
   const response = await api.delete(API_ENDPOINTS.PROJECT_CODES_DELETE_UNUSED)
   return response.data
 }
 
 export async function deleteUnusedInviteCodes(): Promise<{ msg: string; deleted_count: number }> {
-  // CSRF token is automatically added by axios interceptor in base.ts
+
   const response = await api.delete(API_ENDPOINTS.USERS_REFCODES_DELETE_UNUSED)
   return response.data
 }
 
 export async function getReferralCodes(): Promise<ReferralCodeType[]> {
-  // CSRF token is automatically added by axios interceptor in base.ts
+
   const response = await api.get(API_ENDPOINTS.USERS_REFCODES)
   return response.data
 }

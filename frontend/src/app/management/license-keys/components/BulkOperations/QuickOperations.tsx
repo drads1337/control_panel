@@ -66,4 +66,3 @@ export const QuickOperations: React.FC<QuickOperationsProps> = ({
     </div>
   );
 };
-

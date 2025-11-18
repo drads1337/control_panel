@@ -16,7 +16,6 @@ from ...models.keys import Key
 from ...models.loaders import Loader, LoaderDownloadLog, LoaderGameAssignment
 from ...services.cache import cache_service
 
-
 class GameService:
     """Service for managing game data with caching"""
 
@@ -41,10 +40,8 @@ class GameService:
                     f"Fetching games from database for project {project_id}, type: {game_type}"
                 )
 
-                # Base query
                 query = Game.query.filter_by(project_id=project_id)
 
-                # Apply type filter
                 if game_type == "multi_app":
                     query = query.filter_by(is_multi_app=True)
                 elif game_type == "game_library":
@@ -78,15 +75,11 @@ class GameService:
                     "total_count": 0,
                 }
 
-        # Use cache with project_id and game_type as cache keys
         cache_key_params = {"project_id": project_id, "type": game_type}
 
-        # Add user_id to cache key if provided (for user-specific data)
         if user_id:
             cache_key_params["user_id"] = user_id
 
-        # Games fetching is a heavy operation (multiple JOINs, aggregations)
-        # Use smart caching which will check update markers automatically
         cached_result = self._cache_service.get_or_set(
             cache_type="games", fetch_func=fetch_games, **cache_key_params
         )
@@ -101,7 +94,7 @@ class GameService:
     def _build_game_data(self, game: Game, project_id: int) -> Dict[str, Any]:
         """Build game data dictionary with all related information"""
         try:
-            # Get prices
+
             prices = GameKeyPrice.query.filter_by(game_id=game.id, project_id=project_id).all()
             price_dict = {}
 
@@ -109,7 +102,6 @@ class GameService:
                 if not price.period.startswith("custom_"):
                     price_dict[price.period] = price.price
 
-            # Get backgrounds
             backgrounds = []
             if hasattr(game, "backgrounds") and game.backgrounds:
                 try:
@@ -120,7 +112,6 @@ class GameService:
                 except (json.JSONDecodeError, TypeError):
                     backgrounds = []
 
-            # Get loader info for multi-app games
             loader_info = None
             if game.is_multi_app:
                 loader_assignment = LoaderGameAssignment.query.filter_by(
@@ -135,7 +126,6 @@ class GameService:
                         "status": loader_assignment.loader.status or "active",
                     }
 
-            # Get active users count
             active_users_count = (
                 db.session.query(User.id)
                 .join(Key, User.id == Key.user_id)
@@ -151,10 +141,8 @@ class GameService:
                 .count()
             )
 
-            # Calculate total downloads
             total_downloads = game.downloads or 0
 
-            # Add config file downloads
             config_downloads = (
                 db.session.query(GameFileDownload)
                 .join(GameFileConfig, GameFileDownload.file_id == GameFileConfig.id)
@@ -164,7 +152,6 @@ class GameService:
                 .count()
             )
 
-            # Add extra file downloads
             extra_file_downloads = (
                 db.session.query(GameFileDownload)
                 .join(GameExtraFile, GameFileDownload.file_id == GameExtraFile.id)
@@ -178,7 +165,6 @@ class GameService:
 
             total_downloads += config_downloads + extra_file_downloads
 
-            # Add loader downloads for multi-app games
             if game.is_multi_app:
                 loader_assignment = LoaderGameAssignment.query.filter_by(
                     game_id=game.id, project_id=project_id
@@ -190,7 +176,6 @@ class GameService:
                     ).count()
                     total_downloads += loader_downloads
 
-            # Optimized game data structure - only essential fields
             return {
                 "id": game.id,
                 "unique_id": game.unique_id,
@@ -219,7 +204,7 @@ class GameService:
 
         except Exception as e:
             self.logger.error(f"Error building game data for game {game.id}: {str(e)}")
-            # Return minimal game data
+
             return {
                 "id": game.id,
                 "unique_id": game.unique_id,
@@ -249,7 +234,7 @@ class GameService:
     def invalidate_game_cache(self, project_id: int, game_id: Optional[int] = None) -> bool:
         """Invalidate game cache for a project or specific game - INSTANT updates"""
         try:
-            # Use new instant invalidation method
+
             deleted_count = self._cache_service.invalidate_game_instantly(project_id, game_id)
 
             self.logger.info(
@@ -259,7 +244,7 @@ class GameService:
 
         except Exception as e:
             self.logger.error(f"INSTANT game cache invalidation error: {e}")
-            # Fallback to old method
+
             try:
                 patterns = [
                     f"games:project_id={project_id}:*",
@@ -289,7 +274,6 @@ class GameService:
             try:
                 from ...utils.rbac_utils import RBACManager
 
-                # Get user for permission checking
                 user = User.query.get(user_id) if user_id else None
                 from ...services.rbac import rbac_service
 
@@ -311,7 +295,7 @@ class GameService:
                             "name": game.name,
                             "description": game.description,
                             "is_active": game.is_active,
-                            "status": game.status,  # Include status for immediate updates
+                            "status": game.status,
                             "project_id": game.project_id,
                         }
                     )
@@ -322,13 +306,11 @@ class GameService:
                 self.logger.error(f"Error fetching simple games: {e}")
                 return []
 
-        # Cache key parameters
         cache_key_params = {"project_id": project_id, "simple": True}
 
         if user_id:
             cache_key_params["user_id"] = user_id
 
-        # Use smart caching - it will automatically check update markers
         cached_result = self._cache_service.get_or_set(
             cache_type="games", fetch_func=fetch_simple_games, **cache_key_params
         )
@@ -349,7 +331,7 @@ class GameService:
             Tuple of (Game object or None, error message or None)
         """
         try:
-            # Check if game with same name already exists
+
             existing_game = Game.query.filter_by(
                 name=game_data["name"], project_id=user.project_id
             ).first()
@@ -357,7 +339,6 @@ class GameService:
             if existing_game:
                 return None, "Game already exists"
 
-            # Create new game
             new_game = Game(
                 name=game_data["name"],
                 description=game_data.get("description", ""),
@@ -375,7 +356,6 @@ class GameService:
             db.session.add(new_game)
             db.session.flush()
 
-            # Create prices if provided
             if game_data.get("prices"):
                 prices_data = game_data["prices"]
                 for period, price in prices_data.items():
@@ -389,14 +369,12 @@ class GameService:
                             )
                             db.session.add(game_price)
 
-            # Update project game counters
             if user.project_id:
                 from ...utils.project_counters import increment_project_game_counters
                 increment_project_game_counters(user.project_id)
 
             db.session.commit()
 
-            # Invalidate game cache
             self.invalidate_game_cache(user.project_id, new_game.id)
 
             self.logger.info(f"Game created successfully: {new_game.id} by user {user.id}")
@@ -424,7 +402,7 @@ class GameService:
             Tuple of (Game object or None, error message or None)
         """
         try:
-            # Query game with project isolation
+
             game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
 
             if not game:
@@ -436,6 +414,4 @@ class GameService:
             self.logger.error(f"Error getting game {game_id}: {str(e)}")
             return None, f"Failed to get game: {str(e)}"
 
-
-# Global instance
 game_service = GameService()

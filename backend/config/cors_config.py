@@ -38,7 +38,6 @@ from flask_cors import CORS
 
 from .config import Config
 
-
 def setup_cors(app: Flask) -> None:
     """
     Configure CORS for the application
@@ -59,16 +58,9 @@ def setup_cors(app: Flask) -> None:
     Raises:
         None (failures are logged but don't prevent app startup)
     """
-    # Use only Flask-CORS with environment-based configuration
-    # Removed custom @app.after_request handler to eliminate duplication and security risks
-    #
-    # SECURITY: Never add custom CORS handlers elsewhere in the codebase.
-    # All CORS must be configured through this centralized function.
 
-    # Determine allowed origins based on environment
     allowed_origins = _get_allowed_origins()
 
-    # Configure CORS with secure settings for httpOnly cookies and CSRF protection
     CORS(
         app,
         origins=allowed_origins,
@@ -93,16 +85,14 @@ def setup_cors(app: Flask) -> None:
         max_age=3600,
         automatic_options=True,
         send_wildcard=False,
-    )  # Don't send wildcard for security
+    )
 
-    # Log CORS configuration for security audit
     import logging
 
     logger = logging.getLogger(__name__)
     logger.info(
         f"CORS configured with {len(allowed_origins)} origins: {allowed_origins[:3] if len(allowed_origins) > 3 else allowed_origins}"
     )
-
 
 def _get_allowed_origins():
     """
@@ -121,15 +111,13 @@ def _get_allowed_origins():
     import os
     import socket
 
-    # Get environment - default to development for local development
     env = os.environ.get("FLASK_ENV", "development")
 
-    # Force development mode if not explicitly set to production
     if env not in ["production", "staging"]:
         env = "development"
 
     if env == "development":
-        # Development: Allow localhost and specific development domains
+
         dev_origins = [
             "http://localhost:3000",
             "http://localhost:3001",
@@ -153,15 +141,13 @@ def _get_allowed_origins():
             "http://192.168.1.7:5173",
         ]
 
-        # Try to detect current IP address dynamically
         try:
-            # Get the local IP address
+
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.connect(("8.8.8.8", 80))
             local_ip = s.getsockname()[0]
             s.close()
 
-            # Add dynamic IP origins
             dynamic_origins = [
                 f"http://{local_ip}:3000",
                 f"http://{local_ip}:3001",
@@ -174,11 +160,9 @@ def _get_allowed_origins():
 
             logging.warning(f"Could not detect local IP for CORS: {e}")
 
-        # Add any additional development origins from config
         dev_origins.extend(Config.ALL_CORS_ORIGINS)
 
-        # Remove duplicates and return
         return list(set(dev_origins))
     else:
-        # Production: Only allow explicitly configured origins
+
         return Config.ALL_CORS_ORIGINS

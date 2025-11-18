@@ -1,6 +1,5 @@
 import { BaseEntity, PaginatedResponse } from '@/shared/api'
 
-// Log types
 export interface Log extends BaseEntity {
   user_id: number | null
   username: string | null

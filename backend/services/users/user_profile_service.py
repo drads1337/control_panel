@@ -18,14 +18,13 @@ from ...config.config import Config
 from ...services.activity import activity_service
 from ...utils.rbac_utils import RBACManager
 
-
 class UserProfileService:
     """Service for handling user profile operations"""
 
     def __init__(self, logger=None, upload_folder=None):
         self.logger = logger or logging.getLogger(__name__)
         self.upload_folder = upload_folder or "uploads"
-        # Use configuration from config.py
+
         self.allowed_avatar_extensions = Config.ALLOWED_AVATAR_EXTENSIONS
         self.max_avatar_size = Config.MAX_AVATAR_SIZE
 
@@ -43,7 +42,7 @@ class UserProfileService:
         try:
             if "username" in data and data["username"]:
                 if data["username"] != user.username:
-                    # Check if username already exists (excluding current user)
+
                     existing_user = User.query.filter_by(username=data["username"]).first()
                     if existing_user and existing_user.id != user.id:
                         return False, "Username already exists"
@@ -51,10 +50,10 @@ class UserProfileService:
 
             if "email" in data and data["email"]:
                 new_email = data["email"].lower()
-                # Handle None email case properly
+
                 current_email = user.email.lower() if user.email else None
                 if new_email != current_email:
-                    # Check if email already exists (excluding current user)
+
                     existing_user = User.query.filter_by(email=new_email).first()
                     if existing_user and existing_user.id != user.id:
                         return False, "Email already exists"
@@ -97,15 +96,13 @@ class UserProfileService:
             Tuple of (success, error_message)
         """
         try:
-            # Verify current password
+
             if not check_password_hash(user.password, current_password):
                 return False, "Current password is incorrect"
 
-            # Validate new password
             if len(new_password) < 8:
                 return False, "New password must be at least 8 characters long"
 
-            # Update password
             user.password = generate_password_hash(new_password)
             user.updated_at = datetime.utcnow()
             db.session.commit()
@@ -132,30 +129,24 @@ class UserProfileService:
             if not file or not file.filename:
                 return False, "No file provided", None
 
-            # Validate file
             if not self._is_valid_avatar_file(file):
                 return False, "Invalid file type or size", None
 
-            # Generate unique filename
             filename = secure_filename(file.filename)
             file_extension = filename.rsplit(".", 1)[1].lower()
             unique_filename = f"{user.id}_{uuid.uuid4().hex}.{file_extension}"
 
-            # Create upload directory if it doesn't exist
             upload_dir = os.path.join(self.upload_folder, "avatars")
             os.makedirs(upload_dir, exist_ok=True)
 
-            # Save file
             file_path = os.path.join(upload_dir, unique_filename)
             file.save(file_path)
 
-            # Update user avatar
             old_avatar = user.avatar
             user.avatar = f"avatars/{unique_filename}"
             user.updated_at = datetime.utcnow()
             db.session.commit()
 
-            # Delete old avatar if exists
             if old_avatar:
                 self._delete_avatar_file(old_avatar)
 
@@ -171,7 +162,6 @@ class UserProfileService:
         if not file.filename:
             return False
 
-        # Check file extension
         if "." not in file.filename:
             return False
 
@@ -179,10 +169,9 @@ class UserProfileService:
         if file_extension not in self.allowed_avatar_extensions:
             return False
 
-        # Check file size
-        file.seek(0, 2)  # Seek to end
+        file.seek(0, 2)
         file_size = file.tell()
-        file.seek(0)  # Reset to beginning
+        file.seek(0)
 
         if file_size > self.max_avatar_size:
             return False
@@ -209,7 +198,7 @@ class UserProfileService:
         Returns:
             Dictionary with user profile data
         """
-        # Get user permissions from RBAC system
+
         user_permissions = []
         try:
             from ...services.rbac import rbac_service
@@ -258,7 +247,6 @@ class UserProfileService:
                 "notifications": [],
             }
 
-            # Get project information
             if user.project_id:
                 from ...models.core import Project
 
@@ -276,7 +264,6 @@ class UserProfileService:
                         ),
                     }
 
-            # Get devices (if applicable)
             try:
                 from ...models.keys import DeviceInfo as Device
 
@@ -294,7 +281,6 @@ class UserProfileService:
             except Exception as e:
                 self.logger.warning(f"Failed to get device info: {e}")
 
-            # Get recent activity
             try:
                 recent_activities = activity_service.get_user_activities(user.id, limit=10)
                 dashboard_data["recent_activity"] = [
@@ -310,7 +296,6 @@ class UserProfileService:
             except Exception as e:
                 self.logger.warning(f"Failed to get recent activity: {e}")
 
-            # Get notifications
             try:
                 from ...models.notifications import Notification
 
@@ -336,7 +321,4 @@ class UserProfileService:
             self.logger.error(f"Error getting user dashboard data: {str(e)}")
             return {"error": "Failed to load dashboard data"}
 
-
-# Create service instance
 user_profile_service = UserProfileService()
-

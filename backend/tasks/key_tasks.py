@@ -14,7 +14,6 @@ try:
 except ImportError:
     CELERY_AVAILABLE = False
 
-    # Dummy Task class for fallback
     class Task:
         pass
 
@@ -34,7 +33,6 @@ from ..utils.rbac_utils import RBACManager
 
 logger = logging.getLogger(__name__)
 
-# Only import celery_app if Celery is available
 if CELERY_AVAILABLE:
     try:
         from ..core.celery_app import celery_app
@@ -44,15 +42,12 @@ if CELERY_AVAILABLE:
 else:
     celery_app = None
 
-# Create database engine for Celery workers
-# Only create if Celery is available
 if CELERY_AVAILABLE and celery_app:
     db_engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
     Session = sessionmaker(bind=db_engine)
 else:
     db_engine = None
     Session = None
-
 
 class DatabaseTask(Task):
     """
@@ -88,19 +83,16 @@ class DatabaseTask(Task):
                 self._db_session.close()
                 self._db_session = None
 
-
-# Helper to conditionally apply decorator
 def task_decorator(*args, **kwargs):
     """Conditional task decorator - only applies if Celery is available"""
     if CELERY_AVAILABLE and celery_app:
         return celery_app.task(*args, **kwargs)
     else:
-        # Return identity decorator if Celery is not available
+
         def decorator(func):
             return func
 
         return decorator
-
 
 @task_decorator(
     bind=True,
@@ -137,7 +129,7 @@ def bulk_create_keys_task(
         project_id: Project ID for isolation
         remote_addr: Remote address for activity logging
     """
-    # Get database session from task instance
+
     if not hasattr(self, "_db_session") or self._db_session is None:
         if Session is None:
             error_msg = "Database session not available. Celery may not be properly configured."
@@ -152,7 +144,6 @@ def bulk_create_keys_task(
         if task_id:
             task_service.update_task_status(task_id, "in_progress", progress=5)
 
-        # Get user and game
         user = session.query(User).get(user_id)
         if not user:
             error_msg = f"User {user_id} not found"
@@ -172,14 +163,12 @@ def bulk_create_keys_task(
                 task_service.update_task_status(task_id, "failed", error=error_msg)
             return {"status": "error", "error": error_msg}
 
-        # Determine generation type based on game's login_type
         is_access_code = game.login_type == "classic_login"
         generation_type = "access_code" if is_access_code else "license_key"
 
         if task_id:
             task_service.update_task_status(task_id, "in_progress", progress=10)
 
-        # Create keys
         created_keys = []
         batch_id = f'batch_{datetime.utcnow().strftime("%Y%m%d_%H%M%S")}'
         errors = []
@@ -191,7 +180,7 @@ def bulk_create_keys_task(
         total = count
         for i in range(count):
             try:
-                # Update progress
+
                 if task_id and (i + 1) % max(1, total // 10) == 0:
                     progress = 10 + int((i + 1) / total * 80)
                     task_service.update_task_status(task_id, "in_progress", progress=progress)
@@ -226,23 +215,20 @@ def bulk_create_keys_task(
 
                 session.add(key)
                 session.flush()
-                
-                # Update user key counters (key is active with status=1)
+
                 from ...utils.key_counters import increment_user_key_counters
                 increment_user_key_counters(user.id, is_active=True)
-                
-                # Update project key counters (key is active with status=1)
+
                 if project_id:
                     from ...utils.project_counters import increment_project_key_counters
                     increment_project_key_counters(project_id, is_active=True)
-                
+
                 created_keys.append(key)
 
             except Exception as key_error:
                 errors.append(f"Key {i+1}: {str(key_error)}")
                 logger.error(f"🔑 Failed to create key {i+1}: {str(key_error)}")
 
-        # Commit all keys at once
         if created_keys:
             session.commit()
             logger.info(f"🔑 Bulk created {len(created_keys)} keys")
@@ -255,7 +241,6 @@ def bulk_create_keys_task(
 
         created_count = len(created_keys)
 
-        # Clear cache if possible
         try:
             from ..routes.files import clear_storage_cache
 
@@ -263,7 +248,6 @@ def bulk_create_keys_task(
         except (ImportError, Exception):
             pass
 
-        # Log activity
         item_type = "access codes" if is_access_code else "license keys"
         activity_service.log_activity(
             user,
@@ -300,7 +284,6 @@ def bulk_create_keys_task(
         if task_id:
             task_service.update_task_status(task_id, "failed", error=error_msg)
         return {"status": "error", "error": error_msg}
-
 
 @task_decorator(
     bind=True,
@@ -339,7 +322,7 @@ def bulk_create_loader_keys_task(
         project_id: Project ID for isolation
         remote_addr: Remote address for activity logging
     """
-    # Get database session from task instance
+
     if not hasattr(self, "_db_session") or self._db_session is None:
         if Session is None:
             error_msg = "Database session not available. Celery may not be properly configured."
@@ -354,7 +337,6 @@ def bulk_create_loader_keys_task(
         if task_id:
             task_service.update_task_status(task_id, "in_progress", progress=5)
 
-        # Get user, loader, and games
         user = session.query(User).get(user_id)
         if not user:
             error_msg = f"User {user_id} not found"
@@ -389,13 +371,12 @@ def bulk_create_loader_keys_task(
         if task_id:
             task_service.update_task_status(task_id, "in_progress", progress=10)
 
-        # Create keys
         created_keys = []
         total_operations = count * len(games)
 
         for i in range(count):
             try:
-                # Update progress
+
                 if task_id and (i + 1) % max(1, count // 10) == 0:
                     progress = 10 + int((i + 1) / count * 80)
                     task_service.update_task_status(task_id, "in_progress", progress=progress)
@@ -437,12 +418,10 @@ def bulk_create_loader_keys_task(
             except Exception as key_error:
                 logger.error(f"🔑 Failed to create loader key {i+1}: {str(key_error)}")
 
-        # Commit all keys at once
         if created_keys:
             session.commit()
             logger.info(f"🔑 Bulk created {len(set(created_keys))} loader keys")
 
-        # Log activity
         activity_service.log_activity(
             user,
             "bulk_create_loader_keys",
@@ -479,4 +458,3 @@ def bulk_create_loader_keys_task(
         if task_id:
             task_service.update_task_status(task_id, "failed", error=error_msg)
         return {"status": "error", "error": error_msg}
-

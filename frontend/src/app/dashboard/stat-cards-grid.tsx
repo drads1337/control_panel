@@ -137,7 +137,6 @@ export function StatCardsGrid({ data, type }: StatCardsGridProps) {
     </>
   )
 
-
   const renderCards = () => {
     switch (type) {
       case 'dashboard':

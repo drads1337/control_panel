@@ -19,7 +19,6 @@ export function SmartDashboardRouter() {
     return <Navigate to="/login" replace />
   }
 
-  // Get first available page based on server navigation configuration
   const navigationItems = navigation?.navigation || []
   const targetPage = getFirstAvailablePageFromNavigation(navigationItems, user)
   return <Navigate to={targetPage} replace />

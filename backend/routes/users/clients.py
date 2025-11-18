@@ -26,7 +26,6 @@ from ...utils.role_constants import RolePermissions
 clients_user_bp = Blueprint("users_clients", __name__)
 logger = logging.getLogger(__name__)
 
-
 @clients_user_bp.route("/clients", methods=["GET"])
 @jwt_required()
 @require_user
@@ -36,7 +35,7 @@ logger = logging.getLogger(__name__)
 def get_clients(current_user=None, project_id=None):
     """Get clients with optimized queries (fixes N+1 problem)"""
     try:
-        # Fallback to g for backward compatibility if not passed explicitly
+
         if current_user is None:
             current_user = g.current_user
 
@@ -45,23 +44,19 @@ def get_clients(current_user=None, project_id=None):
         search = request.args.get("search")
         status_filter = request.args.get("status")
 
-        # Build query for clients only
         query = User.query.filter(
             User.id.in_(select(UserRole.user_id).join(Role).where(Role.name == "client"))
         )
 
-        # Apply project scoping
         if current_user.project_id:
             query = query.filter(User.project_id == current_user.project_id)
         else:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        # Apply full-text search filter
         if search:
-            # Using PostgreSQL tsvector for efficient full-text search
+
             query = fulltext_search_filter(query, search, "search_vector")
 
-        # Apply status filter
         if status_filter == "active":
             query = query.filter((User.expires_at.is_(None)) | (User.expires_at > datetime.utcnow()))
         elif status_filter == "expired":
@@ -71,7 +66,6 @@ def get_clients(current_user=None, project_id=None):
 
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
-        # Use denormalized key counters from User model (no need for JOIN query)
         clients = []
         for user in pagination.items:
             keys_count = user.total_keys or 0
@@ -114,4 +108,3 @@ def get_clients(current_user=None, project_id=None):
     except Exception as e:
         logger.error(f"Error getting clients: {str(e)}", exc_info=True)
         return jsonify({"error": "Failed to get clients"}), 500
-

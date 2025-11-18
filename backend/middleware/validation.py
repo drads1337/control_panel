@@ -12,7 +12,6 @@ from werkzeug.exceptions import BadRequest
 
 logger = logging.getLogger(__name__)
 
-
 class ValidationMiddleware:
     """Middleware for validating request data using Pydantic schemas"""
 
@@ -36,10 +35,10 @@ class ValidationMiddleware:
             @wraps(func)
             def wrapper(*args, **kwargs):
                 try:
-                    # Check if request has JSON data
+
                     if not request.is_json:
                         if allow_empty and not request.get_data():
-                            # Allow empty requests if explicitly allowed
+
                             validated_data = {}
                         else:
                             return (
@@ -52,7 +51,7 @@ class ValidationMiddleware:
                                 400,
                             )
                     else:
-                        # Get JSON data
+
                         json_data = request.get_json(silent=True)
                         if json_data is None:
                             if allow_empty:
@@ -65,7 +64,7 @@ class ValidationMiddleware:
                                     400,
                                 )
                         else:
-                            # Validate against schema
+
                             try:
                                 if strict:
                                     validated_data = schema_class(**json_data).model_dump()
@@ -85,10 +84,8 @@ class ValidationMiddleware:
                                     400,
                                 )
 
-                    # Add validated data to kwargs
                     kwargs["validated_data"] = validated_data
 
-                    # Call the original function
                     return func(*args, **kwargs)
 
                 except BadRequest as e:
@@ -101,17 +98,16 @@ class ValidationMiddleware:
                     import traceback
                     error_traceback = traceback.format_exc()
                     logger.error(f"Unexpected error in validation middleware: {str(e)}\n{error_traceback}")
-                    
-                    # Include error details in debug mode
+
                     error_response = {
                         "error": "INTERNAL_ERROR",
                         "message": "Internal server error"
                     }
-                    
+
                     if current_app.debug:
                         error_response["details"] = str(e)
                         error_response["traceback"] = error_traceback.split("\n")
-                    
+
                     return jsonify(error_response), 500
 
             return wrapper
@@ -134,22 +130,20 @@ class ValidationMiddleware:
             @wraps(func)
             def wrapper(*args, **kwargs):
                 try:
-                    # Get query parameters
+
                     query_params = dict(request.args)
 
-                    # Convert string values to appropriate types
                     converted_params = {}
                     for key, value in query_params.items():
                         if isinstance(value, list) and len(value) == 1:
-                            # Handle single value lists
+
                             converted_params[key] = value[0]
                         elif isinstance(value, list):
-                            # Handle multiple values
+
                             converted_params[key] = value
                         else:
                             converted_params[key] = value
 
-                    # Validate against schema
                     try:
                         validated_params = schema_class(**converted_params).model_dump()
                     except ValidationError as e:
@@ -164,27 +158,24 @@ class ValidationMiddleware:
                             400,
                         )
 
-                    # Add validated params to kwargs
                     kwargs["validated_params"] = validated_params
 
-                    # Call the original function
                     return func(*args, **kwargs)
 
                 except Exception as e:
                     import traceback
                     error_traceback = traceback.format_exc()
                     logger.error(f"Unexpected error in query validation middleware: {str(e)}\n{error_traceback}")
-                    
-                    # Include error details in debug mode
+
                     error_response = {
                         "error": "INTERNAL_ERROR",
                         "message": "Internal server error"
                     }
-                    
+
                     if current_app.debug:
                         error_response["details"] = str(e)
                         error_response["traceback"] = error_traceback.split("\n")
-                    
+
                     return jsonify(error_response), 500
 
             return wrapper
@@ -207,18 +198,15 @@ class ValidationMiddleware:
             @wraps(func)
             def wrapper(*args, **kwargs):
                 try:
-                    # Get form data
+
                     form_data = dict(request.form)
 
-                    # Handle file uploads
                     files_data = {}
                     for key, file in request.files.items():
                         files_data[key] = file
 
-                    # Combine form data and files
                     all_data = {**form_data, **files_data}
 
-                    # Validate against schema
                     try:
                         validated_data = schema_class(**all_data).model_dump()
                     except ValidationError as e:
@@ -233,33 +221,29 @@ class ValidationMiddleware:
                             400,
                         )
 
-                    # Add validated data to kwargs
                     kwargs["validated_data"] = validated_data
 
-                    # Call the original function
                     return func(*args, **kwargs)
 
                 except Exception as e:
                     import traceback
                     error_traceback = traceback.format_exc()
                     logger.error(f"Unexpected error in form validation middleware: {str(e)}\n{error_traceback}")
-                    
-                    # Include error details in debug mode
+
                     error_response = {
                         "error": "INTERNAL_ERROR",
                         "message": "Internal server error"
                     }
-                    
+
                     if current_app.debug:
                         error_response["details"] = str(e)
                         error_response["traceback"] = error_traceback.split("\n")
-                    
+
                     return jsonify(error_response), 500
 
             return wrapper
 
         return decorator
-
 
 def validate_request(
     schema_class: Type[BaseModel],
@@ -288,7 +272,6 @@ def validate_request(
     else:
         raise ValueError(f"Unsupported data type: {data_type}")
 
-
 def validate_response(schema_class: Type[BaseModel]) -> callable:
     """
     Decorator to validate response data against a Pydantic schema
@@ -304,28 +287,26 @@ def validate_response(schema_class: Type[BaseModel]) -> callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
             try:
-                # Call the original function
+
                 response = func(*args, **kwargs)
 
-                # If response is a tuple (data, status_code), extract data
                 if isinstance(response, tuple) and len(response) == 2:
                     data, status_code = response
                 else:
                     data = response
                     status_code = 200
 
-                # Validate response data if it's a dict
                 if isinstance(data, dict):
                     try:
-                        # Create response object from data
+
                         response_obj = schema_class(**data)
-                        # Convert back to dict for JSON serialization
+
                         validated_data = response_obj.model_dump()
 
                         return jsonify(validated_data), status_code
                     except ValidationError as e:
                         logger.warning(f"Response validation failed: {e.errors()}")
-                        # Return original response if validation fails
+
                         return jsonify(data), status_code
 
                 return response

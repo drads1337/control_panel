@@ -70,19 +70,17 @@ export const GamesTable: React.FC<GamesTableProps> = ({
 
   const allSelected = selectedGames.length === games.length && games.length > 0;
 
-  // Virtualization setup - only enable if we have many games
   const parentRef = useRef<HTMLDivElement>(null);
-  const shouldVirtualize = games.length > 50; // Only virtualize if more than 50 items
+  const shouldVirtualize = games.length > 50;
 
   const rowVirtualizer = useVirtualizer({
     count: shouldVirtualize ? games.length : 0,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 73, // Estimated row height in pixels
-    overscan: 5, // Render 5 extra items outside visible area
+    estimateSize: () => 73,
+    overscan: 5,
     enabled: shouldVirtualize,
   });
 
-  // Render game row cells - extracted for reuse in virtualized and non-virtualized modes
   const renderGameRow = (game: Game) => (
     <>
       <TableCell>
@@ -310,4 +308,3 @@ export const GamesTable: React.FC<GamesTableProps> = ({
     </div>
   );
 };
-

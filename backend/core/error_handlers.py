@@ -14,7 +14,6 @@ try:
 except ImportError:
     RateLimitExceeded = None
 
-
 def register_error_handlers(app: Flask) -> None:
     """
     Register all error handlers for the application
@@ -30,22 +29,19 @@ def register_error_handlers(app: Flask) -> None:
         from ..utils.data_masking import mask_string
 
         error_details = traceback.format_exc()
-        # SECURITY: Mask sensitive data in error logs
+
         safe_error_details = mask_string(error_details)
         logger = logging.getLogger(__name__)
         logger.error(f"=== INTERNAL SERVER ERROR ===\n{safe_error_details}")
 
-        # Always log full traceback for debugging
-        # But only return it to client in debug mode
         error_response = {"error": "Internal server error", "type": "internal_error"}
 
-        # Include full traceback and details only in debug mode
         if app.debug:
             error_response["traceback"] = error_details.split("\n")
             error_response["details"] = str(error)
             error_response["message"] = f"{type(error).__name__}: {str(error)}"
         else:
-            # In production, return generic error message
+
             error_response["message"] = (
                 "An internal error occurred. Please contact support if the problem persists."
             )
@@ -55,20 +51,18 @@ def register_error_handlers(app: Flask) -> None:
     @app.errorhandler(429)
     def rate_limit_error(error):
         """Handle rate limit exceeded errors (429 Too Many Requests)"""
-        # Extract rate limit message if available
+
         error_message = str(error) if error else "Too many requests"
-        
-        # Parse rate limit details from the error message if present
-        # Flask-Limiter format: "429 Too Many Requests: 30 per 1 minute"
+
         message = "Rate limit exceeded. Please try again later."
         if "per" in error_message:
-            # Extract the limit information (e.g., "30 per 1 minute")
+
             try:
                 limit_info = error_message.split(": ")[-1] if ": " in error_message else error_message
                 message = f"Rate limit exceeded ({limit_info}). Please try again later."
             except Exception:
                 pass
-        
+
         return (
             jsonify(
                 {
@@ -84,28 +78,25 @@ def register_error_handlers(app: Flask) -> None:
         @app.errorhandler(RateLimitExceeded)
         def rate_limit_exceeded_handler(error):
             """Handle Flask-Limiter RateLimitExceeded exceptions"""
-            # Extract rate limit message if available
+
             error_message = str(error) if error else "Too many requests"
-            
-            # Parse rate limit details from the error message if present
-            # Flask-Limiter format: "429 Too Many Requests: 30 per 1 minute"
+
             message = "Rate limit exceeded. Please try again later."
             limit_info = "unknown"
             if "per" in error_message:
-                # Extract the limit information (e.g., "30 per 1 minute")
+
                 try:
                     limit_info = error_message.split(": ")[-1] if ": " in error_message else error_message
                     message = f"Rate limit exceeded ({limit_info}). Please try again later."
                 except Exception:
                     pass
-            
-            # Log at debug level, not error level, since rate limiting is expected behavior
+
             logger = logging.getLogger(__name__)
             logger.debug(
                 f"Rate limit exceeded - Method: {request.method}, Path: {request.path}, "
                 f"IP: {request.remote_addr}, Limit: {limit_info}"
             )
-            
+
             return (
                 jsonify(
                     {
@@ -120,9 +111,9 @@ def register_error_handlers(app: Flask) -> None:
     @app.errorhandler(Exception)
     def handle_unhandled_exception(e):
         """Handle all unhandled exceptions"""
-        # Skip rate limit exceptions - they should be handled by the specific handler above
+
         if RateLimitExceeded and isinstance(e, RateLimitExceeded):
-            # If this somehow reached here, handle it as a rate limit error without logging as unhandled
+
             error_message = str(e) if e else "Too many requests"
             message = "Rate limit exceeded. Please try again later."
             if "per" in error_message:
@@ -141,25 +132,24 @@ def register_error_handlers(app: Flask) -> None:
                 ),
                 429,
             )
-        
+
         import traceback
         from ..utils.data_masking import mask_string
 
         error_details = traceback.format_exc()
-        # SECURITY: Mask sensitive data in error logs
+
         safe_error_details = mask_string(error_details)
         logger = logging.getLogger(__name__)
         logger.error(f"=== UNHANDLED EXCEPTION ===\n{safe_error_details}")
 
         error_response = {"error": "Internal server error", "type": "unhandled_exception"}
 
-        # Include full traceback and details only in debug mode
         if app.debug:
             error_response["traceback"] = error_details.split("\n")
             error_response["details"] = str(e)
             error_response["message"] = f"{type(e).__name__}: {str(e)}"
         else:
-            # In production, return generic error message
+
             error_response["message"] = (
                 "An internal error occurred. Please contact support if the problem persists."
             )
@@ -193,7 +183,6 @@ def register_error_handlers(app: Flask) -> None:
             ),
             405,
         )
-
 
 def register_jwt_error_handlers(app: Flask) -> None:
     """

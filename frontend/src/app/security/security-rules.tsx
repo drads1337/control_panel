@@ -23,7 +23,7 @@ interface SecurityRule {
 export default function SecurityRules() {
   const { hasPermission } = usePermissions()
   const canManage = hasPermission('security.manage_rules')
-  
+
   const [rules, setRules] = useState<SecurityRule[]>([
     {
       id: 1,
@@ -129,7 +129,6 @@ export default function SecurityRules() {
     }
   ])
 
-
   const getSeverityColor = (severity: string) => {
     switch (severity) {
       case 'low': return 'bg-green-100 text-green-800'
@@ -156,11 +155,10 @@ export default function SecurityRules() {
     ))
   }
 
-
   return (
     <ConditionalRender permission="security.manage_rules" fallback={null}>
       <div className="space-y-4">
-      {/* Header */}
+      {}
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Security Rules</h2>
         <div className="text-sm text-muted-foreground">
@@ -168,7 +166,7 @@ export default function SecurityRules() {
         </div>
       </div>
 
-      {/* Rules List */}
+      {}
       <div className="space-y-3">
         {rules.map((rule) => (
           <Card key={rule.id} className="p-4">
