@@ -22,6 +22,7 @@ from ..models.rbac import (
     Role,
     RolePermission,
     UserAttribute,
+    UserPermission,
     UserRole,
 )
 from ..services.rbac import rbac_service
@@ -596,7 +597,6 @@ def remove_role_from_user(user_id, role_id, current_user=None):
 @rbac_bp.route("/users/<int:user_id>/permissions", methods=["GET"])
 @jwt_required()
 @token_required
-@admin_required
 @require_project_isolation
 def get_user_permissions(user_id, current_user=None):
     """Get all permissions for a user"""
@@ -607,6 +607,19 @@ def get_user_permissions(user_id, current_user=None):
             return jsonify({"error": "Authentication required"}), 401
     
     try:
+        # Check permissions - user needs employees.view or rbac.view to view user permissions
+        from ..services.rbac import rbac_service
+        from ..utils.rbac_utils import RBACManager
+        
+        # Check if user has permission to view employees
+        has_view_permission = rbac_service.check_permission(current_user.id, "employees.view")
+        has_rbac_permission = rbac_service.check_permission(current_user.id, "rbac.view")
+        
+        if not has_view_permission and not has_rbac_permission:
+            # Also allow owner/admin
+            if not (RBACManager.is_owner(current_user) or RBACManager.is_admin(current_user)):
+                return jsonify({"error": "Insufficient permissions"}), 403
+        
         # Check if user belongs to the same project
         target_user = User.query.get(user_id)
 
@@ -652,6 +665,121 @@ def get_user_permissions(user_id, current_user=None):
         logging.error(f"Traceback: {traceback.format_exc()}")
         # Return empty permissions instead of error to prevent UI issues
         return jsonify({"success": True, "user_id": user_id, "permissions": [], "error": str(e)})
+
+
+@rbac_bp.route("/users/<int:user_id>/permissions", methods=["PUT"])
+@jwt_required()
+@token_required
+@require_project_isolation
+def update_user_permissions(user_id, current_user=None):
+    """Update individual permissions for a user (overrides role permissions)"""
+    # Fallback to get_current_user if not provided by decorator
+    if current_user is None:
+        current_user = get_current_user()
+        if not current_user:
+            return jsonify({"error": "Authentication required"}), 401
+    
+    try:
+        # Check permissions - user needs employees.edit or rbac.view to manage user permissions
+        from ..services.rbac import rbac_service
+        from ..utils.rbac_utils import RBACManager
+        
+        # Check if user has permission to edit employees
+        has_edit_permission = rbac_service.check_permission(current_user.id, "employees.edit")
+        has_rbac_permission = rbac_service.check_permission(current_user.id, "rbac.view")
+        
+        if not has_edit_permission and not has_rbac_permission:
+            # Also allow owner/admin (but they can't edit their own permissions)
+            if not (RBACManager.is_owner(current_user) or RBACManager.is_admin(current_user)):
+                return jsonify({"error": "Insufficient permissions"}), 403
+        
+        # Check if user belongs to the same project
+        target_user = User.query.get(user_id)
+
+        if not target_user:
+            return jsonify({"error": "User not found"}), 404
+
+        if target_user.project_id != current_user.project_id:
+            return jsonify({"error": "User not found"}), 404
+
+        # Check if target user has static role (owner/admin) - cannot modify their permissions
+        # Only block owner and admin roles, not other system roles like seller, moderator, etc.
+        user_roles = RBACManager.get_user_role_names(target_user)
+        if "owner" in user_roles or "admin" in user_roles:
+            logging.warning(
+                f"RBAC_USER_PERMISSIONS_UPDATE_BLOCKED user_id={current_user.id} target_user_id={user_id} reason=static_role roles={user_roles}"
+            )
+            return jsonify({"error": "Static roles cannot manage RBAC"}), 403
+
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+
+        permissions = data.get("permissions", [])
+        if not isinstance(permissions, list):
+            return jsonify({"error": "Permissions must be a list"}), 400
+
+        logging.info(
+            f"RBAC_USER_PERMISSIONS_UPDATE_REQUEST user_id={current_user.id} target_user_id={user_id} permissions_count={len(permissions)} permissions={permissions}"
+        )
+
+        # Get all permissions for the project
+        project_permissions = Permission.query.filter_by(project_id=current_user.project_id).all()
+        permission_map = {p.name: p for p in project_permissions}
+
+        logging.debug(
+            f"RBAC_USER_PERMISSIONS_UPDATE_AVAILABLE project_id={current_user.project_id} available_permissions_count={len(permission_map)}"
+        )
+
+        # Validate that all permission names exist
+        invalid_permissions = [p for p in permissions if p not in permission_map]
+        if invalid_permissions:
+            logging.warning(
+                f"RBAC_USER_PERMISSIONS_UPDATE_INVALID user_id={current_user.id} target_user_id={user_id} invalid_permissions={invalid_permissions}"
+            )
+            return jsonify({"error": f"Invalid permissions: {', '.join(invalid_permissions)}"}), 400
+
+        # Remove all existing user permissions
+        from ..models.rbac import UserPermission
+        deleted_count = UserPermission.query.filter_by(user_id=user_id).delete()
+        logging.debug(
+            f"RBAC_USER_PERMISSIONS_DELETE_EXISTING user_id={user_id} deleted_count={deleted_count}"
+        )
+
+        # Add new user permissions
+        added_count = 0
+        for permission_name in permissions:
+            permission = permission_map[permission_name]
+            user_permission = UserPermission(
+                user_id=user_id,
+                permission_id=permission.id,
+                permission_type="allow"
+            )
+            db.session.add(user_permission)
+            added_count += 1
+
+        db.session.commit()
+        logging.debug(
+            f"RBAC_USER_PERMISSIONS_ADDED user_id={user_id} added_count={added_count}"
+        )
+
+        # Invalidate cache for this user
+        from ..services.cache import cache_service
+        cache_service.delete("rbac:user_permissions", user_id=user_id)
+
+        logging.info(
+            f"RBAC_USER_PERMISSIONS_UPDATED user_id={current_user.id} target_user_id={user_id} permissions_count={len(permissions)}"
+        )
+
+        return jsonify({"success": True, "user_id": user_id, "permissions_count": len(permissions)})
+
+    except Exception as e:
+        db.session.rollback()
+        logging.error(
+            f"RBAC_USER_PERMISSIONS_UPDATE_ERROR user_id={current_user.id if current_user else 'unknown'} target_user_id={user_id} error={e}",
+            exc_info=True,
+        )
+        return jsonify({"error": "Failed to update user permissions"}), 500
 
 
 @rbac_bp.route("/check-permission", methods=["POST"])

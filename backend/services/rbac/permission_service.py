@@ -350,9 +350,32 @@ class PermissionService:
             # Deny rules override allow rules
             final_permissions = allow_permissions - deny_permissions
 
-            logging.debug(
-                f"RBAC_USER_PERMISSIONS user_id={user_id} roles={[ur.role.name for ur in user_roles]} permissions_count={len(final_permissions)}"
-            )
+            # Check for individual user permissions (override role permissions)
+            from ...models.rbac import UserPermission
+            user_permission_records = UserPermission.query.filter_by(user_id=user_id).all()
+            
+            if user_permission_records:
+                # User has individual permissions - use those instead of role permissions
+                user_allow_permissions = set()
+                user_deny_permissions = set()
+                
+                for user_perm in user_permission_records:
+                    permission_name = user_perm.permission.name
+                    if user_perm.permission_type == "allow":
+                        user_allow_permissions.add(permission_name)
+                    elif user_perm.permission_type == "deny":
+                        user_deny_permissions.add(permission_name)
+                
+                # User permissions override role permissions
+                final_permissions = user_allow_permissions - user_deny_permissions
+                
+                logging.debug(
+                    f"RBAC_USER_PERMISSIONS_OVERRIDE user_id={user_id} user_permissions_count={len(final_permissions)}"
+                )
+            else:
+                logging.debug(
+                    f"RBAC_USER_PERMISSIONS user_id={user_id} roles={[ur.role.name for ur in user_roles]} permissions_count={len(final_permissions)}"
+                )
 
             # Cache the result
             cache_service.set("rbac:user_permissions", {"permissions": list(final_permissions)}, user_id=user_id)

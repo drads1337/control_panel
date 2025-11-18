@@ -143,21 +143,30 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
   // Load user permissions
   const loadUserPermissions = useCallback(async (userId: number): Promise<string[]> => {
     try {
+      console.log('🔒 Loading user permissions for user:', userId);
       const response = await enhancedApi.get(`/api/rbac/users/${userId}/permissions`);
       if (response.data.success && response.data.permissions) {
-        return response.data.permissions as string[];
+        const permissions = response.data.permissions as string[];
+        console.log('🔒 Loaded user permissions:', {
+          userId,
+          count: permissions.length,
+          permissions
+        });
+        return permissions;
       }
+      console.log('🔒 No user permissions found (using role defaults)');
       return [];
     } catch (error: any) {
       // Handle the expected "Static roles cannot manage RBAC" error gracefully
       // This is expected for users with static roles (owner/admin) and should not be logged as an error
       const errorMessage = error?.response?.data?.error || error?.message || '';
       if (errorMessage.includes('Static roles cannot manage RBAC')) {
+        console.log('🔒 User has static role, skipping individual permissions');
         // Silently return empty permissions for static roles
         return [];
       }
       // Log other errors
-      console.error('Failed to load user permissions:', error);
+      console.error('🔒 Failed to load user permissions:', error);
       return [];
     }
   }, []);
@@ -248,6 +257,15 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
 
       // Use user permissions if they exist, otherwise use role permissions
       const initialPermissions = userPermissions.length > 0 ? userPermissions : defaultPermissions;
+
+      console.log('🔒 Initializing form with permissions:', {
+        userId: user.id,
+        userPermissionsCount: userPermissions.length,
+        rolePermissionsCount: defaultPermissions.length,
+        initialPermissionsCount: initialPermissions.length,
+        usingUserPermissions: userPermissions.length > 0,
+        initialPermissions
+      });
 
       // Initialize form
       setForm({
@@ -382,9 +400,33 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
         toast.warning(`User updated but failed to update game access: ${errorMessage}`);
       }
 
-      // Note: Individual user permissions are not updated here
-      // This would require a backend endpoint to store user-specific permissions
-      // For now, permissions come from the role only
+      // Update individual user permissions
+      try {
+        const permissionsToSend = form.selected_permissions || [];
+        console.log('🔒 Updating user permissions:', {
+          userId: currentUser.id,
+          permissionsCount: permissionsToSend.length,
+          permissions: permissionsToSend
+        });
+        
+        const response = await enhancedApi.put(`/api/rbac/users/${currentUser.id}/permissions`, {
+          permissions: permissionsToSend
+        });
+        
+        console.log('🔒 User permissions updated successfully:', response.data);
+      } catch (error) {
+        console.error('🔒 Failed to update user permissions:', error);
+        const errorMessage = getErrorMessage(error);
+        console.error('🔒 Error details:', {
+          message: errorMessage,
+          response: (error as any)?.response?.data,
+          status: (error as any)?.response?.status
+        });
+        
+        if (!errorMessage.includes('Static roles cannot manage RBAC')) {
+          toast.warning(`User updated but failed to update permissions: ${errorMessage}`);
+        }
+      }
 
       toast.success('Employee updated successfully');
       onOpenChange(false);
@@ -516,6 +558,8 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
                   const roleId = value ? parseInt(value) : null;
                   
                   // Load role permissions when role is selected
+                  // Only update permissions if user hasn't manually customized them
+                  // (we check this by seeing if current permissions match the previous role's permissions)
                   let rolePermissions: string[] = [];
                   if (roleId) {
                     const role = roles.find(r => r.id === roleId);
@@ -524,11 +568,22 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
                     }
                   }
                   
-                  // Update form with new role and its default permissions
+                  // Check if user has manually customized permissions
+                  // If the current role is the same as before, don't reset permissions
+                  const previousRole = roles.find(r => r.id === form.selected_rbac_role);
+                  const previousRolePermissions = previousRole?.permissions || [];
+                  const hasCustomPermissions = form.selected_permissions.length > 0 && 
+                    JSON.stringify([...form.selected_permissions].sort()) !== JSON.stringify([...previousRolePermissions].sort());
+                  
+                  // Only update permissions if user hasn't customized them, or if switching to a different role
+                  const shouldUpdatePermissions = !hasCustomPermissions || form.selected_rbac_role !== roleId;
+                  
+                  // Update form with new role
                   setForm({
                     ...form,
                     selected_rbac_role: roleId,
-                    selected_permissions: rolePermissions
+                    // Only update permissions if we should (user hasn't customized or switching roles)
+                    selected_permissions: shouldUpdatePermissions ? rolePermissions : form.selected_permissions
                   });
                 }}
                 disabled={loading}
@@ -627,17 +682,22 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
                               id={`perm-${perm.id}`}
                               checked={isChecked}
                               onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setForm({
-                                    ...form,
-                                    selected_permissions: [...form.selected_permissions, perm.name]
-                                  })
-                                } else {
-                                  setForm({
-                                    ...form,
-                                    selected_permissions: form.selected_permissions.filter(p => p !== perm.name)
-                                  })
-                                }
+                                const newPermissions = checked
+                                  ? [...form.selected_permissions, perm.name]
+                                  : form.selected_permissions.filter(p => p !== perm.name);
+                                
+                                console.log('🔒 Permission changed:', {
+                                  permission: perm.name,
+                                  checked,
+                                  oldCount: form.selected_permissions.length,
+                                  newCount: newPermissions.length,
+                                  newPermissions
+                                });
+                                
+                                setForm({
+                                  ...form,
+                                  selected_permissions: newPermissions
+                                });
                               }}
                               disabled={loading}
                             />

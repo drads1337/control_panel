@@ -247,3 +247,24 @@ class ResourceAttribute(db.Model):
 
     def __repr__(self):
         return f"<ResourceAttribute resource_type={self.resource_type} resource_id={self.resource_id} name={self.attribute_name}>"
+
+
+class UserPermission(db.Model):
+    """Model for storing individual user permissions that override role permissions"""
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    user = db.relationship("User", backref="user_permissions")
+    permission_id = db.Column(
+        db.Integer, db.ForeignKey("permission.id", ondelete="CASCADE"), nullable=False
+    )
+    permission = db.relationship("Permission", backref="user_permissions")
+
+    # Permission type: 'allow' or 'deny'
+    permission_type = db.Column(db.String(10), default="allow")  # 'allow' or 'deny'
+
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<UserPermission user_id={self.user_id} permission_id={self.permission_id} type={self.permission_type}>"

@@ -726,16 +726,16 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
   return (
     <div className="space-y-4">
       {/* My/All Tabs - only show if user has keys.view permission */}
-      {canViewAll === true && onViewModeChange && (
+      <ConditionalRender permission="keys.view" fallback={null}>
         <div className="flex justify-end">
-          <Tabs value={viewMode} onValueChange={(value) => onViewModeChange(value as 'my' | 'all')}>
+          <Tabs value={viewMode} onValueChange={(value) => onViewModeChange?.(value as 'my' | 'all')}>
             <TabsList>
               <TabsTrigger value="my">My Keys</TabsTrigger>
               <TabsTrigger value="all">All Keys</TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
-      )}
+      </ConditionalRender>
       
       <div className="rounded-md border">
         <Table style={{ tableLayout: 'fixed' }}>

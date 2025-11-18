@@ -119,6 +119,7 @@ from .rbac import (
     Role,
     RolePermission,
     UserAttribute,
+    UserPermission,
     UserRole,
 )
 
