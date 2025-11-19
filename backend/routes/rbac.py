@@ -655,6 +655,12 @@ def update_user_permissions(user_id, current_user=None):
         if not isinstance(permissions, list):
             return jsonify({"error": "Permissions must be a list"}), 400
 
+        if len(permissions) == 0:
+            logging.warning(
+                f"RBAC_USER_PERMISSIONS_UPDATE_BLOCKED user_id={current_user.id} target_user_id={user_id} reason=no_permissions"
+            )
+            return jsonify({"error": "At least one permission is required"}), 400
+
         logging.info(
             f"RBAC_USER_PERMISSIONS_UPDATE_REQUEST user_id={current_user.id} target_user_id={user_id} permissions_count={len(permissions)} permissions={permissions}"
         )

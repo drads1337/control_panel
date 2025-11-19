@@ -13,15 +13,14 @@ from sqlalchemy import case, func, select
 from ...core.extensions import db
 from ...middleware.auth import (
     enforce_project_scope,
+    require_permission,
     require_project_with_grace_period,
-    require_role,
     require_user,
 )
 from ...models.core import User
 from ...models.keys import Key
 from ...models.rbac import Role, UserRole
 from ...utils.fulltext_search import fulltext_search_filter
-from ...utils.role_constants import RolePermissions
 
 clients_user_bp = Blueprint("users_clients", __name__)
 logger = logging.getLogger(__name__)
@@ -31,7 +30,7 @@ logger = logging.getLogger(__name__)
 @require_user
 @require_project_with_grace_period
 @enforce_project_scope
-@require_role(RolePermissions.ADMIN_ROLES)
+@require_permission("clients.view")
 def get_clients(current_user=None, project_id=None):
     """Get clients with optimized queries (fixes N+1 problem)"""
     try:

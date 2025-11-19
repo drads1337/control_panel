@@ -113,7 +113,6 @@ class RBACService:
                 "files_manage_configs": "Manage application config files",
                 "files_manage_resources": "Manage application resource files",
                 "manage_prices": "Manage prices",
-                "manage_changelog": "Changelog management",
                 "notifications_create": "Create application notifications",
                 "notifications_edit": "Edit application notifications",
                 "notifications_delete": "Delete application notifications",

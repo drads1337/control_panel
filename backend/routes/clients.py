@@ -14,15 +14,17 @@ from sqlalchemy.orm import joinedload
 from ..core.extensions import db
 from ..middleware.auth import (
     enforce_project_scope,
+    require_permission,
     require_project_isolation,
     require_project_with_grace_period,
+    require_role,
+    require_user,
 )
 from ..models.core import DeveloperGamePermission, User, UserActivity, UserGamePermission
 from ..models.keys import Key
 from ..models.rbac import Role, UserRole
 
 from ..services.activity import activity_service
-from ..middleware.auth import require_role, require_user
 from ..utils.fulltext_search import fulltext_search_filter
 from ..utils.role_constants import RolePermissions
 
@@ -33,7 +35,7 @@ clients_bp = Blueprint("clients", __name__)
 @require_user
 @require_project_with_grace_period
 @enforce_project_scope
-@require_role(RolePermissions.ADMIN_ROLES)
+@require_permission("clients.view")
 def get_clients(current_user=None, project_id=None):
     """Get clients with optimized queries (fixes N+1 problem)"""
 
@@ -113,7 +115,7 @@ def get_clients(current_user=None, project_id=None):
 @require_user
 @require_project_with_grace_period
 @enforce_project_scope
-@require_role(RolePermissions.ADMIN_ROLES)
+@require_permission("clients.delete")
 def bulk_delete_clients(current_user=None, project_id=None):
     """Bulk delete clients with filters"""
 
@@ -269,7 +271,7 @@ def get_classic_users_for_game(game_id, current_user=None):
 @clients_bp.route("/<int:user_id>/games", methods=["GET"])
 @jwt_required()
 @require_user
-@require_role(RolePermissions.ADMIN_ROLES)
+@require_permission("clients.view")
 @require_project_isolation
 def get_user_games(user_id, current_user=None):
     """Get games accessible by a specific user"""

@@ -287,6 +287,11 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
         return;
       }
 
+      if (!form.selected_permissions || form.selected_permissions.length === 0) {
+        toast.error('At least one permission is required. Please select at least one permission.');
+        return;
+      }
+
       setLoading(true);
 
       const expiresAt = new Date();
@@ -592,9 +597,9 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label>Permissions</Label>
+            <Label>Permissions *</Label>
             <p className="text-xs text-muted-foreground mb-2">
-              Configure individual permissions for this user. Default permissions from the selected role are shown.
+              Configure individual permissions for this user. Default permissions from the selected role are shown. At least one permission is required.
             </p>
             {permissionsLoading ? (
               <div className="text-sm text-muted-foreground">Loading permissions...</div>

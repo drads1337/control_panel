@@ -33,13 +33,23 @@ def get_games():
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    if not user.project_id:
+    # Allow users with clients.view permission to access games even if they don't have a project_id
+    # This is needed when editing users
+    has_clients_view = rbac_service.check_permission(user.id, "clients.view")
+    
+    if not user.project_id and not has_clients_view:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
     from flask import g
 
     scoped_project_id = getattr(g, "project_id", user.project_id)
     if not scoped_project_id:
+        # If user has clients.view permission but no project_id, try to get project_id from request
+        # This allows viewing games when editing users from different projects
+        if has_clients_view:
+            # For users with clients.view, we'll return an empty list if no project_id
+            # The frontend should handle this gracefully
+            return jsonify({"success": True, "games": [], "total_count": 0})
         return jsonify({"error": "No project associated"}), 400
 
     try:

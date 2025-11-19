@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogOverlay, DialogPortal } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogOverlay, DialogPortal, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { 
   Search, 
   X, 
@@ -338,6 +338,10 @@ export function SearchBar({ className = '', placeholder = 'Search the system...'
           <DialogContent 
             className="sm:max-w-2xl max-w-[95vw] p-0 top-20 translate-y-0 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 [&>button]:hidden"
           >
+          <DialogHeader className="sr-only">
+            <DialogTitle>Search</DialogTitle>
+            <DialogDescription>Search the system for pages, users, projects, and more</DialogDescription>
+          </DialogHeader>
           <div className="bg-background border rounded-lg shadow-xl overflow-hidden">
             <div className="flex items-center border-b px-4 py-3 bg-muted/30">
               <Search className="mr-2 h-4 w-4 text-muted-foreground" />

@@ -10,6 +10,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogTrigger,
   DialogFooter,
 } from '@/components/ui/dialog'
@@ -82,8 +83,6 @@ export function InviteCodeManager({ projectId }: InviteCodeManagerProps) {
 
     setIsGenerating(true)
     try {
-      + '...')
-
       const data: CreateInviteCodeData = {
         expires_in_days: expiresInDays,
         project_id: projectId,
@@ -245,6 +244,9 @@ export function InviteCodeManager({ projectId }: InviteCodeManagerProps) {
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Create Invite Code for Inviting Users</DialogTitle>
+                  <DialogDescription>
+                    Generate a new invite code to allow users to join this project with a specific role.
+                  </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-3 py-2">
                   <div>

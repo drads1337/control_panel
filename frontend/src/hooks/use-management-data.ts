@@ -55,13 +55,36 @@ export function useManagementData() {
     }
   }, [isAuthenticated, user, canViewGames, canViewKeys, hasPermission])
 
+  // Check for specific game permissions from rbac_service.py (lines 105-108 and 115-125)
+  const hasAnyGamePermission = useMemo(() => {
+    const gamePermissions = [
+      'games.view',
+      'games.create',
+      'games.edit',
+      'games.upload_files',
+      'games.manage_prices',
+      'games.notifications_create',
+      'games.notifications_edit',
+      'games.notifications_delete',
+      'games.changelog_view',
+      'games.changelog_create',
+      'games.changelog_edit',
+      'games.changelog_delete',
+      'games.status',
+      'games.delete',
+    ]
+    return gamePermissions.some(permission => hasPermission(permission))
+  }, [hasPermission])
+
   const effectiveCanViewGames = useMemo(() => {
+    // Only show games tab if user has at least one of the specific game permissions
+    if (!hasAnyGamePermission) return false
     if (canViewGames) return true
     if ((canViewKeys || hasPermission('keys.create')) && gamesCount !== null && gamesCount > 0) {
       return true
     }
     return false
-  }, [canViewGames, canViewKeys, hasPermission, gamesCount])
+  }, [hasAnyGamePermission, canViewGames, canViewKeys, hasPermission, gamesCount])
 
   const availableTabs = useMemo<ManagementTab[]>(() => {
     const tabs: ManagementTab[] = []
@@ -99,7 +122,7 @@ export function useManagementData() {
       })
     }
     return tabs
-  }, [canViewKeys, canViewFiles, canViewGames, canViewLoaders, gamesCount, hasPermission])
+  }, [canViewKeys, canViewFiles, effectiveCanViewGames, canViewLoaders])
 
   useEffect(() => {
     if (availableTabs.length > 0 && !availableTabs.some(tab => tab.value === activeTab)) {
