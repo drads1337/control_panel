@@ -25,7 +25,7 @@ def _get_logs_query_filter(user, user_id, project_id_param=None):
     SECURITY: Always applies project_id filtering to prevent data leakage.
     Returns: (query_filter_dict, can_view_all_project_logs)
     - query_filter_dict: dict with filters to apply (None means no project filter - for owners only)
-    - can_view_all_project_logs: bool indicating if user can view all project logs
+    - can_view_all_project_logs: bool indicating if user can view all project logs (True if user has logs.view permission)
     """
     from flask import g
 
@@ -50,13 +50,41 @@ def _get_logs_query_filter(user, user_id, project_id_param=None):
             return None, False
         project_id = user.project_id
 
-    has_logs_view_all = rbac_service.check_permission(user_id, "logs.view_all")
-    has_logs_view = rbac_service.check_permission(user_id, "logs.view")
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Check permission - try multiple methods to ensure we get the correct result
+    has_logs_view_check = rbac_service.check_permission(user_id, "logs.view")
+    user_permissions = rbac_service.get_user_permissions(user_id)
+    has_logs_view_direct = "logs.view" in user_permissions
+    
+    # Also check if user is admin (admins should see all logs)
+    user_roles = RBACManager.get_user_role_names(user)
+    is_admin = user_roles and "admin" in user_roles
+    
+    # User has logs.view if any of these conditions are true
+    has_logs_view = has_logs_view_check or has_logs_view_direct or is_admin
+    
+    logger.info(f"Logs filter check - user_id={user_id}, username={user.username if user else 'N/A'}, project_id={project_id}")
+    logger.info(f"  - check_permission result: {has_logs_view_check}")
+    logger.info(f"  - direct permission check: {has_logs_view_direct}")
+    logger.info(f"  - is_admin: {is_admin}")
+    logger.info(f"  - final has_logs_view: {has_logs_view}")
+    logger.info(f"  - user_permissions sample: {list(user_permissions)[:20]}")
 
-    if has_logs_view_all or has_logs_view:
-        return {"project_id": project_id}, True
+    if has_logs_view:
+        # User with logs.view permission can see all logs in their project
+        # CRITICAL: Do NOT include user_id in filters when user has logs.view
+        result_filters = {"project_id": project_id}
+        logger.info(f"✅ User {user_id} has logs.view - returning all project logs for project_id={project_id}")
+        logger.info(f"   Filters: {result_filters} (NO user_id filter)")
+        return result_filters, True
 
-    return {"project_id": project_id, "user_id": user_id}, False
+    # User without logs.view permission can only see their own logs
+    result_filters = {"project_id": project_id, "user_id": user_id}
+    logger.warning(f"❌ User {user_id} does NOT have logs.view - returning only own logs")
+    logger.info(f"   Filters: {result_filters}")
+    return result_filters, False
 
 @logs_bp.route("", methods=["GET"])
 @jwt_required()
@@ -78,11 +106,10 @@ def get_logs():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        has_logs_view_all = rbac_service.check_permission(user_id, "logs.view_all")
         has_logs_view = rbac_service.check_permission(user_id, "logs.view")
 
-        if not has_logs_view_all and not has_logs_view:
-            return jsonify({"error": "Insufficient permissions. logs.view or logs.view_all permission required"}), 403
+        if not has_logs_view:
+            return jsonify({"error": "Insufficient permissions. logs.view permission required"}), 403
 
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 50, type=int)
@@ -120,8 +147,41 @@ def get_logs():
     if query_filters is None and not is_owner:
         return jsonify({"error": "Project isolation required"}), 403
 
+    # Debug logging
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"=" * 80)
+    logger.info(f"LOGS QUERY - user_id={user_id}, username={user.username if user else 'N/A'}")
+    logger.info(f"  - query_filters from _get_logs_query_filter: {query_filters}")
+    logger.info(f"  - can_view_all_project_logs: {can_view_all_project_logs}")
+    logger.info(f"  - user.project_id: {user.project_id if user else 'N/A'}")
+
+    # CRITICAL: If user can view all project logs, ensure user_id is NOT in filters
+    if can_view_all_project_logs:
+        if 'user_id' in query_filters:
+            logger.error(f"🚨 SECURITY ERROR: User {user_id} has logs.view but query_filters contains user_id={query_filters.get('user_id')}!")
+            logger.error(f"   Removing user_id from filters to allow viewing all project logs")
+            query_filters = {k: v for k, v in query_filters.items() if k != 'user_id'}
+            logger.info(f"   Corrected query_filters: {query_filters}")
+        else:
+            logger.info(f"✅ User has logs.view - query_filters correctly does NOT contain user_id")
+    else:
+        logger.info(f"⚠️  User does NOT have logs.view - will only see own logs")
+    
+    # Count logs before filtering for debugging
+    total_before = query.count()
+    logger.info(f"  - Total logs in database (before any filters): {total_before}")
+
     if query_filters:
+        logger.info(f"  - Applying filters: {query_filters}")
         query = query.filter_by(**query_filters)
+        total_after = query.count()
+        logger.info(f"  - Total logs after filtering: {total_after}")
+        logger.info(f"  - Difference: {total_before - total_after} logs filtered out")
+    else:
+        logger.warning(f"  - No filters applied (this should only happen for owners)")
+    
+    logger.info(f"=" * 80)
 
     if can_view_all_project_logs and user_filter:
 
@@ -156,10 +216,22 @@ def get_logs():
 
         query = fulltext_search_filter(query, ip_filter, "search_vector")
 
+    # Final check: ensure we're not filtering by user_id if user has logs.view
+    if can_view_all_project_logs:
+        # Double-check that query doesn't have user_id filter
+        # This is a safety check to ensure no user_id filter was accidentally applied
+        logger.info(f"  - Final check: user has logs.view, ensuring no user_id filter in query")
+    
     try:
+        # Log the final query state before pagination
+        final_count = query.count()
+        logger.info(f"  - Final query count before pagination: {final_count}")
+        
         pagination = query.order_by(UserActivity.created_at.desc()).paginate(
             page=page, per_page=per_page, error_out=False
         )
+        
+        logger.info(f"  - Pagination result: total={pagination.total}, page={page}, per_page={per_page}, items={len(pagination.items)}")
 
         activity_user_ids = list(set([a.user_id for a in pagination.items if a.user_id]))
         users_dict = {}
@@ -510,6 +582,8 @@ def get_connection_log_stats():
 @require_project_with_grace_period
 @require_project_isolation
 def get_log_stats():
+    from flask import g
+
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -517,16 +591,27 @@ def get_log_stats():
         return jsonify({"error": "User not found"}), 404
 
     user_roles = RBACManager.get_user_role_names(user)
-    if not user_roles or user_roles[0] != "owner":
+    is_owner = user_roles and user_roles[0] == "owner"
+
+    if not is_owner:
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
+    # Use the same filter logic as get_logs() to respect logs.view permission
+    project_id_param = request.args.get("project_id", type=int)
+    query_filters, can_view_all_project_logs = _get_logs_query_filter(user, user_id, project_id_param)
+
+    if query_filters is None and not is_owner:
+        return jsonify({"error": "Project isolation required"}), 403
+
+    # CRITICAL: If user can view all project logs, ensure user_id is NOT in filters
+    if can_view_all_project_logs and query_filters and 'user_id' in query_filters:
+        query_filters = {k: v for k, v in query_filters.items() if k != 'user_id'}
+
+    # Base query with filters
     query = UserActivity.query
-
-    user_roles = RBACManager.get_user_role_names(user)
-    if not user_roles or user_roles[0] != "owner":
-
-        query = query.filter_by(project_id=user.project_id, user_id=user_id)
+    if query_filters:
+        query = query.filter_by(**query_filters)
 
     total_logs = query.count()
     logs_today = query.filter(UserActivity.created_at >= datetime.utcnow().date()).count()
@@ -537,11 +622,14 @@ def get_log_stats():
         UserActivity.created_at >= datetime.utcnow() - timedelta(days=30)
     ).count()
 
+    # Action stats with same filters
     action_stats = db.session.query(UserActivity.action, func.count(UserActivity.id))
-
-    user_roles = RBACManager.get_user_role_names(user)
-    if not user_roles or user_roles[0] != "owner":
-        action_stats = action_stats.filter(UserActivity.user_id == user_id)
+    if query_filters:
+        for key, value in query_filters.items():
+            if key == 'project_id':
+                action_stats = action_stats.filter(UserActivity.project_id == value)
+            elif key == 'user_id':
+                action_stats = action_stats.filter(UserActivity.user_id == value)
 
     action_stats = (
         action_stats.group_by(UserActivity.action)
@@ -550,11 +638,14 @@ def get_log_stats():
         .all()
     )
 
+    # IP stats with same filters
     ip_stats = db.session.query(UserActivity.ip_address, func.count(UserActivity.id))
-
-    user_roles = RBACManager.get_user_role_names(user)
-    if not user_roles or user_roles[0] != "owner":
-        ip_stats = ip_stats.filter(UserActivity.user_id == user_id)
+    if query_filters:
+        for key, value in query_filters.items():
+            if key == 'project_id':
+                ip_stats = ip_stats.filter(UserActivity.project_id == value)
+            elif key == 'user_id':
+                ip_stats = ip_stats.filter(UserActivity.user_id == value)
 
     ip_stats = (
         ip_stats.group_by(UserActivity.ip_address)
@@ -563,27 +654,32 @@ def get_log_stats():
         .all()
     )
 
+    # Daily stats with same filters
     daily_stats = []
     for i in range(30):
         date = datetime.utcnow().date() - timedelta(days=i)
 
         day_query = UserActivity.query.filter(func.date(UserActivity.created_at) == date)
-
-        user_roles = RBACManager.get_user_role_names(user)
-        if not user_roles or user_roles[0] != "owner":
-            day_query = day_query.filter_by(user_id=user_id)
+        if query_filters:
+            for key, value in query_filters.items():
+                if key == 'project_id':
+                    day_query = day_query.filter(UserActivity.project_id == value)
+                elif key == 'user_id':
+                    day_query = day_query.filter(UserActivity.user_id == value)
 
         count = day_query.count()
-
         daily_stats.append({"date": date.strftime("%Y-%m-%d"), "count": count})
 
     daily_stats.reverse()
 
+    # Country stats with same filters
     country_stats = db.session.query(UserActivity.country, func.count(UserActivity.id))
-
-    user_roles = RBACManager.get_user_role_names(user)
-    if not user_roles or user_roles[0] != "owner":
-        country_stats = country_stats.filter(UserActivity.user_id == user_id)
+    if query_filters:
+        for key, value in query_filters.items():
+            if key == 'project_id':
+                country_stats = country_stats.filter(UserActivity.project_id == value)
+            elif key == 'user_id':
+                country_stats = country_stats.filter(UserActivity.user_id == value)
 
     country_stats = (
         country_stats.filter(UserActivity.country.isnot(None))

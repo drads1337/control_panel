@@ -23,6 +23,7 @@ permissions_to_remove = [
     'loaders.manage_notifications',
     'games.manage_changelog',
     'games.manage_notifications',
+    'logs.view_all',
 ]
 
 def remove_permissions():

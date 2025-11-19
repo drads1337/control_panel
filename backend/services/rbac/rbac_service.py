@@ -148,7 +148,7 @@ class RBACService:
                 "status": "Manage loader status",
                 "delete": "Delete loader",
             },
-            "logs": {"view": "View logs", "view_all": "View all project logs"},
+            "logs": {"view": "View logs"},
         }
 
         self.default_roles = {
@@ -275,7 +275,6 @@ class RBACService:
                     "loaders.files_manage_resources",
 
                     "logs.view",
-                    "logs.view_all",
                 ],
             },
             "seller": {
