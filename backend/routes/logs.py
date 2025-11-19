@@ -711,6 +711,8 @@ def get_log_stats():
 @require_project_with_grace_period
 @require_project_isolation
 def export_logs():
+    from flask import g
+
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -718,124 +720,193 @@ def export_logs():
         return jsonify({"error": "User not found"}), 404
 
     user_roles = RBACManager.get_user_role_names(user)
-    if not user_roles or user_roles[0] != "owner":
+    is_owner = user_roles and user_roles[0] == "owner"
+
+    if not is_owner:
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
+
+        has_logs_view = rbac_service.check_permission(user_id, "logs.view")
+        if not has_logs_view:
+            return jsonify({"error": "Insufficient permissions. logs.view permission required"}), 403
 
     action_filter = request.args.get("action")
     user_filter = request.args.get("user_id", type=int)
     date_from = request.args.get("date_from")
     date_to = request.args.get("date_to")
+    project_id_param = request.args.get("project_id", type=int)
+
+    # Parse date filters
+    date_from_obj = None
+    if date_from:
+        try:
+            date_from_obj = datetime.fromisoformat(date_from.replace("Z", "+00:00"))
+        except:
+            pass
+
+    date_to_obj = None
+    if date_to:
+        try:
+            date_to_obj = datetime.fromisoformat(date_to.replace("Z", "+00:00"))
+        except:
+            pass
 
     query = UserActivity.query
 
-    user_roles = RBACManager.get_user_role_names(user)
-    if not user_roles or user_roles[0] != "owner":
+    # Use the same filter logic as get_logs() to respect logs.view permission
+    query_filters, can_view_all_project_logs = _get_logs_query_filter(user, user_id, project_id_param)
 
-        query = query.filter_by(project_id=user.project_id, user_id=user_id)
-    elif user_filter:
+    if query_filters is None and not is_owner:
+        return jsonify({"error": "Project isolation required"}), 403
 
-        project_filter = request.args.get("project_id", type=int)
-        if project_filter:
-            query = query.filter_by(project_id=project_filter)
-        query = query.filter_by(user_id=user_filter)
+    # CRITICAL: If user can view all project logs, ensure user_id is NOT in filters
+    if can_view_all_project_logs and query_filters and 'user_id' in query_filters:
+        query_filters = {k: v for k, v in query_filters.items() if k != 'user_id'}
+
+    if query_filters:
+        query = query.filter_by(**query_filters)
+
+    # Apply user filter if provided and user has permission to view all project logs
+    if can_view_all_project_logs and user_filter:
+        if is_owner and not project_id_param:
+            filtered_user = User.query.filter_by(id=user_filter).first()
+        else:
+            project_id_for_check = project_id_param if is_owner and project_id_param else (getattr(g, "project_id", None) or user.project_id)
+            filtered_user = User.query.filter_by(id=user_filter, project_id=project_id_for_check).first()
+        if filtered_user:
+            query = query.filter_by(user_id=user_filter)
+        else:
+            return jsonify({"error": "User not found or access denied"}), 404
 
     if action_filter:
         query = query.filter_by(action=action_filter)
 
-    if date_from:
-        try:
-            date_from_obj = datetime.fromisoformat(date_from.replace("Z", "+00:00"))
-            query = query.filter(UserActivity.created_at >= date_from_obj)
-        except:
-            pass
+    if date_from_obj:
+        query = query.filter(UserActivity.created_at >= date_from_obj)
 
-    if date_to:
-        try:
-            date_to_obj = datetime.fromisoformat(date_to.replace("Z", "+00:00"))
-            query = query.filter(UserActivity.created_at <= date_to_obj)
-        except:
-            pass
+    if date_to_obj:
+        query = query.filter(UserActivity.created_at <= date_to_obj)
 
     query = query.order_by(UserActivity.created_at.desc()).limit(10000)
 
+    from flask import Response, current_app, copy_current_request_context
+
+    app_context = current_app._get_current_object()
+
+    filter_params = {
+        'query_filters': query_filters,
+        'can_view_all_project_logs': can_view_all_project_logs,
+        'is_owner': is_owner,
+        'project_id_param': project_id_param,
+        'user_filter': user_filter,
+        'action_filter': action_filter,
+        'date_from_obj': date_from_obj,
+        'date_to_obj': date_to_obj,
+        'user': user,
+        'user_id': user_id,
+        'project_id_for_users': project_id_param if is_owner and project_id_param else (getattr(g, "project_id", None) or user.project_id) if hasattr(g, "project_id") else user.project_id,
+    }
+
+    @copy_current_request_context
     def generate_csv():
         """Generator function to stream CSV data"""
         import csv
         from io import StringIO
 
-        buffer = StringIO()
-        writer = csv.writer(buffer)
+        # Ensure we have application context using the actual app object
+        with app_context.app_context():
+            buffer = StringIO()
+            writer = csv.writer(buffer)
 
-        header = [
-            "ID",
-            "User ID",
-            "Username",
-            "Action",
-            "IP Address",
-            "Country",
-            "City",
-            "Created At",
-            "Details",
-            "User Agent",
-        ]
-        writer.writerow(header)
-        yield buffer.getvalue()
-        buffer.seek(0)
-        buffer.truncate(0)
-
-        batch_size = 1000
-        offset = 0
-
-        while True:
-            logs_batch = query.offset(offset).limit(batch_size).all()
-
-            if not logs_batch:
-                break
-
-            user_ids = [log.user_id for log in logs_batch if log.user_id]
-            users_dict = {}
-            if user_ids:
-                users = User.query.filter(
-                    User.id.in_(user_ids), User.project_id == user.project_id
-                ).all()
-                users_dict = {u.id: u.username for u in users}
-
-            for activity in logs_batch:
-                activity_username = users_dict.get(activity.user_id, "") if activity.user_id else ""
-
-                writer.writerow(
-                    [
-                        activity.id,
-                        activity.user_id or "",
-                        activity_username,
-                        activity.action,
-                        activity.ip_address or "",
-                        activity.country or "",
-                        activity.city or "",
-                        activity.created_at.isoformat() if activity.created_at else "",
-                        activity.details or "",
-                        activity.user_agent or "",
-                    ]
-                )
-
+            header = [
+                "ID",
+                "User ID",
+                "Username",
+                "Action",
+                "IP Address",
+                "Country",
+                "City",
+                "Created At",
+                "Details",
+                "User Agent",
+            ]
+            writer.writerow(header)
             yield buffer.getvalue()
             buffer.seek(0)
             buffer.truncate(0)
 
-            offset += batch_size
+            # Recreate query inside generator with application context
+            csv_query = UserActivity.query
 
-            if len(logs_batch) < batch_size:
-                break
+            if filter_params['query_filters']:
+                csv_query = csv_query.filter_by(**filter_params['query_filters'])
 
-    from flask import Response
+            if filter_params['can_view_all_project_logs'] and filter_params['user_filter']:
+                csv_query = csv_query.filter_by(user_id=filter_params['user_filter'])
 
-    from ..services.activity import activity_service
+            if filter_params['action_filter']:
+                csv_query = csv_query.filter_by(action=filter_params['action_filter'])
+
+            if filter_params['date_from_obj']:
+                csv_query = csv_query.filter(UserActivity.created_at >= filter_params['date_from_obj'])
+
+            if filter_params['date_to_obj']:
+                csv_query = csv_query.filter(UserActivity.created_at <= filter_params['date_to_obj'])
+
+            csv_query = csv_query.order_by(UserActivity.created_at.desc()).limit(10000)
+
+            batch_size = 1000
+            offset = 0
+
+            while True:
+                logs_batch = csv_query.offset(offset).limit(batch_size).all()
+
+                if not logs_batch:
+                    break
+
+                user_ids = [log.user_id for log in logs_batch if log.user_id]
+                users_dict = {}
+                if user_ids:
+                    # Use the same user lookup logic as get_logs()
+                    if filter_params['is_owner'] and not filter_params['project_id_param'] and filter_params['query_filters'] is None:
+                        users_list = User.query.filter(User.id.in_(user_ids)).all()
+                    else:
+                        users_list = User.query.filter(
+                            User.id.in_(user_ids), User.project_id == filter_params['project_id_for_users']
+                        ).all()
+                    users_dict = {u.id: u.username for u in users_list}
+
+                for activity in logs_batch:
+                    activity_username = users_dict.get(activity.user_id, "") if activity.user_id else ""
+
+                    writer.writerow(
+                        [
+                            activity.id,
+                            activity.user_id or "",
+                            activity_username,
+                            activity.action,
+                            activity.ip_address or "",
+                            activity.country or "",
+                            activity.city or "",
+                            activity.created_at.isoformat() if activity.created_at else "",
+                            activity.details or "",
+                            activity.user_agent or "",
+                        ]
+                    )
+
+                yield buffer.getvalue()
+                buffer.seek(0)
+                buffer.truncate(0)
+
+                offset += batch_size
+
+                if len(logs_batch) < batch_size:
+                    break
 
     return Response(
         generate_csv(),
         mimetype="text/csv",
-        headers={"Content-Disposition": "attachment; filename=activity_logs_export.csv"},
+        headers={"Content-Disposition": f"attachment; filename=logs_export_{datetime.utcnow().strftime('%Y-%m-%d')}.csv"},
     )
 
 @logs_bp.route("/cleanup", methods=["POST"])
