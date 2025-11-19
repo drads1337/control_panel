@@ -1,19 +1,15 @@
 import React from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { StatCard } from '@/app/dashboard/stat-card';
-import { Users, UserCheck, Shield, Key } from 'lucide-react';
+import { Key, Database, FolderOpen, Zap } from 'lucide-react';
+import type { ManagementStats } from '@/hooks/use-management-stats';
 
-interface UsersStatsProps {
-  stats: {
-    total: number;
-    active: number;
-    withKeys: number;
-    admins: number;
-  };
+interface ManagementStatsProps {
+  stats: ManagementStats;
   loading?: boolean;
 }
 
-const UsersStats: React.FC<UsersStatsProps> = React.memo(({ stats, loading = false }) => {
+const ManagementStats: React.FC<ManagementStatsProps> = React.memo(({ stats, loading = false }) => {
   // Уменьшаем размер сетки до 120px для компактности
   const gridStyle = { gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))' };
 
@@ -41,42 +37,42 @@ const UsersStats: React.FC<UsersStatsProps> = React.memo(({ stats, loading = fal
 
   const statCards = [
     {
-      title: 'Total Users',
-      value: stats.total,
-      icon: Users,
-      subtitle: stats.total > 0 ? `${Math.round((stats.active / stats.total) * 100) || 0}% active` : 'No users yet',
-      badge: {
-        text: `${stats.active} active`,
-        color: 'primary'
-      }
-    },
-    {
-      title: 'Active',
-      value: stats.active,
-      icon: UserCheck,
-      subtitle: 'Currently active users',
-      badge: {
-        text: 'Active',
-        color: 'primary'
-      }
-    },
-    {
-      title: 'With Keys',
-      value: stats.withKeys,
+      title: 'License Keys',
+      value: stats.totalKeys,
       icon: Key,
-      subtitle: stats.total > 0 && stats.withKeys > 0 ? `${Math.round((stats.withKeys / stats.total) * 100) || 0}% of total` : stats.withKeys === 0 ? 'No license keys' : 'Calculating...',
+      subtitle: stats.totalKeys > 0 ? `${stats.activeKeys} active` : 'No keys yet',
       badge: {
-        text: 'Has keys',
+        text: `${stats.activeKeys} active`,
         color: 'primary'
       }
     },
     {
-      title: 'Employees',
-      value: stats.admins,
-      icon: Shield,
-      subtitle: 'Staff members & admins',
+      title: 'Games',
+      value: stats.totalGames,
+      icon: Database,
+      subtitle: 'Applications in database',
       badge: {
-        text: 'Employees',
+        text: 'Games',
+        color: 'primary'
+      }
+    },
+    {
+      title: 'Files',
+      value: stats.totalFiles,
+      icon: FolderOpen,
+      subtitle: 'Total files in system',
+      badge: {
+        text: 'Files',
+        color: 'primary'
+      }
+    },
+    {
+      title: 'Loaders',
+      value: stats.totalLoaders,
+      icon: Zap,
+      subtitle: 'Total loaders available',
+      badge: {
+        text: 'Loaders',
         color: 'primary'
       }
     }
@@ -105,6 +101,7 @@ const UsersStats: React.FC<UsersStatsProps> = React.memo(({ stats, loading = fal
   );
 });
 
-UsersStats.displayName = 'UsersStats';
+ManagementStats.displayName = 'ManagementStats';
 
-export default UsersStats;
+export default ManagementStats;
+

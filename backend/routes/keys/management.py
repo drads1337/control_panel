@@ -412,7 +412,7 @@ def resume_key(key_id):
 @require_project_with_grace_period
 @require_project_isolation
 @validate_request(KeyExtendSchema)
-def extend_key(key_id):
+def extend_key(key_id, validated_data):
     """Extend a key"""
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
@@ -423,11 +423,7 @@ def extend_key(key_id):
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    data = request.get_json()
-    hours = data.get("hours", 0)
-
-    if hours <= 0:
-        return jsonify({"error": "Hours must be positive"}), 400
+    hours = validated_data.get("hours", 0)
 
     key = Key.query.filter_by(id=key_id, project_id=user.project_id).first()
 
@@ -1004,7 +1000,7 @@ def get_key_details(key_id):
 def reveal_key(key_id):
     """Reveal full license key
 
-    SECURITY: This endpoint explicitly requires keys.view permission to reveal full keys.
+    SECURITY: This endpoint requires keys.see_analytics or keys.copy permission to reveal full keys.
     This is a security measure to prevent mass data leakage. Users must explicitly
     request to reveal a key, and the request is logged for audit purposes.
 
@@ -1034,16 +1030,23 @@ def reveal_key(key_id):
             is_own_key = key.user_id == user.id
             if is_own_key:
 
-                can_reveal_key = rbac_service.check_permission(user.id, "keys.view")
+                can_reveal_key = (
+                    rbac_service.check_permission(user.id, "keys.see_analytics") or
+                    rbac_service.check_permission(user.id, "keys.copy")
+                )
             else:
 
-                can_reveal_key = rbac_service.check_permission(user.id, "keys.view")
+                can_reveal_key = (
+                    rbac_service.check_permission(user.id, "keys.see_analytics") or
+                    rbac_service.check_permission(user.id, "keys.copy")
+                )
 
         if not can_reveal_key:
 
             logging.warning(
                 f"🚫 Unauthorized key reveal attempt: user_id={user.id}, key_id={key_id}, "
-                f"key_owner={key.user_id}, has_keys_view={rbac_service.check_permission(user.id, 'keys.view')}"
+                f"key_owner={key.user_id}, has_keys_see_analytics={rbac_service.check_permission(user.id, 'keys.see_analytics')}, "
+                f"has_keys_copy={rbac_service.check_permission(user.id, 'keys.copy')}"
             )
             return jsonify({
                 "error": "Insufficient permissions to reveal key",

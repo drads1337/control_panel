@@ -23,61 +23,62 @@ const ClientItem = React.memo(({
   canDelete: boolean;
 }) => {
   return (
-    <div 
-      className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent transition-colors duration-200"
-    >
-      <div className="flex items-center space-x-4">
-        <Avatar className="h-12 w-12">
-          <AvatarFallback>
-            {client.name.split(' ').map((n: string) => n[0]).join('').toUpperCase()}
+    <div className="flex items-center justify-between p-2.5 border-b hover:bg-accent/50 transition-colors">
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        <Avatar className="h-9 w-9">
+          <AvatarFallback className="text-xs">
+            {client.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || 'C'}
           </AvatarFallback>
         </Avatar>
-        <div>
-          <h4 className="font-medium">
-            {client.name}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h4 className="font-medium text-sm truncate">
+              {client.name || client.username || 'Unknown'}
           </h4>
-          <p className="text-sm text-gray-500">
-            {client.email} • @{client.username}
-          </p>
-          <div className="flex items-center space-x-2 mt-1">
             <span className={getStatusClasses(client.status === 'active' ? 'active' : 'expired')}>
               {client.status === 'active' ? 'Active' : 'Inactive'}
             </span>
-            <span className="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium">
-              {client.project}
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-xs text-muted-foreground truncate">
+              {client.email || `@${client.username}`}
+            </p>
+            {client.project && (
+              <span className="text-xs text-muted-foreground">
+                • {client.project}
             </span>
-            <span className="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium">
-              Keys: {client.total_orders}
+            )}
+            <span className="text-xs text-muted-foreground">
+              • {client.total_orders ?? 0} keys
             </span>
-            <span className="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium">
-              Tokens: {client.total_spent}
+            <span className="text-xs text-muted-foreground">
+              • {client.total_spent ?? 0} tokens
             </span>
           </div>
-          <p className="text-xs text-gray-400 mt-1">
-            Created: {client.created_at ? new Date(client.created_at).toLocaleDateString('en-US') : 'Unknown'}
-            {client.last_activity && ` • Last activity: ${new Date(client.last_activity).toLocaleDateString('en-US')}`}
-          </p>
         </div>
       </div>
-      <div className="flex items-center space-x-2">
-        <ConditionalRender permission="users.edit" fallback={null}>
-          <Button variant="outline" size="sm" disabled={loading || !canEdit}>
-          <Edit className="h-4 w-4 mr-2" />
-          {loading ? '...' : 'Edit'}
+      <div className="flex items-center gap-1">
+        {canEdit && (
+          <Button 
+            variant="ghost" 
+            size="icon"
+            className="h-8 w-8"
+            disabled={loading}
+          >
+            <Edit className="h-4 w-4" />
         </Button>
-        </ConditionalRender>
-        <ConditionalRender permission="users.delete" fallback={null}>
+        )}
+        {canDelete && (
         <Button 
-          variant="outline" 
-          size="sm"
+            variant="ghost" 
+            size="icon"
+            className="h-8 w-8 text-destructive hover:text-destructive"
           onClick={() => onDelete(client.id)}
-          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-            disabled={loading || !canDelete}
+            disabled={loading}
         >
-          <Trash2 className="h-4 w-4 mr-2" />
-          {loading ? '...' : 'Delete'}
+            <Trash2 className="h-4 w-4" />
         </Button>
-        </ConditionalRender>
+        )}
       </div>
     </div>
   );
@@ -104,32 +105,29 @@ const ClientsTab: React.FC = () => {
   }, [deleteClient])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-0">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Client List</CardTitle>
-              <CardDescription>
-                Manage project clients • Total: {clients.length}
-                {clientsLoading && <span className="ml-2 text-blue-600">(Loading...)</span>}
-                {clientsError && <span className="ml-2 text-red-600">(Error: {clientsError})</span>}
-                {!clientsLoading && !clientsError && clients.length === 0 && <span className="ml-2 text-gray-600">(No clients)</span>}
+              <CardTitle className="text-base">Clients</CardTitle>
+              <CardDescription className="mt-1 text-xs">
+                {clients.length || 0} total
               </CardDescription>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2">
               <Button 
-                variant="outline" 
+                variant="ghost" 
+                size="icon"
                 onClick={() => refetch()}
                 disabled={clientsLoading}
               >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                {clientsLoading ? 'Loading...' : 'Refresh'}
+                <RefreshCw className="h-4 w-4" />
               </Button>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0 -mt-3">
           {clientsLoading ? (
             <Spinner message="Loading clients..." />
           ) : clientsError ? (
@@ -137,23 +135,14 @@ const ClientsTab: React.FC = () => {
               <div className="text-red-500">Error: {clientsError}</div>
             </div>
           ) : clients.length === 0 ? (
-            <div className="flex items-center justify-center py-8">
+            <div className="flex items-center justify-center py-12">
               <div className="text-center">
-                <UserCheck className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <div className="text-gray-500">No clients found</div>
-                <Button 
-                  variant="outline" 
-                  onClick={() => refetch()} 
-                  className="mt-4"
-                  disabled={clientsLoading}
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  {clientsLoading ? 'Loading...' : 'Refresh list'}
-                </Button>
+                <UserCheck className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                <div className="text-sm text-muted-foreground">No clients found</div>
               </div>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="divide-y">
               {clients.map((client) => (
                 <ClientItem
                   key={client.id}

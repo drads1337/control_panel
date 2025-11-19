@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
@@ -83,9 +83,12 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToGameDatabas
     canViewKeys,
   });
 
+  const gamesLoadedRef = React.useRef(false);
+
   useEffect(() => {
-    if (activeTab === 'license-keys') {
+    if (activeTab === 'license-keys' && !gamesLoadedRef.current) {
       loadGames();
+      gamesLoadedRef.current = true;
     }
   }, [activeTab, loadGames]);
 

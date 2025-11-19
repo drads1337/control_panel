@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Target } from 'lucide-react';
 import { useKeyForm } from '../hooks/use-key-form';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
 import { 
@@ -253,17 +252,18 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
 
   return (
     <ConditionalRender permission="keys.generate" fallback={null}>
-      <Card className="flex flex-col">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Target className="h-5 w-5" />
-            <CardTitle>Bulk Key Operations</CardTitle>
+      <Card>
+        <CardHeader className="pb-0">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base">Bulk Key Operations</CardTitle>
+              <CardDescription className="mt-1 text-xs">
+                Perform actions on multiple keys at once based on filters.
+              </CardDescription>
+            </div>
           </div>
-          <CardDescription>
-            Perform actions on multiple keys at once based on filters.
-          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4 flex-grow">
+        <CardContent className="pt-0 -mt-3">
           {}
           {showTargetTypeToggle && (
             <TargetTypeSelector

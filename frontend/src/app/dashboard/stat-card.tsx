@@ -66,6 +66,9 @@ export function StatCard({
             value
           )}
         </CardTitle>
+        {subtitle && (
+          <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
+        )}
         {badge && (
           <CardAction>
             <Badge 

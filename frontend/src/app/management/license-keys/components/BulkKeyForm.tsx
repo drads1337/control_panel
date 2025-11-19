@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, X, Gamepad2, Container, Hash } from 'lucide-react';
+import { Plus, X, Gamepad2, Container } from 'lucide-react';
 import { useKeyForm } from '../hooks/use-key-form';
 import { durationOptions, parseDuration } from '../hooks/use-duration';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
@@ -114,18 +114,19 @@ export const BulkKeyForm: React.FC<BulkKeyFormProps> = ({
 
   return (
     <ConditionalRender permission="keys.generate" fallback={null}>
-      <Card className="flex flex-col">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Hash className="h-5 w-5" />
-            <CardTitle className="text-lg">Create Bulk Keys</CardTitle>
+      <Card>
+        <CardHeader className="pb-0">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base">Create Bulk Keys</CardTitle>
+              <CardDescription className="mt-1 text-xs">
+                Create multiple license keys at once (up to 1000 keys per batch).
+              </CardDescription>
+            </div>
           </div>
-          <CardDescription>
-            Create multiple license keys at once (up to 1000 keys per batch).
-          </CardDescription>
         </CardHeader>
 
-        <CardContent className="space-y-4 flex-grow">
+        <CardContent className="pt-0 -mt-3">
           <form onSubmit={handleSubmit} className="space-y-4">
             {showTargetTypeToggle && (
               <div className="space-y-2">
@@ -301,7 +302,7 @@ export const BulkKeyForm: React.FC<BulkKeyFormProps> = ({
                 disabled={loading}
                 required
               />
-              <p className="text-sm text-gray-600">Maximum 1000 keys per batch</p>
+              <p className="text-xs text-muted-foreground">Maximum 1000 keys per batch</p>
             </div>
 
             <div className="space-y-2">

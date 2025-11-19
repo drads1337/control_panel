@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsContents, TabsList, TabsTrigger } from '@/components/animate-ui/components/radix/tabs';
 import { useAuthContext } from '@/contexts/auth-context';
 import { useUsersQuery } from '@/hooks/use-users-query';
 import { usePermissions } from '@/hooks/use-permissions';
@@ -182,59 +182,59 @@ const UsersMain: React.FC = () => {
         <>
           {availableTabs.length > 1 ? (
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className={`grid w-full h-14 bg-muted border border-border rounded-lg`} style={{gridTemplateColumns: `repeat(${availableTabs.length}, 1fr)`}}>
-                {availableTabs.map((tab) => {
-                  const Icon = tab.icon
-                  return (
-                    <TabsTrigger 
-                      key={tab.value}
-                      value={tab.value} 
-                      className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:bg-primary dark:data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm rounded-lg transition-all duration-200"
-                    >
-                      <Icon className="h-4 w-4" />
-                      <span>{tab.label}</span>
-                    </TabsTrigger>
-                  )
-                })}
-              </TabsList>
+              <div className="relative mb-4">
+                <TabsList className={`grid w-full h-14 bg-muted border border-border rounded-lg p-1`} style={{gridTemplateColumns: `repeat(${availableTabs.length}, 1fr)`}}>
+                  {availableTabs.map((tab) => {
+                    const Icon = tab.icon
+                    return (
+                      <TabsTrigger 
+                        key={tab.value}
+                        value={tab.value} 
+                        className="flex items-center justify-center gap-2"
+                      >
+                        <Icon className="h-4 w-4" />
+                        <span>{tab.label}</span>
+                      </TabsTrigger>
+                    )
+                  })}
+                </TabsList>
+              </div>
 
-              {}
-              {canViewEmployees && (
-                <TabsContent value="employees" className="space-y-6 mt-4">
-                  <EmployeesTab 
-                    fetchUsersWithTracking={fetchUsersWithTracking}
-                    currentPage={currentPage}
-                    perPage={perPage}
-                    users={users}
-                    loading={loading}
-                    error={error}
-                    total={total}
-                    deleteExistingUser={deleteUser}
-                    employeeRolesFilter={employeeRolesFilter}
-                  />
-                </TabsContent>
-              )}
+              <TabsContents>
+                {canViewEmployees && (
+                  <TabsContent value="employees" className="space-y-6">
+                    <EmployeesTab 
+                      fetchUsersWithTracking={fetchUsersWithTracking}
+                      currentPage={currentPage}
+                      perPage={perPage}
+                      users={users}
+                      loading={loading}
+                      error={error}
+                      total={total}
+                      deleteExistingUser={deleteUser}
+                      employeeRolesFilter={employeeRolesFilter}
+                    />
+                  </TabsContent>
+                )}
 
-              {}
-              {canViewClients && (
-                <TabsContent value="clients" className="space-y-6 mt-4">
-                  <ClientsTab />
-                </TabsContent>
-              )}
+                {canViewClients && (
+                  <TabsContent value="clients" className="space-y-6">
+                    <ClientsTab />
+                  </TabsContent>
+                )}
 
-              {}
-              {canViewRbac && (
-                <TabsContent value="rbac" className="space-y-6 mt-4">
-                  <RBACTab />
-                </TabsContent>
-              )}
+                {canViewRbac && (
+                  <TabsContent value="rbac" className="space-y-6">
+                    <RBACTab />
+                  </TabsContent>
+                )}
 
-              {}
-              {canViewReferrals && (
-                <TabsContent value="referrals" className="space-y-6 mt-4">
-                  <ReferralsTab />
-                </TabsContent>
-              )}
+                {canViewReferrals && (
+                  <TabsContent value="referrals" className="space-y-6">
+                    <ReferralsTab />
+                  </TabsContent>
+                )}
+              </TabsContents>
             </Tabs>
           ) : (
 

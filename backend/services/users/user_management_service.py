@@ -4,7 +4,7 @@ Handles user CRUD operations, role assignments, and user listing
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import func as sql_func
@@ -429,6 +429,11 @@ class UserManagementService:
                     )
                 except:
                     pass
+            elif data.get("work_duration_days"):
+                # Calculate expires_at from work_duration_days
+                work_duration_days = data.get("work_duration_days")
+                if work_duration_days and work_duration_days > 0:
+                    user.expires_at = datetime.utcnow() + timedelta(days=work_duration_days)
 
             db.session.add(user)
             db.session.flush()

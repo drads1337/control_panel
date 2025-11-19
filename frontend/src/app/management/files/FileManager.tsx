@@ -1,41 +1,31 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { 
-  FolderOpen, Plus, Upload, Download, Trash2, Edit, Eye, FileText, 
-  Image, Package, HardDrive, Search, AlertTriangle, CheckCircle,
-  Folder, File, Archive, Video, Music, Code, Settings, FileUp, Zap,
-  MoreVertical, Star, Calendar, User as UserIcon, CloudUpload,
-  RefreshCw, X, Check, ChevronRight, Home, FolderPlus, Gamepad2, Container
+  FolderOpen, Plus, Upload, Download, Trash2, Eye, FileText, 
+  Image, Package, Search, AlertTriangle,
+  Folder, File, Video, Music, Zap,
+  CloudUpload,
+  RefreshCw, X, Check, ChevronRight, Gamepad2, Container
 } from 'lucide-react';
-import { 
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/hooks/use-auth';
 import { usePermissions } from '@/hooks/use-permissions';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
 import { getGames } from '@/entities/game'
 import { getLoaders } from '@/entities/loader'
-import { getGameFiles, getGameFileStats, createFolder, deleteFolder, uploadGameConfig, uploadGameExtraFile, deleteGameConfig, deleteGameExtraFile, deleteGameFile, downloadGameConfig, downloadGameExtraFile, downloadGameFile } from '@/entities/file';
+import { getGameFiles, createFolder, uploadGameConfig, uploadGameExtraFile, deleteGameConfig, deleteGameExtraFile, deleteGameFile, downloadGameConfig, downloadGameExtraFile, downloadGameFile } from '@/entities/file';
 import { toast } from 'sonner';
 import { Spinner } from '@/components/ui/spinner';
 import { getErrorMessage } from '@/shared/api/enhanced-client';
 import MultiFileUploadDialog from './MultiFileUploadDialog';
-import type { User } from '@/entities/user';
 import type { Game } from '@/entities/game';
 import type { FileItem } from '@/entities/file';
 import type { Loader } from '@/entities/loader';
@@ -71,109 +61,216 @@ const FileItemComponent = React.memo(function FileItemComponent({
   getFileIcon,
   formatFileSize
 }: FileItemProps) {
+  const isFolder = file.type === 'folder';
+  const isConfigsFolder = isFolder && file.name === 'configs';
+
   return (
     <div
-      className={`group relative border rounded-lg p-4 hover:shadow-md transition-all cursor-pointer ${
-        isSelected ? 'ring-2 ring-primary bg-primary/5' : ''
+      className={`flex items-center justify-between p-2.5 border-b hover:bg-accent/50 transition-colors cursor-pointer ${
+        isSelected ? 'bg-primary/5' : ''
       }`}
       onClick={() => {
-        if (file.type === 'folder' && file.name === 'configs') {
+        if (isConfigsFolder) {
           onFolderClick(file.name);
-        } else {
+        } else if (!isFolder) {
           onToggleSelection(String(file.id));
         }
       }}
     >
-      <div className="flex items-start justify-between">
-        <div className="flex items-start gap-3 flex-1 min-w-0">
-          <div className="flex-shrink-0 mt-1">
-            {getFileIcon(file.name, file.type)}
-          </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="font-medium text-sm truncate">{file.name}</h3>
-            {file.description && (
-              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                {file.description}
-              </p>
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        <div className="flex-shrink-0">
+          {getFileIcon(file.name, file.type)}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h4 className="font-medium text-sm truncate">{file.name}</h4>
+            {file.category && file.category !== 'folder' && (
+              <Badge variant="secondary" className="text-xs">
+                {file.category}
+              </Badge>
             )}
-            <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-              <span>{formatFileSize(file.size)}</span>
-              <span>•</span>
-              <span>{new Date(file.modified).toLocaleDateString()}</span>
-              {file.category && (
-                <>
-                  <span>•</span>
-                  <Badge variant="secondary" className="text-xs">
-                    {file.category}
-                  </Badge>
-                </>
-              )}
-            </div>
+            {isSelected && (
+              <Check className="h-3 w-3 text-primary" />
+            )}
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-xs text-muted-foreground truncate">
+              {formatFileSize(file.size)}
+            </p>
+            <span className="text-xs text-muted-foreground">•</span>
+            <p className="text-xs text-muted-foreground">
+              {new Date(file.modified).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </p>
+            {file.description && (
+              <>
+                <span className="text-xs text-muted-foreground">•</span>
+                <p className="text-xs text-muted-foreground truncate">
+                  {file.description}
+                </p>
+              </>
+            )}
           </div>
         </div>
-
-        <ConditionalRender 
-          permissions={['games.files_view', 'games.files_download', 'games.files_delete']}
-          requireAll={false}
-          fallback={null}
-        >
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {file.type !== 'folder' && (
-                  <>
-                    <ConditionalRender permission="games.files_download" fallback={null}>
-                      <DropdownMenuItem 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (canDownload) onDownload(file);
-                        }}
-                        disabled={!canDownload}
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        Download
-                      </DropdownMenuItem>
-                    </ConditionalRender>
-                    <ConditionalRender permission="games.files_view" fallback={null}>
-                      <DropdownMenuItem onClick={(e) => {
-                        e.stopPropagation();
-                        onView(file);
-                      }}>
-                        <Eye className="h-4 w-4 mr-2" />
-                        View Details
-                      </DropdownMenuItem>
-                    </ConditionalRender>
-                    <ConditionalRender permission="games.files_delete" fallback={null}>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (canDelete) onDelete(file);
-                        }}
-                        className="text-destructive"
-                        disabled={!canDelete}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </ConditionalRender>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </ConditionalRender>
       </div>
+      {!isFolder && (
+        <div className="flex items-center gap-1">
+          <ConditionalRender permission="games.files_view" fallback={null}>
+            <Button 
+              variant="ghost" 
+              size="icon"
+              className="h-8 w-8"
+              onClick={(e) => {
+                e.stopPropagation();
+                onView(file);
+              }}
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+          </ConditionalRender>
+          <ConditionalRender permission="games.files_download" fallback={null}>
+            <Button 
+              variant="ghost" 
+              size="icon"
+              className="h-8 w-8"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (canDownload) onDownload(file);
+              }}
+              disabled={!canDownload}
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+          </ConditionalRender>
+          <ConditionalRender permission="games.files_delete" fallback={null}>
+            <Button 
+              variant="ghost" 
+              size="icon"
+              className="h-8 w-8 text-destructive hover:text-destructive"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (canDelete) onDelete(file);
+              }}
+              disabled={!canDelete}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </ConditionalRender>
+        </div>
+      )}
     </div>
   );
 });
+
+interface FilesListProps {
+  files: FileItem[];
+  selectedFiles: string[];
+  canDownload: boolean;
+  canDelete: boolean;
+  onToggleSelection: (fileId: string) => void;
+  onFolderClick: (folderName: string) => void;
+  onDownload: (file: FileItem) => void;
+  onView: (file: FileItem) => void;
+  onDelete: (file: FileItem) => void;
+  getFileIcon: (name: string, type?: string) => React.ReactNode;
+  formatFileSize: (bytes: number) => string;
+}
+
+const FilesList: React.FC<FilesListProps> = ({
+  files,
+  selectedFiles,
+  canDownload,
+  canDelete,
+  onToggleSelection,
+  onFolderClick,
+  onDownload,
+  onView,
+  onDelete,
+  getFileIcon,
+  formatFileSize
+}) => {
+  const parentRef = useRef<HTMLDivElement>(null);
+  const shouldVirtualize = files.length > 50;
+
+  const rowVirtualizer = useVirtualizer({
+    count: shouldVirtualize ? files.length : 0,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 80,
+    overscan: 5,
+    enabled: shouldVirtualize,
+  });
+
+  if (shouldVirtualize) {
+    return (
+      <div
+        ref={parentRef}
+        className="overflow-auto"
+        style={{ height: '600px', contain: 'strict' }}
+      >
+        <div
+          style={{
+            height: `${rowVirtualizer.getTotalSize()}px`,
+            width: '100%',
+            position: 'relative',
+          }}
+        >
+          <div className="divide-y">
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const file = files[virtualRow.index];
+              return (
+                <div
+                  key={file.id}
+                  data-index={virtualRow.index}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+                  <FileItemComponent
+                    file={file}
+                    isSelected={selectedFiles.includes(file.id)}
+                    canDownload={canDownload}
+                    canDelete={canDelete}
+                    onToggleSelection={onToggleSelection}
+                    onFolderClick={onFolderClick}
+                    onDownload={onDownload}
+                    onView={onView}
+                    onDelete={onDelete}
+                    getFileIcon={getFileIcon}
+                    formatFileSize={formatFileSize}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="divide-y">
+      {files.map((file) => (
+        <FileItemComponent
+          key={file.id}
+          file={file}
+          isSelected={selectedFiles.includes(file.id)}
+          canDownload={canDownload}
+          canDelete={canDelete}
+          onToggleSelection={onToggleSelection}
+          onFolderClick={onFolderClick}
+          onDownload={onDownload}
+          onView={onView}
+          onDelete={onDelete}
+          getFileIcon={getFileIcon}
+          formatFileSize={formatFileSize}
+        />
+      ))}
+    </div>
+  );
+};
 
 const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => {
   const { isAuthenticated } = useAuth();
@@ -1114,18 +1211,29 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
       {}
       {hasItems && (
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-0">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Select Application</CardTitle>
-                <CardDescription>
-                  Choose an application to manage its files and resources
+                <CardTitle className="text-base">Select Application</CardTitle>
+                <CardDescription className="mt-1 text-xs">
+                  {targetType === 'application' 
+                    ? `${filteredGames.length} ${filteredGames.length === 1 ? 'application' : 'applications'} available`
+                    : `${loaders.length + filteredGames.length} ${loaders.length + filteredGames.length === 1 ? 'loader' : 'loaders'} available`}
                 </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={handleRefreshGames}
+                  disabled={isLoadingGames}
+                >
+                  <RefreshCw className={`h-4 w-4 ${isLoadingGames ? 'animate-spin' : ''}`} />
+                </Button>
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {}
+          <CardContent className="pt-0 -mt-3 space-y-4">
             {showTargetTypeToggle ? (
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Type</Label>
@@ -1153,8 +1261,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
               </div>
             ) : null}
 
-            {}
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="divide-y">
               {displayItems.map(({ type, item }) => {
                 const isSelected = type === 'loader' 
                   ? selectedLoader?.id === item.id
@@ -1163,10 +1270,8 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
                 return (
                   <div
                     key={`${type}-${item.id}`}
-                    className={`relative border rounded-lg p-4 cursor-pointer transition-all hover:shadow-sm ${
-                      isSelected
-                        ? 'ring-2 ring-primary bg-primary/5 border-primary' 
-                        : 'border-border hover:border-primary/50'
+                    className={`flex items-center justify-between p-2.5 cursor-pointer transition-colors hover:bg-accent/50 ${
+                      isSelected ? 'bg-primary/5' : ''
                     }`}
                     onClick={() => {
                       if (type === 'loader') {
@@ -1179,33 +1284,32 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
                       setSelectedFiles([]);
                     }}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-primary/20 to-primary/10 rounded flex items-center justify-center">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="w-9 h-9 bg-gradient-to-br from-primary/20 to-primary/10 rounded flex items-center justify-center flex-shrink-0">
                         {type === 'loader' ? (
-                          <Container className="h-5 w-5 text-primary" />
+                          <Container className="h-4 w-4 text-primary" />
                         ) : (
-                          <Gamepad2 className="h-5 w-5 text-primary" />
+                          <Gamepad2 className="h-4 w-4 text-primary" />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-sm truncate">{item.name}</h3>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-medium text-sm truncate">{item.name}</h4>
+                          {isSelected && (
+                            <Check className="h-3 w-3 text-primary" />
+                          )}
+                        </div>
                         {isSelected && (
                           <p className="text-xs text-muted-foreground">
                             {stats.total} files • {formatFileSize(stats.totalSize)}
                           </p>
                         )}
                       </div>
-                      {isSelected && (
-                        <div className="w-5 h-5 bg-primary rounded-2xl flex items-center justify-center">
-                          <Check className="h-3 w-3 text-primary-foreground" />
-                        </div>
-                      )}
                     </div>
                   </div>
                 );
               })}
             </div>
-
           </CardContent>
         </Card>
       )}
@@ -1217,7 +1321,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">
-                  Selected: {selectedFiles.length} files
+                  Selected: {selectedFiles.length} {selectedFiles.length === 1 ? 'file' : 'files'}
                 </span>
                 <Button variant="outline" size="sm" onClick={clearSelection}>
                   <X className="h-4 w-4 mr-1" />
@@ -1240,7 +1344,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    className="text-red-600 hover:text-red-700"
+                    className="text-destructive hover:text-destructive"
                     onClick={handleBulkDelete}
                     disabled={!canDeleteFiles}
                   >
@@ -1284,51 +1388,59 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         >
-          <CardHeader>
+          <CardHeader className="pb-0">
             <div className="flex items-center justify-between">
               <div>
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-2 mb-1">
                   {showConfigsFolder && (
                     <Button
                       variant="ghost"
-                      size="sm"
+                      size="icon"
                       onClick={handleBackToRoot}
-                      className="p-1 h-8 w-8"
+                      className="h-6 w-6"
                     >
-                      <ChevronRight className="h-4 w-4 rotate-180" />
+                      <ChevronRight className="h-3 w-3 rotate-180" />
                     </Button>
                   )}
-                  <CardTitle>
+                  <CardTitle className="text-base">
                     {showConfigsFolder 
                       ? 'Configs Folder' 
                       : `${selectedGame?.name || selectedLoader?.name || 'Unknown'} Files`}
                   </CardTitle>
                 </div>
-                <CardDescription>
-                  {showConfigsFolder ? 'User settings and configurations' : `${filteredFiles.length} files`}
+                <CardDescription className="mt-1 text-xs">
+                  {filteredFiles.length} {filteredFiles.length === 1 ? 'file' : 'files'}
                   {dragOver && (
                     <span className="text-primary ml-2">• Drag files here to upload</span>
                   )}
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={refreshData}
+                  disabled={refreshing}
+                >
+                  <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={selectAllFiles}
                   disabled={filteredFiles.length === 0}
                 >
-                  <Check className="h-4 w-4 mr-1" />
+                  <Check className="h-4 w-4 mr-1.5" />
                   Select All
                 </Button>
                 <ConditionalRender permission="games.files_upload" fallback={null}>
                   <Button 
-                    variant="outline" 
+                    variant="default" 
                     size="sm"
                     onClick={() => setUploadDialogOpen(true)}
                     disabled={!canUploadFiles}
                   >
-                    <Upload className="h-4 w-4 mr-1" />
+                    <Upload className="h-4 w-4 mr-1.5" />
                     Upload
                   </Button>
                 </ConditionalRender>
@@ -1340,33 +1452,53 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
                 )}
               </div>
             </div>
+            <div className="flex items-center gap-2 mt-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search files..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="config">Config</SelectItem>
+                  <SelectItem value="resource">Resource</SelectItem>
+                  <SelectItem value="folder">Folder</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </CardHeader>
-          <CardContent>
-            {filteredFiles.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <FolderOpen className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                <h3 className="text-xl font-semibold mb-2">No files found</h3>
-                <p className="mb-4">Try changing your search query or upload some files.</p>
+          <CardContent className="pt-0 -mt-3">
+            {refreshing ? (
+              <Spinner message="Loading files..." />
+            ) : filteredFiles.length === 0 ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <FolderOpen className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                  <div className="text-sm text-muted-foreground">No files found</div>
+                </div>
               </div>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {filteredFiles.map((file) => (
-                  <FileItemComponent
-                    key={file.id}
-                    file={file}
-                    isSelected={selectedFiles.includes(file.id)}
-                    canDownload={canDownloadFiles}
-                    canDelete={canDeleteFiles}
-                    onToggleSelection={toggleFileSelection}
-                    onFolderClick={handleFolderClick}
-                    onDownload={handleFileDownload}
-                    onView={handleViewFile}
-                    onDelete={handleFileDelete}
-                    getFileIcon={getFileIcon}
-                    formatFileSize={formatFileSize}
-                  />
-                ))}
-              </div>
+              <FilesList
+                files={filteredFiles}
+                selectedFiles={selectedFiles}
+                canDownload={canDownloadFiles}
+                canDelete={canDeleteFiles}
+                onToggleSelection={toggleFileSelection}
+                onFolderClick={handleFolderClick}
+                onDownload={handleFileDownload}
+                onView={handleViewFile}
+                onDelete={handleFileDelete}
+                getFileIcon={getFileIcon}
+                formatFileSize={formatFileSize}
+              />
             )}
           </CardContent>
         </Card>

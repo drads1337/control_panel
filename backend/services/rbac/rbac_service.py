@@ -59,6 +59,8 @@ class RBACService:
                 "extend": "Extend keys",
                 "block": "Block keys",
                 "manage": "Manage other users' keys",
+                "copy": "Copy key",
+                "see_analytics": "See analytics",
             },
             "analytics": {"view": "View analytics", "export": "Export analytics data"},
             "webhooks": {
@@ -190,6 +192,8 @@ class RBACService:
                     "keys.pause_resume",
                     "keys.extend",
                     "keys.block",
+                    "keys.copy",
+                    "keys.see_analytics",
 
                     "analytics.view",
                     "analytics.export",
@@ -305,6 +309,8 @@ class RBACService:
                     "keys.pause_resume",
                     "keys.extend",
                     "keys.block",
+                    "keys.copy",
+                    "keys.see_analytics",
                     "analytics.view",
                     "webhooks.view",
                     "webhooks.create",

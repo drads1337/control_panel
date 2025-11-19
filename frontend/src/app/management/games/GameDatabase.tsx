@@ -1,9 +1,14 @@
 import React from 'react';
-import { AlertTriangle, CheckCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Plus, RefreshCw, Search, Check, X, Package } from 'lucide-react';
 import { useGameManagement } from '@/hooks/use-game-management';
 import { useGamePermissions } from '@/hooks/use-game-permissions';
 import { useGameFilters } from '@/hooks/use-game-filters';
 import { Spinner } from '@/components/ui/spinner';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ConditionalRender } from '@/components/rbac/conditional-render';
 import { BulkActionsPanel } from './BulkActionsPanel';
 import { GamesTable } from './GamesTable';
 import { GameDatabaseEmptyState } from './GameDatabaseEmptyState';
@@ -77,7 +82,21 @@ const GameDatabase: React.FC<GameDatabaseProps> = ({ onViewGame, onCreateGame, o
     }
   }, [onCreateGameRequested, onCreateGameRequestHandled, setShowCreateDialog]);
 
-  const { filteredGames } = useGameFilters(games);
+  const { filters, filteredGames, updateFilters, resetFilters } = useGameFilters(games);
+  
+  const allSelected = selectedGames.length === filteredGames.length && filteredGames.length > 0;
+  
+  const handleSelectAll = () => {
+    if (allSelected) {
+      setSelectedGames([]);
+    } else {
+      setSelectedGames(filteredGames.map((g) => g.id));
+    }
+  };
+  
+  const clearSelection = () => {
+    setSelectedGames([]);
+  };
 
   if (!canViewGames) {
     return <GameDatabaseAccessDenied />;
@@ -88,59 +107,166 @@ const GameDatabase: React.FC<GameDatabaseProps> = ({ onViewGame, onCreateGame, o
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {}
-      {games.length > 0 && (
-        <BulkActionsPanel
-          selectedCount={selectedGames.length}
-          bulkAction={bulkAction}
-          onBulkActionChange={setBulkAction}
-          onApply={handleBulkAction}
-          onClear={() => setSelectedGames([])}
-          canManageStatus={canManageStatus}
-          canDeleteGames={canDeleteGames}
-        />
-      )}
-
-      {}
-      {!loading && filteredGames.length === 0 ? (
+      {!loading && filteredGames.length === 0 && games.length === 0 ? (
         <GameDatabaseEmptyState 
           onCreateGame={() => setShowCreateDialog(true)}
           canCreateGames={canCreateGames}
         />
       ) : (
-
-        <>
-          {loading ? (
-            <div className="p-8">
-              <Spinner message="Loading applications..." />
+        <Card>
+          <CardHeader className="pb-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base">Applications</CardTitle>
+                <CardDescription className="mt-1 text-xs">
+                  {filteredGames.length} {filteredGames.length === 1 ? 'application' : 'applications'}
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={fetchGames}
+                  disabled={loading}
+                >
+                  <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                </Button>
+                <ConditionalRender permission="games.create" fallback={null}>
+                  <Button 
+                    variant="default" 
+                    size="sm"
+                    onClick={() => setShowCreateDialog(true)}
+                    disabled={loading}
+                  >
+                    <Plus className="h-4 w-4 mr-1.5" />
+                    Add
+                  </Button>
+                </ConditionalRender>
+              </div>
             </div>
-          ) : (
-            <GamesTable
-              games={filteredGames}
-              selectedGames={selectedGames}
-              onToggleGameSelection={toggleGameSelection}
-              onSelectAll={(selected) =>
-                setSelectedGames(selected ? filteredGames.map((g) => g.id) : [])
-              }
-              onViewGame={handleViewGame}
-              onEditGame={handleEditGame}
-              onUploadGame={handleUploadGame}
-              onNotificationsGame={handleNotificationsGame}
-              onPricesGame={handlePricesGame}
-              onChangelogGame={handleChangelogGame}
-              onStatusChange={handleStatusChange}
-              onDeleteGame={handleDeleteGame}
-              canEditGames={canEditGames}
-              canDeleteGames={canDeleteGames}
-              canUploadFiles={canUploadFiles}
-              canManageNotifications={canManageNotifications}
-              canManagePrices={canManagePrices}
-              canManageChangelog={canManageChangelog}
-              canManageStatus={canManageStatus}
-            />
-          )}
-        </>
+            <div className="flex items-center gap-2 mt-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search applications..."
+                  value={filters.searchTerm}
+                  onChange={(e) => updateFilters({ searchTerm: e.target.value })}
+                  className="pl-8"
+                />
+              </div>
+              <Select 
+                value={filters.status} 
+                onValueChange={(value: 'all' | 'active' | 'inactive' | 'maintenance' | 'testing') =>
+                  updateFilters({ status: value })
+                }
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="maintenance">Maintenance</SelectItem>
+                  <SelectItem value="testing">Testing</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {selectedGames.length > 0 && (
+              <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">
+                    Selected: {selectedGames.length} {selectedGames.length === 1 ? 'application' : 'applications'}
+                  </span>
+                  <Button variant="outline" size="sm" onClick={clearSelection}>
+                    <X className="h-4 w-4 mr-1" />
+                    Clear
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <ConditionalRender 
+                    permissions={['games.status', 'games.delete']}
+                    requireAll={false}
+                    fallback={null}
+                  >
+                    <Select value={bulkAction} onValueChange={setBulkAction}>
+                      <SelectTrigger className="w-40">
+                        <SelectValue placeholder="Action" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <ConditionalRender permission="games.status" fallback={null}>
+                          <SelectItem value="active">Activate</SelectItem>
+                          <SelectItem value="inactive">Deactivate</SelectItem>
+                          <SelectItem value="maintenance">Maintenance</SelectItem>
+                          <SelectItem value="testing">Testing</SelectItem>
+                        </ConditionalRender>
+                        <ConditionalRender permission="games.delete" fallback={null}>
+                          <SelectItem value="delete">Delete</SelectItem>
+                        </ConditionalRender>
+                      </SelectContent>
+                    </Select>
+                    <Button 
+                      onClick={handleBulkAction} 
+                      disabled={!bulkAction || (!canManageStatus && !canDeleteGames)} 
+                      size="sm"
+                    >
+                      Apply
+                    </Button>
+                  </ConditionalRender>
+                </div>
+              </div>
+            )}
+          </CardHeader>
+          <CardContent className="pt-0 -mt-3">
+            {loading ? (
+              <Spinner message="Loading applications..." />
+            ) : filteredGames.length === 0 ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <Package className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                  <div className="text-sm text-muted-foreground">No applications found</div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 mb-2 pb-2 border-b">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSelectAll}
+                    disabled={filteredGames.length === 0}
+                  >
+                    <Check className="h-4 w-4 mr-1" />
+                    Select All
+                  </Button>
+                </div>
+                <GamesTable
+                  games={filteredGames}
+                  selectedGames={selectedGames}
+                  onToggleGameSelection={toggleGameSelection}
+                  onSelectAll={handleSelectAll}
+                  onViewGame={handleViewGame}
+                  onEditGame={handleEditGame}
+                  onUploadGame={handleUploadGame}
+                  onNotificationsGame={handleNotificationsGame}
+                  onPricesGame={handlePricesGame}
+                  onChangelogGame={handleChangelogGame}
+                  onStatusChange={handleStatusChange}
+                  onDeleteGame={handleDeleteGame}
+                  canEditGames={canEditGames}
+                  canDeleteGames={canDeleteGames}
+                  canUploadFiles={canUploadFiles}
+                  canManageNotifications={canManageNotifications}
+                  canManagePrices={canManagePrices}
+                  canManageChangelog={canManageChangelog}
+                  canManageStatus={canManageStatus}
+                />
+              </>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {}

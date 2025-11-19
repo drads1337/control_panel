@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, X, Gamepad2, Container, Settings } from 'lucide-react';
+import { Plus, X, Gamepad2, Container } from 'lucide-react';
 import { useKeyForm } from '../hooks/use-key-form';
 import { durationOptions, parseDuration } from '../hooks/use-duration';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
@@ -114,18 +114,19 @@ export const CustomKeyForm: React.FC<CustomKeyFormProps> = ({
 
   return (
     <ConditionalRender permission="keys.create" fallback={null}>
-      <Card className="flex flex-col">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
-            <CardTitle className="text-lg">Create Custom Key</CardTitle>
+      <Card>
+        <CardHeader className="pb-0">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base">Create Custom Key</CardTitle>
+              <CardDescription className="mt-1 text-xs">
+                Create a custom license key with specific naming and settings.
+              </CardDescription>
+            </div>
           </div>
-          <CardDescription>
-            Create a custom license key with specific naming and settings.
-          </CardDescription>
         </CardHeader>
 
-        <CardContent className="space-y-4 flex-grow">
+        <CardContent className="pt-0 -mt-3">
           <form onSubmit={handleSubmit} className="space-y-4">
             {showTargetTypeToggle && (
               <div className="space-y-2">

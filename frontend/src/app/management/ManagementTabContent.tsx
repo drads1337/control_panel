@@ -1,5 +1,4 @@
 import React, { Suspense } from 'react'
-import { TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { Plus } from 'lucide-react'
@@ -38,22 +37,10 @@ export const ManagementTabContent: React.FC<ManagementTabContentProps> = ({
   } = useManagementStore()
 
   const { createGameDialogRequested, createLoaderDialogRequested } = dialogs
-  const renderContent = (content: React.ReactNode) => {
-    if (wrapInTabsContent) {
-      return <TabsContent value={tabValue} className="mt-0">{content}</TabsContent>
-    }
-    return <>{content}</>
-  }
 
   if (canViewKeys && tabValue === 'license-keys') {
-    return renderContent(
+    return (
       <div className="space-y-4">
-        <div>
-          <h3 className="text-lg font-semibold mb-0 text-foreground">License Key Management</h3>
-          <p className="text-muted-foreground">
-            Create, manage, and monitor license keys for your applications.
-          </p>
-        </div>
         <Suspense fallback={<div className="flex items-center justify-center min-h-[400px]"><Spinner size="lg" message="Loading license keys..." /></div>}>
           <LicenseKeysMain 
             onSwitchToGameDatabase={() => setActiveTab('game-database')} 
@@ -61,27 +48,21 @@ export const ManagementTabContent: React.FC<ManagementTabContentProps> = ({
           />
         </Suspense>
       </div>
-    )
+    );
   }
 
   if (canViewFiles && tabValue === 'file-manager') {
-    return renderContent(
+    return (
       <div className="space-y-4">
-        <div>
-          <h3 className="text-lg font-semibold mb-0 text-foreground">File Manager</h3>
-          <p className="text-muted-foreground">
-            Manage system files, configurations, and resources.
-          </p>
-        </div>
         <Suspense fallback={<div className="flex items-center justify-center min-h-[400px]"><Spinner size="lg" message="Loading file manager..." /></div>}>
           <FileManager onSwitchToGameDatabase={() => setActiveTab('game-database')} />
         </Suspense>
       </div>
-    )
+    );
   }
 
   if (canViewGames && tabValue === 'game-database') {
-    return renderContent(
+    return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
@@ -108,11 +89,11 @@ export const ManagementTabContent: React.FC<ManagementTabContentProps> = ({
           />
         </Suspense>
       </div>
-    )
+    );
   }
 
   if (canViewLoaders && tabValue === 'loader-manager') {
-    return renderContent(
+    return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
@@ -138,8 +119,8 @@ export const ManagementTabContent: React.FC<ManagementTabContentProps> = ({
           />
         </Suspense>
       </div>
-    )
+    );
   }
 
-  return null
+  return null;
 }

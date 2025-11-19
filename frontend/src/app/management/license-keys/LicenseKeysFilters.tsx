@@ -1,5 +1,6 @@
 import React from 'react';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Search, X } from 'lucide-react';
@@ -46,20 +47,20 @@ const LicenseKeysFilters: React.FC<LicenseKeysFiltersProps> = ({
           )}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Search</label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Label className="text-sm font-medium">Search</Label>
+            <div className="relative ml-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
               <Input
                 placeholder="Search by key, game, or user..."
                 value={filters.search}
                 onChange={(e) => handleFilterChange('search', e.target.value)}
-                className="pl-10"
+                className="pl-10 h-10"
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Status</label>
+            <Label className="text-sm font-medium">Status</Label>
             <Select
               value={filters.status}
               onValueChange={(value) => handleFilterChange('status', value)}
@@ -79,7 +80,7 @@ const LicenseKeysFilters: React.FC<LicenseKeysFiltersProps> = ({
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Game</label>
+            <Label className="text-sm font-medium">Game</Label>
             <Select
               value={filters.gameId}
               onValueChange={(value) => handleFilterChange('gameId', value)}

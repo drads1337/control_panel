@@ -46,7 +46,7 @@ interface KeyDetailsDialogProps {
 
 const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange, keyData, keyId }) => {
   const { hasPermission } = usePermissions();
-  const canViewKeys = hasPermission('keys.view');
+  const canViewKeys = hasPermission('keys.see_analytics');
 
   const [keyDetails, setKeyDetails] = useState<any>(null);
   const [keyAnalytics, setKeyAnalytics] = useState<any>(null);
@@ -274,7 +274,7 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
                               }
                             }
                           }}
-                          title="Reveal full key (requires keys.view permission)"
+                          title="Reveal full key (requires keys.see_analytics or keys.copy permission)"
                         >
                           <Eye className="h-3 w-3" />
                         </Button>
@@ -295,7 +295,7 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
                     </div>
                     {(keyDetails?.key?.key_masked || isMaskedKey((keyDetails?.key || keyData)?.key || '')) && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        Key is masked. Click the eye icon to reveal (requires keys.view permission).
+                        Key is masked. Click the eye icon to reveal (requires keys.see_analytics or keys.copy permission).
                       </p>
                     )}
                   </div>

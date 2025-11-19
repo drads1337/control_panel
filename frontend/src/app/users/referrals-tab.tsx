@@ -32,41 +32,40 @@ const ReferralsTab: React.FC = () => {
   } = useReferralsTab();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-0">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Referrals Management</CardTitle>
-              <CardDescription>Manage user referrals, commission tracking, and referral codes</CardDescription>
+              <CardTitle className="text-base">Referral Codes</CardTitle>
+              <CardDescription className="mt-1 text-xs">
+                {referralCodes.length || 0} total
+              </CardDescription>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2">
               <Button 
-                variant="outline" 
+                variant="ghost" 
+                size="icon"
                 onClick={() => refetchReferralCodes()}
                 disabled={referralCodesLoading}
               >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                {referralCodesLoading ? 'Loading...' : 'Refresh'}
+                <RefreshCw className="h-4 w-4" />
               </Button>
-
               {isAdmin && (
                 <Button 
                   variant="default" 
+                  size="sm"
                   onClick={() => setIsCreateReferralDialogOpen(true)}
                   disabled={referralCodesLoading}
                 >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Referral Code
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Add
                 </Button>
               )}
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            {}
-            <div className="space-y-4">
+        <CardContent className="pt-0 -mt-3">
               {referralCodesLoading ? (
                 <Spinner message="Loading referral codes..." />
               ) : referralCodesError ? (
@@ -74,82 +73,82 @@ const ReferralsTab: React.FC = () => {
                   <div className="text-red-500">Error: {referralCodesError instanceof Error ? referralCodesError.message : 'An error occurred'}</div>
                 </div>
               ) : referralCodes.length === 0 ? (
-                <div className="text-center py-8">
-                  <Key className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h4 className="text-lg font-semibold mb-2">No Referral Codes</h4>
-                  <p className="text-muted-foreground mb-4">
-                    Create referral codes to track and manage referrals with commission tracking.
-                  </p>
-                  <Button onClick={() => setIsCreateReferralDialogOpen(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Referral Code
-                  </Button>
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <Key className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                <div className="text-sm text-muted-foreground">No referral codes found</div>
+              </div>
                 </div>
               ) : (
-                <div className="space-y-3">
+            <div className="divide-y">
                   {referralCodes.map((refCode) => (
                     <div 
                       key={refCode.id} 
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent transition-colors duration-200"
+                  className="flex items-center justify-between p-2.5 border-b hover:bg-accent/50 transition-colors"
                     >
-                      <div className="flex items-center space-x-4">
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                          <Key className="h-5 w-5 text-primary" />
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <Key className="h-4 w-4 text-primary" />
                         </div>
-                        <div>
-                          <h4 className="font-medium">{refCode.code}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            Role: {refCode.role || 'No role'} • 
-                            Games: {refCode.game_ids?.length || 0} • 
-                            Tokens: {refCode.token_balance || 0} • 
-                            Work: {refCode.work_duration_days || 7} days
-                          </p>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <span className={`text-xs px-2 py-1 rounded ${
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="font-medium text-sm truncate">{refCode.code}</h4>
+                        <span className={`text-xs px-1.5 py-0.5 rounded ${
                               refCode.used 
-                                ? 'bg-green-100 text-green-800' 
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
                                 : refCode.is_expired 
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-blue-100 text-blue-800'
+                            ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                            : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
                             }`}>
                               {refCode.used ? 'Used' : refCode.is_expired ? 'Expired' : 'Active'}
                             </span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-xs text-muted-foreground truncate">
+                          {refCode.role || 'No role'}
+                        </p>
+                        <span className="text-xs text-muted-foreground">
+                          • {refCode.game_ids?.length || 0} games
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          • {refCode.token_balance || 0} tokens
+                        </span>
                             <span className="text-xs text-muted-foreground">
-                              Created: {refCode.created_at ? new Date(refCode.created_at).toLocaleDateString('en-US') : 'Unknown'}
+                          • {refCode.work_duration_days || 7} days
                             </span>
                             {refCode.expires_at && (
                               <span className="text-xs text-muted-foreground">
-                                • Expires: {new Date(refCode.expires_at).toLocaleDateString('en-US')}
+                            • Until {new Date(refCode.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                               </span>
                             )}
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <Button variant="outline" size="sm" disabled={referralCodesLoading}>
-                          <Edit className="h-4 w-4 mr-2" />
-                          Edit
+                  <div className="flex items-center gap-1">
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      className="h-8 w-8"
+                      disabled={referralCodesLoading}
+                    >
+                      <Edit className="h-4 w-4" />
                         </Button>
                         <Button 
-                          variant="outline" 
-                          size="sm"
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      variant="ghost" 
+                      size="icon"
+                      className="h-8 w-8 text-destructive hover:text-destructive"
                           disabled={referralCodesLoading}
                         >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
+                      <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
                   ))}
                 </div>
               )}
-            </div>
-          </div>
         </CardContent>
       </Card>
 
-      {}
       <CreateReferralDialog
         open={isCreateReferralDialogOpen}
         onOpenChange={setIsCreateReferralDialogOpen}

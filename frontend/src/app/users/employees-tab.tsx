@@ -12,7 +12,6 @@ import UserTokensDialog from './user-tokens-dialog';
 import { usePermissions } from '@/hooks/use-permissions';
 import { toast } from 'sonner';
 import { Plus, RefreshCw, Users, Edit, Trash2, Bell, Key } from 'lucide-react';
-import { getStatusClasses } from '@/lib/status-utils';
 import { isAdmin, isOwner } from '@/lib/rbac-utils';
 import type { User } from '@/entities/user';
 import { handleError } from '@/lib/error-handler';
@@ -34,104 +33,96 @@ const UserItem = React.memo(({
   onDelete: (userId: number) => void;
   onEdit: (userId: number) => void;
   onTokens: (userId: number) => void;
-  getStatusBadge: (user: User) => React.ReactElement;
+  getStatusBadge: (user: User) => React.ReactElement | null;
   getRoleBadge: (user: User, employeeRolesFilter?: string[]) => React.ReactElement;
   canEdit: boolean;
   canDelete: boolean;
   employeeRolesFilter?: string[];
 }) => {
-
   const isProtected = React.useMemo(() => {
-    if (!user) return false;
-
     const rbacRoles = user.rbac_roles || [];
-    if (rbacRoles.length === 0) {
-      return false;
-    }
-
+    if (rbacRoles.length === 0) return false;
     const roleNames = rbacRoles
       .map(r => (typeof r === 'string' ? r : r?.name || ''))
       .map(name => name.toLowerCase());
-
-    const hasOwner = roleNames.includes('owner');
-    const hasAdmin = roleNames.includes('admin') || roleNames.includes('administrator');
-
-    return hasOwner || hasAdmin;
+    return roleNames.includes('owner') || roleNames.includes('admin') || roleNames.includes('administrator');
   }, [user]);
 
   return (
-    <div 
-      className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent transition-colors duration-200"
-    >
-      <div className="flex items-center space-x-3">
-        <Avatar className="h-8 w-8">
+    <div className="flex items-center justify-between p-2.5 border-b hover:bg-accent/50 transition-colors">
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        <Avatar className="h-9 w-9">
           <AvatarImage src={user.avatar || undefined} />
           <AvatarFallback className="text-xs">
             {user.first_name?.[0]}{user.last_name?.[0] || user.username?.[0] || 'U'}
           </AvatarFallback>
         </Avatar>
-        <div>
-          <div className="flex items-center space-x-2">
-            <h4 className="font-medium text-sm">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h4 className="font-medium text-sm truncate">
               {user.first_name && user.last_name 
                 ? `${user.first_name} ${user.last_name}`
                 : user.username
               }
             </h4>
-            {getStatusBadge(user)}
             {getRoleBadge(user, employeeRolesFilter)}
-            {!isProtected && user.token_balance && user.token_balance > 0 && (
-              <span className="inline-flex items-center justify-center rounded-md border px-1.5 py-0.5 text-xs font-medium">Tokens: {user.token_balance}</span>
+            {getStatusBadge(user)}
+            {!isProtected && (
+              <span className="text-xs text-muted-foreground">• {user.token_balance ?? 0} tokens</span>
             )}
           </div>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-xs text-muted-foreground truncate">
             {user.email || `@${user.username}`}
           </p>
-          <p className="text-xs text-gray-400 mt-0.5">
-            Created: {user.created_at ? new Date(user.created_at).toLocaleDateString('en-US') : 'Unknown'}
-            {user.last_login && ` • Last login: ${new Date(user.last_login).toLocaleDateString('en-US')}`}
-          </p>
+            {user.expires_at ? (
+              <span className="text-xs text-muted-foreground">
+                • Until {new Date(user.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              </span>
+            ) : (
+              <span className="text-xs text-muted-foreground">
+                • Unlimited
+              </span>
+            )}
+          </div>
         </div>
       </div>
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center gap-1">
         {isProtected ? (
-          <span className="text-xs text-muted-foreground px-2 py-1 bg-muted rounded">
-            Protected
-          </span>
+          <span className="text-xs text-muted-foreground px-2">Protected</span>
         ) : (
           <>
             {canEdit && (
               <Button 
-                variant="outline" 
-                size="sm" 
+                variant="ghost" 
+                size="icon"
+                className="h-8 w-8"
                 onClick={() => onEdit(user.id)}
                 disabled={loading}
               >
-                <Edit className="h-4 w-4 mr-2" />
-                {loading ? '...' : 'Edit'}
+                <Edit className="h-4 w-4" />
               </Button>
             )}
             {canEdit && (
               <Button 
-                variant="outline" 
-                size="sm"
+                variant="ghost" 
+                size="icon"
+                className="h-8 w-8"
                 onClick={() => onTokens(user.id)}
                 disabled={loading}
               >
-                <Key className="h-4 w-4 mr-2" />
-                Tokens
+                <Key className="h-4 w-4" />
               </Button>
             )}
             {canDelete && (
               <Button 
-                variant="outline" 
-                size="sm"
+                variant="ghost" 
+                size="icon"
+                className="h-8 w-8 text-destructive hover:text-destructive"
                 onClick={() => onDelete(user.id)}
-                className="text-red-600 hover:text-red-700 hover:bg-red-50"
                 disabled={loading}
               >
-                <Trash2 className="h-4 w-4 mr-2" />
-                {loading ? '...' : 'Delete'}
+                <Trash2 className="h-4 w-4" />
               </Button>
             )}
           </>
@@ -149,7 +140,7 @@ interface EmployeesListProps {
   onDelete: (userId: number) => void;
   onEdit: (userId: number) => void;
   onTokens: (userId: number) => void;
-  getStatusBadge: (user: User) => React.ReactElement;
+  getStatusBadge: (user: User) => React.ReactElement | null;
   getRoleBadge: (user: User, employeeRolesFilter?: string[]) => React.ReactElement;
   canEdit: boolean;
   canDelete: boolean;
@@ -194,7 +185,7 @@ const EmployeesList: React.FC<EmployeesListProps> = ({
             position: 'relative',
           }}
         >
-          <div className="space-y-3">
+          <div className="divide-y">
             {rowVirtualizer.getVirtualItems().map((virtualRow) => {
               const user = users[virtualRow.index];
               return (
@@ -231,7 +222,7 @@ const EmployeesList: React.FC<EmployeesListProps> = ({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="divide-y">
       {users.map((user) => (
         <UserItem
           key={user.id}
@@ -289,10 +280,6 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   const canEditUsers = hasPermission('employees.edit');
   const canDeleteUsers = hasPermission('employees.delete');
 
-  React.useEffect(() => {
-
-  }, [canCreateUsers, canEditUsers, canDeleteUsers, users.length]);
-
   const [isCreateUserDialogOpen, setIsCreateUserDialogOpen] = useState(false);
   const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
   const [selectedUserForEdit, setSelectedUserForEdit] = useState<User | null>(null);
@@ -323,25 +310,19 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
 
   const getStatusBadge = useCallback((user: User) => {
     if (user.expires_at && new Date(user.expires_at) < new Date()) {
-      return <span className={getStatusClasses('expired')}>Expired</span>
+      return <span className="text-xs text-muted-foreground">Expired</span>
     }
-    return <span className={getStatusClasses('active')}>Active</span>
+    return null;
   }, [])
 
   const getRoleBadge = useCallback((user: User, employeeRolesFilter?: string[]) => {
-
     const rbacRoles = user.rbac_roles || [];
-
     let roleName = '';
 
     if (rbacRoles.length > 0) {
-
       const firstRole = rbacRoles[0];
-      roleName = typeof firstRole === 'string' 
-        ? firstRole 
-        : (firstRole?.name || '');
+      roleName = typeof firstRole === 'string' ? firstRole : (firstRole?.name || '');
     } else {
-
       const legacyRoles = user.roles || [];
       if (legacyRoles.length > 0) {
         roleName = legacyRoles[0];
@@ -349,19 +330,18 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     }
 
     if (!roleName) {
-      return <span className="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium">Employee</span>
+      return <span className="text-xs text-muted-foreground">Employee</span>
     }
 
     const roleNameLower = roleName.toLowerCase();
-
     if (roleNameLower === 'owner') {
-      return <span className="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium">Owner</span>
+      return <span className="text-xs text-muted-foreground">Owner</span>
     }
     if (roleNameLower === 'admin' || roleNameLower === 'administrator') {
-      return <span className="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium">Admin</span>
+      return <span className="text-xs text-muted-foreground">Admin</span>
     }
 
-    return <span className="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium">{getRoleDisplayName(roleName)}</span>
+    return <span className="text-xs text-muted-foreground">{getRoleDisplayName(roleName)}</span>
   }, [getRoleDisplayName])
 
   const handleDeleteUser = useCallback(async (userId: number) => {
@@ -496,53 +476,50 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   }, [notificationForm, users])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-0">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Employee List</CardTitle>
-              <CardDescription>
-                Manage system employees • Total: {total || 0}
-                {loading && <span className="ml-2 text-blue-600">(Loading...)</span>}
-                {error && <span className="ml-2 text-red-600">(Error: {error})</span>}
-                {!loading && !error && users.length === 0 && <span className="ml-2 text-gray-600">(No employees)</span>}
+              <CardTitle className="text-base">Employees</CardTitle>
+              <CardDescription className="mt-1 text-xs">
+                {total || 0} total
               </CardDescription>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2">
               <Button 
-                variant="outline" 
+                variant="ghost" 
+                size="icon"
                 onClick={() => fetchUsersWithTracking({ roles: activeRolesFilter })}
                 disabled={loading}
               >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                {loading ? 'Loading...' : 'Refresh'}
+                <RefreshCw className="h-4 w-4" />
               </Button>
-
               <ConditionalRender permission="employees.create" fallback={null}>
                 <Button 
                   variant="default" 
+                  size="sm"
                   onClick={() => setIsCreateUserDialogOpen(true)}
                   disabled={loading}
                 >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Employee
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Add
                 </Button>
               </ConditionalRender>
               <ConditionalRender permission="employees.send_notification" fallback={null}>
                 <Button 
-                  variant="outline" 
+                  variant="ghost" 
+                  size="icon"
                   onClick={() => setIsNotificationDialogOpen(true)}
                   disabled={loading || users.length === 0}
                 >
-                  <Bell className="h-4 w-4 mr-2" />
-                  Send Notification
+                  <Bell className="h-4 w-4" />
                 </Button>
               </ConditionalRender>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0 -mt-3">
           {loading ? (
             <Spinner message="Loading employees..." />
           ) : error ? (
@@ -550,19 +527,10 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
               <div className="text-red-500">Error: {error}</div>
             </div>
           ) : users.length === 0 ? (
-            <div className="flex items-center justify-center py-8">
+            <div className="flex items-center justify-center py-12">
               <div className="text-center">
-                <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <div className="text-gray-500">No employees found</div>
-                <Button 
-                  variant="outline" 
-                  onClick={() => fetchUsersWithTracking({ roles: activeRolesFilter })} 
-                  className="mt-4"
-                  disabled={loading}
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  {loading ? 'Loading...' : 'Refresh list'}
-                </Button>
+                <Users className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                <div className="text-sm text-muted-foreground">No employees found</div>
               </div>
             </div>
           ) : (
@@ -582,7 +550,6 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
         </CardContent>
       </Card>
 
-      {}
       <CreateUserDialog
         open={isCreateUserDialogOpen}
         onOpenChange={setIsCreateUserDialogOpen}
@@ -594,7 +561,6 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
         }}
       />
 
-      {}
       <EditUserDialog
         open={isEditUserDialogOpen}
         onOpenChange={setIsEditUserDialogOpen}
@@ -608,7 +574,6 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
         }}
       />
 
-      {}
       <NotificationDialog
         open={isNotificationDialogOpen}
         onOpenChange={setIsNotificationDialogOpen}
@@ -619,7 +584,6 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
         users={users}
       />
 
-      {}
       {selectedUserIdForTokens !== null && (
         <UserTokensDialog
           open={isTokensDialogOpen}

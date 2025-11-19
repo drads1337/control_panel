@@ -284,16 +284,18 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
       </TableCell>
       <TableCell className="w-auto text-right">
         <div className="flex items-center justify-end space-x-1 flex-wrap">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="sm" onClick={() => onViewDetails(keyData)} className="h-8 w-8 p-0" aria-label="View Details">
-                  <Eye className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>View Details</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <ConditionalRender permission="keys.see_analytics" fallback={null}>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="sm" onClick={() => onViewDetails(keyData)} className="h-8 w-8 p-0" aria-label="View Details">
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>View Details</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </ConditionalRender>
 
           <ConditionalRender permission="keys.edit" fallback={null}>
           <TooltipProvider>
@@ -308,16 +310,18 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
               </TooltipProvider>
               </ConditionalRender>
 
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="sm" onClick={() => onKeyAction('copy', keyData.id)} className="h-8 w-8 p-0" aria-label="Copy to clipboard">
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Copy to clipboard</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <ConditionalRender permission="keys.copy" fallback={null}>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="sm" onClick={() => onKeyAction('copy', keyData.id)} className="h-8 w-8 p-0" aria-label="Copy to clipboard">
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Copy to clipboard</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </ConditionalRender>
 
               <ConditionalRender permission="keys.pause_resume" fallback={null}>
               {keyData.status === KEY_STATUS.ACTIVE ? (
@@ -541,16 +545,18 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
       </TableCell>
       <TableCell className="w-auto text-right">
         <div className="flex items-center justify-end space-x-1 flex-wrap">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="sm" onClick={() => onViewDetails(key)} className="h-8 w-8 p-0" aria-label="View Details">
-                  <Eye className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>View Details</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <ConditionalRender permission="keys.see_analytics" fallback={null}>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="sm" onClick={() => onViewDetails(key)} className="h-8 w-8 p-0" aria-label="View Details">
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>View Details</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </ConditionalRender>
 
           <ConditionalRender permission="keys.edit" fallback={null}>
           <TooltipProvider>
@@ -565,16 +571,18 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
               </TooltipProvider>
               </ConditionalRender>
 
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="sm" onClick={() => onKeyAction('copy', key.id)} className="h-8 w-8 p-0" aria-label="Copy to clipboard">
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Copy to clipboard</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <ConditionalRender permission="keys.copy" fallback={null}>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="sm" onClick={() => onKeyAction('copy', key.id)} className="h-8 w-8 p-0" aria-label="Copy to clipboard">
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Copy to clipboard</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </ConditionalRender>
 
               <ConditionalRender permission="keys.pause_resume" fallback={null}>
               {key.status === KEY_STATUS.ACTIVE ? (
