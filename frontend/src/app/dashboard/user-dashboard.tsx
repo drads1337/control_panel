@@ -9,7 +9,7 @@ import { BarChart3 } from 'lucide-react'
 import { Spinner } from '@/components/ui/spinner'
 
 const ChartAreaInteractive = React.lazy(() => import('./chart-area-interactive').then(module => ({ default: module.ChartAreaInteractive })))
-const DataTable = React.lazy(() => import('@/app/shared/data-table').then(module => ({ default: module.DataTable })))
+const DataTable = React.lazy(() => import('./data-table').then(module => ({ default: module.DataTable })))
 
 export function UserDashboard() {
   const { data, loading, error, refetch } = useDashboardStats()

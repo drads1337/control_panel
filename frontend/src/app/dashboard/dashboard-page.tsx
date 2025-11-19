@@ -15,7 +15,7 @@ import { SlowQueriesCard } from './slow-queries-card'
 import { Spinner } from '@/components/ui/spinner'
 
 const ChartAreaInteractive = React.lazy(() => import('@/app/dashboard/chart-area-interactive').then(module => ({ default: module.ChartAreaInteractive })))
-const DataTable = React.lazy(() => import('@/app/shared/data-table').then(module => ({ default: module.DataTable })))
+const DataTable = React.lazy(() => import('@/app/dashboard/data-table').then(module => ({ default: module.DataTable })))
 
 interface DashboardPageProps {
   type: 'dashboard' | 'owner'

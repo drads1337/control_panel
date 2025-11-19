@@ -2,7 +2,7 @@ export { AppHeader } from './app-header';
 export { AppLayout } from './app-layout';
 export { default as AppSidebar } from './app-sidebar';
 export { ColorPicker } from './ColorPicker';
-export { DataTable } from './data-table';
+export { DataTable } from '../dashboard/data-table';
 export { default as FaultyTerminal } from './faulty-terminal';
 export { GuestLayout } from './guest-layout';
 export { PageTransition } from './page-transition';
