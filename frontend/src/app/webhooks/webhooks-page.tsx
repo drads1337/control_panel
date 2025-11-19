@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuthContext } from '../../contexts/auth-context';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Webhook, Plus, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
@@ -360,100 +359,85 @@ export default function WebhooksPage() {
 
   if (!isAuthenticated || !user) {
     return (
-      <div>
-        <Card className="@container/card">
-          <CardContent className="p-6">
-            <div className="text-center">
-              <Webhook className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
-              <p className="text-muted-foreground">
-                You need to be logged in to view the webhooks panel.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+          <p className="text-muted-foreground">
+            You need to be logged in to view the webhooks panel.
+          </p>
+        </div>
       </div>
     );
   }
 
   if (!canView) {
     return (
-      <div>
-        <Card className="@container/card">
-          <CardContent className="p-6">
-            <div className="text-center">
-              <Webhook className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
-              <p className="text-muted-foreground">
-                You don't have permission to view webhooks.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+          <p className="text-muted-foreground">
+            You don't have permission to view webhooks.
+          </p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Your roles: {user?.roles?.join(', ') || 'unknown'}
+          </p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Required permissions: webhooks.view
+          </p>
+        </div>
       </div>
     );
   }
 
   if (loading) {
     return (
-      <div>
-        <div className="flex items-center justify-center">
-          <Spinner size="lg" message="Loading webhooks..." />
-        </div>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Spinner size="lg" message="Loading webhooks..." />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div>
-        <Card className="@container/card">
-          <CardContent className="p-6">
-            <div className="text-center text-red-500">
-              <Webhook className="h-12 w-12 mx-auto mb-4" />
-              <p>{error}</p>
-              <Button onClick={() => loadData()} variant="outline" className="mt-4">
-                Try Again
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2 text-destructive">Error Loading Webhooks</h2>
+          <p className="text-muted-foreground mb-4">{error}</p>
+          <Button onClick={() => loadData()} variant="outline">
+            Try Again
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div>
+    <div className="space-y-6">
       {}
-      <div className="mb-8">
+      <div className="mb-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-bold text-foreground mb-2">
-              Webhooks
-            </h2>
-            <p className="text-muted-foreground">
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">Webhooks</h1>
+            <p className="text-muted-foreground mt-2">
               Configure webhooks to receive real-time notifications about events in your system.
             </p>
           </div>
-          {webhooks.length > 0 && (
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => loadData(false)} disabled={refreshing}>
-                <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-                Refresh
+          <div className="flex gap-2">
+            <Button variant="ghost" size="icon" onClick={() => loadData(false)} disabled={refreshing}>
+              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            </Button>
+            {canCreate && (
+              <Button onClick={() => setCreateDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Webhook
               </Button>
-              {canCreate && (
-                <Button onClick={() => setCreateDialogOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Webhook
-                </Button>
-              )}
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
       {}
-      {stats && webhooks.length > 0 && <WebhookStats stats={stats} />}
+      {stats && webhooks.length > 0 && <WebhookStats stats={stats} loading={false} />}
 
       {}
       <WebhookTable

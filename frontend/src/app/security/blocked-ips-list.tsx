@@ -1,31 +1,21 @@
-import React from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import React, { useRef, useCallback, useMemo } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from '@/components/ui/table'
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from '@/components/ui/dropdown-menu'
+import { Spinner } from '@/components/ui/spinner'
 import { 
   Search, 
-  MoreHorizontal, 
   Globe, 
   MapPin, 
-  Clock, 
   Unlock,
-  Eye
+  Eye,
+  RefreshCw,
+  Plus,
+  Loader2
 } from 'lucide-react'
+import { ConditionalRender } from '@/components/rbac/conditional-render'
 import { useSecurityPermissions } from '@/contexts/security-permissions-context'
 import AddIPBlock from './add-ip-block'
 
@@ -64,7 +54,184 @@ interface BlockedIPsListProps {
     severity: string
     threat_score: number
   }) => void
+  onRefresh?: () => void
 }
+
+const IPItem = React.memo(({ 
+  ip, 
+  loading, 
+  onUnblock,
+  onViewDetails,
+  canUnblock,
+  getSeverityColor,
+  getCategoryColor
+}: { 
+  ip: BlockedIP;
+  loading: boolean;
+  onUnblock: (ipId: number) => void;
+  onViewDetails: (ip: BlockedIP) => void;
+  canUnblock: boolean;
+  getSeverityColor: (severity: string) => string;
+  getCategoryColor: (category: string) => string;
+}) => {
+  return (
+    <div className="flex items-center justify-between p-2.5 border-b hover:bg-accent/50 transition-colors">
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
+          <Globe className="h-4 w-4 text-primary" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h4 className="font-medium text-sm font-mono">
+              {ip.ip_address}
+            </h4>
+            <Badge className={getCategoryColor(ip.category)} variant="secondary">
+              {ip.category}
+            </Badge>
+            <Badge className={getSeverityColor(ip.severity)} variant="secondary">
+              {ip.severity}
+            </Badge>
+            {!ip.is_active && (
+              <span className="text-xs text-muted-foreground">• Inactive</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-xs text-muted-foreground truncate">
+              {ip.reason}
+            </p>
+            {ip.city && ip.country && (
+              <span className="text-xs text-muted-foreground">
+                • <MapPin className="h-3 w-3 inline" /> {ip.city}, {ip.country}
+              </span>
+            )}
+            <span className="text-xs text-muted-foreground">
+              • {new Date(ip.blocked_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </span>
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-1">
+        <Button 
+          variant="ghost" 
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => onViewDetails(ip)}
+          disabled={loading}
+        >
+          <Eye className="h-4 w-4" />
+        </Button>
+        {ip.is_active && canUnblock && (
+          <Button 
+            variant="ghost" 
+            size="icon"
+            className="h-8 w-8 text-destructive hover:text-destructive"
+            onClick={() => onUnblock(ip.id)}
+            disabled={loading}
+          >
+            <Unlock className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+});
+
+IPItem.displayName = 'IPItem';
+
+interface IPsListProps {
+  ips: BlockedIP[];
+  loading: boolean;
+  onUnblock: (ipId: number) => void;
+  onViewDetails: (ip: BlockedIP) => void;
+  canUnblock: boolean;
+  getSeverityColor: (severity: string) => string;
+  getCategoryColor: (category: string) => string;
+}
+
+const IPsList: React.FC<IPsListProps> = ({
+  ips,
+  loading,
+  onUnblock,
+  onViewDetails,
+  canUnblock,
+  getSeverityColor,
+  getCategoryColor
+}) => {
+  const parentRef = useRef<HTMLDivElement>(null);
+  const shouldVirtualize = ips.length > 50;
+
+  const rowVirtualizer = useVirtualizer({
+    count: shouldVirtualize ? ips.length : 0,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 100,
+    overscan: 5,
+    enabled: shouldVirtualize,
+  });
+
+  if (shouldVirtualize) {
+    return (
+      <div
+        ref={parentRef}
+        className="overflow-auto"
+        style={{ height: '600px', contain: 'strict' }}
+      >
+        <div
+          style={{
+            height: `${rowVirtualizer.getTotalSize()}px`,
+            width: '100%',
+            position: 'relative',
+          }}
+        >
+          <div className="divide-y">
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const ip = ips[virtualRow.index];
+              return (
+                <div
+                  key={ip.id}
+                  data-index={virtualRow.index}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+                  <IPItem
+                    ip={ip}
+                    loading={loading}
+                    onUnblock={onUnblock}
+                    onViewDetails={onViewDetails}
+                    canUnblock={canUnblock}
+                    getSeverityColor={getSeverityColor}
+                    getCategoryColor={getCategoryColor}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="divide-y">
+      {ips.map((ip) => (
+        <IPItem
+          key={ip.id}
+          ip={ip}
+          loading={loading}
+          onUnblock={onUnblock}
+          onViewDetails={onViewDetails}
+          canUnblock={canUnblock}
+          getSeverityColor={getSeverityColor}
+          getCategoryColor={getCategoryColor}
+        />
+      ))}
+    </div>
+  );
+};
 
 export default function BlockedIPsList({
   blockedIPs,
@@ -73,170 +240,114 @@ export default function BlockedIPsList({
   setSearchTerm,
   onUnblockIP,
   onViewDetails,
-  onBlockIP
+  onBlockIP,
+  onRefresh
 }: BlockedIPsListProps) {
   const { canViewIPs, canBlockIPs, canUnblockIPs } = useSecurityPermissions();
-  const getSeverityColor = (severity: string) => {
+  
+  const getSeverityColor = useCallback((severity: string) => {
     switch (severity.toLowerCase()) {
-      case 'low': return 'bg-green-100 text-green-800'
-      case 'medium': return 'bg-yellow-100 text-yellow-800'
-      case 'high': return 'bg-orange-100 text-orange-800'
-      case 'critical': return 'bg-red-100 text-red-800'
-      default: return 'bg-gray-100 text-gray-800'
+      case 'low': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+      case 'medium': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+      case 'high': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400'
+      case 'critical': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
     }
-  }
+  }, []);
 
-  const getCategoryColor = (category: string) => {
+  const getCategoryColor = useCallback((category: string) => {
     switch (category.toLowerCase()) {
-      case 'spam': return 'bg-blue-100 text-blue-800'
-      case 'abuse': return 'bg-red-100 text-red-800'
-      case 'fraud': return 'bg-purple-100 text-purple-800'
-      case 'malware': return 'bg-red-100 text-red-800'
-      case 'suspicious': return 'bg-yellow-100 text-yellow-800'
-      case 'violation': return 'bg-orange-100 text-orange-800'
-      case 'rate_limit': return 'bg-gray-100 text-gray-800'
-      case 'geo_block': return 'bg-indigo-100 text-indigo-800'
-      default: return 'bg-gray-100 text-gray-800'
+      case 'spam': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+      case 'abuse': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+      case 'fraud': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
+      case 'malware': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+      case 'suspicious': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+      case 'violation': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400'
+      case 'rate_limit': return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
+      case 'geo_block': return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400'
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
     }
-  }
+  }, []);
 
-  const filteredIPs = (blockedIPs || []).filter(ip =>
-    ip.ip_address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    ip.reason.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (ip.country && ip.country.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (ip.city && ip.city.toLowerCase().includes(searchTerm.toLowerCase()))
-  )
+  const filteredIPs = useMemo(() => {
+    return (blockedIPs || []).filter(ip =>
+      ip.ip_address.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ip.reason.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (ip.country && ip.country.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (ip.city && ip.city.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+  }, [blockedIPs, searchTerm]);
 
   if (!canViewIPs) {
     return null;
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>
-              Blocked IP Addresses
-            </CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">
-              {filteredIPs.length} of {blockedIPs?.length || 0} blocked IPs
-            </p>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Input
-              placeholder="Search IPs, reasons, locations..."
-              className="w-64"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            {canBlockIPs && (
-              <AddIPBlock onAdd={onBlockIP} loading={loading} />
-            )}
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <div className="flex items-center justify-center h-32">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-              <p className="text-sm text-muted-foreground">Loading blocked IPs...</p>
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="pb-0">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base">Blocked IP Addresses</CardTitle>
+              <CardDescription className="mt-1 text-xs">
+                {blockedIPs?.length || 0} total
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              {onRefresh && (
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={onRefresh}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                </Button>
+              )}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search IPs, reasons, locations..."
+                  className="pl-10 w-64"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <ConditionalRender permission="security.block_ips" fallback={null}>
+                <AddIPBlock onAdd={onBlockIP} loading={loading} />
+              </ConditionalRender>
             </div>
           </div>
-        ) : filteredIPs.length === 0 ? (
-          <div className="text-center py-8">
-            <Globe className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-foreground mb-2">No Blocked IPs</h3>
-            <p className="text-muted-foreground">
-              {searchTerm ? 'No IPs match your search criteria' : 'No IP addresses are currently blocked'}
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>IP Address</TableHead>
-                  <TableHead>Reason</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Severity</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Blocked At</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredIPs.map((ip) => (
-                  <TableRow key={ip.id}>
-                    <TableCell className="font-mono">{ip.ip_address}</TableCell>
-                    <TableCell className="max-w-xs truncate" title={ip.reason}>
-                      {ip.reason}
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={getCategoryColor(ip.category)}>
-                        {ip.category}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={getSeverityColor(ip.severity)}>
-                        {ip.severity}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <MapPin className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-sm">
-                          {ip.city && ip.country ? `${ip.city}, ${ip.country}` : 
-                           ip.country || 'Unknown'}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-sm">
-                          {new Date(ip.blocked_at).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={ip.is_active ? 'destructive' : 'secondary'}>
-                        {ip.is_active ? 'Active' : 'Inactive'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => onViewDetails(ip)}>
-                            <Eye className="h-4 w-4 mr-2" />
-                            View Details
-                          </DropdownMenuItem>
-                          {ip.is_active && canUnblockIPs && (
-                            <DropdownMenuItem 
-                              onClick={() => onUnblockIP(ip.id)}
-                              className="text-red-600"
-                            >
-                              <Unlock className="h-4 w-4 mr-2" />
-                              Unblock
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+        </CardHeader>
+        <CardContent className="pt-0 -mt-3">
+          {loading ? (
+            <Spinner message="Loading blocked IPs..." />
+          ) : filteredIPs.length === 0 ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <Globe className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                <div className="text-sm text-muted-foreground">
+                  {searchTerm ? 'No IPs match your search criteria' : 'No IP addresses are currently blocked'}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <IPsList
+              ips={filteredIPs}
+              loading={loading}
+              onUnblock={onUnblockIP}
+              onViewDetails={onViewDetails}
+              canUnblock={canUnblockIPs}
+              getSeverityColor={getSeverityColor}
+              getCategoryColor={getCategoryColor}
+            />
+          )}
+        </CardContent>
+      </Card>
+    </div>
   )
 }

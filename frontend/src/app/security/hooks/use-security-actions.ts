@@ -13,8 +13,8 @@ interface SecurityStats {
 
 export function useSecurityActions() {
   const securityPermissions = useSecurityPermissions()
-  const { blockedIPs = [], loading: ipLoading, blockIP, unblockIP } = useBlockedIPs()
-  const { blockedHWIDs = [], loading: hwidLoading, blockHWID, unblockHWID } = useBlockedHWIDs()
+  const { blockedIPs = [], loading: ipLoading, blockIP, unblockIP, refetch: refetchIPs } = useBlockedIPs()
+  const { blockedHWIDs = [], loading: hwidLoading, blockHWID, unblockHWID, refetch: refetchHWIDs } = useBlockedHWIDs()
 
   const stats: SecurityStats = useMemo(() => {
     const activeIPs = blockedIPs.filter(ip => ip.is_active)
@@ -84,6 +84,18 @@ export function useSecurityActions() {
     }
   }, [blockHWID, securityPermissions.canBlockHWIDs])
 
+  const handleRefreshIPs = useCallback(async () => {
+    await refetchIPs()
+  }, [refetchIPs])
+
+  const handleRefreshHWIDs = useCallback(async () => {
+    await refetchHWIDs()
+  }, [refetchHWIDs])
+
+  const handleRefreshRules = useCallback(async () => {
+    await Promise.all([refetchIPs(), refetchHWIDs()])
+  }, [refetchIPs, refetchHWIDs])
+
   return {
     stats,
     loading,
@@ -95,5 +107,8 @@ export function useSecurityActions() {
     handleViewHWIDDetails,
     handleBlockIP,
     handleBlockHWID,
+    handleRefreshIPs,
+    handleRefreshHWIDs,
+    handleRefreshRules,
   }
 }

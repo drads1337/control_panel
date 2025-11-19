@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useAuthContext } from '../../contexts/auth-context';
 import { SecurityPermissionsProvider, useSecurityPermissions } from '../../contexts/security-permissions-context';
 import SecurityTabs from './security-tabs';
 import { useSecurityActions } from './hooks/use-security-actions';
 import { SecurityAccessDenied } from './security-access-denied';
+import { Button } from '@/components/ui/button';
+import { RefreshCw } from 'lucide-react';
 
 function SecurityPageContent() {
-  const { isAuthenticated, user } = useAuthContext();
+  const { isAuthenticated, user, isInitialized } = useAuthContext();
   const securityPermissions = useSecurityPermissions();
 
   const [activeTab, setActiveTab] = useState('blocked-ips');
@@ -24,7 +26,20 @@ function SecurityPageContent() {
     handleViewHWIDDetails,
     handleBlockIP,
     handleBlockHWID,
+    handleRefreshIPs,
+    handleRefreshHWIDs,
+    handleRefreshRules,
   } = useSecurityActions();
+
+  if (!isInitialized) {
+    return (
+      <div className="flex h-screen bg-background">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-muted-foreground">Initializing...</div>
+        </div>
+      </div>
+    )
+  }
 
   if (!isAuthenticated || !user) {
     return <SecurityAccessDenied message="You need to be logged in to view the security panel." />;
@@ -34,17 +49,28 @@ function SecurityPageContent() {
     return <SecurityAccessDenied message="You don't have permission to access the security panel." />;
   }
 
+  const handleRefresh = useCallback(async () => {
+    await Promise.all([
+      handleRefreshIPs(),
+      handleRefreshHWIDs(),
+      handleRefreshRules()
+    ]);
+  }, [handleRefreshIPs, handleRefreshHWIDs, handleRefreshRules]);
+
   return (
-    <div>
+    <div className="space-y-6">
       {}
-      <div className="mb-8">
-        <div className="flex items-center gap-3">
+      <div className="mb-6">
+        <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Security Panel</h1>
-            <p className="text-muted-foreground">
-              Manage clients, IP/HWID blocks and configure security rules.
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">Security Management</h1>
+            <p className="text-muted-foreground mt-2">
+              Manage IP/HWID blocks and configure security rules
             </p>
           </div>
+          <Button variant="ghost" size="icon" onClick={handleRefresh} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
         </div>
       </div>
 
@@ -65,6 +91,9 @@ function SecurityPageContent() {
         onViewHWIDDetails={handleViewHWIDDetails}
         onBlockIP={handleBlockIP}
         onBlockHWID={handleBlockHWID}
+        onRefreshIPs={handleRefreshIPs}
+        onRefreshHWIDs={handleRefreshHWIDs}
+        onRefreshRules={handleRefreshRules}
       />
     </div>
   );

@@ -18,12 +18,16 @@ class RemoteCategory(db.Model):
         db.Integer, db.ForeignKey("project.id", ondelete="CASCADE"), nullable=False
     )
     project = db.relationship("Project", backref="remote_categories")
+    game_id = db.Column(
+        db.Integer, db.ForeignKey("game.id", ondelete="CASCADE"), nullable=False
+    )
+    game = db.relationship("Game", backref="remote_categories")
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     __table_args__ = (
-        db.UniqueConstraint("name", "project_id", name="uq_remote_category_name_project"),
+        db.UniqueConstraint("name", "project_id", "game_id", name="uq_remote_category_name_project_game"),
     )
 
     def to_dict(self):
@@ -33,12 +37,13 @@ class RemoteCategory(db.Model):
             "name": self.name,
             "description": self.description,
             "color": self.color,
+            "game_id": str(self.game_id),
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
 
     def __repr__(self):
-        return f"<RemoteCategory {self.name} (project_id={self.project_id})>"
+        return f"<RemoteCategory {self.name} (project_id={self.project_id}, game_id={self.game_id})>"
 
 class RemoteFeature(db.Model):
     """Model for remote control features (Player ESP, Smooth Aimbot, etc.)"""
@@ -55,6 +60,10 @@ class RemoteFeature(db.Model):
         db.Integer, db.ForeignKey("project.id", ondelete="CASCADE"), nullable=False
     )
     project = db.relationship("Project", backref="remote_features")
+    game_id = db.Column(
+        db.Integer, db.ForeignKey("game.id", ondelete="CASCADE"), nullable=False
+    )
+    game = db.relationship("Game", backref="remote_features")
 
     configuration = db.Column(db.Text, nullable=True)
 
@@ -67,7 +76,7 @@ class RemoteFeature(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     __table_args__ = (
-        db.UniqueConstraint("name", "project_id", name="uq_remote_feature_name_project"),
+        db.UniqueConstraint("name", "project_id", "game_id", name="uq_remote_feature_name_project_game"),
     )
 
     def get_configuration(self):
@@ -94,6 +103,7 @@ class RemoteFeature(db.Model):
             "description": self.description,
             "enabled": self.enabled,
             "category": str(self.category_id),
+            "game_id": str(self.game_id),
             "status": self.status,
             "configuration": self.get_configuration(),
             "usage_count": self.usage_count,
@@ -103,7 +113,7 @@ class RemoteFeature(db.Model):
         }
 
     def __repr__(self):
-        return f"<RemoteFeature {self.name} (category_id={self.category_id}, project_id={self.project_id})>"
+        return f"<RemoteFeature {self.name} (category_id={self.category_id}, project_id={self.project_id}, game_id={self.game_id})>"
 
 class RemoteFeatureLog(db.Model):
     """Model for logging remote feature usage and changes"""

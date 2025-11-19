@@ -18,7 +18,7 @@ export default function RemoteControlStatsCards({ categories, stats }: RemoteCon
 
   return (
     <div 
-      className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid gap-6 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs"
+      className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs mt-4"
       style={{gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))'}}
     >
       {categories.map(category => {
@@ -32,7 +32,7 @@ export default function RemoteControlStatsCards({ categories, stats }: RemoteCon
                 style={{ backgroundColor: category.color }}
               />
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0 pb-4">
               <div className="text-2xl font-bold tabular-nums">{categoryStats.enabled}/{categoryStats.total}</div>
               <p className="text-xs text-muted-foreground">
                 {categoryStats.enabled > 0 ? 'Active Features' : 'No active features'}

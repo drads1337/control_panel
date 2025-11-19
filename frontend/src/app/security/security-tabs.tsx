@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect } from 'react'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContent, TabsContents, TabsList, TabsTrigger } from '@/components/animate-ui/components/radix/tabs'
 import { Shield, Globe, Monitor, Settings } from 'lucide-react'
 import { useSecurityPermissions } from '@/contexts/security-permissions-context'
 import SecurityStatsCards from './security-stats-cards'
@@ -71,6 +71,9 @@ interface SecurityTabsProps {
   onViewHWIDDetails: (hwid: BlockedHWID) => void
   onBlockIP: (data: any) => void
   onBlockHWID: (data: any) => void
+  onRefreshIPs?: () => void
+  onRefreshHWIDs?: () => void
+  onRefreshRules?: () => void
 }
 
 export default function SecurityTabs({
@@ -89,7 +92,10 @@ export default function SecurityTabs({
   onViewIPDetails,
   onViewHWIDDetails,
   onBlockIP,
-  onBlockHWID
+  onBlockHWID,
+  onRefreshIPs,
+  onRefreshHWIDs,
+  onRefreshRules
 }: SecurityTabsProps) {
   const {
     canViewIPs,
@@ -107,18 +113,18 @@ export default function SecurityTabs({
       label: string
       icon: React.ComponentType<{ className?: string }>
     }> = []
-    if (canViewIPs) {
-      tabs.push({
-        value: 'blocked-ips',
-        label: 'Blocked IPs',
-        icon: Globe
-      })
-    }
     if (canViewHWIDs) {
       tabs.push({
         value: 'blocked-hwids',
         label: 'Blocked HWIDs',
         icon: Monitor
+      })
+    }
+    if (canViewIPs) {
+      tabs.push({
+        value: 'blocked-ips',
+        label: 'Blocked IPs',
+        icon: Globe
       })
     }
     if (canManageRules) {
@@ -141,108 +147,119 @@ export default function SecurityTabs({
     return null
   }
 
+  const hasBlockedData = (canViewIPs && blockedIPs.length > 0) || (canViewHWIDs && blockedHWIDs.length > 0);
+
   return (
     <div className="space-y-6">
       {}
-      <SecurityStatsCards 
-        stats={stats} 
-        loading={loading}
-        canViewIPs={canViewIPs}
-        canViewHWIDs={canViewHWIDs}
-      />
+      {hasBlockedData && (
+        <SecurityStatsCards 
+          stats={stats} 
+          loading={loading}
+          canViewIPs={canViewIPs}
+          canViewHWIDs={canViewHWIDs}
+        />
+      )}
 
       {}
       {availableTabs.length > 0 && (
-      <>
-        {availableTabs.length > 1 ? (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className={`grid w-full h-14 bg-muted border border-border rounded-lg mb-6`} style={{gridTemplateColumns: `repeat(${availableTabs.length}, 1fr)`}}>
-              {availableTabs.map((tab) => {
-                const Icon = tab.icon
-                return (
-                  <TabsTrigger 
-                    key={tab.value}
-                    value={tab.value} 
-                    className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:bg-primary dark:data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm rounded-lg transition-all duration-200"
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{tab.label}</span>
-                  </TabsTrigger>
-                )
-              })}
-            </TabsList>
-
-            {canViewIPs && (
-              <TabsContent value="blocked-ips" className="space-y-6">
-                <BlockedIPsList
-                  blockedIPs={blockedIPs}
-                  loading={loading}
-                  searchTerm={ipSearchTerm}
-                  setSearchTerm={setIPSearchTerm}
-                  onUnblockIP={onUnblockIP}
-                  onViewDetails={onViewIPDetails}
-                  onBlockIP={onBlockIP}
-                />
-              </TabsContent>
-            )}
-
-            {canViewHWIDs && (
-              <TabsContent value="blocked-hwids" className="space-y-6">
-                <BlockedHWIDsList
-                  blockedHWIDs={blockedHWIDs}
-                  loading={loading}
-                  searchTerm={hwidSearchTerm}
-                  setSearchTerm={setHWIDSearchTerm}
-                  onUnblockHWID={onUnblockHWID}
-                  onViewDetails={onViewHWIDDetails}
-                  onBlockHWID={onBlockHWID}
-                />
-              </TabsContent>
-            )}
-
-            {canManageRules && (
-              <TabsContent value="rules" className="space-y-6">
-                <SecurityRules />
-              </TabsContent>
-            )}
-          </Tabs>
-        ) : (
-
-          <>
-            {canViewIPs && activeTab === 'blocked-ips' && (
-              <div className="space-y-6">
-                <BlockedIPsList
-                  blockedIPs={blockedIPs}
-                  loading={loading}
-                  searchTerm={ipSearchTerm}
-                  setSearchTerm={setIPSearchTerm}
-                  onUnblockIP={onUnblockIP}
-                  onViewDetails={onViewIPDetails}
-                  onBlockIP={onBlockIP}
-                />
+        <>
+          {availableTabs.length > 1 ? (
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <div className="relative mb-4">
+                <TabsList className={`grid w-full h-14 bg-muted border border-border rounded-lg p-1`} style={{gridTemplateColumns: `repeat(${availableTabs.length}, 1fr)`}}>
+                  {availableTabs.map((tab) => {
+                    const Icon = tab.icon
+                    return (
+                      <TabsTrigger 
+                        key={tab.value}
+                        value={tab.value} 
+                        className="flex items-center justify-center gap-2"
+                      >
+                        <Icon className="h-4 w-4" />
+                        <span>{tab.label}</span>
+                      </TabsTrigger>
+                    )
+                  })}
+                </TabsList>
               </div>
-            )}
-            {canViewHWIDs && activeTab === 'blocked-hwids' && (
-              <div className="space-y-6">
-                <BlockedHWIDsList
-                  blockedHWIDs={blockedHWIDs}
-                  loading={loading}
-                  searchTerm={hwidSearchTerm}
-                  setSearchTerm={setHWIDSearchTerm}
-                  onUnblockHWID={onUnblockHWID}
-                  onViewDetails={onViewHWIDDetails}
-                  onBlockHWID={onBlockHWID}
-                />
-              </div>
-            )}
-            {canManageRules && activeTab === 'rules' && (
-              <div className="space-y-6">
-                <SecurityRules />
-              </div>
-            )}
-          </>
-        )}
-      </>
+
+              <TabsContents>
+                {canViewHWIDs && (
+                  <TabsContent value="blocked-hwids" className="space-y-6">
+                    <BlockedHWIDsList
+                      blockedHWIDs={blockedHWIDs}
+                      loading={loading}
+                      searchTerm={hwidSearchTerm}
+                      setSearchTerm={setHWIDSearchTerm}
+                      onUnblockHWID={onUnblockHWID}
+                      onViewDetails={onViewHWIDDetails}
+                      onBlockHWID={onBlockHWID}
+                      onRefresh={onRefreshHWIDs}
+                    />
+                  </TabsContent>
+                )}
+
+                {canViewIPs && (
+                  <TabsContent value="blocked-ips" className="space-y-6">
+                    <BlockedIPsList
+                      blockedIPs={blockedIPs}
+                      loading={loading}
+                      searchTerm={ipSearchTerm}
+                      setSearchTerm={setIPSearchTerm}
+                      onUnblockIP={onUnblockIP}
+                      onViewDetails={onViewIPDetails}
+                      onBlockIP={onBlockIP}
+                      onRefresh={onRefreshIPs}
+                    />
+                  </TabsContent>
+                )}
+
+                {canManageRules && (
+                  <TabsContent value="rules" className="space-y-6">
+                    <SecurityRules onRefresh={onRefreshRules} loading={loading} />
+                  </TabsContent>
+                )}
+              </TabsContents>
+            </Tabs>
+          ) : (
+            <>
+              {canViewHWIDs && activeTab === 'blocked-hwids' && (
+                <div className="space-y-6 mt-4">
+                  <BlockedHWIDsList
+                    blockedHWIDs={blockedHWIDs}
+                    loading={loading}
+                    searchTerm={hwidSearchTerm}
+                    setSearchTerm={setHWIDSearchTerm}
+                    onUnblockHWID={onUnblockHWID}
+                    onViewDetails={onViewHWIDDetails}
+                    onBlockHWID={onBlockHWID}
+                    onRefresh={onRefreshHWIDs}
+                  />
+                </div>
+              )}
+              {canViewIPs && activeTab === 'blocked-ips' && (
+                <div className="space-y-6 mt-4">
+                  <BlockedIPsList
+                    blockedIPs={blockedIPs}
+                    loading={loading}
+                    searchTerm={ipSearchTerm}
+                    setSearchTerm={setIPSearchTerm}
+                    onUnblockIP={onUnblockIP}
+                    onViewDetails={onViewIPDetails}
+                    onBlockIP={onBlockIP}
+                    onRefresh={onRefreshIPs}
+                  />
+                </div>
+              )}
+              {canManageRules && activeTab === 'rules' && (
+                <div className="space-y-6 mt-4">
+                  <SecurityRules onRefresh={onRefreshRules} loading={loading} />
+                </div>
+              )}
+            </>
+          )}
+        </>
       )}
     </div>
   )

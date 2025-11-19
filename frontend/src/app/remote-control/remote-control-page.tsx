@@ -1,23 +1,36 @@
 import React, { useState, useEffect } from 'react'
 import { useAuthContext } from '@/contexts/auth-context'
 import { usePermissions } from '@/hooks/use-permissions'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Settings, AlertCircle } from 'lucide-react'
+import { Spinner } from '@/components/ui/spinner'
+import { Settings, AlertCircle, RefreshCw, Gamepad2, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ConditionalRender } from '@/components/rbac/conditional-render'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   remoteControlAPI,
   RemoteCategory,
   RemoteFeature,
   CategoryStats
 } from '@/lib/remote-control-api'
+import { getGames } from '@/entities/game/api/game'
+import type { Game } from '@/entities/game'
 import RemoteControlStatsCards from './remote-control-stats-cards'
 import RemoteControlTabs from './remote-control-tabs'
 import CategoryDialog from './category-dialog'
 
 export default function RemoteControl() {
   const { user, token } = useAuthContext()
+  const [selectedGameId, setSelectedGameId] = useState<number | null>(null)
+  const [games, setGames] = useState<Game[]>([])
+  const [gamesLoading, setGamesLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('')
   const [features, setFeatures] = useState<RemoteFeature[]>([])
   const [categories, setCategories] = useState<RemoteCategory[]>([])
@@ -41,20 +54,41 @@ export default function RemoteControl() {
   const [categoryFormData, setCategoryFormData] = useState({
     name: '',
     description: '',
-    color: '#3b82f6'
+    color: '#3b82f6',
+    game_id: 0
   })
 
   const { hasPermission } = usePermissions()
 
+  const loadGames = async () => {
+    try {
+      setGamesLoading(true)
+      const response = await getGames('all')
+      setGames(response.games || [])
+      if (response.games && response.games.length > 0 && !selectedGameId) {
+        setSelectedGameId(response.games[0].id)
+      }
+    } catch (err: any) {
+      toast.error('Failed to load games')
+    } finally {
+      setGamesLoading(false)
+    }
+  }
+
   const loadData = async () => {
+    if (!selectedGameId) {
+      setLoading(false)
+      return
+    }
+
     try {
       setLoading(true)
       setError(null)
 
       const [categoriesData, featuresData, statsData] = await Promise.all([
-        remoteControlAPI.getCategories(),
-        remoteControlAPI.getFeatures(),
-        remoteControlAPI.getStats()
+        remoteControlAPI.getCategories(selectedGameId),
+        remoteControlAPI.getFeatures(selectedGameId),
+        remoteControlAPI.getStats(selectedGameId)
       ])
 
       setCategories(categoriesData)
@@ -75,8 +109,12 @@ export default function RemoteControl() {
   }
 
   useEffect(() => {
-    loadData()
+    loadGames()
   }, [])
+
+  useEffect(() => {
+    loadData()
+  }, [selectedGameId])
 
   const handleFeatureToggle = async (featureId: string) => {
     if (!hasPermission('remote_control.toggle')) {
@@ -211,6 +249,11 @@ export default function RemoteControl() {
       return
     }
 
+    if (!selectedGameId) {
+      toast.error("Please select a game first")
+      return
+    }
+
     if (!categoryFormData.name.trim() || !categoryFormData.description.trim()) {
       toast.error("Please fill in all required fields")
       return
@@ -220,7 +263,8 @@ export default function RemoteControl() {
       const newCategory = await remoteControlAPI.createCategory({
         name: categoryFormData.name,
         description: categoryFormData.description,
-        color: categoryFormData.color
+        color: categoryFormData.color,
+        game_id: selectedGameId
       })
 
       setCategories(prev => [...prev, newCategory])
@@ -244,7 +288,8 @@ export default function RemoteControl() {
     setCategoryFormData({
       name: category.name,
       description: category.description,
-      color: category.color
+      color: category.color,
+      game_id: parseInt(category.game_id)
     })
     setCategoryDialogOpen(true)
   }
@@ -264,7 +309,8 @@ export default function RemoteControl() {
       const updatedCategory = await remoteControlAPI.updateCategory(editingCategory.id, {
         name: categoryFormData.name,
         description: categoryFormData.description,
-        color: categoryFormData.color
+        color: categoryFormData.color,
+        game_id: selectedGameId || undefined
       })
 
       setCategories(prev => prev.map(category =>
@@ -311,7 +357,8 @@ export default function RemoteControl() {
     setCategoryFormData({
       name: '',
       description: '',
-      color: '#3b82f6'
+      color: '#3b82f6',
+      game_id: selectedGameId || 0
     })
   }
 
@@ -321,56 +368,55 @@ export default function RemoteControl() {
 
   if (!hasPermission('remote_control.view')) {
     return (
-      <div className="space-y-6">
-        {}
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Remote Control</h1>
+      <div>
+        <div className="mb-4">
+          <h2 className="text-3xl font-bold text-foreground mb-2">
+            Remote Control
+          </h2>
           <p className="text-muted-foreground">
             Manage online features for mods and cheats for clients
           </p>
         </div>
-
-        <div className="flex items-center justify-center min-h-[400px]">
-          <Card className="w-full max-w-md text-center">
-            <CardContent className="p-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-center py-6">
               <div className="text-center">
-                <Settings className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
-                <p className="text-muted-foreground">
+                <Settings className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                <div className="text-sm text-muted-foreground">Access Denied</div>
+                <p className="text-xs text-muted-foreground mt-1">
                   You don't have permission to access remote control features.
                 </p>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="space-y-6">
-        {}
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Remote Control</h1>
+      <div>
+        <div className="mb-4">
+          <h2 className="text-3xl font-bold text-foreground mb-2">
+            Remote Control
+          </h2>
           <p className="text-muted-foreground">
             Manage online features for mods and cheats for clients
           </p>
         </div>
-
-        {}
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-6">
             <div className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-red-500" />
-              <span className="text-red-800">{error}</span>
+              <AlertCircle className="h-4 w-4 text-destructive" />
+              <span className="text-sm text-destructive">{error}</span>
               <Button
                 variant="ghost"
-                size="sm"
+                size="icon"
                 onClick={loadData}
-                className="ml-auto text-red-600 hover:text-red-800"
+                className="ml-auto h-8 w-8"
               >
-                Try again
+                <RefreshCw className="h-4 w-4" />
               </Button>
             </div>
           </CardContent>
@@ -380,67 +426,128 @@ export default function RemoteControl() {
   }
 
   return (
-    <div className="space-y-6">
-      {}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Remote Control</h1>
+    <div>
+      <div className="mb-4">
+        <h2 className="text-3xl font-bold text-foreground mb-2">
+          Remote Control
+        </h2>
         <p className="text-muted-foreground">
           Manage online features for mods and cheats for clients
         </p>
       </div>
+      <Card>
+        <CardHeader className="border-b bg-muted/30 pt-3 pb-0 px-6">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-md bg-primary/10 text-primary pt-1 -mb-4">
+                  <Gamepad2 className="h-4 w-4" />
+                </div>
+                <div className="pt-1 -mb-4">
+                <Select
+                  value={selectedGameId?.toString() || ''}
+                  onValueChange={(value) => {
+                    setSelectedGameId(parseInt(value))
+                    setActiveTab('')
+                  }}
+                  disabled={gamesLoading}
+                >
+                    <SelectTrigger id="game-select" className="w-[280px] h-9 border-border/50 bg-background !mt-0 !mb-0">
+                    <SelectValue placeholder="Select a game" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {games.map((game) => (
+                      <SelectItem key={game.id} value={game.id.toString()}>
+                        {game.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                </div>
+              </div>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={loadData}
+              disabled={loading || !selectedGameId}
+              className="pt-1 -mb-4"
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0 pb-4">
+          {!selectedGameId ? (
+            <div className="flex items-center justify-center py-6">
+              <div className="text-center">
+                <Settings className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                <div className="text-sm text-muted-foreground">Please select a game to manage remote control features</div>
+              </div>
+            </div>
+          ) : loading ? (
+            <Spinner message="Loading remote control..." />
+          ) : (
+            <RemoteControlTabs
+              categories={categories}
+              features={features}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              loading={loading}
+              addDialogOpen={addDialogOpen}
+              setAddDialogOpen={setAddDialogOpen}
+              editDialogOpen={editDialogOpen}
+              setEditDialogOpen={setEditDialogOpen}
+              editingFeature={editingFeature}
+              formData={formData}
+              setFormData={setFormData}
+              onAddCategory={() => {
+                setEditingCategory(null)
+                resetCategoryForm()
+                setCategoryDialogOpen(true)
+              }}
+              onManageCategories={() => setCategoryDialogOpen(true)}
+              onFeatureToggle={handleFeatureToggle}
+              onEditFeature={handleEditFeature}
+              onDeleteFeature={handleDeleteFeature}
+              onAddFeature={handleAddFeature}
+              onUpdateFeature={handleUpdateFeature}
+              getCategoryFeatures={getCategoryFeatures}
+              canCreate={hasPermission('remote_control.create')}
+              canEdit={hasPermission('remote_control.edit')}
+              canDelete={hasPermission('remote_control.delete')}
+              canToggle={hasPermission('remote_control.toggle')}
+            />
+          )}
+        </CardContent>
+      </Card>
 
-      {}
-      <RemoteControlStatsCards categories={categories} stats={stats} />
+      {selectedGameId && !loading && categories.length > 0 && (
+        <RemoteControlStatsCards categories={categories} stats={stats} />
+      )}
 
-      {}
-      <RemoteControlTabs
-        categories={categories}
-        features={features}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        loading={loading}
-        addDialogOpen={addDialogOpen}
-        setAddDialogOpen={setAddDialogOpen}
-        editDialogOpen={editDialogOpen}
-        setEditDialogOpen={setEditDialogOpen}
-        editingFeature={editingFeature}
-        formData={formData}
-        setFormData={setFormData}
-        onAddCategory={() => {
-          setEditingCategory(null)
-          resetCategoryForm()
-          setCategoryDialogOpen(true)
-        }}
-        onManageCategories={() => setCategoryDialogOpen(true)}
-        onFeatureToggle={handleFeatureToggle}
-        onEditFeature={handleEditFeature}
-        onDeleteFeature={handleDeleteFeature}
-        onAddFeature={handleAddFeature}
-        onUpdateFeature={handleUpdateFeature}
-        getCategoryFeatures={getCategoryFeatures}
-        canCreate={hasPermission('remote_control.create')}
-        canEdit={hasPermission('remote_control.edit')}
-        canDelete={hasPermission('remote_control.delete')}
-        canToggle={hasPermission('remote_control.toggle')}
-      />
-
-      {}
-      <CategoryDialog
-        categoryDialogOpen={categoryDialogOpen}
-        setCategoryDialogOpen={setCategoryDialogOpen}
-        editingCategory={editingCategory}
-        categories={categories}
-        categoryFormData={categoryFormData}
-        setCategoryFormData={setCategoryFormData}
-        onAddCategory={handleAddCategory}
-        onUpdateCategory={handleUpdateCategory}
-        onEditCategory={handleEditCategory}
-        onDeleteCategory={handleDeleteCategory}
-        onResetCategoryForm={resetCategoryForm}
-        canCreate={hasPermission('remote_control.create')}
-        canEdit={hasPermission('remote_control.edit')}
-        canDelete={hasPermission('remote_control.delete')}
-      />
+      {selectedGameId && (
+        <CategoryDialog
+          categoryDialogOpen={categoryDialogOpen}
+          setCategoryDialogOpen={setCategoryDialogOpen}
+          editingCategory={editingCategory}
+          categories={categories}
+          categoryFormData={categoryFormData}
+          setCategoryFormData={setCategoryFormData}
+          onAddCategory={handleAddCategory}
+          onUpdateCategory={handleUpdateCategory}
+          onEditCategory={handleEditCategory}
+          onDeleteCategory={handleDeleteCategory}
+          onResetCategoryForm={resetCategoryForm}
+          canCreate={hasPermission('remote_control.create')}
+          canEdit={hasPermission('remote_control.edit')}
+          canDelete={hasPermission('remote_control.delete')}
+        />
+      )}
     </div>
   )
 }

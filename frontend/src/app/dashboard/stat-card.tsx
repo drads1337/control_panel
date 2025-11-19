@@ -50,8 +50,8 @@ export function StatCard({
   return (
     <Card className={`@container/card ${className}`}>
       <CardHeader>
-        <CardDescription className="flex items-center gap-2">
-          <Icon className="h-4 w-4" />
+        <CardDescription className="flex items-center gap-2 [&_svg]:h-4 [&_svg]:w-4">
+          <Icon />
           {title}
         </CardDescription>
         <CardTitle className={cn(

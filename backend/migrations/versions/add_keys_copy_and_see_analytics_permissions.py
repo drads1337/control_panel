@@ -16,7 +16,7 @@ from sqlalchemy import text
 from datetime import datetime, timezone
 
 revision = 'add_keys_copy_see_analytics'
-down_revision = 'remove_offline_max_devices_001'  # Current DB revision
+down_revision = 'add_user_key_counters'  # Current DB revision
 branch_labels = None
 depends_on = None
 

@@ -18,6 +18,7 @@ from ..middleware.auth import (
     require_user,
 )
 from ..models.core import Project, User
+from ..models.games import Game
 from ..models.remote_control import RemoteCategory, RemoteFeature, RemoteFeatureLog
 from ..services.activity import activity_service
 from ..utils.role_constants import RolePermissions
@@ -31,7 +32,7 @@ remote_control_bp = Blueprint("remote_control", __name__)
 @enforce_project_scope
 @require_any_permission(["remote_control.view"])
 def get_categories(project_id=None):
-    """Get all remote control categories for the current project"""
+    """Get all remote control categories for the current project and game"""
     try:
 
         if project_id is None:
@@ -41,7 +42,19 @@ def get_categories(project_id=None):
                 400,
             )
 
-        categories = RemoteCategory.query.filter_by(project_id=project_id).all()
+        game_id = request.args.get("game_id", type=int)
+        if not game_id:
+            return (
+                jsonify({"error": "Game ID is required. Please specify game_id parameter."}),
+                400,
+            )
+
+        # Verify game belongs to project
+        game = Game.query.filter_by(id=game_id, project_id=project_id).first()
+        if not game:
+            return jsonify({"error": "Game not found or does not belong to this project"}), 404
+
+        categories = RemoteCategory.query.filter_by(project_id=project_id, game_id=game_id).all()
 
         result = {"success": True, "categories": [category.to_dict() for category in categories]}
 
@@ -77,19 +90,29 @@ def create_category(project_id=None, current_user=None):
         if not data.get("name") or not data.get("name").strip():
             return jsonify({"error": "Category name is required"}), 400
 
+        if not data.get("game_id"):
+            return jsonify({"error": "Game ID is required"}), 400
+
+        # Verify game belongs to project
+        game = Game.query.filter_by(id=data["game_id"], project_id=project_id).first()
+        if not game:
+            return jsonify({"error": "Game not found or does not belong to this project"}), 404
+
         existing_category = RemoteCategory.query.filter_by(
-            name=data["name"].strip(), project_id=project_id
+            name=data["name"].strip(), project_id=project_id, game_id=data["game_id"]
         ).first()
 
         if existing_category:
-            return jsonify({"error": "Category with this name already exists"}), 400
+            return jsonify({"error": "Category with this name already exists for this game"}), 400
 
-        current_categories_count = RemoteCategory.query.filter_by(project_id=project_id).count()
+        current_categories_count = RemoteCategory.query.filter_by(
+            project_id=project_id, game_id=data["game_id"]
+        ).count()
         if current_categories_count >= 8:
             return (
                 jsonify(
                     {
-                        "error": "Maximum of 8 sections allowed. Please delete a section before creating a new one."
+                        "error": "Maximum of 8 sections allowed per game. Please delete a section before creating a new one."
                     }
                 ),
                 400,
@@ -100,6 +123,7 @@ def create_category(project_id=None, current_user=None):
             description=data.get("description", "").strip(),
             color=data.get("color", "#3b82f6"),
             project_id=project_id,
+            game_id=data["game_id"],
         )
 
         db.session.add(category)
@@ -160,19 +184,29 @@ def update_category(category_id, project_id=None, current_user=None):
         if not data.get("name") or not data.get("name").strip():
             return jsonify({"error": "Category name is required"}), 400
 
+        # If game_id is being updated, verify it belongs to project
+        if data.get("game_id") and data["game_id"] != category.game_id:
+            game = Game.query.filter_by(id=data["game_id"], project_id=project_id).first()
+            if not game:
+                return jsonify({"error": "Game not found or does not belong to this project"}), 404
+
+        game_id = data.get("game_id", category.game_id)
         existing_category = RemoteCategory.query.filter(
             RemoteCategory.name == data["name"].strip(),
             RemoteCategory.project_id == project_id,
+            RemoteCategory.game_id == game_id,
             RemoteCategory.id != category_id,
         ).first()
 
         if existing_category:
-            return jsonify({"error": "Category with this name already exists"}), 400
+            return jsonify({"error": "Category with this name already exists for this game"}), 400
 
         old_name = category.name
         category.name = data["name"].strip()
         category.description = data.get("description", "").strip()
         category.color = data.get("color", category.color)
+        if data.get("game_id") and data["game_id"] != category.game_id:
+            category.game_id = data["game_id"]
         category.updated_at = datetime.utcnow()
 
         db.session.commit()
@@ -261,7 +295,7 @@ def delete_category(category_id, project_id=None, current_user=None):
 @enforce_project_scope
 @require_any_permission(["remote_control.view"])
 def get_features(project_id=None):
-    """Get all remote control features for the current project"""
+    """Get all remote control features for the current project and game"""
     try:
 
         if project_id is None:
@@ -271,9 +305,16 @@ def get_features(project_id=None):
                 400,
             )
 
+        game_id = request.args.get("game_id", type=int)
         category_id = request.args.get("category_id", type=int)
 
         query = RemoteFeature.query.filter_by(project_id=project_id)
+        if game_id:
+            # Verify game belongs to project
+            game = Game.query.filter_by(id=game_id, project_id=project_id).first()
+            if not game:
+                return jsonify({"error": "Game not found or does not belong to this project"}), 404
+            query = query.filter_by(game_id=game_id)
         if category_id:
             query = query.filter_by(category_id=category_id)
 
@@ -324,11 +365,11 @@ def create_feature(project_id=None, current_user=None):
             return jsonify({"error": "Category not found"}), 404
 
         existing_feature = RemoteFeature.query.filter_by(
-            name=data["name"].strip(), project_id=project_id
+            name=data["name"].strip(), project_id=project_id, game_id=category.game_id
         ).first()
 
         if existing_feature:
-            return jsonify({"error": "Feature with this name already exists"}), 400
+            return jsonify({"error": "Feature with this name already exists for this game"}), 400
 
         feature = RemoteFeature(
             name=data["name"].strip(),
@@ -336,6 +377,7 @@ def create_feature(project_id=None, current_user=None):
             enabled=data.get("enabled", False),
             category_id=data["category_id"],
             project_id=project_id,
+            game_id=category.game_id,
             status=data.get("status", "offline"),
         )
 
@@ -410,14 +452,17 @@ def update_feature(feature_id, project_id=None, current_user=None):
         if not category:
             return jsonify({"error": "Category not found"}), 404
 
+        # Update game_id if category changed
+        new_game_id = category.game_id
         existing_feature = RemoteFeature.query.filter(
             RemoteFeature.name == data["name"].strip(),
             RemoteFeature.project_id == project_id,
+            RemoteFeature.game_id == new_game_id,
             RemoteFeature.id != feature_id,
         ).first()
 
         if existing_feature:
-            return jsonify({"error": "Feature with this name already exists"}), 400
+            return jsonify({"error": "Feature with this name already exists for this game"}), 400
 
         old_name = feature.name
         old_enabled = feature.enabled
@@ -425,6 +470,7 @@ def update_feature(feature_id, project_id=None, current_user=None):
         feature.description = data.get("description", "").strip()
         feature.enabled = data.get("enabled", feature.enabled)
         feature.category_id = data["category_id"]
+        feature.game_id = new_game_id
         feature.status = data.get("status", feature.status)
         feature.updated_at = datetime.utcnow()
 
@@ -557,7 +603,7 @@ def toggle_feature(feature_id, project_id=None, current_user=None):
 @enforce_project_scope
 @require_any_permission(["remote_control.view", "remote_control.view_stats"])
 def get_stats(project_id=None):
-    """Get remote control statistics for the current project"""
+    """Get remote control statistics for the current project and game"""
     try:
 
         if project_id is None:
@@ -567,12 +613,24 @@ def get_stats(project_id=None):
                 400,
             )
 
-        categories = RemoteCategory.query.filter_by(project_id=project_id).all()
+        game_id = request.args.get("game_id", type=int)
+        if not game_id:
+            return (
+                jsonify({"error": "Game ID is required. Please specify game_id parameter."}),
+                400,
+            )
+
+        # Verify game belongs to project
+        game = Game.query.filter_by(id=game_id, project_id=project_id).first()
+        if not game:
+            return jsonify({"error": "Game not found or does not belong to this project"}), 404
+
+        categories = RemoteCategory.query.filter_by(project_id=project_id, game_id=game_id).all()
         stats = []
 
         for category in categories:
             features = RemoteFeature.query.filter_by(
-                category_id=category.id, project_id=project_id
+                category_id=category.id, project_id=project_id, game_id=game_id
             ).all()
 
             enabled_count = sum(1 for f in features if f.enabled)

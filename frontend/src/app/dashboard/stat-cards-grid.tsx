@@ -1,10 +1,7 @@
 import { StatCard } from './stat-card'
-import { Users, Key, Gamepad2, Server, Activity, Building2, DollarSign, TrendingUp, CheckCircle, Target, Database, FolderOpen } from 'lucide-react'
+import { Users, Key, Gamepad2, Server, Building2, DollarSign } from 'lucide-react'
 import { DashboardData } from '@/hooks/use-dashboard-stats'
 import { OwnerDashboardStats } from '@/hooks/use-owner-dashboard'
-import type { User } from '@/entities/user';
-import type { Project } from '@/entities/project';
-import type { Game } from '@/entities/game';
 
 interface StatCardsGridProps {
   data?: DashboardData | OwnerDashboardStats | null
@@ -14,128 +11,129 @@ interface StatCardsGridProps {
 export function StatCardsGrid({ data, type }: StatCardsGridProps) {
   if (!data) return null
 
-  const renderDashboardCards = (data: DashboardData) => (
-    <>
-      <StatCard
-        title="Users"
-        value={data.overview.users.total}
-        icon={Users}
-        badge={{
+  const renderDashboardCards = (data: DashboardData) => {
+    const statCards = [
+      {
+        title: 'Users',
+        value: data.overview.users.total,
+        icon: Users,
+        subtitle: data.overview.users.total > 0 ? `${data.overview.users.new_today} new today` : 'No users yet',
+        badge: {
           text: `${data.overview.users.active} active`,
-          color: "primary"
-        }}
-        footer={{
-          description: "User management system",
-          details: `${data.overview.users.new_today} new today`,
-          icon: Users
-        }}
-      />
-      <StatCard
-        title="License Keys"
-        value={data.overview.keys.total}
-        icon={Key}
-        badge={{
+          color: 'primary' as const
+        }
+      },
+      {
+        title: 'License Keys',
+        value: data.overview.keys.total,
+        icon: Key,
+        subtitle: data.overview.keys.expired > 0 ? `${data.overview.keys.expired} expired keys` : 'All keys active',
+        badge: {
           text: `${data.overview.keys.active} active`,
-          color: "primary"
-        }}
-        footer={{
-          description: "Key management system",
-          details: `${data.overview.keys.expired} expired keys`,
-          icon: Key
-        }}
-      />
-      <StatCard
-        title="Games"
-        value={data.overview.games.total}
-        icon={Gamepad2}
-        badge={{
+          color: 'primary' as const
+        }
+      },
+      {
+        title: 'Games',
+        value: data.overview.games.total,
+        icon: Gamepad2,
+        subtitle: data.overview.games.active > 0 ? `${data.overview.games.active} active` : 'No games yet',
+        badge: {
           text: `${data.overview.games.active} active`,
-          color: "primary"
-        }}
-        footer={{
-          description: "Application catalog management",
-          details: "Total applications in the database",
-          icon: Database
-        }}
-      />
-      <StatCard
-        title="Servers"
-        value={data.overview.servers.total}
-        icon={Server}
-        badge={{
+          color: 'primary' as const
+        }
+      },
+      {
+        title: 'Servers',
+        value: data.overview.servers.total,
+        icon: Server,
+        subtitle: data.overview.servers.offline > 0 ? `${data.overview.servers.offline} offline` : 'All servers online',
+        badge: {
           text: `${data.overview.servers.online} online`,
-          color: "primary"
-        }}
-        footer={{
-          description: "Server infrastructure",
-          details: `${data.overview.servers.offline} offline servers`,
-          icon: Server
-        }}
-      />
-    </>
-  )
+          color: 'primary' as const
+        }
+      }
+    ];
 
-  const renderOwnerCards = (data: OwnerDashboardStats) => (
-    <>
-      <StatCard
-        title="Projects"
-        value={data.system_overview.total_projects}
-        icon={Building2}
-        badge={{
+    return (
+      <>
+        {statCards.map((stat, index) => (
+          <StatCard
+            key={index}
+            title={stat.title}
+            value={stat.value}
+            icon={stat.icon}
+            subtitle={stat.subtitle}
+            badge={stat.badge}
+            valueClassName="text-sm font-semibold sm:text-base"
+            className="[&_header]:!p-1.5 [&_header]:!pb-0.5 [&_h2]:!text-sm [&_h2]:!mb-0 [&_p]:!text-xs [&_p]:!mb-0 [&_svg]:!h-3 [&_svg]:!w-3 [&_span]:!text-xs [&_span]:!px-1 [&_span]:!py-0"
+          />
+        ))}
+      </>
+    );
+  }
+
+  const renderOwnerCards = (data: OwnerDashboardStats) => {
+    const statCards = [
+      {
+        title: 'Projects',
+        value: data.system_overview.total_projects,
+        icon: Building2,
+        subtitle: data.system_overview.active_projects > 0 ? `${data.system_overview.active_projects} active` : 'No projects yet',
+        badge: {
           text: `${data.system_overview.active_projects} active`,
-          color: "primary"
-        }}
-        footer={{
-          description: "Project management system",
-          details: "Multi-tenant project infrastructure",
-          icon: Building2
-        }}
-      />
-      <StatCard
-        title="Total Users"
-        value={data.system_overview.total_users}
-        icon={Users}
-        badge={{
-          text: `${data.user_analytics.new_today} new today`,
-          color: "primary"
-        }}
-        footer={{
-          description: "User analytics and management",
-          details: `${data.system_overview.active_users} active users`,
-          icon: Users
-        }}
-      />
-      <StatCard
-        title="License Keys"
-        value={data.system_overview.total_keys}
-        icon={Key}
-        badge={{
+          color: 'primary' as const
+        }
+      },
+      {
+        title: 'Total Users',
+        value: data.system_overview.total_users,
+        icon: Users,
+        subtitle: data.user_analytics.new_today > 0 ? `${data.user_analytics.new_today} new today` : 'No new users today',
+        badge: {
+          text: `${data.system_overview.active_users} active`,
+          color: 'primary' as const
+        }
+      },
+      {
+        title: 'License Keys',
+        value: data.system_overview.total_keys,
+        icon: Key,
+        subtitle: data.system_overview.active_keys > 0 ? `${data.system_overview.active_keys} active` : 'No keys yet',
+        badge: {
           text: `${data.system_overview.active_keys} active`,
-          color: "primary"
-        }}
-        footer={{
-          description: "Key management system",
-          details: "Cross-project key distribution",
-          icon: Key
-        }}
-      />
-      <StatCard
-        title="Revenue"
-        value={`$${data.system_overview.total_revenue.toLocaleString()}`}
-        icon={DollarSign}
-        badge={{
-          text: "All Projects",
+          color: 'primary' as const
+        }
+      },
+      {
+        title: 'Revenue',
+        value: `$${data.system_overview.total_revenue.toLocaleString()}`,
+        icon: DollarSign,
+        subtitle: `$${data.system_overview.monthly_revenue.toLocaleString()} this month`,
+        badge: {
+          text: 'All Projects',
+          color: 'primary' as const
+        }
+      }
+    ];
 
-          color: "primary"
-        }}
-        footer={{
-          description: "Revenue analytics",
-          details: `$${data.system_overview.monthly_revenue.toLocaleString()} this month`,
-          icon: DollarSign
-        }}
-      />
-    </>
-  )
+    return (
+      <>
+        {statCards.map((stat, index) => (
+          <StatCard
+            key={index}
+            title={stat.title}
+            value={stat.value}
+            icon={stat.icon}
+            subtitle={stat.subtitle}
+            badge={stat.badge}
+            valueClassName="text-sm font-semibold sm:text-base"
+            className="[&_header]:!p-1.5 [&_header]:!pb-0.5 [&_h2]:!text-sm [&_h2]:!mb-0 [&_p]:!text-xs [&_p]:!mb-0 [&_svg]:!h-3 [&_svg]:!w-3 [&_span]:!text-xs [&_span]:!px-1 [&_span]:!py-0"
+          />
+        ))}
+      </>
+    );
+  }
 
   const renderCards = () => {
     switch (type) {
@@ -148,10 +146,13 @@ export function StatCardsGrid({ data, type }: StatCardsGridProps) {
     }
   }
 
+  // Компактный стиль как в users-stats.tsx
+  const gridStyle = { gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))' };
+
   return (
     <div 
-      className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid gap-6 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs"
-      style={{gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))'}}
+      className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid gap-2 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs"
+      style={gridStyle}
     >
       {renderCards()}
     </div>

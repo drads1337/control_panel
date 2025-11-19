@@ -1,8 +1,10 @@
-import React, { useState } from 'react'
-import { Card } from '@/components/ui/card'
+import React, { useState, useRef, useCallback, useMemo } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
-import { Globe, Monitor, AlertTriangle } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Globe, Monitor, AlertTriangle, Settings, RefreshCw } from 'lucide-react'
 import { ConditionalRender } from '@/components/rbac/conditional-render'
 import { usePermissions } from '@/hooks/use-permissions'
 
@@ -20,7 +22,12 @@ interface SecurityRule {
   lastTriggered?: string
 }
 
-export default function SecurityRules() {
+interface SecurityRulesProps {
+  onRefresh?: () => void
+  loading?: boolean
+}
+
+export default function SecurityRules({ onRefresh, loading = false }: SecurityRulesProps) {
   const { hasPermission } = usePermissions()
   const canManage = hasPermission('security.manage_rules')
 
@@ -129,73 +136,218 @@ export default function SecurityRules() {
     }
   ])
 
-  const getSeverityColor = (severity: string) => {
+  const getSeverityColor = useCallback((severity: string) => {
     switch (severity) {
-      case 'low': return 'bg-green-100 text-green-800'
-      case 'medium': return 'bg-yellow-100 text-yellow-800'
-      case 'high': return 'bg-orange-100 text-orange-800'
-      case 'critical': return 'bg-red-100 text-red-800'
-      default: return 'bg-gray-100 text-gray-800'
+      case 'low': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+      case 'medium': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+      case 'high': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400'
+      case 'critical': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
     }
-  }
+  }, []);
 
-  const getTypeIcon = (type: string) => {
+  const getTypeIcon = useCallback((type: string) => {
     switch (type) {
-      case 'ip': return <Globe className="h-4 w-4" />
-      case 'hwid': return <Monitor className="h-4 w-4" />
-      case 'behavior': return <AlertTriangle className="h-4 w-4" />
-      case 'geo': return <Globe className="h-4 w-4" />
-      default: return <AlertTriangle className="h-4 w-4" />
+      case 'ip': return <Globe className="h-4 w-4 text-primary" />
+      case 'hwid': return <Monitor className="h-4 w-4 text-primary" />
+      case 'behavior': return <AlertTriangle className="h-4 w-4 text-primary" />
+      case 'geo': return <Globe className="h-4 w-4 text-primary" />
+      default: return <AlertTriangle className="h-4 w-4 text-primary" />
     }
-  }
+  }, []);
 
-  const toggleRule = (ruleId: number) => {
+  const toggleRule = useCallback((ruleId: number) => {
     setRules(rules.map(rule => 
       rule.id === ruleId ? { ...rule, isActive: !rule.isActive } : rule
     ))
-  }
+  }, [rules]);
+
+  const RuleItem = React.memo(({ 
+    rule, 
+    onToggle,
+    canManage,
+    getSeverityColor,
+    getTypeIcon
+  }: { 
+    rule: SecurityRule;
+    onToggle: (ruleId: number) => void;
+    canManage: boolean;
+    getSeverityColor: (severity: string) => string;
+    getTypeIcon: (type: string) => React.ReactElement;
+  }) => {
+    return (
+      <div className="flex items-center justify-between p-2.5 border-b hover:bg-accent/50 transition-colors">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
+            {getTypeIcon(rule.type)}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h4 className="font-medium text-sm">
+                {rule.name}
+              </h4>
+              <Badge className={getSeverityColor(rule.severity)} variant="secondary">
+                {rule.severity}
+              </Badge>
+              {!rule.isActive && (
+                <span className="text-xs text-muted-foreground">• Inactive</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-xs text-muted-foreground truncate">
+                {rule.description}
+              </p>
+              <span className="text-xs text-muted-foreground">
+                • {rule.triggerCount} triggers
+              </span>
+              {rule.lastTriggered && (
+                <span className="text-xs text-muted-foreground">
+                  • Last: {new Date(rule.lastTriggered).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Switch
+            checked={rule.isActive}
+            onCheckedChange={() => onToggle(rule.id)}
+            disabled={!canManage}
+          />
+        </div>
+      </div>
+    );
+  });
+
+  RuleItem.displayName = 'RuleItem';
+
+  const RulesList: React.FC<{
+    rules: SecurityRule[];
+    onToggle: (ruleId: number) => void;
+    canManage: boolean;
+    getSeverityColor: (severity: string) => string;
+    getTypeIcon: (type: string) => React.ReactElement;
+  }> = ({ rules, onToggle, canManage, getSeverityColor, getTypeIcon }) => {
+    const parentRef = useRef<HTMLDivElement>(null);
+    const shouldVirtualize = rules.length > 50;
+
+    const rowVirtualizer = useVirtualizer({
+      count: shouldVirtualize ? rules.length : 0,
+      getScrollElement: () => parentRef.current,
+      estimateSize: () => 100,
+      overscan: 5,
+      enabled: shouldVirtualize,
+    });
+
+    if (shouldVirtualize) {
+      return (
+        <div
+          ref={parentRef}
+          className="overflow-auto"
+          style={{ height: '600px', contain: 'strict' }}
+        >
+          <div
+            style={{
+              height: `${rowVirtualizer.getTotalSize()}px`,
+              width: '100%',
+              position: 'relative',
+            }}
+          >
+            <div className="divide-y">
+              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                const rule = rules[virtualRow.index];
+                return (
+                  <div
+                    key={rule.id}
+                    data-index={virtualRow.index}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                  >
+                    <RuleItem
+                      rule={rule}
+                      onToggle={onToggle}
+                      canManage={canManage}
+                      getSeverityColor={getSeverityColor}
+                      getTypeIcon={getTypeIcon}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="divide-y">
+        {rules.map((rule) => (
+          <RuleItem
+            key={rule.id}
+            rule={rule}
+            onToggle={onToggle}
+            canManage={canManage}
+            getSeverityColor={getSeverityColor}
+            getTypeIcon={getTypeIcon}
+          />
+        ))}
+      </div>
+    );
+  };
+
+  const activeRulesCount = useMemo(() => rules.filter(r => r.isActive).length, [rules]);
 
   return (
     <ConditionalRender permission="security.manage_rules" fallback={null}>
       <div className="space-y-4">
-      {}
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Security Rules</h2>
-        <div className="text-sm text-muted-foreground">
-          {rules.filter(r => r.isActive).length} of {rules.length} active
-        </div>
-      </div>
-
-      {}
-      <div className="space-y-3">
-        {rules.map((rule) => (
-          <Card key={rule.id} className="p-4">
+        <Card>
+          <CardHeader className="pb-0">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                {getTypeIcon(rule.type)}
-                <div>
-                  <div className="font-medium">{rule.name}</div>
-                  <div className="text-sm text-muted-foreground">{rule.description}</div>
-                </div>
+              <div>
+                <CardTitle className="text-base">Security Rules</CardTitle>
+                <CardDescription className="mt-1 text-xs">
+                  {activeRulesCount} of {rules.length} active
+                </CardDescription>
               </div>
-              <div className="flex items-center gap-3">
-                <Badge className={getSeverityColor(rule.severity)} variant="secondary">
-                  {rule.severity}
-                </Badge>
-                <div className="text-sm text-muted-foreground">
-                  {rule.triggerCount} triggers
-                </div>
-                <Switch
-                  checked={rule.isActive}
-                  onCheckedChange={() => toggleRule(rule.id)}
-                  disabled={!canManage}
-                />
+              <div className="flex items-center gap-2">
+                {onRefresh && (
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={onRefresh}
+                    disabled={loading}
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
             </div>
-          </Card>
-        ))}
+          </CardHeader>
+          <CardContent className="pt-0 -mt-3">
+            {rules.length === 0 ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <Settings className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                  <div className="text-sm text-muted-foreground">No security rules configured</div>
+                </div>
+              </div>
+            ) : (
+              <RulesList
+                rules={rules}
+                onToggle={toggleRule}
+                canManage={canManage}
+                getSeverityColor={getSeverityColor}
+                getTypeIcon={getTypeIcon}
+              />
+            )}
+          </CardContent>
+        </Card>
       </div>
-    </div>
     </ConditionalRender>
   )
 }

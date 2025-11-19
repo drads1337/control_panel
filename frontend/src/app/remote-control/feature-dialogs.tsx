@@ -77,18 +77,19 @@ export default function FeatureDialogs({
                   enabled: false
                 }))
               }}
+              variant="default"
               size="sm"
               disabled={!canCreate}
               title={!canCreate ? "You don't have permission to create features" : ""}
             >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Feature
+              <Plus className="h-4 w-4 mr-1.5" />
+              Add
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[400px]">
             <DialogHeader>
-              <DialogTitle>Add Feature</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-base">Add Feature</DialogTitle>
+              <DialogDescription className="text-xs">
                 Create a new feature (e.g. Aimbot, Wallhack, ESP, etc.)
               </DialogDescription>
             </DialogHeader>
@@ -139,10 +140,10 @@ export default function FeatureDialogs({
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setAddDialogOpen(false)}>
+              <Button variant="outline" size="sm" onClick={() => setAddDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={onAddFeature} disabled={!canCreate}>
+              <Button size="sm" onClick={onAddFeature} disabled={!canCreate}>
                 Add
               </Button>
             </DialogFooter>
@@ -155,8 +156,8 @@ export default function FeatureDialogs({
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
           <DialogContent className="sm:max-w-[400px]">
             <DialogHeader>
-              <DialogTitle>Edit Feature</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-base">Edit Feature</DialogTitle>
+              <DialogDescription className="text-xs">
                 Update feature settings and properties
               </DialogDescription>
             </DialogHeader>
@@ -207,10 +208,10 @@ export default function FeatureDialogs({
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              <Button variant="outline" size="sm" onClick={() => setEditDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={onUpdateFeature} disabled={!canEdit}>
+              <Button size="sm" onClick={onUpdateFeature} disabled={!canEdit}>
                 Save
               </Button>
             </DialogFooter>

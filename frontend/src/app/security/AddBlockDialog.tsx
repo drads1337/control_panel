@@ -78,8 +78,8 @@ export default function AddBlockDialog({ config, onAdd, loading = false }: AddBl
     <ConditionalRender permission={config.permission} fallback={null}>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
-          <Button className="gap-2">
-            <Plus className="h-4 w-4" />
+          <Button variant="default" size="sm">
+            <Plus className="h-4 w-4 mr-1.5" />
             {config.buttonText}
           </Button>
         </DialogTrigger>

@@ -25,27 +25,24 @@ export default function CategoryTabs({
   if (categories.length === 0) {
     return (
       <div className="w-full">
-        <div className="bg-muted/30 border border-dashed border-border rounded-lg p-6 text-center">
-          <div className="flex flex-col items-center space-y-3">
-            <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center">
-              <Plus className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-foreground mb-1">No Sections Yet</h3>
-              <p className="text-muted-foreground text-sm">
-                Create your first section to start organizing features
-              </p>
-            </div>
+        <div className="flex items-center justify-center py-6">
+          <div className="text-center">
+            <Plus className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+            <div className="text-sm text-muted-foreground">No sections yet</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Create your first section to start organizing features
+            </p>
             <ConditionalRender permission="remote_control.create" fallback={null}>
               <Button
                 variant="default"
                 size="sm"
                 onClick={onAddCategory}
                 disabled={categories.length >= 8 || !canCreate}
+                className="mt-3"
                 title={categories.length >= 8 ? "Maximum of 8 sections allowed" : !canCreate ? "You don't have permission to create sections" : ""}
               >
-                <Plus className="h-4 w-4 mr-2" />
-                Create First Section
+                <Plus className="h-4 w-4 mr-1.5" />
+                Add
               </Button>
             </ConditionalRender>
           </div>
@@ -78,24 +75,23 @@ export default function CategoryTabs({
       <div className="flex gap-2 shrink-0">
         <ConditionalRender permission="remote_control.create" fallback={null}>
           <Button
-            variant="outline"
+            variant="default"
             size="sm"
             onClick={onAddCategory}
             disabled={categories.length >= 8 || !canCreate}
             title={categories.length >= 8 ? "Maximum of 8 sections allowed" : !canCreate ? "You don't have permission to create sections" : ""}
           >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Section ({categories.length}/8)
+            <Plus className="h-4 w-4 mr-1.5" />
+            Add
           </Button>
         </ConditionalRender>
         <ConditionalRender permission="remote_control.view" fallback={null}>
           <Button
-            variant="outline"
-            size="sm"
+            variant="ghost"
+            size="icon"
             onClick={onManageCategories}
           >
-            <Settings className="h-4 w-4 mr-2" />
-            Settings
+            <Settings className="h-4 w-4" />
           </Button>
         </ConditionalRender>
       </div>

@@ -24,6 +24,7 @@ interface CategoryDialogProps {
     name: string
     description: string
     color: string
+    game_id?: number
   }
   setCategoryFormData: (data: any) => void
   onAddCategory: () => void
@@ -56,11 +57,11 @@ export default function CategoryDialog({
     <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] w-[90vw] overflow-hidden">
         <DialogHeader className="pb-4">
-          <DialogTitle className="flex items-center gap-2 text-xl">
-            <Settings className="h-5 w-5" />
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <Settings className="h-4 w-4" />
             {editingCategory ? 'Edit Section' : 'Manage Sections'}
           </DialogTitle>
-          <DialogDescription className="text-base">
+          <DialogDescription className="text-xs">
             {editingCategory ? 'Change the section parameters' : 'Add, edit, and delete feature sections'}
           </DialogDescription>
         </DialogHeader>
@@ -71,7 +72,7 @@ export default function CategoryDialog({
             <CardContent className="p-4">
               <div className="space-y-4">
                 <div>
-                  <h4 className="text-sm font-medium mb-4">
+                  <h4 className="text-sm font-medium mb-3">
                     {editingCategory ? 'Edit Section' : 'Add Section'}
                   </h4>
                 </div>
@@ -118,7 +119,6 @@ export default function CategoryDialog({
                           size="sm"
                           disabled={!editingCategory && (categories.length >= 8 || !canCreate)}
                           title={!editingCategory && categories.length >= 8 ? "Maximum of 8 sections allowed" : !canCreate ? "You don't have permission to create sections" : ""}
-                          className="h-9"
                         >
                           Add
                         </Button>
@@ -130,7 +130,6 @@ export default function CategoryDialog({
                             size="sm"
                             disabled={!canEdit}
                             title={!canEdit ? "You don't have permission to edit sections" : ""}
-                            className="h-9"
                           >
                             Save
                           </Button>
@@ -143,7 +142,6 @@ export default function CategoryDialog({
                           onClick={() => {
                             onResetCategoryForm()
                           }}
-                          className="h-9"
                         >
                           Cancel
                         </Button>
@@ -165,62 +163,52 @@ export default function CategoryDialog({
             </div>
 
             {categories.length === 0 ? (
-              <Card className="border-dashed">
-                <CardContent className="p-8 text-center">
-                  <Settings className="h-8 w-8 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-muted-foreground">
-                    No sections created yet
-                  </p>
-                </CardContent>
-              </Card>
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <Settings className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                  <div className="text-sm text-muted-foreground">No sections created yet</div>
+                </div>
+              </div>
             ) : (
-              <div className="grid gap-3">
+              <div className="divide-y">
                 {categories.map(category => (
-                  <Card key={category.id}>
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div
-                            className="w-3 h-3 rounded-full shrink-0"
-                            style={{ backgroundColor: category.color }}
-                          />
-                          <div className="flex-1 min-w-0">
-                            <h5 className="text-sm font-medium">{category.name}</h5>
-                            <p className="text-xs text-muted-foreground mt-1">{category.description}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          <ConditionalRender permission="remote_control.edit" fallback={null}>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => onEditCategory(category)}
-                              disabled={!canEdit}
-                              title={!canEdit ? "You don't have permission to edit sections" : "Edit category"}
-                              aria-label={!canEdit ? "Edit category (disabled)" : `Edit category ${category.name}`}
-                              className="h-8 w-8 p-0"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          </ConditionalRender>
-                          <ConditionalRender permission="remote_control.delete" fallback={null}>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => onDeleteCategory(category.id)}
-                              disabled={!canDelete}
-                              title={!canDelete ? "You don't have permission to delete sections" : "Delete category"}
-                              aria-label={!canDelete ? "Delete category (disabled)" : `Delete category ${category.name}`}
-                              className="text-red-600 hover:text-red-700 h-8 w-8 p-0"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </ConditionalRender>
-                        </div>
+                  <div key={category.id} className="flex items-center justify-between p-2.5 border-b hover:bg-accent/50 transition-colors">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div
+                        className="w-3 h-3 rounded-full shrink-0"
+                        style={{ backgroundColor: category.color }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <h5 className="font-medium text-sm">{category.name}</h5>
+                        <p className="text-xs text-muted-foreground mt-0.5">{category.description}</p>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      {canEdit && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => onEditCategory(category)}
+                          disabled={!canEdit}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {canDelete && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => onDeleteCategory(category.id)}
+                          disabled={!canDelete}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
@@ -230,11 +218,11 @@ export default function CategoryDialog({
         <DialogFooter className="pt-4 border-t">
           <Button 
             variant="outline" 
+            size="sm"
             onClick={() => {
               setCategoryDialogOpen(false)
               onResetCategoryForm()
             }}
-            className="h-9"
           >
             Close
           </Button>
