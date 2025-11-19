@@ -58,43 +58,43 @@ interface SidebarItem extends NavigationItem {
 const navigationUIMap: Record<string, { title: string; icon: React.ReactNode }> = {
   '/owner-dashboard': {
     title: 'Dashboard',
-    icon: <LayoutDashboard className="h-4 w-4" />
+    icon: <LayoutDashboard />
   },
   '/dashboard': {
     title: 'Dashboard',
-    icon: <LayoutDashboard className="h-4 w-4" />
+    icon: <LayoutDashboard />
   },
   '/projects': {
     title: 'Projects',
-    icon: <Briefcase className="h-4 w-4" />
+    icon: <Briefcase />
   },
   '/servers': {
     title: 'Servers',
-    icon: <Database className="h-4 w-4" />
+    icon: <Database />
   },
   '/management-page': {
     title: 'Management',
-    icon: <KeyRound className="h-4 w-4" />
+    icon: <KeyRound />
   },
   '/users-management': {
     title: 'Users',
-    icon: <Users className="h-4 w-4" />
+    icon: <Users />
   },
   '/remote-control': {
     title: 'Remote Control',
-    icon: <Terminal className="h-4 w-4" />
+    icon: <Terminal />
   },
   '/security': {
     title: 'Security',
-    icon: <Shield className="h-4 w-4" />
+    icon: <Shield />
   },
   '/webhooks': {
     title: 'Webhooks',
-    icon: <Webhook className="h-4 w-4" />
+    icon: <Webhook />
   },
   '/logs': {
     title: 'Logs',
-    icon: <ScrollText className="h-4 w-4" />
+    icon: <ScrollText />
   }
 }
 
@@ -168,47 +168,21 @@ function AppSidebarContent() {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuButton
-                  size="lg"
-                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-                >
-                  <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                    <Briefcase className="size-4" />
-                  </div>
-                  {!isCollapsed && (
-                    <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-semibold">
-                        {currentProject?.name || 'Panel'}
-                      </span>
-                      <span className="truncate text-xs text-muted-foreground">
-                        Project
-                      </span>
-                    </div>
-                  )}
-                  {!isCollapsed && <ChevronsUpDown className="ml-auto size-4" />}
-                </SidebarMenuButton>
-              </DropdownMenuTrigger>
-              {currentProject && (
-                <DropdownMenuContent
-                  className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
-                  align="start"
-                  side={isMobile ? 'bottom' : 'right'}
-                  sideOffset={4}
-                >
-                  <DropdownMenuLabel className="text-xs text-muted-foreground">
-                    Project
-                  </DropdownMenuLabel>
-                  <DropdownMenuItem className="gap-2 p-2">
-                    <div className="flex size-6 items-center justify-center rounded-sm border">
-                      <Briefcase className="size-4 shrink-0" />
-                    </div>
-                    {currentProject.name}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
+            <SidebarMenuButton
+              size="lg"
+              className="cursor-default"
+            >
+              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                <Briefcase className="size-4" />
+              </div>
+              {!isCollapsed && (
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-semibold">
+                    {currentProject?.name || 'Panel'}
+                  </span>
+                </div>
               )}
-            </DropdownMenu>
+            </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
@@ -226,7 +200,6 @@ function AppSidebarContent() {
                       onClick={() => handleNavigation(item.href)}
                       isActive={isActive}
                       tooltip={isCollapsed ? item.title : undefined}
-                      className="px-2.5 py-2 rounded-lg transition-all duration-200"
                     >
                       {item.icon}
                       <span>{item.title}</span>
