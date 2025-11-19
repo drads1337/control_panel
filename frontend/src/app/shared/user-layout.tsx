@@ -41,6 +41,7 @@ const Sessions = React.lazy(() => import('@/app/sessions/sessions-page').then(mo
 const SecurityPage = React.lazy(() => import('@/app/security/security-page').then(module => ({ default: module.default })))
 const RemoteControl = React.lazy(() => import('@/app/remote-control/remote-control-page').then(module => ({ default: module.default })))
 const Webhooks = React.lazy(() => import('@/app/webhooks/webhooks-page').then(module => ({ default: module.default })))
+const NotFoundPage = React.lazy(() => import('@/app/not-found/not-found-page').then(module => ({ default: module.default })))
 
 export function UserLayout() {
   const { user, isInitialized } = useAuthContext()
@@ -105,7 +106,7 @@ export function UserLayout() {
                 <Webhooks />
               </WebhooksGuard>
             } />
-            <Route path="*" element={<SmartDashboardRouter />} />
+            <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Suspense>
       </AnimatedPage>

@@ -1,8 +1,6 @@
-import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Button } from '@/components/ui/button'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   LayoutDashboard,
   Briefcase,
@@ -14,15 +12,12 @@ import {
   Webhook,
   ScrollText,
   LogOut,
-  Menu,
   Settings,
   User,
-  X
+  ChevronsUpDown,
 } from 'lucide-react'
 import { useAuthContext } from '@/contexts/auth-context'
-import { useSidebar } from '@/contexts/sidebar-context'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,10 +26,26 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { getProject } from '@/entities/project'
 import { projectKeys } from '@/hooks/use-projects-query'
 import { useNavigationQuery } from '@/hooks/use-navigation-query'
 import { canAccessNavigationItem, type NavigationItem } from '@/entities/navigation'
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuBadge,
+  SidebarRail,
+  useSidebar as useAnimateSidebar,
+} from '@/components/animate-ui/components/radix/sidebar'
 import type { User as UserType } from '@/entities/user';
 import type { Project } from '@/entities/project';
 
@@ -105,11 +116,12 @@ function convertNavigationItemsToSidebarItems(navigationItems: NavigationItem[])
     .filter((item): item is SidebarItem => item !== null)
 }
 
-export default function AppSidebar() {
-  const [isMobileOpen, setIsMobileOpen] = useState(false)
+function AppSidebarContent() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { user, logout, isInitialized } = useAuthContext()
-  const { isCollapsed, toggleSidebar } = useSidebar()
+  const { state } = useAnimateSidebar()
+  const isMobile = useIsMobile()
 
   const { navigation: navigationConfig } = useNavigationQuery({
     enabled: isInitialized && !!user,
@@ -131,13 +143,11 @@ export default function AppSidebar() {
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     retry: (failureCount, error: any) => {
-
       if (error?.response?.status === 401 || error?.response?.status === 403 || error?.response?.status === 404) {
         return false
       }
       return failureCount < 2
     },
-
     meta: {
       errorMessage: null,
     },
@@ -147,170 +157,188 @@ export default function AppSidebar() {
     logout()
   }
 
-  const toggleMobileSidebar = () => {
-    setIsMobileOpen(!isMobileOpen)
-  }
-
-  const closeMobileSidebar = () => {
-    setIsMobileOpen(false)
-  }
-
   const handleNavigation = (href: string) => {
-
     navigate(href)
-    closeMobileSidebar()
   }
+
+  const isCollapsed = state === 'collapsed'
 
   return (
     <>
-      {}
-      {isMobileOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={closeMobileSidebar}
-        />
-      )}
-
-      {}
-      <div className={`
-        fixed left-0 top-0 z-40 h-full transition-transform duration-300 ease-in-out
-        ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
-        lg:translate-x-0 lg:static lg:inset-0
-        ${isCollapsed ? 'w-16' : 'w-64'}
-        bg-sidebar border-r border-border
-        dark:bg-sidebar dark:border-border
-      `}>
-        <div className="flex h-full flex-col">
-          {}
-          <div className="flex h-16 items-center justify-between px-4 border-b border-border dark:border-border">
-            {!isCollapsed && (
-              <h2 className="text-lg font-semibold text-sidebar-foreground dark:text-sidebar-foreground truncate">
-                {currentProject?.name || 'Panel'}
-              </h2>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleSidebar}
-              className="hidden lg:flex text-sidebar-foreground hover:bg-sidebar-accent"
-            >
-              {isCollapsed ? <Menu className="h-4 w-4" /> : <X className="h-4 w-4" />}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={closeMobileSidebar}
-              className="lg:hidden text-sidebar-foreground hover:bg-sidebar-accent"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-
-          {}
-          <ScrollArea className="flex-1 px-3 py-4">
-            <nav className="space-y-2">
-              {sidebarItems.map((item) => (
-                <button
-                  key={item.href}
-                  onClick={() => handleNavigation(item.href)}
-                  className="w-full text-left flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
+      <SidebarHeader>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton
+                  size="lg"
+                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
-                  <div className="flex-shrink-0">
-                    {item.icon}
+                  <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                    <Briefcase className="size-4" />
                   </div>
                   {!isCollapsed && (
-                    <>
-                      <span className="flex-1">{item.title}</span>
-                      {item.badge && (
-                        <Badge variant="secondary" className="ml-auto">
-                          {item.badge}
-                        </Badge>
-                      )}
-                    </>
+                    <div className="grid flex-1 text-left text-sm leading-tight">
+                      <span className="truncate font-semibold">
+                        {currentProject?.name || 'Panel'}
+                      </span>
+                      <span className="truncate text-xs text-muted-foreground">
+                        Project
+                      </span>
+                    </div>
                   )}
-                </button>
-              ))}
-            </nav>
-          </ScrollArea>
-
-          {}
-          <div className="p-3 border-t border-border dark:border-border">
-            <div className={`flex items-center gap-2 ${isCollapsed ? 'flex-col' : 'flex-row'}`}>
-              {}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className={`flex items-center gap-2 rounded-lg hover:bg-sidebar-accent transition-colors p-1.5 ${isCollapsed ? 'w-full justify-center' : 'flex-1 min-w-0'}`}>
-                    <Avatar className="h-9 w-9 flex-shrink-0">
-                  <AvatarImage src={user?.avatar || undefined} />
-                      <AvatarFallback className="bg-sidebar-accent text-sidebar-foreground">
-                        {user?.username?.charAt(0).toUpperCase() || 'U'}
-                      </AvatarFallback>
-                </Avatar>
-                    {!isCollapsed && (
-                      <div className="flex-1 min-w-0 text-left">
-                  <p className="text-sm font-medium text-sidebar-foreground dark:text-sidebar-foreground truncate">
-                    {user?.username || 'User'}
-                  </p>
-                  <p className="text-xs text-muted-foreground dark:text-muted-foreground truncate">
-                    {user?.roles && user.roles.length > 0 
-                      ? user.roles[0].charAt(0).toUpperCase() + user.roles[0].slice(1) 
-                      : 'User'
-                    }
-                  </p>
-                </div>
-                    )}
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent 
-                  align="start" 
-                  side={isCollapsed ? "right" : "top"}
-                  sideOffset={20}
-                  alignOffset={0}
-                  className={isCollapsed ? "w-40" : "w-60"}
+                  {!isCollapsed && <ChevronsUpDown className="ml-auto size-4" />}
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              {currentProject && (
+                <DropdownMenuContent
+                  className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+                  align="start"
+                  side={isMobile ? 'bottom' : 'right'}
+                  sideOffset={4}
                 >
-                  <DropdownMenuLabel>
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium">{user?.username || 'User'}</p>
-                      <p className="text-xs text-muted-foreground">
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">
+                    Project
+                  </DropdownMenuLabel>
+                  <DropdownMenuItem className="gap-2 p-2">
+                    <div className="flex size-6 items-center justify-center rounded-sm border">
+                      <Briefcase className="size-4 shrink-0" />
+                    </div>
+                    {currentProject.name}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              )}
+            </DropdownMenu>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarHeader>
+
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {sidebarItems.map((item) => {
+                const isActive = location.pathname === item.href || location.pathname.startsWith(item.href + '/')
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton
+                      onClick={() => handleNavigation(item.href)}
+                      isActive={isActive}
+                      tooltip={isCollapsed ? item.title : undefined}
+                      className="px-2.5 py-2 rounded-lg transition-all duration-200"
+                    >
+                      {item.icon}
+                      <span>{item.title}</span>
+                      {item.badge && (
+                        <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>
+                      )}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton
+                  size="lg"
+                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                >
+                  <Avatar className="h-8 w-8 rounded-lg">
+                    <AvatarImage src={user?.avatar || undefined} alt={user?.username || 'User'} />
+                    <AvatarFallback className="rounded-lg bg-sidebar-accent text-sidebar-foreground">
+                      {user?.username?.charAt(0).toUpperCase() || 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                  {!isCollapsed && (
+                    <div className="grid flex-1 text-left text-sm leading-tight">
+                      <span className="truncate font-semibold">
+                        {user?.username || 'User'}
+                      </span>
+                      <span className="truncate text-xs text-muted-foreground">
                         {user?.roles && user.roles.length > 0 
                           ? user.roles[0].charAt(0).toUpperCase() + user.roles[0].slice(1) 
                           : 'User'
                         }
-                      </p>
-              </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => handleNavigation('/profile')}>
-                    <User className="h-4 w-4 mr-2" />
-                    Profile
-                  </DropdownMenuItem>
-                  {canAccessNavigationItem(
-                    { href: '/settings', permission: 'project.view' },
-                    user,
-                    userRole
-                  ) && (
-                    <DropdownMenuItem onClick={() => handleNavigation('/settings')}>
-                      <Settings className="h-4 w-4 mr-2" />
-                      Settings
-                    </DropdownMenuItem>
+                      </span>
+                    </div>
                   )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                  {!isCollapsed && <ChevronsUpDown className="ml-auto size-4" />}
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+                side={isMobile ? 'bottom' : 'right'}
+                align="end"
+                sideOffset={4}
+              >
+                <DropdownMenuLabel className="p-0 font-normal">
+                  <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+                    <Avatar className="h-8 w-8 rounded-lg">
+                      <AvatarImage src={user?.avatar || undefined} alt={user?.username || 'User'} />
+                      <AvatarFallback className="rounded-lg">
+                        {user?.username?.charAt(0).toUpperCase() || 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="grid flex-1 text-left text-sm leading-tight">
+                      <span className="truncate font-semibold">
+                        {user?.username || 'User'}
+                      </span>
+                      <span className="truncate text-xs text-muted-foreground">
+                        {user?.roles && user.roles.length > 0 
+                          ? user.roles[0].charAt(0).toUpperCase() + user.roles[0].slice(1) 
+                          : 'User'
+                        }
+                      </span>
+                    </div>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => handleNavigation('/profile')}>
+                  <User className="h-4 w-4 mr-2" />
+                  Profile
+                </DropdownMenuItem>
+                {canAccessNavigationItem(
+                  { href: '/settings', permission: 'project.view' },
+                  user,
+                  userRole
+                ) && (
+                  <DropdownMenuItem onClick={() => handleNavigation('/settings')}>
+                    <Settings className="h-4 w-4 mr-2" />
+                    Settings
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
 
-              {}
-            <Button
-                variant="ghost"
-              size="sm"
-              onClick={handleLogout}
-                className={`flex-shrink-0 h-9 w-9 p-0 text-sidebar-foreground hover:bg-sidebar-accent ${isCollapsed ? 'w-full' : ''}`}
-                title="Logout"
-            >
-                <LogOut className="h-4 w-4" />
-            </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <SidebarRail />
     </>
   )
+}
+
+export function AppSidebarInner() {
+  return (
+    <Sidebar collapsible="icon" variant="sidebar">
+      <AppSidebarContent />
+    </Sidebar>
+  )
+}
+
+export default function AppSidebar() {
+  return <AppSidebarInner />
 }
