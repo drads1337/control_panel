@@ -1,7 +1,7 @@
 import type { User } from '@/entities/user';
 import type { Project } from '@/entities/project';
-import type { Game } from '@/entities/game';
-import type { Loader } from '@/entities/loader';
+import type { Game, Product } from '@/entities/game';  // Product is universal name, Game is alias
+import type { Loader, Agent } from '@/entities/loader';  // Agent is universal name, Loader is alias
 import type { Session } from '@/entities/session';
 import type { Log } from '@/entities/log';
 
@@ -36,6 +36,14 @@ export const API_ENDPOINTS = {
   FOLDERS: '/api/files/folders',
   GAME_FILE_STATS: '/api/files/stats/game',
 
+  // Universal terminology endpoints (new)
+  PRODUCTS: '/api/products',
+  PRODUCTS_AVAILABLE_FOR_ASSIGNMENT: '/api/products/available-for-assignment',
+  AGENTS: '/api/agents',
+  AGENTS_AVAILABLE_PRODUCTS: '/api/agents/available-products',
+  AGENTS_STATS: '/api/agents/stats',
+  
+  // Backward compatibility endpoints (deprecated but still supported)
   GAMES: '/api/games',
   GAMES_AVAILABLE_FOR_ASSIGNMENT: '/api/games/available-for-assignment',
   GAMES_CLASSIC_USERS: '/api/clients',

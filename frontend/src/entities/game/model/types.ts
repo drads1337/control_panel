@@ -1,6 +1,10 @@
 import { BaseEntity } from '@/shared/api'
 
-export interface Game extends BaseEntity {
+/**
+ * Product interface - universal term for applications, software, or games
+ * Universal terminology for B2B/SaaS applications
+ */
+export interface Product extends BaseEntity {
   unique_id: string
   name: string
   description: string | null
@@ -27,14 +31,28 @@ export interface Game extends BaseEntity {
   loader?: any
 }
 
-export interface GamesResponse {
+/**
+ * Backward compatibility alias
+ * @deprecated Use Product instead. Game is kept for backward compatibility.
+ */
+export type Game = Product
+
+export interface ProductsResponse {
   success: boolean
-  games: Game[]
+  products: Product[]
   total_count: number
   filter_type: string
 }
 
-export interface CreateGameData {
+/**
+ * Backward compatibility alias
+ * @deprecated Use ProductsResponse instead
+ */
+export interface GamesResponse extends ProductsResponse {
+  games: Product[]  // Alias for products
+}
+
+export interface CreateProductData {
   name: string
   description?: string
   status?: 'active' | 'inactive' | 'maintenance' | 'testing'
@@ -46,7 +64,13 @@ export interface CreateGameData {
   invite_code_required?: boolean
 }
 
-export interface UpdateGameData {
+/**
+ * Backward compatibility alias
+ * @deprecated Use CreateProductData instead
+ */
+export type CreateGameData = CreateProductData
+
+export interface UpdateProductData {
   name?: string
   description?: string
   version?: string
@@ -56,3 +80,9 @@ export interface UpdateGameData {
   login_type?: 'license_generation' | 'classic_login'
   invite_code_required?: boolean
 }
+
+/**
+ * Backward compatibility alias
+ * @deprecated Use UpdateProductData instead
+ */
+export type UpdateGameData = UpdateProductData

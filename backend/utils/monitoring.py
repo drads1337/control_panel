@@ -4,13 +4,15 @@ Provides detailed health checks, metrics collection, and observability features.
 """
 
 import json
+import threading
 import time
 from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, List, Optional
 
 import psutil
 import redis
-from flask import current_app, jsonify, request
+from flask import Response, current_app, jsonify, request
+from prometheus_client import CollectorRegistry, Gauge, generate_latest, REGISTRY
 from sqlalchemy import text
 
 from ..core.extensions import db
@@ -19,6 +21,74 @@ from ..utils.storage_manager import get_storage_manager
 from ..utils.structured_logging import get_logger, metrics
 
 logger = get_logger(__name__)
+
+# Prometheus metrics for system resources (shared across all instances)
+_system_metrics_initialized = False
+_system_metrics_lock = threading.Lock()
+
+# System resource metrics
+_system_cpu_percent = Gauge(
+    'system_cpu_percent',
+    'CPU usage percentage',
+    registry=REGISTRY
+)
+_system_memory_percent = Gauge(
+    'system_memory_percent',
+    'Memory usage percentage',
+    registry=REGISTRY
+)
+_system_memory_available_bytes = Gauge(
+    'system_memory_available_bytes',
+    'Available memory in bytes',
+    registry=REGISTRY
+)
+_system_disk_percent = Gauge(
+    'system_disk_percent',
+    'Disk usage percentage',
+    registry=REGISTRY
+)
+_system_disk_free_bytes = Gauge(
+    'system_disk_free_bytes',
+    'Free disk space in bytes',
+    registry=REGISTRY
+)
+_system_load_average = Gauge(
+    'system_load_average',
+    'System load average (1 minute)',
+    registry=REGISTRY
+)
+
+# Redis health metrics
+_redis_available = Gauge(
+    'redis_available',
+    'Redis availability (1 = available, 0 = unavailable)',
+    ['instance'],
+    registry=REGISTRY
+)
+_redis_connection_time_ms = Gauge(
+    'redis_connection_time_ms',
+    'Redis connection time in milliseconds',
+    ['instance'],
+    registry=REGISTRY
+)
+_redis_operations_total = Gauge(
+    'redis_operations_total',
+    'Total Redis operations',
+    ['instance', 'operation', 'status'],
+    registry=REGISTRY
+)
+
+# Database health metrics
+_database_available = Gauge(
+    'database_available',
+    'Database availability (1 = available, 0 = unavailable)',
+    registry=REGISTRY
+)
+_database_connection_time_ms = Gauge(
+    'database_connection_time_ms',
+    'Database connection time in milliseconds',
+    registry=REGISTRY
+)
 
 class HealthCheck:
     """Individual health check component"""
@@ -284,6 +354,92 @@ class ApplicationHealthCheck:
         except Exception as e:
             return {"healthy": False, "error": str(e), "details": "Application health check failed"}
 
+def _update_system_metrics():
+    """Update Prometheus system resource metrics"""
+    try:
+        cpu_percent = psutil.cpu_percent(interval=0.1)
+        memory = psutil.virtual_memory()
+        disk = psutil.disk_usage("/")
+        
+        _system_cpu_percent.set(cpu_percent)
+        _system_memory_percent.set(memory.percent)
+        _system_memory_available_bytes.set(memory.available)
+        _system_disk_percent.set(disk.percent)
+        _system_disk_free_bytes.set(disk.free)
+        
+        # Load average (1 minute)
+        try:
+            load_avg = psutil.getloadavg()
+            if load_avg:
+                _system_load_average.set(load_avg[0])
+        except (AttributeError, OSError):
+            # Windows doesn't have load average
+            pass
+    except Exception as e:
+        logger.debug(f"Error updating system metrics: {e}")
+
+
+def _update_redis_health_metrics():
+    """Update Prometheus Redis health metrics"""
+    try:
+        from ..config.config import Config
+        from ..utils.redis_client import get_redis_client, get_redis_cache_client
+        
+        # Check persistent instance
+        try:
+            start_time = time.time()
+            redis_client = get_redis_client()
+            redis_client.ping()
+            connection_time = (time.time() - start_time) * 1000
+            
+            _redis_available.labels(instance='persistent').set(1)
+            _redis_connection_time_ms.labels(instance='persistent').set(connection_time)
+        except Exception as e:
+            logger.debug(f"Redis persistent instance unavailable: {e}")
+            _redis_available.labels(instance='persistent').set(0)
+            _redis_connection_time_ms.labels(instance='persistent').set(0)
+        
+        # Check cache instance (if different from persistent)
+        try:
+            if (Config.REDIS_CACHE_HOST != Config.REDIS_PERSISTENT_HOST or 
+                Config.REDIS_CACHE_PORT != Config.REDIS_PERSISTENT_PORT):
+                start_time = time.time()
+                cache_client = get_redis_cache_client()
+                cache_client.ping()
+                connection_time = (time.time() - start_time) * 1000
+                
+                _redis_available.labels(instance='cache').set(1)
+                _redis_connection_time_ms.labels(instance='cache').set(connection_time)
+            else:
+                # Same instance, use same values as persistent (just ping again to get time)
+                start_time = time.time()
+                redis_client.ping()
+                connection_time = (time.time() - start_time) * 1000
+                _redis_available.labels(instance='cache').set(1)
+                _redis_connection_time_ms.labels(instance='cache').set(connection_time)
+        except Exception as e:
+            logger.debug(f"Redis cache instance unavailable: {e}")
+            _redis_available.labels(instance='cache').set(0)
+            _redis_connection_time_ms.labels(instance='cache').set(0)
+    except Exception as e:
+        logger.debug(f"Error updating Redis health metrics: {e}")
+
+
+def _update_database_health_metrics():
+    """Update Prometheus database health metrics"""
+    try:
+        start_time = time.time()
+        db.session.execute(text("SELECT 1"))
+        connection_time = (time.time() - start_time) * 1000
+        
+        _database_available.set(1)
+        _database_connection_time_ms.set(connection_time)
+    except Exception as e:
+        logger.debug(f"Database unavailable: {e}")
+        _database_available.set(0)
+        _database_connection_time_ms.set(0)
+
+
 class MonitoringSystem:
     """Main monitoring system"""
 
@@ -419,8 +575,40 @@ def setup_monitoring_endpoints(app):
 
     @app.route("/api/metrics", methods=["GET"])
     def get_metrics():
-        """Metrics endpoint for Prometheus scraping"""
+        """Metrics endpoint for Prometheus scraping (JSON format for backward compatibility)"""
         return jsonify(monitoring_system.get_metrics_summary())
+    
+    @app.route("/metrics", methods=["GET"])
+    def prometheus_metrics():
+        """
+        Prometheus metrics endpoint (text format).
+        
+        This endpoint returns all Prometheus metrics in the standard text format
+        that Prometheus can scrape. It includes:
+        - System metrics (CPU, memory, disk)
+        - Redis health metrics
+        - Database health metrics
+        - Load monitor metrics (from load_monitor.py)
+        - Application metrics (from structured_logging)
+        
+        This endpoint should be scraped by Prometheus at regular intervals.
+        """
+        try:
+            # Update system metrics
+            _update_system_metrics()
+            
+            # Update Redis health metrics
+            _update_redis_health_metrics()
+            
+            # Update database health metrics
+            _update_database_health_metrics()
+            
+            # Generate Prometheus text format
+            output = generate_latest(REGISTRY)
+            return Response(output, mimetype='text/plain; version=0.0.4; charset=utf-8')
+        except Exception as e:
+            logger.error(f"Error generating Prometheus metrics: {e}", exc_info=True)
+            return Response(f"# Error generating metrics: {e}\n", mimetype='text/plain'), 500
 
     @app.route("/api/status", methods=["GET"])
     def status():
@@ -544,7 +732,8 @@ def setup_monitoring_endpoints(app):
         "Monitoring endpoints initialized",
         endpoints=[
             "/api/health",
-            "/api/metrics",
+            "/api/metrics",  # JSON format (backward compatibility)
+            "/metrics",  # Prometheus text format (for scraping)
             "/api/status",
             "/api/monitoring/slow-queries",
             "/api/monitoring/query-stats",

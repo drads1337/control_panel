@@ -329,7 +329,7 @@ class ResponseBuilder:
             }
 
         return {
-            "error": "Game Access Denied",
+            "error": "Application Access Denied",
             "message": "Access to this game is not allowed.",
             "game_name": game_obj.name,
             "game_status": game_obj.status,

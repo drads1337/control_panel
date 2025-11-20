@@ -1,7 +1,8 @@
 
 """
 Скрипт для копирования файлов проекта в отдельные директории.
-Копирует только .py файлы из frontend/src/ и backend/, исключая ненужные файлы.
+Копирует .py файлы из backend/ и файлы фронтенда (.ts, .tsx, .js, .jsx, .css) из frontend/src/,
+исключая ненужные файлы.
 """
 
 import os
@@ -46,7 +47,7 @@ def should_ignore_frontend(path: Path) -> bool:
 
     return False
 
-def copy_directory_flat(src: Path, dst: Path, ignore_func=None) -> int:
+def copy_directory_flat(src: Path, dst: Path, ignore_func=None, allowed_extensions=None) -> int:
     """
     Копирует все файлы из директории в одну плоскую папку без подпапок.
 
@@ -54,6 +55,7 @@ def copy_directory_flat(src: Path, dst: Path, ignore_func=None) -> int:
         src: Исходная директория
         dst: Целевая директория
         ignore_func: Функция для проверки игнорирования файлов
+        allowed_extensions: Список разрешенных расширений файлов (например, ['.py'] или ['.ts', '.tsx', '.js', '.jsx', '.css'])
 
     Returns:
         Количество скопированных файлов
@@ -63,6 +65,10 @@ def copy_directory_flat(src: Path, dst: Path, ignore_func=None) -> int:
     if not src.exists():
         print(f"❌ Исходная директория не найдена: {src}")
         return 0
+
+    # По умолчанию для бэкенда копируем только .py файлы
+    if allowed_extensions is None:
+        allowed_extensions = ['.py']
 
     dst.mkdir(parents=True, exist_ok=True)
 
@@ -75,8 +81,8 @@ def copy_directory_flat(src: Path, dst: Path, ignore_func=None) -> int:
         for file in files:
             src_file = root_path / file
 
-            # Копируем только .py файлы
-            if src_file.suffix != '.py':
+            # Копируем только файлы с разрешенными расширениями
+            if src_file.suffix not in allowed_extensions:
                 continue
 
             if ignore_func and ignore_func(src_file):
@@ -124,7 +130,14 @@ def main():
             shutil.rmtree(frontend_dst)
             print("🗑️  Удалена старая копия фронтенда")
 
-        frontend_files = copy_directory_flat(frontend_src, frontend_dst, should_ignore_frontend)
+        # Копируем файлы фронтенда: TypeScript, JavaScript, CSS и другие
+        frontend_extensions = ['.ts', '.tsx', '.js', '.jsx', '.css', '.json']
+        frontend_files = copy_directory_flat(
+            frontend_src, 
+            frontend_dst, 
+            should_ignore_frontend,
+            allowed_extensions=frontend_extensions
+        )
         print(f"✅ Фронтенд: скопировано {frontend_files} файлов")
     else:
         print(f"❌ Директория фронтенда не найдена: {frontend_src}")
@@ -136,7 +149,13 @@ def main():
             shutil.rmtree(backend_dst)
             print("🗑️  Удалена старая копия бэкенда")
 
-        backend_files = copy_directory_flat(backend_src, backend_dst, should_ignore_backend)
+        # Копируем только .py файлы бэкенда
+        backend_files = copy_directory_flat(
+            backend_src, 
+            backend_dst, 
+            should_ignore_backend,
+            allowed_extensions=['.py']
+        )
         print(f"✅ Бэкенд: скопировано {backend_files} файлов")
     else:
         print(f"❌ Директория бэкенда не найдена: {backend_src}")

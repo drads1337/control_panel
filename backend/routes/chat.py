@@ -469,27 +469,31 @@ def send_client_message():
         if not key:
             return jsonify({"error": "Invalid or inactive key"}), 403
 
-        settings = ProjectSettings.query.filter_by(project_id=project.id).first()
-        if settings:
+        from ..utils.project_settings_migration import ProjectSettingsHelper
+        helper = ProjectSettingsHelper(project.id)
+        chat_settings = helper.get_chat_settings()
+        
+        # Use chat settings from specialized model
+        if chat_settings:
             if (
-                settings.chat_message_max_length
-                and len(message_text) > settings.chat_message_max_length
+                chat_settings.chat_message_max_length
+                and len(message_text) > chat_settings.chat_message_max_length
             ):
                 return (
-                    jsonify({"error": f"Message too long (>{settings.chat_message_max_length})"}),
+                    jsonify({"error": f"Message too long (>{chat_settings.chat_message_max_length})"}),
                     400,
                 )
             if (
-                settings.chat_message_limit_per_minute
-                and settings.chat_message_limit_per_minute > 0
+                chat_settings.chat_message_limit_per_minute
+                and chat_settings.chat_message_limit_per_minute > 0
             ):
                 since = datetime.utcnow() - timedelta(minutes=1)
                 recent_count = ChatMessage.query.filter(
                     ChatMessage.project_id == project.id, ChatMessage.created_at >= since
                 ).count()
-                if recent_count >= settings.chat_message_limit_per_minute:
+                if recent_count >= chat_settings.chat_message_limit_per_minute:
                     return jsonify({"error": "Rate limit exceeded (per minute)"}), 429
-            if settings.chat_daily_message_limit and settings.chat_daily_message_limit > 0:
+            if chat_settings.chat_daily_message_limit and chat_settings.chat_daily_message_limit > 0:
                 start_of_day = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
                 daily_count = ChatMessage.query.filter(
                     ChatMessage.project_id == project.id, ChatMessage.created_at >= start_of_day
@@ -736,7 +740,7 @@ def update_chat_settings():
             settings = ProjectSettings(project_id=project_id)
             db.session.add(settings)
         if "chat_message_limit_per_minute" in data:
-            settings.chat_message_limit_per_minute = int(
+            chat_settings.chat_message_limit_per_minute = int(
                 data.get("chat_message_limit_per_minute") or 0
             )
         if "chat_daily_message_limit" in data:

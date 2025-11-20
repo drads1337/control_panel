@@ -1,5 +1,6 @@
 """
-Loader-related models
+Agent-related models (formerly Loader-related)
+Universal terminology for B2B/SaaS applications - agents, launchers, auto-updaters
 """
 
 import json
@@ -7,8 +8,10 @@ from datetime import datetime
 
 from ..core.extensions import db
 
-class Loader(db.Model):
-    """Model for managing loaders"""
+class Agent(db.Model):
+    """Model for managing agents (launchers, auto-updaters, IoT devices)"""
+    
+    __tablename__ = "loader"  # Keep table name for backward compatibility
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(128), nullable=False)
@@ -44,10 +47,16 @@ class Loader(db.Model):
     project = db.relationship("Project", backref="loaders")
 
     def __repr__(self):
-        return f"<Loader {self.name}>"
+        return f"<Agent {self.name}>"
 
-class LoaderGameAssignment(db.Model):
-    """Model for assigning games to loaders"""
+# Create Loader alias immediately after Agent definition for SQLAlchemy registry
+# This ensures SQLAlchemy can resolve "Loader" in string-based relationships
+Loader = Agent
+
+class AgentProductAssignment(db.Model):
+    """Model for assigning products to agents"""
+    
+    __tablename__ = "loader_game_assignment"  # Keep table name for backward compatibility
 
     id = db.Column(db.Integer, primary_key=True)
     loader_id = db.Column(
@@ -58,18 +67,40 @@ class LoaderGameAssignment(db.Model):
     assigned_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
 
-    loader = db.relationship("Loader", backref="game_assignments")
-    game = db.relationship("Game", backref="loader_assignments")
+    loader = db.relationship("Agent", backref="product_assignments")
+    game = db.relationship("Product", backref="agent_assignments")
     assigner = db.relationship("User", backref="assigned_games")
     project = db.relationship("Project", backref="loader_game_assignments")
 
     __table_args__ = (db.UniqueConstraint("loader_id", "game_id", name="uq_loader_game"),)
 
-    def __repr__(self):
-        return f"<LoaderGameAssignment {self.loader_id}:{self.game_id}>"
+    @property
+    def agent_id(self):
+        """Alias for loader_id"""
+        return self.loader_id
 
-class LoaderChangelog(db.Model):
-    """Model for loader changelog entries"""
+    @property
+    def agent(self):
+        """Alias for loader relationship"""
+        return self.loader
+
+    @property
+    def product_id(self):
+        """Alias for game_id"""
+        return self.game_id
+
+    @property
+    def product(self):
+        """Alias for game relationship"""
+        return self.game
+
+    def __repr__(self):
+        return f"<AgentProductAssignment {self.loader_id}:{self.game_id}>"
+
+class AgentChangelog(db.Model):
+    """Model for agent changelog entries"""
+    
+    __tablename__ = "loaderchangelog"  # Keep table name for backward compatibility
 
     id = db.Column(db.Integer, primary_key=True)
     loader_id = db.Column(
@@ -88,9 +119,19 @@ class LoaderChangelog(db.Model):
     created_by = db.Column(db.Integer, db.ForeignKey("user.id", ondelete="SET NULL"), nullable=True)
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
 
-    loader = db.relationship("Loader", backref="changelog_entries")
+    loader = db.relationship("Agent", backref="changelog_entries")
     creator = db.relationship("User", backref="created_loader_changelog_entries")
     project = db.relationship("Project", backref="loader_changelog_entries")
+
+    @property
+    def agent_id(self):
+        """Alias for loader_id"""
+        return self.loader_id
+
+    @property
+    def agent(self):
+        """Alias for loader relationship"""
+        return self.loader
 
     @property
     def changes_list(self):
@@ -106,10 +147,12 @@ class LoaderChangelog(db.Model):
         self.changes = json.dumps(value) if value else "[]"
 
     def __repr__(self):
-        return f"<LoaderChangelog {self.loader_id}:{self.version}>"
+        return f"<AgentChangelog {self.loader_id}:{self.version}>"
 
-class LoaderNotification(db.Model):
-    """Model for loader notifications"""
+class AgentNotification(db.Model):
+    """Model for agent notifications"""
+    
+    __tablename__ = "loadernotification"  # Keep table name for backward compatibility
 
     id = db.Column(db.Integer, primary_key=True)
     loader_id = db.Column(
@@ -124,15 +167,27 @@ class LoaderNotification(db.Model):
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    loader = db.relationship("Loader", backref="loader_notifications")
+    loader = db.relationship("Agent", backref="loader_notifications")
     creator = db.relationship("User", backref="created_loader_notifications")
     project = db.relationship("Project", backref="loader_notifications")
 
-    def __repr__(self):
-        return f"<LoaderNotification {self.loader_id}:{self.type}>"
+    @property
+    def agent_id(self):
+        """Alias for loader_id"""
+        return self.loader_id
 
-class LoaderDownloadLog(db.Model):
-    """Model for tracking loader downloads"""
+    @property
+    def agent(self):
+        """Alias for loader relationship"""
+        return self.loader
+
+    def __repr__(self):
+        return f"<AgentNotification {self.loader_id}:{self.type}>"
+
+class AgentDownloadLog(db.Model):
+    """Model for tracking agent downloads"""
+    
+    __tablename__ = "loaderdownloadlog"  # Keep table name for backward compatibility
 
     id = db.Column(db.Integer, primary_key=True)
     loader_id = db.Column(
@@ -144,21 +199,33 @@ class LoaderDownloadLog(db.Model):
     download_date = db.Column(db.DateTime, default=datetime.utcnow)
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
 
-    loader = db.relationship("Loader", backref="download_logs")
+    loader = db.relationship("Agent", backref="download_logs")
     user = db.relationship("User", backref="loader_downloads")
     project = db.relationship("Project", backref="loader_download_logs")
 
-    def __repr__(self):
-        return f"<LoaderDownloadLog {self.loader_id}:{self.download_date}>"
+    @property
+    def agent_id(self):
+        """Alias for loader_id"""
+        return self.loader_id
 
-class LoaderConfiguration(db.Model):
-    """Model for storing loader-specific configuration"""
+    @property
+    def agent(self):
+        """Alias for loader relationship"""
+        return self.loader
+
+    def __repr__(self):
+        return f"<AgentDownloadLog {self.loader_id}:{self.download_date}>"
+
+class AgentConfiguration(db.Model):
+    """Model for storing agent-specific configuration"""
+    
+    __tablename__ = "loaderconfiguration"  # Keep table name for backward compatibility
 
     id = db.Column(db.Integer, primary_key=True)
     loader_id = db.Column(
         db.Integer, db.ForeignKey("loader.id", ondelete="CASCADE"), nullable=False, unique=True
     )
-    loader = db.relationship("Loader", backref="configuration")
+    loader = db.relationship("Agent", backref="configuration")
 
     version = db.Column(db.String(32), default="1.0.0")
     update_url = db.Column(db.String(256), nullable=True)
@@ -178,3 +245,20 @@ class LoaderConfiguration(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
     project = db.relationship("Project", backref="loader_configurations")
+
+    @property
+    def agent_id(self):
+        """Alias for loader_id"""
+        return self.loader_id
+
+    @property
+    def agent(self):
+        """Alias for loader relationship"""
+        return self.loader
+
+# Backward compatibility aliases (Loader already created above)
+LoaderGameAssignment = AgentProductAssignment
+LoaderChangelog = AgentChangelog
+LoaderNotification = AgentNotification
+LoaderDownloadLog = AgentDownloadLog
+LoaderConfiguration = AgentConfiguration

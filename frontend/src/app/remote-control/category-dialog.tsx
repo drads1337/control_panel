@@ -24,7 +24,8 @@ interface CategoryDialogProps {
     name: string
     description: string
     color: string
-    game_id?: number
+    product_id?: number  // Universal name
+    game_id?: number  // Backward compatibility alias
   }
   setCategoryFormData: (data: any) => void
   onAddCategory: () => void

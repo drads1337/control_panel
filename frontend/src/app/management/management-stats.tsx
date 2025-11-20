@@ -47,12 +47,12 @@ const ManagementStats: React.FC<ManagementStatsProps> = React.memo(({ stats, loa
       }
     },
     {
-      title: 'Games',
+      title: 'Applications',
       value: stats.totalGames,
       icon: Database,
       subtitle: 'Applications in database',
       badge: {
-        text: 'Games',
+        text: 'Applications',
         color: 'primary'
       }
     },

@@ -167,7 +167,7 @@ const CreateReferralDialog: React.FC<CreateReferralDialogProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label>Game Access</Label>
+            <Label>Application Access</Label>
             {gamesLoading ? (
               <div className="text-sm text-muted-foreground">Loading games...</div>
             ) : gamesError ? (

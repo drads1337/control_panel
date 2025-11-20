@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 @require_mtls
 @connect_rate_limit(rate_limit=Config.RATE_LIMIT, rate_limit_burst=Config.RATE_LIMIT_BURST)
 def get_challenge():
-    """Generate challenge for authentication - thin route handler"""
+    """Generate challenge for authentication"""
     req_json = request.get_json(silent=True) or {}
 
     user_key = req_json.get("user_key")
@@ -37,7 +37,10 @@ def get_challenge():
 
     ip = request.remote_addr
     response, status_code = connect_service.handle_challenge_request(
-        user_key=user_key, fingerprint=fingerprint, client_project_id=client_project_id, ip=ip
+        user_key=user_key,
+        fingerprint=fingerprint,
+        client_project_id=client_project_id,
+        ip=ip
     )
 
     return jsonify(response), status_code
@@ -48,7 +51,7 @@ def get_challenge():
 @monitor_load("connect")
 def api_connect():
     """
-    Main connect endpoint - thin route handler
+    Main connect endpoint
 
     SECURITY: Rate limiting is applied by decorator, but note that user_key is inside
     encrypted blob, so rate limiting uses IP address. Additional IP-based rate limiting
@@ -60,6 +63,7 @@ def api_connect():
     logger.info(f"CONNECT_ATTEMPT ip={ip} user_agent={user_agent}")
 
     try:
+        # Redis rate limiting check
         import redis
         from ...config.config import Config
 
@@ -125,7 +129,10 @@ def api_connect():
         return encrypted_response, 400
 
     encrypted_response, status_code = connect_service.handle_connect_request(
-        enc_data=enc_data, ip=ip, user_agent=user_agent, project_id=project_id
+        enc_data=enc_data,
+        ip=ip,
+        user_agent=user_agent,
+        project_id=project_id
     )
 
     return encrypted_response, status_code
@@ -136,7 +143,7 @@ def api_connect():
 @csrf.exempt
 def classic_connect():
     """
-    Classic connect endpoint for legacy authentication - thin route handler
+    Classic connect endpoint for legacy authentication
 
     SECURITY: For username/password authentication, this endpoint now uses process_simple_login()
     which provides full security protections:
@@ -162,7 +169,11 @@ def classic_connect():
     password = req_json.get("password")
 
     response_data, status_code = connect_service.handle_classic_connect_request(
-        token=token, username=username, password=password, ip=ip, user_agent=user_agent
+        token=token,
+        username=username,
+        password=password,
+        ip=ip,
+        user_agent=user_agent
     )
 
     if username and password and status_code == 200:

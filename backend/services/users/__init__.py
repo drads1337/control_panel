@@ -6,7 +6,7 @@ Contains business logic for user management, profiles, invites, and 2FA
 from .invite_service import invite_service
 from .two_factor_service import two_factor_service
 from .user_orchestrator import UserOrchestrator
-from .user_service import UserService, user_service
+# UserService removed - use user_management_service and user_profile_service directly
 from .user_profile_service import UserProfileService, user_profile_service
 from .user_management_service import UserManagementService, user_management_service
 

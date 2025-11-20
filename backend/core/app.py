@@ -19,6 +19,7 @@ from ..config.rate_limit_config import RateLimitConfig
 from ..middleware import ActivityLoggerMiddleware
 from ..utils.db_replica import init_replica_binds
 from ..utils.monitoring import setup_monitoring_endpoints
+from ..utils.query_isolation import init_query_isolation
 from ..utils.slow_query_monitor import setup_slow_query_monitoring
 from ..utils.storage_manager import init_storage_manager
 from ..utils.structured_logging import get_logger, setup_structured_logging
@@ -58,6 +59,40 @@ def check_redis_connection():
         )
         return False
 
+def check_redis_security():
+    """Check Redis security configuration at startup"""
+    try:
+        from ..utils.redis_startup_check import check_redis_security_on_startup
+        
+        results = check_redis_security_on_startup()
+        
+        if results["status"] == "error":
+            logger.error(
+                "Redis security check failed. Please review configuration.",
+                component="redis_security",
+                errors=results["errors"]
+            )
+        elif results["status"] == "warning":
+            logger.warning(
+                "Redis security warnings found. Review recommendations.",
+                component="redis_security",
+                warnings=results["warnings"]
+            )
+        else:
+            logger.info(
+                "Redis security check passed",
+                component="redis_security",
+                info=results["info"]
+            )
+        
+        return results["status"] != "error"
+    except Exception as e:
+        logger.warning(
+            f"Failed to run Redis security check: {e}",
+            component="redis_security"
+        )
+        return True  # Don't block startup if check fails
+
 def setup_logging(app: Flask) -> None:
     """Configure application logging"""
     if Config.ENABLE_STRUCTURED_LOGGING:
@@ -75,12 +110,14 @@ def setup_logging(app: Flask) -> None:
 
 def setup_redis_and_limiter(app: Flask) -> None:
     """Setup Redis connection and rate limiting"""
-    # Initialize Redis extension
+    # Initialize Redis extension (uses persistent instance by default)
     redis_ext.init_app(app)
 
-    redis_password_part = f":{Config.REDIS_PASSWORD}@" if Config.REDIS_PASSWORD else ""
+    # Use persistent Redis instance for rate limiting (must not lose data)
+    redis_password_part = f":{Config.REDIS_PERSISTENT_PASSWORD}@" if Config.REDIS_PERSISTENT_PASSWORD else ""
     storage_uri = (
-        f"redis://{redis_password_part}{Config.REDIS_HOST}:{Config.REDIS_PORT}/{Config.REDIS_DB}"
+        f"redis://{redis_password_part}{Config.REDIS_PERSISTENT_HOST}:"
+        f"{Config.REDIS_PERSISTENT_PORT}/{Config.REDIS_DB_RATE_LIMIT}"
     )
 
     def rate_limit_key():
@@ -217,6 +254,10 @@ def create_app() -> Flask:
     db.init_app(app)
     jwt.init_app(app)
     redis_ext.init_app(app)
+    
+    # Initialize automatic query isolation for project-based data separation
+    # This must be done after db.init_app() to ensure SQLAlchemy is ready
+    init_query_isolation(app)
 
     app.config["JWT_SECRET_KEY"] = Config.JWT_SECRET_KEY
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = False
@@ -238,6 +279,12 @@ def create_app() -> Flask:
     setup_logging(app)
     setup_cors(app)
     setup_redis_and_limiter(app)
+    
+    # SECURITY: Check Redis security configuration at startup
+    # This runs after Redis is initialized but doesn't block startup
+    with app.app_context():
+        check_redis_security()
+    
     setup_storage_and_monitoring(app)
     setup_migrations(app)
 

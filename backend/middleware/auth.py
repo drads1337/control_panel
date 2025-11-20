@@ -265,7 +265,7 @@ def require_any_permission(permissions):
     def manage_user():
         pass
     """
-    from ..services.rbac import rbac_service
+    # Use RBACManager as single source of truth (which delegates to rbac_service)
 
     def decorator(f):
         import inspect
@@ -283,9 +283,10 @@ def require_any_permission(permissions):
                 if not user:
                     return jsonify({"error": "User not found"}), 404
 
+                # Use RBACManager as single source of truth (which delegates to rbac_service)
                 has_any_permission = False
                 for permission in permissions:
-                    if rbac_service.check_permission(user.id, permission):
+                    if RBACManager.has_permission(user.id, user.project_id, permission):
                         has_any_permission = True
                         break
 

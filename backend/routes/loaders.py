@@ -11,7 +11,9 @@ from ..core.extensions import db
 from ..middleware.auth import require_project_isolation, require_project_with_grace_period
 from ..models.core import User
 from ..models.games import Game
-from ..models.loaders import Loader, LoaderGameAssignment
+from ..models.loaders import Loader, Agent, AgentProductAssignment
+# LoaderGameAssignment is an alias for AgentProductAssignment, but import directly for clarity
+LoaderGameAssignment = AgentProductAssignment
 from ..config.config import Config
 
 loaders_bp = Blueprint("loaders", __name__)
@@ -26,7 +28,7 @@ def allowed_file(filename):
 @require_project_with_grace_period
 @require_project_isolation
 def get_loaders():
-    """Get all loaders with their assigned games"""
+    """Get all loaders/agents with their assigned games/products (supports both /api/loaders and /api/agents)"""
     try:
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
@@ -42,7 +44,8 @@ def get_loaders():
         if not user.project_id:
             return jsonify({"error": "No project associated"}), 400
 
-        loaders = Loader.query.filter_by(project_id=user.project_id).all()
+        # Use Agent model (Loader is alias)
+        loaders = Agent.query.filter_by(project_id=user.project_id).all()
         result = []
 
         for loader in loaders:
@@ -91,12 +94,17 @@ def get_loaders():
                 "updated_at": loader.updated_at.isoformat() if loader.updated_at else None,
             }
 
-            assignments = LoaderGameAssignment.query.filter_by(loader_id=loader.id).all()
+            assignments = AgentProductAssignment.query.filter_by(loader_id=loader.id).all()
             loader_data["assigned_games"] = [assignment.game_id for assignment in assignments]
+            loader_data["assigned_products"] = [assignment.product_id for assignment in assignments]
 
             result.append(loader_data)
 
-        return jsonify({"loaders": result, "success": True})
+        return jsonify({
+            "agents": result, 
+            "loaders": result,
+            "success": True
+        })
     except Exception as e:
         current_app.logger.error(f"Error getting loaders: {str(e)}")
         import traceback
@@ -184,6 +192,87 @@ def get_available_games_for_loaders():
 
         current_app.logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": f"Failed to get available games: {str(e)}", "success": False}), 500
+
+@loaders_bp.route("/available-products", methods=["GET"])
+@jwt_required()
+@require_project_with_grace_period
+@require_project_isolation
+def get_available_products_for_agents():
+    """Get only multi-app products that can be assigned to agents (universal terminology)"""
+    try:
+        user_id = get_jwt_identity()
+        user = User.query.get(user_id)
+
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        if not user.project_id:
+            return jsonify({"error": "User must be assigned to a project"}), 403
+
+        from ..services.games import game_service
+
+        game_service.invalidate_game_cache(user.project_id)
+
+        result = game_service.get_games_cached(
+            project_id=user.project_id,
+            game_type="all",
+            user_id=user_id,
+        )
+
+        if result.get("success"):
+
+            products_data = []
+            all_games = result.get("games", [])
+            current_app.logger.info(f"Total products found: {len(all_games)}")
+
+            for game in all_games:
+                current_app.logger.info(
+                    f"Product: {game.get('name')}, is_multi_app: {game.get('is_multi_app')}"
+                )
+
+                product_data = {
+                    "id": game["id"],
+                    "name": game["name"],
+                    "description": game.get("description", ""),
+                    "status": game.get("status", "active"),
+                    "logo": game.get("logo", ""),
+                    "version": game.get("version", "1.0.0"),
+                    "is_multi_app": game.get("is_multi_app", False),
+                }
+                products_data.append(product_data)
+
+            current_app.logger.info(f"Multi-app products found: {len(products_data)}")
+
+            debug_info = {
+                "total_products": len(all_games),
+                "multi_app_products": len(products_data),
+                "products_data": products_data,
+                "all_products_debug": [
+                    {"id": g["id"], "name": g["name"], "is_multi_app": g.get("is_multi_app", False)}
+                    for g in all_games
+                ],
+            }
+            current_app.logger.info(f"Debug info: {debug_info}")
+
+            return jsonify({"products": products_data, "success": True, "debug": debug_info})
+        else:
+            current_app.logger.error(f"Product service error: {result.get('error', 'Unknown error')}")
+            return (
+                jsonify(
+                    {
+                        "error": f'Failed to fetch products: {result.get("error", "Unknown error")}',
+                        "success": False,
+                    }
+                ),
+                500,
+            )
+
+    except Exception as e:
+        current_app.logger.error(f"Error getting available products for agents: {str(e)}")
+        import traceback
+
+        current_app.logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({"error": f"Failed to get available products: {str(e)}", "success": False}), 500
 
 @loaders_bp.route("", methods=["POST"])
 @jwt_required()

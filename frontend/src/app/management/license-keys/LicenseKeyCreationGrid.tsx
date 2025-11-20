@@ -40,7 +40,8 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
 
     try {
       setGameAccessLoading(true);
-      const response = await enhancedApi.get(`/api/clients/${user.id}/games`);
+      // Use universal endpoint - products instead of games
+      const response = await enhancedApi.get(`/api/clients/${user.id}/products`);
       if (Array.isArray(response.data)) {
 
         const accessibleGames = response.data

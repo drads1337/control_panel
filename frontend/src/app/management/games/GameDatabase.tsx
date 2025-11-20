@@ -15,16 +15,39 @@ import { GameDatabaseEmptyState } from './GameDatabaseEmptyState';
 import { GameDatabaseErrorState } from './GameDatabaseErrorState';
 import { GameDatabaseAccessDenied } from './GameDatabaseAccessDenied';
 import { GameDatabaseDialogs } from './GameDatabaseDialogs';
-import type { Game } from '@/entities/game';
+import type { Game, Product } from '@/entities/game';  // Game is alias for Product
 
-interface GameDatabaseProps {
-  onViewGame?: (game: Game) => void;
+interface ProductDatabaseProps {
+  onViewProduct?: (product: Product) => void;  // Universal name
+  onCreateProduct?: () => void;  // Universal name
+  onCreateProductRequested?: boolean;  // Universal name
+  onCreateProductRequestHandled?: () => void;  // Universal name
+  // Backward compatibility aliases
+  onViewGame?: (game: Product) => void;
   onCreateGame?: () => void;
   onCreateGameRequested?: boolean;
   onCreateGameRequestHandled?: () => void;
 }
 
-const GameDatabase: React.FC<GameDatabaseProps> = ({ onViewGame, onCreateGame, onCreateGameRequested, onCreateGameRequestHandled }) => {
+// Backward compatibility alias
+interface GameDatabaseProps extends ProductDatabaseProps {}
+
+const ProductDatabase: React.FC<ProductDatabaseProps> = ({ 
+  onViewProduct,
+  onCreateProduct,
+  onCreateProductRequested,
+  onCreateProductRequestHandled,
+  // Backward compatibility - destructure games props
+  onViewGame,
+  onCreateGame,
+  onCreateGameRequested,
+  onCreateGameRequestHandled,
+}) => {
+  // Use universal names with fallback to backward compatibility
+  const onView = onViewProduct || onViewGame;
+  const onCreate = onCreateProduct || onCreateGame;
+  const onCreateRequested = onCreateProductRequested || onCreateGameRequested;
+  const onCreateHandled = onCreateProductRequestHandled || onCreateGameRequestHandled;
 
   const {
     canViewGames,
@@ -73,14 +96,14 @@ const GameDatabase: React.FC<GameDatabaseProps> = ({ onViewGame, onCreateGame, o
     setShowEditDialog,
     setShowChangelogDialog,
     setSelectedGame,
-  } = useGameManagement(onViewGame, onCreateGame);
+  } = useGameManagement(onView, onCreate);
 
   React.useEffect(() => {
-    if (onCreateGameRequested) {
+    if (onCreateRequested) {
       setShowCreateDialog(true);
-      onCreateGameRequestHandled?.();
+      onCreateHandled?.();
     }
-  }, [onCreateGameRequested, onCreateGameRequestHandled, setShowCreateDialog]);
+  }, [onCreateRequested, onCreateHandled, setShowCreateDialog]);
 
   const { filters, filteredGames, updateFilters, resetFilters } = useGameFilters(games);
   
@@ -243,17 +266,28 @@ const GameDatabase: React.FC<GameDatabaseProps> = ({ onViewGame, onCreateGame, o
                   </Button>
                 </div>
                 <GamesTable
+                  products={filteredGames}
+                  selectedProducts={selectedGames}
+                  onToggleProductSelection={toggleGameSelection}
+                  onSelectAll={handleSelectAll}
+                  onViewProduct={handleViewGame}
+                  onEditProduct={handleEditGame}
+                  onUploadProduct={handleUploadGame}
+                  onNotificationsProduct={handleNotificationsGame}
+                  onPricesProduct={handlePricesGame}
+                  onChangelogProduct={handleChangelogGame}
+                  onStatusChange={handleStatusChange}
+                  onDeleteProduct={handleDeleteGame}
+                  // Backward compatibility aliases
                   games={filteredGames}
                   selectedGames={selectedGames}
                   onToggleGameSelection={toggleGameSelection}
-                  onSelectAll={handleSelectAll}
                   onViewGame={handleViewGame}
                   onEditGame={handleEditGame}
                   onUploadGame={handleUploadGame}
                   onNotificationsGame={handleNotificationsGame}
                   onPricesGame={handlePricesGame}
                   onChangelogGame={handleChangelogGame}
-                  onStatusChange={handleStatusChange}
                   onDeleteGame={handleDeleteGame}
                   canEditGames={canEditGames}
                   canDeleteGames={canDeleteGames}
@@ -316,4 +350,8 @@ const GameDatabase: React.FC<GameDatabaseProps> = ({ onViewGame, onCreateGame, o
   );
 };
 
-export default GameDatabase;
+export default ProductDatabase;
+
+// Backward compatibility alias
+const GameDatabase = ProductDatabase;
+export { GameDatabase };

@@ -62,8 +62,8 @@ class ChatMessage(db.Model):
 
     project = db.relationship("Project", backref="chat_messages")
     sender = db.relationship("User", backref="sent_messages")
-    game = db.relationship("Game", backref="chat_messages", foreign_keys=[game_id])
-    loader = db.relationship("Loader", backref="chat_messages", foreign_keys=[loader_id])
+    game = db.relationship("Product", backref="chat_messages", foreign_keys=[game_id])  # Using Product instead of Game
+    loader = db.relationship("Agent", backref="chat_messages", foreign_keys=[loader_id])  # Using Agent instead of Loader
 
     def __repr__(self):
         return f"<ChatMessage {self.sender_type}:{self.message[:50]}...>"
@@ -109,7 +109,7 @@ class ChatGroupGame(db.Model):
     added_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     group = db.relationship("ChatGroup", backref="group_games")
-    game = db.relationship("Game", backref="game_groups")
+    game = db.relationship("Product", backref="game_groups")  # Using Product instead of Game
     project = db.relationship("Project", backref="chat_group_games")
 
     __table_args__ = (db.UniqueConstraint("group_id", "game_id", name="uq_group_game"),)

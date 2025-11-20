@@ -28,7 +28,7 @@ import { getErrorMessage } from '@/shared/api/enhanced-client';
 import MultiFileUploadDialog from './MultiFileUploadDialog';
 import type { Game } from '@/entities/game';
 import type { FileItem } from '@/entities/file';
-import type { Loader } from '@/entities/loader';
+import type { Agent, Loader } from '@/entities/loader';
 
 interface FileManagerProps {
   onSwitchToGameDatabase?: () => void;
@@ -296,9 +296,9 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
   }
 
   const [games, setGames] = useState<Game[]>([]);
-  const [loaders, setLoaders] = useState<Loader[]>([]);
+  const [loaders, setLoaders] = useState<Agent[]>([]);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
-  const [selectedLoader, setSelectedLoader] = useState<Loader | null>(null);
+  const [selectedLoader, setSelectedLoader] = useState<Agent | null>(null);
   const [files, setFiles] = useState<FileItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -382,6 +382,9 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
   }, [categoryFilter]);
 
   const filteredGamesForSelect = useMemo(() => {
+    if (!games || !Array.isArray(games)) {
+      return [];
+    }
     if (targetType === 'application') {
       return games.filter(g => g.is_multi_app === false);
     } else {
@@ -455,7 +458,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
       setLastGamesLoad(now);
 
       const response = await getGames('all');
-      setGames(response.games);
+      setGames(response.games || []);
 
       try {
         const loadersResponse = await getLoaders();
@@ -464,7 +467,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
 
       }
 
-      await ensureConfigsFoldersExist(response.games);
+      await ensureConfigsFoldersExist(response.games || []);
     } catch (error: any) {
 
       if (error.message?.includes('429') || error.message?.includes('TOO MANY REQUESTS')) {
@@ -1142,6 +1145,9 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
   }), [files]);
 
   const filteredGames = useMemo(() => {
+    if (!games || !Array.isArray(games)) {
+      return [];
+    }
     if (targetType === 'application') {
 
       return games.filter(g => g.is_multi_app === false);
@@ -1275,7 +1281,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
                     }`}
                     onClick={() => {
                       if (type === 'loader') {
-                        setSelectedLoader(item as Loader);
+                        setSelectedLoader(item as Agent);
                         setSelectedGame(null);
                       } else {
                         setSelectedGame(item as Game);

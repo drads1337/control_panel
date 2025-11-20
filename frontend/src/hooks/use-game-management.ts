@@ -1,33 +1,38 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  getGames,
+  getGames,  // Backward compatibility - uses getProducts internally
+  getProducts,  // New universal function
   updateGameStatus,
   bulkUpdateGameStatus,
   deleteGame,
   bulkDeleteGames,
-  type Game,
+  type Game,  // Backward compatibility alias
+  type Product,  // New universal type
 } from '@/entities/game';
 import { useAuth } from '@/hooks/use-auth';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useMutationWithCache } from './use-mutation-helpers';
 import { toast } from 'sonner';
 
-export const gameKeys = {
-  all: ['games'] as const,
-  lists: () => [...gameKeys.all, 'list'] as const,
-  list: (type?: string) => [...gameKeys.lists(), type || 'all'] as const,
-  details: () => [...gameKeys.all, 'detail'] as const,
-  detail: (id: number) => [...gameKeys.details(), id] as const,
+// Universal terminology query keys
+export const productKeys = {
+  all: ['products'] as const,
+  lists: () => [...productKeys.all, 'list'] as const,
+  list: (type?: string) => [...productKeys.lists(), type || 'all'] as const,
+  details: () => [...productKeys.all, 'detail'] as const,
+  detail: (id: number) => [...productKeys.details(), id] as const,
 };
 
-interface UseGameManagementReturn {
+// Backward compatibility alias
+export const gameKeys = productKeys;
 
-  games: Game[];
+interface UseProductManagementReturn {
+  products: Product[];  // Universal name
   loading: boolean;
   error: string | null;
 
-  selectedGames: number[];
+  selectedProducts: number[];  // Universal name
   bulkAction: string;
   showCreateDialog: boolean;
   showPricesDialog: boolean;
@@ -35,35 +40,54 @@ interface UseGameManagementReturn {
   showUploadDialog: boolean;
   showEditDialog: boolean;
   showChangelogDialog: boolean;
-  selectedGame: Game | null;
+  selectedProduct: Product | null;  // Universal name
   notification: { message: string; type: 'success' | 'error' } | null;
 
-  fetchGames: () => Promise<void>;
-  toggleGameSelection: (gameId: number) => void;
+  fetchProducts: () => Promise<void>;  // Universal name
+  toggleProductSelection: (productId: number) => void;  // Universal name
   handleBulkAction: () => Promise<void>;
-  handleStatusChange: (gameId: number, newStatus: 'active' | 'inactive' | 'maintenance' | 'testing') => Promise<void>;
-  handleDeleteGame: (gameId: number) => Promise<void>;
-  handleViewGame: (game: Game) => void;
-  handleEditGame: (game: Game) => void;
-  handleUploadGame: (game: Game) => void;
-  handleNotificationsGame: (game: Game) => void;
-  handlePricesGame: (game: Game) => void;
-  handleChangelogGame: (game: Game) => void;
+  handleStatusChange: (productId: number, newStatus: 'active' | 'inactive' | 'maintenance' | 'testing') => Promise<void>;  // Universal name
+  handleDeleteProduct: (productId: number) => Promise<void>;  // Universal name
+  handleViewProduct: (product: Product) => void;  // Universal name
+  handleEditProduct: (product: Product) => void;  // Universal name
+  handleUploadProduct: (product: Product) => void;  // Universal name
+  handleNotificationsProduct: (product: Product) => void;  // Universal name
+  handlePricesProduct: (product: Product) => void;  // Universal name
+  handleChangelogProduct: (product: Product) => void;  // Universal name
   closeAllDialogs: () => void;
 
   setBulkAction: (action: string) => void;
-  setSelectedGames: (games: number[]) => void;
+  setSelectedProducts: (products: number[]) => void;  // Universal name
   setShowCreateDialog: (open: boolean) => void;
   setShowPricesDialog: (open: boolean) => void;
   setShowNotificationsDialog: (open: boolean) => void;
   setShowUploadDialog: (open: boolean) => void;
   setShowEditDialog: (open: boolean) => void;
   setShowChangelogDialog: (open: boolean) => void;
-  setSelectedGame: (game: Game | null) => void;
+  setSelectedProduct: (product: Product | null) => void;  // Universal name
   setNotification: (notification: { message: string; type: 'success' | 'error' } | null) => void;
+  
+  // Backward compatibility aliases
+  games: Product[];  // Alias for products
+  selectedGames: number[];  // Alias for selectedProducts
+  selectedGame: Product | null;  // Alias for selectedProduct
+  fetchGames: () => Promise<void>;  // Alias for fetchProducts
+  toggleGameSelection: (gameId: number) => void;  // Alias for toggleProductSelection
+  handleDeleteGame: (gameId: number) => Promise<void>;  // Alias for handleDeleteProduct
+  handleViewGame: (game: Product) => void;  // Alias for handleViewProduct
+  handleEditGame: (game: Product) => void;  // Alias for handleEditProduct
+  handleUploadGame: (game: Product) => void;  // Alias for handleUploadProduct
+  handleNotificationsGame: (game: Product) => void;  // Alias for handleNotificationsProduct
+  handlePricesGame: (game: Product) => void;  // Alias for handlePricesProduct
+  handleChangelogGame: (game: Product) => void;  // Alias for handleChangelogProduct
+  setSelectedGames: (games: number[]) => void;  // Alias for setSelectedProducts
+  setSelectedGame: (game: Product | null) => void;  // Alias for setSelectedProduct
 }
 
-export function useGameManagement(onViewGame?: (game: Game) => void, onCreateGame?: () => void): UseGameManagementReturn {
+// Backward compatibility alias
+interface UseGameManagementReturn extends UseProductManagementReturn {}
+
+export function useProductManagement(onViewProduct?: (product: Product) => void, onCreateProduct?: () => void): UseProductManagementReturn {
   const { isAuthenticated } = useAuth();
   const { hasPermission } = usePermissions();
 
@@ -71,7 +95,6 @@ export function useGameManagement(onViewGame?: (game: Game) => void, onCreateGam
   const canDeleteGames = hasPermission('games.delete');
 
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [selectedGames, setSelectedGames] = useState<number[]>([]);
   const [bulkAction, setBulkAction] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showPricesDialog, setShowPricesDialog] = useState(false);
@@ -79,19 +102,19 @@ export function useGameManagement(onViewGame?: (game: Game) => void, onCreateGam
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showChangelogDialog, setShowChangelogDialog] = useState(false);
-  const [selectedGame, setSelectedGame] = useState<Game | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   const {
-    data: gamesData,
+    data: productsData,
     isLoading,
-    error: gamesError,
+    error: productsError,
     refetch,
   } = useQuery({
-    queryKey: gameKeys.list('all'),
+    queryKey: productKeys.list('all'),
     queryFn: async () => {
-
-      const response = await getGames('all');
-      return response.games || [];
+      // Use new universal function
+      const response = await getProducts('all');
+      return response.products || [];
     },
     enabled: isAuthenticated,
     staleTime: 2 * 60 * 1000,
@@ -107,74 +130,85 @@ export function useGameManagement(onViewGame?: (game: Game) => void, onCreateGam
     refetchOnReconnect: true,
   });
 
-  const games = gamesData || [];
+  const products = productsData || [];
   const loading = isLoading;
-  const error = gamesError
-    ? (gamesError as any)?.message || 'Failed to fetch games'
+  const error = productsError
+    ? (productsError as any)?.message || 'Failed to fetch products'
     : null;
 
-  const toggleGameSelection = useCallback((gameId: number) => {
-    setSelectedGames((prev) => (prev.includes(gameId) ? prev.filter((id) => id !== gameId) : [...prev, gameId]));
+  const [selectedProducts, setSelectedProducts] = useState<number[]>([]);
+  
+  const toggleProductSelection = useCallback((productId: number) => {
+    setSelectedProducts((prev) => (prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId]));
   }, []);
+  
+  // Backward compatibility alias
+  const selectedGames = selectedProducts;
+  const setSelectedGames = setSelectedProducts;
+  const toggleGameSelection = toggleProductSelection;
 
   const updateStatusMutation = useMutationWithCache({
-    mutationFn: ({ gameId, status }: { gameId: number; status: 'active' | 'inactive' | 'maintenance' | 'testing' }) =>
-      updateGameStatus(gameId, status),
-    invalidateQueries: [gameKeys.lists()],
-    successMessage: 'Game status successfully updated!',
+    mutationFn: ({ productId, status }: { productId: number; status: 'active' | 'inactive' | 'maintenance' | 'testing' }) =>
+      updateGameStatus(productId, status),  // Function name kept for backward compatibility
+    invalidateQueries: [productKeys.lists()],
+    successMessage: 'Product status successfully updated!',
     errorMessage: 'Error updating status.',
   });
 
   const bulkUpdateStatusMutation = useMutationWithCache({
-    mutationFn: ({ gameIds, status }: { gameIds: number[]; status: 'active' | 'inactive' | 'maintenance' | 'testing' }) =>
-      bulkUpdateGameStatus(gameIds, status),
-    invalidateQueries: [gameKeys.lists()],
+    mutationFn: ({ productIds, status }: { productIds: number[]; status: 'active' | 'inactive' | 'maintenance' | 'testing' }) =>
+      bulkUpdateGameStatus(productIds, status),  // Function name kept for backward compatibility
+    invalidateQueries: [productKeys.lists()],
     onSuccess: (_, variables) => {
-      toast.success(`Status of ${variables.gameIds.length} games successfully updated!`)
+      toast.success(`Status of ${variables.productIds.length} products successfully updated!`)
     },
     errorMessage: 'Error performing bulk action.',
   });
 
-  const deleteGameMutation = useMutationWithCache({
-    mutationFn: (gameId: number) => deleteGame(gameId),
-    invalidateQueries: [gameKeys.lists()],
-    successMessage: 'Game successfully deleted!',
-    errorMessage: 'Error deleting game.',
+  const deleteProductMutation = useMutationWithCache({
+    mutationFn: (productId: number) => deleteGame(productId),  // Function name kept for backward compatibility
+    invalidateQueries: [productKeys.lists()],
+    successMessage: 'Product successfully deleted!',
+    errorMessage: 'Error deleting product.',
   });
 
-  const bulkDeleteGamesMutation = useMutationWithCache({
-    mutationFn: (gameIds: number[]) => bulkDeleteGames(gameIds),
-    invalidateQueries: [gameKeys.lists()],
+  const bulkDeleteProductsMutation = useMutationWithCache({
+    mutationFn: (productIds: number[]) => bulkDeleteGames(productIds),  // Function name kept for backward compatibility
+    invalidateQueries: [productKeys.lists()],
     onSuccess: (_, variables) => {
-      toast.success(`Successfully deleted ${variables.length} games!`)
+      toast.success(`Successfully deleted ${variables.length} products!`)
     },
     errorMessage: 'Error performing bulk action.',
   });
+  
+  // Backward compatibility aliases
+  const deleteGameMutation = deleteProductMutation;
+  const bulkDeleteGamesMutation = bulkDeleteProductsMutation;
 
   const handleBulkAction = useCallback(async () => {
-    if (!bulkAction || selectedGames.length === 0 || !isAuthenticated) return;
+    if (!bulkAction || selectedProducts.length === 0 || !isAuthenticated) return;
 
     try {
       if (bulkAction === 'delete') {
-        await bulkDeleteGamesMutation.mutateAsync(selectedGames);
+        await bulkDeleteProductsMutation.mutateAsync(selectedProducts);
       } else {
         const status = bulkAction as 'active' | 'inactive' | 'maintenance' | 'testing';
-        await bulkUpdateStatusMutation.mutateAsync({ gameIds: selectedGames, status });
+        await bulkUpdateStatusMutation.mutateAsync({ productIds: selectedProducts, status });
       }
 
-      setSelectedGames([]);
+      setSelectedProducts([]);
       setBulkAction('');
     } catch (err) {
 
     }
-  }, [bulkAction, selectedGames, isAuthenticated, bulkDeleteGamesMutation, bulkUpdateStatusMutation]);
+  }, [bulkAction, selectedProducts, isAuthenticated, bulkDeleteProductsMutation, bulkUpdateStatusMutation]);
 
   const handleStatusChange = useCallback(
-    async (gameId: number, newStatus: 'active' | 'inactive' | 'maintenance' | 'testing') => {
+    async (productId: number, newStatus: 'active' | 'inactive' | 'maintenance' | 'testing') => {
       if (!isAuthenticated) return;
 
       try {
-        await updateStatusMutation.mutateAsync({ gameId, status: newStatus });
+        await updateStatusMutation.mutateAsync({ productId, status: newStatus });
       } catch (err) {
 
       }
@@ -182,55 +216,64 @@ export function useGameManagement(onViewGame?: (game: Game) => void, onCreateGam
     [isAuthenticated, updateStatusMutation]
   );
 
-  const handleDeleteGame = useCallback(
-    async (gameId: number) => {
+  const handleDeleteProduct = useCallback(
+    async (productId: number) => {
       if (!isAuthenticated) return;
 
-      if (!confirm('Are you sure you want to delete this game? This action cannot be undone.')) {
+      if (!confirm('Are you sure you want to delete this product? This action cannot be undone.')) {
         return;
       }
 
       try {
-        await deleteGameMutation.mutateAsync(gameId);
+        await deleteProductMutation.mutateAsync(productId);
       } catch (err) {
 
       }
     },
-    [isAuthenticated, deleteGameMutation]
+    [isAuthenticated, deleteProductMutation]
   );
 
-  const handleViewGame = useCallback(
-    (game: Game) => {
-      setSelectedGame(game);
-      onViewGame?.(game);
+  const handleViewProduct = useCallback(
+    (product: Product) => {
+      setSelectedProduct(product);
+      onViewProduct?.(product);
     },
-    [onViewGame]
+    [onViewProduct]
   );
 
-  const handleEditGame = useCallback((game: Game) => {
-    setSelectedGame(game);
+  const handleEditProduct = useCallback((product: Product) => {
+    setSelectedProduct(product);
     setShowEditDialog(true);
   }, []);
 
-  const handleUploadGame = useCallback((game: Game) => {
-    setSelectedGame(game);
+  const handleUploadProduct = useCallback((product: Product) => {
+    setSelectedProduct(product);
     setShowUploadDialog(true);
   }, []);
 
-  const handleNotificationsGame = useCallback((game: Game) => {
-    setSelectedGame(game);
+  const handleNotificationsProduct = useCallback((product: Product) => {
+    setSelectedProduct(product);
     setShowNotificationsDialog(true);
   }, []);
 
-  const handlePricesGame = useCallback((game: Game) => {
-    setSelectedGame(game);
+  const handlePricesProduct = useCallback((product: Product) => {
+    setSelectedProduct(product);
     setShowPricesDialog(true);
   }, []);
 
-  const handleChangelogGame = useCallback((game: Game) => {
-    setSelectedGame(game);
+  const handleChangelogProduct = useCallback((product: Product) => {
+    setSelectedProduct(product);
     setShowChangelogDialog(true);
   }, []);
+  
+  // Backward compatibility aliases
+  const handleDeleteGame = handleDeleteProduct;
+  const handleViewGame = handleViewProduct;
+  const handleEditGame = handleEditProduct;
+  const handleUploadGame = handleUploadProduct;
+  const handleNotificationsGame = handleNotificationsProduct;
+  const handlePricesGame = handlePricesProduct;
+  const handleChangelogGame = handleChangelogProduct;
 
   const closeAllDialogs = useCallback(() => {
     setShowEditDialog(false);
@@ -239,16 +282,15 @@ export function useGameManagement(onViewGame?: (game: Game) => void, onCreateGam
     setShowPricesDialog(false);
     setShowCreateDialog(false);
     setShowChangelogDialog(false);
-    setSelectedGame(null);
+    setSelectedProduct(null);
   }, []);
 
   return {
-
-    games,
+    // Universal names
+    products,
     loading,
     error,
-
-    selectedGames,
+    selectedProducts,
     bulkAction,
     showCreateDialog,
     showPricesDialog,
@@ -256,15 +298,41 @@ export function useGameManagement(onViewGame?: (game: Game) => void, onCreateGam
     showUploadDialog,
     showEditDialog,
     showChangelogDialog,
-    selectedGame,
+    selectedProduct,
     notification,
-
+    fetchProducts: async () => {
+      await refetch()
+    },
+    toggleProductSelection,
+    handleBulkAction,
+    handleStatusChange,
+    handleDeleteProduct,
+    handleViewProduct,
+    handleEditProduct,
+    handleUploadProduct,
+    handleNotificationsProduct,
+    handlePricesProduct,
+    handleChangelogProduct,
+    closeAllDialogs,
+    setBulkAction,
+    setSelectedProducts,
+    setShowCreateDialog,
+    setShowPricesDialog,
+    setShowNotificationsDialog,
+    setShowUploadDialog,
+    setShowEditDialog,
+    setShowChangelogDialog,
+    setSelectedProduct,
+    setNotification,
+    
+    // Backward compatibility aliases
+    games: products,
+    selectedGames: selectedProducts,
+    selectedGame: selectedProduct,
     fetchGames: async () => {
       await refetch()
     },
     toggleGameSelection,
-    handleBulkAction,
-    handleStatusChange,
     handleDeleteGame,
     handleViewGame,
     handleEditGame,
@@ -272,17 +340,12 @@ export function useGameManagement(onViewGame?: (game: Game) => void, onCreateGam
     handleNotificationsGame,
     handlePricesGame,
     handleChangelogGame,
-    closeAllDialogs,
-
-    setBulkAction,
-    setSelectedGames,
-    setShowCreateDialog,
-    setShowPricesDialog,
-    setShowNotificationsDialog,
-    setShowUploadDialog,
-    setShowEditDialog,
-    setShowChangelogDialog,
-    setSelectedGame,
-    setNotification,
+    setSelectedGames: setSelectedProducts,
+    setSelectedGame: setSelectedProduct,
   };
+}
+
+// Backward compatibility alias
+export function useGameManagement(onViewGame?: (game: Product) => void, onCreateGame?: () => void): UseGameManagementReturn {
+  return useProductManagement(onViewGame, onCreateGame);
 }

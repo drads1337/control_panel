@@ -71,10 +71,11 @@ class RedisExtension:
         """
         from ..config.config import Config
 
+        # Use persistent Redis instance for Flask extension (sessions, queues, etc.)
         redis_config = {
-            "host": Config.REDIS_HOST,
-            "port": Config.REDIS_PORT,
-            "db": Config.REDIS_DB,
+            "host": Config.REDIS_PERSISTENT_HOST,
+            "port": Config.REDIS_PERSISTENT_PORT,
+            "db": Config.REDIS_PERSISTENT_DB,
             "decode_responses": True,
             "socket_connect_timeout": 5,
             "socket_timeout": 5,
@@ -83,8 +84,8 @@ class RedisExtension:
             "max_connections": 20,
         }
 
-        if Config.REDIS_PASSWORD:
-            redis_config["password"] = Config.REDIS_PASSWORD
+        if Config.REDIS_PERSISTENT_PASSWORD:
+            redis_config["password"] = Config.REDIS_PERSISTENT_PASSWORD
 
         self._client = redis.Redis(**redis_config)
 

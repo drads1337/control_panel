@@ -1,5 +1,6 @@
 """
-Game-related Pydantic schemas
+Product-related Pydantic schemas (formerly Game-related)
+Universal terminology for B2B/SaaS applications
 """
 
 from typing import List, Optional

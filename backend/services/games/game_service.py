@@ -1,6 +1,7 @@
 """
-Game Service
-Provides cached access to game data and operations
+Product Service (formerly Game Service)
+Provides cached access to product data and operations
+Universal terminology for B2B/SaaS applications
 """
 
 import json
@@ -11,9 +12,11 @@ from sqlalchemy import and_, func
 
 from ...core.extensions import db
 from ...models.core import User
-from ...models.games import Game, GameExtraFile, GameFileConfig, GameFileDownload, GameKeyPrice
+# Using Product (universal name) but keeping Game alias for backward compatibility
+from ...models.games import Game, GameExtraFile, GameFileConfig, GameFileDownload, GameKeyPrice, Product
 from ...models.keys import Key
-from ...models.loaders import Loader, LoaderDownloadLog, LoaderGameAssignment
+# Using Agent (universal name) but keeping Loader alias for backward compatibility
+from ...models.loaders import Agent, AgentProductAssignment, Loader, LoaderDownloadLog, LoaderGameAssignment
 from ...services.cache import cache_service
 
 class GameService:

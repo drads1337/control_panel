@@ -119,3 +119,5 @@ backend/
 ## Authentication
 
 HTTP-only cookies with CSRF protection enabled.
+
+Added alias for game and change to the product 

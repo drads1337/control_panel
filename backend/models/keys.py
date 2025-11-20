@@ -17,7 +17,7 @@ class Key(db.Model):
     status = db.Column(db.Integer, default=1)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     game_id = db.Column(db.Integer, db.ForeignKey("game.id"), nullable=True)
-    game = db.relationship("Game", backref="keys")
+    game = db.relationship("Product", backref="keys")  
     loader_id = db.Column(db.Integer, db.ForeignKey("loader.id"), nullable=True)
     activated_at = db.Column(db.DateTime, nullable=True)
     duration_hours = db.Column(db.Float, default=24)
@@ -93,8 +93,11 @@ class ReferralCode(db.Model):
     expires_at = db.Column(db.DateTime, nullable=True)
     used = db.Column(db.Boolean, default=False)
     used_by = db.Column(db.Integer, db.ForeignKey("user.id", ondelete="SET NULL"), nullable=True)
-    game_ids = db.Column(db.PickleType, nullable=True)
-    rbac_role_ids = db.Column(db.PickleType, nullable=True)
+    # SECURITY: Using JSON instead of PickleType to prevent RCE attacks
+    # PickleType is unsafe - if attacker gets DB access, they can execute arbitrary code
+    # JSON is safe and provides the same functionality for list storage
+    game_ids = db.Column(db.JSON, nullable=True)
+    rbac_role_ids = db.Column(db.JSON, nullable=True)
     token_balance = db.Column(db.BigInteger, default=0)
     work_duration_days = db.Column(db.Integer, default=7)
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
@@ -108,17 +111,24 @@ class ReferralCode(db.Model):
         if self.game_ids is None:
             return []
 
+        # JSON column already stores as list, but handle legacy data
         if isinstance(self.game_ids, list):
             return self.game_ids
 
+        # Handle legacy string format (backward compatibility)
         if isinstance(self.game_ids, str):
             try:
-
+                import json
+                # Try to parse as JSON first
+                parsed = json.loads(self.game_ids)
+                if isinstance(parsed, list):
+                    return parsed
+                # Fallback to comma-separated string
                 clean_str = self.game_ids.strip("[]")
                 if clean_str:
                     return [int(x.strip()) for x in clean_str.split(",")]
                 return []
-            except (ValueError, AttributeError):
+            except (ValueError, AttributeError, json.JSONDecodeError):
                 return []
 
         return []
@@ -137,17 +147,24 @@ class ReferralCode(db.Model):
         if self.rbac_role_ids is None:
             return []
 
+        # JSON column already stores as list, but handle legacy data
         if isinstance(self.rbac_role_ids, list):
             return self.rbac_role_ids
 
+        # Handle legacy string format (backward compatibility)
         if isinstance(self.rbac_role_ids, str):
             try:
-
+                import json
+                # Try to parse as JSON first
+                parsed = json.loads(self.rbac_role_ids)
+                if isinstance(parsed, list):
+                    return parsed
+                # Fallback to comma-separated string
                 clean_str = self.rbac_role_ids.strip("[]")
                 if clean_str:
                     return [int(x.strip()) for x in clean_str.split(",")]
                 return []
-            except (ValueError, AttributeError):
+            except (ValueError, AttributeError, json.JSONDecodeError):
                 return []
 
         return []

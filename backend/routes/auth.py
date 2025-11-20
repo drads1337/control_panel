@@ -34,7 +34,7 @@ from ..schemas.auth import (
 from ..schemas.user import UserProfileUpdateSchema
 from ..services.auth import auth_service
 from ..services.users import invite_service
-from ..services.users import user_service
+from ..services.users import user_management_service, user_profile_service
 from ..utils.rbac_utils import RBACManager
 from ..utils.role_constants import UserRoles
 from ..utils.validators import AuthValidator, InviteValidator, UserValidator
@@ -244,7 +244,7 @@ def register(validated_data=None):
         if not validated_data:
             return jsonify({"error": "REGISTRATION_FAILED", "message": "Invalid request data"}), 400
 
-        user, error = user_service.create_user(
+        user, error = user_management_service.create_user(
             validated_data["username"], validated_data["email"], validated_data["password"]
         )
         if not user:
@@ -350,7 +350,7 @@ def register_with_invite():
                 invite.project_id = project_id
                 db.session.commit()
 
-        user, error = user_service.create_user(
+        user, error = user_management_service.create_user(
             username, None, password, project_id, UserRoles.ADMIN.value
         )
         if not user:
@@ -389,7 +389,7 @@ def get_current_user():
         if not user:
             return jsonify({"error": "USER_NOT_FOUND"}), 404
 
-        profile_data = user_service.get_user_profile(user)
+        profile_data = user_profile_service.get_user_profile(user)
         return jsonify(profile_data)
 
     except Exception as e:
@@ -412,7 +412,7 @@ def update_profile(validated_data=None):
         if not validated_data:
             validated_data = {}
 
-        success, error = user_service.update_user_profile(user, validated_data)
+        success, error = user_profile_service.update_user_profile(user, validated_data)
         if not success:
             return jsonify({"error": "UPDATE_FAILED", "message": error}), 400
 
@@ -438,7 +438,7 @@ def change_password(validated_data=None):
         if not validated_data:
             return jsonify({"error": "PASSWORD_CHANGE_FAILED", "message": "Invalid request data"}), 400
 
-        success, error = user_service.change_password(
+        success, error = user_profile_service.change_password(
             user, validated_data["current_password"], validated_data["new_password"]
         )
         if not success:

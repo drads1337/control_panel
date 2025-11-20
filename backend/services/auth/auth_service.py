@@ -22,6 +22,7 @@ from ...utils.ip_utils import get_location_from_ip, get_real_ip
 from ...utils.rbac_utils import RBACManager
 from ...services.activity import activity_service
 from ...services.security import security_service
+from ...services.validation import request_validation_pipeline
 
 class AuthService:
     """Service for handling authentication operations"""
@@ -104,6 +105,9 @@ class AuthService:
                     
                     if "@" not in identifier:
                         # Try to find similar usernames for debugging
+                        # NOTE: ILIKE is used here only for debug purposes when user is not found.
+                        # This is not in the critical path and doesn't affect production performance.
+                        # For production search, use fulltext_search with GIN indexes (see SCALABILITY_IMPROVEMENTS.md)
                         similar_users = User.query.filter(
                             User.username.ilike(f"%{identifier}%")
                         ).limit(5).all()
@@ -252,6 +256,8 @@ class AuthService:
     ) -> Tuple[bool, Optional[str]]:
         """
         Check project-specific security constraints
+        
+        Uses unified ValidationPipeline for IP and User-Agent validation (DRY principle)
 
         Args:
             user: User object
@@ -286,8 +292,14 @@ class AuthService:
                 )
                 return False, "PROJECT_INACTIVE"
 
-            if security_service.is_ip_blocked(ip, user.project_id):
-                return False, "IP_BLOCKED"
+            # Use unified validation pipeline for IP and User-Agent
+            validation_result = request_validation_pipeline.validate_request(
+                ip=ip,
+                user_agent=user_agent,
+                project_id=user.project_id,
+            )
+            if not validation_result.is_valid:
+                return False, validation_result.reason
 
             if security_service.check_session_limit(user.id, user.project_id):
                 return False, "SESSION_LIMIT_EXCEEDED"

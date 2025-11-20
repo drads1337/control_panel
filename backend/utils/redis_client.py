@@ -6,20 +6,46 @@ This module provides a singleton Redis client instance that should be used
 throughout the application to avoid creating multiple connections and ensure
 consistent configuration.
 
+SECURITY: Supports separate Redis databases for different data types to reduce
+blast radius if one database is compromised.
+
+RELIABILITY: Supports separate Redis instances for different data types:
+- Cache instance (non-persistent): Used for cache data that can be lost
+- Persistent instance: Used for sessions, queues, rate limiting, and other critical data
+
 The module now uses Flask extensions when available (preferred), falling back
 to a singleton instance when used outside Flask application context.
 
-Usage:
-    from ..utils.redis_client import get_redis_client
+HIGH AVAILABILITY: 
+- Automatic health checking and reconnection
+- Graceful degradation when Redis is unavailable
+- Support for fallback mechanisms (disk, database) for critical operations
 
+Usage:
+    from ..utils.redis_client import get_redis_client, get_redis_client_for_db, get_redis_cache_client
+
+    # Default client (uses persistent instance - backward compatibility)
     redis_client = get_redis_client()
     redis_client.set("key", "value")
-    value = redis_client.get("key")
+    
+    # Cache client (non-persistent instance)
+    cache_client = get_redis_cache_client()
+    cache_client.set("cache:key", "value", ex=3600)
+    
+    # Client for specific database (recommended)
+    # Automatically uses correct instance (cache for cache, persistent for others)
+    dynamic_config_client = get_redis_client_for_db("dynamic_config")
+    dynamic_config_client.set("config:key", "value")
+    
+    cache_db_client = get_redis_client_for_db("cache")
+    cache_db_client.set("cache:key", "value")
 """
 
 import json
 import logging
-from typing import Any, Dict, Optional
+import threading
+import time
+from typing import Any, Callable, Dict, Optional
 
 import redis
 from flask import current_app, has_app_context
@@ -38,14 +64,37 @@ class RedisClient:
     - Retry on timeout for resilience
     - Health check interval for connection monitoring
     - Connection pooling for performance
+    - Support for different Redis databases for security isolation
+    - Support for separate cache and persistent Redis instances
+    - Automatic health checking and reconnection
+    - Graceful degradation when Redis is unavailable
     """
 
-    def __init__(self):
+    def __init__(self, db: Optional[int] = None, instance: str = "persistent"):
+        """
+        Initialize Redis client.
+        
+        Args:
+            db: Redis database number (None uses default from Config)
+            instance: Redis instance type - "cache" (non-persistent) or "persistent" (default)
+        """
         self._client = None
+        self._db = db
+        self._instance = instance
+        self._is_available = True
+        self._last_health_check = 0
+        self._health_check_interval = 30  # Check health every 30 seconds
+        self._consecutive_failures = 0
+        self._max_consecutive_failures = 3
+        self._lock = threading.RLock()
 
-    def _create_client(self) -> redis.Redis:
+    def _create_client(self, db: Optional[int] = None, instance: Optional[str] = None) -> redis.Redis:
         """
         Create a new Redis client with optimized settings.
+
+        Args:
+            db: Redis database number (None uses default from Config)
+            instance: Redis instance type - "cache" or "persistent" (uses self._instance if None)
 
         Returns:
             Configured Redis client instance
@@ -53,10 +102,27 @@ class RedisClient:
         Raises:
             RuntimeError: If Redis connection cannot be established
         """
+        # Determine which Redis instance to use
+        instance_type = instance if instance is not None else self._instance
+        
+        if instance_type == "cache":
+            host = Config.REDIS_CACHE_HOST
+            port = Config.REDIS_CACHE_PORT
+            password = Config.REDIS_CACHE_PASSWORD
+            default_db = Config.REDIS_CACHE_DB
+        else:  # persistent
+            host = Config.REDIS_PERSISTENT_HOST
+            port = Config.REDIS_PERSISTENT_PORT
+            password = Config.REDIS_PERSISTENT_PASSWORD
+            default_db = Config.REDIS_PERSISTENT_DB
+        
+        # Use provided db, instance db, or default from config
+        db_number = db if db is not None else (self._db if self._db is not None else default_db)
+        
         redis_config = {
-            "host": Config.REDIS_HOST,
-            "port": Config.REDIS_PORT,
-            "db": Config.REDIS_DB,
+            "host": host,
+            "port": port,
+            "db": db_number,
             "decode_responses": True,
             "socket_connect_timeout": 5,
             "socket_timeout": 5,
@@ -65,46 +131,168 @@ class RedisClient:
             "max_connections": 20,
         }
 
-        if Config.REDIS_PASSWORD:
-            redis_config["password"] = Config.REDIS_PASSWORD
+        if password:
+            redis_config["password"] = password
 
         client = redis.Redis(**redis_config)
 
         try:
             client.ping()
-            logger.debug("Redis client initialized successfully")
+            logger.debug(f"Redis client initialized successfully ({instance_type} instance, DB {db_number})")
         except Exception as e:
-            logger.error(f"Redis connection verification failed: {e}")
-            raise RuntimeError(f"Redis is required but connection failed: {e}")
+            logger.error(f"Redis connection verification failed ({instance_type} instance, DB {db_number}): {e}")
+            raise RuntimeError(f"Redis is required but connection failed ({instance_type} instance, DB {db_number}): {e}")
 
         return client
+
+    def _check_health(self) -> bool:
+        """
+        Check Redis health and update availability status.
+        
+        Returns:
+            True if Redis is available, False otherwise
+        """
+        current_time = time.time()
+        
+        # Only check health if interval has passed
+        if current_time - self._last_health_check < self._health_check_interval:
+            return self._is_available
+        
+        with self._lock:
+            self._last_health_check = current_time
+            
+            if self._client is None:
+                try:
+                    self._client = self._create_client(self._db, self._instance)
+                    self._is_available = True
+                    self._consecutive_failures = 0
+                    return True
+                except Exception as e:
+                    logger.debug(f"Redis health check failed (client creation): {e}")
+                    self._is_available = False
+                    self._consecutive_failures += 1
+                    return False
+            
+            try:
+                self._client.ping()
+                if not self._is_available:
+                    logger.info(f"Redis recovered after {self._consecutive_failures} failures")
+                self._is_available = True
+                self._consecutive_failures = 0
+                return True
+            except Exception as e:
+                logger.debug(f"Redis health check failed (ping): {e}")
+                self._consecutive_failures += 1
+                
+                # Mark as unavailable if too many consecutive failures
+                if self._consecutive_failures >= self._max_consecutive_failures:
+                    if self._is_available:
+                        logger.warning(
+                            f"Redis marked as unavailable after {self._consecutive_failures} "
+                            f"consecutive failures. Instance: {self._instance}"
+                        )
+                    self._is_available = False
+                    # Try to reconnect on next operation
+                    try:
+                        self._client = None
+                    except Exception:
+                        pass
+                
+                return False
 
     @property
     def client(self) -> redis.Redis:
         """
-        Lazy initialization of Redis client.
+        Lazy initialization of Redis client with health checking.
 
         Returns:
             Redis client instance (singleton)
         """
+        # Check health before returning client
+        self._check_health()
+        
         if self._client is None:
-            self._client = self._create_client()
+            with self._lock:
+                if self._client is None:
+                    self._client = self._create_client(self._db, self._instance)
         return self._client
+    
+    def is_available(self) -> bool:
+        """
+        Check if Redis is currently available.
+        
+        Returns:
+            True if Redis is available, False otherwise
+        """
+        return self._check_health()
 
-    def get(self, key: str) -> Optional[str]:
-        """Get value from Redis"""
+    def get(self, key: str, fallback: Optional[Callable[[], Optional[str]]] = None) -> Optional[str]:
+        """
+        Get value from Redis with optional fallback.
+        
+        Args:
+            key: Redis key
+            fallback: Optional fallback function to call if Redis fails
+            
+        Returns:
+            Value from Redis, or result of fallback function, or None
+        """
+        if not self.is_available():
+            if fallback:
+                try:
+                    return fallback()
+                except Exception as e:
+                    logger.debug(f"Fallback function failed for key {key}: {e}")
+            return None
+        
         try:
             return self.client.get(key)
         except Exception as e:
-            logger.error(f"Redis GET error for key {key}: {e}")
+            logger.debug(f"Redis GET error for key {key}: {e}")
+            self._is_available = False
+            self._consecutive_failures += 1
+            
+            if fallback:
+                try:
+                    return fallback()
+                except Exception as e:
+                    logger.debug(f"Fallback function failed for key {key}: {e}")
             return None
 
-    def set(self, key: str, value: str, ex: Optional[int] = None) -> bool:
-        """Set value in Redis with optional expiration"""
+    def set(self, key: str, value: str, ex: Optional[int] = None, 
+             fallback: Optional[Callable[[], bool]] = None) -> bool:
+        """
+        Set value in Redis with optional expiration and fallback.
+        
+        Args:
+            key: Redis key
+            value: Value to set
+            ex: Optional expiration time in seconds
+            fallback: Optional fallback function to call if Redis fails
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.is_available():
+            if fallback:
+                try:
+                    return fallback()
+                except Exception as e:
+                    logger.debug(f"Fallback function failed for key {key}: {e}")
+            return False
+        
         try:
-            return self.client.set(key, value, ex=ex)
+            return bool(self.client.set(key, value, ex=ex))
         except Exception as e:
-            logger.error(f"Redis SET error for key {key}: {e}")
+            logger.debug(f"Redis SET error for key {key}: {e}")
+            self._is_available = False
+            self._consecutive_failures += 1
+            
+            if fallback:
+                try:
+                    return fallback()
+                except Exception as e:
+                    logger.debug(f"Fallback function failed for key {key}: {e}")
             return False
 
     def setex(self, key: str, time: int, value: str) -> bool:
@@ -191,7 +379,8 @@ class RedisClient:
             logger.error(f"Redis KEYS error for pattern {pattern}: {e}")
             return []
 
-_redis_client_instance = RedisClient()
+# Default client uses persistent instance (backward compatibility)
+_redis_client_instance = RedisClient(instance="persistent")
 
 def get_redis_client() -> redis.Redis:
     """
@@ -231,7 +420,7 @@ def get_redis_wrapper() -> RedisClient:
     It prefers Flask extension when available, falling back to singleton instance.
 
     Returns:
-        RedisClient wrapper instance
+        RedisClient wrapper instance (persistent instance by default)
     """
     # Try to get from Flask extension first (preferred)
     if has_app_context():
@@ -252,5 +441,78 @@ def get_redis_wrapper() -> RedisClient:
     # Fall back to singleton instance
     return _redis_client_instance
 
+def get_redis_cache_client() -> redis.Redis:
+    """
+    Get Redis client for cache instance (non-persistent).
+    
+    This instance is used for cache data that can be lost without impact.
+    The cache instance should be configured without persistence (no AOF/RDB).
+    
+    Returns:
+        Redis client instance for cache
+        
+    Example:
+        from ..utils.redis_client import get_redis_cache_client
+        
+        cache_client = get_redis_cache_client()
+        cache_client.set("cache:key", "value", ex=3600)
+    """
+    cache_client = RedisClient(instance="cache")
+    return cache_client.client
+
 # For backward compatibility
 redis_client = get_redis_wrapper()
+
+# SECURITY: Database mapping for different data types
+# This allows isolation of different data types in separate Redis databases
+# Cache-related data uses cache instance, persistent data uses persistent instance
+REDIS_DB_MAPPING = {
+    "sessions": {"db": Config.REDIS_DB_SESSIONS, "instance": "persistent"},
+    "rate_limit": {"db": Config.REDIS_DB_RATE_LIMIT, "instance": "persistent"},
+    "dynamic_config": {"db": Config.REDIS_DB_DYNAMIC_CONFIG, "instance": "persistent"},
+    "analytics": {"db": Config.REDIS_DB_ANALYTICS, "instance": "persistent"},
+    "cache": {"db": Config.REDIS_DB_CACHE, "instance": "cache"},
+}
+
+# Cache for database-specific clients
+_db_clients: Dict[str, RedisClient] = {}
+
+def get_redis_client_for_db(db_type: str) -> redis.Redis:
+    """
+    Get Redis client for a specific database type.
+    
+    SECURITY: This allows isolation of different data types in separate
+    Redis databases, reducing blast radius if one database is compromised.
+    
+    Cache-related data uses the cache instance (non-persistent),
+    while sessions, queues, and other critical data use the persistent instance.
+    
+    Args:
+        db_type: Type of database ("sessions", "rate_limit", "dynamic_config", 
+                 "analytics", "cache")
+    
+    Returns:
+        Redis client instance for the specified database type
+    
+    Example:
+        from ..utils.redis_client import get_redis_client_for_db
+        
+        dynamic_config_client = get_redis_client_for_db("dynamic_config")
+        dynamic_config_client.set("config:key", "value")
+        
+        cache_client = get_redis_client_for_db("cache")
+        cache_client.set("cache:key", "value")
+    """
+    if db_type not in REDIS_DB_MAPPING:
+        logger.warning(
+            f"Unknown Redis DB type: {db_type}, using default. "
+            f"Available types: {list(REDIS_DB_MAPPING.keys())}"
+        )
+        return get_redis_client()
+    
+    # Use cached client if available
+    if db_type not in _db_clients:
+        db_config = REDIS_DB_MAPPING[db_type]
+        _db_clients[db_type] = RedisClient(db=db_config["db"], instance=db_config["instance"])
+    
+    return _db_clients[db_type].client

@@ -15,6 +15,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from ..core.extensions import db
 from ..middleware.auth import require_project_isolation, require_project_with_grace_period
 from ..models.core import Project, ProjectEncryptionKeys, ProjectSettings, User
+from ..utils.project_settings_migration import ProjectSettingsHelper
 from ..models.security import BlockedFingerprint, LoginAttempt
 from ..services.security import security_service
 from ..utils.rbac_utils import RBACManager
@@ -37,10 +38,21 @@ def encrypt_data_with_project_key(data: dict, project_id: int) -> str:
         raise ValueError(f"Project encryption error: {str(e)}")
 
 def decrypt_data_with_project_key(enc: str, project_id: int, use_gcm: bool = True) -> dict:
+    """
+    Decrypt data with project-specific key.
+    
+    SECURITY: This function delegates to secure_crypto.decrypt_data_with_project_key
+    which uses only ONE key and ONE method to prevent timing attacks.
+    Multiple key attempts or method fallbacks are removed for security.
+    """
+    # Delegate to the secure implementation in secure_crypto
+    from ..utils.secure_crypto import decrypt_data_with_project_key as secure_decrypt
+    
     try:
         if not enc:
             raise ValueError("Empty encrypted data")
 
+        # Try base64 decode first (for backward compatibility with unencrypted data)
         try:
             decoded = base64.b64decode(enc).decode("utf-8")
             data = json.loads(decoded)
@@ -51,43 +63,8 @@ def decrypt_data_with_project_key(enc: str, project_id: int, use_gcm: bool = Tru
         if len(enc) < 20:
             raise ValueError("Data too short for decryption")
 
-        settings = get_or_create_project_settings(project_id)
-        if not settings.project_master_key:
-            raise ValueError("Project master key not found")
-
-        try:
-
-            try:
-                decrypted_raw = MasterKeyManager.decrypt_with_master_key_legacy(
-                    enc, settings.project_master_key
-                )
-            except Exception as gcm_error:
-
-                logger.debug(
-                    "Legacy GCM failed, trying standard method",
-                    error=str(gcm_error)[:50],
-                    project_id=project_id,
-                )
-                decrypted_raw = MasterKeyManager.decrypt_with_master_key(
-                    enc, settings.project_master_key
-                )
-        except Exception as decrypt_error:
-            if "not valid UTF-8" in str(decrypt_error) or "Invalid padding bytes" in str(
-                decrypt_error
-            ):
-                raise ValueError(
-                    f"Project master key mismatch detected. The encrypted data was created with a different project master key."
-                )
-            else:
-                raise decrypt_error
-
-        if not decrypted_raw:
-            raise ValueError("Decryption returned empty data")
-
-        try:
-            return json.loads(decrypted_raw)
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON after decryption: {str(e)}")
+        # Use secure decryption (single key, single method)
+        return secure_decrypt(enc, project_id, use_gcm)
 
     except Exception as e:
         raise ValueError(f"Project decryption error: {str(e)}")

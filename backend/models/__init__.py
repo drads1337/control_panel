@@ -3,9 +3,9 @@ Models package - organized by domain
 
 This package contains all database models organized by domain:
 - core.py: Core models (User, Project, ProjectSettings, etc.)
-- games.py: Game-related models
+- games.py: Product-related models (formerly Game-related, universal terminology)
 - keys.py: Key and device models
-- loaders.py: Loader models
+- loaders.py: Agent-related models (formerly Loader-related, universal terminology)
 - security.py: Security models (2FA, login attempts, etc.)
 - rbac.py: RBAC models (Role, Permission, etc.)
 - chat.py: Chat models
@@ -21,7 +21,8 @@ IMPORT GUIDELINES:
 
 RECOMMENDED: Import models directly from their modules for better IDE support and performance:
     from ..models.core import User, Project
-    from ..models.games import Game
+    from ..models.games import Product  # Universal name (Game is alias for backward compatibility)
+    from ..models.loaders import Agent  # Universal name (Loader is alias for backward compatibility)
     from ..models.security import LoginAttempt, BlockedIP
 
 This approach:
@@ -72,19 +73,30 @@ from .core import (
 from .games import (
     Announcement,
     ChangelogEntry,
+    FeatureConfigSchema,
     FileDownloadLog,
     FileMeta,
-    Game,
-    GameChatSettings,
-    GameConfiguration,
-    GameExtraFile,
-    GameFileConfig,
-    GameFileDownload,
-    GameInviteCode,
-    GameKeyPrice,
-    GameSecurityLog,
-    GameStatus,
+    Game,  # Backward compatibility alias for Product
+    GameChatSettings,  # Backward compatibility alias
+    GameConfiguration,  # Backward compatibility alias for RemoteConfig
+    GameExtraFile,  # Backward compatibility alias
+    GameFileConfig,  # Backward compatibility alias
+    GameFileDownload,  # Backward compatibility alias
+    GameInviteCode,  # Backward compatibility alias
+    GameKeyPrice,  # Backward compatibility alias
+    GameSecurityLog,  # Backward compatibility alias
+    GameStatus,  # Backward compatibility alias
     Message,
+    Product,  # New universal name
+    ProductChatSettings,
+    ProductExtraFile,
+    ProductFileConfig,
+    ProductFileDownload,
+    ProductInviteCode,
+    ProductKeyPrice,
+    ProductSecurityLog,
+    ProductStatus,
+    RemoteConfig,  # New name for GameConfiguration
 )
 
 from .keys import (
@@ -97,12 +109,18 @@ from .keys import (
 )
 
 from .loaders import (
-    Loader,
-    LoaderChangelog,
-    LoaderConfiguration,
-    LoaderDownloadLog,
-    LoaderGameAssignment,
-    LoaderNotification,
+    Agent,  # New universal name
+    AgentChangelog,
+    AgentConfiguration,
+    AgentDownloadLog,
+    AgentNotification,
+    AgentProductAssignment,
+    Loader,  # Backward compatibility alias for Agent
+    LoaderChangelog,  # Backward compatibility alias
+    LoaderConfiguration,  # Backward compatibility alias
+    LoaderDownloadLog,  # Backward compatibility alias
+    LoaderGameAssignment,  # Backward compatibility alias
+    LoaderNotification,  # Backward compatibility alias
 )
 
 from .rbac import (
@@ -117,8 +135,9 @@ from .rbac import (
 )
 
 from .security import (
+    BlockedDeviceFingerprint,  # New universal name
     BlockedFingerprint,
-    BlockedHWID,
+    BlockedHWID,  # Backward compatibility alias
     BlockedIP,
     LoginAttempt,
     SecurityAnalytics,

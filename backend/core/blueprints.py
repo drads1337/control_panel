@@ -65,8 +65,12 @@ def register_blueprints(app: Flask) -> None:
 
     app.register_blueprint(servers_bp, url_prefix="/api/servers")
     app.register_blueprint(files_bp, url_prefix="/api/files")
-    app.register_blueprint(games_bp, url_prefix="/api/games")
-    app.register_blueprint(loaders_bp, url_prefix="/api/loaders")
+    # Universal terminology endpoints (new)
+    app.register_blueprint(games_bp, url_prefix="/api/products")
+    app.register_blueprint(loaders_bp, url_prefix="/api/agents")
+    # Backward compatibility endpoints (deprecated but still supported)
+    app.register_blueprint(games_bp, url_prefix="/api/games", name="games_deprecated")
+    app.register_blueprint(loaders_bp, url_prefix="/api/loaders", name="loaders_deprecated")
 
     app.register_blueprint(notifications_bp, url_prefix="/api/notifications")
     app.register_blueprint(chat_bp, url_prefix="/api/chat")

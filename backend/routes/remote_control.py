@@ -32,7 +32,7 @@ remote_control_bp = Blueprint("remote_control", __name__)
 @enforce_project_scope
 @require_any_permission(["remote_control.view"])
 def get_categories(project_id=None):
-    """Get all remote control categories for the current project and game"""
+    """Get all remote control categories for the current project and game/product"""
     try:
 
         if project_id is None:
@@ -42,10 +42,11 @@ def get_categories(project_id=None):
                 400,
             )
 
-        game_id = request.args.get("game_id", type=int)
+        # Support both product_id (universal) and game_id (backward compatibility)
+        game_id = request.args.get("product_id", type=int) or request.args.get("game_id", type=int)
         if not game_id:
             return (
-                jsonify({"error": "Game ID is required. Please specify game_id parameter."}),
+                jsonify({"error": "Product ID is required. Please specify product_id (or game_id) parameter."}),
                 400,
             )
 
@@ -90,23 +91,25 @@ def create_category(project_id=None, current_user=None):
         if not data.get("name") or not data.get("name").strip():
             return jsonify({"error": "Category name is required"}), 400
 
-        if not data.get("game_id"):
-            return jsonify({"error": "Game ID is required"}), 400
+        # Support both product_id (universal) and game_id (backward compatibility)
+        game_id = data.get("product_id") or data.get("game_id")
+        if not game_id:
+            return jsonify({"error": "Product ID is required (or game_id)"}), 400
 
         # Verify game belongs to project
-        game = Game.query.filter_by(id=data["game_id"], project_id=project_id).first()
+        game = Game.query.filter_by(id=game_id, project_id=project_id).first()
         if not game:
             return jsonify({"error": "Game not found or does not belong to this project"}), 404
 
         existing_category = RemoteCategory.query.filter_by(
-            name=data["name"].strip(), project_id=project_id, game_id=data["game_id"]
+            name=data["name"].strip(), project_id=project_id, game_id=game_id
         ).first()
 
         if existing_category:
-            return jsonify({"error": "Category with this name already exists for this game"}), 400
+            return jsonify({"error": "Category with this name already exists for this product"}), 400
 
         current_categories_count = RemoteCategory.query.filter_by(
-            project_id=project_id, game_id=data["game_id"]
+            project_id=project_id, game_id=game_id
         ).count()
         if current_categories_count >= 8:
             return (
@@ -123,7 +126,7 @@ def create_category(project_id=None, current_user=None):
             description=data.get("description", "").strip(),
             color=data.get("color", "#3b82f6"),
             project_id=project_id,
-            game_id=data["game_id"],
+            game_id=game_id,
         )
 
         db.session.add(category)
@@ -305,7 +308,8 @@ def get_features(project_id=None):
                 400,
             )
 
-        game_id = request.args.get("game_id", type=int)
+        # Support both product_id (universal) and game_id (backward compatibility)
+        game_id = request.args.get("product_id", type=int) or request.args.get("game_id", type=int)
         category_id = request.args.get("category_id", type=int)
 
         query = RemoteFeature.query.filter_by(project_id=project_id)
@@ -313,7 +317,7 @@ def get_features(project_id=None):
             # Verify game belongs to project
             game = Game.query.filter_by(id=game_id, project_id=project_id).first()
             if not game:
-                return jsonify({"error": "Game not found or does not belong to this project"}), 404
+                return jsonify({"error": "Product not found or does not belong to this project"}), 404
             query = query.filter_by(game_id=game_id)
         if category_id:
             query = query.filter_by(category_id=category_id)
@@ -613,17 +617,18 @@ def get_stats(project_id=None):
                 400,
             )
 
-        game_id = request.args.get("game_id", type=int)
+        # Support both product_id (universal) and game_id (backward compatibility)
+        game_id = request.args.get("product_id", type=int) or request.args.get("game_id", type=int)
         if not game_id:
             return (
-                jsonify({"error": "Game ID is required. Please specify game_id parameter."}),
+                jsonify({"error": "Product ID is required. Please specify product_id (or game_id) parameter."}),
                 400,
             )
 
         # Verify game belongs to project
         game = Game.query.filter_by(id=game_id, project_id=project_id).first()
         if not game:
-            return jsonify({"error": "Game not found or does not belong to this project"}), 404
+            return jsonify({"error": "Product not found or does not belong to this project"}), 404
 
         categories = RemoteCategory.query.filter_by(project_id=project_id, game_id=game_id).all()
         stats = []

@@ -757,62 +757,119 @@ def decrypt_data_with_project_key(
 ) -> dict:
     """
     Decrypt data with project-specific key using project ID.
-    Always uses AES-256-GCM (use_gcm parameter is kept for backward compatibility but ignored).
-    First tries AES Key from ProjectEncryptionKeys (what clients use),
-    then falls back to project_master_key from ProjectSettings.
+    
+    SECURITY: This function uses ONLY ONE key and ONE method to prevent timing attacks.
+    Multiple key attempts or method fallbacks create timing attack vectors where an attacker
+    can determine which key was used based on response time differences.
+    
+    Strategy:
+    - Prefer AES Key from ProjectEncryptionKeys (primary key for clients)
+    - If not available, use project_master_key from ProjectSettings
+    - Use only the standard decryption method (no legacy fallbacks)
+    - Fail immediately if decryption fails (no multiple attempts)
+    
+    Args:
+        encrypted_data: Base64-encoded encrypted data
+        project_id: Project ID
+        use_gcm: Ignored (kept for backward compatibility)
+        
+    Returns:
+        Decrypted data as dictionary
+        
+    Raises:
+        ValueError: If key is missing, invalid, or decryption fails
     """
     import logging
 
     from ..models.core import ProjectEncryptionKeys, ProjectSettings
 
-    try:
-        encryption_keys = ProjectEncryptionKeys.query.filter_by(project_id=project_id).first()
-        if encryption_keys and encryption_keys.aes_key:
-            logging.info(
-                f"[DECRYPT_PROJECT] Using AES Key from ProjectEncryptionKeys for project {project_id}"
+    # SECURITY: Use only ONE key source to prevent timing attacks
+    # Prefer AES Key from ProjectEncryptionKeys (what clients should use)
+    encryption_keys = ProjectEncryptionKeys.query.filter_by(project_id=project_id).first()
+    project_key = None
+    key_source = None
+    
+    if encryption_keys and encryption_keys.aes_key:
+        aes_key = encryption_keys.aes_key.strip()
+        
+        # Validate AES key format (must be 64 hex characters = 32 bytes)
+        if len(aes_key) != 64:
+            raise ValueError(
+                f"Invalid AES key format for project {project_id}: "
+                f"expected 64 hex characters, got {len(aes_key)}"
             )
-
-            try:
-                json_str = MasterKeyManager.decrypt_with_master_key_legacy(
-                    encrypted_data, encryption_keys.aes_key
+        
+        # Validate that it's valid hex
+        try:
+            key_bytes_test = bytes.fromhex(aes_key)
+            if len(key_bytes_test) != 32:
+                raise ValueError(
+                    f"Invalid AES key format for project {project_id}: "
+                    f"key must decode to 32 bytes"
                 )
-                return json.loads(json_str)
-            except Exception as e:
-
-                logging.debug(
-                    f"[DECRYPT_PROJECT] Legacy GCM failed, trying standard method: {str(e)[:50]}..."
+        except ValueError as hex_error:
+            raise ValueError(
+                f"Invalid AES key format for project {project_id}: {str(hex_error)}"
+            )
+        
+        project_key = aes_key
+        key_source = "ProjectEncryptionKeys.aes_key"
+    else:
+        # Fallback to project_master_key from ProjectSettings
+        settings = ProjectSettings.query.filter_by(project_id=project_id).first()
+        if not settings or not settings.project_master_key:
+            raise ValueError(
+                f"No encryption key found for project {project_id}. "
+                f"Please configure Cryptographic Keys (AES Key) in project settings."
+            )
+        
+        project_master_key = settings.project_master_key.strip()
+        
+        # Validate project_master_key format
+        if len(project_master_key) != 64:
+            raise ValueError(
+                f"Invalid project_master_key format for project {project_id}: "
+                f"expected 64 hex characters, got {len(project_master_key)}"
+            )
+        
+        try:
+            key_bytes_test = bytes.fromhex(project_master_key)
+            if len(key_bytes_test) != 32:
+                raise ValueError(
+                    f"Invalid project_master_key format for project {project_id}: "
+                    f"key must decode to 32 bytes"
                 )
-                json_str = MasterKeyManager.decrypt_with_master_key(
-                    encrypted_data, encryption_keys.aes_key
-                )
-                return json.loads(json_str)
-    except Exception as aes_key_error:
-        logging.debug(
-            f"[DECRYPT_PROJECT] AES Key from ProjectEncryptionKeys failed: {type(aes_key_error).__name__}: {str(aes_key_error)[:100]}..."
-        )
-
-    settings = ProjectSettings.query.filter_by(project_id=project_id).first()
-    if not settings or not settings.project_master_key:
-        raise ValueError(f"No encryption key found for project {project_id}")
-
+        except ValueError as hex_error:
+            raise ValueError(
+                f"Invalid project_master_key format for project {project_id}: {str(hex_error)}"
+            )
+        
+        project_key = project_master_key
+        key_source = "ProjectSettings.project_master_key"
+    
+    # SECURITY: Use only ONE decryption method to prevent timing attacks
+    # Multiple method attempts create timing attack vectors
     logging.info(
-        f"[DECRYPT_PROJECT] Using project_master_key from ProjectSettings for project {project_id}"
+        f"[DECRYPT_PROJECT] Decrypting with {key_source} for project {project_id}"
     )
-
+    
     try:
-        json_str = MasterKeyManager.decrypt_with_master_key_legacy(
-            encrypted_data, settings.project_master_key
-        )
+        # Use standard decryption method only (no legacy fallbacks)
+        json_str = MasterKeyManager.decrypt_with_master_key(encrypted_data, project_key)
+        logging.debug(f"[DECRYPT_PROJECT] Successfully decrypted with {key_source} for project {project_id}")
         return json.loads(json_str)
-    except Exception as e:
-
-        logging.debug(
-            f"[DECRYPT_PROJECT] Legacy GCM failed, trying standard method: {str(e)[:50]}..."
+    except Exception as decrypt_error:
+        # SECURITY: Fail immediately with generic error message
+        # Don't reveal which key was used or why it failed (prevents information leakage)
+        error_type = type(decrypt_error).__name__
+        logging.warning(
+            f"[DECRYPT_PROJECT] Decryption failed for project {project_id} using {key_source}: "
+            f"{error_type}"
         )
-        json_str = MasterKeyManager.decrypt_with_master_key(
-            encrypted_data, settings.project_master_key
-        )
-        return json.loads(json_str)
+        raise ValueError(
+            f"Decryption failed for project {project_id}. "
+            f"Please ensure you are using the correct encryption key from project settings."
+        ) from decrypt_error
 
 def encrypt_with_master_key(data: str, master_key: str) -> str:
     """

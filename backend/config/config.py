@@ -34,15 +34,29 @@ else:
     # In production, rely only on environment variables
     logging.debug("Production mode: using environment variables only (no .env file)")
 
+# SECURITY: In production, application MUST fail if secrets are not set
+# No fallback or auto-generation allowed in production
+IS_PRODUCTION = FLASK_ENV == "production"
+
 MASTER_KEY = os.environ.get("PANEL_MASTER_KEY")
 
 if not MASTER_KEY:
-    raise RuntimeError(
-        "CRITICAL SECURITY ERROR: PANEL_MASTER_KEY environment variable is not set!\n"
-        "This will cause data loss and security vulnerabilities.\n"
-        "Please set PANEL_MASTER_KEY environment variable with a secure 32-byte hex key.\n"
-        "Example: export PANEL_MASTER_KEY=$(python -c 'import secrets; print(secrets.token_hex(32))')"
-    )
+    if IS_PRODUCTION:
+        raise RuntimeError(
+            "CRITICAL SECURITY ERROR: PANEL_MASTER_KEY environment variable is not set!\n"
+            "In production mode, the application MUST fail if secrets are missing.\n"
+            "This prevents running with insecure default configurations.\n"
+            "Please set PANEL_MASTER_KEY environment variable with a secure 32-byte hex key.\n"
+            "Example: export PANEL_MASTER_KEY=$(python -c 'import secrets; print(secrets.token_hex(32))')"
+        )
+    else:
+        # In development, still raise but with different message
+        raise RuntimeError(
+            "CRITICAL SECURITY ERROR: PANEL_MASTER_KEY environment variable is not set!\n"
+            "This will cause data loss and security vulnerabilities.\n"
+            "Please set PANEL_MASTER_KEY environment variable with a secure 32-byte hex key.\n"
+            "Example: export PANEL_MASTER_KEY=$(python -c 'import secrets; print(secrets.token_hex(32))')"
+        )
 
 if len(MASTER_KEY) != 64:
     raise RuntimeError(
@@ -128,11 +142,20 @@ class Config:
 
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
     if not JWT_SECRET_KEY:
-        raise RuntimeError(
-            "CRITICAL SECURITY ERROR: JWT_SECRET_KEY environment variable is not set!\n"
-            "Please set JWT_SECRET_KEY with a secure random string.\n"
-            "Example: export JWT_SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
-        )
+        if IS_PRODUCTION:
+            raise RuntimeError(
+                "CRITICAL SECURITY ERROR: JWT_SECRET_KEY environment variable is not set!\n"
+                "In production mode, the application MUST fail if secrets are missing.\n"
+                "This prevents running with insecure default configurations.\n"
+                "Please set JWT_SECRET_KEY with a secure random string.\n"
+                "Example: export JWT_SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+            )
+        else:
+            raise RuntimeError(
+                "CRITICAL SECURITY ERROR: JWT_SECRET_KEY environment variable is not set!\n"
+                "Please set JWT_SECRET_KEY with a secure random string.\n"
+                "Example: export JWT_SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+            )
     # SECURITY: BOT_API_KEY should be set explicitly in production
     # For development, a warning is logged but the app continues
     # In production, this should be set to prevent security issues
@@ -175,10 +198,34 @@ class Config:
 
     WTF_CSRF_SSL_STRICT = FLASK_ENV == "production"
 
-    REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
-    REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
-    REDIS_DB = int(os.environ.get("REDIS_DB", 0))
-    REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD", None)
+    # Redis Cache Instance (non-persistent, can lose data)
+    # Used for: general cache, temporary data
+    REDIS_CACHE_HOST = os.environ.get("REDIS_CACHE_HOST", os.environ.get("REDIS_HOST", "127.0.0.1"))
+    REDIS_CACHE_PORT = int(os.environ.get("REDIS_CACHE_PORT", os.environ.get("REDIS_PORT", 6379)))
+    REDIS_CACHE_DB = int(os.environ.get("REDIS_CACHE_DB", 0))
+    REDIS_CACHE_PASSWORD = os.environ.get("REDIS_CACHE_PASSWORD", os.environ.get("REDIS_PASSWORD", None))
+    
+    # Redis Persistent Instance (persistent, must not lose data)
+    # Used for: sessions, queues (Celery), rate limiting, dynamic config, analytics
+    REDIS_PERSISTENT_HOST = os.environ.get("REDIS_PERSISTENT_HOST", os.environ.get("REDIS_HOST", "127.0.0.1"))
+    REDIS_PERSISTENT_PORT = int(os.environ.get("REDIS_PERSISTENT_PORT", os.environ.get("REDIS_PORT", 6379)))
+    REDIS_PERSISTENT_DB = int(os.environ.get("REDIS_PERSISTENT_DB", 0))
+    REDIS_PERSISTENT_PASSWORD = os.environ.get("REDIS_PERSISTENT_PASSWORD", os.environ.get("REDIS_PASSWORD", None))
+    
+    # Backward compatibility: default Redis config (uses persistent instance)
+    REDIS_HOST = REDIS_PERSISTENT_HOST
+    REDIS_PORT = REDIS_PERSISTENT_PORT
+    REDIS_DB = REDIS_PERSISTENT_DB
+    REDIS_PASSWORD = REDIS_PERSISTENT_PASSWORD
+    
+    # SECURITY: Separate Redis databases for different data types to reduce blast radius
+    # If compromised, attacker can only access specific database, not all data
+    # These are used within the persistent Redis instance
+    REDIS_DB_SESSIONS = int(os.environ.get("REDIS_DB_SESSIONS", 0))  # Sessions and auth
+    REDIS_DB_RATE_LIMIT = int(os.environ.get("REDIS_DB_RATE_LIMIT", 1))  # Rate limiting
+    REDIS_DB_DYNAMIC_CONFIG = int(os.environ.get("REDIS_DB_DYNAMIC_CONFIG", 2))  # Dynamic config
+    REDIS_DB_ANALYTICS = int(os.environ.get("REDIS_DB_ANALYTICS", 3))  # Analytics buffers
+    REDIS_DB_CACHE = int(os.environ.get("REDIS_DB_CACHE", 4))  # General cache (on cache instance)
 
     FLASK_ENV = os.environ.get("FLASK_ENV", "production")
     if FLASK_ENV == "development":
@@ -212,10 +259,11 @@ class Config:
             },
         },
         "redis": {
-            "host": REDIS_HOST,
-            "port": REDIS_PORT,
-            "db": REDIS_DB,
-            "password": REDIS_PASSWORD,
+            # Use cache instance for storage cache (can lose data)
+            "host": REDIS_CACHE_HOST,
+            "port": REDIS_CACHE_PORT,
+            "db": REDIS_CACHE_DB,
+            "password": REDIS_CACHE_PASSWORD,
             "cache_ttl": int(os.environ.get("STORAGE_CACHE_TTL", 3600)),
         },
     }
@@ -248,6 +296,9 @@ class Config:
     ANALYTICS_BUFFER_TTL = int(
         os.environ.get("ANALYTICS_BUFFER_TTL", 3600)
     )  # 1 hour TTL for safety
+    ANALYTICS_BUFFER_BACKUP_DIR = os.environ.get(
+        "ANALYTICS_BUFFER_BACKUP_DIR", "/tmp/analytics_backup"
+    )  # Directory for disk backups when Redis fails
     ANALYTICS_BUFFER_FLUSH_INTERVAL = int(
         os.environ.get("ANALYTICS_BUFFER_FLUSH_INTERVAL", 30)
     )  # Flush every 30 seconds
@@ -314,6 +365,26 @@ class Config:
             logging.warning(
                 "OFFLINE_TICKET_SECRET not set in environment. Using auto-generated secret. "
                 "This is not secure for production! Please set OFFLINE_TICKET_SECRET in .env"
+            )
+
+    # SECURITY: Token generation static word - must be set from environment in production
+    # This is used in token generation and must be kept secret
+    TOKEN_STATIC_WORD = os.environ.get("TOKEN_STATIC_WORD")
+    if not TOKEN_STATIC_WORD:
+        flask_env_check = os.environ.get("FLASK_ENV", "development")
+        if flask_env_check == "production":
+            raise RuntimeError(
+                "CRITICAL SECURITY ERROR: TOKEN_STATIC_WORD environment variable is not set!\n"
+                "In production, this must be set explicitly to prevent token generation vulnerabilities.\n"
+                "Please set TOKEN_STATIC_WORD with a secure random string.\n"
+                "Example: export TOKEN_STATIC_WORD=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+            )
+        else:
+            import secrets
+            TOKEN_STATIC_WORD = secrets.token_urlsafe(32)
+            logging.warning(
+                "TOKEN_STATIC_WORD not set in environment. Using auto-generated secret. "
+                "This is not secure for production! Please set TOKEN_STATIC_WORD in .env"
             )
 
     ALLOWED_AVATAR_EXTENSIONS = set(

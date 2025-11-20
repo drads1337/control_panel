@@ -94,7 +94,8 @@ export async function uploadGameFiles(
   const { getCsrfHeaders } = await import('@/lib/csrf')
   const csrfHeaders = await getCsrfHeaders()
   const { getApiUrl } = await import('@/shared/api')
-  const url = getApiUrl(`${API_ENDPOINTS.GAMES}/${gameId}/files`)
+  // Use universal endpoint - products instead of games
+  const url = getApiUrl(`${API_ENDPOINTS.PRODUCTS}/${gameId}/files`)
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()

@@ -12,8 +12,8 @@ import {
 import { useAuth } from '@/hooks/use-auth';
 import { usePermissions } from '@/hooks/use-permissions';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
-import { recordLoaderDownload } from '@/entities/loader';
-import { useLoadersQuery } from '@/hooks/use-loaders-query';
+import { recordLoaderDownload, recordAgentDownload } from '@/entities/loader';
+import { useLoadersQuery, useAgentsQuery } from '@/hooks/use-loaders-query';
 import CreateLoaderDialog from './CreateLoaderDialog';
 import EditLoaderDialog from './EditLoaderDialog';
 import UploadLoaderFilesDialog from './UploadLoaderFilesDialog';
@@ -24,23 +24,33 @@ import CreateGameDialog from '../games/CreateGameDialog';
 import { toast } from 'sonner';
 import { getStatusClasses, getStatusText, type StatusType } from '@/lib/status-utils';
 import { Spinner } from '@/components/ui/spinner';
-import type { Loader } from '@/entities/loader';
-import type { Game } from '@/entities/game';
+import type { Loader, Agent } from '@/entities/loader';
+import type { Game, Product } from '@/entities/game';
 
-interface LoaderItemProps {
-  loader: Loader;
-  games: Game[];
+interface AgentItemProps {
+  agent: Agent;  // Universal name
+  products: Product[];  // Universal name
+  // Backward compatibility aliases
+  loader?: Loader;
+  games?: Product[];
   isSelected: boolean;
-  onToggleSelection: (loaderId: number) => void;
-  onViewDetails: (loader: Loader) => void;
-  onEditLoader: (loader: Loader) => void;
-  onConfigLoader: (loader: Loader) => void;
-  onAssignGames: (loader: Loader) => void;
-  onUploadFiles: (loader: Loader) => void;
-  onNotificationsGame: (loader: Loader) => void;
-  onChangelogGame: (loader: Loader) => void;
-  onStatusChange: (loaderId: number, newStatus: Loader['status']) => void;
-  onDeleteLoader: (loaderId: number) => void;
+  onToggleSelection: (agentId: number) => void;  // Universal name
+  onViewDetails: (agent: Agent) => void;  // Universal name
+  onEditAgent: (agent: Agent) => void;  // Universal name
+  onConfigAgent: (agent: Agent) => void;  // Universal name
+  onAssignProducts: (agent: Agent) => void;  // Universal name
+  onUploadFiles: (agent: Agent) => void;  // Universal name
+  onNotificationsProduct: (agent: Agent) => void;  // Universal name
+  onChangelogProduct: (agent: Agent) => void;  // Universal name
+  onStatusChange: (agentId: number, newStatus: Agent['status']) => void;  // Universal name
+  onDeleteAgent: (agentId: number) => void;  // Universal name
+  // Backward compatibility aliases
+  onEditLoader?: (loader: Loader) => void;
+  onConfigLoader?: (loader: Loader) => void;
+  onAssignGames?: (loader: Loader) => void;
+  onNotificationsGame?: (loader: Loader) => void;
+  onChangelogGame?: (loader: Loader) => void;
+  onDeleteLoader?: (loaderId: number) => void;
   canEditLoaders: boolean;
   canDeleteLoaders: boolean;
   canUploadFiles: boolean;
@@ -55,19 +65,29 @@ interface LoaderItemProps {
   canConfigurationSettings: boolean;
 }
 
-const LoaderItem = React.memo(({
+const AgentItem = React.memo(({
+  agent,
+  products,
+  // Backward compatibility - use agent if loader is not provided
   loader,
-  games,
+  games = products,
   isSelected,
   onToggleSelection,
   onViewDetails,
+  onEditAgent,
+  onConfigAgent,
+  onAssignProducts,
+  onUploadFiles,
+  onNotificationsProduct,
+  onChangelogProduct,
+  onStatusChange,
+  onDeleteAgent,
+  // Backward compatibility aliases
   onEditLoader,
   onConfigLoader,
   onAssignGames,
-  onUploadFiles,
   onNotificationsGame,
   onChangelogGame,
-  onStatusChange,
   onDeleteLoader,
   canEditLoaders,
   canDeleteLoaders,
@@ -81,7 +101,7 @@ const LoaderItem = React.memo(({
   canManageStatus,
   canAssignGames,
   canConfigurationSettings,
-}: LoaderItemProps) => {
+}: AgentItemProps) => {
   const getStatusBadge = (status: string) => {
     const statusType = status as StatusType;
     return (
@@ -91,12 +111,17 @@ const LoaderItem = React.memo(({
     );
   };
 
-  const assignedGamesNames = useMemo(() => {
-    return loader.assigned_games
-      .map(gameId => games.find(g => g.id === gameId)?.name)
+  const assignedProductsNames = useMemo(() => {
+    // Use assigned_products from agent, or assigned_games from loader for backward compatibility
+    const assignedIds = agent.assigned_products || (loader?.assigned_games) || [];
+    return assignedIds
+      .map((productId: number) => products.find(p => p.id === productId)?.name || games?.find(g => g.id === productId)?.name)
       .filter(Boolean)
       .join(', ');
-  }, [loader.assigned_games, games]);
+  }, [agent, loader, products, games]);
+  
+  // Backward compatibility alias
+  const assignedGamesNames = assignedProductsNames;
 
   return (
     <div className="flex items-center justify-between p-2.5 border-b hover:bg-accent/50 transition-colors">
@@ -105,41 +130,41 @@ const LoaderItem = React.memo(({
           type="checkbox"
           className="rounded border-gray-300"
           checked={isSelected}
-          onChange={() => onToggleSelection(loader.id)}
+          onChange={() => onToggleSelection(agent.id)}
           onClick={(e) => e.stopPropagation()}
         />
         <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-          {loader.logo ? (
-            <img src={loader.logo} alt={loader.name} className="w-7 h-7 rounded" />
+          {agent.logo ? (
+            <img src={agent.logo} alt={agent.name} className="w-7 h-7 rounded" />
           ) : (
             <Container className="h-4 w-4 text-primary" />
           )}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            <h4 className="font-medium text-sm truncate">{loader.name}</h4>
+            <h4 className="font-medium text-sm truncate">{agent.name}</h4>
             {isSelected && (
               <Check className="h-3 w-3 text-primary" />
             )}
-            {getStatusBadge(loader.status)}
+            {getStatusBadge(agent.status)}
           </div>
-          {loader.description && (
+          {agent.description && (
             <p className="text-xs text-muted-foreground truncate mb-1">
-              {loader.description}
+              {agent.description}
             </p>
           )}
           <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
-            <span className="font-mono">ID: {loader.id}</span>
+            <span className="font-mono">ID: {agent.id}</span>
             <span>•</span>
-            <span>v{loader.version}</span>
+            <span>v{agent.version}</span>
             <span>•</span>
-            <span>{loader.downloads.toLocaleString()} downloads</span>
+            <span>{agent.downloads.toLocaleString()} downloads</span>
             <span>•</span>
-            <span>{loader.active_users.toLocaleString()} users</span>
-            {loader.assigned_games.length > 0 && (
+            <span>{agent.active_users.toLocaleString()} users</span>
+            {(agent.assigned_products?.length || loader?.assigned_games?.length || 0) > 0 && (
               <>
                 <span>•</span>
-                <span>{loader.assigned_games.length} games</span>
+                <span>{(agent.assigned_products?.length || loader?.assigned_games?.length || 0)} products</span>
               </>
             )}
             {assignedGamesNames && (
@@ -158,7 +183,7 @@ const LoaderItem = React.memo(({
           variant="ghost"
           size="icon"
           className="h-8 w-8"
-          onClick={() => onViewDetails(loader)}
+          onClick={() => onViewDetails(agent)}
         >
           <Eye className="h-4 w-4" />
         </Button>
@@ -167,7 +192,7 @@ const LoaderItem = React.memo(({
             variant="ghost"
             size="icon"
             className="h-8 w-8"
-            onClick={() => onEditLoader(loader)}
+            onClick={() => (onEditLoader && loader ? onEditLoader(loader) : onEditAgent(agent))}
           >
             <Edit className="h-4 w-4" />
           </Button>
@@ -177,7 +202,7 @@ const LoaderItem = React.memo(({
             variant="ghost"
             size="icon"
             className="h-8 w-8"
-            onClick={() => onConfigLoader(loader)}
+            onClick={() => (onConfigLoader && loader ? onConfigLoader(loader) : onConfigAgent(agent))}
           >
             <Settings className="h-4 w-4" />
           </Button>
@@ -187,7 +212,7 @@ const LoaderItem = React.memo(({
             variant="ghost"
             size="icon"
             className="h-8 w-8"
-            onClick={() => onAssignGames(loader)}
+            onClick={() => (onAssignGames && loader ? onAssignGames(loader) : onAssignProducts(agent))}
           >
             <Gamepad2 className="h-4 w-4" />
           </Button>
@@ -197,7 +222,7 @@ const LoaderItem = React.memo(({
             variant="ghost"
             size="icon"
             className="h-8 w-8"
-            onClick={() => onUploadFiles(loader)}
+            onClick={() => onUploadFiles(agent)}
           >
             <Upload className="h-4 w-4" />
           </Button>
@@ -207,7 +232,7 @@ const LoaderItem = React.memo(({
             variant="ghost"
             size="icon"
             className="h-8 w-8"
-            onClick={() => onNotificationsGame(loader)}
+            onClick={() => (onNotificationsGame && loader ? onNotificationsGame(loader) : onNotificationsProduct(agent))}
           >
             <Bell className="h-4 w-4" />
           </Button>
@@ -217,15 +242,15 @@ const LoaderItem = React.memo(({
             variant="ghost"
             size="icon"
             className="h-8 w-8"
-            onClick={() => onChangelogGame(loader)}
+            onClick={() => (onChangelogGame && loader ? onChangelogGame(loader) : onChangelogProduct(agent))}
           >
             <GitCommit className="h-4 w-4" />
           </Button>
         )}
         {canManageStatus && (
           <Select
-            value={loader.status}
-            onValueChange={(value) => onStatusChange(loader.id, value as Loader['status'])}
+            value={agent.status}
+            onValueChange={(value) => onStatusChange(agent.id, value as Agent['status'])}
           >
             <SelectTrigger className="w-28 h-8 text-xs">
               <SelectValue />
@@ -243,7 +268,7 @@ const LoaderItem = React.memo(({
             variant="ghost"
             size="icon"
             className="h-8 w-8 text-destructive hover:text-destructive"
-            onClick={() => onDeleteLoader(loader.id)}
+            onClick={() => (onDeleteLoader ? onDeleteLoader(agent.id) : onDeleteAgent(agent.id))}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -253,21 +278,23 @@ const LoaderItem = React.memo(({
   );
 });
 
-LoaderItem.displayName = 'LoaderItem';
+AgentItem.displayName = 'AgentItem';
+// Backward compatibility alias
+const LoaderItem = AgentItem;
 
 interface LoadersListProps {
-  loaders: Loader[];
+  loaders: Agent[];
   games: Game[];
   selectedLoaders: number[];
   onToggleLoaderSelection: (loaderId: number) => void;
-  onViewDetails: (loader: Loader) => void;
+  onViewDetails: (loader: Agent) => void;
   onEditLoader: (loader: Loader) => void;
   onConfigLoader: (loader: Loader) => void;
   onAssignGames: (loader: Loader) => void;
-  onUploadFiles: (loader: Loader) => void;
+  onUploadFiles: (loader: Agent) => void;
   onNotificationsGame: (loader: Loader) => void;
   onChangelogGame: (loader: Loader) => void;
-  onStatusChange: (loaderId: number, newStatus: Loader['status']) => void;
+  onStatusChange: (loaderId: number, newStatus: Agent['status']) => void;
   onDeleteLoader: (loaderId: number) => void;
   canEditLoaders: boolean;
   canDeleteLoaders: boolean;
@@ -351,18 +378,26 @@ const LoadersList: React.FC<LoadersListProps> = ({
                   }}
                 >
                   <LoaderItem
-                    loader={loader}
+                    agent={loader}
+                    products={games}
+                    loader={loader as Loader}
                     games={games}
                     isSelected={selectedLoaders.includes(loader.id)}
                     onToggleSelection={onToggleLoaderSelection}
-                    onViewDetails={onViewDetails}
+                    onViewDetails={(agent) => onViewDetails(agent as Loader)}
+                    onEditAgent={(agent) => onEditLoader(agent as Loader)}
+                    onConfigAgent={(agent) => onConfigLoader(agent as Loader)}
+                    onAssignProducts={(agent) => onAssignGames(agent as Loader)}
+                    onUploadFiles={(agent) => onUploadFiles(agent as Loader)}
+                    onNotificationsProduct={(agent) => onNotificationsGame(agent as Loader)}
+                    onChangelogProduct={(agent) => onChangelogGame(agent as Loader)}
+                    onStatusChange={onStatusChange}
+                    onDeleteAgent={onDeleteLoader}
                     onEditLoader={onEditLoader}
                     onConfigLoader={onConfigLoader}
                     onAssignGames={onAssignGames}
-                    onUploadFiles={onUploadFiles}
                     onNotificationsGame={onNotificationsGame}
                     onChangelogGame={onChangelogGame}
-                    onStatusChange={onStatusChange}
                     onDeleteLoader={onDeleteLoader}
                     canEditLoaders={canEditLoaders}
                     canDeleteLoaders={canDeleteLoaders}
@@ -391,18 +426,26 @@ const LoadersList: React.FC<LoadersListProps> = ({
       {loaders.map((loader) => (
         <LoaderItem
           key={loader.id}
-          loader={loader}
+          agent={loader}
+          products={games}
+          loader={loader as Loader}
           games={games}
           isSelected={selectedLoaders.includes(loader.id)}
           onToggleSelection={onToggleLoaderSelection}
-          onViewDetails={onViewDetails}
+          onViewDetails={(agent) => onViewDetails(agent as Loader)}
+          onEditAgent={(agent) => onEditLoader(agent as Loader)}
+          onConfigAgent={(agent) => onConfigLoader(agent as Loader)}
+          onAssignProducts={(agent) => onAssignGames(agent as Loader)}
+          onUploadFiles={(agent) => onUploadFiles(agent as Loader)}
+          onNotificationsProduct={(agent) => onNotificationsGame(agent as Loader)}
+          onChangelogProduct={(agent) => onChangelogGame(agent as Loader)}
+          onStatusChange={onStatusChange}
+          onDeleteAgent={onDeleteLoader}
           onEditLoader={onEditLoader}
           onConfigLoader={onConfigLoader}
           onAssignGames={onAssignGames}
-          onUploadFiles={onUploadFiles}
           onNotificationsGame={onNotificationsGame}
           onChangelogGame={onChangelogGame}
-          onStatusChange={onStatusChange}
           onDeleteLoader={onDeleteLoader}
           canEditLoaders={canEditLoaders}
           canDeleteLoaders={canDeleteLoaders}
@@ -572,38 +615,38 @@ const LoaderManager: React.FC<LoaderManagerProps> = ({ onCreateLoaderRequested, 
     }
   };
 
-  const handleEditLoader = (loader: Loader) => {
-    setSelectedLoader(loader);
+  const handleEditLoader = (loader: Agent | Loader) => {
+    setSelectedLoader(loader as Loader);
     setEditDialogOpen(true);
   };
 
-  const handleUploadFiles = (loader: Loader) => {
-    setSelectedLoader(loader);
+  const handleUploadFiles = (loader: Agent | Loader) => {
+    setSelectedLoader(loader as Loader);
     setUploadFilesDialogOpen(true);
   };
 
-  const handleViewDetails = (loader: Loader) => {
-    setSelectedLoader(loader);
+  const handleViewDetails = (loader: Agent | Loader) => {
+    setSelectedLoader(loader as Loader);
     setDetailsDialogOpen(true);
   };
 
-  const handleConfigLoader = (loader: Loader) => {
-    setSelectedLoader(loader);
+  const handleConfigLoader = (loader: Agent | Loader) => {
+    setSelectedLoader(loader as Loader);
     setConfigDialogOpen(true);
   };
 
-  const handleAssignGames = (loader: Loader) => {
-    setSelectedLoader(loader);
+  const handleAssignGames = (loader: Agent | Loader) => {
+    setSelectedLoader(loader as Loader);
     setAssignGamesDialogOpen(true);
   };
 
-  const handleNotificationsGame = (loader: Loader) => {
-    setSelectedLoader(loader);
+  const handleNotificationsGame = (loader: Agent | Loader) => {
+    setSelectedLoader(loader as Loader);
 
   };
 
-  const handleChangelogGame = (loader: Loader) => {
-    setSelectedLoader(loader);
+  const handleChangelogGame = (loader: Agent | Loader) => {
+    setSelectedLoader(loader as Loader);
 
   };
 

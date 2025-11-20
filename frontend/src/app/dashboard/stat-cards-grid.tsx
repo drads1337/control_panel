@@ -34,7 +34,7 @@ export function StatCardsGrid({ data, type }: StatCardsGridProps) {
         }
       },
       {
-        title: 'Games',
+        title: 'Applications',
         value: data.overview.games.total,
         icon: Gamepad2,
         subtitle: data.overview.games.active > 0 ? `${data.overview.games.active} active` : 'No games yet',

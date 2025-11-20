@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { 
   Package, Plus, FileText, Globe, GitCommit
 } from 'lucide-react';
-import { createGame } from '@/entities/game';
+import { createGame, createProduct } from '@/entities/game';  // createGame is alias for createProduct
 import { createFolder } from '@/entities/file';
 import { toast } from 'sonner';
 import { usePermissions } from '@/hooks/use-permissions';
@@ -28,8 +28,8 @@ const CreateGameDialog: React.FC<CreateGameDialogProps> = ({ open, onOpenChange,
     return null;
   }
 
-  const [creatingGame, setCreatingGame] = useState(false);
-  const [createGameData, setCreateGameData] = useState<{
+  const [creatingProduct, setCreatingProduct] = useState(false);
+  const [createProductData, setCreateProductData] = useState<{
     name: string;
     description: string;
     is_multi_app: boolean;
@@ -41,30 +41,38 @@ const CreateGameDialog: React.FC<CreateGameDialogProps> = ({ open, onOpenChange,
     version: '1.0.0'
   });
 
-  const handleCreateGame = async () => {
-    if (!createGameData.name.trim()) {
+  const handleCreateProduct = async () => {
+    if (!createProductData.name.trim()) {
       toast.error('Application name is required.');
       return;
     }
 
     try {
-      setCreatingGame(true);
+      setCreatingProduct(true);
 
-      const gameData = {
-        name: createGameData.name.trim(),
-        description: createGameData.description.trim() || undefined,
-        is_multi_app: createGameData.is_multi_app,
-        version: createGameData.version.trim() || '1.0.0'
+      const productData = {
+        name: createProductData.name.trim(),
+        description: createProductData.description.trim() || undefined,
+        is_multi_app: createProductData.is_multi_app,
+        version: createProductData.version.trim() || '1.0.0'
       }
 
-      const response = await createGame(gameData);
+      // Use new universal function, fallback to old one
+      let response: { success: boolean; message?: string; product?: any; game?: any };
+      try {
+        response = await createProduct(productData);
+      } catch {
+        response = await createGame(productData);
+      }
 
-      if (response.success && response.game) {
+      const createdProduct = (response as any).product || (response as any).game;
+
+      if (response.success && createdProduct) {
         try {
           await createFolder({
             name: 'configs',
             parent_path: '/',
-            game_id: response.game.id
+            game_id: createdProduct.id  // Keep game_id for backward compatibility
           });
 
         } catch (folderError) {
@@ -72,11 +80,11 @@ const CreateGameDialog: React.FC<CreateGameDialogProps> = ({ open, onOpenChange,
         }
       }
 
-      if (response.success && response.game) {
+      if (response.success && createdProduct) {
 
-        toast.success('Game successfully created!');
+        toast.success('Product successfully created!');
         onOpenChange(false);
-        setCreateGameData({
+        setCreateProductData({
           name: '',
           description: '',
           is_multi_app: false,
@@ -84,7 +92,7 @@ const CreateGameDialog: React.FC<CreateGameDialogProps> = ({ open, onOpenChange,
         });
         onSuccess();
       } else {
-        toast.error(response.message || 'Failed to create game.');
+        toast.error(response.message || 'Failed to create product.');
 
       }
     } catch (err: unknown) {
@@ -101,9 +109,15 @@ const CreateGameDialog: React.FC<CreateGameDialogProps> = ({ open, onOpenChange,
       toast.error(errorMessage)
     } finally {
 
-      setCreatingGame(false);
+      setCreatingProduct(false);
     }
   };
+  
+  // Backward compatibility aliases
+  const creatingGame = creatingProduct;
+  const createGameData = createProductData;
+  const setCreateGameData = setCreateProductData;
+  const handleCreateGame = handleCreateProduct;
 
   const handleCancel = () => {
     onOpenChange(false);
@@ -125,7 +139,7 @@ const CreateGameDialog: React.FC<CreateGameDialogProps> = ({ open, onOpenChange,
         <DialogHeader>
           <DialogTitle>Create New Application</DialogTitle>
           <DialogDescription>
-            Fill in the details for the new game.
+            Fill in the details for the new product.
           </DialogDescription>
         </DialogHeader>
 
@@ -133,34 +147,34 @@ const CreateGameDialog: React.FC<CreateGameDialogProps> = ({ open, onOpenChange,
           <div className="space-y-2">
             <Label htmlFor="gameName">Application Name *</Label>
             <Input 
-              id="gameName" 
-              placeholder="Enter game name"
-              value={createGameData.name}
-              onChange={(e) => setCreateGameData(prev => ({ ...prev, name: e.target.value }))}
+              id="productName" 
+              placeholder="Enter product name"
+              value={createProductData.name}
+              onChange={(e) => setCreateProductData(prev => ({ ...prev, name: e.target.value }))}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="gameDescription">Description</Label>
+            <Label htmlFor="productDescription">Description</Label>
             <Input 
-              id="gameDescription" 
-              placeholder="Enter game description (optional)"
-              value={createGameData.description}
-              onChange={(e) => setCreateGameData(prev => ({ ...prev, description: e.target.value }))}
+              id="productDescription" 
+              placeholder="Enter product description (optional)"
+              value={createProductData.description}
+              onChange={(e) => setCreateProductData(prev => ({ ...prev, description: e.target.value }))}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="gameType">Game Type</Label>
+            <Label htmlFor="productType">Product Type</Label>
             <Select 
-              value={createGameData.is_multi_app ? 'multi_app' : 'game_library'}
-              onValueChange={(value) => setCreateGameData(prev => ({ 
+              value={createProductData.is_multi_app ? 'multi_app' : 'game_library'}
+              onValueChange={(value) => setCreateProductData(prev => ({ 
                 ...prev, 
                 is_multi_app: value === 'multi_app' 
               }))}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select game type" />
+                <SelectValue placeholder="Select product type" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="game_library">Application Library</SelectItem>
@@ -170,12 +184,12 @@ const CreateGameDialog: React.FC<CreateGameDialogProps> = ({ open, onOpenChange,
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="gameVersion">Version</Label>
+            <Label htmlFor="productVersion">Version</Label>
             <Input 
-              id="gameVersion" 
+              id="productVersion" 
               placeholder="1.0.0" 
-              value={createGameData.version}
-              onChange={(e) => setCreateGameData(prev => ({ ...prev, version: e.target.value }))}
+              value={createProductData.version}
+              onChange={(e) => setCreateProductData(prev => ({ ...prev, version: e.target.value }))}
             />
           </div>
         </div>
@@ -190,10 +204,10 @@ const CreateGameDialog: React.FC<CreateGameDialogProps> = ({ open, onOpenChange,
           </Button>
           <ConditionalRender permission="games.create" fallback={null}>
             <Button 
-              onClick={handleCreateGame}
-              disabled={creatingGame || !createGameData.name.trim()}
+              onClick={handleCreateProduct}
+              disabled={creatingProduct || !createProductData.name.trim()}
             >
-              {creatingGame ? 'Creating...' : 'Create Application'}
+              {creatingProduct ? 'Creating...' : 'Create Application'}
             </Button>
           </ConditionalRender>
         </DialogFooter>

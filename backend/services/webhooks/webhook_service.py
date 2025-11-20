@@ -5,8 +5,10 @@ Manages webhook notifications to external systems
 
 import hashlib
 import hmac
+import ipaddress
 import json
 import logging
+import socket
 import threading
 import time
 import traceback
@@ -14,6 +16,7 @@ import uuid
 from datetime import datetime, timedelta
 from queue import Empty, Queue
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urlparse
 
 import requests
 from flask import current_app
@@ -791,26 +794,123 @@ class WebhookService:
             }
 
     def _validate_url(self, url: str) -> bool:
-        """Validate webhook URL"""
+        """
+        Validate webhook URL with SSRF protection.
+        
+        This method:
+        1. Only allows HTTPS URLs (not HTTP) for security
+        2. Resolves domain to IP address
+        3. Blocks localhost, private IP ranges, and internal network addresses
+        4. Prevents SSRF attacks on internal services
+        
+        Args:
+            url: URL to validate
+            
+        Returns:
+            True if URL is safe, False otherwise
+        """
         try:
-
             if not url or not url.strip():
                 return False
 
+            url = url.strip()
+            
+            # Parse URL
+            parsed = urlparse(url)
+            
+            # SECURITY: Only allow HTTPS, not HTTP
+            if parsed.scheme != "https":
+                logging.warning(f"WEBHOOK_SSRF_BLOCKED: Only HTTPS allowed, got {parsed.scheme}")
+                return False
+            
+            # Get hostname
+            hostname = parsed.hostname
+            if not hostname:
+                return False
+            
+            # SECURITY: Block localhost and common local hostnames
+            blocked_hostnames = {
+                "localhost",
+                "127.0.0.1",
+                "0.0.0.0",
+                "::1",
+                "localhost.localdomain",
+            }
+            if hostname.lower() in blocked_hostnames:
+                logging.warning(f"WEBHOOK_SSRF_BLOCKED: Blocked hostname {hostname}")
+                return False
+            
+            # SECURITY: Resolve hostname to IP address
+            try:
+                ip_address = socket.gethostbyname(hostname)
+            except (socket.gaierror, socket.herror, OSError) as e:
+                logging.warning(f"WEBHOOK_SSRF_BLOCKED: Failed to resolve {hostname}: {e}")
+                return False
+            
+            # SECURITY: Check if IP is in blocked ranges
+            try:
+                ip_obj = ipaddress.ip_address(ip_address)
+            except ValueError:
+                logging.warning(f"WEBHOOK_SSRF_BLOCKED: Invalid IP address {ip_address}")
+                return False
+            
+            # SECURITY: Block private IP ranges (RFC 1918)
+            # 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+            if ip_obj.is_private:
+                logging.warning(f"WEBHOOK_SSRF_BLOCKED: Private IP range {ip_address}")
+                return False
+            
+            # SECURITY: Block loopback addresses
+            if ip_obj.is_loopback:
+                logging.warning(f"WEBHOOK_SSRF_BLOCKED: Loopback address {ip_address}")
+                return False
+            
+            # SECURITY: Block link-local addresses (169.254.0.0/16)
+            if ip_obj.is_link_local:
+                logging.warning(f"WEBHOOK_SSRF_BLOCKED: Link-local address {ip_address}")
+                return False
+            
+            # SECURITY: Block multicast addresses
+            if ip_obj.is_multicast:
+                logging.warning(f"WEBHOOK_SSRF_BLOCKED: Multicast address {ip_address}")
+                return False
+            
+            # SECURITY: Block reserved addresses (0.0.0.0/8, etc.)
+            if ip_obj.is_reserved:
+                logging.warning(f"WEBHOOK_SSRF_BLOCKED: Reserved address {ip_address}")
+                return False
+            
+            # SECURITY: Block cloud metadata endpoints (AWS, GCP, Azure)
+            # These are often at 169.254.169.254 but also check for common patterns
+            metadata_hostnames = {
+                "169.254.169.254",  # AWS, GCP, Azure metadata
+                "metadata.google.internal",  # GCP
+                "169.254.169.254.nip.io",  # DNS rebinding attack
+            }
+            if hostname.lower() in metadata_hostnames or ip_address == "169.254.169.254":
+                logging.warning(f"WEBHOOK_SSRF_BLOCKED: Cloud metadata endpoint {hostname} -> {ip_address}")
+                return False
+            
+            # URL format validation
             import re
-
             url_pattern = re.compile(
-                r"^https?://"
+                r"^https://"
                 r"(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|"
-                r"localhost|"
                 r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"
                 r"(?::\d+)?"
                 r"(?:/?|[/?]\S+)$",
                 re.IGNORECASE,
             )
-
-            return bool(url_pattern.match(url.strip()))
-        except Exception:
+            
+            if not url_pattern.match(url):
+                logging.warning(f"WEBHOOK_SSRF_BLOCKED: Invalid URL format {url}")
+                return False
+            
+            logging.debug(f"WEBHOOK_URL_VALIDATED: {hostname} -> {ip_address}")
+            return True
+            
+        except Exception as e:
+            logging.error(f"WEBHOOK_URL_VALIDATION_ERROR: {e}")
             return False
 
     def _generate_secret(self) -> str:

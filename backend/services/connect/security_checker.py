@@ -14,13 +14,12 @@ from flask import request
 from ...core.extensions import db
 from ...models import BlockedFingerprint, User
 from ...services.security import SecurityContext, security_service
+from ...services.validation import request_validation_pipeline
 
 class SecurityChecker:
     """Handles security validations and checks"""
 
     def __init__(self):
-        self.bad_ua_keywords = ["wget", "python", "requests", "postman", "insomnia"]
-        self.bad_headers = []
         self.suspicious_threshold = 3
         self.suspicious_window = 3600
 
@@ -29,6 +28,8 @@ class SecurityChecker:
     ) -> Tuple[bool, Optional[str]]:
         """
         Check if request appears suspicious based on user agent and headers
+        
+        Uses unified ValidationPipeline (DRY principle)
 
         Args:
             user_agent: User agent string
@@ -37,17 +38,10 @@ class SecurityChecker:
         Returns:
             Tuple of (is_suspicious, reason)
         """
-        ua = user_agent.lower()
-
-        for bad in self.bad_ua_keywords:
-            if bad in ua:
-                return True, f"BAD_UA_{bad}"
-
-        for h in self.bad_headers:
-            if h in (k.lower() for k in headers.keys()):
-                return True, f"BAD_HEADER_{h}"
-
-        return False, None
+        is_valid, reason = request_validation_pipeline.validate_user_agent_only(
+            user_agent=user_agent, headers=headers
+        )
+        return (not is_valid, reason)
 
     def check_fingerprint_blocked(self, fingerprint: str, project_id: int) -> bool:
         """
@@ -192,17 +186,10 @@ class SecurityChecker:
         now = int(time.time())
 
         try:
-            import redis
+            from ...utils.redis_client import get_redis_client
 
-            from ...config.config import Config
-
-            redis_client = redis.Redis(
-                host=Config.REDIS_HOST,
-                port=Config.REDIS_PORT,
-                db=Config.REDIS_DB,
-                password=Config.REDIS_PASSWORD,
-                decode_responses=True,
-            )
+            # Use persistent Redis instance for behavioral analysis (must not lose data)
+            redis_client = get_redis_client()
 
             last_geo = redis_client.get(f"geo:{user_key}")
             redis_client.set(f"geo:{user_key}", geo, ex=86400)

@@ -114,6 +114,7 @@ _mtls_validator = MTLSValidator()
 def require_mtls(f):
     """
     Decorator to require mTLS client certificate for endpoint.
+    Supports both sync and async functions.
     
     SECURITY: This decorator validates that the client presents a valid
     client certificate, making request emulation much harder.
@@ -121,7 +122,7 @@ def require_mtls(f):
     Usage:
         @require_mtls
         @bp.route("/connect", methods=["POST"])
-        def connect():
+        async def connect():
             ...
     
     Configuration:
@@ -132,25 +133,50 @@ def require_mtls(f):
     Note: mTLS must be configured at the WSGI server level (gunicorn/nginx).
     This middleware only validates the certificate presence and properties.
     """
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        is_valid, error_msg = _mtls_validator.validate_client_certificate()
-        
-        if not is_valid:
-            logger.warning(
-                f"mTLS validation failed for {request.endpoint}: {error_msg}",
-                extra={
-                    "endpoint": request.endpoint,
-                    "path": request.path,
-                    "ip": request.remote_addr,
-                    "error": error_msg
-                }
-            )
-            return jsonify({"error": "Client certificate required"}), 403
-        
-        return f(*args, **kwargs)
+    import inspect
     
-    return decorated_function
+    is_async = inspect.iscoroutinefunction(f)
+    
+    if is_async:
+        @wraps(f)
+        async def async_decorated_function(*args, **kwargs):
+            is_valid, error_msg = _mtls_validator.validate_client_certificate()
+            
+            if not is_valid:
+                logger.warning(
+                    f"mTLS validation failed for {request.endpoint}: {error_msg}",
+                    extra={
+                        "endpoint": request.endpoint,
+                        "path": request.path,
+                        "ip": request.remote_addr,
+                        "error": error_msg
+                    }
+                )
+                return jsonify({"error": "Client certificate required"}), 403
+            
+            return await f(*args, **kwargs)
+        
+        return async_decorated_function
+    else:
+        @wraps(f)
+        def sync_decorated_function(*args, **kwargs):
+            is_valid, error_msg = _mtls_validator.validate_client_certificate()
+            
+            if not is_valid:
+                logger.warning(
+                    f"mTLS validation failed for {request.endpoint}: {error_msg}",
+                    extra={
+                        "endpoint": request.endpoint,
+                        "path": request.path,
+                        "ip": request.remote_addr,
+                        "error": error_msg
+                    }
+                )
+                return jsonify({"error": "Client certificate required"}), 403
+            
+            return f(*args, **kwargs)
+        
+        return sync_decorated_function
 
 
 def is_mtls_enabled() -> bool:

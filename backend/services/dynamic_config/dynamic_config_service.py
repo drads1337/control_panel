@@ -20,7 +20,7 @@ from flask import current_app
 
 from ...core.extensions import db
 from ...models.core import Project, User
-from ...models.games import Game
+from ...models.games import FeatureConfigSchema, Game
 from ...models.keys import Key
 
 class DynamicConfigService:
@@ -31,104 +31,44 @@ class DynamicConfigService:
         self.encryption_key = self._get_encryption_key()
         self.redis_client = self._init_redis()
 
-        self.config_templates = {
-            "fps": {
-                "memory_addresses": {
-                    "player_health": "0x12345678",
-                    "player_armor": "0x12345679",
-                    "player_ammo": "0x1234567A",
-                    "enemy_positions": "0x1234567B",
-                },
-                "decryption_keys": {
-                    "main_key": "0xABCDEF1234567890",
-                    "secondary_key": "0x9876543210FEDCBA",
-                },
-                "feature_flags": {
-                    "aimbot_enabled": True,
-                    "esp_enabled": True,
-                    "wallhack_enabled": False,
-                    "speedhack_enabled": False,
-                },
-                "limits": {
-                    "max_aimbot_fov": 90,
-                    "max_aimbot_smooth": 10,
-                    "max_speed_multiplier": 2.0,
-                },
-            },
-            "mmo": {
-                "memory_addresses": {
-                    "player_level": "0x23456789",
-                    "player_gold": "0x2345678A",
-                    "player_inventory": "0x2345678B",
-                    "npc_data": "0x2345678C",
-                },
-                "decryption_keys": {
-                    "inventory_key": "0xBCDEF12345678901",
-                    "character_key": "0x876543210FEDCBA9",
-                },
-                "feature_flags": {
-                    "auto_loot_enabled": True,
-                    "auto_quest_enabled": True,
-                    "teleport_enabled": False,
-                    "god_mode_enabled": False,
-                },
-                "limits": {
-                    "max_teleport_distance": 1000,
-                    "max_loot_speed": 5.0,
-                    "max_quest_speed": 3.0,
-                },
-            },
-            "moba": {
-                "memory_addresses": {
-                    "champion_health": "0x34567890",
-                    "champion_mana": "0x34567891",
-                    "minion_positions": "0x34567892",
-                    "tower_health": "0x34567893",
-                },
-                "decryption_keys": {
-                    "champion_key": "0xCDEF123456789012",
-                    "minion_key": "0x76543210FEDCBA98",
-                },
-                "feature_flags": {
-                    "skill_shot_aim": True,
-                    "auto_last_hit": True,
-                    "auto_skill_usage": False,
-                    "map_hack_enabled": False,
-                },
-                "limits": {
-                    "max_skill_shot_accuracy": 95,
-                    "max_last_hit_speed": 2.0,
-                    "max_skill_delay": 100,
-                },
-            },
-        }
-
     def _init_redis(self):
-        """Initialize Redis client for configuration storage"""
+        """
+        Initialize Redis client for configuration storage.
+        
+        SECURITY: Uses separate Redis database (REDIS_DB_DYNAMIC_CONFIG) to isolate
+        dynamic config data from other Redis data types. This reduces blast radius
+        if Redis is compromised.
+        
+        FALLBACK: If Redis is unavailable, the service will still function but
+        without caching (configs will be generated on-the-fly for each request).
+        """
         try:
-            from ...config.config import Config
-
-            redis_config = {
-                "host": Config.REDIS_HOST,
-                "port": Config.REDIS_PORT,
-                "db": Config.REDIS_DB,
-                "decode_responses": True,
-                "socket_connect_timeout": 5,
-                "socket_timeout": 5,
-                "retry_on_timeout": True,
-                "health_check_interval": 30,
-                "max_connections": 20,
-            }
-
-            if Config.REDIS_PASSWORD:
-                redis_config["password"] = Config.REDIS_PASSWORD
-
-            client = redis.Redis(**redis_config)
-            client.ping()
-            return client
+            # SECURITY: Use separate DB for dynamic config
+            from ...utils.redis_client import get_redis_client_for_db
+            
+            try:
+                client = get_redis_client_for_db("dynamic_config")
+                client.ping()
+                logging.info("Dynamic Config Redis client initialized (separate DB)")
+                return client
+            except Exception as db_error:
+                logging.warning(
+                    f"Failed to connect to dynamic_config DB, falling back to default: {db_error}"
+                )
+                # Fallback to default DB for backward compatibility
+                from ...utils.redis_client import get_redis_client
+                client = get_redis_client()
+                client.ping()
+                return client
         except Exception as e:
             logging.error(f"Dynamic Config Redis initialization failed: {e}")
-            raise RuntimeError("Redis is required for dynamic config service")
+            # SECURITY: Don't raise exception - allow fallback to on-the-fly generation
+            # This prevents Redis from being a single point of failure
+            logging.warning(
+                "Redis unavailable for DynamicConfig. Service will work without caching. "
+                "Configs will be generated on-the-fly for each request."
+            )
+            return None  # Return None to indicate Redis is unavailable
 
     def _get_encryption_key(self) -> bytes:
         """Get encryption key for configuration data (32 bytes for AES-256)"""
@@ -144,55 +84,77 @@ class DynamicConfigService:
             ).digest()
 
     def _encrypt_config(self, config_data: Dict) -> str:
-        """Encrypt configuration data using AES-256-GCM"""
+        """
+        Encrypt configuration data using AES-256-GCM
+        
+        KISS Principle: Simplified error handling and clearer structure
+        """
         try:
-
             json_data = json.dumps(config_data, sort_keys=True)
-
             iv = os.urandom(12)
-
+            
             cipher = Cipher(
                 algorithms.AES(self.encryption_key), modes.GCM(iv), backend=default_backend()
             )
             encryptor = cipher.encryptor()
-
             encrypted_data = encryptor.update(json_data.encode("utf-8")) + encryptor.finalize()
-
-            tag = encryptor.tag
-
-            combined = iv + encrypted_data + tag
-
+            
+            # Combine: IV (12 bytes) + encrypted data + tag (16 bytes)
+            combined = iv + encrypted_data + encryptor.tag
             return base64.b64encode(combined).decode("utf-8")
-
-        except Exception as e:
-            logging.error(f"Config encryption error: {e}")
-            raise ValueError(f"Failed to encrypt configuration: {str(e)}")
+            
+        except (ValueError, TypeError, AttributeError) as crypto_error:
+            # Specific crypto errors: invalid key/data format, wrong types, missing attributes
+            logging.error(f"Config encryption crypto error: {type(crypto_error).__name__}: {crypto_error}")
+            raise ValueError(f"Failed to encrypt configuration: {str(crypto_error)}")
+        except Exception as unexpected_error:
+            # Catch-all for unexpected errors (should be rare)
+            logging.error(f"Config encryption unexpected error: {unexpected_error}", exc_info=True)
+            raise ValueError(f"Failed to encrypt configuration: {str(unexpected_error)}")
 
     def _decrypt_config(self, encrypted_config: str) -> Dict:
-        """Decrypt configuration data using AES-256-GCM"""
+        """
+        Decrypt configuration data using AES-256-GCM
+        
+        KISS Principle: Simplified error handling with better error messages for debugging
+        """
         try:
-
             combined = base64.b64decode(encrypted_config.encode("utf-8"))
-
+            
             if len(combined) < 28:
-                raise ValueError(f"Encrypted config too short: {len(combined)} bytes (minimum 28)")
-
+                raise ValueError(
+                    f"Encrypted config too short: {len(combined)} bytes (minimum 28). "
+                    f"This usually indicates corrupted or incomplete data."
+                )
+            
+            # Extract components: IV (12 bytes) + encrypted data + tag (16 bytes)
             iv = combined[:12]
             tag = combined[-16:]
             encrypted_data = combined[12:-16]
-
+            
             cipher = Cipher(
                 algorithms.AES(self.encryption_key), modes.GCM(iv, tag), backend=default_backend()
             )
             decryptor = cipher.decryptor()
-
             decrypted_data = decryptor.update(encrypted_data) + decryptor.finalize()
-
+            
             return json.loads(decrypted_data.decode("utf-8"))
-
-        except Exception as e:
-            logging.error(f"Config decryption error: {e}")
-            raise ValueError(f"Failed to decrypt configuration: {str(e)}")
+            
+        except ValueError as e:
+            # Re-raise ValueError with original message (for debugging)
+            logging.error(f"Config decryption validation error: {e}")
+            raise
+        except json.JSONDecodeError as e:
+            logging.error(f"Config decryption JSON error: {e}. Data may be corrupted.")
+            raise ValueError(f"Failed to parse decrypted config as JSON: {str(e)}")
+        except (TypeError, AttributeError) as crypto_error:
+            # Specific crypto errors: wrong types, missing attributes
+            logging.error(f"Config decryption crypto error: {type(crypto_error).__name__}: {crypto_error}")
+            raise ValueError(f"Failed to decrypt configuration: {str(crypto_error)}")
+        except Exception as unexpected_error:
+            # Catch-all for unexpected errors (should be rare)
+            logging.error(f"Config decryption unexpected error: {unexpected_error}", exc_info=True)
+            raise ValueError(f"Failed to decrypt configuration: {str(unexpected_error)}")
 
     def generate_dynamic_config(self, user_key: str, game_name: str, project_id: int) -> Dict:
         """Generate dynamic configuration for a specific user and game"""
@@ -210,30 +172,75 @@ class DynamicConfigService:
             if not key_obj:
                 raise ValueError(f"Key {user_key} not found in project {project_id}")
 
-            game_type = self._determine_game_type(game_name, game)
+            # Get feature config schema from database (product-specific or project-level)
+            schema = self._get_feature_schema(game, project_id)
+            
+            # Get base config from schema or create empty config
+            base_config = schema.default_config_dict if schema and schema.default_config_dict else {}
+            
+            # If no schema found, create minimal default config
+            if not base_config:
+                base_config = {
+                    "feature_flags": {},
+                    "settings": {},
+                }
 
-            base_config = self.config_templates.get(game_type, self.config_templates["fps"])
+            dynamic_config = self._customize_config(base_config, user_key, game, project, key_obj, schema)
 
-            dynamic_config = self._customize_config(base_config, user_key, game, project, key_obj)
-
+            # KISS Principle: Simplified metadata structure for easier debugging
+            # Removed complex versioning and checksum - these added unnecessary complexity
+            # Config validation is handled by expiration time and key/game validation
+            generated_at = int(time.time())
+            expires_at = generated_at + self.config_ttl
+            
+            schema_name = schema.name if schema else None
+            schema_version = schema.version if schema else None
+            
             dynamic_config["metadata"] = {
                 "user_key": user_key,
                 "game_name": game_name,
                 "project_id": project_id,
-                "game_type": game_type,
-                "generated_at": int(time.time()),
-                "expires_at": int(time.time()) + self.config_ttl,
-                "version": "1.0.0",
-                "checksum": self._calculate_checksum(dynamic_config),
+                "schema_name": schema_name,
+                "schema_version": schema_version,
+                "generated_at": generated_at,
+                "expires_at": expires_at,
             }
 
             encrypted_config = self._encrypt_config(dynamic_config)
 
             config_key = f"dynamic_config:{user_key}:{game_name}:{project_id}"
-            self.redis_client.setex(config_key, self.config_ttl, encrypted_config)
+            
+            # SECURITY: Validate and monitor DynamicConfig operations
+            try:
+                from ...utils.redis_security import redis_security_monitor
+                if not redis_security_monitor.validate_dynamic_config_access(
+                    config_key, "SETEX", expected_project_id=project_id
+                ):
+                    logging.warning(
+                        f"[DYNAMIC_CONFIG] Security validation failed for key {config_key}, "
+                        f"project_id={project_id}"
+                    )
+                redis_security_monitor.log_critical_operation(config_key, "SETEX", encrypted_config)
+            except Exception as e:
+                logging.warning(f"[DYNAMIC_CONFIG] Security monitoring error: {e}")
+            
+            # FALLBACK: If Redis is unavailable, skip caching (config will be generated on-the-fly)
+            if self.redis_client:
+                try:
+                    self.redis_client.setex(config_key, self.config_ttl, encrypted_config)
+                except Exception as redis_error:
+                    logging.warning(
+                        f"[DYNAMIC_CONFIG] Failed to cache config in Redis: {redis_error}. "
+                        f"Config will be generated on-the-fly for each request."
+                    )
+            else:
+                logging.debug(
+                    "[DYNAMIC_CONFIG] Redis unavailable, skipping cache. "
+                    "Config will be generated on-the-fly."
+                )
 
             logging.info(
-                f"DYNAMIC_CONFIG_GENERATED user_key={user_key} game={game_name} project_id={project_id} game_type={game_type}"
+                f"DYNAMIC_CONFIG_GENERATED user_key={user_key} game={game_name} project_id={project_id} schema={schema_name}"
             )
 
             return {
@@ -249,43 +256,100 @@ class DynamicConfigService:
             raise ValueError(f"Failed to generate dynamic configuration: {str(e)}")
 
     def validate_config_request(
-        self, user_key: str, game_name: str, project_id: int, config_checksum: str
+        self, user_key: str, game_name: str, project_id: int, config_checksum: Optional[str] = None
     ) -> bool:
-        """Validate a configuration request from client"""
+        """
+        Validate a configuration request from client
+        
+        KISS Principle: Simplified validation - removed checksum validation as it added
+        unnecessary complexity. Config validity is ensured by:
+        1. Expiration time check
+        2. Key status validation
+        3. Game status validation
+        
+        Args:
+            user_key: User key
+            game_name: Game name
+            project_id: Project ID
+            config_checksum: Optional checksum (deprecated, kept for backward compatibility)
+        """
         try:
-
             config_key = f"dynamic_config:{user_key}:{game_name}:{project_id}"
-            stored_config = self.redis_client.get(config_key)
+            
+            # SECURITY: Validate and monitor DynamicConfig access
+            try:
+                from ...utils.redis_security import redis_security_monitor
+                if not redis_security_monitor.validate_dynamic_config_access(
+                    config_key, "GET", expected_project_id=project_id
+                ):
+                    logging.warning(
+                        f"[DYNAMIC_CONFIG] Security validation failed for key {config_key}, "
+                        f"project_id={project_id}"
+                    )
+                redis_security_monitor.log_critical_operation(config_key, "GET")
+            except Exception as e:
+                logging.warning(f"[DYNAMIC_CONFIG] Security monitoring error: {e}")
+            
+            # FALLBACK: If Redis is unavailable, return False (will generate on-the-fly)
+            stored_config = None
+            if self.redis_client:
+                try:
+                    stored_config = self.redis_client.get(config_key)
+                except Exception as redis_error:
+                    logging.warning(
+                        f"[DYNAMIC_CONFIG] Failed to get config from Redis: {redis_error}. "
+                        f"Will generate config on-the-fly."
+                    )
+            else:
+                logging.debug(
+                    "[DYNAMIC_CONFIG] Redis unavailable, will generate config on-the-fly."
+                )
 
             if not stored_config:
                 return False
 
+            # Decrypt and validate config
             config_data = self._decrypt_config(stored_config)
-
-            if config_data.get("metadata", {}).get("checksum") != config_checksum:
-                return False
-
+            
+            # KISS: Simple expiration check (removed checksum complexity)
             expires_at = config_data.get("metadata", {}).get("expires_at", 0)
             if time.time() > expires_at:
+                logging.debug(f"Config expired for user_key={user_key} game={game_name}")
                 return False
 
+            # Validate key and game status
             key_obj = Key.query.filter_by(key=user_key, project_id=project_id).first()
             if not key_obj or key_obj.status != 1:
+                logging.debug(f"Key invalid or inactive: user_key={user_key}")
                 return False
 
             game = Game.query.filter_by(name=game_name, project_id=project_id).first()
             if not game or game.status != "active":
+                logging.debug(f"Game invalid or inactive: game={game_name}")
                 return False
 
             return True
 
         except Exception as e:
-            logging.error(f"DYNAMIC_CONFIG_VALIDATION_ERROR user_key={user_key} error={e}")
+            logging.error(
+                f"DYNAMIC_CONFIG_VALIDATION_ERROR user_key={user_key} game={game_name} error={e}",
+                exc_info=True
+            )
             return False
 
     def get_config_statistics(self) -> Dict:
         """Get dynamic configuration statistics"""
         try:
+            # FALLBACK: If Redis is unavailable, return empty stats
+            if not self.redis_client:
+                return {
+                "total_configs": 0,
+                "active_configs": 0,
+                "expired_configs": 0,
+                "config_ttl": self.config_ttl,
+                "redis_available": False,
+            }
+            
             config_keys = self.redis_client.keys("dynamic_config:*")
             total_configs = len(config_keys)
             active_configs = 0
@@ -314,48 +378,66 @@ class DynamicConfigService:
                 "active_configs": active_configs,
                 "expired_configs": expired_configs,
                 "config_ttl": self.config_ttl,
-                "supported_game_types": list(self.config_templates.keys()),
+                "redis_available": True,
             }
 
         except Exception as e:
             logging.error(f"DYNAMIC_CONFIG_STATISTICS_ERROR: {e}")
             return {}
 
-    def _determine_game_type(self, game_name: str, game: Game) -> str:
-        """Determine game type based on game name and properties"""
-        game_name_lower = game_name.lower()
-
-        fps_keywords = ["fps", "shooter", "counter", "cs", "valorant", "apex", "fortnite"]
-        if any(keyword in game_name_lower for keyword in fps_keywords):
-            return "fps"
-
-        mmo_keywords = ["mmo", "rpg", "world", "warcraft", "final fantasy", "guild wars"]
-        if any(keyword in game_name_lower for keyword in mmo_keywords):
-            return "mmo"
-
-        moba_keywords = ["moba", "league", "dota", "heroes", "battle", "arena"]
-        if any(keyword in game_name_lower for keyword in moba_keywords):
-            return "moba"
-
-        return "fps"
+    def _get_feature_schema(self, game: Game, project_id: int) -> Optional[FeatureConfigSchema]:
+        """
+        Get feature configuration schema for a game/product.
+        
+        Priority:
+        1. Product-specific schema (if product_id is set)
+        2. Project-level default schema (if no product-specific schema)
+        3. None (will use minimal default config)
+        """
+        try:
+            # First, try to get product-specific schema
+            if game.id:
+                schema = FeatureConfigSchema.query.filter_by(
+                    product_id=game.id,
+                    project_id=project_id,
+                    is_active=True
+                ).first()
+                if schema:
+                    return schema
+            
+            # Fallback to project-level default schema (product_id is None)
+            schema = FeatureConfigSchema.query.filter_by(
+                product_id=None,
+                project_id=project_id,
+                is_active=True
+            ).order_by(FeatureConfigSchema.created_at.desc()).first()
+            
+            return schema
+        except Exception as e:
+            logging.error(f"Error getting feature schema for game {game.id}, project {project_id}: {e}")
+            return None
 
     def _customize_config(
-        self, base_config: Dict, user_key: str, game: Game, project: Project, key_obj: Key
+        self, base_config: Dict, user_key: str, game: Game, project: Project, key_obj: Key, schema: Optional[FeatureConfigSchema] = None
     ) -> Dict:
-        """Customize configuration based on user, project, and game specifics"""
+        """
+        Customize configuration based on user, project, and game specifics.
+        
+        This method now works with arbitrary config structures defined by JSON schemas.
+        It applies security rules and RBAC-based feature flags dynamically.
+        """
         try:
-
             import copy
 
             customized_config = copy.deepcopy(base_config)
 
+            # Apply project-level security restrictions
             if hasattr(project, "security_level"):
                 if project.security_level == "high":
+                    # Disable potentially dangerous features based on naming patterns
+                    self._disable_features_by_pattern(customized_config, ["hack", "god", "teleport"])
 
-                    for feature in customized_config.get("feature_flags", {}):
-                        if "hack" in feature or "god" in feature or "teleport" in feature:
-                            customized_config["feature_flags"][feature] = False
-
+            # Apply RBAC-based feature restrictions
             user = User.query.get(key_obj.user_id) if key_obj.user_id else None
             if user:
                 from ...services.rbac import rbac_service
@@ -365,59 +447,76 @@ class DynamicConfigService:
                     user.id, "games.edit"
                 ) or rbac_service.check_permission(user.id, "games.view")
                 is_seller = rbac_service.check_permission(user.id, "games.view")
+                
                 if is_owner:
-
+                    # Owner has full access - no restrictions
                     pass
                 elif is_admin:
-
+                    # Admin has most access - minimal restrictions
                     pass
                 elif is_seller:
-
-                    for feature in customized_config.get("feature_flags", {}):
-                        if "hack" in feature or "god" in feature:
-                            customized_config["feature_flags"][feature] = False
+                    # Seller has limited access
+                    self._disable_features_by_pattern(customized_config, ["hack", "god"])
                 else:
+                    # Regular user - strict restrictions
+                    self._disable_features_by_pattern(customized_config, ["hack", "god", "teleport", "wallhack"])
 
-                    for feature in customized_config.get("feature_flags", {}):
-                        if (
-                            "hack" in feature
-                            or "god" in feature
-                            or "teleport" in feature
-                            or "wallhack" in feature
-                        ):
-                            customized_config["feature_flags"][feature] = False
-
+            # Apply game status-based restrictions
             if game.status == "testing":
                 # Enable all features for testing
-                for feature in customized_config.get("feature_flags", {}):
-                    customized_config["feature_flags"][feature] = True
+                self._enable_all_features(customized_config)
             elif game.status == "maintenance":
                 # Disable all features during maintenance
-                for feature in customized_config.get("feature_flags", {}):
-                    customized_config["feature_flags"][feature] = False
-
-            # Removed: Memory address and decryption key randomization
-            # This was "Security through obscurity" and added unnecessary complexity
-            # Real security should come from proper authentication, authorization, and encryption
+                self._disable_all_features(customized_config)
 
             return customized_config
 
         except Exception as e:
             logging.error(f"CONFIG_CUSTOMIZATION_ERROR user_key={user_key} error={e}")
             return base_config
+    
+    def _disable_features_by_pattern(self, config: Dict, patterns: List[str]) -> None:
+        """
+        Disable features matching patterns in feature_flags section.
+        Works recursively to handle nested structures.
+        """
+        if "feature_flags" in config and isinstance(config["feature_flags"], dict):
+            for feature_name, feature_value in config["feature_flags"].items():
+                if isinstance(feature_value, bool):
+                    feature_lower = feature_name.lower()
+                    if any(pattern in feature_lower for pattern in patterns):
+                        config["feature_flags"][feature_name] = False
+                elif isinstance(feature_value, dict):
+                    # Recursively process nested feature flags
+                    self._disable_features_by_pattern({"feature_flags": feature_value}, patterns)
+    
+    def _enable_all_features(self, config: Dict) -> None:
+        """Enable all boolean features in feature_flags section"""
+        if "feature_flags" in config and isinstance(config["feature_flags"], dict):
+            for feature_name, feature_value in config["feature_flags"].items():
+                if isinstance(feature_value, bool):
+                    config["feature_flags"][feature_name] = True
+                elif isinstance(feature_value, dict):
+                    self._enable_all_features({"feature_flags": feature_value})
+    
+    def _disable_all_features(self, config: Dict) -> None:
+        """Disable all boolean features in feature_flags section"""
+        if "feature_flags" in config and isinstance(config["feature_flags"], dict):
+            for feature_name, feature_value in config["feature_flags"].items():
+                if isinstance(feature_value, bool):
+                    config["feature_flags"][feature_name] = False
+                elif isinstance(feature_value, dict):
+                    self._disable_all_features({"feature_flags": feature_value})
 
     def _calculate_checksum(self, config: Dict) -> str:
-        """Calculate checksum for configuration"""
-        try:
-
-            config_copy = config.copy()
-            config_copy.pop("metadata", None)
-
-            json_data = json.dumps(config_copy, sort_keys=True)
-            return hashlib.sha256(json_data.encode()).hexdigest()[:16]
-
-        except Exception as e:
-            logging.error(f"CHECKSUM_CALCULATION_ERROR: {e}")
-            return "0000000000000000"
+        """
+        Calculate checksum for configuration (deprecated)
+        
+        KISS Principle: This method is kept for backward compatibility but is no longer used.
+        Checksum validation added unnecessary complexity and made debugging harder.
+        Config integrity is ensured by encryption and expiration checks.
+        """
+        # Deprecated - kept for backward compatibility only
+        return "0000000000000000"
 
 dynamic_config_service = DynamicConfigService()

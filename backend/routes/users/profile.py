@@ -18,7 +18,7 @@ from werkzeug.utils import secure_filename
 from ...core.extensions import db
 from ...models import Key, User, UserActivity
 from ...services.activity import activity_service
-from ...services.users import user_service
+from ...services.users import user_profile_service
 from ...middleware.auth import (
     require_project_assignment,
     require_project_isolation,
@@ -94,8 +94,6 @@ def get_me(current_user=None):
 
         user_permissions = []
         try:
-            from ...services.rbac import rbac_service
-
             permissions_set = rbac_service.get_user_permissions(user.id)
             user_permissions = list(permissions_set) if permissions_set else []
         except Exception as e:
@@ -200,7 +198,7 @@ def update_profile(current_user=None):
     if not data:
         return jsonify({"error": "No data provided"}), 400
 
-    success, error = user_service.update_user_profile(user, data)
+    success, error = user_profile_service.update_user_profile(user, data)
 
     if not success:
         return jsonify({"error": error}), 400
@@ -273,7 +271,7 @@ def change_password(current_user=None):
     if not is_valid:
         return jsonify({"error": error_msg}), 400
 
-    success, error = user_service.change_password(user, current_password, new_password)
+    success, error = user_profile_service.change_password(user, current_password, new_password)
 
     if not success:
         return jsonify({"error": error}), 400

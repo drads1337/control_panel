@@ -11,7 +11,8 @@ from ...core.extensions import db
 from ...models.core import User
 from ...services.activity import activity_service
 from ...services.rbac import rbac_service
-from .user_service import user_service
+from .user_management_service import user_management_service
+from .user_profile_service import user_profile_service
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,8 @@ class UserOrchestrator:
 
     def __init__(self):
         """Initialize orchestrator with all required services"""
-        self.user_service = user_service
+        self.user_management_service = user_management_service
+        self.user_profile_service = user_profile_service
         self.rbac_service = rbac_service
         self.activity_service = activity_service
 
@@ -61,7 +63,7 @@ class UserOrchestrator:
                 if not balance_result[0]:
                     return None, balance_result[1]
 
-            user, error = self.user_service.create_user_with_roles_and_games(current_user, user_data)
+            user, error = self.user_management_service.create_user_with_roles_and_games(current_user, user_data)
             if error:
 
                 if token_balance > 0:
@@ -118,7 +120,7 @@ class UserOrchestrator:
             if not permission_result[0]:
                 return False, permission_result[1]
 
-            success, error = self.user_service.update_user_profile(target_user, user_data)
+            success, error = self.user_profile_service.update_user_profile(target_user, user_data)
             if not success:
                 return False, error
 
@@ -179,7 +181,7 @@ class UserOrchestrator:
             if not permission_result[0]:
                 return False, permission_result[1]
 
-            success, error = self.user_service.delete_user_safely(current_user, target_user_id)
+            success, error = self.user_management_service.delete_user_safely(current_user, target_user_id)
             if not success:
                 return False, error
 

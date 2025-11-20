@@ -1,5 +1,6 @@
 """
-Game-related models
+Product-related models (formerly Game-related)
+Universal terminology for B2B/SaaS applications
 """
 
 import json
@@ -8,16 +9,25 @@ from datetime import datetime
 
 from ..core.extensions import db
 
-def generate_unique_game_id():
-    """Generate a unique 7-digit game ID"""
+def generate_unique_product_id():
+    """Generate a unique 7-digit product ID"""
     while True:
         unique_id = "".join([str(random.randint(0, 9)) for _ in range(7)])
 
-        existing_game = Game.query.filter_by(unique_id=unique_id).first()
-        if not existing_game:
+        existing_product = Product.query.filter_by(unique_id=unique_id).first()
+        if not existing_product:
             return unique_id
 
-class Game(db.Model):
+# Backward compatibility alias
+def generate_unique_game_id():
+    """Generate a unique 7-digit product ID (deprecated: use generate_unique_product_id)"""
+    return generate_unique_product_id()
+
+class Product(db.Model):
+    """Product model - universal term for applications, software, or games"""
+    
+    __tablename__ = "game"  # Keep table name for backward compatibility
+    
     id = db.Column(db.Integer, primary_key=True)
     unique_id = db.Column(db.String(7), unique=True, nullable=False)
     name = db.Column(db.String(128), nullable=False)
@@ -57,9 +67,9 @@ class Game(db.Model):
     )
 
     def __init__(self, **kwargs):
-        super(Game, self).__init__(**kwargs)
+        super(Product, self).__init__(**kwargs)
         if not self.unique_id:
-            self.unique_id = generate_unique_game_id()
+            self.unique_id = generate_unique_product_id()
 
     @property
     def backgrounds_list(self):
@@ -103,8 +113,14 @@ class Game(db.Model):
     def file(self, value):
         self.loader_file = value
 
-class GameChatSettings(db.Model):
-    """Per-game chat settings: platforms and limits (override project-level)"""
+# Create Game alias immediately after Product definition for SQLAlchemy registry
+# This ensures SQLAlchemy can resolve "Game" in string-based relationships
+Game = Product
+
+class ProductChatSettings(db.Model):
+    """Per-product chat settings: platforms and limits (override project-level)"""
+    
+    __tablename__ = "gamechatsettings"  # Keep table name for backward compatibility
 
     id = db.Column(db.Integer, primary_key=True)
     game_id = db.Column(
@@ -123,29 +139,57 @@ class GameChatSettings(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     game = db.relationship(
-        "Game", backref=db.backref("chat_settings", uselist=False, cascade="all, delete-orphan")
+        "Product", backref=db.backref("chat_settings", uselist=False, cascade="all, delete-orphan")
     )
     project = db.relationship("Project", backref="game_chat_settings")
 
-    def __repr__(self):
-        return f"<GameChatSettings game_id={self.game_id}>"
+    @property
+    def product_id(self):
+        """Alias for game_id for backward compatibility"""
+        return self.game_id
 
-class GameStatus(db.Model):
+    @property
+    def product(self):
+        """Alias for game relationship"""
+        return self.game
+
+    def __repr__(self):
+        return f"<ProductChatSettings game_id={self.game_id}>"
+
+class ProductStatus(db.Model):
+    """Product status model"""
+    
+    __tablename__ = "gamestatus"  # Keep table name for backward compatibility
+    
     id = db.Column(db.Integer, primary_key=True)
     game_id = db.Column(db.Integer, db.ForeignKey("game.id"), nullable=False)
     status = db.Column(db.String(32), nullable=False, default="safe")
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
     project = db.relationship("Project", backref="game_statuses")
+    
+    game = db.relationship("Product", backref="statuses")
 
-class GameConfiguration(db.Model):
-    """Model for storing game configuration and authentication settings"""
+    @property
+    def product_id(self):
+        """Alias for game_id"""
+        return self.game_id
+
+    @property
+    def product(self):
+        """Alias for game relationship"""
+        return self.game
+
+class RemoteConfig(db.Model):
+    """Model for storing remote configuration and feature flags (formerly GameConfiguration)"""
+    
+    __tablename__ = "gameconfiguration"  # Keep table name for backward compatibility
 
     id = db.Column(db.Integer, primary_key=True)
     game_id = db.Column(
         db.Integer, db.ForeignKey("game.id", ondelete="CASCADE"), nullable=False, unique=True
     )
-    game = db.relationship("Game", backref="configuration")
+    game = db.relationship("Product", backref="remote_config")
 
     auth_methods = db.Column(
         db.Text, nullable=False, default="[]"
@@ -175,13 +219,25 @@ class GameConfiguration(db.Model):
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
     project = db.relationship("Project", backref="game_configurations")
 
-class GameInviteCode(db.Model):
-    """Model for storing game-specific invite codes"""
+    @property
+    def product_id(self):
+        """Alias for game_id"""
+        return self.game_id
+
+    @property
+    def product(self):
+        """Alias for game relationship"""
+        return self.game
+
+class ProductInviteCode(db.Model):
+    """Model for storing product-specific invite codes"""
+    
+    __tablename__ = "gameinvitecode"  # Keep table name for backward compatibility
 
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(32), unique=True, nullable=False)
     game_id = db.Column(db.Integer, db.ForeignKey("game.id", ondelete="CASCADE"), nullable=False)
-    game = db.relationship("Game", backref="invite_codes")
+    game = db.relationship("Product", backref="invite_codes")
 
     max_uses = db.Column(db.Integer, default=1)
     current_uses = db.Column(db.Integer, default=0)
@@ -196,12 +252,24 @@ class GameInviteCode(db.Model):
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
     project = db.relationship("Project", backref="game_invite_codes")
 
-class GameSecurityLog(db.Model):
-    """Model for logging security events for games"""
+    @property
+    def product_id(self):
+        """Alias for game_id"""
+        return self.game_id
+
+    @property
+    def product(self):
+        """Alias for game relationship"""
+        return self.game
+
+class ProductSecurityLog(db.Model):
+    """Model for logging security events for products"""
+    
+    __tablename__ = "gamesecuritylog"  # Keep table name for backward compatibility
 
     id = db.Column(db.Integer, primary_key=True)
     game_id = db.Column(db.Integer, db.ForeignKey("game.id", ondelete="CASCADE"), nullable=False)
-    game = db.relationship("Game", backref="security_logs")
+    game = db.relationship("Product", backref="security_logs")
 
     event_type = db.Column(
         db.String(64), nullable=False
@@ -221,18 +289,46 @@ class GameSecurityLog(db.Model):
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
     project = db.relationship("Project", backref="game_security_logs")
 
-class GameKeyPrice(db.Model):
+    @property
+    def product_id(self):
+        """Alias for game_id"""
+        return self.game_id
+
+    @property
+    def product(self):
+        """Alias for game relationship"""
+        return self.game
+
+class ProductKeyPrice(db.Model):
+    """Model for product key pricing"""
+    
+    __tablename__ = "gamekeyprice"  # Keep table name for backward compatibility
+    
     id = db.Column(db.Integer, primary_key=True)
     game_id = db.Column(db.Integer, db.ForeignKey("game.id"), nullable=False)
     period = db.Column(db.String(16), nullable=False)
-    price = db.Column(db.Integer, nullable=False)
+    price = db.Column(db.Float, nullable=False)
     meta_data = db.Column(db.Text, nullable=True)
     __table_args__ = (db.UniqueConstraint("game_id", "period", name="uq_game_period"),)
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
     project = db.relationship("Project", backref="game_key_prices")
+    
+    game = db.relationship("Product", backref="key_prices")
 
-class GameFileConfig(db.Model):
-    """Модель для конфигураций игр"""
+    @property
+    def product_id(self):
+        """Alias for game_id"""
+        return self.game_id
+
+    @property
+    def product(self):
+        """Alias for game relationship"""
+        return self.game
+
+class ProductFileConfig(db.Model):
+    """Model for product file configurations (modules/payloads)"""
+    
+    __tablename__ = "gamefileconfig"  # Keep table name for backward compatibility
 
     id = db.Column(db.Integer, primary_key=True)
     config_id = db.Column(db.String(8), unique=True, nullable=True)
@@ -253,12 +349,25 @@ class GameFileConfig(db.Model):
     rating_count = db.Column(db.Integer, default=0)
 
     uploader = db.relationship("User", backref="uploaded_game_configs")
+    game = db.relationship("Product", backref="file_configs")
+
+    @property
+    def product_id(self):
+        """Alias for game_id"""
+        return self.game_id
+
+    @property
+    def product(self):
+        """Alias for game relationship"""
+        return self.game
 
     def __repr__(self):
-        return f"<GameFileConfig {self.name}>"
+        return f"<ProductFileConfig {self.name}>"
 
-class GameExtraFile(db.Model):
-    """Модель для дополнительных файлов игр"""
+class ProductExtraFile(db.Model):
+    """Model for additional product files"""
+    
+    __tablename__ = "gameextrafile"  # Keep table name for backward compatibility
 
     id = db.Column(db.Integer, primary_key=True)
     game_id = db.Column(db.Integer, db.ForeignKey("game.id"), nullable=False)
@@ -278,12 +387,25 @@ class GameExtraFile(db.Model):
     is_active = db.Column(db.Boolean, default=True)
 
     uploader = db.relationship("User", backref="uploaded_game_extra_files")
+    game = db.relationship("Product", backref="extra_files")
+
+    @property
+    def product_id(self):
+        """Alias for game_id"""
+        return self.game_id
+
+    @property
+    def product(self):
+        """Alias for game relationship"""
+        return self.game
 
     def __repr__(self):
-        return f"<GameExtraFile {self.name}>"
+        return f"<ProductExtraFile {self.name}>"
 
-class GameFileDownload(db.Model):
-    """Модель для отслеживания загрузок файлов игр"""
+class ProductFileDownload(db.Model):
+    """Model for tracking product file downloads"""
+    
+    __tablename__ = "gamefiledownload"  # Keep table name for backward compatibility
 
     id = db.Column(db.Integer, primary_key=True)
     file_id = db.Column(db.Integer, nullable=False)
@@ -296,7 +418,7 @@ class GameFileDownload(db.Model):
     user = db.relationship("User", backref="game_file_downloads")
 
     def __repr__(self):
-        return f"<GameFileDownload {self.file_type}:{self.file_id}>"
+        return f"<ProductFileDownload {self.file_type}:{self.file_id}>"
 
 class ChangelogEntry(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -310,9 +432,19 @@ class ChangelogEntry(db.Model):
     created_by = db.Column(db.Integer, db.ForeignKey("user.id", ondelete="SET NULL"), nullable=True)
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
 
-    game = db.relationship("Game", backref="changelog_entries")
+    game = db.relationship("Product", backref="changelog_entries")
     creator = db.relationship("User", backref="created_changelog_entries")
     project = db.relationship("Project", backref="changelog_entries")
+
+    @property
+    def product_id(self):
+        """Alias for game_id"""
+        return self.game_id
+
+    @property
+    def product(self):
+        """Alias for game relationship"""
+        return self.game
 
     @property
     def changes_list(self):
@@ -337,6 +469,18 @@ class Announcement(db.Model):
     game_id = db.Column(db.Integer, db.ForeignKey("game.id"), nullable=True)
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
     project = db.relationship("Project", backref="announcements")
+    
+    game = db.relationship("Product", backref="announcements")
+
+    @property
+    def product_id(self):
+        """Alias for game_id"""
+        return self.game_id
+
+    @property
+    def product(self):
+        """Alias for game relationship"""
+        return self.game
 
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -364,3 +508,93 @@ class FileMeta(db.Model):
     uploaded_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
     project = db.relationship("Project", backref="file_metas")
+
+class FeatureConfigSchema(db.Model):
+    """
+    Model for storing JSON schemas for feature configuration (Feature Management).
+    Allows clients to define custom configuration structures for their products.
+    
+    This replaces hardcoded templates (fps, moba, mmo) with flexible, user-defined schemas.
+    """
+    
+    __tablename__ = "feature_config_schema"
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(128), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    
+    # JSON Schema definition (validates the structure of config values)
+    json_schema = db.Column(db.Text, nullable=False)
+    
+    # Default configuration template (example/default values matching the schema)
+    default_config = db.Column(db.Text, nullable=True)
+    
+    # Product/Game association (optional - can be global or product-specific)
+    game_id = db.Column(db.Integer, db.ForeignKey("game.id", ondelete="CASCADE"), nullable=True)
+    product = db.relationship("Product", backref="feature_schemas")
+    
+    @property
+    def product_id(self):
+        """Alias for game_id"""
+        return self.game_id
+    
+    @property
+    def game(self):
+        """Backward compatibility alias for product relationship"""
+        return self.product
+    
+    # Project association
+    project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=False)
+    project = db.relationship("Project", backref="feature_config_schemas")
+    
+    # Metadata
+    is_active = db.Column(db.Boolean, default=True)
+    version = db.Column(db.String(32), default="1.0.0")
+    created_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    created_by_user = db.relationship("User", foreign_keys=[created_by])
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    __table_args__ = (
+        db.UniqueConstraint("name", "project_id", name="uq_feature_schema_name_project"),
+    )
+    
+    @property
+    def schema_dict(self):
+        """Get JSON schema as a dictionary"""
+        try:
+            return json.loads(self.json_schema) if self.json_schema else {}
+        except:
+            return {}
+    
+    @schema_dict.setter
+    def schema_dict(self, value):
+        """Set JSON schema from a dictionary"""
+        self.json_schema = json.dumps(value) if value else "{}"
+    
+    @property
+    def default_config_dict(self):
+        """Get default config as a dictionary"""
+        try:
+            return json.loads(self.default_config) if self.default_config else {}
+        except:
+            return {}
+    
+    @default_config_dict.setter
+    def default_config_dict(self, value):
+        """Set default config from a dictionary"""
+        self.default_config = json.dumps(value) if value else "{}"
+    
+    def __repr__(self):
+        return f"<FeatureConfigSchema {self.name} (project_id={self.project_id})>"
+
+GameChatSettings = ProductChatSettings
+GameStatus = ProductStatus
+GameConfiguration = RemoteConfig
+GameInviteCode = ProductInviteCode
+GameSecurityLog = ProductSecurityLog
+GameKeyPrice = ProductKeyPrice
+GameFileConfig = ProductFileConfig
+GameExtraFile = ProductExtraFile
+GameFileDownload = ProductFileDownload

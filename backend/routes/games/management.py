@@ -1,6 +1,7 @@
 """
-Game Management Routes
-CRUD operations for games: create, read, update, delete
+Product Management Routes (formerly Game Management)
+CRUD operations for products: create, read, update, delete
+Universal terminology for B2B/SaaS applications
 """
 
 from flask import Blueprint, current_app, jsonify, request
@@ -11,8 +12,10 @@ from sqlalchemy import and_
 
 from ...middleware.auth import enforce_project_scope, require_project_with_grace_period
 from ...middleware.validation import validate_request
-from ...models import Game, User
-from ...models.loaders import LoaderGameAssignment
+# Using Product (universal name) but keeping Game alias for backward compatibility
+from ...models import Game, Product, User
+# Using AgentProductAssignment (universal name) but keeping LoaderGameAssignment alias
+from ...models.loaders import AgentProductAssignment, LoaderGameAssignment
 from ...schemas.game import GameCreateSchema, GameStatusUpdateSchema, GameUpdateSchema
 from ...services.activity import activity_service
 from ...services.games import game_service
@@ -67,18 +70,34 @@ def get_games():
         if result.get("success"):
             original_games = result.get("games", [])
 
-            from ...models import UserGamePermission
-
-            user_game_permissions = {
-                perm.game_id: perm.has_access
-                for perm in UserGamePermission.query.filter_by(user_id=user_id).all()
-            }
+            from ...models.core import UserGamePermission
+            try:
+                user_game_permissions = {
+                    perm.game_id: perm.has_access
+                    for perm in UserGamePermission.query.filter_by(user_id=user_id).all()
+                }
+            except Exception as perm_error:
+                db.session.rollback()
+                current_app.logger.warning(f"Transaction aborted, rolling back and retrying UserGamePermission query: {str(perm_error)}")
+                user_game_permissions = {
+                    perm.game_id: perm.has_access
+                    for perm in UserGamePermission.query.filter_by(user_id=user_id).all()
+                }
 
             from ...models.rbac import UserRole, Role
-            user_roles = db.session.query(Role.name).join(
-                UserRole, Role.id == UserRole.role_id
-            ).filter(UserRole.user_id == user_id).all()
-            user_role_names = [role[0] for role in user_roles]
+            try:
+                user_roles = db.session.query(Role.name).join(
+                    UserRole, Role.id == UserRole.role_id
+                ).filter(UserRole.user_id == user_id).all()
+                user_role_names = [role[0] for role in user_roles]
+            except Exception as role_error:
+                # If transaction is aborted, rollback and retry
+                db.session.rollback()
+                current_app.logger.warning(f"Transaction aborted, rolling back and retrying user roles query: {str(role_error)}")
+                user_roles = db.session.query(Role.name).join(
+                    UserRole, Role.id == UserRole.role_id
+                ).filter(UserRole.user_id == user_id).all()
+                user_role_names = [role[0] for role in user_roles]
             is_seller = 'seller' in user_role_names or any('seller' in str(role).lower() for role in user_role_names)
 
             current_app.logger.info(
@@ -123,6 +142,7 @@ def get_games():
             return jsonify(result), 500
 
     except Exception as e:
+        db.session.rollback()
         current_app.logger.error(f"Error fetching games: {str(e)}")
         import traceback
 

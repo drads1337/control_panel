@@ -18,8 +18,11 @@ export const API_ENDPOINTS = {
     ROLE_PERMISSIONS: (roleId: number) => `/api/rbac/roles/${roleId}/permissions`,
   },
   GAMES: {
-    BASE: '/api/games',
-    PRICES: (gameId: number) => `/api/games/${gameId}/prices`,
+    BASE: '/api/products',  // Universal terminology - use products endpoint
+    PRICES: (gameId: number) => `/api/products/${gameId}/prices`,  // Universal terminology
+    // Backward compatibility aliases
+    BASE_LEGACY: '/api/games',
+    PRICES_LEGACY: (gameId: number) => `/api/games/${gameId}/prices`,
   },
   KEYS: {
     BASE: '/api/keys',

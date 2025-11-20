@@ -7,9 +7,11 @@ Single Responsibility: Orchestration of the connect flow
 import logging
 from typing import Any, Dict, Optional, Tuple
 
+from ...config.config import Config
 from ...core.extensions import db
 from ...models.core import User
 from ...services.keys import key_validator
+from ...services.validation import request_validation_pipeline
 from .analytics_tracker import AnalyticsTracker
 from .challenge_validation_service import ChallengeValidationService
 from .decryption_service import DecryptionService
@@ -35,6 +37,7 @@ class ConnectOrchestrator:
         self.request_validator = RequestValidationService()
         self.key_lookup = KeyLookupService()
         self.challenge_validator = ChallengeValidationService()
+        # SECURITY: Token generator uses Config.TOKEN_STATIC_WORD from environment
         self.token_generator = TokenGenerationService()
 
         self.security_checker = SecurityChecker()
@@ -66,13 +69,18 @@ class ConnectOrchestrator:
         used_global_key = False
 
         try:
-
-            suspicious, reason = self.security_checker.check_suspicious_request(user_agent, {})
-            if suspicious:
+            # Use unified validation pipeline for IP and User-Agent (DRY principle)
+            # Note: project_id may not be available yet, so we validate User-Agent first
+            validation_result = request_validation_pipeline.validate_request(
+                ip=ip,
+                user_agent=user_agent,
+                project_id=None,  # Will be validated later when project_id is known
+            )
+            if not validation_result.is_valid:
                 logger.warning(
-                    f"SUSPICIOUS_REQUEST ip={ip} user_agent={user_agent} reason={reason}"
+                    f"SUSPICIOUS_REQUEST ip={ip} user_agent={user_agent} reason={validation_result.reason}"
                 )
-                self.security_checker.log_suspicious_activity(ip, reason, user_agent)
+                self.security_checker.log_suspicious_activity(ip, validation_result.reason, user_agent)
                 return self._build_error_response("Access denied", used_global_key, successful_project_id), 403
 
             data, used_global_key, successful_project_id = self.decryption_service.decrypt_request_data(
@@ -109,6 +117,17 @@ class ConnectOrchestrator:
                     f"CONNECT_KEY_VALIDATION_FAILED ip={ip} user_key={user_key} error={error_msg}"
                 )
                 return self._build_error_response(error_msg, used_global_key, successful_project_id), 403
+
+            # Now that we have project_id, validate IP address (DRY principle)
+            ip_validation_result = request_validation_pipeline.validate_ip_only(
+                ip=ip, project_id=project_id
+            )
+            if not ip_validation_result[0]:
+                logger.warning(
+                    f"IP_BLOCKED ip={ip} user_key={user_key} project_id={project_id} reason={ip_validation_result[1]}"
+                )
+                self.security_checker.log_suspicious_activity(ip, ip_validation_result[1], user_agent)
+                return self._build_error_response("Access denied", used_global_key, project_id), 403
 
             is_valid, error_msg, project = key_validator.validate_project_status(project_id)
             if not is_valid:

@@ -18,21 +18,26 @@ import requests
 from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
 from Crypto.Util.Padding import pad, unpad
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request
 from flask_cors import cross_origin
 
 from ..config.config import Config
 from ..core.extensions import db
 from ..models.core import Project, User
-from ..models.games import Game
+from ..models.games import FeatureConfigSchema, Game
 from ..models.keys import DeviceInfo, Key, KeyAnalytics
 from ..models.security import BlockedFingerprint
 from ..middleware import require_mtls
+from ..middleware.auth import enforce_project_scope, require_project_isolation, require_role
+from ..middleware.validation import validate_request
 from ..services.auth import challenge_service
 from ..services.dynamic_config import dynamic_config_service
 from ..services.heartbeat import heartbeat_service
+from ..utils.rbac_utils import RBACManager
 from ..utils.redis_client import get_redis_client
+from ..utils.role_constants import RolePermissions
 from ..utils.secure_crypto import MasterKeyManager
+from flask_jwt_extended import get_jwt_identity, jwt_required
 from .settings import decrypt_data_with_project_key, encrypt_data_with_project_key
 
 dynamic_config_bp = Blueprint("dynamic_config", __name__)
@@ -57,8 +62,6 @@ TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
 PLAY_INTEGRITY_API_KEY = os.environ.get("PLAY_INTEGRITY_API_KEY")
-
-STATIC_WORD = "panel_auth_2024"
 
 def encrypt_data(data: dict) -> str:
     try:
@@ -326,12 +329,13 @@ def api_config_validate():
                 raise ValueError("Failed to decrypt request data") from global_error
 
     # Validate required parameters
+    # KISS Principle: config_checksum is now optional (deprecated for backward compatibility)
     user_key = data.get("user_key")
     game_name = data.get("game_name")
     project_id = data.get("project_id")
-    config_checksum = data.get("config_checksum")
+    config_checksum = data.get("config_checksum")  # Optional, kept for backward compatibility
 
-    if not all([user_key, game_name, project_id, config_checksum]):
+    if not all([user_key, game_name, project_id]):
         logging.warning(
             f"DYNAMIC_CONFIG_VALIDATION_MISSING_PARAMS ip={ip} user_key={user_key} game_name={game_name} project_id={project_id}"
         )
@@ -342,12 +346,12 @@ def api_config_validate():
         user_key=user_key,
         game_name=game_name,
         project_id=project_id,
-        config_checksum=config_checksum,
+        config_checksum=config_checksum,  # Optional, will be ignored
     )
 
     if not is_valid:
         logging.warning(
-            f"DYNAMIC_CONFIG_VALIDATION_FAILED ip={ip} user_key={user_key} game={game_name} checksum={config_checksum}"
+            f"DYNAMIC_CONFIG_VALIDATION_FAILED ip={ip} user_key={user_key} game={game_name}"
         )
         return jsonify({"error": "Invalid configuration"}), 403
 
@@ -393,3 +397,327 @@ def api_config_statistics():
     """
     stats = dynamic_config_service.get_config_statistics()
     return jsonify({"status": "success", "statistics": stats, "timestamp": int(time.time())})
+
+# ============================================================================
+# Feature Management API - JSON Schema Management
+# ============================================================================
+
+@dynamic_config_bp.route("/schemas", methods=["GET"])
+@jwt_required()
+@require_project_isolation
+@enforce_project_scope
+@require_role(RolePermissions.ADMIN_ROLES)
+def get_feature_schemas():
+    """
+    Get all feature configuration schemas for the current project.
+    
+    Returns:
+        JSON response with list of schemas
+    """
+    try:
+        project_id = getattr(g, "project_id", None) or request.args.get("project_id", type=int)
+        if not project_id:
+            return jsonify({"error": "Project ID is required"}), 400
+        
+        product_id = request.args.get("product_id", type=int)
+        
+        query = FeatureConfigSchema.query.filter_by(project_id=project_id, is_active=True)
+        
+        if product_id:
+            # Get product-specific schema
+            query = query.filter_by(product_id=product_id)
+        else:
+            # Include both product-specific and project-level schemas (product_id is None)
+            query = query.filter(
+                (FeatureConfigSchema.product_id.is_(None))
+            )
+        
+        schemas = query.all()
+        
+        return jsonify({
+            "status": "success",
+            "schemas": [
+                {
+                    "id": schema.id,
+                    "name": schema.name,
+                    "description": schema.description,
+                    "json_schema": schema.schema_dict,
+                    "default_config": schema.default_config_dict,
+                    "product_id": schema.product_id,
+                    "version": schema.version,
+                    "is_active": schema.is_active,
+                    "created_at": schema.created_at.isoformat() if schema.created_at else None,
+                    "updated_at": schema.updated_at.isoformat() if schema.updated_at else None,
+                }
+                for schema in schemas
+            ]
+        })
+    except Exception as e:
+        logging.error(f"Error getting feature schemas: {e}", exc_info=True)
+        return jsonify({"error": "Failed to get feature schemas"}), 500
+
+@dynamic_config_bp.route("/schemas", methods=["POST"])
+@jwt_required()
+@require_project_isolation
+@enforce_project_scope
+@require_role(RolePermissions.ADMIN_ROLES)
+def create_feature_schema():
+    """
+    Create a new feature configuration schema.
+    
+    Request body:
+        - name: Schema name (required)
+        - description: Schema description (optional)
+        - json_schema: JSON Schema definition (required)
+        - default_config: Default configuration values (optional)
+        - product_id: Product/Game ID (optional, None for project-level schema)
+        - version: Schema version (optional, defaults to "1.0.0")
+    
+    Returns:
+        JSON response with created schema
+    """
+    try:
+        user_id = get_jwt_identity()
+        project_id = getattr(g, "project_id", None) or request.json.get("project_id")
+        
+        if not project_id:
+            return jsonify({"error": "Project ID is required"}), 400
+        
+        data = request.json
+        name = data.get("name")
+        if not name:
+            return jsonify({"error": "Schema name is required"}), 400
+        
+        # Check if schema with same name already exists in project
+        existing = FeatureConfigSchema.query.filter_by(
+            name=name,
+            project_id=project_id,
+            is_active=True
+        ).first()
+        if existing:
+            return jsonify({"error": f"Schema with name '{name}' already exists in this project"}), 400
+        
+        json_schema = data.get("json_schema")
+        if not json_schema:
+            return jsonify({"error": "JSON schema is required"}), 400
+        
+        # Validate JSON schema structure
+        try:
+            if isinstance(json_schema, str):
+                json_schema = json.loads(json_schema)
+        except json.JSONDecodeError:
+            return jsonify({"error": "Invalid JSON schema format"}), 400
+        
+        # Validate default_config if provided
+        default_config = data.get("default_config", {})
+        if isinstance(default_config, str):
+            try:
+                default_config = json.loads(default_config)
+            except json.JSONDecodeError:
+                return jsonify({"error": "Invalid default_config JSON format"}), 400
+        
+        product_id = data.get("product_id")
+        if product_id:
+            # Validate product exists and belongs to project
+            product = Game.query.filter_by(id=product_id, project_id=project_id).first()
+            if not product:
+                return jsonify({"error": "Product not found or doesn't belong to project"}), 404
+        
+        schema = FeatureConfigSchema(
+            name=name,
+            description=data.get("description"),
+            json_schema=json.dumps(json_schema),
+            default_config=json.dumps(default_config) if default_config else None,
+            product_id=product_id,
+            project_id=project_id,
+            version=data.get("version", "1.0.0"),
+            is_active=True,
+            created_by=user_id,
+        )
+        
+        db.session.add(schema)
+        db.session.commit()
+        
+        logging.info(f"FEATURE_SCHEMA_CREATED schema_id={schema.id} name={name} project_id={project_id} product_id={product_id}")
+        
+        return jsonify({
+            "status": "success",
+            "schema": {
+                "id": schema.id,
+                "name": schema.name,
+                "description": schema.description,
+                "json_schema": schema.schema_dict,
+                "default_config": schema.default_config_dict,
+                "product_id": schema.product_id,
+                "version": schema.version,
+                "is_active": schema.is_active,
+                "created_at": schema.created_at.isoformat() if schema.created_at else None,
+            }
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"Error creating feature schema: {e}", exc_info=True)
+        return jsonify({"error": "Failed to create feature schema"}), 500
+
+@dynamic_config_bp.route("/schemas/<int:schema_id>", methods=["GET"])
+@jwt_required()
+@require_project_isolation
+@enforce_project_scope
+@require_role(RolePermissions.ADMIN_ROLES)
+def get_feature_schema(schema_id):
+    """
+    Get a specific feature configuration schema by ID.
+    
+    Returns:
+        JSON response with schema details
+    """
+    try:
+        project_id = getattr(g, "project_id", None) or request.args.get("project_id", type=int)
+        
+        schema = FeatureConfigSchema.query.filter_by(id=schema_id, project_id=project_id).first()
+        if not schema:
+            return jsonify({"error": "Schema not found"}), 404
+        
+        return jsonify({
+            "status": "success",
+            "schema": {
+                "id": schema.id,
+                "name": schema.name,
+                "description": schema.description,
+                "json_schema": schema.schema_dict,
+                "default_config": schema.default_config_dict,
+                "product_id": schema.product_id,
+                "version": schema.version,
+                "is_active": schema.is_active,
+                "created_at": schema.created_at.isoformat() if schema.created_at else None,
+                "updated_at": schema.updated_at.isoformat() if schema.updated_at else None,
+                "created_by": schema.created_by,
+            }
+        })
+    except Exception as e:
+        logging.error(f"Error getting feature schema: {e}", exc_info=True)
+        return jsonify({"error": "Failed to get feature schema"}), 500
+
+@dynamic_config_bp.route("/schemas/<int:schema_id>", methods=["PUT"])
+@jwt_required()
+@require_project_isolation
+@enforce_project_scope
+@require_role(RolePermissions.ADMIN_ROLES)
+def update_feature_schema(schema_id):
+    """
+    Update a feature configuration schema.
+    
+    Request body:
+        - name: Schema name (optional)
+        - description: Schema description (optional)
+        - json_schema: JSON Schema definition (optional)
+        - default_config: Default configuration values (optional)
+        - version: Schema version (optional)
+        - is_active: Active status (optional)
+    
+    Returns:
+        JSON response with updated schema
+    """
+    try:
+        project_id = getattr(g, "project_id", None) or request.json.get("project_id")
+        
+        schema = FeatureConfigSchema.query.filter_by(id=schema_id, project_id=project_id).first()
+        if not schema:
+            return jsonify({"error": "Schema not found"}), 404
+        
+        data = request.json
+        
+        if "name" in data:
+            # Check if new name conflicts with existing schema
+            existing = FeatureConfigSchema.query.filter_by(
+                name=data["name"],
+                project_id=project_id,
+                is_active=True
+            ).filter(FeatureConfigSchema.id != schema_id).first()
+            if existing:
+                return jsonify({"error": f"Schema with name '{data['name']}' already exists"}), 400
+            schema.name = data["name"]
+        
+        if "description" in data:
+            schema.description = data["description"]
+        
+        if "json_schema" in data:
+            json_schema = data["json_schema"]
+            if isinstance(json_schema, str):
+                try:
+                    json_schema = json.loads(json_schema)
+                except json.JSONDecodeError:
+                    return jsonify({"error": "Invalid JSON schema format"}), 400
+            schema.json_schema = json.dumps(json_schema)
+        
+        if "default_config" in data:
+            default_config = data["default_config"]
+            if isinstance(default_config, str):
+                try:
+                    default_config = json.loads(default_config)
+                except json.JSONDecodeError:
+                    return jsonify({"error": "Invalid default_config JSON format"}), 400
+            schema.default_config = json.dumps(default_config) if default_config else None
+        
+        if "version" in data:
+            schema.version = data["version"]
+        
+        if "is_active" in data:
+            schema.is_active = bool(data["is_active"])
+        
+        db.session.commit()
+        
+        logging.info(f"FEATURE_SCHEMA_UPDATED schema_id={schema_id} project_id={project_id}")
+        
+        return jsonify({
+            "status": "success",
+            "schema": {
+                "id": schema.id,
+                "name": schema.name,
+                "description": schema.description,
+                "json_schema": schema.schema_dict,
+                "default_config": schema.default_config_dict,
+                "product_id": schema.product_id,
+                "version": schema.version,
+                "is_active": schema.is_active,
+                "updated_at": schema.updated_at.isoformat() if schema.updated_at else None,
+            }
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"Error updating feature schema: {e}", exc_info=True)
+        return jsonify({"error": "Failed to update feature schema"}), 500
+
+@dynamic_config_bp.route("/schemas/<int:schema_id>", methods=["DELETE"])
+@jwt_required()
+@require_project_isolation
+@enforce_project_scope
+@require_role(RolePermissions.ADMIN_ROLES)
+def delete_feature_schema(schema_id):
+    """
+    Delete (deactivate) a feature configuration schema.
+    
+    Returns:
+        JSON response with success status
+    """
+    try:
+        project_id = getattr(g, "project_id", None) or request.args.get("project_id", type=int)
+        
+        schema = FeatureConfigSchema.query.filter_by(id=schema_id, project_id=project_id).first()
+        if not schema:
+            return jsonify({"error": "Schema not found"}), 404
+        
+        # Soft delete - just deactivate
+        schema.is_active = False
+        db.session.commit()
+        
+        logging.info(f"FEATURE_SCHEMA_DELETED schema_id={schema_id} project_id={project_id}")
+        
+        return jsonify({"status": "success", "message": "Schema deactivated successfully"})
+        
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"Error deleting feature schema: {e}", exc_info=True)
+        return jsonify({"error": "Failed to delete feature schema"}), 500

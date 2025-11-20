@@ -9,6 +9,7 @@ import logging
 from datetime import datetime
 from typing import Optional
 
+from ...config.config import Config
 from ...core.extensions import db
 from ...models.keys import ConnectToken
 
@@ -17,14 +18,15 @@ logger = logging.getLogger(__name__)
 class TokenGenerationService:
     """Handles token generation and storage"""
 
-    def __init__(self, static_word: str = "panel_auth_2024"):
+    def __init__(self, static_word: Optional[str] = None):
         """
         Initialize token generation service
 
         Args:
-            static_word: Static word used in token generation
+            static_word: Static word used in token generation (defaults to Config.TOKEN_STATIC_WORD)
         """
-        self.static_word = static_word
+        # SECURITY: Use environment variable instead of hardcoded secret
+        self.static_word = static_word or Config.TOKEN_STATIC_WORD
 
     def generate_connect_token(
         self,

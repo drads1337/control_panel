@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { enhancedApi, getErrorMessage } from '@/shared/api/enhanced-client';
 import { updateUser } from '@/entities/user/api/user';
+import { getGames } from '@/entities/game/api/game';
 import { toast } from 'sonner';
 import type { User } from '@/entities/user';
 
@@ -24,7 +25,7 @@ interface Role {
 interface Game {
   id: number;
   name: string;
-  description?: string;
+  description: string | null;
 }
 
 interface Permission {
@@ -98,8 +99,9 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
       setGamesLoading(true);
       setGamesError(null);
 
-      const response = await enhancedApi.get('/api/games');
-      const gamesData = response.data.games || [];
+      // Use universal API function - it uses /api/products endpoint
+      const response = await getGames('all');
+      const gamesData = response.games || response.products || [];
       setGames(gamesData);
       return gamesData;
     } catch (error) {
@@ -157,7 +159,8 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
 
   const loadUserGameAccess = useCallback(async (userId: number): Promise<number[]> => {
     try {
-      const response = await enhancedApi.get(`/api/clients/${userId}/games`);
+      // Use universal endpoint - products instead of games
+      const response = await enhancedApi.get(`/api/clients/${userId}/products`);
       if (Array.isArray(response.data)) {
 
         return response.data
@@ -337,7 +340,8 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
 
         for (const gameId of gamesToAdd) {
           try {
-            await enhancedApi.post(`/api/clients/${currentUser.id}/games/${gameId}/toggle`);
+            // Use universal endpoint - products instead of games
+            await enhancedApi.post(`/api/clients/${currentUser.id}/products/${gameId}/toggle`);
           } catch (error) {
 
           }
@@ -345,7 +349,8 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
 
         for (const gameId of gamesToRemove) {
           try {
-            await enhancedApi.post(`/api/clients/${currentUser.id}/games/${gameId}/toggle`);
+            // Use universal endpoint - products instead of games
+            await enhancedApi.post(`/api/clients/${currentUser.id}/products/${gameId}/toggle`);
           } catch (error) {
 
           }
@@ -353,7 +358,7 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
       } catch (error) {
 
         const errorMessage = getErrorMessage(error);
-        toast.warning(`User updated but failed to update game access: ${errorMessage}`);
+        toast.warning(`User updated but failed to update application access: ${errorMessage}`);
       }
 
       try {
@@ -542,7 +547,7 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label>Game Access</Label>
+            <Label>Application Access</Label>
             <p className="text-xs text-muted-foreground mb-2">
               Select games this user has access to
             </p>

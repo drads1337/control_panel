@@ -21,7 +21,7 @@ class RemoteCategory(db.Model):
     game_id = db.Column(
         db.Integer, db.ForeignKey("game.id", ondelete="CASCADE"), nullable=False
     )
-    game = db.relationship("Game", backref="remote_categories")
+    game = db.relationship("Product", backref="remote_categories")  # Using Product instead of Game
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -63,7 +63,7 @@ class RemoteFeature(db.Model):
     game_id = db.Column(
         db.Integer, db.ForeignKey("game.id", ondelete="CASCADE"), nullable=False
     )
-    game = db.relationship("Game", backref="remote_features")
+    game = db.relationship("Product", backref="remote_features")  # Using Product instead of Game
 
     configuration = db.Column(db.Text, nullable=True)
 

@@ -10,6 +10,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { enhancedApi, getErrorMessage } from '@/shared/api/enhanced-client';
 import { createUser } from '@/entities/user/api/user';
+import { getGames } from '@/entities/game/api/game';
+import { type Game } from '@/entities/game';
 import { toast } from 'sonner';
 import { createUserSchema, type CreateUserInput } from '@/lib/validations/user';
 import { measurePerformance } from '@/lib/sentry-config';
@@ -23,12 +25,6 @@ interface Role {
   user_count: number;
   created_at: string;
   updated_at?: string;
-}
-
-interface Game {
-  id: number;
-  name: string;
-  description?: string;
 }
 
 interface CreateUserDialogProps {
@@ -89,8 +85,9 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
       setGamesLoading(true);
       setGamesError(null);
 
-      const response = await enhancedApi.get('/api/games');
-      setGames(response.data.games || []);
+      // Use universal API function - it uses /api/products endpoint
+      const response = await getGames('all');
+      setGames(response.games || response.products || []);
     } catch (error) {
 
       const errorMessage = getErrorMessage(error);
@@ -356,7 +353,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
               name="selected_games"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Game Access</FormLabel>
+                  <FormLabel>Application Access</FormLabel>
                   {gamesLoading ? (
                     <div className="text-sm text-muted-foreground">Loading games...</div>
                   ) : gamesError ? (

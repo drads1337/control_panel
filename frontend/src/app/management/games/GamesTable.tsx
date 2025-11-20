@@ -16,19 +16,29 @@ import {
 } from 'lucide-react';
 import { getStatusClasses, getStatusText, type StatusType } from '@/lib/status-utils';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
-import type { Game } from '@/entities/game';
+import type { Game, Product } from '@/entities/game';  // Game is alias for Product
 
-interface GameItemProps {
-  game: Game;
+interface ProductItemProps {
+  product: Product;  // Universal name
+  // Backward compatibility alias
+  game: Product;
   isSelected: boolean;
-  onToggleSelection: (gameId: number) => void;
-  onViewGame: (game: Game) => void;
-  onEditGame: (game: Game) => void;
-  onUploadGame: (game: Game) => void;
-  onNotificationsGame: (game: Game) => void;
-  onPricesGame: (game: Game) => void;
-  onChangelogGame: (game: Game) => void;
-  onStatusChange: (gameId: number, newStatus: 'active' | 'inactive' | 'maintenance' | 'testing') => void;
+  onToggleSelection: (productId: number) => void;  // Universal name
+  onViewProduct: (product: Product) => void;  // Universal name
+  onEditProduct: (product: Product) => void;  // Universal name
+  onUploadProduct: (product: Product) => void;  // Universal name
+  onNotificationsProduct: (product: Product) => void;  // Universal name
+  onPricesProduct: (product: Product) => void;  // Universal name
+  onChangelogProduct: (product: Product) => void;  // Universal name
+  onStatusChange: (productId: number, newStatus: 'active' | 'inactive' | 'maintenance' | 'testing') => void;  // Universal name
+  onDeleteProduct: (productId: number) => void;  // Universal name
+  // Backward compatibility aliases
+  onViewGame: (game: Product) => void;
+  onEditGame: (game: Product) => void;
+  onUploadGame: (game: Product) => void;
+  onNotificationsGame: (game: Product) => void;
+  onPricesGame: (game: Product) => void;
+  onChangelogGame: (game: Product) => void;
   onDeleteGame: (gameId: number) => void;
   canEditGames: boolean;
   canDeleteGames: boolean;
@@ -39,18 +49,28 @@ interface GameItemProps {
   canManageStatus: boolean;
 }
 
-const GameItem = React.memo(({
-  game,
+const ProductItem = React.memo(({
+  product,
+  // Backward compatibility - use product if game is not provided
+  game = product,
   isSelected,
   onToggleSelection,
-  onViewGame,
-  onEditGame,
-  onUploadGame,
-  onNotificationsGame,
-  onPricesGame,
-  onChangelogGame,
+  onViewProduct,
+  onEditProduct,
+  onUploadProduct,
+  onNotificationsProduct,
+  onPricesProduct,
+  onChangelogProduct,
   onStatusChange,
-  onDeleteGame,
+  onDeleteProduct,
+  // Backward compatibility aliases
+  onViewGame = onViewProduct,
+  onEditGame = onEditProduct,
+  onUploadGame = onUploadProduct,
+  onNotificationsGame = onNotificationsProduct,
+  onPricesGame = onPricesProduct,
+  onChangelogGame = onChangelogProduct,
+  onDeleteGame = onDeleteProduct,
   canEditGames,
   canDeleteGames,
   canUploadFiles,
@@ -58,7 +78,7 @@ const GameItem = React.memo(({
   canManagePrices,
   canManageChangelog,
   canManageStatus,
-}: GameItemProps) => {
+}: ProductItemProps) => {
   const getStatusBadge = (status: string) => {
     const statusType = status as StatusType;
     return (
@@ -73,7 +93,7 @@ const GameItem = React.memo(({
           type="checkbox"
           className="rounded border-gray-300"
           checked={isSelected}
-          onChange={() => onToggleSelection(game.id)}
+          onChange={() => onToggleSelection(product.id)}
           onClick={(e) => e.stopPropagation()}
         />
         <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -81,32 +101,32 @@ const GameItem = React.memo(({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            <h4 className="font-medium text-sm truncate">{game.name}</h4>
+            <h4 className="font-medium text-sm truncate">{product.name}</h4>
             {isSelected && (
               <Check className="h-3 w-3 text-primary" />
             )}
-            {getStatusBadge(game.status)}
+            {getStatusBadge(product.status)}
           </div>
-          {game.description && (
+          {product.description && (
             <p className="text-xs text-muted-foreground truncate mb-1">
-              {game.description}
+              {product.description}
             </p>
           )}
           <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
-            <span className="font-mono">ID: {game.unique_id}</span>
+            <span className="font-mono">ID: {product.unique_id}</span>
             <span>•</span>
-            <span>v{game.version}</span>
+            <span>v{product.version}</span>
             <span>•</span>
             <Badge
-              variant={game.login_type === 'classic_login' ? 'default' : 'secondary'}
+              variant={product.login_type === 'classic_login' ? 'default' : 'secondary'}
               className="text-xs h-4 px-1.5"
             >
-              {game.login_type === 'classic_login' ? 'Classic' : 'License'}
+              {product.login_type === 'classic_login' ? 'Classic' : 'License'}
             </Badge>
             <span>•</span>
-            <span>{game.downloads.toLocaleString()} downloads</span>
+            <span>{product.downloads.toLocaleString()} downloads</span>
             <span>•</span>
-            <span>{(game.activeUsers || game.active_users || 0).toLocaleString()} users</span>
+            <span>{(product.activeUsers || product.active_users || 0).toLocaleString()} users</span>
           </div>
         </div>
       </div>
@@ -116,7 +136,7 @@ const GameItem = React.memo(({
             variant="ghost"
             size="icon"
             className="h-8 w-8"
-            onClick={() => onViewGame(game)}
+            onClick={() => onViewProduct(product)}
           >
             <Eye className="h-4 w-4" />
           </Button>
@@ -126,7 +146,7 @@ const GameItem = React.memo(({
             variant="ghost"
             size="icon"
             className="h-8 w-8"
-            onClick={() => onEditGame(game)}
+            onClick={() => onEditProduct(product)}
           >
             <Edit className="h-4 w-4" />
           </Button>
@@ -136,7 +156,7 @@ const GameItem = React.memo(({
             variant="ghost"
             size="icon"
             className="h-8 w-8"
-            onClick={() => onUploadGame(game)}
+            onClick={() => onUploadProduct(product)}
           >
             <Upload className="h-4 w-4" />
           </Button>
@@ -146,7 +166,7 @@ const GameItem = React.memo(({
             variant="ghost"
             size="icon"
             className="h-8 w-8"
-            onClick={() => onNotificationsGame(game)}
+            onClick={() => onNotificationsProduct(product)}
           >
             <Bell className="h-4 w-4" />
           </Button>
@@ -156,7 +176,7 @@ const GameItem = React.memo(({
             variant="ghost"
             size="icon"
             className="h-8 w-8"
-            onClick={() => onPricesGame(game)}
+            onClick={() => onPricesProduct(product)}
           >
             <DollarSign className="h-4 w-4" />
           </Button>
@@ -166,16 +186,16 @@ const GameItem = React.memo(({
             variant="ghost"
             size="icon"
             className="h-8 w-8"
-            onClick={() => onChangelogGame(game)}
+            onClick={() => onChangelogProduct(product)}
           >
             <GitCommit className="h-4 w-4" />
           </Button>
         )}
         {canManageStatus && (
           <Select
-            value={game.status}
+            value={product.status}
             onValueChange={(value: 'active' | 'inactive' | 'maintenance' | 'testing') =>
-              onStatusChange(game.id, value)
+              onStatusChange(product.id, value)
             }
           >
             <SelectTrigger className="w-28 h-8 text-xs">
@@ -194,7 +214,7 @@ const GameItem = React.memo(({
             variant="ghost"
             size="icon"
             className="h-8 w-8 text-destructive hover:text-destructive"
-            onClick={() => onDeleteGame(game.id)}
+            onClick={() => onDeleteProduct(product.id)}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -204,19 +224,32 @@ const GameItem = React.memo(({
   );
 });
 
-GameItem.displayName = 'GameItem';
+ProductItem.displayName = 'ProductItem';
+// Backward compatibility alias
+export const GameItem = ProductItem;
 
-interface GamesListProps {
-  games: Game[];
+interface ProductsListProps {
+  products: Product[];  // Universal name
+  selectedProducts: number[];  // Universal name
+  onToggleProductSelection: (productId: number) => void;  // Universal name
+  onViewProduct: (product: Product) => void;  // Universal name
+  onEditProduct: (product: Product) => void;  // Universal name
+  onUploadProduct: (product: Product) => void;  // Universal name
+  onNotificationsProduct: (product: Product) => void;  // Universal name
+  onPricesProduct: (product: Product) => void;  // Universal name
+  onChangelogProduct: (product: Product) => void;  // Universal name
+  onStatusChange: (productId: number, newStatus: 'active' | 'inactive' | 'maintenance' | 'testing') => void;  // Universal name
+  onDeleteProduct: (productId: number) => void;  // Universal name
+  // Backward compatibility aliases
+  games: Product[];
   selectedGames: number[];
   onToggleGameSelection: (gameId: number) => void;
-  onViewGame: (game: Game) => void;
-  onEditGame: (game: Game) => void;
-  onUploadGame: (game: Game) => void;
-  onNotificationsGame: (game: Game) => void;
-  onPricesGame: (game: Game) => void;
-  onChangelogGame: (game: Game) => void;
-  onStatusChange: (gameId: number, newStatus: 'active' | 'inactive' | 'maintenance' | 'testing') => void;
+  onViewGame: (game: Product) => void;
+  onEditGame: (game: Product) => void;
+  onUploadGame: (game: Product) => void;
+  onNotificationsGame: (game: Product) => void;
+  onPricesGame: (game: Product) => void;
+  onChangelogGame: (game: Product) => void;
   onDeleteGame: (gameId: number) => void;
   canEditGames: boolean;
   canDeleteGames: boolean;
@@ -227,18 +260,29 @@ interface GamesListProps {
   canManageStatus: boolean;
 }
 
-const GamesList: React.FC<GamesListProps> = ({
-  games,
-  selectedGames,
-  onToggleGameSelection,
-  onViewGame,
-  onEditGame,
-  onUploadGame,
-  onNotificationsGame,
-  onPricesGame,
-  onChangelogGame,
+const ProductsList: React.FC<ProductsListProps> = ({
+  products,
+  selectedProducts,
+  onToggleProductSelection,
+  onViewProduct,
+  onEditProduct,
+  onUploadProduct,
+  onNotificationsProduct,
+  onPricesProduct,
+  onChangelogProduct,
   onStatusChange,
-  onDeleteGame,
+  onDeleteProduct,
+  // Backward compatibility - destructure games and other props
+  games = products,
+  selectedGames = selectedProducts,
+  onToggleGameSelection = onToggleProductSelection,
+  onViewGame = onViewProduct,
+  onEditGame = onEditProduct,
+  onUploadGame = onUploadProduct,
+  onNotificationsGame = onNotificationsProduct,
+  onPricesGame = onPricesProduct,
+  onChangelogGame = onChangelogProduct,
+  onDeleteGame = onDeleteProduct,
   canEditGames,
   canDeleteGames,
   canUploadFiles,
@@ -248,10 +292,10 @@ const GamesList: React.FC<GamesListProps> = ({
   canManageStatus,
 }) => {
   const parentRef = useRef<HTMLDivElement>(null);
-  const shouldVirtualize = games.length > 50;
+  const shouldVirtualize = products.length > 50;
 
   const rowVirtualizer = useVirtualizer({
-    count: shouldVirtualize ? games.length : 0,
+    count: shouldVirtualize ? products.length : 0,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 100,
     overscan: 5,
@@ -274,10 +318,10 @@ const GamesList: React.FC<GamesListProps> = ({
         >
           <div className="divide-y">
             {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-              const game = games[virtualRow.index];
+              const product = products[virtualRow.index];
               return (
                 <div
-                  key={game.id}
+                  key={product.id}
                   data-index={virtualRow.index}
                   style={{
                     position: 'absolute',
@@ -287,18 +331,27 @@ const GamesList: React.FC<GamesListProps> = ({
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
                 >
-                  <GameItem
-                    game={game}
-                    isSelected={selectedGames.includes(game.id)}
-                    onToggleSelection={onToggleGameSelection}
-                    onViewGame={onViewGame}
-                    onEditGame={onEditGame}
-                    onUploadGame={onUploadGame}
-                    onNotificationsGame={onNotificationsGame}
-                    onPricesGame={onPricesGame}
-                    onChangelogGame={onChangelogGame}
+                  <ProductItem
+                    product={product}
+                    game={product}  // Backward compatibility
+                    isSelected={selectedProducts.includes(product.id)}
+                    onToggleSelection={onToggleProductSelection}
+                    onViewProduct={onViewProduct}
+                    onEditProduct={onEditProduct}
+                    onUploadProduct={onUploadProduct}
+                    onNotificationsProduct={onNotificationsProduct}
+                    onPricesProduct={onPricesProduct}
+                    onChangelogProduct={onChangelogProduct}
                     onStatusChange={onStatusChange}
-                    onDeleteGame={onDeleteGame}
+                    onDeleteProduct={onDeleteProduct}
+                    // Backward compatibility aliases
+                    onViewGame={onViewProduct}
+                    onEditGame={onEditProduct}
+                    onUploadGame={onUploadProduct}
+                    onNotificationsGame={onNotificationsProduct}
+                    onPricesGame={onPricesProduct}
+                    onChangelogGame={onChangelogProduct}
+                    onDeleteGame={onDeleteProduct}
                     canEditGames={canEditGames}
                     canDeleteGames={canDeleteGames}
                     canUploadFiles={canUploadFiles}
@@ -318,20 +371,29 @@ const GamesList: React.FC<GamesListProps> = ({
 
   return (
     <div className="divide-y">
-      {games.map((game) => (
-        <GameItem
-          key={game.id}
-          game={game}
-          isSelected={selectedGames.includes(game.id)}
-          onToggleSelection={onToggleGameSelection}
-          onViewGame={onViewGame}
-          onEditGame={onEditGame}
-          onUploadGame={onUploadGame}
-          onNotificationsGame={onNotificationsGame}
-          onPricesGame={onPricesGame}
-          onChangelogGame={onChangelogGame}
+      {products.map((product) => (
+        <ProductItem
+          key={product.id}
+          product={product}
+          game={product}  // Backward compatibility
+          isSelected={selectedProducts.includes(product.id)}
+          onToggleSelection={onToggleProductSelection}
+          onViewProduct={onViewProduct}
+          onEditProduct={onEditProduct}
+          onUploadProduct={onUploadProduct}
+          onNotificationsProduct={onNotificationsProduct}
+          onPricesProduct={onPricesProduct}
+          onChangelogProduct={onChangelogProduct}
           onStatusChange={onStatusChange}
-          onDeleteGame={onDeleteGame}
+          onDeleteProduct={onDeleteProduct}
+          // Backward compatibility aliases
+          onViewGame={onViewProduct}
+          onEditGame={onEditProduct}
+          onUploadGame={onUploadProduct}
+          onNotificationsGame={onNotificationsProduct}
+          onPricesGame={onPricesProduct}
+          onChangelogGame={onChangelogProduct}
+          onDeleteGame={onDeleteProduct}
           canEditGames={canEditGames}
           canDeleteGames={canDeleteGames}
           canUploadFiles={canUploadFiles}
@@ -345,18 +407,29 @@ const GamesList: React.FC<GamesListProps> = ({
   );
 };
 
-interface GamesTableProps {
-  games: Game[];
+interface ProductsTableProps {
+  products: Product[];  // Universal name
+  selectedProducts: number[];  // Universal name
+  onToggleProductSelection: (productId: number) => void;  // Universal name
+  onSelectAll: (selected: boolean) => void;
+  onViewProduct: (product: Product) => void;  // Universal name
+  onEditProduct: (product: Product) => void;  // Universal name
+  onUploadProduct: (product: Product) => void;  // Universal name
+  onNotificationsProduct: (product: Product) => void;  // Universal name
+  onPricesProduct: (product: Product) => void;  // Universal name
+  onChangelogProduct: (product: Product) => void;  // Universal name
+  onStatusChange: (productId: number, newStatus: 'active' | 'inactive' | 'maintenance' | 'testing') => void;  // Universal name
+  onDeleteProduct: (productId: number) => void;  // Universal name
+  // Backward compatibility aliases
+  games: Product[];
   selectedGames: number[];
   onToggleGameSelection: (gameId: number) => void;
-  onSelectAll: (selected: boolean) => void;
-  onViewGame: (game: Game) => void;
-  onEditGame: (game: Game) => void;
-  onUploadGame: (game: Game) => void;
-  onNotificationsGame: (game: Game) => void;
-  onPricesGame: (game: Game) => void;
-  onChangelogGame: (game: Game) => void;
-  onStatusChange: (gameId: number, newStatus: 'active' | 'inactive' | 'maintenance' | 'testing') => void;
+  onViewGame: (game: Product) => void;
+  onEditGame: (game: Product) => void;
+  onUploadGame: (game: Product) => void;
+  onNotificationsGame: (game: Product) => void;
+  onPricesGame: (game: Product) => void;
+  onChangelogGame: (game: Product) => void;
   onDeleteGame: (gameId: number) => void;
   canEditGames: boolean;
   canDeleteGames: boolean;
@@ -367,19 +440,30 @@ interface GamesTableProps {
   canManageStatus: boolean;
 }
 
-export const GamesTable: React.FC<GamesTableProps> = ({
-  games,
-  selectedGames,
-  onToggleGameSelection,
+export const ProductsTable: React.FC<ProductsTableProps> = ({
+  products,
+  selectedProducts,
+  onToggleProductSelection,
   onSelectAll,
-  onViewGame,
-  onEditGame,
-  onUploadGame,
-  onNotificationsGame,
-  onPricesGame,
-  onChangelogGame,
+  onViewProduct,
+  onEditProduct,
+  onUploadProduct,
+  onNotificationsProduct,
+  onPricesProduct,
+  onChangelogProduct,
   onStatusChange,
-  onDeleteGame,
+  onDeleteProduct,
+  // Backward compatibility - destructure games and other props
+  games = products,
+  selectedGames = selectedProducts,
+  onToggleGameSelection = onToggleProductSelection,
+  onViewGame = onViewProduct,
+  onEditGame = onEditProduct,
+  onUploadGame = onUploadProduct,
+  onNotificationsGame = onNotificationsProduct,
+  onPricesGame = onPricesProduct,
+  onChangelogGame = onChangelogProduct,
+  onDeleteGame = onDeleteProduct,
   canEditGames,
   canDeleteGames,
   canUploadFiles,
@@ -389,18 +473,29 @@ export const GamesTable: React.FC<GamesTableProps> = ({
   canManageStatus,
 }) => {
   return (
-    <GamesList
-      games={games}
-      selectedGames={selectedGames}
-      onToggleGameSelection={onToggleGameSelection}
-      onViewGame={onViewGame}
-      onEditGame={onEditGame}
-      onUploadGame={onUploadGame}
-      onNotificationsGame={onNotificationsGame}
-      onPricesGame={onPricesGame}
-      onChangelogGame={onChangelogGame}
+    <ProductsList
+      products={products}
+      selectedProducts={selectedProducts}
+      onToggleProductSelection={onToggleProductSelection}
+      onViewProduct={onViewProduct}
+      onEditProduct={onEditProduct}
+      onUploadProduct={onUploadProduct}
+      onNotificationsProduct={onNotificationsProduct}
+      onPricesProduct={onPricesProduct}
+      onChangelogProduct={onChangelogProduct}
       onStatusChange={onStatusChange}
-      onDeleteGame={onDeleteGame}
+      onDeleteProduct={onDeleteProduct}
+      // Backward compatibility aliases
+      games={products}
+      selectedGames={selectedProducts}
+      onToggleGameSelection={onToggleProductSelection}
+      onViewGame={onViewProduct}
+      onEditGame={onEditProduct}
+      onUploadGame={onUploadProduct}
+      onNotificationsGame={onNotificationsProduct}
+      onPricesGame={onPricesProduct}
+      onChangelogGame={onChangelogProduct}
+      onDeleteGame={onDeleteProduct}
       canEditGames={canEditGames}
       canDeleteGames={canDeleteGames}
       canUploadFiles={canUploadFiles}
@@ -411,3 +506,7 @@ export const GamesTable: React.FC<GamesTableProps> = ({
     />
   );
 };
+
+// Backward compatibility aliases
+export const GamesTable = ProductsTable;
+const GamesList = ProductsList;

@@ -12,7 +12,7 @@ from typing import Any, Callable, Dict, List, Optional
 from flask import current_app
 
 from ...core.extensions import db
-from ...utils.redis_client import redis_client
+from ...utils.redis_client import get_redis_cache_client, RedisClient
 
 class CacheService:
     """Service for managing application-level caching with smart invalidation"""
@@ -20,6 +20,7 @@ class CacheService:
     def __init__(self):
         self.default_ttl = 60
         self.cache_prefix = "panel_cache"
+        self._cache_wrapper = None
 
         self.cache_ttl_config = {
             "games": 60,
@@ -49,6 +50,12 @@ class CacheService:
             "rbac": ["user", "role"],
         }
 
+    def _get_cache_client(self) -> RedisClient:
+        """Get cache Redis client (lazy initialization)"""
+        if self._cache_wrapper is None:
+            self._cache_wrapper = RedisClient(instance="cache")
+        return self._cache_wrapper
+
     def _generate_cache_key(self, cache_type: str, **kwargs) -> str:
         """Generate a unique cache key based on type and parameters"""
 
@@ -73,9 +80,10 @@ class CacheService:
                 if tag in kwargs:
                     tag_key = self._generate_tag_key(tag, str(kwargs[tag]))
 
-                    redis_client.client.sadd(tag_key, cache_key)
+                    cache_client = get_redis_cache_client()
+                    cache_client.sadd(tag_key, cache_key)
 
-                    redis_client.client.expire(
+                    cache_client.expire(
                         tag_key, self.cache_ttl_config.get(cache_type, self.default_ttl)
                     )
             return True
@@ -87,12 +95,13 @@ class CacheService:
         """Invalidate cache entries by tag"""
         try:
             tag_key = self._generate_tag_key(tag_type, str(tag_value))
-            cache_keys = redis_client.client.smembers(tag_key)
+            cache_client = get_redis_cache_client()
+            cache_keys = cache_client.smembers(tag_key)
 
             if cache_keys:
-                deleted_count = redis_client.client.delete(*cache_keys)
+                deleted_count = cache_client.delete(*cache_keys)
 
-                redis_client.client.delete(tag_key)
+                cache_client.delete(tag_key)
                 logging.info(
                     f"Invalidated {deleted_count} cache entries by tag {tag_type}={tag_value}"
                 )
@@ -106,21 +115,23 @@ class CacheService:
         """Check if there are recent update markers that should bypass cache"""
         try:
 
+            cache_client = self._get_cache_client()
+            
             if "project_id" in kwargs:
                 project_id = kwargs["project_id"]
                 marker_pattern = f"{self.cache_prefix}:game_updated:{project_id}:*"
-                markers = redis_client.keys(marker_pattern)
+                markers = cache_client.keys(marker_pattern)
 
                 if markers:
 
                     for marker_key in markers:
-                        marker_value = redis_client.get(marker_key)
+                        marker_value = cache_client.get(marker_key)
                         if marker_value:
                             logging.debug(f"Update marker found: {marker_key}, bypassing cache")
                             return True
 
                 project_marker = f"{self.cache_prefix}:project_updated:{project_id}"
-                if redis_client.get(project_marker):
+                if cache_client.get(project_marker):
                     logging.debug(f"Project update marker found: {project_marker}, bypassing cache")
                     return True
 
@@ -129,7 +140,7 @@ class CacheService:
                 if "project_id" in kwargs:
                     project_id = kwargs["project_id"]
                     game_marker = f"{self.cache_prefix}:game_updated:{project_id}:{game_id}"
-                    if redis_client.get(game_marker):
+                    if cache_client.get(game_marker):
                         logging.debug(f"Game update marker found: {game_marker}, bypassing cache")
                         return True
 
@@ -138,28 +149,28 @@ class CacheService:
                 if "user_id" in kwargs:
                     user_id = kwargs["user_id"]
                     rbac_user_marker = f"{self.cache_prefix}:rbac_updated:user:{user_id}"
-                    if redis_client.get(rbac_user_marker):
+                    if cache_client.get(rbac_user_marker):
                         logging.debug(f"RBAC user update marker found: {rbac_user_marker}, bypassing cache")
                         return True
 
                 if "role_id" in kwargs:
                     role_id = kwargs["role_id"]
                     rbac_role_marker = f"{self.cache_prefix}:rbac_updated:role:{role_id}"
-                    if redis_client.get(rbac_role_marker):
+                    if cache_client.get(rbac_role_marker):
                         logging.debug(f"RBAC role update marker found: {rbac_role_marker}, bypassing cache")
                         return True
 
                 if "permission_id" in kwargs:
                     permission_id = kwargs["permission_id"]
                     rbac_perm_marker = f"{self.cache_prefix}:rbac_updated:permission:{permission_id}"
-                    if redis_client.get(rbac_perm_marker):
+                    if cache_client.get(rbac_perm_marker):
                         logging.debug(f"RBAC permission update marker found: {rbac_perm_marker}, bypassing cache")
                         return True
 
                 if "project_id" in kwargs:
                     project_id = kwargs["project_id"]
                     rbac_project_marker = f"{self.cache_prefix}:rbac_updated:project:{project_id}"
-                    if redis_client.get(rbac_project_marker):
+                    if cache_client.get(rbac_project_marker):
                         logging.debug(f"RBAC project update marker found: {rbac_project_marker}, bypassing cache")
                         return True
 
@@ -181,7 +192,8 @@ class CacheService:
                 return None
 
             cache_key = self._generate_cache_key(cache_type, **kwargs)
-            cached_data = redis_client.get_json(cache_key)
+            cache_wrapper = self._get_cache_client()
+            cached_data = cache_wrapper.get_json(cache_key)
 
             if cached_data:
                 logging.debug(f"Cache HIT for key: {cache_key}")
@@ -211,7 +223,8 @@ class CacheService:
                 "cache_type": cache_type,
             }
 
-            success = redis_client.set_json(cache_key, cache_data, ex=ttl)
+            cache_wrapper = self._get_cache_client()
+            success = cache_wrapper.set_json(cache_key, cache_data, ex=ttl)
 
             if success:
 
@@ -230,7 +243,8 @@ class CacheService:
         """Delete cached data"""
         try:
             cache_key = self._generate_cache_key(cache_type, **kwargs)
-            success = redis_client.delete(cache_key)
+            cache_wrapper = self._get_cache_client()
+            success = cache_wrapper.delete(cache_key)
 
             if success:
                 logging.debug(f"Cache DELETE for key: {cache_key}")
@@ -251,14 +265,15 @@ class CacheService:
             deleted_count = 0
             cursor = 0
 
+            cache_wrapper = self._get_cache_client()
             while True:
 
-                result = redis_client.scan(cursor, match=full_pattern, count=100)
+                result = cache_wrapper.scan(cursor, match=full_pattern, count=100)
                 cursor, keys = result
 
                 if keys:
 
-                    deleted_count += redis_client.delete(*keys)
+                    deleted_count += cache_wrapper.delete(*keys)
                     logging.debug(
                         f"Deleted {len(keys)} cache keys matching pattern: {full_pattern}"
                     )
@@ -282,11 +297,12 @@ class CacheService:
                     f"{self.cache_prefix}:games:project_id={pattern.split('project_id=')[1].split(':')[0]}:type=game_library*",
                 ]
                 deleted_count = 0
+                cache_wrapper = self._get_cache_client()
                 for key_pattern in common_keys:
                     try:
-                        keys = redis_client.keys(key_pattern)
+                        keys = cache_wrapper.keys(key_pattern)
                         if keys:
-                            deleted_count += redis_client.delete(*keys)
+                            deleted_count += cache_wrapper.delete(*keys)
                     except:
                         pass
                 logging.info(
@@ -375,13 +391,14 @@ class CacheService:
             for pattern in patterns:
                 total_deleted += self.invalidate_pattern(pattern)
 
+            cache_wrapper = self._get_cache_client()
             if game_id:
                 marker_key = f"{self.cache_prefix}:game_updated:{project_id}:{game_id}"
-                redis_client.set(marker_key, "updated", ex=120)
+                cache_wrapper.set(marker_key, "updated", ex=120)
             else:
 
                 project_marker = f"{self.cache_prefix}:project_updated:{project_id}"
-                redis_client.set(project_marker, "updated", ex=120)
+                cache_wrapper.set(project_marker, "updated", ex=120)
 
             logging.info(
                 f"INSTANT game cache invalidation: {total_deleted} keys deleted for project {project_id}, game {game_id}"
@@ -408,8 +425,9 @@ class CacheService:
             for pattern in patterns:
                 total_deleted += self.invalidate_pattern(pattern)
 
+            cache_wrapper = self._get_cache_client()
             project_marker = f"{self.cache_prefix}:project_updated:{project_id}"
-            redis_client.set(project_marker, "updated", ex=120)
+            cache_wrapper.set(project_marker, "updated", ex=120)
 
             logging.info(f"INSTANT project cache invalidation: {total_deleted} keys deleted")
             return total_deleted
@@ -432,8 +450,9 @@ class CacheService:
             for pattern in patterns:
                 total_deleted += self.invalidate_pattern(pattern)
 
+            cache_wrapper = self._get_cache_client()
             rbac_user_marker = f"{self.cache_prefix}:rbac_updated:user:{user_id}"
-            redis_client.set(rbac_user_marker, "updated", ex=120)
+            cache_wrapper.set(rbac_user_marker, "updated", ex=120)
 
             logging.info(f"INSTANT RBAC user cache invalidation: {total_deleted} keys deleted for user {user_id}")
             return total_deleted
@@ -454,12 +473,13 @@ class CacheService:
             for pattern in patterns:
                 total_deleted += self.invalidate_pattern(pattern)
 
+            cache_wrapper = self._get_cache_client()
             rbac_role_marker = f"{self.cache_prefix}:rbac_updated:role:{role_id}"
-            redis_client.set(rbac_role_marker, "updated", ex=120)
+            cache_wrapper.set(rbac_role_marker, "updated", ex=120)
 
             if project_id:
                 rbac_project_marker = f"{self.cache_prefix}:rbac_updated:project:{project_id}"
-                redis_client.set(rbac_project_marker, "updated", ex=120)
+                cache_wrapper.set(rbac_project_marker, "updated", ex=120)
 
             logging.info(f"INSTANT RBAC role cache invalidation: {total_deleted} keys deleted for role {role_id}")
             return total_deleted
@@ -480,12 +500,13 @@ class CacheService:
             for pattern in patterns:
                 total_deleted += self.invalidate_pattern(pattern)
 
+            cache_wrapper = self._get_cache_client()
             rbac_perm_marker = f"{self.cache_prefix}:rbac_updated:permission:{permission_id}"
-            redis_client.set(rbac_perm_marker, "updated", ex=120)
+            cache_wrapper.set(rbac_perm_marker, "updated", ex=120)
 
             if project_id:
                 rbac_project_marker = f"{self.cache_prefix}:rbac_updated:project:{project_id}"
-                redis_client.set(rbac_project_marker, "updated", ex=120)
+                cache_wrapper.set(rbac_project_marker, "updated", ex=120)
 
             logging.info(f"INSTANT RBAC permission cache invalidation: {total_deleted} keys deleted for permission {permission_id}")
             return total_deleted
@@ -508,8 +529,9 @@ class CacheService:
             for pattern in patterns:
                 total_deleted += self.invalidate_pattern(pattern)
 
+            cache_wrapper = self._get_cache_client()
             rbac_project_marker = f"{self.cache_prefix}:rbac_updated:project:{project_id}"
-            redis_client.set(rbac_project_marker, "updated", ex=120)
+            cache_wrapper.set(rbac_project_marker, "updated", ex=120)
 
             logging.info(f"INSTANT RBAC project cache invalidation: {total_deleted} keys deleted for project {project_id}")
             return total_deleted
@@ -601,13 +623,14 @@ class CacheService:
         try:
 
             pattern = f"{self.cache_prefix}:*"
-            keys = redis_client.keys(pattern)
+            cache_wrapper = self._get_cache_client()
+            keys = cache_wrapper.keys(pattern)
 
             cleaned_count = 0
             for key in keys:
                 try:
 
-                    if not redis_client.client.exists(key):
+                    if not cache_wrapper.client.exists(key):
                         cleaned_count += 1
                 except:
                     pass
@@ -623,10 +646,11 @@ class CacheService:
         """Clear all cache entries"""
         try:
             pattern = f"{self.cache_prefix}:*"
-            keys = redis_client.keys(pattern)
+            cache_wrapper = self._get_cache_client()
+            keys = cache_wrapper.keys(pattern)
 
             if keys:
-                deleted_count = redis_client.client.delete(*keys)
+                deleted_count = cache_wrapper.client.delete(*keys)
                 logging.info(f"Cleared all cache: {deleted_count} keys deleted")
                 return deleted_count
             else:
@@ -734,12 +758,13 @@ class CacheService:
         try:
 
             pattern = f"{self.cache_prefix}:*"
-            keys = redis_client.keys(pattern)
+            cache_wrapper = self._get_cache_client()
+            keys = cache_wrapper.keys(pattern)
 
             total_memory = 0
             for key in keys:
                 try:
-                    memory_usage = redis_client.client.memory_usage(key)
+                    memory_usage = cache_wrapper.client.memory_usage(key)
                     total_memory += memory_usage
                 except:
                     pass

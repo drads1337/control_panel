@@ -33,10 +33,12 @@ def make_celery(app=None):
         logging.warning("Celery is not installed. Task queue will use fallback mode.")
         return None
 
-    redis_url = f"redis://"
-    if Config.REDIS_PASSWORD:
-        redis_url = f"redis://:{Config.REDIS_PASSWORD}@"
-    redis_url += f"{Config.REDIS_HOST}:{Config.REDIS_PORT}/{Config.REDIS_DB}"
+    # Use persistent Redis instance for Celery (sessions and queues must not lose data)
+    redis_password_part = f":{Config.REDIS_PERSISTENT_PASSWORD}@" if Config.REDIS_PERSISTENT_PASSWORD else ""
+    redis_url = (
+        f"redis://{redis_password_part}{Config.REDIS_PERSISTENT_HOST}:"
+        f"{Config.REDIS_PERSISTENT_PORT}/{Config.REDIS_PERSISTENT_DB}"
+    )
 
     celery_app = Celery(
         "panel_tasks",

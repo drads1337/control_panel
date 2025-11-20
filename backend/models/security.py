@@ -217,12 +217,22 @@ class BlockedIP(db.Model):
         db.UniqueConstraint("ip_address", "project_id", name="blocked_ip_address_project_key"),
     )
 
-class BlockedHWID(db.Model):
-    """Model for tracking blocked hardware IDs"""
+class BlockedDeviceFingerprint(db.Model):
+    """Model for tracking blocked device fingerprints (formerly HWID)"""
 
-    __tablename__ = "blockedhwid"
+    __tablename__ = "blockedhwid"  # Keep table name for backward compatibility
     id = db.Column(db.Integer, primary_key=True)
-    hwid = db.Column(db.String(256), nullable=False)
+    hwid = db.Column(db.String(256), nullable=False)  # Keep column name for backward compatibility
+    
+    @property
+    def device_fingerprint(self):
+        """Alias for hwid"""
+        return self.hwid
+    
+    @device_fingerprint.setter
+    def device_fingerprint(self, value):
+        """Setter for device_fingerprint"""
+        self.hwid = value
     reason = db.Column(db.String(256), nullable=False)
     blocked_at = db.Column(db.DateTime, default=datetime.utcnow)
     expires_at = db.Column(db.DateTime, nullable=True)
@@ -264,6 +274,9 @@ class BlockedHWID(db.Model):
     __table_args__ = (
         db.UniqueConstraint("hwid", "project_id", name="blocked_hwid_hwid_project_key"),
     )
+
+# Backward compatibility alias
+BlockedHWID = BlockedDeviceFingerprint
 
 class SecurityEvent(db.Model):
     """Model for logging security events and incidents"""

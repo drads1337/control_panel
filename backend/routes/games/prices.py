@@ -101,14 +101,27 @@ def update_game_prices(game_id):
         if not isinstance(prices_data, dict):
             return jsonify({"error": "Prices must be a dictionary"}), 400
 
-        valid_periods = ["hour", "day", "week", "month"]
-
         for period, price_value in prices_data.items():
-            if period not in valid_periods:
+            # Skip custom periods (they have their own endpoint)
+            if period.startswith("custom_"):
+                continue
+
+            # Validate period is numeric (hours) or skip
+            try:
+                # Period should be a string representing hours
+                period_hours = int(period)
+                if period_hours <= 0:
+                    current_app.logger.warning(f"Invalid period (must be positive): {period}")
+                    continue
+            except (ValueError, TypeError):
+                current_app.logger.warning(f"Invalid period format (expected hours as string): {period}")
                 continue
 
             try:
-                price_int = int(float(price_value)) if price_value else 0
+                price_float = float(price_value) if price_value else 0.0
+                if price_float < 0:
+                    current_app.logger.warning(f"Negative price value for period {period}: {price_value}")
+                    continue
             except (ValueError, TypeError):
                 current_app.logger.warning(f"Invalid price value for period {period}: {price_value}")
                 continue
@@ -118,12 +131,12 @@ def update_game_prices(game_id):
             ).first()
 
             if existing_price:
-                existing_price.price = price_int
+                existing_price.price = price_float
             else:
                 new_price = GameKeyPrice(
                     game_id=game_id,
                     period=period,
-                    price=price_int,
+                    price=price_float,
                     project_id=user.project_id,
                 )
                 db.session.add(new_price)
@@ -263,14 +276,16 @@ def add_custom_period(game_id):
             return jsonify({"error": "Custom period already exists"}), 400
 
         try:
-            price_int = int(float(price_value))
+            price_float = float(price_value)
+            if price_float < 0:
+                return jsonify({"error": "Price cannot be negative"}), 400
         except (ValueError, TypeError):
             return jsonify({"error": "Invalid price value"}), 400
 
         new_price = GameKeyPrice(
             game_id=game_id,
             period=period_name,
-            price=price_int,
+            price=price_float,
             meta_data=json.dumps(meta_data) if meta_data else None,
             project_id=user.project_id,
         )

@@ -269,12 +269,13 @@ def get_classic_users_for_game(game_id, current_user=None):
     return jsonify({"users": users, "game_id": game_id, "game_name": game.name})
 
 @clients_bp.route("/<int:user_id>/games", methods=["GET"])
+@clients_bp.route("/<int:user_id>/products", methods=["GET"])
 @jwt_required()
 @require_user
 @require_permission("clients.view")
 @require_project_isolation
 def get_user_games(user_id, current_user=None):
-    """Get games accessible by a specific user"""
+    """Get games/products accessible by a specific user (supports both /games and /products endpoints)"""
 
     if current_user is None:
         from flask import g
@@ -323,12 +324,13 @@ def get_user_games(user_id, current_user=None):
         return jsonify([])
 
 @clients_bp.route("/<int:user_id>/games/<int:game_id>/toggle", methods=["POST"])
+@clients_bp.route("/<int:user_id>/products/<int:game_id>/toggle", methods=["POST"])
 @jwt_required()
 @require_user
 @require_role(RolePermissions.GAME_MANAGEMENT_ROLES)
 @require_project_isolation
 def toggle_user_game_access(user_id, game_id, current_user=None):
-    """Toggle user access to a specific game"""
+    """Toggle user access to a specific game/product (supports both /games and /products endpoints)"""
 
     if current_user is None:
         from flask import g
@@ -407,7 +409,7 @@ def toggle_user_game_access(user_id, game_id, current_user=None):
 
         return jsonify(
             {
-                "message": f"Game access {action} successfully",
+                "message": f"Application access {action} successfully",
                 "user_id": user_id,
                 "game_id": game_id,
                 "game_name": game.name,
@@ -417,4 +419,4 @@ def toggle_user_game_access(user_id, game_id, current_user=None):
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({"error": f"Failed to toggle game access: {str(e)}"}), 500
+        return jsonify({"error": f"Failed to toggle application access: {str(e)}"}), 500

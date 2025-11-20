@@ -64,23 +64,13 @@ export function GameDatabaseDialogs({
   return (
     <>
       {}
-      {canManagePrices && showPricesDialog && selectedGame && (
-          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200" onClick={closeAllDialogs}>
-            <div className="bg-background p-6 rounded-lg shadow-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Manage Prices: {selectedGame.name}</h3>
-                <Button variant="outline" onClick={closeAllDialogs}>
-                  Close
-                </Button>
-              </div>
-              <PriceManager 
-                open={showPricesDialog} 
-                onOpenChange={setShowPricesDialog}
-                gameId={selectedGame.id} 
-              />
-            </div>
-          </div>
-        )}
+      {canManagePrices && (
+        <PriceManager 
+          open={showPricesDialog && !!selectedGame} 
+          onOpenChange={setShowPricesDialog}
+          gameId={selectedGame?.id} 
+        />
+      )}
 
       {}
       <NotificationsDialog

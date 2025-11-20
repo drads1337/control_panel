@@ -65,16 +65,29 @@ class RBACManager:
 
     @staticmethod
     def has_permission(user_id: int, project_id: int, permission: str) -> bool:
-        """Check if user has specific permission"""
+        """
+        Check if user has specific permission.
+        
+        This is a convenience wrapper around rbac_service.check_permission().
+        All permission checks should go through rbac_service.check_permission() as the single source of truth.
+        
+        Args:
+            user_id: User ID
+            project_id: Project ID (used for fallback, but rbac_service handles this internally)
+            permission: Permission name to check
+            
+        Returns:
+            True if user has permission, False otherwise
+        """
         try:
             from ..services.rbac import rbac_service
-
+            # Use rbac_service as single source of truth for all permission checks
             return rbac_service.check_permission(user_id, permission)
         except Exception as e:
             logging.error(
                 f"RBAC_HAS_PERMISSION_ERROR user_id={user_id} permission={permission} error={e}"
             )
-
+            # Fallback: check permissions directly (should rarely be needed)
             permissions = RBACManager.get_user_permissions(user_id, project_id)
             return permission in permissions
 

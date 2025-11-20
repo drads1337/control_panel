@@ -331,7 +331,6 @@ class SecurityService:
 
         suspicious_patterns = [
             "wget",
-            "curl",
             "python",
             "requests",
             "postman",

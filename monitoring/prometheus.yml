@@ -16,7 +16,7 @@ scrape_configs:
   - job_name: 'panel-app'
     static_configs:
       - targets: ['panel-app-1:5001', 'panel-app-2:5001', 'panel-app-3:5001']
-    metrics_path: '/api/metrics'
+    metrics_path: '/metrics'
     scrape_interval: 30s
     scrape_timeout: 10s
 

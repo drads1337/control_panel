@@ -18,7 +18,9 @@ from ...middleware.validation import validate_request
 from ...models import User
 from ...schemas.user import UserCreateSchema, UserUpdateSchema
 from ...services.activity import activity_service
-from ...services.users import user_service
+from ...services.rbac import rbac_service
+from ...services.users import user_management_service, user_profile_service
+from ...utils.rbac_utils import RBACManager
 from ...utils.role_constants import RolePermissions
 
 management_bp = Blueprint("users_management", __name__)
@@ -49,7 +51,7 @@ def get_users(current_user=None, project_id=None):
         roles_filter = request.args.getlist("roles")
         search = request.args.get("search")
 
-        result = user_service.get_users_with_key_counts(
+        result = user_management_service.get_users_with_key_counts(
             current_user=current_user,
             page=page,
             per_page=per_page,
@@ -89,7 +91,7 @@ def add_user(current_user=None, validated_data=None):
         return jsonify({"error": "No data provided"}), 400
 
     try:
-        user, error = user_service.create_user_with_roles_and_games(current_user, data)
+        user, error = user_management_service.create_user_with_roles_and_games(current_user, data)
 
         if error:
             return jsonify({"error": error}), 400
@@ -150,9 +152,6 @@ def update_user(user_id, current_user=None, validated_data=None):
         if not target_user:
             return jsonify({"error": "User not found"}), 404
 
-        from ...services.rbac import rbac_service
-        from ...utils.rbac_utils import RBACManager
-
         can_view_all = rbac_service.check_permission(
             current_user.id, "employees.view"
         ) or rbac_service.check_permission(current_user.id, "clients.view")
@@ -166,7 +165,7 @@ def update_user(user_id, current_user=None, validated_data=None):
             if project_id and target_user.project_id != project_id:
                 return jsonify({"error": "Access denied"}), 403
 
-        success, error = user_service.update_user_profile(target_user, data)
+        success, error = user_profile_service.update_user_profile(target_user, data)
         if not success:
             return jsonify({"error": error}), 400
 
@@ -175,7 +174,6 @@ def update_user(user_id, current_user=None, validated_data=None):
         rbac_roles = []
         role_names = []
         try:
-            from ...services.rbac import rbac_service
             rbac_roles = rbac_service.get_user_roles(target_user.id)
             role_names = [role["name"] for role in rbac_roles] if rbac_roles else []
         except Exception as e:
@@ -241,7 +239,7 @@ def delete_user(user_id, current_user=None):
         from flask import g
         current_user = g.current_user
 
-    success, error = user_service.delete_user_safely(current_user, user_id)
+    success, error = user_management_service.delete_user_safely(current_user, user_id)
 
     if not success:
         return jsonify({"error": error}), 400 if "not found" in error.lower() else 403

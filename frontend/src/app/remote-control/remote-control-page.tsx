@@ -86,9 +86,9 @@ export default function RemoteControl() {
       setError(null)
 
       const [categoriesData, featuresData, statsData] = await Promise.all([
-        remoteControlAPI.getCategories(selectedGameId),
-        remoteControlAPI.getFeatures(selectedGameId),
-        remoteControlAPI.getStats(selectedGameId)
+        remoteControlAPI.getCategories(selectedGameId),  // Uses product_id internally
+        remoteControlAPI.getFeatures(selectedGameId),  // Uses product_id internally
+        remoteControlAPI.getStats(selectedGameId)  // Uses product_id internally
       ])
 
       setCategories(categoriesData)
@@ -264,7 +264,7 @@ export default function RemoteControl() {
         name: categoryFormData.name,
         description: categoryFormData.description,
         color: categoryFormData.color,
-        game_id: selectedGameId
+        product_id: selectedGameId  // Use universal parameter
       })
 
       setCategories(prev => [...prev, newCategory])
@@ -310,7 +310,7 @@ export default function RemoteControl() {
         name: categoryFormData.name,
         description: categoryFormData.description,
         color: categoryFormData.color,
-        game_id: selectedGameId || undefined
+        product_id: selectedGameId || undefined  // Use universal parameter
       })
 
       setCategories(prev => prev.map(category =>
