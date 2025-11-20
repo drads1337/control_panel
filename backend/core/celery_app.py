@@ -8,6 +8,7 @@ import os
 try:
     from celery import Celery
     from celery.schedules import crontab
+    from datetime import timedelta
 
     CELERY_AVAILABLE = True
 except ImportError:
@@ -101,7 +102,16 @@ def make_celery(app=None):
         },
 
         beat_schedule={
-
+            # Flush analytics buffer periodically to reduce database write pressure
+            # This implements write-behind caching pattern for high-load scenarios
+            # Interval is configurable via ANALYTICS_BUFFER_FLUSH_INTERVAL (default: 30 seconds)
+            "flush-analytics-buffer": {
+                "task": "backend.tasks.analytics_tasks.flush_analytics_buffer",
+                "schedule": timedelta(
+                    seconds=int(os.environ.get("ANALYTICS_BUFFER_FLUSH_INTERVAL", 30))
+                ),
+                "options": {"queue": "default", "priority": 6},
+            },
         },
     )
 

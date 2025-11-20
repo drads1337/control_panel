@@ -11,6 +11,7 @@ from typing import Dict, List, Optional
 from ...core.extensions import db
 from ...models import DeviceInfo, KeyAnalytics, Notification, User
 from ...services.activity import activity_service
+from ...services.analytics import analytics_buffer_service
 from ...services.heartbeat import heartbeat_service
 
 class AnalyticsTracker:
@@ -18,12 +19,51 @@ class AnalyticsTracker:
 
     def update_key_analytics(self, key_id: int, game: str, ip_address: str) -> None:
         """
-        Update analytics for a key
+        Update analytics for a key using write-behind buffer pattern.
+        
+        Instead of writing directly to the database, this method buffers the update
+        in Redis. A background worker periodically flushes buffered updates to
+        PostgreSQL in batches, significantly reducing database write pressure.
 
         Args:
             key_id: Key ID
             game: Game name
             ip_address: IP address
+        """
+        try:
+            # Use write-behind buffer instead of direct DB write
+            success = analytics_buffer_service.buffer_key_analytics_update(
+                key_id=key_id,
+                game=game,
+                ip_address=ip_address,
+                increment_connections=True,
+            )
+            
+            if success:
+                logging.debug(
+                    f"ANALYTICS_BUFFERED key_id={key_id} game={game} (will be flushed to DB by background worker)"
+                )
+            else:
+                # Fallback to direct write if buffer fails
+                logging.warning(
+                    f"ANALYTICS_BUFFER_FAILED key_id={key_id}, falling back to direct DB write"
+                )
+                self._update_key_analytics_direct(key_id, game, ip_address)
+
+        except Exception as e:
+            logging.error(f"ANALYTICS_UPDATE_ERROR key_id={key_id} error={e}")
+            # Fallback to direct write on error
+            try:
+                self._update_key_analytics_direct(key_id, game, ip_address)
+            except Exception as fallback_error:
+                logging.error(f"ANALYTICS_FALLBACK_ERROR key_id={key_id} error={fallback_error}")
+
+    def _update_key_analytics_direct(self, key_id: int, game: str, ip_address: str) -> None:
+        """
+        Direct database update (fallback method when buffer fails).
+        
+        This method performs the original direct database write logic.
+        It's kept as a fallback for reliability.
         """
         try:
             today = date.today()
@@ -61,11 +101,11 @@ class AnalyticsTracker:
             db.session.commit()
 
             logging.info(
-                f"ANALYTICS_UPDATED key_id={key_id} total_connections={analytics.total_connections}"
+                f"ANALYTICS_UPDATED_DIRECT key_id={key_id} total_connections={analytics.total_connections}"
             )
 
         except Exception as e:
-            logging.error(f"ANALYTICS_UPDATE_ERROR key_id={key_id} error={e}")
+            logging.error(f"ANALYTICS_DIRECT_UPDATE_ERROR key_id={key_id} error={e}")
             db.session.rollback()
 
     def get_notifications(

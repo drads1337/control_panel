@@ -202,6 +202,24 @@ class Config:
         os.environ.get("ENABLE_SLOW_QUERY_MONITORING", "true").lower() == "true"
     )
 
+    # Analytics Buffer Configuration (Write-Behind Caching)
+    # These settings control the Redis buffer for analytics writes to reduce database load
+    ANALYTICS_BUFFER_ENABLED = (
+        os.environ.get("ANALYTICS_BUFFER_ENABLED", "true").lower() == "true"
+    )
+    ANALYTICS_BUFFER_MAX_SIZE = int(
+        os.environ.get("ANALYTICS_BUFFER_MAX_SIZE", 1000)
+    )  # Max items before forced flush
+    ANALYTICS_BUFFER_TTL = int(
+        os.environ.get("ANALYTICS_BUFFER_TTL", 3600)
+    )  # 1 hour TTL for safety
+    ANALYTICS_BUFFER_FLUSH_INTERVAL = int(
+        os.environ.get("ANALYTICS_BUFFER_FLUSH_INTERVAL", 30)
+    )  # Flush every 30 seconds
+    ANALYTICS_BUFFER_BATCH_SIZE = int(
+        os.environ.get("ANALYTICS_BUFFER_BATCH_SIZE", 100)
+    )  # Batch size for user activities
+
     CORS_ORIGINS = os.environ.get(
         "CORS_ORIGINS",
         "http://localhost:3000,http://localhost:3001,http://localhost:5001,http://127.0.0.1:5001,http://localhost:5173,http://127.0.0.1:5173",

@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional
 
 from ...core.extensions import db
 from ...models.core import User, UserActivity
+from ...services.analytics import analytics_buffer_service
 from ...utils.data_masking import mask_username
 from ...utils.fulltext_search import fulltext_search_filter
 from ...utils.ip_utils import get_location_from_ip
@@ -28,7 +29,12 @@ class ActivityService:
         session_id: Optional[str] = None,
     ) -> Optional[UserActivity]:
         """
-        Log user activity without depending on Flask context
+        Log user activity using write-behind buffer pattern.
+        
+        Instead of writing directly to the database, this method buffers the activity
+        in Redis. A background worker periodically flushes buffered activities to
+        PostgreSQL in batches, significantly reducing database write pressure under
+        high load (thousands of concurrent users).
 
         Args:
             user: User object performing the action
@@ -46,7 +52,6 @@ class ActivityService:
             return None
 
         try:
-
             masked_username = mask_username(user.username) if user.username else "unknown"
             self.logger.debug(
                 f"Logging activity: {action} for user {masked_username} (ID: {user.id})"
@@ -58,11 +63,89 @@ class ActivityService:
             if ip and ip not in ("127.0.0.1", "localhost", "::1"):
                 try:
                     country, city = get_location_from_ip(ip)
-
                     self.logger.debug(f"Got location for IP: {country}, {city}")
                 except Exception as e:
                     self.logger.warning(f"Failed to get geolocation: {e}")
 
+            # Use write-behind buffer instead of direct DB write
+            success = analytics_buffer_service.buffer_user_activity(
+                user_id=user.id,
+                action=action,
+                ip=ip,
+                details=details,
+                user_agent=user_agent,
+                session_id=session_id,
+                country=country,
+                city=city,
+                project_id=user.project_id,
+            )
+
+            if success:
+                self.logger.debug(
+                    f"Buffered activity: {action} for user {masked_username} "
+                    "(will be flushed to DB by background worker)"
+                )
+                # Return a mock object to maintain compatibility
+                # The actual record will be created when flushed
+                return UserActivity(
+                    user_id=user.id,
+                    action=action,
+                    ip_address=ip,
+                    user_agent=user_agent,
+                    country=country,
+                    city=city,
+                    project_id=user.project_id,
+                    details=details,
+                    session_id=session_id,
+                )
+            else:
+                # Fallback to direct write if buffer fails
+                self.logger.warning(
+                    f"Activity buffer failed for user {masked_username}, "
+                    "falling back to direct DB write"
+                )
+                return self._log_activity_direct(
+                    user, action, ip, details, user_agent, session_id, country, city
+                )
+
+        except Exception as e:
+            self.logger.warning(f"Failed to log activity: {e}")
+            import traceback
+
+            self.logger.warning(f"log_activity traceback: {traceback.format_exc()}")
+
+            # Fallback to direct write on error
+            try:
+                return self._log_activity_direct(
+                    user, action, ip, details, user_agent, session_id, None, None
+                )
+            except Exception as fallback_error:
+                self.logger.error(f"Activity fallback also failed: {fallback_error}")
+                try:
+                    db.session.rollback()
+                except Exception as rollback_error:
+                    self.logger.warning(f"Failed to rollback session: {rollback_error}")
+
+            return None
+
+    def _log_activity_direct(
+        self,
+        user: User,
+        action: str,
+        ip: Optional[str],
+        details: Optional[str],
+        user_agent: Optional[str],
+        session_id: Optional[str],
+        country: Optional[str],
+        city: Optional[str],
+    ) -> Optional[UserActivity]:
+        """
+        Direct database write (fallback method when buffer fails).
+        
+        This method performs the original direct database write logic.
+        It's kept as a fallback for reliability.
+        """
+        try:
             activity = UserActivity(
                 user_id=user.id,
                 action=action,
@@ -80,15 +163,14 @@ class ActivityService:
             db.session.add(activity)
             db.session.commit()
 
-            self.logger.debug(f"Successfully logged activity: {action} for user {masked_username}")
+            masked_username = mask_username(user.username) if user.username else "unknown"
+            self.logger.debug(
+                f"Successfully logged activity (direct): {action} for user {masked_username}"
+            )
             return activity
 
         except Exception as e:
-            self.logger.warning(f"Failed to log activity: {e}")
-            import traceback
-
-            self.logger.warning(f"log_activity traceback: {traceback.format_exc()}")
-
+            self.logger.warning(f"Failed to log activity (direct): {e}")
             try:
                 db.session.rollback()
             except Exception as rollback_error:
