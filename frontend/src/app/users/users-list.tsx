@@ -7,6 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getStatusClasses, getStatusText, type StatusType } from '@/lib/status-utils';
+import { getAvatarUrl } from '@/lib/utils';
 import {
   MoreHorizontal, Edit, Trash2, UserCheck, Eye, EyeOff, 
   Shield, Key, RefreshCw, Ban, CheckCircle, Users
@@ -93,7 +94,7 @@ const UsersList: React.FC<UsersListProps> = ({
       <TableCell>
         <div className="flex items-center space-x-3">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={user.avatar || undefined} />
+            <AvatarImage src={getAvatarUrl(user.avatar)} />
             <AvatarFallback>
               {user.username.charAt(0).toUpperCase()}
             </AvatarFallback>
@@ -209,7 +210,7 @@ const UsersList: React.FC<UsersListProps> = ({
       <TableCell>
         <div className="flex items-center space-x-3">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={user.avatar || undefined} />
+            <AvatarImage src={getAvatarUrl(user.avatar)} />
             <AvatarFallback>
               {user.username.charAt(0).toUpperCase()}
             </AvatarFallback>

@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { getAvatarUrl } from '@/lib/utils';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
 import CreateUserDialog from './create-user-dialog';
 import EditUserDialog from './edit-user-dialog';
@@ -52,7 +53,7 @@ const UserItem = React.memo(({
     <div className="flex items-center justify-between p-2.5 border-b hover:bg-accent/50 transition-colors">
       <div className="flex items-center gap-3 flex-1 min-w-0">
         <Avatar className="h-9 w-9">
-          <AvatarImage src={user.avatar || undefined} />
+          <AvatarImage src={getAvatarUrl(user.avatar)} />
           <AvatarFallback className="text-xs">
             {user.first_name?.[0]}{user.last_name?.[0] || user.username?.[0] || 'U'}
           </AvatarFallback>

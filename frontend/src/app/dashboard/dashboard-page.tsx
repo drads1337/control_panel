@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Building2, BarChart3 } from 'lucide-react'
 import { usePermissions } from '@/hooks/use-permissions'
 import { SlowQueriesCard } from './slow-queries-card'
+import { OwnerLoadStatusCard } from './owner-load-status-card'
 import { Spinner } from '@/components/ui/spinner'
 
 const ChartAreaInteractive = React.lazy(() => import('@/app/dashboard/chart-area-interactive').then(module => ({ default: module.ChartAreaInteractive })))
@@ -27,6 +28,9 @@ export function DashboardPage({ type }: DashboardPageProps) {
   const { hasPermission } = usePermissions()
 
   const canViewAnalytics = hasPermission('analytics.view')
+  
+  useEffect(() => {
+  }, [type, isAuthenticated, user?.id, canViewAnalytics])
 
   useEffect(() => {
     if (!isAuthenticated || !user || !user.id) {
@@ -142,6 +146,8 @@ export function DashboardPage({ type }: DashboardPageProps) {
               <h3 className="text-2xl font-semibold mb-4">System Overview</h3>
               <StatCardsGrid data={data} type="owner" />
             </div>
+
+            <OwnerLoadStatusCard loadStatus={(data as OwnerDashboardStats)?.load_status} />
 
             <Card>
               <CardHeader>

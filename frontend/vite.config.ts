@@ -50,6 +50,19 @@ export default defineConfig(({ mode }) => {
             });
           },
         },
+        '/uploads': {
+          target: 'http://127.0.0.1:5001',
+          changeOrigin: true,
+          secure: false,
+          configure: (proxy, _options) => {
+            proxy.on('proxyReq', (proxyReq, req, _res) => {
+              // Forward cookies explicitly for authenticated file access
+              if (req.headers.cookie) {
+                proxyReq.setHeader('Cookie', req.headers.cookie);
+              }
+            });
+          },
+        },
       },
       hmr: {
         overlay: false,

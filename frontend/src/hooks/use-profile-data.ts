@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuthContext } from '@/contexts/auth-context'
 import { updateProfile, changePassword, uploadAvatar } from '@/entities/user'
 import { toast } from 'sonner'
@@ -15,6 +15,8 @@ export function useProfileData() {
   const [isLoading, setIsLoading] = useState(false)
   const [isPasswordChanging, setIsPasswordChanging] = useState(false)
   const [isAvatarUploading, setIsAvatarUploading] = useState(false)
+  const [cropDialogOpen, setCropDialogOpen] = useState(false)
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null)
 
   const [profileData, setProfileData] = useState({
     username: user?.username || '',
@@ -29,6 +31,19 @@ export function useProfileData() {
     newPassword: '',
     confirmPassword: '',
   })
+
+  // Sync profileData with user when user changes and not editing
+  useEffect(() => {
+    if (!isEditing && user) {
+      setProfileData((prev) => ({
+        username: user.username || '',
+        email: user.email || '',
+        firstName: user.first_name || '',
+        lastName: user.last_name || '',
+        bio: prev.bio, // Keep existing bio value since it's not on User type
+      }))
+    }
+  }, [user, isEditing])
 
   const handleSave = async () => {
     if (!token) return
@@ -130,33 +145,68 @@ export function useProfileData() {
   }
 
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('handleAvatarUpload called', { 
+      hasFiles: !!event.target.files, 
+      fileCount: event.target.files?.length
+    })
+    
     const file = event.target.files?.[0]
-    if (!file || !token) return
+    console.log('Selected file:', file ? { name: file.name, size: file.size, type: file.type } : 'no file')
+    
+    if (!file) {
+      console.warn('No file selected')
+      return
+    }
 
+    console.log('Validating file...')
     const validation = validateAvatarFile(file)
+    console.log('Validation result:', validation)
     if (!validation.success) {
       toast.error(validation.error)
       return
     }
 
-    setIsAvatarUploading(true)
-    try {
-      const response = await uploadAvatar(validation.file)
+    // Open crop dialog instead of direct upload
+    setSelectedImageFile(validation.file)
+    setCropDialogOpen(true)
 
-      updateUser({
-        ...user,
-        avatar: response.avatar,
-      })
+    // Clear input
+    if (event.target) {
+      event.target.value = ''
+    }
+  }
+
+  const handleCropComplete = async (file: File, cropData: { x: number; y: number; width: number; height: number }) => {
+    setIsAvatarUploading(true)
+    setCropDialogOpen(false)
+    
+    try {
+      const response = await uploadAvatar(file, cropData)
+      
+      console.log('Avatar upload response:', response)
+
+      if (user && response.avatar) {
+        const updatedUser = {
+          ...user,
+          avatar: response.avatar,
+        }
+        console.log('Updating user with avatar:', updatedUser.avatar)
+        updateUser(updatedUser)
+        
+        // Small delay to ensure component update
+        await new Promise(resolve => setTimeout(resolve, 100))
+        console.log('User updated, avatar should now be visible')
+      } else {
+        console.warn('User is null or response.avatar is missing', { user, response })
+      }
 
       toast.success('Avatar updated successfully')
     } catch (error) {
+      console.error('Error uploading avatar:', error)
       toast.error(error instanceof Error ? error.message : 'Error uploading avatar')
     } finally {
       setIsAvatarUploading(false)
-
-      if (event.target) {
-        event.target.value = ''
-      }
+      setSelectedImageFile(null)
     }
   }
 
@@ -175,5 +225,9 @@ export function useProfileData() {
     handlePasswordChange,
     handlePasswordDataChange,
     handleAvatarUpload,
+    cropDialogOpen,
+    setCropDialogOpen,
+    selectedImageFile,
+    handleCropComplete,
   }
 }

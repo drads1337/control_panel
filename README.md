@@ -75,11 +75,27 @@ cd frontend
 npm run build:prod
 ```
 
-**Backend:**
+**Backend API:**
 ```bash
 cd backend
 gunicorn -c scripts/gunicorn.conf.py scripts.wsgi:application
 ```
+
+**Celery Workers (MUST run separately from API):**
+```bash
+# Start workers for different queues (run in separate processes/containers)
+python -m backend.scripts.celery_worker default      # Default queue (analytics, etc.)
+python -m backend.scripts.celery_worker server_tasks # Server management tasks
+python -m backend.scripts.celery_worker key_tasks     # Key generation tasks
+
+# Or use systemd services (see backend/scripts/*.service files)
+# Update paths in service files and install:
+# sudo cp backend/scripts/celery_worker_*.service /etc/systemd/system/
+# sudo systemctl enable celery-worker-default celery-worker-server-tasks celery-worker-key-tasks
+# sudo systemctl start celery-worker-default celery-worker-server-tasks celery-worker-key-tasks
+```
+
+**Important:** Celery workers MUST run in separate processes/containers from the Flask API server. Do not start workers in the same process as Gunicorn.
 
 ## Architecture
 

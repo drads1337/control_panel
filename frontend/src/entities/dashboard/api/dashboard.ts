@@ -1,6 +1,7 @@
 import { enhancedApi as api } from '@/shared/api/enhanced-client'
 import { API_ENDPOINTS } from '@/shared/api/config'
 import type { ApiMetrics } from '../model/types'
+import type { LoadStatusData } from '@/hooks/use-load-status'
 
 export interface DashboardData {
   overview: {
@@ -79,6 +80,7 @@ export interface DashboardData {
       tables: string[]
     }>
   }
+  load_status?: LoadStatusData
 }
 
 export async function getApiMetrics(): Promise<ApiMetrics> {

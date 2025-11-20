@@ -196,8 +196,8 @@ export function UserActivityList({ className }: UserActivityListProps) {
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
-                <RefreshCw className="h-4 w-4" />
+              <Button variant="ghost" size="icon" onClick={refresh} disabled={loading}>
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               </Button>
             </div>
           </div>

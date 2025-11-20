@@ -31,6 +31,7 @@ import { getProject } from '@/entities/project'
 import { projectKeys } from '@/hooks/use-projects-query'
 import { useNavigationQuery } from '@/hooks/use-navigation-query'
 import { canAccessNavigationItem, type NavigationItem } from '@/entities/navigation'
+import { getAvatarUrl } from '@/lib/utils'
 import {
   Sidebar,
   SidebarContent,
@@ -225,7 +226,7 @@ function AppSidebarContent() {
                   className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
                   <Avatar className="h-8 w-8 rounded-lg">
-                    <AvatarImage src={user?.avatar || undefined} alt={user?.username || 'User'} />
+                    <AvatarImage src={getAvatarUrl(user?.avatar)} alt={user?.username || 'User'} />
                     <AvatarFallback className="rounded-lg bg-sidebar-accent text-sidebar-foreground">
                       {user?.username?.charAt(0).toUpperCase() || 'U'}
                     </AvatarFallback>
@@ -255,7 +256,7 @@ function AppSidebarContent() {
                 <DropdownMenuLabel className="p-0 font-normal">
                   <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                     <Avatar className="h-8 w-8 rounded-lg">
-                      <AvatarImage src={user?.avatar || undefined} alt={user?.username || 'User'} />
+                      <AvatarImage src={getAvatarUrl(user?.avatar)} alt={user?.username || 'User'} />
                       <AvatarFallback className="rounded-lg">
                         {user?.username?.charAt(0).toUpperCase() || 'U'}
                       </AvatarFallback>

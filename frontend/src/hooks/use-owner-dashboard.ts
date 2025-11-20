@@ -61,6 +61,45 @@ export interface OwnerDashboardStats {
     two_factor_enabled: number
     last_security_scan: string
   }
+  load_status?: {
+    overall_status: 'normal' | 'warning' | 'critical'
+    project_id: number | null
+    endpoints: {
+      connect: {
+        endpoint: string
+        requests_per_second: number
+        total_requests: number
+        error_count: number
+        error_rate_percent: number
+        response_time_ms: {
+          avg: number
+          p50: number
+          p95: number
+          p99: number
+        }
+        status: 'normal' | 'warning' | 'critical'
+        severity: 'low' | 'medium' | 'high' | 'critical'
+        recommendations?: string[]
+      }
+      heartbeat: {
+        endpoint: string
+        requests_per_second: number
+        total_requests: number
+        error_count: number
+        error_rate_percent: number
+        response_time_ms: {
+          avg: number
+          p50: number
+          p95: number
+          p99: number
+        }
+        status: 'normal' | 'warning' | 'critical'
+        severity: 'low' | 'medium' | 'high' | 'critical'
+        recommendations?: string[]
+      }
+    }
+    timestamp: string
+  }
 }
 
 export interface RecentSystemActivity {

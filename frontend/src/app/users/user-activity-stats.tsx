@@ -103,12 +103,8 @@ export function UserActivityStats({
           </div>
           <div className="flex items-center gap-2">
             {onRefresh && (
-              <Button variant="outline" size="sm" onClick={onRefresh} disabled={loading}>
-                {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4" />
-                )}
+              <Button variant="ghost" size="icon" onClick={onRefresh} disabled={loading}>
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               </Button>
             )}
           </div>

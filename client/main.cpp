@@ -52,7 +52,7 @@ using json = nlohmann::json;
 
 constexpr const char* SERVER_URL = "http://192.168.1.7:5001";
 
-const std::string MASTER_KEY = "3b4983c57893d83ec38012ef27d4061663aa929dad8f51089d37f93bcff24daf";
+const std::string MASTER_KEY = "0889fee5ffdf6e6473a5f696a337e28785d0a41117f945991b75ee1f4fe4daa1";
 
 extern std::string g_gameName;
 
