@@ -1,7 +1,7 @@
 
 """
 Скрипт для копирования файлов проекта в отдельные директории.
-Копирует фронтенд из frontend/src/ и бэкенд из backend/, исключая ненужные файлы.
+Копирует только .py файлы из frontend/src/ и backend/, исключая ненужные файлы.
 """
 
 import os
@@ -71,6 +71,10 @@ def copy_directory_flat(src: Path, dst: Path, ignore_func=None) -> int:
 
         for file in files:
             src_file = root_path / file
+
+            # Копируем только .py файлы
+            if src_file.suffix != '.py':
+                continue
 
             if ignore_func and ignore_func(src_file):
                 continue

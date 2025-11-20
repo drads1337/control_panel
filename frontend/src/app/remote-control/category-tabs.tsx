@@ -1,5 +1,5 @@
 import React from 'react'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TabsList, TabsTrigger } from '@/components/animate-ui/components/radix/tabs'
 import { Button } from '@/components/ui/button'
 import { Plus, Settings } from 'lucide-react'
 import { RemoteCategory } from '@/lib/remote-control-api'
@@ -53,24 +53,26 @@ export default function CategoryTabs({
 
   return (
     <div className="flex items-center justify-between">
-      <TabsList 
-        className="grid w-full h-14 bg-muted border border-border rounded-lg mr-2" 
-        style={{ gridTemplateColumns: `repeat(${categories.length}, 1fr)` }}
-      >
-        {categories.map(category => (
-          <TabsTrigger
-            key={category.id}
-            value={category.id}
-            className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:bg-primary dark:data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm rounded-lg transition-all duration-200"
-          >
-            <div
-              className="w-2 h-2 rounded-full"
-              style={{ backgroundColor: category.color }}
-            />
-            <span>{category.name}</span>
-          </TabsTrigger>
-        ))}
-      </TabsList>
+      <div className="relative mr-2 flex-1">
+        <TabsList 
+          className={`grid w-full h-14 bg-muted border border-border rounded-lg p-1`}
+          style={{ gridTemplateColumns: `repeat(${categories.length}, 1fr)` }}
+        >
+          {categories.map(category => (
+            <TabsTrigger
+              key={category.id}
+              value={category.id}
+              className="flex items-center justify-center gap-2"
+            >
+              <div
+                className="w-2 h-2 rounded-full"
+                style={{ backgroundColor: category.color }}
+              />
+              <span>{category.name}</span>
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </div>
 
       <div className="flex gap-2 shrink-0">
         <ConditionalRender permission="remote_control.create" fallback={null}>

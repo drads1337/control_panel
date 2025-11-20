@@ -1,5 +1,5 @@
 import React from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { 
   getLicenseKeys, 
   createLicenseKey,
@@ -117,6 +117,7 @@ export function useKeysQuery(initialParams: UseKeysParams = {}): UseKeysReturn {
     },
     staleTime: 2 * 60 * 1000,
     enabled: isAuthenticated,
+    placeholderData: keepPreviousData,
   })
 
   const createKeyMutation = useMutation({

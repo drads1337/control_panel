@@ -167,14 +167,14 @@ class ProjectEncryptionKeys(db.Model):
     def __repr__(self):
         return f"<ProjectEncryptionKeys(project_id={self.project_id})>"
 
-class ProjectSettings(db.Model):
-    """Model for storing project-specific settings"""
+class ProjectSecuritySettings(db.Model):
+    """Model for storing project security settings"""
 
     id = db.Column(db.Integer, primary_key=True)
     project_id = db.Column(
         db.Integer, db.ForeignKey("project.id", ondelete="CASCADE"), nullable=False, unique=True
     )
-    project = db.relationship("Project", backref="settings")
+    project = db.relationship("Project", backref="security_settings")
 
     min_password_length = db.Column(db.Integer, default=8)
     max_login_attempts = db.Column(db.Integer, default=5)
@@ -182,6 +182,34 @@ class ProjectSettings(db.Model):
     max_sessions_per_user = db.Column(db.Integer, default=5)
     log_retention_days = db.Column(db.Integer, default=60)
     security_log_level = db.Column(db.String(20), default="warning")
+
+    two_factor_auth_required = db.Column(db.Boolean, default=False)
+    password_complexity_required = db.Column(db.Boolean, default=True)
+    session_fingerprinting = db.Column(db.Boolean, default=True)
+    ip_whitelist_enabled = db.Column(db.Boolean, default=False)
+    ip_whitelist = db.Column(db.Text, nullable=True)
+    rate_limiting_enabled = db.Column(db.Boolean, default=True)
+    rate_limit_requests_per_minute = db.Column(db.Integer, default=60)
+    vpn_blocking_enabled = db.Column(db.Boolean, default=False)
+    security_logging_enabled = db.Column(db.Boolean, default=True)
+    suspicious_activity_check_enabled = db.Column(db.Boolean, default=True)
+    session_limiting_enabled = db.Column(db.Boolean, default=True)
+    auto_log_cleanup_enabled = db.Column(db.Boolean, default=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<ProjectSecuritySettings(project_id={self.project_id})>"
+
+class ProjectSystemSettings(db.Model):
+    """Model for storing project system settings"""
+
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(
+        db.Integer, db.ForeignKey("project.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    project = db.relationship("Project", backref="system_settings")
 
     max_connections = db.Column(db.Integer, default=100)
     session_timeout_minutes = db.Column(db.Integer, default=30)
@@ -191,43 +219,183 @@ class ProjectSettings(db.Model):
     analytics_enabled = db.Column(db.Boolean, default=False)
     system_notifications_enabled = db.Column(db.Boolean, default=True)
 
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<ProjectSystemSettings(project_id={self.project_id})>"
+
+class ProjectEncryptionSettings(db.Model):
+    """Model for storing project encryption settings"""
+
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(
+        db.Integer, db.ForeignKey("project.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    project = db.relationship("Project", backref="encryption_settings")
+
+    encryption_enabled = db.Column(db.Boolean, default=False)
+    encryption_algorithm = db.Column(db.String(32), default="AES-256")
+    key_rotation_days = db.Column(db.Integer, default=90)
+    project_master_key = db.Column(db.Text, nullable=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<ProjectEncryptionSettings(project_id={self.project_id})>"
+
+class ProjectBackupSettings(db.Model):
+    """Model for storing project backup settings"""
+
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(
+        db.Integer, db.ForeignKey("project.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    project = db.relationship("Project", backref="backup_settings")
+
+    auto_backup_enabled = db.Column(db.Boolean, default=False)
+    backup_frequency_hours = db.Column(db.Integer, default=24)
+    backup_retention_days = db.Column(db.Integer, default=30)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<ProjectBackupSettings(project_id={self.project_id})>"
+
+class ProjectChatSettings(db.Model):
+    """Model for storing project chat settings"""
+
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(
+        db.Integer, db.ForeignKey("project.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    project = db.relationship("Project", backref="chat_settings")
+
+    chat_message_limit_per_minute = db.Column(db.Integer, default=30)
+    chat_daily_message_limit = db.Column(db.Integer, default=1000)
+    chat_message_max_length = db.Column(db.Integer, default=1000)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<ProjectChatSettings(project_id={self.project_id})>"
+
+class ProjectOfflineAuthSettings(db.Model):
+    """Model for storing project offline authentication settings"""
+
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(
+        db.Integer, db.ForeignKey("project.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    project = db.relationship("Project", backref="offline_auth_settings")
+
+    offline_auth_enabled = db.Column(db.Boolean, default=False)
+    offline_ticket_expiration_hours = db.Column(db.Integer, default=12)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<ProjectOfflineAuthSettings(project_id={self.project_id})>"
+
+class ProjectAppearanceSettings(db.Model):
+    """Model for storing project appearance settings"""
+
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(
+        db.Integer, db.ForeignKey("project.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    project = db.relationship("Project", backref="appearance_settings")
+
+    appearance_settings = db.Column(db.Text, nullable=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<ProjectAppearanceSettings(project_id={self.project_id})>"
+
+class ProjectInviteSettings(db.Model):
+    """Model for storing project invite settings"""
+
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(
+        db.Integer, db.ForeignKey("project.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    project = db.relationship("Project", backref="invite_settings")
+
+    invite_code_required = db.Column(db.Boolean, default=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<ProjectInviteSettings(project_id={self.project_id})>"
+
+# Backward compatibility: Keep ProjectSettings as a view/alias that aggregates all settings
+# This allows gradual migration of existing code
+class ProjectSettings(db.Model):
+    """
+    DEPRECATED: This model is kept for backward compatibility.
+    Use specific settings models instead:
+    - ProjectSecuritySettings
+    - ProjectSystemSettings
+    - ProjectEncryptionSettings
+    - ProjectBackupSettings
+    - ProjectChatSettings
+    - ProjectOfflineAuthSettings
+    - ProjectAppearanceSettings
+    - ProjectInviteSettings
+    """
+
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(
+        db.Integer, db.ForeignKey("project.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    project = db.relationship("Project", backref="settings")
+
+    # All fields are deprecated - use specific settings models instead
+    # These are kept for backward compatibility during migration
+    min_password_length = db.Column(db.Integer, default=8)
+    max_login_attempts = db.Column(db.Integer, default=5)
+    ip_block_duration_minutes = db.Column(db.Integer, default=15)
+    max_sessions_per_user = db.Column(db.Integer, default=5)
+    log_retention_days = db.Column(db.Integer, default=60)
+    security_log_level = db.Column(db.String(20), default="warning")
+    max_connections = db.Column(db.Integer, default=100)
+    session_timeout_minutes = db.Column(db.Integer, default=30)
+    log_file_size_mb = db.Column(db.Integer, default=100)
+    system_log_level = db.Column(db.String(20), default="info")
+    auto_save_enabled = db.Column(db.Boolean, default=True)
+    analytics_enabled = db.Column(db.Boolean, default=False)
+    system_notifications_enabled = db.Column(db.Boolean, default=True)
     two_factor_auth_required = db.Column(db.Boolean, default=False)
     password_complexity_required = db.Column(db.Boolean, default=True)
     session_fingerprinting = db.Column(db.Boolean, default=True)
     ip_whitelist_enabled = db.Column(db.Boolean, default=False)
     ip_whitelist = db.Column(db.Text, nullable=True)
     rate_limiting_enabled = db.Column(db.Boolean, default=True)
-    rate_limit_requests_per_minute = db.Column(
-        db.Integer, default=60
-    )
+    rate_limit_requests_per_minute = db.Column(db.Integer, default=60)
     vpn_blocking_enabled = db.Column(db.Boolean, default=False)
     security_logging_enabled = db.Column(db.Boolean, default=True)
-    suspicious_activity_check_enabled = db.Column(
-        db.Boolean, default=True
-    )
+    suspicious_activity_check_enabled = db.Column(db.Boolean, default=True)
     session_limiting_enabled = db.Column(db.Boolean, default=True)
     auto_log_cleanup_enabled = db.Column(db.Boolean, default=True)
-
     encryption_enabled = db.Column(db.Boolean, default=False)
     encryption_algorithm = db.Column(db.String(32), default="AES-256")
     key_rotation_days = db.Column(db.Integer, default=90)
-
     auto_backup_enabled = db.Column(db.Boolean, default=False)
     backup_frequency_hours = db.Column(db.Integer, default=24)
     backup_retention_days = db.Column(db.Integer, default=30)
-
     appearance_settings = db.Column(db.Text, nullable=True)
-
     project_master_key = db.Column(db.Text, nullable=True)
-
-    invite_code_required = db.Column(
-        db.Boolean, default=True
-    )
-
+    invite_code_required = db.Column(db.Boolean, default=True)
     chat_message_limit_per_minute = db.Column(db.Integer, default=30)
     chat_daily_message_limit = db.Column(db.Integer, default=1000)
     chat_message_max_length = db.Column(db.Integer, default=1000)
-
     offline_auth_enabled = db.Column(db.Boolean, default=False)
     offline_ticket_expiration_hours = db.Column(db.Integer, default=12)
 
@@ -245,8 +413,6 @@ class User(db.Model):
     password = db.Column(db.String(200), nullable=False)
     referral_code = db.Column(db.String(32), unique=True)
     invited_by = db.Column(db.Integer, db.ForeignKey("user.id"))
-    role = db.Column(db.String(32), default="seller")
-    is_admin = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     expires_at = db.Column(db.DateTime, nullable=True)
     avatar = db.Column(db.String(256), nullable=True)
@@ -282,13 +448,19 @@ class UserActivity(db.Model):
     user_agent = db.Column(db.String(512), nullable=True)
     country = db.Column(db.String(64), nullable=True)
     city = db.Column(db.String(64), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True, index=True)
     project = db.relationship("Project", backref="user_activities")
     details = db.Column(db.Text, nullable=True)
     session_id = db.Column(db.String(128), nullable=True)
 
     user = db.relationship("User", backref="activities")
+    
+    # Composite index for common query patterns: filtering by project and date range
+    __table_args__ = (
+        db.Index("idx_user_activity_project_created", "project_id", "created_at"),
+        db.Index("idx_user_activity_user_created", "user_id", "created_at"),
+    )
 
     def to_dict(self):
         """Convert model to dictionary for JSON response"""
@@ -306,13 +478,19 @@ class UserActivity(db.Model):
 
 class UserActionLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True, index=True)
     action = db.Column(db.String(256), nullable=False)
     details = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     user = db.relationship("User", backref="action_logs")
     project = db.relationship("Project", backref="action_logs")
+    
+    # Composite index for common query patterns
+    __table_args__ = (
+        db.Index("idx_user_action_log_project_created", "project_id", "created_at"),
+        db.Index("idx_user_action_log_user_created", "user_id", "created_at"),
+    )
 
 class UserGamePermission(db.Model):
     id = db.Column(db.Integer, primary_key=True)

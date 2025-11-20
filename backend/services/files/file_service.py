@@ -73,6 +73,95 @@ class FileService:
         """Check if file type is allowed for upload - allows all file types"""
         return bool(filename)
 
+    def validate_file_signature(self, file_path: str, expected_extensions: Optional[List[str]] = None) -> Tuple[bool, Optional[str]]:
+        """
+        Validate file signature (magic bytes) to prevent file type spoofing.
+        
+        SECURITY: This function checks the actual file content (magic bytes) rather than
+        just the file extension. This prevents attackers from uploading executable files
+        with image extensions (e.g., malware.exe renamed to malware.png).
+        
+        Args:
+            file_path: Path to the file to validate
+            expected_extensions: Optional list of expected file extensions (e.g., ['png', 'jpg', 'jpeg'])
+                                If None, only dangerous executable signatures are checked.
+        
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
+        # Common file signatures (magic bytes)
+        # Format: (signature_bytes, file_type_description)
+        dangerous_signatures = [
+            (b'MZ', 'Windows executable (PE)'),
+            (b'\x7fELF', 'Linux/Unix executable'),
+            (b'\xfe\xed\xfa\xce', 'Mach-O binary (32-bit)'),
+            (b'\xfe\xed\xfa\xcf', 'Mach-O binary (64-bit)'),
+            (b'\xce\xfa\xed\xfe', 'Mach-O binary (32-bit, swapped)'),
+            (b'\xcf\xfa\xed\xfe', 'Mach-O binary (64-bit, swapped)'),
+            (b'PK\x03\x04', 'ZIP archive (could be JAR/WAR/EAR)'),
+            (b'PK\x05\x06', 'ZIP archive (empty)'),
+            (b'PK\x07\x08', 'ZIP archive (spanned)'),
+        ]
+        
+        image_signatures = {
+            b'\x89PNG\r\n\x1a\n': ['png'],
+            b'\xff\xd8\xff': ['jpg', 'jpeg'],
+            b'GIF87a': ['gif'],
+            b'GIF89a': ['gif'],
+            b'RIFF': ['webp'],  # WebP files start with RIFF, but need more validation
+        }
+        
+        try:
+            with open(file_path, 'rb') as f:
+                # Read first 12 bytes (enough for most signatures)
+                header = f.read(12)
+                
+                if len(header) < 2:
+                    return True, None  # Too small to validate, allow it
+                
+                # Check for dangerous executable signatures
+                for signature, description in dangerous_signatures:
+                    if header.startswith(signature):
+                        return False, f"File signature indicates {description}. This file type is not allowed for security reasons."
+                
+                # If expected extensions are provided, validate against image signatures
+                if expected_extensions:
+                    # Normalize extensions (remove dots, lowercase)
+                    normalized_exts = [ext.lstrip('.').lower() for ext in expected_extensions]
+                    
+                    # Check if any image signature matches
+                    signature_matched = False
+                    for sig_bytes, valid_exts in image_signatures.items():
+                        if header.startswith(sig_bytes):
+                            # For WebP, need to check more bytes
+                            if sig_bytes == b'RIFF':
+                                f.seek(0)
+                                webp_header = f.read(12)
+                                if len(webp_header) >= 12 and webp_header[8:12] == b'WEBP':
+                                    signature_matched = True
+                                    break
+                            else:
+                                signature_matched = True
+                                break
+                    
+                    # If we expect image extensions, verify the signature matches
+                    if any(ext in ['png', 'jpg', 'jpeg', 'gif', 'webp'] for ext in normalized_exts):
+                        if not signature_matched:
+                            return False, f"File extension suggests image file, but file signature does not match. Possible file type spoofing."
+                        # Verify the extension matches the signature
+                        for sig_bytes, valid_exts in image_signatures.items():
+                            if header.startswith(sig_bytes):
+                                if not any(ext in valid_exts for ext in normalized_exts):
+                                    return False, f"File signature indicates {valid_exts[0]} file, but extension does not match."
+                                break
+                
+                return True, None
+        except Exception as e:
+            self.logger.warning(f"Error validating file signature for {file_path}: {e}")
+            # On error, allow the file but log the warning
+            # This prevents blocking legitimate files due to validation errors
+            return True, None
+
     def get_file_hash(self, file_path: str) -> str:
         """Calculate SHA256 hash of a file"""
         hash_sha256 = hashlib.sha256()
@@ -270,6 +359,19 @@ class FileService:
 
             file_path = os.path.join(upload_path, filename)
             file.save(file_path)
+
+            # SECURITY: Validate file signature (magic bytes) to prevent file type spoofing
+            # Check if file extension suggests an image, and validate accordingly
+            ext_lower = ext.lstrip('.').lower() if ext else None
+            expected_extensions = [ext_lower] if ext_lower and ext_lower in ['png', 'jpg', 'jpeg', 'gif', 'webp'] else None
+            is_valid, validation_error = self.validate_file_signature(file_path, expected_extensions)
+            if not is_valid:
+                # Remove the invalid file
+                try:
+                    os.remove(file_path)
+                except Exception:
+                    pass
+                return None, validation_error or "File validation failed"
 
             file_hash = self.get_file_hash(file_path)
             stat = os.stat(file_path)
@@ -847,6 +949,17 @@ class FileService:
             file_path = os.path.join(upload_path, filename)
             file.save(file_path)
 
+            # SECURITY: Validate file signature (magic bytes) to prevent file type spoofing
+            # For config files, we should block executable signatures
+            is_valid, validation_error = self.validate_file_signature(file_path, None)
+            if not is_valid:
+                # Remove the invalid file
+                try:
+                    os.remove(file_path)
+                except Exception:
+                    pass
+                return None, validation_error or "File validation failed: executable files are not allowed as config files"
+
             file_hash = self.get_file_hash(file_path)
             file_type = ext.lstrip(".").lower()
 
@@ -928,6 +1041,17 @@ class FileService:
 
             file_path = os.path.join(upload_path, unique_filename)
             file.save(file_path)
+
+            # SECURITY: Validate file signature (magic bytes) to prevent file type spoofing
+            # For extra files, we should block executable signatures
+            is_valid, validation_error = self.validate_file_signature(file_path, None)
+            if not is_valid:
+                # Remove the invalid file
+                try:
+                    os.remove(file_path)
+                except Exception:
+                    pass
+                return None, validation_error or "File validation failed: executable files are not allowed as extra files"
 
             file_hash = self.get_file_hash(file_path)
             file_type = ext.lstrip(".").lower()

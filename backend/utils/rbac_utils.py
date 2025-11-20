@@ -195,7 +195,9 @@ class RBACManager:
                     logging.error(f"Error getting RBAC roles for user {getattr(user, 'username', 'unknown')}: {e}")
 
                     return [default_role]
-
+            
+            # Users without project_id must have RBAC roles assigned
+            # If no RBAC roles found, return default role
             return [default_role]
 
         except Exception as e:

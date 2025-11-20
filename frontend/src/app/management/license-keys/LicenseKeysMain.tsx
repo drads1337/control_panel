@@ -37,6 +37,7 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToGameDatabas
   const [viewMode, setViewMode] = useState<'my' | 'all'>('my');
   const [filters, setFilters] = useState({ status: 'all', gameId: 'all', search: '' });
   const [currentPage, setCurrentPage] = useState(1);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   useEffect(() => {
 
@@ -49,6 +50,7 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToGameDatabas
 
   useEffect(() => {
     setCurrentPage(1);
+    setIsInitialLoad(true);
   }, [filters, viewMode]);
 
   const {
@@ -83,12 +85,20 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToGameDatabas
     canViewKeys,
   });
 
+  useEffect(() => {
+    if (!loading && keys.length > 0) {
+      setIsInitialLoad(false);
+    }
+  }, [loading, keys.length]);
+
   const gamesLoadedRef = React.useRef(false);
 
   useEffect(() => {
-    if (activeTab === 'license-keys' && !gamesLoadedRef.current) {
-      loadGames();
-      gamesLoadedRef.current = true;
+    if (activeTab === 'license-keys') {
+      if (!gamesLoadedRef.current) {
+        loadGames();
+        gamesLoadedRef.current = true;
+      }
     }
   }, [activeTab, loadGames]);
 
@@ -96,9 +106,7 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToGameDatabas
     setFilters({ status: 'all', gameId: 'all', search: '' });
   };
 
-  const hasAnyKeyPermission = canViewKeys || canCreateKeys || canEditKeys || canDeleteKeys || 
-                               canGenerateKeys || canResetPcBinding || canPauseResume || 
-                               canExtend || canBlock || canManage;
+  const hasAnyKeyPermission = canViewKeys || canCreateKeys || canEditKeys || canDeleteKeys || canGenerateKeys || canResetPcBinding || canPauseResume || canExtend || canBlock || canManage;
 
   if (!hasAnyKeyPermission) {
     return (
@@ -111,7 +119,7 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToGameDatabas
     );
   }
 
-  if (loading) {
+  if (loading && keys.length === 0 && isInitialLoad) {
     return (
       <div className="p-8">
         <Spinner message="Loading..." />

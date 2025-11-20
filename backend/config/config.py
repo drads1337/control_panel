@@ -105,7 +105,24 @@ class Config:
             "Please set JWT_SECRET_KEY with a secure random string.\n"
             "Example: export JWT_SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
         )
-    BOT_API_KEY = os.environ.get("BOT_API_KEY", "your-bot-api-key-here")
+    # SECURITY: BOT_API_KEY should be set explicitly in production
+    # For development, a warning is logged but the app continues
+    # In production, this should be set to prevent security issues
+    BOT_API_KEY = os.environ.get("BOT_API_KEY")
+    if not BOT_API_KEY:
+        flask_env_check = os.environ.get("FLASK_ENV", "development")
+        if flask_env_check == "production":
+            raise RuntimeError(
+                "CRITICAL SECURITY ERROR: BOT_API_KEY environment variable is not set!\n"
+                "In production, BOT_API_KEY must be set explicitly.\n"
+                "Please set BOT_API_KEY with your bot API key."
+            )
+        else:
+            logging.warning(
+                "BOT_API_KEY not set in environment. This is acceptable for development only. "
+                "Please set BOT_API_KEY in production."
+            )
+            BOT_API_KEY = None
     AVATARS_FOLDER = os.environ.get("AVATARS_FOLDER", "uploads/avatars")
     UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", "uploads")
     DEBUG = False

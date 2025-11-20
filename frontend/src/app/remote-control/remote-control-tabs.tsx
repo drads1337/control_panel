@@ -1,5 +1,5 @@
 import React from 'react'
-import { Tabs, TabsContent } from '@/components/ui/tabs'
+import { Tabs, TabsContent, TabsContents } from '@/components/animate-ui/components/radix/tabs'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import CategoryTabs from './category-tabs'
 import FeatureList from './feature-list'
@@ -76,7 +76,7 @@ export default function RemoteControlTabs({
       />
 
       {categories.length > 0 && (
-        <>
+        <TabsContents>
           {categories.map(category => (
             <TabsContent key={category.id} value={category.id} className="mt-0">
               <Card>
@@ -126,7 +126,7 @@ export default function RemoteControlTabs({
               </Card>
             </TabsContent>
           ))}
-        </>
+        </TabsContents>
       )}
     </Tabs>
   )

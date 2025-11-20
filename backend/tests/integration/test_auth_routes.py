@@ -148,7 +148,7 @@ class TestAuthRoutes:
             "id": test_user.id,
             "username": test_user.username,
             "email": test_user.email,
-            "role": test_user.role,
+            "rbac_roles": [],
         }
         mocker.patch(
             "backend.routes.auth.user_service.get_user_profile",

@@ -1,21 +1,48 @@
 
 """
 Script to initialize and create database migrations
+
+SECURITY: This script requires all environment variables to be set explicitly.
+No default values are provided to prevent accidental use of insecure defaults in production.
 """
 import os
 import sys
 import traceback
 
-os.environ["DATABASE_URL"] = "postgresql://panel123:password123@localhost:5432/panel123"
-
-import secrets
+# SECURITY: Do not set default values for sensitive configuration.
+# The application must fail if environment variables are not set.
+# This prevents accidental use of insecure defaults in production.
+if not os.environ.get("DATABASE_URL"):
+    raise RuntimeError(
+        "CRITICAL SECURITY ERROR: DATABASE_URL environment variable is not set!\n"
+        "This script requires DATABASE_URL to be set explicitly.\n"
+        "Please set DATABASE_URL with your PostgreSQL connection string.\n"
+        "Example: export DATABASE_URL='postgresql://username:password@localhost/database'"
+    )
 
 if not os.environ.get("SECRET_KEY"):
-    os.environ["SECRET_KEY"] = secrets.token_urlsafe(32)
+    raise RuntimeError(
+        "CRITICAL SECURITY ERROR: SECRET_KEY environment variable is not set!\n"
+        "This script requires SECRET_KEY to be set explicitly.\n"
+        "Please set SECRET_KEY with a secure random string.\n"
+        "Example: export SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+    )
+
 if not os.environ.get("JWT_SECRET_KEY"):
-    os.environ["JWT_SECRET_KEY"] = secrets.token_urlsafe(32)
-if not os.environ.get("MASTER_KEY"):
-    os.environ["MASTER_KEY"] = secrets.token_urlsafe(32)
+    raise RuntimeError(
+        "CRITICAL SECURITY ERROR: JWT_SECRET_KEY environment variable is not set!\n"
+        "This script requires JWT_SECRET_KEY to be set explicitly.\n"
+        "Please set JWT_SECRET_KEY with a secure random string.\n"
+        "Example: export JWT_SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+    )
+
+if not os.environ.get("PANEL_MASTER_KEY"):
+    raise RuntimeError(
+        "CRITICAL SECURITY ERROR: PANEL_MASTER_KEY environment variable is not set!\n"
+        "This script requires PANEL_MASTER_KEY to be set explicitly.\n"
+        "Please set PANEL_MASTER_KEY with a secure 32-byte hex key.\n"
+        "Example: export PANEL_MASTER_KEY=$(python -c 'import secrets; print(secrets.token_hex(32))')"
+    )
 
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

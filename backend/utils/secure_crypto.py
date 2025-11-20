@@ -3,18 +3,25 @@ SECURITY FIX: Secure cryptographic utilities using AES-256-GCM
 Replaces custom crypto implementations with proven, secure methods.
 AES-256-GCM is the industry standard for authenticated encryption,
 providing both confidentiality and integrity.
+
+This is the single source of truth for all cryptographic operations.
 """
 
 import base64
 import json
+import logging
 import os
 import secrets
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import Any, Dict, Tuple
 
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.x509 import CertificateBuilder, Name, NameAttribute, SubjectAlternativeName
+from cryptography.x509.oid import NameOID
 
 class SecureCrypto:
     """
@@ -26,6 +33,272 @@ class SecureCrypto:
     def generate_key() -> bytes:
         """Generate a secure 32-byte (256-bit) key for AES-256-GCM encryption."""
         return os.urandom(32)
+
+    @staticmethod
+    def generate_secure_aes_key() -> str:
+        """
+        Generate a secure 256-bit key for AES-256-GCM.
+        Returns hex-encoded key (64 characters).
+        """
+        key = os.urandom(32)
+        return key.hex()
+
+    @staticmethod
+    def generate_secure_rsa_key_pair() -> Tuple[str, str]:
+        """
+        Generate RSA key pair using secure parameters.
+        Returns (private_key_pem, public_key_pem).
+        """
+        private_key = rsa.generate_private_key(
+            public_exponent=65537, key_size=2048, backend=default_backend()
+        )
+        public_key = private_key.public_key()
+
+        private_pem = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+
+        public_pem = public_key.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+
+        return private_pem.decode("utf-8"), public_pem.decode("utf-8")
+
+    @staticmethod
+    def generate_secure_self_signed_certificate(project_name: str, private_key_pem: str) -> str:
+        """
+        Generate self-signed certificate with secure parameters.
+        """
+        private_key = serialization.load_pem_private_key(
+            private_key_pem.encode("utf-8"), password=None, backend=default_backend()
+        )
+
+        subject = issuer = Name(
+            [
+                NameAttribute(NameOID.COUNTRY_NAME, "US"),
+                NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, "CA"),
+                NameAttribute(NameOID.LOCALITY_NAME, "San Francisco"),
+                NameAttribute(NameOID.ORGANIZATION_NAME, project_name),
+                NameAttribute(NameOID.COMMON_NAME, f"{project_name}.com"),
+            ]
+        )
+
+        cert_builder = CertificateBuilder()
+        cert_builder = cert_builder.subject_name(subject)
+        cert_builder = cert_builder.issuer_name(issuer)
+        cert_builder = cert_builder.public_key(private_key.public_key())
+        cert_builder = cert_builder.serial_number(secrets.randbelow(2**64))
+        cert_builder = cert_builder.not_valid_before(datetime.utcnow())
+        cert_builder = cert_builder.not_valid_after(
+            datetime.utcnow() + timedelta(days=365 * 2)
+        )
+
+        from cryptography.x509.general_name import DNSName
+
+        cert_builder = cert_builder.add_extension(
+            SubjectAlternativeName(
+                [
+                    DNSName(f"{project_name}.com"),
+                    DNSName(f"*.{project_name}.com"),
+                ]
+            ),
+            critical=False,
+        )
+
+        certificate = cert_builder.sign(
+            private_key=private_key, algorithm=hashes.SHA256(), backend=default_backend()
+        )
+
+        return certificate.public_bytes(serialization.Encoding.PEM).decode("utf-8")
+
+    @staticmethod
+    def encrypt_private_key_secure(private_key_pem: str, project_password: str) -> str:
+        """
+        Encrypt private key using AES-256-GCM.
+        """
+        salt = os.urandom(16)
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=salt,
+            iterations=100000,
+            backend=default_backend(),
+        )
+        key = kdf.derive(project_password.encode("utf-8"))
+
+        iv = os.urandom(12)
+        cipher = Cipher(algorithms.AES(key), modes.GCM(iv), backend=default_backend())
+        encryptor = cipher.encryptor()
+
+        encrypted_data = encryptor.update(private_key_pem.encode("utf-8")) + encryptor.finalize()
+        tag = encryptor.tag
+
+        combined = salt + iv + encrypted_data + tag
+        return base64.b64encode(combined).decode("utf-8")
+
+    @staticmethod
+    def decrypt_private_key_secure(encrypted_private_key: str, project_password: str) -> str:
+        """
+        Decrypt private key using AES-256-GCM.
+        """
+        try:
+            combined = base64.b64decode(encrypted_private_key)
+
+            if len(combined) < 44:
+                raise ValueError("Encrypted private key too short")
+
+            salt = combined[:16]
+            iv = combined[16:28]
+            tag = combined[-16:]
+            encrypted_data = combined[28:-16]
+
+            kdf = PBKDF2HMAC(
+                algorithm=hashes.SHA256(),
+                length=32,
+                salt=salt,
+                iterations=100000,
+                backend=default_backend(),
+            )
+            key = kdf.derive(project_password.encode("utf-8"))
+
+            cipher = Cipher(algorithms.AES(key), modes.GCM(iv, tag), backend=default_backend())
+            decryptor = cipher.decryptor()
+            decrypted_data = decryptor.update(encrypted_data) + decryptor.finalize()
+
+            return decrypted_data.decode("utf-8")
+
+        except Exception as e:
+            raise ValueError(f"Failed to decrypt private key: {str(e)}")
+
+    @staticmethod
+    def sign_data_secure(data: str, encrypted_private_key: str, project_password: str) -> str:
+        """
+        Sign data using RSA with secure padding.
+        """
+        try:
+            private_key_pem = SecureCrypto.decrypt_private_key_secure(
+                encrypted_private_key, project_password
+            )
+
+            private_key = serialization.load_pem_private_key(
+                private_key_pem.encode("utf-8"), password=None, backend=default_backend()
+            )
+
+            if isinstance(data, str):
+                data = data.encode("utf-8")
+
+            signature = private_key.sign(
+                data,
+                padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH),
+                hashes.SHA256(),
+            )
+
+            return base64.b64encode(signature).decode("utf-8")
+
+        except Exception as e:
+            raise ValueError(f"Failed to sign data: {str(e)}")
+
+    @staticmethod
+    def verify_signature_secure(data: str, signature_b64: str, public_key_cert: str) -> bool:
+        """
+        Verify signature using RSA with secure padding.
+        """
+        try:
+            certificate = serialization.load_pem_x509_certificate(
+                public_key_cert.encode("utf-8"), backend=default_backend()
+            )
+
+            public_key = certificate.public_key()
+            signature = base64.b64decode(signature_b64)
+
+            if isinstance(data, str):
+                data = data.encode("utf-8")
+
+            public_key.verify(
+                signature,
+                data,
+                padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH),
+                hashes.SHA256(),
+            )
+
+            return True
+
+        except Exception as e:
+            logging.warning(f"Signature verification failed: {str(e)}")
+            return False
+
+    @staticmethod
+    def encrypt_data_secure(data: str, aes_key_hex: str) -> str:
+        """
+        Encrypt data using AES-256-GCM.
+        Key should be a hex string (64 characters for 32 bytes).
+        """
+        try:
+            if len(aes_key_hex) == 64:
+                key = bytes.fromhex(aes_key_hex)
+            else:
+                key = base64.b64decode(aes_key_hex)
+
+            if len(key) != 32:
+                raise ValueError(
+                    f"Key must be 32 bytes (256 bits) for AES-256, got {len(key)} bytes"
+                )
+
+            if isinstance(data, str):
+                data = data.encode("utf-8")
+            elif not isinstance(data, bytes):
+                data = json.dumps(data).encode("utf-8")
+
+            iv = os.urandom(12)
+            cipher = Cipher(algorithms.AES(key), modes.GCM(iv), backend=default_backend())
+            encryptor = cipher.encryptor()
+
+            encrypted = encryptor.update(data) + encryptor.finalize()
+            tag = encryptor.tag
+
+            combined = iv + encrypted + tag
+            return base64.b64encode(combined).decode("utf-8")
+
+        except Exception as e:
+            raise ValueError(f"Encryption failed: {str(e)}")
+
+    @staticmethod
+    def decrypt_data_secure(encrypted_data_b64: str, aes_key_hex: str) -> str:
+        """
+        Decrypt data using AES-256-GCM.
+        Key should be a hex string (64 characters for 32 bytes).
+        """
+        try:
+            if len(aes_key_hex) == 64:
+                key = bytes.fromhex(aes_key_hex)
+            else:
+                key = base64.b64decode(aes_key_hex)
+
+            if len(key) != 32:
+                raise ValueError(
+                    f"Key must be 32 bytes (256 bits) for AES-256, got {len(key)} bytes"
+                )
+
+            combined = base64.b64decode(encrypted_data_b64)
+
+            if len(combined) < 28:
+                raise ValueError(f"Encrypted data too short: {len(combined)} bytes (minimum 28)")
+
+            iv = combined[:12]
+            tag = combined[-16:]
+            ciphertext = combined[12:-16]
+
+            cipher = Cipher(algorithms.AES(key), modes.GCM(iv, tag), backend=default_backend())
+            decryptor = cipher.decryptor()
+            decrypted = decryptor.update(ciphertext) + decryptor.finalize()
+
+            return decrypted.decode("utf-8")
+
+        except Exception as e:
+            raise ValueError(f"Decryption failed: {str(e)}")
 
     @staticmethod
     def derive_key_from_password(password: str, salt: bytes = None) -> bytes:
@@ -554,3 +827,47 @@ def decrypt_with_master_key(encrypted_data: str, master_key: str) -> str:
     Uses AES-256-GCM decryption (industry standard).
     """
     return MasterKeyManager.decrypt_with_master_key(encrypted_data, master_key)
+
+def generate_project_keys_secure(project_name: str) -> Dict[str, Any]:
+    """
+    Generate all encryption keys for a project using secure methods.
+    Returns dictionary with aes_key, public_key_cert, private_key_encrypted, project_password, and metadata.
+    """
+    aes_key = SecureCrypto.generate_secure_aes_key()
+
+    private_key_pem, public_key_pem = SecureCrypto.generate_secure_rsa_key_pair()
+
+    certificate = SecureCrypto.generate_secure_self_signed_certificate(
+        project_name, private_key_pem
+    )
+
+    project_password = f"{project_name}_{secrets.token_hex(16)}"
+
+    encrypted_private_key = SecureCrypto.encrypt_private_key_secure(
+        private_key_pem, project_password
+    )
+
+    metadata = {
+        "algorithm": "AES-256-GCM + RSA-2048",
+        "aes_key_size": 256,
+        "rsa_key_size": 2048,
+        "certificate_validity_days": 730,
+        "encryption_method": "AES-256-GCM with PBKDF2 key derivation",
+        "generated_at": datetime.utcnow().isoformat(),
+        "security_level": "high",
+    }
+
+    return {
+        "aes_key": aes_key,
+        "public_key_cert": certificate,
+        "private_key_encrypted": encrypted_private_key,
+        "project_password": project_password,
+        "metadata": metadata,
+    }
+
+# Backward compatibility aliases
+def encrypt_data(data: str, aes_key_hex: str) -> str:
+    """
+    Backward compatibility wrapper for encrypt_data_secure.
+    """
+    return SecureCrypto.encrypt_data_secure(data, aes_key_hex)

@@ -35,11 +35,7 @@ export default function Projects() {
   }, [user])
 
   useEffect(() => {
-    ),
-      isLoading,
-      error,
-      pagination
-    })
+
   }, [projects, isLoading, error, pagination])
 
   useEffect(() => {

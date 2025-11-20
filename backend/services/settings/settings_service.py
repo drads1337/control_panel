@@ -8,7 +8,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from ...core.extensions import db
-from ...models.core import ProjectEncryptionKeys, ProjectSettings, User
+from ...models.core import Project, ProjectEncryptionKeys, ProjectSettings, User
 from ...utils.rbac_utils import RBACManager
 
 try:
@@ -56,9 +56,37 @@ class SettingsService:
                     self.logger.error(f"User {user_id} object missing project_id attribute")
                     return {"error": "User object is invalid"}
 
+                # Check if user is owner - owners can work without project_id
+                is_owner = RBACManager.is_owner(user)
+                
                 if not project_id:
-                    self.logger.error(f"User {user_id} has no project_id")
-                    return {"error": "User must be assigned to a project"}
+                    if is_owner:
+                        # For owners without project_id, we need a project_id from request context
+                        # This should be set by middleware when owner selects a project
+                        from flask import g
+                        project_id = getattr(g, 'project_id', None)
+                        if not project_id:
+                            # If no project_id in request context, try to use first available project as fallback
+                            try:
+                                # First try active projects
+                                first_project = Project.query.filter_by(is_active=True).order_by(Project.id.asc()).first()
+                                # If no active projects, try any project (for owners who might need to access inactive ones)
+                                if not first_project:
+                                    first_project = Project.query.order_by(Project.id.asc()).first()
+                                if first_project:
+                                    project_id = first_project.id
+                                    self.logger.info(f"Owner {user_id} has no selected project, using first available project {project_id} as fallback")
+                                else:
+                                    self.logger.warning(f"Owner {user_id} has no project_id, no project_id in request context, and no projects available")
+                                    return {"error": "No projects available. Please create a project first to view settings."}
+                            except Exception as project_lookup_error:
+                                self.logger.error(f"Error looking up projects for owner {user_id}: {project_lookup_error}")
+                                return {"error": "Project selection required. Please select a project to view settings."}
+                        else:
+                            self.logger.info(f"Owner {user_id} using project_id {project_id} from request context")
+                    else:
+                        self.logger.error(f"User {user_id} has no project_id and is not an owner")
+                        return {"error": "User must be assigned to a project"}
 
                 self.logger.info(f"User {user_id} has project_id: {project_id}")
 
@@ -306,13 +334,17 @@ class SettingsService:
             settings = ProjectSettings.query.filter_by(project_id=project_id).first()
         except Exception as db_error:
 
-            error_str = str(db_error)
-            if "does not exist" in error_str or "UndefinedColumn" in error_str:
-                self.logger.warning(f"Database schema mismatch detected: {error_str}")
-                self.logger.info("Attempting to query with minimal columns...")
-                try:
+                error_str = str(db_error)
+                if "does not exist" in error_str or "UndefinedColumn" in error_str:
+                    self.logger.warning(f"Database schema mismatch detected: {error_str}")
+                    self.logger.info("Attempting to query with minimal columns...")
+                    # SECURITY NOTE: Using raw SQL as fallback when ORM fails due to schema mismatch.
+                    # This is a code smell and should be fixed by ensuring migrations are up to date.
+                    # Parameters are properly bound to prevent SQL injection, but this fallback logic
+                    # should be removed once migrations are properly applied.
+                    try:
 
-                    from sqlalchemy import text
+                        from sqlalchemy import text
 
                     result = db.session.execute(
                         text(
@@ -461,6 +493,10 @@ class SettingsService:
                     self.logger.warning(
                         f"Can't create settings with all fields due to missing columns, using raw SQL"
                     )
+                    # SECURITY NOTE: Using raw SQL as fallback when ORM fails due to schema mismatch.
+                    # This is a code smell and should be fixed by ensuring migrations are up to date.
+                    # Parameters are properly bound to prevent SQL injection, but this fallback logic
+                    # should be removed once migrations are properly applied.
                     from sqlalchemy import text
 
                     master_key = secrets.token_hex(32)
@@ -524,6 +560,10 @@ class SettingsService:
                     self.logger.warning(
                         "Commit failed due to missing columns, trying minimal insert..."
                     )
+                    # SECURITY NOTE: Using raw SQL as fallback when ORM fails due to schema mismatch.
+                    # This is a code smell and should be fixed by ensuring migrations are up to date.
+                    # Parameters are properly bound to prevent SQL injection, but this fallback logic
+                    # should be removed once migrations are properly applied.
                     from sqlalchemy import text
 
                     master_key = secrets.token_hex(32)
@@ -613,10 +653,39 @@ class SettingsService:
         """Update project settings and invalidate cache"""
         try:
             user = User.query.get(user_id)
-            if not user or not user.project_id:
-                return {"error": "User not found or not assigned to project"}
+            if not user:
+                return {"error": "User not found"}
 
+            # Check if user is owner - owners can work without project_id
+            is_owner = RBACManager.is_owner(user)
             project_id = user.project_id
+            
+            if not project_id:
+                if is_owner:
+                    # For owners without project_id, we need a project_id from request context
+                    from flask import g
+                    project_id = getattr(g, 'project_id', None)
+                    if not project_id:
+                        # If no project_id in request context, try to use first available project as fallback
+                        try:
+                            # First try active projects
+                            first_project = Project.query.filter_by(is_active=True).order_by(Project.id.asc()).first()
+                            # If no active projects, try any project (for owners who might need to access inactive ones)
+                            if not first_project:
+                                first_project = Project.query.order_by(Project.id.asc()).first()
+                            if first_project:
+                                project_id = first_project.id
+                                self.logger.info(f"Owner {user_id} has no selected project, using first available project {project_id} as fallback for update")
+                            else:
+                                self.logger.warning(f"Owner {user_id} has no project_id, no project_id in request context, and no projects available for update")
+                                return {"error": "No projects available. Please create a project first to update settings."}
+                        except Exception as project_lookup_error:
+                            self.logger.error(f"Error looking up projects for owner {user_id} during update: {project_lookup_error}")
+                            return {"error": "Project selection required. Please select a project to update settings."}
+                    else:
+                        self.logger.info(f"Owner {user_id} using project_id {project_id} from request context for update")
+                else:
+                    return {"error": "User not assigned to project"}
             settings = self._get_or_create_project_settings(project_id)
 
             if "security" in settings_data:
