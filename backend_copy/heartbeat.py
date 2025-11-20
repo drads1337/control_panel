@@ -27,41 +27,21 @@ from ..models.core import Project, User
 from ..models.games import Game
 from ..models.keys import DeviceInfo, Key, KeyAnalytics
 from ..models.security import BlockedFingerprint
+from ..middleware import require_mtls
 from ..middleware.load_monitoring import monitor_load
 from ..services.auth import challenge_service
 from ..services.heartbeat import heartbeat_service
+from ..utils.redis_client import get_redis_client
 from ..utils.secure_crypto import MasterKeyManager
 from .settings import decrypt_data_with_project_key, encrypt_data_with_project_key
 
 heartbeat_bp = Blueprint("heartbeat", __name__)
 
-def init_redis_client():
-    try:
-        client = redis.Redis(
-            host=Config.REDIS_HOST,
-            port=Config.REDIS_PORT,
-            db=Config.REDIS_DB,
-            password=Config.REDIS_PASSWORD,
-            decode_responses=True,
-            socket_connect_timeout=5,
-            socket_timeout=5,
-            retry_on_timeout=True,
-            health_check_interval=30,
-            max_connections=20,
-        )
-        client.ping()
-        logging.debug("✅ Redis client initialized successfully in heartbeat.py")
-        return client
-    except Exception as e:
-        logging.debug(f"❌ Redis client initialization failed in heartbeat.py: {e}")
-        raise RuntimeError("Redis is required but not available. Please start Redis server.")
-
-redis_client = init_redis_client()
-
 from ..config.config import Config
 
 RATE_LIMIT = Config.RATE_LIMIT
-NONCE_TTL = 300
+# SECURITY: Use centralized NONCE_TTL from Config
+NONCE_TTL = Config.NONCE_TTL
 from ..config.config import Config
 
 CHALLENGE_TTL = Config.CHALLENGE_TTL
@@ -97,6 +77,7 @@ def decrypt_data(enc: str) -> dict:
 def rate_limited(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
+        redis_client = get_redis_client()
         ip = request.remote_addr
         req_json = request.get_json(silent=True) or {}
         user_key = req_json.get("user_key") or ""
@@ -118,6 +99,7 @@ def rate_limited(func):
     return wrapper
 
 @heartbeat_bp.route("/heartbeat", methods=["POST"])
+@require_mtls
 @rate_limited
 @monitor_load("heartbeat")
 def api_heartbeat():
@@ -248,6 +230,7 @@ def api_heartbeat():
         return jsonify({"error": "Internal server error"}), 500
 
 @heartbeat_bp.route("/heartbeat/status", methods=["POST"])
+@require_mtls
 @rate_limited
 def api_heartbeat_status():
     """

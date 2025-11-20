@@ -339,10 +339,26 @@ class SettingsService:
         except Exception as db_error:
             error_str = str(db_error)
             if "does not exist" in error_str or "UndefinedColumn" in error_str:
-                self.logger.warning(f"Database schema mismatch detected: {error_str}")
-                self.logger.info("Attempting to query with minimal columns...")
+                # SECURITY: Raw SQL fallback is dangerous in production.
+                # In production, schema mismatches should fail fast to prevent data corruption.
+                import os
+                flask_env = os.environ.get("FLASK_ENV", "production")
+                if flask_env == "production":
+                    self.logger.error(
+                        f"CRITICAL: Database schema mismatch in production: {error_str}\n"
+                        "This indicates migrations are out of sync. Application will fail to prevent data corruption.\n"
+                        "Please run migrations before deploying to production."
+                    )
+                    raise RuntimeError(
+                        "Database schema mismatch detected in production. "
+                        "This is a critical error. Please ensure migrations are up to date."
+                    ) from db_error
+                
+                # Only allow fallback in development mode
+                self.logger.warning(f"Database schema mismatch detected in development: {error_str}")
+                self.logger.info("Attempting to query with minimal columns (development mode only)...")
                 # SECURITY NOTE: Using raw SQL as fallback when ORM fails due to schema mismatch.
-                # This is a code smell and should be fixed by ensuring migrations are up to date.
+                # This is ONLY allowed in development mode. In production, this will fail fast.
                 # Parameters are properly bound to prevent SQL injection, but this fallback logic
                 # should be removed once migrations are properly applied.
                 try:
@@ -492,11 +508,26 @@ class SettingsService:
 
                 error_str = str(create_error)
                 if "does not exist" in error_str or "UndefinedColumn" in error_str:
+                    # SECURITY: Raw SQL fallback is dangerous in production.
+                    import os
+                    flask_env = os.environ.get("FLASK_ENV", "production")
+                    if flask_env == "production":
+                        self.logger.error(
+                            f"CRITICAL: Cannot create settings due to schema mismatch in production: {error_str}\n"
+                            "This indicates migrations are out of sync. Application will fail to prevent data corruption.\n"
+                            "Please run migrations before deploying to production."
+                        )
+                        raise RuntimeError(
+                            "Database schema mismatch detected in production. "
+                            "This is a critical error. Please ensure migrations are up to date."
+                        ) from create_error
+                    
+                    # Only allow fallback in development mode
                     self.logger.warning(
-                        f"Can't create settings with all fields due to missing columns, using raw SQL"
+                        f"Can't create settings with all fields due to missing columns, using raw SQL (development mode only)"
                     )
                     # SECURITY NOTE: Using raw SQL as fallback when ORM fails due to schema mismatch.
-                    # This is a code smell and should be fixed by ensuring migrations are up to date.
+                    # This is ONLY allowed in development mode. In production, this will fail fast.
                     # Parameters are properly bound to prevent SQL injection, but this fallback logic
                     # should be removed once migrations are properly applied.
                     from sqlalchemy import text
@@ -559,11 +590,26 @@ class SettingsService:
 
                 error_str = str(commit_error)
                 if "does not exist" in error_str or "UndefinedColumn" in error_str:
+                    # SECURITY: Raw SQL fallback is dangerous in production.
+                    import os
+                    flask_env = os.environ.get("FLASK_ENV", "production")
+                    if flask_env == "production":
+                        self.logger.error(
+                            f"CRITICAL: Commit failed due to schema mismatch in production: {error_str}\n"
+                            "This indicates migrations are out of sync. Application will fail to prevent data corruption.\n"
+                            "Please run migrations before deploying to production."
+                        )
+                        raise RuntimeError(
+                            "Database schema mismatch detected in production. "
+                            "This is a critical error. Please ensure migrations are up to date."
+                        ) from commit_error
+                    
+                    # Only allow fallback in development mode
                     self.logger.warning(
-                        "Commit failed due to missing columns, trying minimal insert..."
+                        "Commit failed due to missing columns, trying minimal insert (development mode only)..."
                     )
                     # SECURITY NOTE: Using raw SQL as fallback when ORM fails due to schema mismatch.
-                    # This is a code smell and should be fixed by ensuring migrations are up to date.
+                    # This is ONLY allowed in development mode. In production, this will fail fast.
                     # Parameters are properly bound to prevent SQL injection, but this fallback logic
                     # should be removed once migrations are properly applied.
                     from sqlalchemy import text

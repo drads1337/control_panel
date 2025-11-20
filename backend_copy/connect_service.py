@@ -4,9 +4,7 @@ Handles all business logic for connect endpoints including authentication, valid
 Refactored to use specialized services following Single Responsibility Principle
 """
 
-import json
 import logging
-import os
 import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional, Tuple
@@ -20,6 +18,7 @@ from ...models.keys import Key
 from ...services.auth import challenge_service
 from ...services.keys import KeyValidator
 from .analytics_tracker import AnalyticsTracker
+from .challenge_validation_service import ChallengeValidationService
 from .device_manager import DeviceManager
 from .response_builder import ResponseBuilder
 from .security_checker import SecurityChecker
@@ -43,6 +42,7 @@ class ConnectService:
         self.response_builder = ResponseBuilder()
         self.key_lookup = KeyLookupService()
         self.request_validator = RequestValidationService()
+        self.challenge_validator = ChallengeValidationService()
 
     def generate_offline_ticket(
         self,
@@ -153,7 +153,8 @@ class ConnectService:
                 f"ENHANCED_CHALLENGE_GENERATED successfully, keys={list(enhanced_challenge.keys())}"
             )
 
-            canary = self._store_challenge_in_redis(user_key, fingerprint, enhanced_challenge, project_id, ip)
+            # Use ChallengeValidationService to store challenge (single responsibility)
+            canary = self.challenge_validator.store_challenge(user_key, fingerprint, enhanced_challenge, project_id, ip)
 
             logger.info(f"ENHANCED_CHALLENGE_CREATED user_key={user_key}")
 
@@ -369,41 +370,5 @@ class ConnectService:
 
             logger.error(f"CLASSIC_CONNECT_ERROR_TRACEBACK: {traceback.format_exc()}")
             return {"error": "Internal server error"}, 500
-
-    def _store_challenge_in_redis(
-        self, user_key: str, fingerprint: str, enhanced_challenge: Dict[str, Any], project_id: int, ip: str
-    ) -> str:
-        """
-        Store challenge in Redis
-
-        Args:
-            user_key: User key
-            fingerprint: Device fingerprint
-            enhanced_challenge: Challenge data
-            project_id: Project ID (for fallback decryption)
-            ip: Client IP address (for fallback decryption)
-
-        Returns:
-            Canary value
-        """
-        from ...utils.redis_client import get_redis_client
-
-        redis_client = get_redis_client()
-
-        redis_client.ping()
-        logger.debug(f"REDIS_CONNECTION_SUCCESS")
-
-        challenge_id = f"enhanced_challenge:{user_key}:{fingerprint}"
-        canary = os.urandom(8).hex()
-
-        pipe = redis_client.pipeline()
-        pipe.setex(challenge_id, Config.CHALLENGE_TTL, json.dumps(enhanced_challenge))
-        pipe.setex(f"canary:{user_key}:{fingerprint}", Config.CHALLENGE_TTL, canary)
-
-        pipe.setex(f"challenge_project_id:{ip}", 300, str(project_id))
-        pipe.execute()
-
-        logger.info(f"ENHANCED_CHALLENGE_SAVED user_key={user_key} fingerprint={fingerprint} project_id={project_id}")
-        return canary
 
 connect_service = ConnectService()

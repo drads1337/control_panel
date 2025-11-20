@@ -1,5 +1,9 @@
 """
-Project-User relationship models to handle circular dependencies properly
+Project-User relationship models
+
+These models use string references in SQLAlchemy relationships (e.g., "Project", "User")
+to avoid circular import issues. This allows core.py to import ProjectAdmin directly
+without creating circular dependencies.
 """
 
 from datetime import datetime

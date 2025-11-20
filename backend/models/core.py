@@ -8,6 +8,11 @@ from datetime import datetime, timedelta
 
 from ..core.extensions import db
 
+# Import ProjectAdmin at module level to avoid lazy imports
+# This is safe because project_user.py doesn't import from core.py,
+# it only uses string references in SQLAlchemy relationships
+from .project_user import ProjectAdmin
+
 def generate_unique_project_id():
     """Generate a unique 10-digit project ID"""
     while True:
@@ -117,19 +122,13 @@ class Project(db.Model):
     @property
     def admin_user(self):
         """Get the project admin user"""
-        from .project_user import ProjectAdmin
-
         admin_record = ProjectAdmin.query.filter_by(project_id=self.id).first()
         if admin_record and admin_record.admin_user_id:
-            from .core import User
-
             return User.query.get(admin_record.admin_user_id)
         return None
 
     def set_admin(self, user_id):
         """Set project admin"""
-        from .project_user import ProjectAdmin
-
         admin_record = ProjectAdmin.query.filter_by(project_id=self.id).first()
         if not admin_record:
             admin_record = ProjectAdmin(project_id=self.id)
@@ -140,8 +139,6 @@ class Project(db.Model):
 
     def get_admin_id(self):
         """Get admin user ID (for backward compatibility)"""
-        from .project_user import ProjectAdmin
-
         admin_record = ProjectAdmin.query.filter_by(project_id=self.id).first()
         return admin_record.admin_user_id if admin_record else None
 

@@ -548,6 +548,35 @@ def upload_loader_files(loader_id):
                     file_path = os.path.join(upload_path, unique_filename)
                     file.save(file_path)
 
+                    # SECURITY: Validate file signature (magic bytes) to prevent file type spoofing
+                    # This prevents attackers from uploading executable files with image extensions
+                    from ..services.files.file_service import file_service
+                    
+                    # Determine expected extensions based on file type
+                    expected_extensions = None
+                    if file_type in ["logo", "banner", "background"]:
+                        # For images, expect image extensions
+                        ext = filename.rsplit(".", 1)[1].lower() if "." in filename else None
+                        if ext and ext in ["png", "jpg", "jpeg", "gif", "webp"]:
+                            expected_extensions = [ext]
+                    
+                    is_valid, validation_error = file_service.validate_file_signature(file_path, expected_extensions)
+                    if not is_valid:
+                        # Remove the invalid file
+                        try:
+                            os.remove(file_path)
+                        except Exception:
+                            pass
+                        return (
+                            jsonify(
+                                {
+                                    "error": validation_error or f"File validation failed for {file_type}",
+                                    "success": False,
+                                }
+                            ),
+                            400,
+                        )
+
                     if file_type == "logo":
                         loader.logo = unique_filename
                     elif file_type == "banner":
@@ -673,6 +702,12 @@ def refresh_loader_cache():
 def download_loader(loader_id):
     """Record loader download and return download info"""
     try:
+        user_id = get_jwt_identity()
+        user = User.query.get(user_id)
+        
+        if not user or not user.project_id:
+            return jsonify({"error": "User not found or not assigned to project", "success": False}), 403
+        
         loader = Loader.query.filter_by(id=loader_id, project_id=user.project_id).first()
         if not loader:
             return jsonify({"error": "Loader not found", "success": False}), 404

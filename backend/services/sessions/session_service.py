@@ -6,6 +6,8 @@ Enhanced session management with security features
 import hashlib
 import json
 import logging
+import time
+import uuid
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -16,6 +18,7 @@ from ...models.core import User, UserActivity
 from ...models.rbac import Role, UserRole
 from ...models.security import TwoFactorSession
 from ...utils.rbac_utils import RBACManager
+from ...utils.redis_client import get_redis_client
 from ...utils.role_constants import UserRoles
 from ...utils.structured_logging import get_logger
 
@@ -31,6 +34,11 @@ class SessionService:
 
         self.SUSPICIOUS_ACTIVITY_THRESHOLD = 10
         self.IP_CHANGE_THRESHOLD = 3
+        
+        # Redis lock settings
+        self.LOCK_TIMEOUT = 5  # seconds
+        self.LOCK_RETRY_DELAY = 0.1  # seconds
+        self.LOCK_MAX_RETRIES = 10
 
     def create_session(
         self,
@@ -428,37 +436,176 @@ class SessionService:
         return []
 
     def _check_session_limit(self, user_id: int) -> bool:
-        """Check if user has reached session limit and enforce first-device logout"""
-
+        """
+        Check if user has reached session limit and enforce first-device logout.
+        
+        Uses Redis distributed lock to prevent hot rows in database during concurrent logins.
+        Optimized to reduce database contention by:
+        1. Using Redis for distributed locking
+        2. Caching session count in Redis
+        3. Minimizing database queries and locks
+        """
+        lock_key = f"session_limit_lock:{user_id}"
+        cache_key = f"session_count:{user_id}"
+        lock_identifier = str(uuid.uuid4())
+        
+        redis_client = None
+        try:
+            redis_client = get_redis_client()
+        except Exception as e:
+            self.logger.warning(f"Redis unavailable for session limit check, falling back to DB: {e}")
+            # Fallback to database-only approach if Redis is unavailable
+            return self._check_session_limit_db_only(user_id)
+        
+        # Try to acquire distributed lock
+        lock_acquired = False
+        for attempt in range(self.LOCK_MAX_RETRIES):
+            # Try to acquire lock using SET NX EX (set if not exists with expiration)
+            lock_acquired = redis_client.set(
+                lock_key,
+                lock_identifier,
+                nx=True,
+                ex=self.LOCK_TIMEOUT
+            )
+            
+            if lock_acquired:
+                break
+                
+            # Wait before retry with exponential backoff
+            time.sleep(self.LOCK_RETRY_DELAY * (2 ** attempt))
+        
+        if not lock_acquired:
+            self.logger.warning(
+                f"Could not acquire lock for session limit check for user {user_id} after {self.LOCK_MAX_RETRIES} attempts"
+            )
+            # Fallback to database-only approach if lock cannot be acquired
+            return self._check_session_limit_db_only(user_id)
+        
+        try:
+            # Check cached session count first
+            cached_count = redis_client.get(cache_key)
+            if cached_count is not None:
+                try:
+                    session_count = int(cached_count)
+                except (ValueError, TypeError):
+                    session_count = None
+            else:
+                session_count = None
+            
+            # If cache miss or invalid, query database
+            if session_count is None:
+                cutoff_time = datetime.utcnow() - timedelta(hours=24)
+                # Use COUNT query instead of fetching all records to reduce memory and lock time
+                session_count = (
+                    UserActivity.query.filter(
+                        UserActivity.user_id == user_id,
+                        UserActivity.action == "login",
+                        UserActivity.created_at >= cutoff_time,
+                    )
+                    .count()
+                )
+                
+                # Cache the count for 60 seconds to reduce database queries
+                redis_client.setex(cache_key, 60, str(session_count))
+            
+            # Check if limit reached
+            if session_count >= self.MAX_SESSIONS_PER_USER:
+                # Need to terminate oldest session
+                # Use a lightweight query to get only the oldest session ID
+                cutoff_time = datetime.utcnow() - timedelta(hours=24)
+                oldest_session = (
+                    UserActivity.query.filter(
+                        UserActivity.user_id == user_id,
+                        UserActivity.action == "login",
+                        UserActivity.created_at >= cutoff_time,
+                    )
+                    .order_by(UserActivity.created_at.asc())
+                    .first()
+                )
+                
+                if oldest_session:
+                    self.logger.info(
+                        f"Session limit reached for user {user_id}, terminating oldest session",
+                        user_id=user_id,
+                        oldest_session_id=oldest_session.id,
+                    )
+                    
+                    # Update in a single transaction to minimize lock time
+                    oldest_session.action = "logout_forced"
+                    oldest_session.details = "Session terminated due to session limit enforcement"
+                    db.session.commit()
+                    
+                    # Invalidate cache and decrement count
+                    redis_client.delete(cache_key)
+                    # Decrement cached count if it exists
+                    new_count = session_count - 1
+                    redis_client.setex(cache_key, 60, str(new_count))
+                    
+                    return new_count >= self.MAX_SESSIONS_PER_USER
+                
+                return True  # Limit reached but couldn't find oldest session
+            
+            return False
+            
+        finally:
+            # Release lock using Lua script to ensure we only delete our own lock
+            lua_script = """
+            if redis.call("get", KEYS[1]) == ARGV[1] then
+                return redis.call("del", KEYS[1])
+            else
+                return 0
+            end
+            """
+            try:
+                redis_client.eval(lua_script, 1, lock_key, lock_identifier)
+            except Exception as e:
+                self.logger.warning(f"Failed to release lock for user {user_id}: {e}")
+                # Lock will expire automatically after LOCK_TIMEOUT
+    
+    def _check_session_limit_db_only(self, user_id: int) -> bool:
+        """
+        Fallback method for checking session limit when Redis is unavailable.
+        Uses database-only approach with minimal locking.
+        """
         cutoff_time = datetime.utcnow() - timedelta(hours=24)
-        active_sessions = (
+        
+        # Use COUNT query to minimize data transfer and lock time
+        session_count = (
             UserActivity.query.filter(
                 UserActivity.user_id == user_id,
                 UserActivity.action == "login",
                 UserActivity.created_at >= cutoff_time,
             )
-            .order_by(UserActivity.created_at.asc())
-            .all()
+            .count()
         )
-
-        if len(active_sessions) >= self.MAX_SESSIONS_PER_USER:
-
-            if active_sessions:
-                oldest_session = active_sessions[0]
+        
+        if session_count >= self.MAX_SESSIONS_PER_USER:
+            # Get only the oldest session ID to minimize lock time
+            oldest_session = (
+                UserActivity.query.filter(
+                    UserActivity.user_id == user_id,
+                    UserActivity.action == "login",
+                    UserActivity.created_at >= cutoff_time,
+                )
+                .order_by(UserActivity.created_at.asc())
+                .first()
+            )
+            
+            if oldest_session:
                 self.logger.info(
-                    f"Session limit reached for user {user_id}, terminating oldest session",
+                    f"Session limit reached for user {user_id}, terminating oldest session (DB-only mode)",
                     user_id=user_id,
                     oldest_session_id=oldest_session.id,
                 )
-
+                
                 oldest_session.action = "logout_forced"
                 oldest_session.details = "Session terminated due to session limit enforcement"
                 db.session.commit()
-
-                active_sessions = active_sessions[1:]
-
-            return len(active_sessions) >= self.MAX_SESSIONS_PER_USER
-
+                
+                return (session_count - 1) >= self.MAX_SESSIONS_PER_USER
+            
+            return True
+        
         return False
 
     def _calculate_session_duration(

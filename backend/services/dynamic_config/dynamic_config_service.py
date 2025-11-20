@@ -388,65 +388,23 @@ class DynamicConfigService:
                             customized_config["feature_flags"][feature] = False
 
             if game.status == "testing":
-
+                # Enable all features for testing
                 for feature in customized_config.get("feature_flags", {}):
                     customized_config["feature_flags"][feature] = True
             elif game.status == "maintenance":
-
+                # Disable all features during maintenance
                 for feature in customized_config.get("feature_flags", {}):
                     customized_config["feature_flags"][feature] = False
 
-            customized_config = self._randomize_memory_addresses(customized_config, user_key)
-
-            customized_config = self._randomize_decryption_keys(customized_config, user_key)
+            # Removed: Memory address and decryption key randomization
+            # This was "Security through obscurity" and added unnecessary complexity
+            # Real security should come from proper authentication, authorization, and encryption
 
             return customized_config
 
         except Exception as e:
             logging.error(f"CONFIG_CUSTOMIZATION_ERROR user_key={user_key} error={e}")
             return base_config
-
-    def _randomize_memory_addresses(self, config: Dict, user_key: str) -> Dict:
-        """Randomize memory addresses based on user key"""
-        try:
-            if "memory_addresses" not in config:
-                return config
-
-            seed = int(hashlib.md5(user_key.encode()).hexdigest()[:8], 16)
-
-            for address_name, address in config["memory_addresses"].items():
-
-                base_address = int(address, 16)
-                random_offset = (seed % 0x1000) * 4
-                new_address = base_address + random_offset
-                config["memory_addresses"][address_name] = f"0x{new_address:08X}"
-
-            return config
-
-        except Exception as e:
-            logging.error(f"MEMORY_ADDRESS_RANDOMIZATION_ERROR user_key={user_key} error={e}")
-            return config
-
-    def _randomize_decryption_keys(self, config: Dict, user_key: str) -> Dict:
-        """Randomize decryption keys based on user key"""
-        try:
-            if "decryption_keys" not in config:
-                return config
-
-            seed = int(hashlib.md5(user_key.encode()).hexdigest()[:8], 16)
-
-            for key_name, key in config["decryption_keys"].items():
-
-                base_key = int(key, 16)
-                random_offset = (seed % 0x100) * 0x1000000
-                new_key = base_key + random_offset
-                config["decryption_keys"][key_name] = f"0x{new_key:016X}"
-
-            return config
-
-        except Exception as e:
-            logging.error(f"DECRYPTION_KEY_RANDOMIZATION_ERROR user_key={user_key} error={e}")
-            return config
 
     def _calculate_checksum(self, config: Dict) -> str:
         """Calculate checksum for configuration"""

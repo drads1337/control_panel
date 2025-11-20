@@ -20,6 +20,9 @@ def should_ignore_backend(path: Path) -> bool:
     if 'venv' in path_str:
         return True
 
+    if 'scripts' in path_str:
+        return True
+
     if path.suffix == '.pyc':
         return True
 

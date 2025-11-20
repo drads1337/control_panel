@@ -85,3 +85,4 @@ pytest-mock==3.14.0
 pytest-xdist==3.6.1
 faker==33.1.0
 freezegun==1.5.1
+locust==2.31.0

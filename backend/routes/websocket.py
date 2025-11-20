@@ -19,8 +19,6 @@ from ..utils.redis_client import get_redis_client
 
 websocket_bp = Blueprint("websocket", __name__)
 
-redis_client = None
-
 def get_websocket_redis_client():
     """
     Get Redis client instance for WebSocket operations.
@@ -29,13 +27,9 @@ def get_websocket_redis_client():
     to ensure consistent configuration and connection pooling.
 
     Returns:
-        Redis client instance (singleton)
+        Redis client instance (from Flask extension if available, otherwise singleton)
     """
-    global redis_client
-    if redis_client is None:
-        redis_client = get_redis_client()
-        logging.info("✅ Redis client initialized for WebSocket (using centralized client)")
-    return redis_client
+    return get_redis_client()
 
 @websocket_bp.route("/connect", methods=["GET"])
 @jwt_required()

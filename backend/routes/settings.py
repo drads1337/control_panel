@@ -242,194 +242,152 @@ def get_or_create_project_keys(project_id):
 @require_project_with_grace_period
 @require_project_isolation
 def get_settings():
-    try:
-        from flask import g
-        user_id = get_jwt_identity()
-        # Get project_id from context (set by middleware)
-        project_id = getattr(g, "project_id", None)
-        logger.info("Getting settings", user_id=user_id, project_id=project_id)
+    """
+    Get project settings for the current user.
+    
+    Returns:
+        JSON response with settings data or error message
+    """
+    from flask import g
+    user_id = get_jwt_identity()
+    # Get project_id from context (set by middleware)
+    project_id = getattr(g, "project_id", None)
+    logger.info("Getting settings", user_id=user_id, project_id=project_id)
 
-        from ..services.settings import settings_service
+    from ..services.settings import settings_service
 
-        result = settings_service.get_settings_cached(user_id=user_id)
+    result = settings_service.get_settings_cached(user_id=user_id)
 
-        if result is None:
-            logger.error("Settings service returned None", user_id=user_id, project_id=project_id)
-            return jsonify({"error": "Settings service returned no data"}), 500
+    if result is None:
+        logger.error("Settings service returned None", user_id=user_id, project_id=project_id)
+        return jsonify({"error": "Settings service returned no data"}), 500
 
-        if not isinstance(result, dict):
-            logger.error(
-                "Settings service returned unexpected type",
-                user_id=user_id,
-                project_id=project_id,
-                result_type=str(type(result)),
-            )
-            return (
-                jsonify({"error": f"Settings service returned unexpected type: {type(result)}"}),
-                500,
-            )
-
-        logger.debug(
-            "Settings service result",
+    if not isinstance(result, dict):
+        logger.error(
+            "Settings service returned unexpected type",
             user_id=user_id,
             project_id=project_id,
             result_type=str(type(result)),
-            has_error="error" in result,
+        )
+        return (
+            jsonify({"error": f"Settings service returned unexpected type: {type(result)}"}),
+            500,
         )
 
-        if "error" in result:
-            error_msg = result.get("error", "Unknown error")
-            logger.error(
-                "Settings service returned error",
-                user_id=user_id,
-                project_id=project_id,
-                error=error_msg,
-            )
-            try:
-                error_response = {
-                    "error": error_msg,
-                    "details": str(error_msg),
-                    "source": "settings_service",
-                }
-                if "not found" in error_msg.lower():
-                    return jsonify(error_response), 404
-                elif "must be assigned" in error_msg.lower():
-                    return jsonify(error_response), 403
-                else:
-                    return jsonify(error_response), 500
-            except Exception as json_error:
-                logger.error(
-                    "Error serializing error response",
-                    user_id=user_id,
-                    project_id=project_id,
-                    error=str(json_error),
-                )
-                return (
-                    jsonify(
-                        {
-                            "error": f"Failed to serialize error response: {str(json_error)}",
-                            "original_error": error_msg,
-                        }
-                    ),
-                    500,
-                )
+    logger.debug(
+        "Settings service result",
+        user_id=user_id,
+        project_id=project_id,
+        result_type=str(type(result)),
+        has_error="error" in result,
+    )
 
-        try:
-            import json as json_module
+    if "error" in result:
+        error_msg = result.get("error", "Unknown error")
+        logger.error(
+            "Settings service returned error",
+            user_id=user_id,
+            project_id=project_id,
+            error=error_msg,
+        )
+        error_response = {
+            "error": error_msg,
+            "details": str(error_msg),
+            "source": "settings_service",
+        }
+        if "not found" in error_msg.lower():
+            return jsonify(error_response), 404
+        elif "must be assigned" in error_msg.lower():
+            return jsonify(error_response), 403
+        else:
+            return jsonify(error_response), 500
 
-            json_module.dumps(result)
-        except (TypeError, ValueError) as ser_error:
-            logger.error(
-                "Result cannot be JSON serialized",
-                user_id=user_id,
-                project_id=project_id,
-                error=str(ser_error),
-                result_type=str(type(result)),
-            )
-            return (
-                jsonify({"error": f"Response contains non-serializable data: {str(ser_error)}"}),
-                500,
-            )
+    # Validate JSON serializability
+    import json as json_module
+    try:
+        json_module.dumps(result)
+    except (TypeError, ValueError) as ser_error:
+        logger.error(
+            "Result cannot be JSON serialized",
+            user_id=user_id,
+            project_id=project_id,
+            error=str(ser_error),
+            result_type=str(type(result)),
+        )
+        return (
+            jsonify({"error": f"Response contains non-serializable data: {str(ser_error)}"}),
+            500,
+        )
 
-        logger.info("Settings retrieved successfully", user_id=user_id, project_id=project_id)
-        try:
-            return jsonify(result)
-        except Exception as json_error:
-            logger.error(
-                "Error serializing response to JSON",
-                user_id=user_id,
-                project_id=project_id,
-                error=str(json_error),
-            )
-            return jsonify({"error": "Failed to serialize response"}), 500
-
-    except Exception as e:
-        import traceback
-
-        error_traceback = traceback.format_exc()
-        error_msg = f"Failed to retrieve settings: {str(e)}"
-        try:
-            user_id = get_jwt_identity()
-            project_id = getattr(request, "project_id", None)
-            logger.error(
-                "Error getting settings",
-                error=str(e),
-                traceback=error_traceback,
-                user_id=user_id,
-                project_id=project_id,
-            )
-        except:
-
-            logger.error("Error getting settings (fallback)", error=error_msg, traceback=error_traceback)
-        try:
-            return jsonify({"error": error_msg}), 500
-        except:
-
-            from flask import Response
-
-            return Response(f'{{"error": "{error_msg}"}}', mimetype="application/json"), 500
+    logger.info("Settings retrieved successfully", user_id=user_id, project_id=project_id)
+    return jsonify(result)
 
 @settings_bp.route("/api/settings", methods=["PUT"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
 def update_settings():
-    try:
-        user_id = get_jwt_identity()
-        project_id, error = get_user_project_id(user_id)
+    """
+    Update project settings.
+    
+    Returns:
+        JSON response with success message or error
+    """
+    user_id = get_jwt_identity()
+    project_id, error = get_user_project_id(user_id)
 
-        if error:
-            return jsonify({"error": error}), 404 if "not found" in error else 403
+    if error:
+        return jsonify({"error": error}), 404 if "not found" in error else 403
 
-        user = User.query.get(user_id)
+    user = User.query.get(user_id)
 
-        if not user:
-            return jsonify({"error": "User not found"}), 404
+    if not user:
+        return jsonify({"error": "User not found"}), 404
 
-        if not user.project_id:
-            return jsonify({"error": "User must be assigned to a project"}), 403
+    if not user.project_id:
+        return jsonify({"error": "User must be assigned to a project"}), 403
 
-        user_role = (
-            RBACManager.get_user_role_names(user)[0]
-            if RBACManager.get_user_role_names(user)
-            else "client" if user else "User not found"
-        )
-        logger.debug("User role", user_id=user_id, project_id=project_id, role=user_role)
-        from ..services.rbac import rbac_service
+    user_role = (
+        RBACManager.get_user_role_names(user)[0]
+        if RBACManager.get_user_role_names(user)
+        else "client" if user else "User not found"
+    )
+    logger.debug("User role", user_id=user_id, project_id=project_id, role=user_role)
+    from ..services.rbac import rbac_service
 
-        if not rbac_service.check_permission(user.id, "system.manage"):
-            logger.debug(
-                "Access denied for user",
-                user_id=user_id,
-                project_id=project_id,
-                role=user_role,
-            )
-            return jsonify({"error": "Insufficient permissions"}), 403
-
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-
-        logger.debug("Received settings data", user_id=user_id, project_id=project_id, data_keys=list(data.keys()))
-
-        settings = get_or_create_project_settings(project_id)
+    if not rbac_service.check_permission(user.id, "system.manage"):
         logger.debug(
-            "Current settings before update",
+            "Access denied for user",
             user_id=user_id,
             project_id=project_id,
-            min_password_length=settings.min_password_length,
-            max_login_attempts=settings.max_login_attempts,
+            role=user_role,
         )
+        return jsonify({"error": "Insufficient permissions"}), 403
 
-        if "security" in data:
-            security = data["security"]
-            if "min_password_length" in security and security["min_password_length"] is not None:
-                try:
-                    value = int(security["min_password_length"])
-                    if not (isinstance(value, int) and 6 <= value <= 32):
-                        raise ValueError("Invalid value")
-                    settings.min_password_length = value
-                except (ValueError, TypeError):
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    logger.debug("Received settings data", user_id=user_id, project_id=project_id, data_keys=list(data.keys()))
+
+    settings = get_or_create_project_settings(project_id)
+    logger.debug(
+        "Current settings before update",
+        user_id=user_id,
+        project_id=project_id,
+        min_password_length=settings.min_password_length,
+        max_login_attempts=settings.max_login_attempts,
+    )
+
+    if "security" in data:
+        security = data["security"]
+        if "min_password_length" in security and security["min_password_length"] is not None:
+            try:
+                value = int(security["min_password_length"])
+                if not (isinstance(value, int) and 6 <= value <= 32):
+                    raise ValueError("Invalid value")
+                settings.min_password_length = value
+            except (ValueError, TypeError):
                     logger.debug(
                         "Invalid min_password_length value",
                         user_id=user_id,
@@ -437,7 +395,7 @@ def update_settings():
                         value=security.get("min_password_length"),
                     )
 
-            if "max_login_attempts" in security and security["max_login_attempts"] is not None:
+        if "max_login_attempts" in security and security["max_login_attempts"] is not None:
                 try:
                     value = int(security["max_login_attempts"])
                     if not (isinstance(value, int) and 3 <= value <= 10):
@@ -451,10 +409,10 @@ def update_settings():
                         value=security.get("max_login_attempts"),
                     )
 
-            if (
-                "max_sessions_per_user" in security
-                and security["max_sessions_per_user"] is not None
-            ):
+        if (
+            "max_sessions_per_user" in security
+            and security["max_sessions_per_user"] is not None
+        ):
                 try:
                     value = int(security["max_sessions_per_user"])
                     if not (isinstance(value, int) and 1 <= value <= 10):
@@ -468,7 +426,7 @@ def update_settings():
                         value=security.get("max_sessions_per_user"),
                     )
 
-            if "log_retention_days" in security and security["log_retention_days"] is not None:
+        if "log_retention_days" in security and security["log_retention_days"] is not None:
                 try:
                     value = int(security["log_retention_days"])
                     if not (isinstance(value, int) and 7 <= value <= 365):
@@ -490,7 +448,7 @@ def update_settings():
                         value=security.get("log_retention_days"),
                     )
 
-            if "security_log_level" in security:
+        if "security_log_level" in security:
                 if security["security_log_level"] in [
                     "debug",
                     "info",
@@ -500,14 +458,14 @@ def update_settings():
                 ]:
                     settings.security_log_level = security["security_log_level"]
 
-        if "registration" in data:
-            registration = data["registration"]
-            if "invite_code_required" in registration:
-                settings.invite_code_required = bool(registration["invite_code_required"])
+    if "registration" in data:
+        registration = data["registration"]
+        if "invite_code_required" in registration:
+            settings.invite_code_required = bool(registration["invite_code_required"])
 
-        if "system" in data:
-            system = data["system"]
-            if "max_connections" in system and system["max_connections"] is not None:
+    if "system" in data:
+        system = data["system"]
+        if "max_connections" in system and system["max_connections"] is not None:
                 try:
                     value = int(system["max_connections"])
                     if not (isinstance(value, int) and 1 <= value <= 1000):
@@ -521,10 +479,10 @@ def update_settings():
                         value=system.get("max_connections"),
                     )
 
-            if (
-                "session_timeout_minutes" in system
-                and system["session_timeout_minutes"] is not None
-            ):
+        if (
+            "session_timeout_minutes" in system
+            and system["session_timeout_minutes"] is not None
+        ):
                 try:
                     value = int(system["session_timeout_minutes"])
                     if not (isinstance(value, int) and 5 <= value <= 1440):
@@ -538,7 +496,7 @@ def update_settings():
                         value=system.get("session_timeout_minutes"),
                     )
 
-            if "log_file_size_mb" in system and system["log_file_size_mb"] is not None:
+        if "log_file_size_mb" in system and system["log_file_size_mb"] is not None:
                 try:
                     value = int(system["log_file_size_mb"])
                     if not (isinstance(value, int) and 10 <= value <= 1000):
@@ -552,423 +510,429 @@ def update_settings():
                         value=system.get("log_file_size_mb"),
                     )
 
-            if "system_log_level" in system:
-                if system["system_log_level"] in ["debug", "info", "warning", "error"]:
-                    settings.system_log_level = system["system_log_level"]
-            if "auto_save_enabled" in system:
-                settings.auto_save_enabled = bool(system["auto_save_enabled"])
-            if "analytics_enabled" in system:
-                settings.analytics_enabled = bool(system["analytics_enabled"])
-            if "system_notifications_enabled" in system:
-                settings.system_notifications_enabled = bool(system["system_notifications_enabled"])
+        if "system_log_level" in system:
+            if system["system_log_level"] in ["debug", "info", "warning", "error"]:
+                settings.system_log_level = system["system_log_level"]
+        if "auto_save_enabled" in system:
+            settings.auto_save_enabled = bool(system["auto_save_enabled"])
+        if "analytics_enabled" in system:
+            settings.analytics_enabled = bool(system["analytics_enabled"])
+        if "system_notifications_enabled" in system:
+            settings.system_notifications_enabled = bool(system["system_notifications_enabled"])
 
-        if "security_features" in data:
-            features = data["security_features"]
-            if "two_factor_auth_required" in features:
-                settings.two_factor_auth_required = bool(features["two_factor_auth_required"])
-            if "vpn_blocking_enabled" in features:
-                settings.vpn_blocking_enabled = bool(features["vpn_blocking_enabled"])
-            if "security_logging_enabled" in features:
-                settings.security_logging_enabled = bool(features["security_logging_enabled"])
-            if "suspicious_activity_check_enabled" in features:
-                settings.suspicious_activity_check_enabled = bool(
-                    features["suspicious_activity_check_enabled"]
-                )
-            if "session_limiting_enabled" in features:
-                settings.session_limiting_enabled = bool(features["session_limiting_enabled"])
-            if "auto_log_cleanup_enabled" in features:
-                settings.auto_log_cleanup_enabled = bool(features["auto_log_cleanup_enabled"])
+    if "security_features" in data:
+        features = data["security_features"]
+        if "two_factor_auth_required" in features:
+            settings.two_factor_auth_required = bool(features["two_factor_auth_required"])
+        if "vpn_blocking_enabled" in features:
+            settings.vpn_blocking_enabled = bool(features["vpn_blocking_enabled"])
+        if "security_logging_enabled" in features:
+            settings.security_logging_enabled = bool(features["security_logging_enabled"])
+        if "suspicious_activity_check_enabled" in features:
+            settings.suspicious_activity_check_enabled = bool(
+                features["suspicious_activity_check_enabled"]
+            )
+        if "session_limiting_enabled" in features:
+            settings.session_limiting_enabled = bool(features["session_limiting_enabled"])
+        if "auto_log_cleanup_enabled" in features:
+            settings.auto_log_cleanup_enabled = bool(features["auto_log_cleanup_enabled"])
 
-        if "offline_auth" in data:
-            offline_auth = data["offline_auth"]
-            if "offline_auth_enabled" in offline_auth:
-                settings.offline_auth_enabled = bool(offline_auth["offline_auth_enabled"])
-            if "offline_ticket_expiration_hours" in offline_auth:
-                expiration_hours = int(offline_auth["offline_ticket_expiration_hours"])
+    if "offline_auth" in data:
+        offline_auth = data["offline_auth"]
+        if "offline_auth_enabled" in offline_auth:
+            settings.offline_auth_enabled = bool(offline_auth["offline_auth_enabled"])
+        if "offline_ticket_expiration_hours" in offline_auth:
+            expiration_hours = int(offline_auth["offline_ticket_expiration_hours"])
 
-                expiration_hours = max(1, min(168, expiration_hours))
-                settings.offline_ticket_expiration_hours = expiration_hours
+            expiration_hours = max(1, min(168, expiration_hours))
+            settings.offline_ticket_expiration_hours = expiration_hours
 
-        if "appearance" in data:
-            settings.appearance_settings = json.dumps(data["appearance"])
+    if "appearance" in data:
+        settings.appearance_settings = json.dumps(data["appearance"])
 
-        logger.debug(
-            "Settings after update",
-            user_id=user_id,
-            project_id=project_id,
-            min_password_length=settings.min_password_length,
-            max_login_attempts=settings.max_login_attempts,
-        )
+    logger.debug(
+        "Settings after update",
+        user_id=user_id,
+        project_id=project_id,
+        min_password_length=settings.min_password_length,
+        max_login_attempts=settings.max_login_attempts,
+    )
 
-        db.session.commit()
+    db.session.commit()
 
-        try:
-            from ..services.settings import settings_service
+    try:
+        from ..services.settings import settings_service
 
-            settings_service.invalidate_settings_cache(user_id)
-        except ImportError:
-            pass
+        settings_service.invalidate_settings_cache(user_id)
+    except ImportError:
+        pass
 
-        logger.debug("Settings committed to database successfully", user_id=user_id, project_id=project_id)
+    logger.debug("Settings committed to database successfully", user_id=user_id, project_id=project_id)
 
-        return jsonify({"message": "Settings updated successfully"})
-
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+    return jsonify({"message": "Settings updated successfully"})
 
 @settings_bp.route("/api/settings/regenerate-master-key", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
 def regenerate_master_key():
-    try:
-        user_id = get_jwt_identity()
-        project_id, error = get_user_project_id(user_id)
+    """
+    Regenerate project master key.
+    
+    Returns:
+        JSON response with new key information or error
+    """
+    user_id = get_jwt_identity()
+    project_id, error = get_user_project_id(user_id)
 
-        if error:
-            return jsonify({"error": error}), 404 if "not found" in error else 403
+    if error:
+        return jsonify({"error": error}), 404 if "not found" in error else 403
 
-        user = User.query.get(user_id)
+    user = User.query.get(user_id)
 
-        if not user:
-            return jsonify({"error": "User not found"}), 404
+    if not user:
+        return jsonify({"error": "User not found"}), 404
 
-        if not user.project_id:
-            return jsonify({"error": "User must be assigned to a project"}), 403
+    if not user.project_id:
+        return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.rbac import rbac_service
+    from ..services.rbac import rbac_service
 
-        if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
-            return jsonify({"error": "Insufficient permissions"}), 403
+    if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
+        return jsonify({"error": "Insufficient permissions"}), 403
 
-        settings = get_or_create_project_settings(project_id)
-        old_key = settings.project_master_key
-        settings.project_master_key = secrets.token_hex(32)
+    settings = get_or_create_project_settings(project_id)
+    old_key = settings.project_master_key
+    settings.project_master_key = secrets.token_hex(32)
 
-        db.session.commit()
+    db.session.commit()
 
-        from ..services.cache import cache_service
+    from ..services.cache import cache_service
 
-        cache_service.invalidate_user_cache(user_id)
+    cache_service.invalidate_user_cache(user_id)
 
-        return jsonify(
-            {
-                "message": "Master key regenerated successfully",
-                "old_key": old_key,
-                "new_key": settings.project_master_key,
-                "warning": "All existing encrypted data will need to be re-encrypted with the new key",
-            }
-        )
-
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+    return jsonify(
+        {
+            "message": "Master key regenerated successfully",
+            "old_key": old_key,
+            "new_key": settings.project_master_key,
+            "warning": "All existing encrypted data will need to be re-encrypted with the new key",
+        }
+    )
 
 @settings_bp.route("/api/settings/keys", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
 def regenerate_keys():
-    try:
-        user_id = get_jwt_identity()
-        project_id, error = get_user_project_id(user_id)
+    """
+    Regenerate project encryption keys.
+    
+    Returns:
+        JSON response with new keys or error
+    """
+    user_id = get_jwt_identity()
+    project_id, error = get_user_project_id(user_id)
 
-        if error:
-            return jsonify({"error": error}), 404 if "not found" in error else 403
+    if error:
+        return jsonify({"error": error}), 404 if "not found" in error else 403
 
-        user = User.query.get(user_id)
+    user = User.query.get(user_id)
 
-        if not user:
-            return jsonify({"error": "User not found"}), 404
+    if not user:
+        return jsonify({"error": "User not found"}), 404
 
-        if not user.project_id:
-            return jsonify({"error": "User must be assigned to a project"}), 403
+    if not user.project_id:
+        return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.rbac import rbac_service
+    from ..services.rbac import rbac_service
 
-        if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
-            return jsonify({"error": "Insufficient permissions"}), 403
+    if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
+        return jsonify({"error": "Insufficient permissions"}), 403
 
-        action = request.get_json().get("action", "all")
+    action = request.get_json().get("action", "all")
 
-        keys = get_or_create_project_keys(project_id)
+    keys = get_or_create_project_keys(project_id)
 
-        if action in ["aes", "all"]:
-            keys.aes_key = secrets.token_hex(32)
+    if action in ["aes", "all"]:
+        keys.aes_key = secrets.token_hex(32)
 
-        if action in ["rsa", "all"]:
-            private_key = rsa.generate_private_key(
-                public_exponent=65537, key_size=2048, backend=default_backend()
-            )
-            public_key = private_key.public_key()
-
-            private_pem = private_key.private_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.PKCS8,
-                encryption_algorithm=serialization.NoEncryption(),
-            ).decode("utf-8")
-
-            public_pem = public_key.public_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PublicFormat.SubjectPublicKeyInfo,
-            ).decode("utf-8")
-
-            keys.public_key_cert = public_pem
-            keys.private_key_encrypted = private_pem
-
-        db.session.commit()
-
-        from ..services.cache import cache_service
-
-        cache_service.invalidate_user_cache(user_id)
-
-        return jsonify(
-            {
-                "message": "Keys regenerated successfully",
-                "keys": {
-                    "aes_key": keys.aes_key,
-                    "public_key": keys.public_key_cert,
-
-                },
-            }
+    if action in ["rsa", "all"]:
+        private_key = rsa.generate_private_key(
+            public_exponent=65537, key_size=2048, backend=default_backend()
         )
+        public_key = private_key.public_key()
 
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+        private_pem = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
+        ).decode("utf-8")
+
+        public_pem = public_key.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        ).decode("utf-8")
+
+        keys.public_key_cert = public_pem
+        keys.private_key_encrypted = private_pem
+
+    db.session.commit()
+
+    from ..services.cache import cache_service
+
+    cache_service.invalidate_user_cache(user_id)
+
+    return jsonify(
+        {
+            "message": "Keys regenerated successfully",
+            "keys": {
+                "aes_key": keys.aes_key,
+                "public_key": keys.public_key_cert,
+
+            },
+        }
+    )
 
 @settings_bp.route("/api/settings/keys", methods=["PUT"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
 def update_keys():
-    try:
-        user_id = get_jwt_identity()
-        project_id, error = get_user_project_id(user_id)
+    """
+    Update project encryption keys.
+    
+    Returns:
+        JSON response with success message or error
+    """
+    user_id = get_jwt_identity()
+    project_id, error = get_user_project_id(user_id)
 
-        if error:
-            return jsonify({"error": error}), 404 if "not found" in error else 403
+    if error:
+        return jsonify({"error": error}), 404 if "not found" in error else 403
 
-        user = User.query.get(user_id)
+    user = User.query.get(user_id)
 
-        if not user:
-            return jsonify({"error": "User not found"}), 404
+    if not user:
+        return jsonify({"error": "User not found"}), 404
 
-        if not user.project_id:
-            return jsonify({"error": "User must be assigned to a project"}), 403
+    if not user.project_id:
+        return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.rbac import rbac_service
+    from ..services.rbac import rbac_service
 
-        if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
-            return jsonify({"error": "Insufficient permissions"}), 403
+    if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
+        return jsonify({"error": "Insufficient permissions"}), 403
 
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
 
-        keys = get_or_create_project_keys(project_id)
+    keys = get_or_create_project_keys(project_id)
 
-        if "aes_key" in data:
-            aes_key = data["aes_key"].strip()
-            if len(aes_key) != 64:
-                return jsonify({"error": "AES key must be 64 characters long (32 bytes)"}), 400
-            try:
-                int(aes_key, 16)
-            except ValueError:
-                return jsonify({"error": "AES key must be valid hexadecimal"}), 400
-            keys.aes_key = aes_key
+    if "aes_key" in data:
+        aes_key = data["aes_key"].strip()
+        if len(aes_key) != 64:
+            return jsonify({"error": "AES key must be 64 characters long (32 bytes)"}), 400
+        try:
+            int(aes_key, 16)
+        except ValueError:
+            return jsonify({"error": "AES key must be valid hexadecimal"}), 400
+        keys.aes_key = aes_key
 
-        if "public_key" in data:
-            public_key = data["public_key"].strip()
-            if not public_key.startswith("-----BEGIN PUBLIC KEY-----"):
-                return jsonify({"error": "Invalid public key format"}), 400
-            keys.public_key_cert = public_key
+    if "public_key" in data:
+        public_key = data["public_key"].strip()
+        if not public_key.startswith("-----BEGIN PUBLIC KEY-----"):
+            return jsonify({"error": "Invalid public key format"}), 400
+        keys.public_key_cert = public_key
 
-        if "private_key" in data:
-            private_key = data["private_key"].strip()
-            if not private_key.startswith("-----BEGIN PRIVATE KEY-----"):
-                return jsonify({"error": "Invalid private key format"}), 400
-            keys.private_key_encrypted = private_key
+    if "private_key" in data:
+        private_key = data["private_key"].strip()
+        if not private_key.startswith("-----BEGIN PRIVATE KEY-----"):
+            return jsonify({"error": "Invalid private key format"}), 400
+        keys.private_key_encrypted = private_key
 
-        db.session.commit()
+    db.session.commit()
 
-        return jsonify({"message": "Keys updated successfully"})
-
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+    return jsonify({"message": "Keys updated successfully"})
 
 @settings_bp.route("/api/settings/fingerprint-lists", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
 def get_fingerprint_lists():
-    try:
-        user_id = get_jwt_identity()
-        project_id, error = get_user_project_id(user_id)
+    """
+    Get list of blocked fingerprints.
+    
+    Returns:
+        JSON response with blocked fingerprints list or error
+    """
+    user_id = get_jwt_identity()
+    project_id, error = get_user_project_id(user_id)
 
-        if error:
-            return jsonify({"error": error}), 404 if "not found" in error else 403
+    if error:
+        return jsonify({"error": error}), 404 if "not found" in error else 403
 
-        user = User.query.get(user_id)
+    user = User.query.get(user_id)
 
-        if not user:
-            return jsonify({"error": "User not found"}), 404
+    if not user:
+        return jsonify({"error": "User not found"}), 404
 
-        if not user.project_id:
-            return jsonify({"error": "User must be assigned to a project"}), 403
+    if not user.project_id:
+        return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.rbac import rbac_service
+    from ..services.rbac import rbac_service
 
-        if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
-            return jsonify({"error": "Insufficient permissions"}), 403
+    if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
+        return jsonify({"error": "Insufficient permissions"}), 403
 
-        blocked_fingerprints = (
-            BlockedFingerprint.query.filter_by(project_id=project_id, is_active=True)
-            .order_by(BlockedFingerprint.blocked_at.desc())
-            .all()
+    blocked_fingerprints = (
+        BlockedFingerprint.query.filter_by(project_id=project_id, is_active=True)
+        .order_by(BlockedFingerprint.blocked_at.desc())
+        .all()
+    )
+
+    blocked_list = []
+    for fp in blocked_fingerprints:
+        blocked_list.append(
+            {
+                "id": fp.id,
+                "fingerprint": fp.fingerprint,
+                "reason": fp.reason,
+                "block_type": getattr(fp, "block_type", "manual"),
+                "severity": getattr(fp, "severity", "medium"),
+                "threat_score": getattr(fp, "threat_score", 0),
+                "source_ip": getattr(fp, "source_ip", None),
+                "user_agent": getattr(fp, "user_agent", None),
+                "country": getattr(fp, "country", None),
+                "city": getattr(fp, "city", None),
+                "attempt_count": getattr(fp, "attempt_count", 1),
+                "first_seen": getattr(fp, "first_seen", fp.blocked_at).isoformat(),
+                "last_seen": getattr(fp, "last_seen", fp.blocked_at).isoformat(),
+                "blocked_at": fp.blocked_at.isoformat() if fp.blocked_at else None,
+                "expires_at": fp.expires_at.isoformat() if fp.expires_at else None,
+                "auto_unblock_enabled": getattr(fp, "auto_unblock_enabled", False),
+                "blocked_by": (
+                    fp.blocked_by_user.username
+                    if hasattr(fp, "blocked_by_user") and fp.blocked_by_user
+                    else None
+                ),
+            }
         )
 
-        blocked_list = []
-        for fp in blocked_fingerprints:
-            blocked_list.append(
-                {
-                    "id": fp.id,
-                    "fingerprint": fp.fingerprint,
-                    "reason": fp.reason,
-                    "block_type": getattr(fp, "block_type", "manual"),
-                    "severity": getattr(fp, "severity", "medium"),
-                    "threat_score": getattr(fp, "threat_score", 0),
-                    "source_ip": getattr(fp, "source_ip", None),
-                    "user_agent": getattr(fp, "user_agent", None),
-                    "country": getattr(fp, "country", None),
-                    "city": getattr(fp, "city", None),
-                    "attempt_count": getattr(fp, "attempt_count", 1),
-                    "first_seen": getattr(fp, "first_seen", fp.blocked_at).isoformat(),
-                    "last_seen": getattr(fp, "last_seen", fp.blocked_at).isoformat(),
-                    "blocked_at": fp.blocked_at.isoformat() if fp.blocked_at else None,
-                    "expires_at": fp.expires_at.isoformat() if fp.expires_at else None,
-                    "auto_unblock_enabled": getattr(fp, "auto_unblock_enabled", False),
-                    "blocked_by": (
-                        fp.blocked_by_user.username
-                        if hasattr(fp, "blocked_by_user") and fp.blocked_by_user
-                        else None
-                    ),
-                }
-            )
-
-        return jsonify({"blocked_fingerprints": blocked_list})
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return jsonify({"blocked_fingerprints": blocked_list})
 
 @settings_bp.route("/api/settings/fingerprint-lists/blocked", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
 def add_to_fingerprint_blacklist():
-    try:
-        user_id = get_jwt_identity()
-        project_id, error = get_user_project_id(user_id)
+    """
+    Add fingerprint to blacklist.
+    
+    Returns:
+        JSON response with success message or error
+    """
+    user_id = get_jwt_identity()
+    project_id, error = get_user_project_id(user_id)
 
-        if error:
-            return jsonify({"error": error}), 404 if "not found" in error else 403
+    if error:
+        return jsonify({"error": error}), 404 if "not found" in error else 403
 
-        user = User.query.get(user_id)
+    user = User.query.get(user_id)
 
-        if not user:
-            return jsonify({"error": "User not found"}), 404
+    if not user:
+        return jsonify({"error": "User not found"}), 404
 
-        if not user.project_id:
-            return jsonify({"error": "User must be assigned to a project"}), 403
+    if not user.project_id:
+        return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.rbac import rbac_service
+    from ..services.rbac import rbac_service
 
-        if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
-            return jsonify({"error": "Insufficient permissions"}), 403
+    if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
+        return jsonify({"error": "Insufficient permissions"}), 403
 
-        data = request.get_json()
-        fingerprint = data.get("fingerprint")
-        reason = data.get("reason", "Manual block")
-        expires_at = data.get("expires_at")
+    data = request.get_json()
+    fingerprint = data.get("fingerprint")
+    reason = data.get("reason", "Manual block")
+    expires_at = data.get("expires_at")
 
-        if not fingerprint:
-            return jsonify({"error": "Fingerprint is required"}), 400
+    if not fingerprint:
+        return jsonify({"error": "Fingerprint is required"}), 400
 
-        existing = BlockedFingerprint.query.filter_by(
-            fingerprint=fingerprint, project_id=project_id, is_active=True
-        ).first()
+    existing = BlockedFingerprint.query.filter_by(
+        fingerprint=fingerprint, project_id=project_id, is_active=True
+    ).first()
 
-        if existing:
-            return jsonify({"error": "Fingerprint is already blocked"}), 400
+    if existing:
+        return jsonify({"error": "Fingerprint is already blocked"}), 400
 
-        blocked_fingerprint = BlockedFingerprint(
-            fingerprint=fingerprint,
-            project_id=project_id,
-            reason=reason,
-            blocked_by=user_id,
-            is_active=True,
+    blocked_fingerprint = BlockedFingerprint(
+        fingerprint=fingerprint,
+        project_id=project_id,
+        reason=reason,
+        blocked_by=user_id,
+        is_active=True,
+    )
+
+    if expires_at:
+        from datetime import datetime
+
+        blocked_fingerprint.expires_at = datetime.fromisoformat(
+            expires_at.replace("Z", "+00:00")
         )
 
-        if expires_at:
-            from datetime import datetime
+    db.session.add(blocked_fingerprint)
+    db.session.commit()
 
-            blocked_fingerprint.expires_at = datetime.fromisoformat(
-                expires_at.replace("Z", "+00:00")
-            )
-
-        db.session.add(blocked_fingerprint)
-        db.session.commit()
-
-        return jsonify(
-            {"message": "Fingerprint blocked successfully", "id": blocked_fingerprint.id}
-        )
-
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+    return jsonify(
+        {"message": "Fingerprint blocked successfully", "id": blocked_fingerprint.id}
+    )
 
 @settings_bp.route("/api/settings/fingerprint-lists/blocked/<int:fp_id>", methods=["DELETE"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
 def remove_from_fingerprint_blacklist(fp_id):
-    try:
-        user_id = get_jwt_identity()
-        project_id, error = get_user_project_id(user_id)
+    """
+    Remove fingerprint from blacklist.
+    
+    Args:
+        fp_id: Fingerprint ID to unblock
+        
+    Returns:
+        JSON response with success message or error
+    """
+    user_id = get_jwt_identity()
+    project_id, error = get_user_project_id(user_id)
 
-        if error:
-            return jsonify({"error": error}), 404 if "not found" in error else 403
+    if error:
+        return jsonify({"error": error}), 404 if "not found" in error else 403
 
-        user = User.query.get(user_id)
+    user = User.query.get(user_id)
 
-        if not user:
-            return jsonify({"error": "User not found"}), 404
+    if not user:
+        return jsonify({"error": "User not found"}), 404
 
-        if not user.project_id:
-            return jsonify({"error": "User must be assigned to a project"}), 403
+    if not user.project_id:
+        return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.rbac import rbac_service
+    from ..services.rbac import rbac_service
 
-        if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
-            return jsonify({"error": "Insufficient permissions"}), 403
+    if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
+        return jsonify({"error": "Insufficient permissions"}), 403
 
-        blocked_fingerprint = BlockedFingerprint.query.filter_by(
-            id=fp_id, project_id=project_id
-        ).first()
+    blocked_fingerprint = BlockedFingerprint.query.filter_by(
+        id=fp_id, project_id=project_id
+    ).first()
 
-        if not blocked_fingerprint:
-            return jsonify({"error": "Fingerprint not found"}), 404
+    if not blocked_fingerprint:
+        return jsonify({"error": "Fingerprint not found"}), 404
 
-        blocked_fingerprint.is_active = False
-        db.session.commit()
+    blocked_fingerprint.is_active = False
+    db.session.commit()
 
-        return jsonify({"message": "Fingerprint removed from blacklist"})
-
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+    return jsonify({"message": "Fingerprint removed from blacklist"})
 
 @settings_bp.route("/api/settings/security/blocked-ips", methods=["GET"])
 @jwt_required()
@@ -1350,7 +1314,7 @@ def get_security_analytics():
 
         days = request.args.get("days", 30, type=int)
 
-        from services.security_service import security_service
+        from ..services.security import security_service
 
         analytics = security_service.get_security_analytics(project_id, days)
 

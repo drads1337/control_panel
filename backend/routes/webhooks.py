@@ -13,6 +13,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ..core.extensions import db
 from ..middleware.auth import require_project_isolation, require_project_with_grace_period
+from ..middleware.production_guard import development_only
 from ..models.core import Project, User
 from ..models.webhooks import Webhook, WebhookLog
 from ..services.webhooks import get_webhook_service
@@ -22,6 +23,7 @@ from ..utils.role_constants import RolePermissions
 webhooks_bp = Blueprint("webhooks", __name__)
 
 @webhooks_bp.route("/debug-simple", methods=["GET"])
+@development_only
 @jwt_required()
 @require_project_isolation
 def debug_user_simple():
@@ -56,6 +58,7 @@ def debug_user_simple():
         return jsonify({"error": "Internal server error"}), 500
 
 @webhooks_bp.route("/debug", methods=["GET"])
+@development_only
 @jwt_required()
 @require_project_isolation
 def debug_user_info():
@@ -93,6 +96,7 @@ def debug_user_info():
         return jsonify({"error": "Internal server error"}), 500
 
 @webhooks_bp.route("/test", methods=["GET"])
+@development_only
 @jwt_required()
 @require_project_isolation
 def test_webhooks_access():
@@ -169,6 +173,7 @@ def get_user_info():
         return jsonify({"error": "Internal server error"}), 500
 
 @webhooks_bp.route("/test-create", methods=["POST"])
+@development_only
 @jwt_required()
 def test_create_webhook():
     """
@@ -414,6 +419,7 @@ def delete_webhook(webhook_id):
         return jsonify({"error": "Internal server error"}), 500
 
 @webhooks_bp.route("/<int:webhook_id>/test", methods=["POST"])
+@development_only
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
@@ -668,6 +674,7 @@ def trigger_webhook():
         return jsonify({"error": "Internal server error"}), 500
 
 @webhooks_bp.route("/test-trigger", methods=["POST"])
+@development_only
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation

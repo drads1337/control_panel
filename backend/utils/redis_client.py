@@ -6,6 +6,9 @@ This module provides a singleton Redis client instance that should be used
 throughout the application to avoid creating multiple connections and ensure
 consistent configuration.
 
+The module now uses Flask extensions when available (preferred), falling back
+to a singleton instance when used outside Flask application context.
+
 Usage:
     from ..utils.redis_client import get_redis_client
 
@@ -19,6 +22,7 @@ import logging
 from typing import Any, Dict, Optional
 
 import redis
+from flask import current_app, has_app_context
 
 from ..config.config import Config
 
@@ -193,11 +197,11 @@ def get_redis_client() -> redis.Redis:
     """
     Get the centralized Redis client instance.
 
-    This function provides direct access to the underlying Redis client
-    for cases where the wrapper methods are not sufficient.
+    This function provides direct access to the underlying Redis client.
+    It prefers Flask extension when available, falling back to singleton instance.
 
     Returns:
-        Redis client instance (singleton, shared across the application)
+        Redis client instance (from Flask extension if available, otherwise singleton)
 
     Example:
         from ..utils.redis_client import get_redis_client
@@ -206,6 +210,47 @@ def get_redis_client() -> redis.Redis:
         redis_client.pubsub()
         redis_client.ping()
     """
+    # Try to get from Flask extension first (preferred)
+    if has_app_context():
+        try:
+            redis_extension = current_app.extensions.get("redis")
+            if redis_extension:
+                return redis_extension.client
+        except (AttributeError, RuntimeError):
+            # Fall back to singleton if extension not available
+            pass
+
+    # Fall back to singleton instance
     return _redis_client_instance.client
 
-redis_client = _redis_client_instance
+def get_redis_wrapper() -> RedisClient:
+    """
+    Get the RedisClient wrapper instance.
+
+    This function provides access to the wrapper class with convenience methods.
+    It prefers Flask extension when available, falling back to singleton instance.
+
+    Returns:
+        RedisClient wrapper instance
+    """
+    # Try to get from Flask extension first (preferred)
+    if has_app_context():
+        try:
+            redis_extension = current_app.extensions.get("redis")
+            if redis_extension:
+                # Create a wrapper that uses the extension's client
+                class ExtensionWrapper(RedisClient):
+                    @property
+                    def client(self) -> redis.Redis:
+                        return redis_extension.client
+
+                return ExtensionWrapper()
+        except (AttributeError, RuntimeError):
+            # Fall back to singleton if extension not available
+            pass
+
+    # Fall back to singleton instance
+    return _redis_client_instance
+
+# For backward compatibility
+redis_client = get_redis_wrapper()

@@ -11,6 +11,7 @@ from flask_wtf.csrf import CSRFProtect
 
 from ...config.config import Config
 from ...middleware.load_monitoring import monitor_load
+from ...middleware import require_mtls
 from ...middleware.rate_limiting import connect_rate_limit
 from ...services.connect import connect_service
 
@@ -21,6 +22,7 @@ csrf = CSRFProtect()
 logger = logging.getLogger(__name__)
 
 @connect_bp.route("/challenge", methods=["POST"])
+@require_mtls
 @connect_rate_limit(rate_limit=Config.RATE_LIMIT, rate_limit_burst=Config.RATE_LIMIT_BURST)
 def get_challenge():
     """Generate challenge for authentication - thin route handler"""
@@ -41,6 +43,7 @@ def get_challenge():
     return jsonify(response), status_code
 
 @connect_bp.route("/connect", methods=["POST"])
+@require_mtls
 @connect_rate_limit(rate_limit=Config.RATE_LIMIT, rate_limit_burst=Config.RATE_LIMIT_BURST)
 @monitor_load("connect")
 def api_connect():
@@ -128,6 +131,7 @@ def api_connect():
     return encrypted_response, status_code
 
 @connect_bp.route("/classic_connect", methods=["POST"])
+@require_mtls
 @connect_rate_limit(rate_limit=Config.RATE_LIMIT, rate_limit_burst=Config.RATE_LIMIT_BURST)
 @csrf.exempt
 def classic_connect():

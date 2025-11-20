@@ -24,6 +24,7 @@ from ...utils.fulltext_search import fulltext_search_filter
 from ...utils.rbac_utils import RBACManager
 from ...utils.role_constants import UserRoles
 from ...utils.structured_logging import get_logger
+from .key_filter_specification import KeyFilterSpecification
 
 class KeyService:
     """Service for handling key management operations"""
@@ -351,7 +352,9 @@ class KeyService:
             initial_count = query.count()
             self.logger.info(f"📊 Initial query count (all keys in project): {initial_count}")
 
-            query = self._apply_filters(query, filters)
+            # Apply filters using KeyFilterSpecification
+            filter_spec = KeyFilterSpecification(filters, logger=self.logger)
+            query = filter_spec.apply(query)
 
             filtered_count = query.count()
             self.logger.info(f"🔧 Filtered query count: {filtered_count}")
@@ -429,72 +432,12 @@ class KeyService:
             return [], 0
 
     def _apply_filters(self, query, filters: Dict[str, Any]):
-        """Apply filters to query"""
-        self.logger.info(f"🔧 Applying filters: {filters}")
-
-        if filters.get("game_id"):
-            self.logger.info(f"🎮 Filtering by game_id: {filters['game_id']}")
-            query = query.filter_by(game_id=filters["game_id"])
-        elif filters.get("loader_id") and filters.get("game_ids"):
-            self.logger.info(
-                f"📦 Filtering by loader_id: {filters['loader_id']}, game_ids: {filters['game_ids']}"
-            )
-            query = query.filter(Key.game_id.in_(filters["game_ids"]))
-
-        if filters.get("status") and filters["status"] != "all":
-            status = filters["status"]
-            self.logger.info(f"📊 Filtering by status: {status}")
-            if status == "active":
-
-                self.logger.info(
-                    "✅ Applying active status filter: status=1 AND (expires_at IS NULL OR expires_at > now)"
-                )
-                query = query.filter(
-                    Key.status == 1,
-                    or_(Key.expires_at.is_(None), Key.expires_at > datetime.utcnow()),
-                )
-            elif status == "expired":
-                self.logger.info("⏰ Applying expired status filter: expires_at <= now")
-                query = query.filter(Key.expires_at <= datetime.utcnow())
-            elif status == "inactive":
-                self.logger.info("❌ Applying inactive status filter: status=0")
-                query = query.filter(Key.status == 0)
-            else:
-                self.logger.info(f"🔢 Applying numeric status filter: status={int(status)}")
-                query = query.filter_by(status=int(status))
-        else:
-            self.logger.info("📊 No status filter applied (status='all' or not provided)")
-
-        if filters.get("activation_status") and filters["activation_status"] != "all":
-            if filters["activation_status"] == "activated":
-                query = query.filter(Key.activated_at.isnot(None))
-            elif filters["activation_status"] == "not_activated":
-                query = query.filter(Key.activated_at.is_(None))
-
-        if filters.get("date_from"):
-            date_from = datetime.fromisoformat(filters["date_from"].replace("Z", "+00:00"))
-            query = query.filter(Key.created_at >= date_from)
-
-        if filters.get("date_to"):
-            date_to = datetime.fromisoformat(filters["date_to"].replace("Z", "+00:00"))
-            query = query.filter(Key.created_at <= date_to)
-
-        if filters.get("device_usage") and filters["device_usage"] != "all":
-            if filters["device_usage"] == "used":
-                query = query.filter(Key.devices != "")
-            elif filters["device_usage"] == "unused":
-                query = query.filter(or_(Key.devices == "", Key.devices.is_(None)))
-
-        if filters.get("max_devices") and filters["max_devices"] != "all":
-            if filters["max_devices"] == "single":
-                query = query.filter(Key.max_devices == 1)
-            elif filters["max_devices"] == "multiple":
-                query = query.filter(Key.max_devices > 1)
-
-        if filters.get("search"):
-            query = fulltext_search_filter(query, filters["search"], "search_vector")
-
-        return query
+        """
+        Apply filters to query (deprecated - use KeyFilterSpecification instead)
+        Kept for backward compatibility with other methods
+        """
+        filter_spec = KeyFilterSpecification(filters, logger=self.logger)
+        return filter_spec.apply(query)
 
     def _get_keys_by_ids(self, user: User, key_ids: List[int]) -> List[Key]:
         """

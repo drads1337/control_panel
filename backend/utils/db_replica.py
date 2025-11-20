@@ -1,8 +1,9 @@
 """
-Database replica routing utility
+Database replica routing utility using native SQLAlchemy binds
 
 This module provides functionality to route database queries to read replicas
-for GET requests, reducing load on the primary database.
+using SQLAlchemy's native binds mechanism, which is more reliable than manual
+session management and properly handles transactions.
 
 Usage:
     from ..utils.db_replica import get_read_session, get_write_session
@@ -14,6 +15,10 @@ Usage:
         user = User(username='test')
         session.add(user)
         session.commit()
+
+Note: This implementation uses SQLAlchemy's native binds mechanism, which is
+recommended over manual engine management. The binds are configured in
+config.py via SQLALCHEMY_BINDS.
 """
 
 import logging
@@ -21,65 +26,57 @@ from contextlib import contextmanager
 from typing import Optional
 
 from flask import current_app, has_request_context
-from sqlalchemy import create_engine, event
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy import event
 
 from ..core.extensions import db
 
 logger = logging.getLogger(__name__)
 
-_read_engine = None
-_write_engine = None
-_read_session_factory = None
-_write_session_factory = None
-
-def init_replica_engines(app):
+def init_replica_binds(app):
     """
-    Инициализирует engines для read и write операций.
-    Вызывается при инициализации приложения.
+    Initialize read replica bind configuration using native SQLAlchemy binds.
+    This sets up read-only mode for the read replica connection.
+    
+    Called during application initialization.
+    The engine is created by the custom Database class in extensions.py
+    which applies engine options from configuration.
     """
-    global _read_engine, _write_engine, _read_session_factory, _write_session_factory
-
-    _write_engine = db.engine
-
     read_replica_url = app.config.get("SQLALCHEMY_DATABASE_READ_URI")
-
+    
     if read_replica_url:
+        # Configure bind in SQLALCHEMY_BINDS (already set in config.py)
+        if 'read' not in app.config.get("SQLALCHEMY_BINDS", {}):
+            logger.warning("Read replica URL configured but not in SQLALCHEMY_BINDS")
+            return
+        
         try:
-            read_options = app.config.get("SQLALCHEMY_READ_ENGINE_OPTIONS", {})
-            _read_engine = create_engine(read_replica_url, **read_options)
-
-            _read_session_factory = sessionmaker(bind=_read_engine)
-
-            logger.info("✅ Read replica engine initialized successfully")
-
-            @event.listens_for(_read_engine, "connect")
+            # Get the read engine (created by custom Database.get_engine)
+            read_engine = db.get_engine(app, bind='read')
+            
+            # Set up read-only mode event listener
+            @event.listens_for(read_engine, "connect")
             def set_readonly_pragma(dbapi_conn, connection_record):
-                """Устанавливает read-only режим для read replica соединений"""
+                """Set read-only mode for read replica connections"""
                 try:
-
                     cursor = dbapi_conn.cursor()
                     cursor.execute("SET default_transaction_read_only = on")
                     cursor.close()
                 except Exception as e:
                     logger.warning(f"Could not set read-only mode: {e}")
-
+            
+            logger.info("✅ Read replica bind initialized successfully using native SQLAlchemy binds")
         except Exception as e:
-            logger.error(f"Failed to initialize read replica engine: {e}")
+            logger.error(f"Failed to initialize read replica bind: {e}")
             logger.warning("Falling back to primary database for all operations")
-            _read_engine = None
-            _read_session_factory = None
     else:
         logger.info("Read replica not configured, using primary database for all operations")
-        _read_engine = None
-        _read_session_factory = None
 
 def is_read_request() -> bool:
     """
-    Определяет, является ли текущий запрос read-only (GET).
+    Determine if the current request is read-only (GET).
 
     Returns:
-        True если это GET запрос, False для POST/PUT/DELETE
+        True if this is a GET request, False for POST/PUT/DELETE
     """
     if not has_request_context():
         return False
@@ -90,64 +87,81 @@ def is_read_request() -> bool:
 
 def has_read_replica() -> bool:
     """
-    Проверяет, настроен ли read replica.
+    Check if read replica is configured.
 
     Returns:
-        True если read replica доступен, False иначе
+        True if read replica is available, False otherwise
     """
-    return _read_engine is not None and _read_session_factory is not None
+    if not has_request_context():
+        return False
+    
+    app = current_app
+    binds = app.config.get("SQLALCHEMY_BINDS", {})
+    return 'read' in binds and binds['read'] is not None
 
 @contextmanager
 def get_read_session(force_primary: bool = False):
     """
-    Получает сессию для read операций.
-    Автоматически направляет запросы на read replica, если доступен.
+    Get a session for read operations.
+    Automatically routes queries to read replica if available.
 
     Args:
-        force_primary: Если True, принудительно использует primary БД даже при наличии replica
+        force_primary: If True, forces use of primary DB even if replica is available
 
     Yields:
-        SQLAlchemy Session для read операций
+        SQLAlchemy Session for read operations
     """
-    global _read_engine, _read_session_factory, _write_engine
-
     if not has_read_replica() or force_primary:
-
+        # Use default session (primary database)
         yield db.session
         return
-
-    session = _read_session_factory()
+    
+    # Use read replica bind
     try:
-        yield session
+        # Create a session bound to the read replica
+        # Flask-SQLAlchemy's db.session uses scoped_session, so we need to
+        # create a new session with the read bind
+        from sqlalchemy.orm import sessionmaker
+        
+        read_engine = db.get_engine(current_app, bind='read')
+        Session = sessionmaker(bind=read_engine)
+        session = Session()
+        
+        try:
+            yield session
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Error in read session: {e}")
+            raise
+        finally:
+            session.close()
     except Exception as e:
-        session.rollback()
-        logger.error(f"Error in read session: {e}")
-        raise
-    finally:
-        session.close()
+        logger.error(f"Failed to get read session, falling back to primary: {e}")
+        # Fallback to primary database
+        yield db.session
 
 @contextmanager
 def get_write_session():
     """
-    Получает сессию для write операций (INSERT, UPDATE, DELETE).
-    Всегда использует primary database.
+    Get a session for write operations (INSERT, UPDATE, DELETE).
+    Always uses primary database.
 
     Yields:
-        SQLAlchemy Session для write операций
+        SQLAlchemy Session for write operations
     """
-
+    # Always use default session (primary database)
     yield db.session
 
 def get_session_for_query(is_read: Optional[bool] = None):
     """
-    Получает подходящую сессию для запроса.
+    Get appropriate session for query.
 
     Args:
-        is_read: Если None, определяется автоматически на основе HTTP метода.
-                 Если True - read операция, False - write операция.
+        is_read: If None, automatically determined based on HTTP method.
+                 If True - read operation, False - write operation.
 
     Returns:
-        Context manager для сессии БД
+        Context manager for database session
     """
     if is_read is None:
         is_read = is_read_request()
@@ -157,65 +171,16 @@ def get_session_for_query(is_read: Optional[bool] = None):
     else:
         return get_write_session()
 
-def use_read_replica(func):
-    """
-    Декоратор для функций, которые должны использовать read replica.
-
-    Usage:
-        @use_read_replica
-        def get_users(project_id):
-            with get_read_session() as session:
-                return session.query(User).filter_by(project_id=project_id).all()
-    """
-
-    def wrapper(*args, **kwargs):
-
-        with get_read_session(force_primary=False) as session:
-
-            original_session = db.session
-            db.session = session
-            try:
-                result = func(*args, **kwargs)
-                return result
-            finally:
-                db.session = original_session
-
-    wrapper.__name__ = func.__name__
-    wrapper.__doc__ = func.__doc__
-    return wrapper
-
-class ReadReplicaMiddleware:
-    """
-    Middleware для автоматического перенаправления GET запросов на read replica.
-
-    Использование:
-        app.before_request(ReadReplicaMiddleware.before_request)
-        app.after_request(ReadReplicaMiddleware.after_request)
-    """
-
-    @staticmethod
-    def before_request():
-        """Вызывается перед обработкой запроса"""
-        if is_read_request() and has_read_replica():
-
-            pass
-
-    @staticmethod
-    def after_request(response):
-        """Вызывается после обработки запроса"""
-
-        return response
-
 def check_replica_health() -> dict:
     """
-    Проверяет состояние read replica.
+    Check read replica health status.
 
     SECURITY NOTE: All SQL queries in this function use hardcoded constants
     and PostgreSQL system functions. No user input is used in SQL construction.
     All queries are safe from SQL injection.
 
     Returns:
-        Словарь с информацией о состоянии реплик
+        Dictionary with replica health information
     """
     result = {
         "read_replica_configured": has_read_replica(),
@@ -243,18 +208,18 @@ def check_replica_health() -> dict:
                 result["read_replica_available"] = True
 
                 try:
-
+                    # Check replication lag (PostgreSQL specific)
                     lag_result = session.execute(
                         text(
                             """
-                        SELECT EXTRACT(EPOCH FROM (NOW() - pg_last_xact_replay_timestamp())) as lag_seconds
-                    """
+                            SELECT EXTRACT(EPOCH FROM (NOW() - pg_last_xact_replay_timestamp())) as lag_seconds
+                            """
                         )
                     ).fetchone()
                     if lag_result:
                         result["read_replica_lag"] = lag_result[0]
                 except Exception:
-
+                    # Replication lag check may fail on non-replica setups
                     pass
 
         except Exception as e:

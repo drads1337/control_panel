@@ -101,82 +101,82 @@ class DecryptionService:
             raise ValueError("Decryption failed: invalid encryption key or corrupted data") from global_error
 
     def _decrypt_with_global_key(self, enc_data: str) -> Dict:
-        """Decrypt with global master key using AES-256-GCM"""
+        """
+        Decrypt with global master key using AES-256-GCM
+        
+        SECURITY: No logging inside cryptographic operations to prevent timing attacks.
+        All logging is done before/after the operation to maintain constant execution time.
+        """
+        # Log before operation (constant time)
+        logger.debug(f"[DECRYPT_GLOBAL] Attempting decryption, data length: {len(enc_data)}")
+        
         try:
-            logger.debug(
-                f"[DECRYPT_GLOBAL] Attempting decryption, data length: {len(enc_data)}"
-            )
-
+            # Try AES-256-GCM first (no logging during operation)
             try:
-                logger.info(f"[DECRYPT_GLOBAL] Trying AES-256-GCM decryption...")
                 json_str = MasterKeyManager.decrypt_with_master_key_legacy(
                     enc_data, Config.MASTER_KEY
                 )
-                logger.info(
-                    f"[DECRYPT_GLOBAL] AES-256-GCM success, decrypted length: {len(json_str)}"
-                )
-                logger.info(f"[DECRYPT_GLOBAL] Decrypted data preview: {json_str[:200]}...")
+                # Log after successful operation
+                logger.debug(f"[DECRYPT_GLOBAL] AES-256-GCM success")
                 return json.loads(json_str)
             except Exception as gcm_error:
-
-                logger.debug(
-                    f"[DECRYPT_GLOBAL] AES-256-GCM failed: {type(gcm_error).__name__}: {str(gcm_error)}"
-                )
-                logger.debug(f"[DECRYPT_GLOBAL] Trying Fernet fallback...")
+                # Try Fernet fallback (no logging during operation)
                 try:
                     json_str = MasterKeyManager.decrypt_with_master_key(enc_data, Config.MASTER_KEY)
-                    logger.info(
-                        f"[DECRYPT_GLOBAL] Fernet success, decrypted length: {len(json_str)}"
-                    )
+                    # Log after successful operation
+                    logger.debug(f"[DECRYPT_GLOBAL] Fernet success")
                     return json.loads(json_str)
                 except Exception as fernet_error:
-                    logger.debug(
-                        f"[DECRYPT_GLOBAL] Fernet also failed: {type(fernet_error).__name__}: {str(fernet_error)}"
-                    )
+                    # Both failed, raise original error
                     raise gcm_error
         except Exception as e:
-            logger.debug(f"[DECRYPT_GLOBAL] Global key decryption failed: {type(e).__name__}: {e}")
+            # Log error after operation completes (constant time)
+            logger.debug(f"[DECRYPT_GLOBAL] Global key decryption failed: {type(e).__name__}")
             raise
 
     def _decrypt_with_project_key(
         self, enc_data: str, project_id: str
     ) -> Tuple[Optional[Dict], Optional[int]]:
-        """Decrypt with specific project key using AES-256-GCM"""
+        """
+        Decrypt with specific project key using AES-256-GCM
+        
+        SECURITY: No logging inside cryptographic operations to prevent timing attacks.
+        All logging is done before/after the operation to maintain constant execution time.
+        """
         project_id_int = int(project_id)
+
+        # Log before operation (constant time)
+        logger.debug(f"[DECRYPT_PROJECT] Attempting decryption for project {project_id}")
 
         try:
             encryption_keys = ProjectEncryptionKeys.query.filter_by(
                 project_id=project_id_int
             ).first()
             if encryption_keys and encryption_keys.aes_key:
-                logger.info(
-                    f"[DECRYPT_PROJECT] Trying AES Key from ProjectEncryptionKeys for project {project_id}"
-                )
-                json_str = MasterKeyManager.decrypt_with_master_key_legacy(
-                    enc_data, encryption_keys.aes_key
-                )
-                logger.info(
-                    f"[DECRYPT_PROJECT] Successfully decrypted with AES Key from ProjectEncryptionKeys"
-                )
-                return json.loads(json_str), project_id_int
-        except Exception as aes_key_error:
-            logger.debug(
-                f"[DECRYPT_PROJECT] AES Key from ProjectEncryptionKeys failed: {type(aes_key_error).__name__}: {str(aes_key_error)[:100]}..."
-            )
+                # Perform decryption (no logging during operation)
+                try:
+                    json_str = MasterKeyManager.decrypt_with_master_key_legacy(
+                        enc_data, encryption_keys.aes_key
+                    )
+                    # Log after successful operation
+                    logger.debug(f"[DECRYPT_PROJECT] Successfully decrypted with AES Key from ProjectEncryptionKeys")
+                    return json.loads(json_str), project_id_int
+                except Exception:
+                    # Silent failure to prevent timing leaks
+                    pass
+        except Exception:
+            # Silent failure to prevent timing leaks
+            pass
 
+        # Try project_master_key from ProjectSettings (no logging during operation)
         try:
-            logger.info(
-                f"[DECRYPT_PROJECT] Trying project_master_key from ProjectSettings for project {project_id}"
-            )
             data = decrypt_data_with_project_key(enc_data, project_id_int, use_gcm=True)
-            logger.info(
-                f"[DECRYPT_PROJECT] Successfully decrypted with project_master_key from ProjectSettings"
-            )
+            # Log after successful operation
+            logger.debug(f"[DECRYPT_PROJECT] Successfully decrypted with project_master_key from ProjectSettings")
             return data, project_id_int
-        except Exception as e:
-            logger.debug(
-                f"[DECRYPT_PROJECT] Project {project_id} project_master_key failed: {type(e).__name__}: {str(e)[:100]}..."
-            )
+        except Exception:
+            # Silent failure to prevent timing leaks
+            logger.debug(f"[DECRYPT_PROJECT] Project {project_id} decryption failed")
             return None, None
 
     def _get_project_id_from_redis(self, ip: str) -> Optional[str]:

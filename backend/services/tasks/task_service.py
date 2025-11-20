@@ -76,47 +76,41 @@ class TaskService:
         task_key = f"task:{task_id}"
         self.redis_client.setex(task_key, self.task_timeout, json.dumps(task_info))
 
-        if CELERY_AVAILABLE:
-            server_id = task_data.get("server_id")
+        if not CELERY_AVAILABLE:
+            error_msg = f"Celery is not available. Cannot create task {task_id} of type {task_type}. Celery workers must be running."
+            logging.error(error_msg)
+            # Update task status to failed
+            self.update_task_status(task_id, "failed", error=error_msg)
+            raise RuntimeError(error_msg)
 
-            celery_task_map = {
-                "server_start": server_start,
-                "server_stop": server_stop,
-                "server_restart": server_restart,
-                "server_status_check": server_status_check,
-            }
+        server_id = task_data.get("server_id")
 
-            celery_task = celery_task_map.get(task_type)
-            if celery_task:
+        celery_task_map = {
+            "server_start": server_start,
+            "server_stop": server_stop,
+            "server_restart": server_restart,
+            "server_status_check": server_status_check,
+        }
 
-                celery_task.apply_async(
-                    args=[server_id], kwargs={"task_id": task_id, "project_id": project_id}
-                )
-                logging.info(f"Task queued with Celery: {task_id} type={task_type}")
-            else:
+        celery_task = celery_task_map.get(task_type)
+        if not celery_task:
+            error_msg = f"Unknown task type {task_type}. Cannot create task {task_id}. Supported types: {list(celery_task_map.keys())}"
+            logging.error(error_msg)
+            # Update task status to failed
+            self.update_task_status(task_id, "failed", error=error_msg)
+            raise ValueError(error_msg)
 
-                logging.warning(f"Unknown task type {task_type}, using fallback queue")
-                queue_data = {
-                    "task_id": task_id,
-                    "type": task_type,
-                    "data": task_data,
-                    "user_id": user_id,
-                    "project_id": project_id,
-                }
-                self.redis_client.lpush("task_queue", json.dumps(queue_data))
-                self.redis_client.ltrim("task_queue", 0, 1000)
-        else:
-
-            queue_data = {
-                "task_id": task_id,
-                "type": task_type,
-                "data": task_data,
-                "user_id": user_id,
-                "project_id": project_id,
-            }
-            self.redis_client.lpush("task_queue", json.dumps(queue_data))
-            self.redis_client.ltrim("task_queue", 0, 1000)
-            logging.warning(f"Celery not available, using fallback queue for task {task_id}")
+        try:
+            celery_task.apply_async(
+                args=[server_id], kwargs={"task_id": task_id, "project_id": project_id}
+            )
+            logging.info(f"Task queued with Celery: {task_id} type={task_type}")
+        except Exception as e:
+            error_msg = f"Failed to queue task with Celery: {str(e)}"
+            logging.error(f"{error_msg} - task_id={task_id}, type={task_type}")
+            # Update task status to failed
+            self.update_task_status(task_id, "failed", error=error_msg)
+            raise RuntimeError(error_msg) from e
 
         logging.info(f"Task created: {task_id} type={task_type}")
         return task_id

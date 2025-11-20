@@ -323,6 +323,40 @@ def upload_avatar(current_user=None):
         return jsonify({"error": f"File too large. Maximum size is {max_size_mb}MB"}), 400
 
     try:
+        # SECURITY: Validate file signature (magic bytes) before processing
+        # This prevents file type spoofing attacks (e.g., executable files with image extensions)
+        from ..services.files.file_service import file_service
+        
+        # Save file temporarily to validate signature
+        import tempfile
+        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as temp_file:
+            file.seek(0)
+            temp_file.write(file.read())
+            temp_file_path = temp_file.name
+        
+        try:
+            # Validate file signature - expect image extensions
+            expected_extensions = [ext.lstrip('.').lower() for ext in ALLOWED_EXTENSIONS]
+            is_valid, validation_error = file_service.validate_file_signature(temp_file_path, expected_extensions)
+            
+            if not is_valid:
+                os.unlink(temp_file_path)
+                return jsonify({"error": validation_error or "Invalid file type: file signature validation failed"}), 400
+            
+            # Reset file stream for processing
+            file.seek(0)
+        except Exception as validation_exception:
+            os.unlink(temp_file_path)
+            logging.error(f"File signature validation error: {str(validation_exception)}")
+            return jsonify({"error": "File validation failed"}), 400
+        finally:
+            # Clean up temp file after validation
+            try:
+                if os.path.exists(temp_file_path):
+                    os.unlink(temp_file_path)
+            except Exception:
+                pass
+        
         crop_data = request.form.get("crop_data")
         if crop_data:
             import json

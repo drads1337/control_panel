@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from ..core.extensions import db
 from ..middleware.auth import require_project_isolation, require_project_with_grace_period
+from ..middleware.production_guard import development_only
 from ..models.core import User, UserActivity
 from ..models.rbac import Role, UserRole
 from ..services.activity import activity_service
@@ -259,7 +260,10 @@ def calculate_session_duration(last_login, last_activity):
     """Calculate session duration"""
     return calculate_session_duration_new(last_login, last_activity)
 
+from ..middleware.production_guard import development_only
+
 @sessions_bp.route("/test-duration", methods=["GET"])
+@development_only
 def test_duration():
     """Test duration calculation"""
     from datetime import datetime, timedelta, timezone

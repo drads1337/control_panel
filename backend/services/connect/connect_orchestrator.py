@@ -311,16 +311,45 @@ class ConnectOrchestrator:
             )
             import traceback
 
-            logger.error(f"CONNECT_ERROR_TRACEBACK: {traceback.format_exc()}")
+            error_traceback = traceback.format_exc()
+            logger.error(f"CONNECT_ERROR_TRACEBACK: {error_traceback}")
 
             self.security_checker.log_suspicious_activity(ip, "FATAL", str(e))
             error_response = self.response_builder.build_error_response("Internal server error")
 
+            # Always return encrypted response, even on error
             try:
-                encrypted_response = self.response_builder.encrypt_response(error_response, True)
-            except:
-                import json
-                encrypted_response = json.dumps(error_response)
+                encrypted_response = self.response_builder.encrypt_response(
+                    error_response, used_global_key=True, use_legacy=True
+                )
+            except Exception as encrypt_error:
+                logger.error(
+                    f"ENCRYPTION_FAILED_IN_ERROR_HANDLER ip={ip} error={encrypt_error}"
+                )
+                # Last resort: use MasterKeyManager directly
+                try:
+                    import json
+                    from ...utils.secure_crypto import MasterKeyManager
+                    from ...config.config import Config
+
+                    error_json = json.dumps(error_response)
+                    encrypted_response = MasterKeyManager.encrypt_with_master_key_legacy(
+                        error_json, Config.MASTER_KEY
+                    )
+                    logger.info("Used MasterKeyManager directly as fallback for error encryption")
+                except Exception as final_error:
+                    logger.critical(
+                        f"CRITICAL: Failed to encrypt error response ip={ip} error={final_error}"
+                    )
+                    # This should never happen, but if it does, return a minimal encrypted response
+                    import json
+                    from ...utils.secure_crypto import MasterKeyManager
+                    from ...config.config import Config
+
+                    minimal_error = {"error": "Internal server error", "r": "0000000000000000"}
+                    encrypted_response = MasterKeyManager.encrypt_with_master_key_legacy(
+                        json.dumps(minimal_error), Config.MASTER_KEY
+                    )
 
             return encrypted_response, 500
 

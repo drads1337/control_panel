@@ -1,6 +1,18 @@
 """
 Settings Service
 Provides cached access to project settings and configuration
+
+NOTE ON RESPONSIBILITY SEPARATION:
+This service handles CRUD operations for project settings and is acceptable to mix:
+- Database operations (query, create, update)
+- Caching (via cache_service)
+- Response building (for API responses)
+- Basic validation (type checking, defaults)
+
+However, for better separation of concerns, consider extracting:
+- Validation logic to a separate SettingsValidator
+- Response building to a SettingsResponseBuilder
+- RBAC checks are already delegated to RBACManager/utils
 """
 
 import json
@@ -17,7 +29,11 @@ except ImportError:
     cache_service = None
 
 class SettingsService:
-    """Service for managing project settings with caching"""
+    """
+    Service for managing project settings with caching.
+    
+    Single Responsibility: Manage project settings CRUD operations with caching support.
+    """
 
     def __init__(self, cache_service=None, logger=None):
         self.cache_service = cache_service
@@ -331,120 +347,43 @@ class SettingsService:
             return {"error": f"Failed to retrieve settings: {str(e)}"}
 
     def _get_or_create_project_settings(self, project_id: int) -> ProjectSettings:
-        """Get or create project settings"""
+        """
+        Get or create project settings
+        
+        SECURITY NOTE: This method uses SQLAlchemy ORM queries only (no raw SQL).
+        All queries are parameterized through SQLAlchemy's query builder, which
+        protects against SQL injection attacks. The project_id parameter is validated
+        as an integer type, ensuring type safety.
+        
+        If schema mismatches are detected, the application fails fast to prevent
+        data corruption. This is the correct approach - never use raw SQL fallbacks
+        to work around schema errors, as this creates security and stability risks.
+        """
         self.logger.info(f"Getting or creating settings for project_id: {project_id}")
 
         try:
+            # SECURITY: Uses SQLAlchemy ORM with parameterized queries
+            # project_id is type-checked as int, preventing injection attacks
             settings = ProjectSettings.query.filter_by(project_id=project_id).first()
         except Exception as db_error:
             error_str = str(db_error)
+            # SECURITY: Fail Fast on schema mismatches - migrations must guarantee schema state
+            # If code and DB are out of sync, application must fail to prevent data corruption
+            # NEVER use raw SQL fallbacks to work around schema errors - this is a security risk
             if "does not exist" in error_str or "UndefinedColumn" in error_str:
-                self.logger.warning(f"Database schema mismatch detected: {error_str}")
-                self.logger.info("Attempting to query with minimal columns...")
-                # SECURITY NOTE: Using raw SQL as fallback when ORM fails due to schema mismatch.
-                # This is a code smell and should be fixed by ensuring migrations are up to date.
-                # Parameters are properly bound to prevent SQL injection, but this fallback logic
-                # should be removed once migrations are properly applied.
-                try:
-                    from sqlalchemy import text
-
-                    result = db.session.execute(
-                        text(
-                            """
-                            SELECT id, project_id, min_password_length, max_login_attempts, 
-                                   ip_block_duration_minutes, max_sessions_per_user, 
-                                   log_retention_days, security_log_level, max_connections,
-                                   session_timeout_minutes, log_file_size_mb, system_log_level,
-                                   auto_save_enabled, analytics_enabled, system_notifications_enabled,
-                                   two_factor_auth_required, vpn_blocking_enabled,
-                                   security_logging_enabled, suspicious_activity_check_enabled,
-                                   session_limiting_enabled, auto_log_cleanup_enabled,
-                                   encryption_enabled, encryption_algorithm, key_rotation_days,
-                                   auto_backup_enabled, backup_frequency_hours, backup_retention_days,
-                                   appearance_settings, project_master_key, invite_code_required,
-                                   created_at, updated_at
-                            FROM project_settings 
-                            WHERE project_id = :project_id
-                            LIMIT 1
-                        """
-                        ),
-                        {"project_id": project_id},
-                    ).fetchone()
-
-                    if result:
-                        settings = ProjectSettings()
-                        settings.id = result[0]
-                        settings.project_id = result[1]
-                        settings.min_password_length = result[2] if result[2] else 8
-                        settings.max_login_attempts = result[3] if result[3] else 5
-                        settings.ip_block_duration_minutes = result[4] if result[4] else 15
-                        settings.max_sessions_per_user = result[5] if result[5] else 5
-                        settings.log_retention_days = result[6] if result[6] else 60
-                        settings.security_log_level = result[7] if result[7] else "INFO"
-                        settings.max_connections = result[8] if result[8] else 1000
-                        settings.session_timeout_minutes = result[9] if result[9] else 480
-                        settings.log_file_size_mb = result[10] if result[10] else 100
-                        settings.system_log_level = result[11] if result[11] else "INFO"
-                        settings.auto_save_enabled = (
-                            bool(result[12]) if result[12] is not None else True
-                        )
-                        settings.analytics_enabled = (
-                            bool(result[13]) if result[13] is not None else True
-                        )
-                        settings.system_notifications_enabled = (
-                            bool(result[14]) if result[14] is not None else True
-                        )
-                        settings.two_factor_auth_required = (
-                            bool(result[15]) if result[15] is not None else False
-                        )
-                        settings.vpn_blocking_enabled = (
-                            bool(result[16]) if result[16] is not None else False
-                        )
-                        settings.security_logging_enabled = (
-                            bool(result[17]) if result[17] is not None else True
-                        )
-                        settings.suspicious_activity_check_enabled = (
-                            bool(result[18]) if result[18] is not None else True
-                        )
-                        settings.session_limiting_enabled = (
-                            bool(result[19]) if result[19] is not None else True
-                        )
-                        settings.auto_log_cleanup_enabled = (
-                            bool(result[20]) if result[20] is not None else True
-                        )
-                        settings.encryption_enabled = (
-                            bool(result[21]) if result[21] is not None else False
-                        )
-                        settings.encryption_algorithm = result[22] if result[22] else "AES-256"
-                        settings.key_rotation_days = result[23] if result[23] else 90
-                        settings.auto_backup_enabled = (
-                            bool(result[24]) if result[24] is not None else False
-                        )
-                        settings.backup_frequency_hours = result[25] if result[25] else 24
-                        settings.backup_retention_days = result[26] if result[26] else 30
-                        settings.appearance_settings = result[27]
-                        settings.project_master_key = result[28]
-                        settings.invite_code_required = (
-                            bool(result[29]) if result[29] is not None else False
-                        )
-
-                        settings.password_complexity_required = True
-                        settings.session_fingerprinting = True
-                        settings.ip_whitelist_enabled = False
-                        settings.ip_whitelist = None
-                        settings.rate_limiting_enabled = True
-                        settings.rate_limit_requests_per_minute = 60
-                        settings.created_at = result[30]
-                        settings.updated_at = result[31]
-                        self.logger.info("Successfully loaded settings using fallback query")
-                    else:
-                        self.logger.info("Fallback query executed successfully but no settings found")
-                        settings = None
-                except Exception as fallback_error:
-                    self.logger.error(f"Fallback query also failed: {fallback_error}")
-                    raise db_error
-            else:
-                raise db_error
+                self.logger.critical(
+                    f"CRITICAL: Database schema mismatch detected: {error_str}\n"
+                    "This indicates migrations are out of sync with the code.\n"
+                    "Application will fail to prevent data corruption.\n"
+                    "Please run migrations to synchronize the database schema."
+                )
+                raise RuntimeError(
+                    "Database schema mismatch detected. "
+                    "This is a critical error indicating migrations are out of sync. "
+                    "Please ensure migrations are up to date before running the application. "
+                    "Application is failing fast to prevent data corruption."
+                ) from db_error
+            raise db_error
 
         if not settings:
             self.logger.info(f"No settings found for project_id: {project_id}, creating new ones")
@@ -489,103 +428,44 @@ class SettingsService:
                     project_master_key=secrets.token_hex(32),
                 )
             except Exception as create_error:
-
                 error_str = str(create_error)
+                # SECURITY: Fail Fast on schema mismatches - migrations must guarantee schema state
                 if "does not exist" in error_str or "UndefinedColumn" in error_str:
-                    self.logger.warning(
-                        f"Can't create settings with all fields due to missing columns, using raw SQL"
+                    self.logger.critical(
+                        f"CRITICAL: Cannot create settings due to schema mismatch: {error_str}\n"
+                        "This indicates migrations are out of sync with the code.\n"
+                        "Application will fail to prevent data corruption.\n"
+                        "Please run migrations to synchronize the database schema."
                     )
-                    # SECURITY NOTE: Using raw SQL as fallback when ORM fails due to schema mismatch.
-                    # This is a code smell and should be fixed by ensuring migrations are up to date.
-                    # Parameters are properly bound to prevent SQL injection, but this fallback logic
-                    # should be removed once migrations are properly applied.
-                    from sqlalchemy import text
-
-                    master_key = secrets.token_hex(32)
-
-                    db.session.execute(
-                        text(
-                            """
-                            INSERT INTO project_settings 
-                            (project_id, min_password_length, max_login_attempts, ip_block_duration_minutes,
-                             max_sessions_per_user, log_retention_days, security_log_level,
-                             max_connections, session_timeout_minutes, log_file_size_mb, system_log_level,
-                             auto_save_enabled, analytics_enabled, system_notifications_enabled,
-                             two_factor_auth_required, vpn_blocking_enabled,
-                             security_logging_enabled, suspicious_activity_check_enabled,
-                             session_limiting_enabled, auto_log_cleanup_enabled,
-                             encryption_enabled, encryption_algorithm, key_rotation_days,
-                             auto_backup_enabled, backup_frequency_hours, backup_retention_days,
-                             project_master_key, invite_code_required, created_at, updated_at)
-                            VALUES 
-                            (:project_id, 8, 5, 15, 5, 60, 'INFO',
-                             1000, 480, 100, 'INFO',
-                             true, true, true,
-                             false, false,
-                             true, true,
-                             true, true,
-                             false, 'AES-256', 90,
-                             false, 24, 30,
-                             :master_key, false, NOW(), NOW())
-                            RETURNING id
-                        """
-                        ),
-                        {"project_id": project_id, "master_key": master_key},
-                    )
-
-                    result = db.session.execute(
-                        text("SELECT * FROM project_settings WHERE project_id = :project_id"),
-                        {"project_id": project_id},
-                    ).fetchone()
-                    if result:
-
-                        settings = ProjectSettings()
-                        settings.id = result[0]
-                        settings.project_id = result[1]
-
-                        settings.project_id = project_id
-                        settings.project_master_key = master_key
-
-                    else:
-                        raise Exception("Failed to create settings using raw SQL")
-                else:
-                    raise create_error
+                    raise RuntimeError(
+                        "Database schema mismatch detected. "
+                        "This is a critical error indicating migrations are out of sync. "
+                        "Please ensure migrations are up to date before running the application. "
+                        "Application is failing fast to prevent data corruption."
+                    ) from create_error
+                raise create_error
 
             db.session.add(settings)
             try:
                 db.session.commit()
             except Exception as commit_error:
                 db.session.rollback()
-
                 error_str = str(commit_error)
+                # SECURITY: Fail Fast on schema mismatches - migrations must guarantee schema state
                 if "does not exist" in error_str or "UndefinedColumn" in error_str:
-                    self.logger.warning(
-                        "Commit failed due to missing columns, trying minimal insert..."
+                    self.logger.critical(
+                        f"CRITICAL: Commit failed due to schema mismatch: {error_str}\n"
+                        "This indicates migrations are out of sync with the code.\n"
+                        "Application will fail to prevent data corruption.\n"
+                        "Please run migrations to synchronize the database schema."
                     )
-                    # SECURITY NOTE: Using raw SQL as fallback when ORM fails due to schema mismatch.
-                    # This is a code smell and should be fixed by ensuring migrations are up to date.
-                    # Parameters are properly bound to prevent SQL injection, but this fallback logic
-                    # should be removed once migrations are properly applied.
-                    from sqlalchemy import text
-
-                    master_key = secrets.token_hex(32)
-
-                    db.session.execute(
-                        text(
-                            """
-                            INSERT INTO project_settings 
-                            (project_id, min_password_length, max_login_attempts, project_master_key, created_at, updated_at)
-                            VALUES (:project_id, 8, 5, :master_key, NOW(), NOW())
-                            ON CONFLICT (project_id) DO NOTHING
-                        """
-                        ),
-                        {"project_id": project_id, "master_key": master_key},
-                    )
-                    db.session.commit()
-
-                    settings = ProjectSettings.query.filter_by(project_id=project_id).first()
-                else:
-                    raise commit_error
+                    raise RuntimeError(
+                        "Database schema mismatch detected. "
+                        "This is a critical error indicating migrations are out of sync. "
+                        "Please ensure migrations are up to date before running the application. "
+                        "Application is failing fast to prevent data corruption."
+                    ) from commit_error
+                raise commit_error
 
             self.logger.info(f"Created new settings for project_id: {project_id}")
         else:

@@ -16,6 +16,7 @@ from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
 from werkzeug.utils import secure_filename
 
 from ..config.config import Config
+from ..middleware.production_guard import development_only
 
 def _check_file_access_authorization(filename: str, file_path: str) -> tuple[bool, str]:
     """
@@ -81,7 +82,10 @@ def register_system_routes(app: Flask) -> None:
     In production, use Nginx/CDN to serve static files directly from filesystem.
     """
 
+    from ..middleware.production_guard import development_only
+
     @app.route("/test-cors", methods=["GET", "POST"])
+    @development_only
     def test_cors():
         """Test CORS configuration"""
 

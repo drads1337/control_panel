@@ -8,6 +8,7 @@ import logging
 import os
 import uuid
 from datetime import datetime, timedelta
+from pathlib import Path
 
 from flask import Blueprint, g, jsonify, request
 from flask_jwt_extended import jwt_required
@@ -31,7 +32,10 @@ from ..config.config import Config
 
 profile_bp = Blueprint("profile", __name__)
 
-UPLOAD_FOLDER = "uploads/avatars"
+# Use absolute path for upload folder to ensure consistency
+# Get project root (parent of backend directory)
+_project_root = Path(__file__).parent.parent.parent
+UPLOAD_FOLDER = os.path.join(_project_root, "uploads", "avatars")
 ALLOWED_EXTENSIONS = Config.ALLOWED_AVATAR_EXTENSIONS
 MAX_SIZE = Config.MAX_AVATAR_DIMENSIONS
 
@@ -39,12 +43,20 @@ def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def process_image(file_stream, crop_data=None):
-    """Process and optimize uploaded image with security improvements"""
+    """Process and optimize uploaded image with security improvements
+    
+    Note: If image is already cropped on frontend (512x512), crop_data is ignored.
+    Image is always resized to MAX_SIZE (300x300) maintaining square aspect ratio.
+    """
     try:
         image = Image.open(file_stream)
+        
+        # Convert to RGBA for transparency support
         if image.mode != "RGBA":
             image = image.convert("RGBA")
 
+        # Apply crop if crop_data is provided (for backward compatibility)
+        # Note: Frontend now sends pre-cropped images, so this is rarely used
         if crop_data:
             try:
                 x = float(crop_data.get("x", 0))
@@ -53,6 +65,7 @@ def process_image(file_stream, crop_data=None):
                 height = float(crop_data.get("height", image.height))
 
                 if width > 0 and height > 0:
+                    # Clamp values to image bounds
                     x = max(0, min(x, image.width))
                     y = max(0, min(y, image.height))
                     width = max(1, min(width, image.width - x))
@@ -61,21 +74,52 @@ def process_image(file_stream, crop_data=None):
             except Exception as e:
                 logging.debug(f"Error during cropping: {str(e)}")
 
+        # Get current dimensions
         width, height = image.size
-        if width > MAX_SIZE[0] or height > MAX_SIZE[1]:
-            ratio = min(MAX_SIZE[0] / width, MAX_SIZE[1] / height)
-            new_size = (int(width * ratio), int(height * ratio))
-            image = image.resize(new_size, Image.Resampling.LANCZOS)
+        
+        # Target size is square (MAX_SIZE[0] x MAX_SIZE[0])
+        target_size = MAX_SIZE[0]  # 300x300
+        
+        # Resize to target size
+        # Frontend sends square images (512x512), so direct resize is safe
+        # For non-square images, we scale to fit and crop to center square
+        if width != target_size or height != target_size:
+            # Check if image is already square
+            if width == height:
+                # Direct resize for square images (most common case from frontend)
+                image = image.resize((target_size, target_size), Image.Resampling.LANCZOS)
+            else:
+                # For non-square images: scale to fit, then crop to center square
+                scale = min(target_size / width, target_size / height)
+                new_width = int(width * scale)
+                new_height = int(height * scale)
+                
+                # Resize with high-quality resampling
+                image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                
+                # Crop to center square if needed
+                if new_width != target_size or new_height != target_size:
+                    left = max(0, (new_width - target_size) // 2)
+                    top = max(0, (new_height - target_size) // 2)
+                    right = min(new_width, left + target_size)
+                    bottom = min(new_height, top + target_size)
+                    image = image.crop((left, top, right, bottom))
+                    
+                    # If crop resulted in smaller image, resize to target
+                    if image.size[0] != target_size or image.size[1] != target_size:
+                        image = image.resize((target_size, target_size), Image.Resampling.LANCZOS)
 
-        new_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        # Create new image with transparency support
+        new_image = Image.new("RGBA", (target_size, target_size), (0, 0, 0, 0))
         new_image.paste(image, (0, 0), image)
 
+        # Save to buffer with optimization
         buffer = io.BytesIO()
         new_image.save(buffer, format="PNG", optimize=True)
         buffer.seek(0)
         return buffer
     except Exception as e:
-        logging.debug(f"Error processing image: {str(e)}")
+        logging.error(f"Error processing image: {str(e)}", exc_info=True)
         return None
 
 @profile_bp.route("/me", methods=["GET"])
@@ -292,7 +336,8 @@ def upload_avatar(current_user=None):
         filename = f"{user.id}_{uuid.uuid4().hex}.png"
         filepath = os.path.join(UPLOAD_FOLDER, filename)
 
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        # Ensure upload directory exists
+        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
         with open(filepath, "wb") as f:
             f.write(processed_image.getvalue())

@@ -59,8 +59,8 @@ def _get_logs_query_filter(user, user_id, project_id_param=None):
     has_logs_view_direct = "logs.view" in user_permissions
     
     # Also check if user is admin (admins should see all logs)
-    user_roles = RBACManager.get_user_role_names(user)
-    is_admin = user_roles and "admin" in user_roles
+    # SECURITY: Use RBACManager.is_admin() instead of manual role checking for consistency
+    is_admin = RBACManager.is_admin(user)
     
     # User has logs.view if any of these conditions are true
     has_logs_view = has_logs_view_check or has_logs_view_direct or is_admin

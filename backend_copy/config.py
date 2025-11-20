@@ -6,9 +6,33 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+# SECURITY: In production, secrets should come from environment variables only.
+# .env file is only loaded in development mode to prevent security issues.
+# In Kubernetes/Docker Swarm, secrets are injected via environment variables.
 project_root = Path(__file__).parent.parent.parent
 env_path = project_root / ".env"
-load_dotenv(dotenv_path=env_path)
+
+# Check FLASK_ENV from environment first
+FLASK_ENV = os.environ.get("FLASK_ENV")
+
+# If FLASK_ENV is not set, check .env file for it (without loading other vars)
+if not FLASK_ENV and env_path.exists():
+    from dotenv import dotenv_values
+    env_vars = dotenv_values(dotenv_path=env_path)
+    FLASK_ENV = env_vars.get("FLASK_ENV")
+
+# Default to production if still not set
+FLASK_ENV = FLASK_ENV or "production"
+os.environ["FLASK_ENV"] = FLASK_ENV
+
+if FLASK_ENV == "development":
+    # Only load .env file in development mode
+    if env_path.exists():
+        load_dotenv(dotenv_path=env_path, override=False)
+        logging.debug("Loaded .env file for development")
+else:
+    # In production, rely only on environment variables
+    logging.debug("Production mode: using environment variables only (no .env file)")
 
 MASTER_KEY = os.environ.get("PANEL_MASTER_KEY")
 
@@ -97,6 +121,10 @@ class Config:
             "options": "-c timezone=utc -c statement_timeout=5000 -c idle_in_transaction_session_timeout=5000",
         },
     }
+    
+    SQLALCHEMY_BINDS = {}
+    if SQLALCHEMY_DATABASE_READ_URI:
+        SQLALCHEMY_BINDS['read'] = SQLALCHEMY_DATABASE_READ_URI
 
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
     if not JWT_SECRET_KEY:
@@ -161,6 +189,13 @@ class Config:
         RATE_LIMIT_BURST = 10
 
     CHALLENGE_TTL = 120
+    # SECURITY: NONCE_TTL for anti-replay protection. Reduced from 300 to 30 seconds.
+    # In high-load systems, nonces should expire quickly (milliseconds to seconds).
+    NONCE_TTL = int(os.environ.get("NONCE_TTL", 30))
+    # SECURITY: CANARY_TTL for challenge canary tokens. Should match or be shorter than CHALLENGE_TTL.
+    CANARY_TTL = int(os.environ.get("CANARY_TTL", CHALLENGE_TTL))
+    # SECURITY: PROJECT_ID_CACHE_TTL for caching project_id during challenge flow.
+    PROJECT_ID_CACHE_TTL = int(os.environ.get("PROJECT_ID_CACHE_TTL", CHALLENGE_TTL))
     SUSPICIOUS_THRESHOLD = 3
     SUSPICIOUS_WINDOW = 3600
     PROGRESSIVE_DELAY = True

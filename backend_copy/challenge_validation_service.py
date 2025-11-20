@@ -1,18 +1,20 @@
 """
 Challenge Validation Service
-Handles challenge validation and cleanup
-Single Responsibility: Challenge validation only
+Handles challenge validation, storage, and cleanup
+Single Responsibility: Challenge lifecycle management (storage, validation, cleanup)
 """
 
 import hashlib
 import json
 import logging
-from typing import Dict, Optional, Tuple
+import os
+from typing import Any, Dict, Optional, Tuple
 
 import redis
 
 from ...config.config import Config
 from ...services.auth import challenge_service
+from ...utils.redis_client import get_redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +51,43 @@ class ChallengeValidationService:
             return self._validate_enhanced_challenge(
                 challenge_data, user_key, fingerprint, challenge_response
             )
+
+    def store_challenge(
+        self, user_key: str, fingerprint: str, enhanced_challenge: Dict[str, Any], project_id: int, ip: str
+    ) -> str:
+        """
+        Store challenge in Redis
+
+        Args:
+            user_key: User key
+            fingerprint: Device fingerprint
+            enhanced_challenge: Challenge data
+            project_id: Project ID (for fallback decryption)
+            ip: Client IP address (for fallback decryption)
+
+        Returns:
+            Canary value
+        """
+        redis_client = get_redis_client()
+
+        redis_client.ping()
+        logger.debug(f"REDIS_CONNECTION_SUCCESS")
+
+        challenge_id = f"enhanced_challenge:{user_key}:{fingerprint}"
+        canary = os.urandom(8).hex()
+
+        pipe = redis_client.pipeline()
+        pipe.setex(challenge_id, Config.CHALLENGE_TTL, json.dumps(enhanced_challenge))
+        # SECURITY: Use centralized CANARY_TTL from Config (reduced from 300 to 120 seconds).
+        # In high-load systems, canaries should expire quickly to prevent replay attacks.
+        pipe.setex(f"canary:{user_key}:{fingerprint}", Config.CANARY_TTL, canary)
+
+        # SECURITY: Use centralized PROJECT_ID_CACHE_TTL from Config (reduced from 300 to 120 seconds)
+        pipe.setex(f"challenge_project_id:{ip}", Config.PROJECT_ID_CACHE_TTL, str(project_id))
+        pipe.execute()
+
+        logger.info(f"ENHANCED_CHALLENGE_SAVED user_key={user_key} fingerprint={fingerprint} project_id={project_id}")
+        return canary
 
     def cleanup_challenge(self, user_key: str, fingerprint: str) -> None:
         """

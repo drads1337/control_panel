@@ -118,6 +118,9 @@ class UserProfileService:
         """
         Upload user avatar
 
+        SECURITY: Validates file signature (magic bytes) to prevent file type spoofing.
+        This prevents attackers from uploading executable files with image extensions.
+
         Args:
             user: User object
             file: Uploaded file object
@@ -125,6 +128,8 @@ class UserProfileService:
         Returns:
             Tuple of (success, error_message, avatar_url)
         """
+        import tempfile
+        
         try:
             if not file or not file.filename:
                 return False, "No file provided", None
@@ -134,6 +139,44 @@ class UserProfileService:
 
             filename = secure_filename(file.filename)
             file_extension = filename.rsplit(".", 1)[1].lower()
+            
+            # SECURITY: Validate file signature (magic bytes) before saving
+            # Save file temporarily to validate signature
+            temp_file_path = None
+            try:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_extension}") as temp_file:
+                    file.seek(0)
+                    temp_file.write(file.read())
+                    temp_file_path = temp_file.name
+                
+                # Validate file signature - expect image extensions
+                from ...services.files.file_service import file_service
+                expected_extensions = [ext.lstrip('.').lower() for ext in self.allowed_avatar_extensions]
+                is_valid, validation_error = file_service.validate_file_signature(temp_file_path, expected_extensions)
+                
+                if not is_valid:
+                    if temp_file_path and os.path.exists(temp_file_path):
+                        os.unlink(temp_file_path)
+                    return False, validation_error or "Invalid file type: file signature validation failed", None
+                
+                # Reset file stream for saving
+                file.seek(0)
+            except Exception as validation_exception:
+                if temp_file_path and os.path.exists(temp_file_path):
+                    try:
+                        os.unlink(temp_file_path)
+                    except Exception:
+                        pass
+                self.logger.error(f"File signature validation error: {str(validation_exception)}")
+                return False, "File validation failed", None
+            finally:
+                # Clean up temp file after validation
+                if temp_file_path and os.path.exists(temp_file_path):
+                    try:
+                        os.unlink(temp_file_path)
+                    except Exception:
+                        pass
+
             unique_filename = f"{user.id}_{uuid.uuid4().hex}.{file_extension}"
 
             upload_dir = os.path.join(self.upload_folder, "avatars")

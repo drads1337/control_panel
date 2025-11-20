@@ -17,7 +17,7 @@ from ..config.cors_config import setup_cors
 from ..config.rate_limit_config import RateLimitConfig
 
 from ..middleware import ActivityLoggerMiddleware
-from ..utils.db_replica import init_replica_engines
+from ..utils.db_replica import init_replica_binds
 from ..utils.monitoring import setup_monitoring_endpoints
 from ..utils.slow_query_monitor import setup_slow_query_monitoring
 from ..utils.storage_manager import init_storage_manager
@@ -25,12 +25,10 @@ from ..utils.structured_logging import get_logger, setup_structured_logging
 
 from .blueprints import register_blueprints
 from .error_handlers import register_error_handlers, register_jwt_error_handlers
-from .extensions import db, jwt
+from .extensions import db, jwt, redis_ext
 from .system_routes import register_system_routes
 
 logger = get_logger(__name__)
-
-redis_client = None
 
 def check_redis_connection():
     """Check Redis connection at startup"""
@@ -77,25 +75,8 @@ def setup_logging(app: Flask) -> None:
 
 def setup_redis_and_limiter(app: Flask) -> None:
     """Setup Redis connection and rate limiting"""
-    global redis_client
-
-    redis_config = {
-        "host": Config.REDIS_HOST,
-        "port": Config.REDIS_PORT,
-        "db": Config.REDIS_DB,
-        "decode_responses": True,
-        "socket_connect_timeout": 5,
-        "socket_timeout": 5,
-        "retry_on_timeout": True,
-        "health_check_interval": 30,
-        "max_connections": 20,
-    }
-
-    if Config.REDIS_PASSWORD:
-        redis_config["password"] = Config.REDIS_PASSWORD
-
-    redis_client = redis.Redis(**redis_config)
-    redis_client.ping()
+    # Initialize Redis extension
+    redis_ext.init_app(app)
 
     redis_password_part = f":{Config.REDIS_PASSWORD}@" if Config.REDIS_PASSWORD else ""
     storage_uri = (
@@ -235,6 +216,7 @@ def create_app() -> Flask:
 
     db.init_app(app)
     jwt.init_app(app)
+    redis_ext.init_app(app)
 
     app.config["JWT_SECRET_KEY"] = Config.JWT_SECRET_KEY
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = False
@@ -267,7 +249,7 @@ def create_app() -> Flask:
     ActivityLoggerMiddleware(app)
 
     with app.app_context():
-        init_replica_engines(app)
+        init_replica_binds(app)
 
     try:
         from .celery_app import CELERY_AVAILABLE, make_celery
