@@ -30,6 +30,22 @@ export function ProfileGeneralTab({
   onCancel,
   onInputChange,
 }: ProfileGeneralTabProps) {
+  const handleSaveClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (isEditing && !isLoading && onSave) {
+      onSave()
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && isEditing && !isLoading) {
+      e.preventDefault()
+      e.stopPropagation()
+      onSave()
+    }
+  }
+
   return (
     <Card className="@container/card">
       <CardHeader>
@@ -41,7 +57,7 @@ export function ProfileGeneralTab({
           <div className="flex gap-2">
             {isEditing ? (
               <>
-                <Button onClick={onSave} size="sm" disabled={isLoading}>
+                <Button type="button" onClick={handleSaveClick} size="sm" disabled={isLoading}>
                   {isLoading ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -54,13 +70,13 @@ export function ProfileGeneralTab({
                     </>
                   )}
                 </Button>
-                <Button onClick={onCancel} variant="outline" size="sm">
+                <Button type="button" onClick={onCancel} variant="outline" size="sm">
                   <X className="h-4 w-4 mr-2" />
                   Cancel
                 </Button>
               </>
             ) : (
-              <Button onClick={onEdit} size="sm">
+              <Button type="button" onClick={onEdit} size="sm">
                 <Edit className="h-4 w-4 mr-2" />
                 Edit
               </Button>
@@ -76,6 +92,7 @@ export function ProfileGeneralTab({
               id="firstName"
               value={profileData.firstName}
               onChange={(e) => onInputChange('firstName', e.target.value)}
+              onKeyDown={handleKeyDown}
               disabled={!isEditing}
               placeholder="Enter your first name"
             />
@@ -86,6 +103,7 @@ export function ProfileGeneralTab({
               id="lastName"
               value={profileData.lastName}
               onChange={(e) => onInputChange('lastName', e.target.value)}
+              onKeyDown={handleKeyDown}
               disabled={!isEditing}
               placeholder="Enter your last name"
             />
@@ -98,6 +116,7 @@ export function ProfileGeneralTab({
             id="username"
             value={profileData.username}
             onChange={(e) => onInputChange('username', e.target.value)}
+            onKeyDown={handleKeyDown}
             disabled={!isEditing}
             placeholder="Enter your username"
           />
@@ -115,6 +134,7 @@ export function ProfileGeneralTab({
             type="email"
             value={profileData.email}
             onChange={(e) => onInputChange('email', e.target.value)}
+            onKeyDown={handleKeyDown}
             disabled={!isEditing}
             placeholder="Enter your email"
           />
@@ -131,6 +151,7 @@ export function ProfileGeneralTab({
             id="bio"
             value={profileData.bio}
             onChange={(e) => onInputChange('bio', e.target.value)}
+            onKeyDown={handleKeyDown}
             disabled={!isEditing}
             className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent disabled:bg-muted disabled:text-muted-foreground bg-background text-foreground resize-none"
             rows={4}

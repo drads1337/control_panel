@@ -46,8 +46,6 @@ export interface UseLoadStatusReturn {
 export function useLoadStatus(): UseLoadStatusReturn {
   const { isAuthenticated, user } = useAuthContext()
 
-  console.log('[useLoadStatus] Hook called:', { isAuthenticated, userId: user?.id })
-
   const {
     data,
     isLoading,
@@ -56,10 +54,8 @@ export function useLoadStatus(): UseLoadStatusReturn {
   } = useQuery({
     queryKey: loadStatusKeys.status(),
     queryFn: async () => {
-      console.log('[useLoadStatus] Fetching load status from /api/dashboard/load-status')
       try {
         const response = await api.get('/api/dashboard/load-status')
-        console.log('[useLoadStatus] Response received:', response.data)
         return response.data.data as LoadStatusData
       } catch (err: any) {
         console.error('[useLoadStatus] Fetch error:', err)
@@ -77,7 +73,6 @@ export function useLoadStatus(): UseLoadStatusReturn {
     gcTime: 2 * 60 * 1000,
     refetchInterval: 30 * 1000, // Auto-refresh every 30 seconds
     retry: (failureCount, error: any) => {
-      console.log('[useLoadStatus] Retry attempt:', failureCount, error?.response?.status)
       if (error?.response?.status === 401 || error?.response?.status === 403) {
         return false
       }
@@ -86,8 +81,6 @@ export function useLoadStatus(): UseLoadStatusReturn {
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   })
-
-  console.log('[useLoadStatus] Query state:', { isLoading, error, data: data ? 'has data' : 'no data' })
 
   const errorMessage = error
     ? (error as any)?.response?.data?.error || 

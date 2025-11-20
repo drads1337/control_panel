@@ -10,7 +10,7 @@ import {
 } from '@/lib/validations'
 
 export function useProfileData() {
-  const { user, token, updateUser } = useAuthContext()
+  const { user, token, isAuthenticated, updateUser } = useAuthContext()
   const [isEditing, setIsEditing] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isPasswordChanging, setIsPasswordChanging] = useState(false)
@@ -46,7 +46,10 @@ export function useProfileData() {
   }, [user, isEditing])
 
   const handleSave = async () => {
-    if (!token) return
+    if (!isAuthenticated || !user) {
+      toast.error('Authentication required. Please log in again.')
+      return
+    }
 
     const validation = validateProfile({
       username: profileData.username.trim(),
@@ -103,7 +106,10 @@ export function useProfileData() {
   }
 
   const handlePasswordChange = async () => {
-    if (!token) return
+    if (!isAuthenticated || !user) {
+      toast.error('Authentication required. Please log in again.')
+      return
+    }
 
     const validation = validatePasswordChange({
       currentPassword: passwordData.currentPassword,
@@ -145,22 +151,13 @@ export function useProfileData() {
   }
 
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('handleAvatarUpload called', { 
-      hasFiles: !!event.target.files, 
-      fileCount: event.target.files?.length
-    })
-    
     const file = event.target.files?.[0]
-    console.log('Selected file:', file ? { name: file.name, size: file.size, type: file.type } : 'no file')
     
     if (!file) {
-      console.warn('No file selected')
       return
     }
 
-    console.log('Validating file...')
     const validation = validateAvatarFile(file)
-    console.log('Validation result:', validation)
     if (!validation.success) {
       toast.error(validation.error)
       return
@@ -182,27 +179,20 @@ export function useProfileData() {
     
     try {
       const response = await uploadAvatar(file, cropData)
-      
-      console.log('Avatar upload response:', response)
 
       if (user && response.avatar) {
         const updatedUser = {
           ...user,
           avatar: response.avatar,
         }
-        console.log('Updating user with avatar:', updatedUser.avatar)
         updateUser(updatedUser)
         
         // Small delay to ensure component update
         await new Promise(resolve => setTimeout(resolve, 100))
-        console.log('User updated, avatar should now be visible')
-      } else {
-        console.warn('User is null or response.avatar is missing', { user, response })
       }
 
       toast.success('Avatar updated successfully')
     } catch (error) {
-      console.error('Error uploading avatar:', error)
       toast.error(error instanceof Error ? error.message : 'Error uploading avatar')
     } finally {
       setIsAvatarUploading(false)

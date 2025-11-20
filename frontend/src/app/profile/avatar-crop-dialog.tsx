@@ -153,7 +153,6 @@ export function AvatarCropDialog({
       onCropComplete(croppedFile, cropData)
       onOpenChange(false)
     } catch (error) {
-      console.error('Error cropping image:', error)
       throw error
     } finally {
       setIsProcessing(false)

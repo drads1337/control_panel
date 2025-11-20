@@ -60,7 +60,7 @@ const ProfileMain: React.FC = () => {
       // Simple refresh - reload the page to get fresh data
       window.location.reload()
     } catch (error) {
-      console.error('Error refreshing:', error)
+      // Error refreshing
     } finally {
       setRefreshing(false)
     }

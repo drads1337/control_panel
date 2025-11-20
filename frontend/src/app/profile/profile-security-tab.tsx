@@ -22,6 +22,22 @@ export function ProfileSecurityTab({
   onPasswordChange,
   onChangePassword,
 }: ProfileSecurityTabProps) {
+  const handleButtonClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!isPasswordChanging && onChangePassword) {
+      onChangePassword()
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !isPasswordChanging) {
+      e.preventDefault()
+      e.stopPropagation()
+      onChangePassword()
+    }
+  }
+
   return (
     <Card className="@container/card">
       <CardHeader>
@@ -37,6 +53,7 @@ export function ProfileSecurityTab({
             placeholder="Enter your current password"
             value={passwordData.currentPassword}
             onChange={(e) => onPasswordChange('currentPassword', e.target.value)}
+            onKeyDown={handleKeyDown}
           />
         </div>
 
@@ -48,6 +65,7 @@ export function ProfileSecurityTab({
             placeholder="Enter your new password"
             value={passwordData.newPassword}
             onChange={(e) => onPasswordChange('newPassword', e.target.value)}
+            onKeyDown={handleKeyDown}
           />
           <p className="text-xs text-muted-foreground">Minimum 6 characters</p>
         </div>
@@ -60,12 +78,14 @@ export function ProfileSecurityTab({
             placeholder="Confirm your new password"
             value={passwordData.confirmPassword}
             onChange={(e) => onPasswordChange('confirmPassword', e.target.value)}
+            onKeyDown={handleKeyDown}
           />
         </div>
 
         <Button
+          type="button"
           className="w-full"
-          onClick={onChangePassword}
+          onClick={handleButtonClick}
           disabled={
             isPasswordChanging ||
             !passwordData.currentPassword ||
