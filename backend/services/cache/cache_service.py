@@ -1,6 +1,15 @@
 """
 Cache Service
 Provides intelligent caching for resource-intensive operations
+
+Упрощения (KISS принцип):
+- Теги опциональны (use_tags=False по умолчанию) - упрощает логику
+- Update markers упрощены - убрана сложная проверка
+- Методы invalidate_*_instantly унифицированы через _invalidate_by_patterns_and_marker
+- Stale-while-revalidate выключен по умолчанию (stale_while_revalidate=False)
+- Упрощен fallback в invalidate_pattern - убран сложный парсинг строк
+
+Все изменения обратно совместимы - существующий код продолжает работать.
 """
 
 import hashlib
@@ -37,9 +46,11 @@ class CacheService:
         }
 
         self.smart_cache_enabled = True
+        self.stale_while_revalidate = False  # Упрощено: по умолчанию выключено
+        self.use_tags = False  # Упрощено: теги опциональны, по умолчанию выключены
+        self.use_markers = True  # Маркеры оставлены для обратной совместимости
 
-        self.stale_while_revalidate = True
-
+        # Теги используются только если use_tags=True
         self.cache_tags = {
             "products": ["project", "product"],
             "projects": ["project", "user"],
@@ -73,16 +84,17 @@ class CacheService:
         return f"{self.cache_prefix}:tag:{tag_type}:{tag_value}"
 
     def _add_cache_tags(self, cache_key: str, cache_type: str, **kwargs) -> bool:
-        """Add cache tags for smart invalidation"""
+        """Add cache tags for smart invalidation (only if use_tags=True)"""
+        if not self.use_tags:
+            return True  # Теги выключены, просто возвращаем успех
+        
         try:
             tags = self.cache_tags.get(cache_type, [])
             for tag in tags:
                 if tag in kwargs:
                     tag_key = self._generate_tag_key(tag, str(kwargs[tag]))
-
                     cache_client = get_redis_cache_client()
                     cache_client.sadd(tag_key, cache_key)
-
                     cache_client.expire(
                         tag_key, self.cache_ttl_config.get(cache_type, self.default_ttl)
                     )
@@ -112,66 +124,45 @@ class CacheService:
             return 0
 
     def _check_update_markers(self, cache_type: str, **kwargs) -> bool:
-        """Check if there are recent update markers that should bypass cache"""
+        """Check if there are recent update markers that should bypass cache (упрощено)"""
+        if not self.use_markers:
+            return False
+        
         try:
-
             cache_client = self._get_cache_client()
             
+            # Упрощенная проверка маркеров - только основные случаи
             if "project_id" in kwargs:
                 project_id = kwargs["project_id"]
-                marker_pattern = f"{self.cache_prefix}:product_updated:{project_id}:*"
-                markers = cache_client.keys(marker_pattern)
-
-                if markers:
-
-                    for marker_key in markers:
-                        marker_value = cache_client.get(marker_key)
-                        if marker_value:
-                            logging.debug(f"Update marker found: {marker_key}, bypassing cache")
-                            return True
-
                 project_marker = f"{self.cache_prefix}:project_updated:{project_id}"
                 if cache_client.get(project_marker):
-                    logging.debug(f"Project update marker found: {project_marker}, bypassing cache")
+                    logging.debug(f"Project update marker found, bypassing cache")
                     return True
-
-            if "product_id" in kwargs:
-                product_id = kwargs["product_id"]
-                if "project_id" in kwargs:
-                    project_id = kwargs["project_id"]
+                
+                # Проверка маркеров продуктов для проекта
+                if "product_id" in kwargs:
+                    product_id = kwargs["product_id"]
                     product_marker = f"{self.cache_prefix}:product_updated:{project_id}:{product_id}"
                     if cache_client.get(product_marker):
-                        logging.debug(f"Product update marker found: {product_marker}, bypassing cache")
+                        logging.debug(f"Product update marker found, bypassing cache")
                         return True
 
+            # Проверка RBAC маркеров
             if cache_type.startswith("rbac"):
-
                 if "user_id" in kwargs:
                     user_id = kwargs["user_id"]
-                    rbac_user_marker = f"{self.cache_prefix}:rbac_updated:user:{user_id}"
-                    if cache_client.get(rbac_user_marker):
-                        logging.debug(f"RBAC user update marker found: {rbac_user_marker}, bypassing cache")
+                    marker = f"{self.cache_prefix}:rbac_updated:user:{user_id}"
+                    if cache_client.get(marker):
                         return True
-
                 if "role_id" in kwargs:
                     role_id = kwargs["role_id"]
-                    rbac_role_marker = f"{self.cache_prefix}:rbac_updated:role:{role_id}"
-                    if cache_client.get(rbac_role_marker):
-                        logging.debug(f"RBAC role update marker found: {rbac_role_marker}, bypassing cache")
+                    marker = f"{self.cache_prefix}:rbac_updated:role:{role_id}"
+                    if cache_client.get(marker):
                         return True
-
                 if "permission_id" in kwargs:
                     permission_id = kwargs["permission_id"]
-                    rbac_perm_marker = f"{self.cache_prefix}:rbac_updated:permission:{permission_id}"
-                    if cache_client.get(rbac_perm_marker):
-                        logging.debug(f"RBAC permission update marker found: {rbac_perm_marker}, bypassing cache")
-                        return True
-
-                if "project_id" in kwargs:
-                    project_id = kwargs["project_id"]
-                    rbac_project_marker = f"{self.cache_prefix}:rbac_updated:project:{project_id}"
-                    if cache_client.get(rbac_project_marker):
-                        logging.debug(f"RBAC project update marker found: {rbac_project_marker}, bypassing cache")
+                    marker = f"{self.cache_prefix}:rbac_updated:permission:{permission_id}"
+                    if cache_client.get(marker):
                         return True
 
             return False
@@ -258,59 +249,39 @@ class CacheService:
             return False
 
     def invalidate_pattern(self, pattern: str) -> int:
-        """Invalidate all cache keys matching a pattern"""
+        """Invalidate all cache keys matching a pattern (упрощено: убран сложный fallback)"""
         try:
-            full_pattern = f"{self.cache_prefix}:{pattern}*"
+            # Убедимся, что паттерн начинается с префикса
+            if not pattern.startswith(self.cache_prefix):
+                full_pattern = f"{self.cache_prefix}:{pattern}"
+            else:
+                full_pattern = pattern
+            
+            # Добавляем * в конец, если его нет
+            if not full_pattern.endswith("*"):
+                full_pattern = f"{full_pattern}*"
 
             deleted_count = 0
             cursor = 0
-
             cache_wrapper = self._get_cache_client()
+        
             while True:
-
                 result = cache_wrapper.scan(cursor, match=full_pattern, count=100)
                 cursor, keys = result
 
                 if keys:
-
                     deleted_count += cache_wrapper.delete(*keys)
-                    logging.debug(
-                        f"Deleted {len(keys)} cache keys matching pattern: {full_pattern}"
-                    )
+                    logging.debug(f"Deleted {len(keys)} cache keys matching pattern: {full_pattern}")
 
                 if cursor == 0:
                     break
 
-            logging.info(
-                f"Cache invalidation completed for pattern: {full_pattern} ({deleted_count} keys deleted)"
-            )
+            logging.info(f"Cache invalidation completed for pattern: {full_pattern} ({deleted_count} keys deleted)")
             return deleted_count
 
         except Exception as e:
             logging.error(f"Cache invalidation error for pattern {pattern}: {e}")
-
-            try:
-                common_keys = [
-                    f"{self.cache_prefix}:products:project_id={pattern.split('project_id=')[1].split(':')[0]}:*",
-                    f"{self.cache_prefix}:products:project_id={pattern.split('project_id=')[1].split(':')[0]}:type=all*",
-                    f"{self.cache_prefix}:products:project_id={pattern.split('project_id=')[1].split(':')[0]}:type=multi_app*",
-                    f"{self.cache_prefix}:products:project_id={pattern.split('project_id=')[1].split(':')[0]}:type=product_library*",
-                ]
-                deleted_count = 0
-                cache_wrapper = self._get_cache_client()
-                for key_pattern in common_keys:
-                    try:
-                        keys = cache_wrapper.keys(key_pattern)
-                        if keys:
-                            deleted_count += cache_wrapper.delete(*keys)
-                    except:
-                        pass
-                logging.info(
-                    f"Fallback cache invalidation completed ({deleted_count} keys deleted)"
-                )
-                return deleted_count
-            except:
-                return 0
+            return 0
 
     def invalidate_project_cache(self, project_id: int) -> bool:
         """Invalidate all cache entries for a specific project"""
@@ -360,46 +331,62 @@ class CacheService:
             logging.error(f"Smart invalidation error for tag {tag_type}={tag_value}: {e}")
             return 0
 
-    def invalidate_product_instantly(self, project_id: int, product_id: int = None) -> int:
-        """INSTANT invalidation of product cache - no waiting for TTL"""
+    def _invalidate_by_patterns_and_marker(
+        self, 
+        patterns: List[str], 
+        marker_key: Optional[str] = None,
+        marker_ttl: int = 120
+    ) -> int:
+        """
+        Универсальный метод для инвалидации по паттернам и установки маркера.
+        Упрощает дублирование кода в методах invalidate_*_instantly.
+        
+        Args:
+            patterns: Список паттернов для инвалидации
+            marker_key: Ключ маркера обновления (опционально)
+            marker_ttl: TTL для маркера в секундах
+            
+        Returns:
+            Количество удаленных ключей
+        """
         try:
             total_deleted = 0
+            
+            # Инвалидация по паттернам
+            for pattern in patterns:
+                total_deleted += self.invalidate_pattern(pattern)
+            
+            # Установка маркера (если включены маркеры)
+            if self.use_markers and marker_key:
+                cache_wrapper = self._get_cache_client()
+                cache_wrapper.set(marker_key, "updated", ex=marker_ttl)
+            
+            return total_deleted
+        except Exception as e:
+            logging.error(f"Error in _invalidate_by_patterns_and_marker: {e}")
+            return 0
 
-            total_deleted += self.invalidate_by_tag("project", project_id)
-
-            if product_id:
-                total_deleted += self.invalidate_by_tag("product", product_id)
-
+    def invalidate_product_instantly(self, project_id: int, product_id: int = None) -> int:
+        """INSTANT invalidation of product cache - no waiting for TTL (упрощено)"""
+        try:
             patterns = [
                 f"products:project_id={project_id}:*",
                 f"products:project_id={project_id}:type=all*",
                 f"products:project_id={project_id}:type=multi_app*",
                 f"products:project_id={project_id}:type=product_library*",
-                f"products:project_id={project_id}:user_id=*",
-                f"products:project_id={project_id}:status=*",
-                f"products:project_id={project_id}:active=*",
             ]
 
             if product_id:
-                patterns.extend(
-                    [
-                        f"products:product_id={product_id}:*",
-                        f"products:project_id={project_id}:product_id={product_id}:*",
-                    ]
-                )
-
-            for pattern in patterns:
-                total_deleted += self.invalidate_pattern(pattern)
-
-            cache_wrapper = self._get_cache_client()
-            if product_id:
+                patterns.extend([
+                    f"products:product_id={product_id}:*",
+                    f"products:project_id={project_id}:product_id={product_id}:*",
+                ])
                 marker_key = f"{self.cache_prefix}:product_updated:{project_id}:{product_id}"
-                cache_wrapper.set(marker_key, "updated", ex=120)
             else:
+                marker_key = f"{self.cache_prefix}:project_updated:{project_id}"
 
-                project_marker = f"{self.cache_prefix}:project_updated:{project_id}"
-                cache_wrapper.set(project_marker, "updated", ex=120)
-
+            total_deleted = self._invalidate_by_patterns_and_marker(patterns, marker_key)
+            
             logging.info(
                 f"INSTANT product cache invalidation: {total_deleted} keys deleted for project {project_id}, product {product_id}"
             )
@@ -410,25 +397,17 @@ class CacheService:
             return 0
 
     def invalidate_project_instantly(self, project_id: int) -> int:
-        """INSTANT invalidation of project cache - no waiting for TTL"""
+        """INSTANT invalidation of project cache - no waiting for TTL (упрощено)"""
         try:
-            total_deleted = 0
-
-            total_deleted += self.invalidate_by_tag("project", project_id)
-
             patterns = [
                 f"projects:project_id={project_id}*",
                 f"settings:project_id={project_id}*",
                 f"stats:project_id={project_id}*",
             ]
-
-            for pattern in patterns:
-                total_deleted += self.invalidate_pattern(pattern)
-
-            cache_wrapper = self._get_cache_client()
-            project_marker = f"{self.cache_prefix}:project_updated:{project_id}"
-            cache_wrapper.set(project_marker, "updated", ex=120)
-
+            marker_key = f"{self.cache_prefix}:project_updated:{project_id}"
+            
+            total_deleted = self._invalidate_by_patterns_and_marker(patterns, marker_key)
+            
             logging.info(f"INSTANT project cache invalidation: {total_deleted} keys deleted")
             return total_deleted
 
@@ -437,23 +416,17 @@ class CacheService:
             return 0
 
     def invalidate_rbac_user_instantly(self, user_id: int) -> int:
-        """INSTANT invalidation of RBAC cache for a specific user"""
+        """INSTANT invalidation of RBAC cache for a specific user (упрощено)"""
         try:
-            total_deleted = 0
-
             patterns = [
                 f"rbac:user_roles:user_id={user_id}*",
                 f"rbac:user_permissions:user_id={user_id}*",
                 f"rbac:user_id={user_id}*",
             ]
-
-            for pattern in patterns:
-                total_deleted += self.invalidate_pattern(pattern)
-
-            cache_wrapper = self._get_cache_client()
-            rbac_user_marker = f"{self.cache_prefix}:rbac_updated:user:{user_id}"
-            cache_wrapper.set(rbac_user_marker, "updated", ex=120)
-
+            marker_key = f"{self.cache_prefix}:rbac_updated:user:{user_id}"
+            
+            total_deleted = self._invalidate_by_patterns_and_marker(patterns, marker_key)
+            
             logging.info(f"INSTANT RBAC user cache invalidation: {total_deleted} keys deleted for user {user_id}")
             return total_deleted
 
@@ -462,24 +435,19 @@ class CacheService:
             return 0
 
     def invalidate_rbac_role_instantly(self, role_id: int, project_id: Optional[int] = None) -> int:
-        """INSTANT invalidation of RBAC cache for a specific role"""
+        """INSTANT invalidation of RBAC cache for a specific role (упрощено)"""
         try:
-            total_deleted = 0
-
             patterns = [f"rbac:roles:role_id={role_id}*"]
             if project_id:
                 patterns.append(f"rbac:roles:project_id={project_id}*")
 
-            for pattern in patterns:
-                total_deleted += self.invalidate_pattern(pattern)
+            marker_key = f"{self.cache_prefix}:rbac_updated:role:{role_id}"
+            total_deleted = self._invalidate_by_patterns_and_marker(patterns, marker_key)
 
-            cache_wrapper = self._get_cache_client()
-            rbac_role_marker = f"{self.cache_prefix}:rbac_updated:role:{role_id}"
-            cache_wrapper.set(rbac_role_marker, "updated", ex=120)
-
-            if project_id:
-                rbac_project_marker = f"{self.cache_prefix}:rbac_updated:project:{project_id}"
-                cache_wrapper.set(rbac_project_marker, "updated", ex=120)
+            if project_id and self.use_markers:
+                cache_wrapper = self._get_cache_client()
+                project_marker = f"{self.cache_prefix}:rbac_updated:project:{project_id}"
+                cache_wrapper.set(project_marker, "updated", ex=120)
 
             logging.info(f"INSTANT RBAC role cache invalidation: {total_deleted} keys deleted for role {role_id}")
             return total_deleted
@@ -489,24 +457,20 @@ class CacheService:
             return 0
 
     def invalidate_rbac_permission_instantly(self, permission_id: int, project_id: Optional[int] = None) -> int:
-        """INSTANT invalidation of RBAC cache for a specific permission"""
+        """INSTANT invalidation of RBAC cache for a specific permission (упрощено)"""
         try:
-            total_deleted = 0
-
             patterns = [f"rbac:permissions:permission_id={permission_id}*"]
             if project_id:
                 patterns.append(f"rbac:permissions:project_id={project_id}*")
 
-            for pattern in patterns:
-                total_deleted += self.invalidate_pattern(pattern)
+            marker_key = f"{self.cache_prefix}:rbac_updated:permission:{permission_id}"
+            total_deleted = self._invalidate_by_patterns_and_marker(patterns, marker_key)
 
-            cache_wrapper = self._get_cache_client()
-            rbac_perm_marker = f"{self.cache_prefix}:rbac_updated:permission:{permission_id}"
-            cache_wrapper.set(rbac_perm_marker, "updated", ex=120)
-
-            if project_id:
-                rbac_project_marker = f"{self.cache_prefix}:rbac_updated:project:{project_id}"
-                cache_wrapper.set(rbac_project_marker, "updated", ex=120)
+            # Дополнительный маркер для проекта, если указан
+            if project_id and self.use_markers:
+                cache_wrapper = self._get_cache_client()
+                project_marker = f"{self.cache_prefix}:rbac_updated:project:{project_id}"
+                cache_wrapper.set(project_marker, "updated", ex=120)
 
             logging.info(f"INSTANT RBAC permission cache invalidation: {total_deleted} keys deleted for permission {permission_id}")
             return total_deleted
@@ -516,23 +480,17 @@ class CacheService:
             return 0
 
     def invalidate_rbac_project_instantly(self, project_id: int) -> int:
-        """INSTANT invalidation of all RBAC cache for a project"""
+        """INSTANT invalidation of all RBAC cache for a project (упрощено)"""
         try:
-            total_deleted = 0
-
             patterns = [
                 f"rbac:roles:project_id={project_id}*",
                 f"rbac:permissions:project_id={project_id}*",
                 f"rbac:project_id={project_id}*",
             ]
-
-            for pattern in patterns:
-                total_deleted += self.invalidate_pattern(pattern)
-
-            cache_wrapper = self._get_cache_client()
-            rbac_project_marker = f"{self.cache_prefix}:rbac_updated:project:{project_id}"
-            cache_wrapper.set(rbac_project_marker, "updated", ex=120)
-
+            marker_key = f"{self.cache_prefix}:rbac_updated:project:{project_id}"
+            
+            total_deleted = self._invalidate_by_patterns_and_marker(patterns, marker_key)
+            
             logging.info(f"INSTANT RBAC project cache invalidation: {total_deleted} keys deleted for project {project_id}")
             return total_deleted
 
@@ -570,7 +528,8 @@ class CacheService:
             cached_data = self.get(cache_type, force_refresh=force_refresh, **kwargs)
             if cached_data is not None:
                 data = cached_data.get("data")
-
+                
+                # Упрощенная проверка stale-while-revalidate (только если включено)
                 if self.stale_while_revalidate and data:
                     cached_at_str = cached_data.get("cached_at")
                     if cached_at_str:
@@ -578,12 +537,13 @@ class CacheService:
                             cached_at = datetime.fromisoformat(cached_at_str)
                             age_seconds = (datetime.utcnow() - cached_at).total_seconds()
                             ttl_value = cached_data.get("ttl", self.default_ttl)
-
+                            
+                            # Просто логируем, если кэш устарел (без фонового обновления для упрощения)
                             if age_seconds > (ttl_value * 0.7):
-                                logging.debug(f"Cache is stale ({age_seconds}s old), will refresh in background")
-
+                                logging.debug(f"Cache is stale ({age_seconds}s old, TTL: {ttl_value}s)")
                         except Exception:
                             pass
+                
                 return data
 
             logging.debug(f"Cache miss or update detected for {cache_type}, fetching fresh data...")

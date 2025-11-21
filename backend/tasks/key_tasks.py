@@ -155,13 +155,41 @@ def bulk_create_keys_task(
         if not project_id:
             project_id = user.project_id
 
-        product = session.query(Product).filter_by(id=product_id, project_id=project_id).first()
-        if not product:
-            error_msg = f"Product {product_id} not found or access denied"
+        # Get product - now we receive actual product.id from route
+        # But still handle owners who might access products from any project
+        is_owner = RBACManager.is_owner(user)
+        
+        # Convert product_id to int if it's a string
+        try:
+            product_id_int = int(product_id) if not isinstance(product_id, int) else product_id
+        except (ValueError, TypeError):
+            error_msg = f"Invalid product_id: {product_id}"
             logger.error(error_msg)
             if task_id:
                 task_service.update_task_status(task_id, "failed", error=error_msg)
             return {"status": "error", "error": error_msg}
+        
+        # Query product - owners can access from any project
+        if is_owner:
+            product = session.query(Product).filter_by(id=product_id_int).first()
+        else:
+            if not project_id:
+                error_msg = "User must be assigned to a project"
+                logger.error(error_msg)
+                if task_id:
+                    task_service.update_task_status(task_id, "failed", error=error_msg)
+                return {"status": "error", "error": error_msg}
+            product = session.query(Product).filter_by(id=product_id_int, project_id=project_id).first()
+        
+        if not product:
+            error_msg = f"Product {product_id_int} not found or access denied"
+            logger.error(error_msg)
+            if task_id:
+                task_service.update_task_status(task_id, "failed", error=error_msg)
+            return {"status": "error", "error": error_msg}
+
+        logger.info(f"🔑 Found product: id={product.id}, name={product.name}, project_id={product.project_id}")
+        logger.info(f"🔑 Task params: user_id={user_id}, count={count}, product_id={product_id_int}, project_id={project_id}")
 
         is_access_code = product.login_type == "classic_login"
         generation_type = "access_code" if is_access_code else "license_key"
@@ -178,6 +206,8 @@ def bulk_create_keys_task(
             expires_at = datetime.utcnow() + timedelta(hours=duration_hours)
 
         total = count
+        # Commit in batches to avoid losing all keys if one fails
+        BATCH_SIZE = 50
         for i in range(count):
             try:
 
@@ -204,7 +234,7 @@ def bulk_create_keys_task(
                 key = Key(
                     key=key_string,
                     user_id=user.id,
-                    product_id=product_id,
+                    product_id=product.id,  # Use product.id instead of product_id parameter
                     expires_at=expires_at,
                     max_devices=max_devices,
                     duration_hours=duration_hours,
@@ -224,14 +254,48 @@ def bulk_create_keys_task(
                     increment_project_key_counters(project_id, is_active=True)
 
                 created_keys.append(key)
+                logger.debug(f"🔑 Created key {i+1}/{count}: {key_string[:8]}...")
+
+                # Commit in batches to avoid transaction timeout and preserve progress
+                if (i + 1) % BATCH_SIZE == 0:
+                    try:
+                        session.commit()
+                        logger.info(f"🔑 Committed batch: {i+1}/{count} keys")
+                    except Exception as batch_commit_error:
+                        logger.error(f"🔑 Failed to commit batch at key {i+1}: {str(batch_commit_error)}")
+                        session.rollback()
+                        # Count how many keys were actually committed before this batch
+                        committed_count = len(created_keys) - BATCH_SIZE
+                        if committed_count < 0:
+                            committed_count = 0
+                        created_keys = created_keys[:committed_count]
+                        errors.append(f"Batch commit failed at key {i+1}: {str(batch_commit_error)}")
 
             except Exception as key_error:
+                import traceback
+                error_trace = traceback.format_exc()
                 errors.append(f"Key {i+1}: {str(key_error)}")
                 logger.error(f"🔑 Failed to create key {i+1}: {str(key_error)}")
+                logger.error(f"🔑 Error traceback: {error_trace}")
+                # Don't rollback here - let the batch commit handle it
+                # Just continue to next key
 
+        # Commit remaining keys
         if created_keys:
-            session.commit()
-            logger.info(f"🔑 Bulk created {len(created_keys)} keys")
+            try:
+                session.commit()
+                logger.info(f"🔑 Bulk created {len(created_keys)} keys successfully")
+            except Exception as commit_error:
+                logger.error(f"🔑 Failed to commit final batch: {str(commit_error)}")
+                import traceback
+                logger.error(f"🔑 Commit error traceback: {traceback.format_exc()}")
+                session.rollback()
+                # Count how many keys were committed in previous batches
+                previous_batches = (len(created_keys) // BATCH_SIZE) * BATCH_SIZE
+                created_keys = created_keys[:previous_batches]
+                errors.append(f"Final commit failed: {str(commit_error)}")
+        else:
+            logger.warning(f"🔑 No keys were created. All {count} keys failed.")
 
         if errors and not created_keys:
             error_msg = f"All keys failed to create: {errors}"

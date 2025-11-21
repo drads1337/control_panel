@@ -292,6 +292,11 @@ def create_app() -> Flask:
     setup_storage_and_monitoring(app)
     setup_migrations(app)
 
+    # Initialize service container for dependency injection
+    from .service_container import init_services
+    init_services(app)
+    logger.info("Service container initialized")
+
     register_blueprints(app)
     register_error_handlers(app)
     register_jwt_error_handlers(app)

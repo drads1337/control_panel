@@ -12,8 +12,8 @@ from ...models.core import User
 from ...models.products import Product
 from ...models.keys import DeviceInfo, Key
 from ...models.agents import Agent
-from ...services.key_generation_service import key_generation_service
-from ...services.key_validation_service import key_validation_service
+from .key_generation_service import key_generation_service
+from .key_validation_service import key_validation_service
 from ...utils.rbac_utils import RBACManager
 from ...utils.role_constants import UserRoles
 from ...utils.structured_logging import get_logger
@@ -126,9 +126,10 @@ class KeyBulkOperationsService:
             Tuple of (created_count, error_message, list of created keys)
         """
         try:
-            product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
-            if not product:
-                return 0, "Product not found or access denied", None
+            from ...services.products import product_service
+            product, error = product_service.get_product(user, product_id)
+            if error or not product:
+                return 0, error or "Product not found or access denied", None
 
             is_access_code = product.login_type == "classic_login"
             item_type = "access codes" if is_access_code else "license keys"
@@ -163,7 +164,7 @@ class KeyBulkOperationsService:
                     key = Key(
                         key=key_string,
                         user_id=user.id,
-                        product_id=product_id,
+                        product_id=product.id,  # Use product.id instead of product_id parameter
                         expires_at=expires_at,
                         max_devices=max_devices,
                         duration_hours=duration_hours,
@@ -366,9 +367,10 @@ class KeyBulkOperationsService:
     ) -> Tuple[int, Optional[str], Optional[str]]:
         """Bulk pause keys by product"""
         try:
-            product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
-            if not product:
-                return 0, "Product not found or access denied", None
+            from ...services.products import product_service
+            product, error = product_service.get_product(user, product_id)
+            if error or not product:
+                return 0, error or "Product not found or access denied", None
 
             keys = Key.query.filter_by(product_id=product_id, project_id=user.project_id).all()
             if not keys:
@@ -388,9 +390,10 @@ class KeyBulkOperationsService:
     ) -> Tuple[int, Optional[str], Optional[str]]:
         """Bulk resume keys by product"""
         try:
-            product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
-            if not product:
-                return 0, "Product not found or access denied", None
+            from ...services.products import product_service
+            product, error = product_service.get_product(user, product_id)
+            if error or not product:
+                return 0, error or "Product not found or access denied", None
 
             keys = Key.query.filter_by(product_id=product_id, project_id=user.project_id).all()
             if not keys:
@@ -410,9 +413,10 @@ class KeyBulkOperationsService:
     ) -> Tuple[int, Optional[str], Optional[str]]:
         """Bulk reset keys by product"""
         try:
-            product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
-            if not product:
-                return 0, "Product not found or access denied", None
+            from ...services.products import product_service
+            product, error = product_service.get_product(user, product_id)
+            if error or not product:
+                return 0, error or "Product not found or access denied", None
 
             keys = Key.query.filter_by(product_id=product_id, project_id=user.project_id).all()
             if not keys:
@@ -432,9 +436,10 @@ class KeyBulkOperationsService:
     ) -> Tuple[int, Optional[str], Optional[str]]:
         """Bulk add hours to keys by product"""
         try:
-            product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
-            if not product:
-                return 0, "Product not found or access denied", None
+            from ...services.products import product_service
+            product, error = product_service.get_product(user, product_id)
+            if error or not product:
+                return 0, error or "Product not found or access denied", None
 
             keys = Key.query.filter_by(product_id=product_id, project_id=user.project_id).all()
             if not keys:

@@ -672,7 +672,12 @@ def create_bulk_notifications():
         return jsonify({"error": "Message is required"}), 400
 
     try:
-        query = User.query.filter_by(project_id=user.project_id)
+        from ...services.projects import project_relationships_service
+        
+        # Get users for the project using service
+        project_users = project_relationships_service.get_users(user.project_id)
+        user_ids = [u.id for u in project_users]
+        query = User.query.filter(User.id.in_(user_ids))
 
         if target_roles:
 
@@ -776,7 +781,8 @@ def create_product_update_notification():
         if not product:
             return jsonify({"error": "Product not found"}), 404
 
-        project_users = User.query.filter_by(project_id=user.project_id).all()
+        from ...services.projects import project_relationships_service
+        project_users = project_relationships_service.get_users(user.project_id)
 
         from ..utils.rbac_utils import RBACManager
 
@@ -938,7 +944,8 @@ def create_loader_update_notification():
 
         db.session.add(loader_notification)
 
-        project_users = User.query.filter_by(project_id=user.project_id).all()
+        from ...services.projects import project_relationships_service
+        project_users = project_relationships_service.get_users(user.project_id)
 
         from ..utils.rbac_utils import RBACManager
 
@@ -1238,7 +1245,8 @@ def create_loader_notification(agent_id):
         db.session.add(loader_notification)
 
         if not is_scheduled:
-            project_users = User.query.filter_by(project_id=user.project_id).all()
+            from ...services.projects import project_relationships_service
+            project_users = project_relationships_service.get_users(user.project_id)
 
             from ..utils.rbac_utils import RBACManager
 

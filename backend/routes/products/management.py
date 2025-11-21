@@ -206,7 +206,7 @@ def get_available_products_for_assignment():
         for product in products:
             products_data.append(
                 {
-                    "id": product.id,
+                    "id": product.unique_id,
                     "name": product.name,
                     "description": product.description or "",
                     "status": product.status,
@@ -279,7 +279,7 @@ def create_product(validated_data=None):
                     "success": True,
                     "message": "Product created successfully",
                     "product": {
-                        "id": new_product.id,
+                        "id": new_product.unique_id,
                         "name": new_product.name,
                         "description": new_product.description,
                         "status": new_product.status,
@@ -426,7 +426,7 @@ def update_product(product_id, validated_data=None):
                 "success": True,
                 "message": "Product updated successfully",
                 "product": {
-                    "id": product.id,
+                    "id": product.unique_id,
                     "name": product.name,
                     "description": product.description,
                     "version": product.version,

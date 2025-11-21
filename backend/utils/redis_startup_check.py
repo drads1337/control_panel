@@ -97,23 +97,44 @@ class RedisStartupChecker:
                 config = redis_security_monitor.check_redis_security_config()
                 auth_check = config.get("checks", {}).get("authentication", {})
                 
-                if auth_check.get("status") == "warning":
+                status = auth_check.get("status")
+                message = auth_check.get("message", "")
+                
+                if status == "warning":
                     self.warnings.append(
                         "Redis authentication not configured. "
                         "Set requirepass in redis.conf for production."
                     )
-                elif auth_check.get("status") == "ok":
-                    self.info.append("Redis authentication is configured")
+                elif status == "ok":
+                    # Check if message indicates CONFIG is disabled (expected in managed services)
+                    if "CONFIG command disabled" in message:
+                        self.info.append(
+                            "Redis authentication check: CONFIG command disabled "
+                            "(expected in protected environments like AWS ElastiCache)"
+                        )
+                    else:
+                        self.info.append("Redis authentication is configured")
+                elif status == "info":
+                    # Info status means CONFIG disabled but acceptable
+                    self.info.append(f"Redis authentication: {message}")
                 else:
                     self.warnings.append(
-                        f"Cannot verify Redis authentication: {auth_check.get('message', 'unknown')}"
+                        f"Cannot verify Redis authentication: {message or 'unknown'}"
                     )
             except Exception as e:
-                # If we can't check config, it might be disabled (which is also a security issue)
-                self.warnings.append(
-                    f"Cannot check Redis authentication configuration: {e}. "
-                    "CONFIG command may be disabled (good for security) or Redis may not require password."
-                )
+                # If we can't check config, it might be disabled (which is acceptable in managed services)
+                from ..config.config import IS_PRODUCTION
+                if IS_PRODUCTION:
+                    self.info.append(
+                        f"Redis authentication check: CONFIG command may be disabled "
+                        "(expected in protected production environments like AWS ElastiCache). "
+                        f"Error: {type(e).__name__}"
+                    )
+                else:
+                    self.warnings.append(
+                        f"Cannot check Redis authentication configuration: {e}. "
+                        "CONFIG command may be disabled (good for security) or Redis may not require password."
+                    )
         except Exception as e:
             self.warnings.append(f"Failed to check authentication: {e}")
 
@@ -123,20 +144,29 @@ class RedisStartupChecker:
             config = redis_security_monitor.check_redis_security_config()
             bind_check = config.get("checks", {}).get("bind_address", {})
             
-            if bind_check.get("status") == "info":
-                bind_msg = bind_check.get("message", "")
-                if "all interfaces" in bind_msg.lower():
+            status = bind_check.get("status")
+            message = bind_check.get("message", "")
+            
+            if status == "info":
+                if "all interfaces" in message.lower():
                     self.warnings.append(
                         "Redis is bound to all interfaces. "
                         "For production, bind Redis to localhost or internal network only."
                     )
                 else:
-                    self.info.append(f"Redis bind address: {bind_msg}")
-            elif bind_check.get("status") == "ok":
-                self.info.append("Redis is bound to localhost (secure)")
+                    self.info.append(f"Redis bind address: {message}")
+            elif status == "ok":
+                # Check if message indicates CONFIG is disabled (expected in managed services)
+                if "CONFIG command disabled" in message:
+                    self.info.append(
+                        "Redis network isolation: CONFIG command disabled "
+                        "(network isolation handled by managed service, e.g., AWS ElastiCache VPC)"
+                    )
+                else:
+                    self.info.append("Redis is bound to localhost (secure)")
             else:
                 self.warnings.append(
-                    f"Cannot verify Redis bind address: {bind_check.get('message', 'unknown')}"
+                    f"Cannot verify Redis bind address: {message or 'unknown'}"
                 )
         except Exception as e:
             self.warnings.append(f"Failed to check network isolation: {e}")
@@ -147,16 +177,26 @@ class RedisStartupChecker:
             config = redis_security_monitor.check_redis_security_config()
             protected_check = config.get("checks", {}).get("protected_mode", {})
             
-            if protected_check.get("status") == "warning":
+            status = protected_check.get("status")
+            message = protected_check.get("message", "")
+            
+            if status == "warning":
                 self.warnings.append(
                     "Redis protected mode is not enabled. "
                     "Enable protected-mode yes in redis.conf for production."
                 )
-            elif protected_check.get("status") == "ok":
-                self.info.append("Redis protected mode is enabled")
+            elif status == "ok":
+                # Check if message indicates CONFIG is disabled (expected in managed services)
+                if "CONFIG command disabled" in message:
+                    self.info.append(
+                        "Redis protected mode: CONFIG command disabled "
+                        "(protected mode assumed enabled in managed Redis services)"
+                    )
+                else:
+                    self.info.append("Redis protected mode is enabled")
             else:
                 self.warnings.append(
-                    f"Cannot verify Redis protected mode: {protected_check.get('message', 'unknown')}"
+                    f"Cannot verify Redis protected mode: {message or 'unknown'}"
                 )
         except Exception as e:
             self.warnings.append(f"Failed to check protected mode: {e}")

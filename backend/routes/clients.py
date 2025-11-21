@@ -81,7 +81,7 @@ def get_clients(current_user=None, project_id=None):
 
         clients.append(
             {
-                "id": user.id,
+                "id": user.unique_id,
                 "name": f"{user.first_name or ''} {user.last_name or ''}".strip() or user.username,
                 "username": user.username,
                 "email": user.email,
@@ -259,7 +259,7 @@ def get_classic_users_for_product(product_id, current_user=None):
 
         users.append(
             {
-                "id": user.id,
+                "id": user.unique_id,
                 "username": user.username,
                 "has_access": permission.has_access,
                 "can_generate_keys": permission.can_generate_keys,
@@ -309,8 +309,8 @@ def get_user_products(user_id, current_user=None):
 
             product_list.append(
                 {
-                    "id": product.id,
-                    "product_id": product.id,
+                    "id": product.unique_id,
+                    "product_id": product.unique_id,
                     "product_name": product.name,
                     "has_access": has_access,
                 }

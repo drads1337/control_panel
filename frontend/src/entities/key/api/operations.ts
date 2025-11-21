@@ -100,13 +100,13 @@ export async function exportLicenseKey(keyId: number): Promise<{ download_url: s
   return response.data
 }
 
-export async function blockLicenseKey(keyId: number): Promise<{ message: string }> {
+export async function blockLicenseKey(keyId: number): Promise<{ message: string; key?: { id: number; status: number; is_active: boolean; is_expired: boolean; expires_at?: string | null } }> {
 
   const response = await api.post(`${API_ENDPOINTS.KEYS}/${keyId}/block`)
   return response.data
 }
 
-export async function unblockLicenseKey(keyId: number): Promise<{ message: string }> {
+export async function unblockLicenseKey(keyId: number): Promise<{ message: string; key?: { id: number; status: number; is_active: boolean; is_expired: boolean; expires_at?: string | null } }> {
 
   const response = await api.post(`${API_ENDPOINTS.KEYS}/${keyId}/unblock`)
   return response.data

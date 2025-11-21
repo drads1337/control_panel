@@ -18,7 +18,7 @@ interface KeyRowProps {
   onKeyAction: (action: string, keyId: number) => void;
   onViewDetails: (key: LicenseKey) => void;
   canPerformAction: (key: LicenseKey, actionPermission: boolean) => boolean;
-  getStatusType: (status: number) => StatusType;
+  getStatusType: (status: number, is_expired?: boolean) => StatusType;
   canEdit?: boolean;
   canDelete?: boolean;
   canReset?: boolean;
@@ -48,12 +48,21 @@ export const KeyRow: React.FC<KeyRowProps> = React.memo(({
   canBlock = false,
   style,
 }) => {
-  const formatExpirationTime = (expiresAt: string | null): string => {
+  const formatExpirationTime = (expiresAt: string | null, status?: number, is_expired?: boolean): string => {
+    // Blocked keys (status = 2) should never show as "Expired"
+    // But we need to check is_expired flag to distinguish blocked from expired
+    if (status === 2 && !is_expired) {
+      return 'Blocked';
+    }
     if (!expiresAt) return 'Never expires';
     const now = new Date();
     const expires = new Date(expiresAt);
     const diffMs = expires.getTime() - now.getTime();
     const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
+    // Only show "Expired" if key is actually expired AND not blocked
+    if (diffHours <= 0 && is_expired && status !== 2) {
+      return 'Expired';
+    }
     return diffHours > 0 ? `${diffHours}h left` : 'Expired';
   };
 
@@ -88,10 +97,10 @@ export const KeyRow: React.FC<KeyRowProps> = React.memo(({
       
       <TableCell className="text-left">
         <Badge
-          className={getStatusClasses(getStatusType(keyData.status))}
+          className={getStatusClasses(getStatusType(keyData.status, keyData.is_expired))}
           variant="secondary"
         >
-          {getStatusText(getStatusType(keyData.status))}
+          {getStatusText(getStatusType(keyData.status, keyData.is_expired))}
         </Badge>
       </TableCell>
       
@@ -100,7 +109,7 @@ export const KeyRow: React.FC<KeyRowProps> = React.memo(({
           {keyData.activated_at ? (
             <>
               <div className="font-medium">
-                {formatExpirationTime(keyData.expires_at)}
+                {formatExpirationTime(keyData.expires_at, keyData.status, keyData.is_expired)}
               </div>
               <div className="text-muted-foreground">
                 {keyData.expires_at ? new Date(keyData.expires_at).toLocaleDateString() : 'Never'}

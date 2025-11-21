@@ -13,6 +13,10 @@ from .user_role_service import UserRoleService, user_role_service
 from .user_permission_service import UserPermissionService, user_permission_service
 from .user_statistics_service import UserStatisticsService, user_statistics_service
 from .user_invite_service import UserInviteService, user_invite_service
+from .user_relationships_service import (
+    UserRelationshipsService,
+    user_relationships_service,
+)
 
 # Legacy imports (kept for backward compatibility)
 from .user_management_service import UserManagementService  # Original service class (deprecated, use UserManagementServiceFacade)

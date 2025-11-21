@@ -121,7 +121,7 @@ class ProductService:
 
                 if agent_assignment and agent_assignment.agent:
                     agent_info = {
-                        "id": agent_assignment.agent.id,
+                        "id": agent_assignment.agent.unique_id,
                         "name": agent_assignment.agent.name,
                         "version": agent_assignment.agent.version or "1.0.0",
                         "status": agent_assignment.agent.status or "active",
@@ -178,8 +178,7 @@ class ProductService:
                     total_downloads += agent_downloads
 
             return {
-                "id": product.id,
-                "unique_id": product.unique_id,
+                "id": product.unique_id,
                 "name": product.name,
                 "description": product.description or "",
                 "status": product.status,
@@ -207,8 +206,7 @@ class ProductService:
             self.logger.error(f"Error building product data for product {product.id}: {str(e)}")
 
             return {
-                "id": product.id,
-                "unique_id": product.unique_id,
+                "id": product.unique_id,
                 "name": product.name,
                 "description": product.description or "",
                 "status": product.status or "active",
@@ -291,8 +289,7 @@ class ProductService:
                 for product in products:
                     products_data.append(
                         {
-                            "id": product.id,
-                            "unique_id": product.unique_id,
+                            "id": product.unique_id,
                             "name": product.name,
                             "description": product.description,
                             "is_active": product.is_active,
@@ -390,21 +387,52 @@ class ProductService:
             return None, f"Failed to create product: {str(e)}"
 
     def get_product(
-        self, user: User, product_id: int
+        self, user: User, product_id
     ) -> Tuple[Optional[Product], Optional[str]]:
         """
-        Get a single product by ID with access control
+        Get a single product by ID or unique_id with access control
 
         Args:
             user: User requesting the product
-            product_id: ID of the product to retrieve
+            product_id: ID (int) or unique_id (str) of the product to retrieve
 
         Returns:
             Tuple of (Product object or None, error message or None)
         """
         try:
-
-            product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+            from ...utils.rbac_utils import RBACManager
+            
+            # Check if user is owner - owners can access products from any project
+            is_owner = RBACManager.is_owner(user)
+            
+            # Try to determine if product_id is an integer ID or a string unique_id
+            product = None
+            
+            # First, try as integer ID
+            if isinstance(product_id, int) or (isinstance(product_id, str) and product_id.isdigit()):
+                try:
+                    product_id_int = int(product_id)
+                    if is_owner:
+                        # Owners can access products from any project
+                        product = Product.query.filter_by(id=product_id_int).first()
+                    else:
+                        # Non-owners must have project_id and product must belong to their project
+                        if not user.project_id:
+                            return None, "User must be assigned to a project"
+                        product = Product.query.filter_by(id=product_id_int, project_id=user.project_id).first()
+                except (ValueError, TypeError):
+                    pass
+            
+            # If not found, try as unique_id (string)
+            if not product:
+                if is_owner:
+                    # Owners can access products from any project
+                    product = Product.query.filter_by(unique_id=str(product_id)).first()
+                else:
+                    # Non-owners must have project_id and product must belong to their project
+                    if not user.project_id:
+                        return None, "User must be assigned to a project"
+                    product = Product.query.filter_by(unique_id=str(product_id), project_id=user.project_id).first()
 
             if not product:
                 return None, "Product not found or access denied"

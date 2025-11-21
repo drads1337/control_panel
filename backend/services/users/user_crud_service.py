@@ -10,7 +10,15 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy import func as sql_func
 
 from ...core.extensions import db
-from ...models.core import User
+from ...models.core import (
+    DeveloperProductPermission,
+    User,
+    UserActivity,
+    UserProductPermission,
+)
+from ...models.keys import Key
+from ...models.rbac import Role, UserRole
+from ...models.project_user import ProjectUserRole
 from ...utils.fulltext_search import fulltext_search_filter
 from ...utils.rbac_utils import RBACManager
 from ...utils.structured_logging import get_logger
@@ -69,8 +77,6 @@ class UserCRUDService:
             db.session.flush()
 
             if project_id:
-                # Import here to avoid circular dependency
-                from ...models.rbac import Role, UserRole
                 role_obj = Role.query.filter_by(name=role, project_id=project_id).first()
                 if role_obj:
                     user_role = UserRole(user_id=user.id, role_id=role_obj.id)
@@ -147,9 +153,6 @@ class UserCRUDService:
                 query = fulltext_search_filter(query, search, "search_vector")
 
             if role_filter or roles_filter:
-                # Import here to avoid circular dependency
-                from ...models.rbac import Role, UserRole
-                from sqlalchemy import func as sql_func
 
                 roles_to_filter = []
                 if role_filter:
@@ -212,7 +215,6 @@ class UserCRUDService:
             if user_ids:
                 try:
                     from sqlalchemy.orm import joinedload
-                    from ...models.rbac import UserRole
 
                     user_roles_query = (
                         db.session.query(UserRole)
@@ -259,7 +261,7 @@ class UserCRUDService:
 
                 users.append(
                     {
-                        "id": user.id,
+                        "id": user.unique_id,
                         "username": user.username,
                         "roles": role_names,
                         "first_name": user.first_name,
@@ -339,14 +341,6 @@ class UserCRUDService:
         """
         try:
             from ...services.rbac import rbac_service
-            from ...models.core import (
-                DeveloperProductPermission,
-                UserActivity,
-                UserProductPermission,
-            )
-            from ...models.keys import Key
-            from ...models.rbac import UserRole
-            from ...models.project_user import ProjectUserRole
 
             target_user = User.query.get(target_user_id)
             if not target_user:
@@ -416,14 +410,6 @@ class UserCRUDService:
         """
         try:
             from ...services.rbac import rbac_service
-            from ...models.core import (
-                DeveloperProductPermission,
-                UserActivity,
-                UserProductPermission,
-            )
-            from ...models.keys import Key
-            from ...models.rbac import UserRole
-            from ...models.project_user import ProjectUserRole
 
             query = User.query.filter(User.id.in_(user_ids))
 

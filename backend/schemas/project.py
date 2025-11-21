@@ -61,7 +61,7 @@ class ProjectUpdateSchema(BaseSchema):
 class ProjectResponseSchema(BaseSchema):
     """Project response schema"""
 
-    id: int = Field(..., description="Project ID")
+    id: str = Field(..., description="Project ID (unique random identifier)")
     name: str = Field(..., description="Project name")
     description: Optional[str] = Field(default=None, description="Project description")
     status: str = Field(..., description="Project status")

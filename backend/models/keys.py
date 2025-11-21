@@ -2,12 +2,23 @@
 Key and device-related models
 """
 
+import random
 from datetime import datetime
 
 from ..core.extensions import db
 
+def generate_unique_key_id():
+    """Generate a unique 9-digit key ID"""
+    while True:
+        unique_id = "".join([str(random.randint(0, 9)) for _ in range(9)])
+        
+        existing_key = Key.query.filter_by(unique_id=unique_id).first()
+        if not existing_key:
+            return unique_id
+
 class Key(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    unique_id = db.Column(db.String(9), unique=True, nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id", ondelete="SET NULL"), nullable=True)
     user = db.relationship("User", backref="keys")
     key = db.Column(db.String(64), unique=True, nullable=False)
@@ -26,6 +37,11 @@ class Key(db.Model):
     deviceinfo = db.relationship("DeviceInfo", backref="key", cascade="all, delete-orphan")
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
     project = db.relationship("Project", backref="keys")
+
+    def __init__(self, **kwargs):
+        super(Key, self).__init__(**kwargs)
+        if not self.unique_id:
+            self.unique_id = generate_unique_key_id()
 
 class DeviceInfo(db.Model):
     id = db.Column(db.Integer, primary_key=True)

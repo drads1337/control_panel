@@ -22,13 +22,17 @@ from ..models.keys import Key
 from ..services.activity import activity_service
 
 from ..services.users import user_profile_service
+from ..services.rbac import rbac_service
+from ..utils.service_helpers import get_user_profile_service
 from ..middleware.auth import (
     require_project_assignment,
     require_project_isolation,
     require_user,
 )
+from ..middleware.serialization import serialize_response
 from ..utils.rbac_utils import RBACManager
 from ..config.config import Config
+from ..schemas.user import UserPrivateResponse
 
 profile_bp = Blueprint("profile", __name__)
 
@@ -126,6 +130,7 @@ def process_image(file_stream, crop_data=None):
 @jwt_required()
 @require_user
 @require_project_assignment
+@serialize_response(UserPrivateResponse)
 def get_me(current_user=None):
     """Get current user profile with optimized queries"""
 
@@ -160,30 +165,15 @@ def get_me(current_user=None):
         logging.error(f"Failed to get user permissions for user {user.id}: {e}", exc_info=True)
         user_permissions = []
 
-    return jsonify(
-        {
-            "id": user.id,
-            "username": user.username,
-            "role": primary_role,
-            "roles": user_roles,
-            "permissions": user_permissions,
-            "first_name": user.first_name,
-            "last_name": user.last_name,
-            "email": getattr(user, "email", None),
-            "avatar": user.avatar,
-            "bio": user.bio,
-            "is_admin": RBACManager.is_admin(user),
-            "created_at": user.created_at.isoformat() if user.created_at else None,
-            "expires_at": user.expires_at.isoformat() if user.expires_at else None,
-            "last_login": user.last_login.isoformat() if user.last_login else None,
-            "total_keys_generated": user.total_keys_generated,
-            "token_balance": user.token_balance,
-            "project_id": user.project_id,
-            "keys_count": keys_count,
-            "active_keys": active_keys,
-            "referral_code": user.referral_code,
-        }
-    )
+    setattr(user, "role", primary_role)
+    setattr(user, "roles", user_roles)
+    setattr(user, "permissions", user_permissions)
+    setattr(user, "keys_count", keys_count)
+    setattr(user, "active_keys", active_keys)
+    setattr(user, "is_admin", RBACManager.is_admin(user))
+    setattr(user, "needs_project_assignment", False)
+
+    return user
 
 @profile_bp.route("/update", methods=["PUT"])
 @jwt_required()
@@ -201,6 +191,8 @@ def update_profile(current_user=None):
     if not data:
         return jsonify({"error": "No data provided"}), 400
 
+    # Use DI container to get service
+    user_profile_service = get_user_profile_service()
     success, error = user_profile_service.update_user_profile(user, data)
 
     if not success:
@@ -274,6 +266,8 @@ def change_password(current_user=None):
     if not is_valid:
         return jsonify({"error": error_msg}), 400
 
+    # Use DI container to get service
+    user_profile_service = get_user_profile_service()
     success, error = user_profile_service.change_password(user, current_password, new_password)
 
     if not success:
@@ -480,7 +474,7 @@ def get_my_stats(current_user=None):
     return jsonify(
         {
             "user": {
-                "id": user.id,
+                "id": user.unique_id,
                 "username": user.username,
                 "role": primary_role,
                 "created_at": user.created_at.isoformat(),

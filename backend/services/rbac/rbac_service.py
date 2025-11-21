@@ -900,7 +900,9 @@ class RBACService:
                 .count()
             )
 
-            total_users = User.query.filter_by(project_id=project_id).count()
+            from ...services.projects import project_relationships_service
+            
+            total_users = project_relationships_service.get_user_count(project_id)
             users_without_roles = total_users - users_with_roles
 
             return {

@@ -302,7 +302,7 @@ export const BulkKeyForm: React.FC<BulkKeyFormProps> = ({
                 disabled={loading}
                 required
               />
-              <p className="text-xs text-muted-foreground">Maximum 1000 keys per batch</p>
+              <p className="text-xs text-muted-foreground">Maximum 100 keys per batch</p>
             </div>
 
             <div className="space-y-2">

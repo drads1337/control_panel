@@ -361,7 +361,7 @@ def get_product_configs_by_name(product_name):
             ).first()
             configs_data.append(
                 {
-                    "id": config.id,
+                    "id": config.unique_id,
                     "config_id": config.config_id,
                     "name": config.name,
                     "description": config.description,
@@ -410,7 +410,7 @@ def get_product_configs(product_id):
             ).first()
             configs_data.append(
                 {
-                    "id": config.id,
+                    "id": config.unique_id,
                     "config_id": config.config_id,
                     "name": config.name,
                     "description": config.description,
@@ -689,7 +689,7 @@ def get_my_product_configs(product_id):
         for config in configs:
             configs_data.append(
                 {
-                    "id": config.id,
+                    "id": config.unique_id,
                     "name": config.name,
                     "description": config.description,
                     "file_type": config.file_type,
@@ -741,7 +741,7 @@ def get_public_product_configs(product_id):
             ).first()
             configs_data.append(
                 {
-                    "id": config.id,
+                    "id": config.unique_id,
                     "name": config.name,
                     "description": config.description,
                     "file_type": config.file_type,
@@ -819,7 +819,7 @@ def update_product_config(config_id):
             {
                 "message": "Config updated successfully",
                 "config": {
-                    "id": config.id,
+                    "id": config.unique_id,
                     "name": config.name,
                     "description": config.description,
                     "version": config.version,
@@ -916,17 +916,17 @@ def get_product_files():
             logging.debug(f"[DEBUG] get_product_files: User {user_id} has no project_id")
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        product_id = request.args.get("product_id", type=int)
+        product_id_param = request.args.get("product_id")
         target_type = request.args.get("target_type", "auto")
         category = request.args.get("category", "all")
         status = request.args.get("status", "all")
         search = request.args.get("search", "")
 
         logging.debug(
-            f"[DEBUG] get_product_files: product_id={product_id}, target_type={target_type}, category={category}, status={status}, search={search}, user_id={user_id}, project_id={user.project_id}"
+            f"[DEBUG] get_product_files: product_id={product_id_param}, target_type={target_type}, category={category}, status={status}, search={search}, user_id={user_id}, project_id={user.project_id}"
         )
 
-        if not product_id:
+        if not product_id_param:
             logging.debug(f"[DEBUG] get_product_files: No product_id provided")
             return jsonify({"error": "Product ID is required"}), 400
 
@@ -937,62 +937,104 @@ def get_product_files():
         agent = None
         is_loader = False
 
-        if target_type == "agent":
+        # Helper function to resolve product by id or unique_id
+        def resolve_product(product_identifier, project_id):
+            """Resolve product by integer id or string unique_id"""
+            # Try as integer ID first
+            if isinstance(product_identifier, int) or (isinstance(product_identifier, str) and product_identifier.isdigit()):
+                try:
+                    product_id_int = int(product_identifier)
+                    product = Product.query.filter_by(id=product_id_int, project_id=project_id).first()
+                    if product:
+                        return product
+                except (ValueError, TypeError):
+                    pass
+            
+            # Try as unique_id (string)
+            return Product.query.filter_by(unique_id=str(product_identifier), project_id=project_id).first()
 
-            agent = Agent.query.filter_by(id=product_id, project_id=user.project_id).first()
+        if target_type == "agent":
+            # For agents, we still use integer ID
+            try:
+                agent_id = int(product_id_param)
+                agent = Agent.query.filter_by(id=agent_id, project_id=user.project_id).first()
+            except (ValueError, TypeError):
+                agent = None
+                
             if not agent:
                 logging.debug(
-                    f"[DEBUG] get_product_files: Agent {product_id} not found for project_id={user.project_id}"
+                    f"[DEBUG] get_product_files: Agent {product_id_param} not found for project_id={user.project_id}"
                 )
-                loader_exists = Agent.query.filter_by(id=product_id).first()
+                loader_exists = Agent.query.filter_by(id=product_id_param).first() if isinstance(product_id_param, int) or (isinstance(product_id_param, str) and product_id_param.isdigit()) else None
                 if loader_exists:
                     logging.debug(
-                        f"[DEBUG] get_product_files: Agent {product_id} exists but belongs to project_id={loader_exists.project_id}, not {user.project_id}"
+                        f"[DEBUG] get_product_files: Agent {product_id_param} exists but belongs to project_id={loader_exists.project_id}, not {user.project_id}"
                     )
                 else:
-                    logging.debug(f"[DEBUG] get_product_files: Agent {product_id} does not exist at all")
+                    logging.debug(f"[DEBUG] get_product_files: Agent {product_id_param} does not exist at all")
                 return jsonify({"error": "Agent not found"}), 404
             is_loader = True
         elif target_type == "product":
-
-            product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+            product = resolve_product(product_id_param, user.project_id)
             if not product:
                 logging.debug(
-                    f"[DEBUG] get_product_files: Product {product_id} not found for project_id={user.project_id}"
+                    f"[DEBUG] get_product_files: Product {product_id_param} not found for project_id={user.project_id}"
                 )
-                product_exists = Product.query.filter_by(id=product_id).first()
+                # Check if product exists in different project
+                product_exists = None
+                if isinstance(product_id_param, int) or (isinstance(product_id_param, str) and product_id_param.isdigit()):
+                    try:
+                        product_exists = Product.query.filter_by(id=int(product_id_param)).first()
+                    except (ValueError, TypeError):
+                        pass
+                if not product_exists:
+                    product_exists = Product.query.filter_by(unique_id=str(product_id_param)).first()
+                    
                 if product_exists:
                     logging.debug(
-                        f"[DEBUG] get_product_files: Product {product_id} exists but belongs to project_id={product_exists.project_id}, not {user.project_id}"
+                        f"[DEBUG] get_product_files: Product {product_id_param} exists but belongs to project_id={product_exists.project_id}, not {user.project_id}"
                     )
                 else:
-                    logging.debug(f"[DEBUG] get_product_files: Product {product_id} does not exist at all")
+                    logging.debug(f"[DEBUG] get_product_files: Product {product_id_param} does not exist at all")
                 return jsonify({"error": "Product not found"}), 404
         else:
-
-            product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+            product = resolve_product(product_id_param, user.project_id)
             if not product:
-                logging.debug(f"[DEBUG] get_product_files: Product {product_id} not found, trying agent...")
-                agent = Agent.query.filter_by(id=product_id, project_id=user.project_id).first()
+                logging.debug(f"[DEBUG] get_product_files: Product {product_id_param} not found, trying agent...")
+                try:
+                    agent_id = int(product_id_param)
+                    agent = Agent.query.filter_by(id=agent_id, project_id=user.project_id).first()
+                except (ValueError, TypeError):
+                    agent = None
+                    
                 if agent:
-                    logging.debug(f"[DEBUG] get_product_files: Found Agent {product_id} instead of Product")
+                    logging.debug(f"[DEBUG] get_product_files: Found Agent {product_id_param} instead of Product")
                     is_loader = True
                 else:
                     logging.debug(
-                        f"[DEBUG] get_product_files: Neither Product nor Agent {product_id} found for project_id={user.project_id}"
+                        f"[DEBUG] get_product_files: Neither Product nor Agent {product_id_param} found for project_id={user.project_id}"
                     )
 
-                    product_exists = Product.query.filter_by(id=product_id).first()
-                    loader_exists = Agent.query.filter_by(id=product_id).first()
+                    # Check if exists in different project
+                    product_exists = None
+                    if isinstance(product_id_param, int) or (isinstance(product_id_param, str) and product_id_param.isdigit()):
+                        try:
+                            product_exists = Product.query.filter_by(id=int(product_id_param)).first()
+                        except (ValueError, TypeError):
+                            pass
+                    if not product_exists:
+                        product_exists = Product.query.filter_by(unique_id=str(product_id_param)).first()
+                    loader_exists = Agent.query.filter_by(id=product_id_param).first() if isinstance(product_id_param, int) or (isinstance(product_id_param, str) and product_id_param.isdigit()) else None
+                    
                     if product_exists or loader_exists:
                         logging.debug(
-                            f"[DEBUG] get_product_files: {product_id} exists but belongs to different project"
+                            f"[DEBUG] get_product_files: {product_id_param} exists but belongs to different project"
                         )
                     else:
-                        logging.debug(f"[DEBUG] get_product_files: {product_id} does not exist at all")
+                        logging.debug(f"[DEBUG] get_product_files: {product_id_param} does not exist at all")
                     return jsonify({"error": "Product or Agent not found"}), 404
             else:
-                logging.debug(f"[DEBUG] get_product_files: Found Product {product_id}")
+                logging.debug(f"[DEBUG] get_product_files: Found Product {product_id_param}")
 
         files_list = []
 
@@ -1169,7 +1211,7 @@ def get_product_files():
 
                 files_list.append(
                     {
-                        "id": f"config_{config.id}",
+                        "id": f"config_{config.unique_id}",
                         "config_id": config.config_id,
                         "name": config.name,
                         "type": "file",
@@ -1195,7 +1237,7 @@ def get_product_files():
 
                 files_list.append(
                     {
-                        "id": f"extra_{extra.id}",
+                        "id": f"extra_{extra.unique_id}",
                         "name": extra.name,
                         "original_filename": extra.original_filename,
                         "type": "file",
@@ -1490,18 +1532,33 @@ def upload_product_extra_file():
         return jsonify({"error": "No file provided"}), 400
 
     file = request.files["file"]
-    product_id = request.form.get("product_id", type=int)
+    product_id_param = request.form.get("product_id")
     name = request.form.get("name", "")
     description = request.form.get("description", "")
 
-    if not product_id:
+    if not product_id_param:
         return jsonify({"error": "Product ID is required"}), 400
 
     from ..models.products import Product
 
-    product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+    # Resolve product by id or unique_id
+    product = None
+    # Try as integer ID first
+    if isinstance(product_id_param, int) or (isinstance(product_id_param, str) and product_id_param.isdigit()):
+        try:
+            product_id_int = int(product_id_param)
+            product = Product.query.filter_by(id=product_id_int, project_id=user.project_id).first()
+        except (ValueError, TypeError):
+            pass
+    
+    # If not found, try as unique_id (string)
+    if not product:
+        product = Product.query.filter_by(unique_id=str(product_id_param), project_id=user.project_id).first()
+    
     if not product:
         return jsonify({"error": "Product not found or access denied"}), 404
+    
+    product_id = product.id
 
     if file.filename == "":
         return jsonify({"error": "No file selected"}), 400

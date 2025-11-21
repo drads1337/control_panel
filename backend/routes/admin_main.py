@@ -13,6 +13,7 @@ from ..models.core import User
 from ..services.admin import admin_service
 from ..services.rbac import rbac_service
 from ..services.users import user_management_service
+from ..utils.service_helpers import get_user_crud_service
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 
@@ -27,7 +28,9 @@ def deactivate_expired_projects():
     """
     try:
         user_id = get_jwt_identity()
-        user = user_management_service.get_user_by_id(user_id)
+        # Use DI container to get service
+        user_crud_service = get_user_crud_service()
+        user = user_crud_service.get_user_by_id(user_id)
 
         if not user:
             return jsonify({"error": "User not found"}), 404
@@ -66,7 +69,9 @@ def cleanup_expired_projects():
     """
     try:
         user_id = get_jwt_identity()
-        user = user_management_service.get_user_by_id(user_id)
+        # Use DI container to get service
+        user_crud_service = get_user_crud_service()
+        user = user_crud_service.get_user_by_id(user_id)
 
         if not user:
             return jsonify({"error": "User not found"}), 404
@@ -102,7 +107,9 @@ def get_system_stats():
     """Get system statistics for admin dashboard"""
     try:
         user_id = get_jwt_identity()
-        user = user_management_service.get_user_by_id(user_id)
+        # Use DI container to get service
+        user_crud_service = get_user_crud_service()
+        user = user_crud_service.get_user_by_id(user_id)
 
         if not user:
             return jsonify({"error": "User not found"}), 404
@@ -132,7 +139,9 @@ def get_expired_projects():
     """Get information about expired projects"""
     try:
         user_id = get_jwt_identity()
-        user = user_management_service.get_user_by_id(user_id)
+        # Use DI container to get service
+        user_crud_service = get_user_crud_service()
+        user = user_crud_service.get_user_by_id(user_id)
 
         if not user:
             return jsonify({"error": "User not found"}), 404
@@ -159,7 +168,9 @@ def suspend_project(project_id):
     """Suspend a project"""
     try:
         user_id = get_jwt_identity()
-        user = user_management_service.get_user_by_id(user_id)
+        # Use DI container to get service
+        user_crud_service = get_user_crud_service()
+        user = user_crud_service.get_user_by_id(user_id)
 
         if not user:
             return jsonify({"error": "User not found"}), 404
@@ -192,7 +203,9 @@ def reactivate_project(project_id):
     """Reactivate a suspended or expired project"""
     try:
         user_id = get_jwt_identity()
-        user = user_management_service.get_user_by_id(user_id)
+        # Use DI container to get service
+        user_crud_service = get_user_crud_service()
+        user = user_crud_service.get_user_by_id(user_id)
 
         if not user:
             return jsonify({"error": "User not found"}), 404

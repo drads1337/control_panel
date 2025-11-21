@@ -6,7 +6,7 @@ import json
 import random
 from datetime import datetime, timedelta
 
-from ..core.extensions import db
+from ..core.extensions import SensitiveDataMixin, db
 
 # Import ProjectAdmin at module level to avoid lazy imports
 # This is safe because project_user.py doesn't import from core.py,
@@ -20,6 +20,15 @@ def generate_unique_project_id():
 
         existing_project = Project.query.filter_by(unique_id=unique_id).first()
         if not existing_project:
+            return unique_id
+
+def generate_unique_user_id():
+    """Generate a unique 9-digit user ID"""
+    while True:
+        unique_id = "".join([str(random.randint(0, 9)) for _ in range(9)])
+        
+        existing_user = User.query.filter_by(unique_id=unique_id).first()
+        if not existing_user:
             return unique_id
 
 class Project(db.Model):
@@ -121,26 +130,35 @@ class Project(db.Model):
 
     @property
     def admin_user(self):
-        """Get the project admin user"""
-        admin_record = ProjectAdmin.query.filter_by(project_id=self.id).first()
-        if admin_record and admin_record.admin_user_id:
-            return User.query.get(admin_record.admin_user_id)
-        return None
+        """
+        Get the project admin user
+        
+        NOTE: This property is kept for backward compatibility.
+        For new code, use project_relationships_service.get_admin_user(project_id) instead.
+        """
+        # Use service to avoid code duplication
+        from ..services.projects import project_relationships_service
+        return project_relationships_service.get_admin_user(self.id)
 
     def set_admin(self, user_id):
-        """Set project admin"""
-        admin_record = ProjectAdmin.query.filter_by(project_id=self.id).first()
-        if not admin_record:
-            admin_record = ProjectAdmin(project_id=self.id)
-            db.session.add(admin_record)
-
-        admin_record.admin_user_id = user_id
-        db.session.commit()
+        """
+        Set project admin
+        
+        NOTE: This method is kept for backward compatibility.
+        For new code, use project_relationships_service.set_admin(project_id, user_id) instead.
+        """
+        from ..services.projects import project_relationships_service
+        return project_relationships_service.set_admin(self.id, user_id)
 
     def get_admin_id(self):
-        """Get admin user ID (for backward compatibility)"""
-        admin_record = ProjectAdmin.query.filter_by(project_id=self.id).first()
-        return admin_record.admin_user_id if admin_record else None
+        """
+        Get admin user ID (for backward compatibility)
+        
+        NOTE: This method is kept for backward compatibility.
+        For new code, use project_relationships_service.get_admin_id(project_id) instead.
+        """
+        from ..services.projects import project_relationships_service
+        return project_relationships_service.get_admin_id(self.id)
 
 class ProjectEncryptionKeys(db.Model):
     """Model for storing unique encryption keys for each project"""
@@ -402,10 +420,11 @@ class ProjectSettings(db.Model):
     def __repr__(self):
         return f"<ProjectSettings(project_id={self.project_id})>"
 
-class User(db.Model):
+class User(SensitiveDataMixin, db.Model):
     __tablename__ = "user"
 
     id = db.Column(db.Integer, primary_key=True)
+    unique_id = db.Column(db.String(9), unique=True, nullable=False)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
     referral_code = db.Column(db.String(32), unique=True)
@@ -429,6 +448,11 @@ class User(db.Model):
 
     total_keys = db.Column(db.Integer, default=0, nullable=False)
     active_keys = db.Column(db.Integer, default=0, nullable=False)
+
+    def __init__(self, **kwargs):
+        super(User, self).__init__(**kwargs)
+        if not self.unique_id:
+            self.unique_id = generate_unique_user_id()
 
     @property
     def is_active(self):

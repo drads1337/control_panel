@@ -381,8 +381,8 @@ def disable_project_isolation(reason: Optional[str] = None, require_owner: bool 
     if require_owner:
         try:
             from flask_jwt_extended import get_jwt_identity
-            from ...models.core import User
-            from ...services.rbac import rbac_service
+            from ..models.core import User
+            from ..services.rbac import rbac_service
             
             user_id = get_jwt_identity()
             if user_id:
@@ -412,7 +412,7 @@ def disable_project_isolation(reason: Optional[str] = None, require_owner: bool 
         from flask_jwt_extended import get_jwt_identity
         user_id = get_jwt_identity()
         if user_id:
-            from ...models.core import User
+            from ..models.core import User
             user = User.query.get(user_id)
             if user:
                 user_info = f"{user.username} (ID: {user.id})"

@@ -73,7 +73,7 @@ def get_loaders():
                     background_path = None
 
             agent_data = {
-                "id": agent.id,
+                "id": agent.unique_id,
                 "name": agent.name,
                 "description": agent.description,
                 "status": agent.status,
@@ -248,7 +248,7 @@ def create_loader():
             pass
 
         agent_data = {
-            "id": new_agent.id,
+            "id": new_agent.unique_id,
             "name": new_agent.name,
             "description": new_agent.description,
             "status": new_agent.status,

@@ -4,9 +4,19 @@ Universal terminology for B2B/SaaS applications - agents, launchers, auto-update
 """
 
 import json
+import random
 from datetime import datetime
 
 from ..core.extensions import db
+
+def generate_unique_agent_id():
+    """Generate a unique 8-digit agent ID"""
+    while True:
+        unique_id = "".join([str(random.randint(0, 9)) for _ in range(8)])
+        
+        existing_agent = Agent.query.filter_by(unique_id=unique_id).first()
+        if not existing_agent:
+            return unique_id
 
 class Agent(db.Model):
     """Model for managing agents (launchers, auto-updaters, IoT devices)"""
@@ -14,6 +24,7 @@ class Agent(db.Model):
     __tablename__ = "agent"
 
     id = db.Column(db.Integer, primary_key=True)
+    unique_id = db.Column(db.String(8), unique=True, nullable=False)
     name = db.Column(db.String(128), nullable=False)
     description = db.Column(db.Text, nullable=True)
     status = db.Column(db.String(32), default="active")
@@ -45,6 +56,11 @@ class Agent(db.Model):
 
     creator = db.relationship("User", backref="created_agents")
     project = db.relationship("Project", backref="agents")
+
+    def __init__(self, **kwargs):
+        super(Agent, self).__init__(**kwargs)
+        if not self.unique_id:
+            self.unique_id = generate_unique_agent_id()
 
     def __repr__(self):
         return f"<Agent {self.name}>"

@@ -262,10 +262,12 @@ class AdminService:
                 Project.status.in_(["active", "expired"]),
             ).all()
 
+            from ...services.projects import project_relationships_service
+
             projects_info = []
             for project in expired_projects:
 
-                user_count = User.query.filter_by(project_id=project.id).count()
+                user_count = project_relationships_service.get_user_count(project.id)
 
                 active_keys = Key.query.filter_by(project_id=project.id, status=1).count()
 
@@ -273,7 +275,7 @@ class AdminService:
 
                 projects_info.append(
                     {
-                        "id": project.id,
+                        "id": project.unique_id,
                         "name": project.name,
                         "status": project.status,
                         "subscription_status": project.subscription_status,

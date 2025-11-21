@@ -28,12 +28,14 @@ from ...models import (
     UserRole,
 )
 from ...services.activity import activity_service
-
+from ...services.rbac import rbac_service
 from ...services.users import user_management_service
 from ...middleware.auth import require_role, require_user
+from ...utils.rbac_utils import RBACManager
 from ...middleware.validation import validate_request
 from ...schemas.user import UserCreateSchema
 from ...utils.role_constants import RolePermissions
+from ...utils.user_creation_helper import create_user_with_roles_and_products
 
 admin_users_bp = Blueprint("admin_users", __name__)
 
@@ -92,7 +94,8 @@ def add_user(current_user=None, validated_data=None):
         return jsonify({"error": "No data provided"}), 400
 
     try:
-        user, error = user_management_service.create_user_with_roles_and_products(current_user, data)
+        # Use DI helper function instead of facade
+        user, error = create_user_with_roles_and_products(current_user, data)
 
         if error:
             return jsonify({"error": error}), 400
@@ -112,7 +115,7 @@ def add_user(current_user=None, validated_data=None):
                 {
                     "message": "User created successfully",
                     "user": {
-                        "id": user.id,
+                        "id": user.unique_id,
                         "username": user.username,
                         "token_balance": user.token_balance,
                         "created_at": user.created_at.isoformat(),
@@ -542,7 +545,7 @@ def get_user_stats(user_id):
     return jsonify(
         {
             "user": {
-                "id": target_user.id,
+                "id": target_user.unique_id,
                 "username": target_user.username,
                 "role": primary_role,
                 "created_at": target_user.created_at.isoformat(),

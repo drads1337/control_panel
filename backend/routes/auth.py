@@ -94,7 +94,7 @@ def _register_test_endpoints():
                 return jsonify(
                     {
                         "success": True,
-                        "user": {"id": user.id, "username": user.username, "role": primary_role},
+                        "user": {"id": user.unique_id, "username": user.username, "role": primary_role},
                         "token_created": True,
                         "token_length": len(access_token),
                     }
@@ -751,12 +751,12 @@ def register_with_code():
                     "message": f"Registration successful! Welcome to {product.name}",
                     "access_token": access_token,
                     "user": {
-                        "id": user.id,
+                        "id": user.unique_id,
                         "username": user.username,
                         "email": user.email,
                         "roles": RBACManager.get_user_role_names(user),
                     },
-                    "product": {"id": product.id, "name": product.name, "login_type": product.login_type},
+                    "product": {"id": product.unique_id, "name": product.name, "login_type": product.login_type},
                 }
             ),
             201,

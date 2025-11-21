@@ -195,12 +195,10 @@ class UserManagementServiceFacade:
             user = User(
                 username=username,
                 password=generate_password_hash(password),
-                role="user",
                 first_name=first_name,
                 last_name=last_name,
                 email=email,
                 project_id=project_id,
-                is_admin=False,
                 token_balance=token_balance,
                 created_at=datetime.utcnow(),
             )

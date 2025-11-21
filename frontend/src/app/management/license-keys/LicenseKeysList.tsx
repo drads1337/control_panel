@@ -120,7 +120,15 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
     return canManage;
   };
 
-  const getStatusType = (status: number): StatusType => {
+  const getStatusType = (status: number, is_expired?: boolean): StatusType => {
+    // Blocked keys are never expired, regardless of is_expired flag
+    if (status === KEY_STATUS.BLOCKED) {
+      return 'blocked';
+    }
+    // If key is expired and active, show as expired
+    if (status === KEY_STATUS.ACTIVE && is_expired) {
+      return 'expired';
+    }
     switch (status) {
       case KEY_STATUS.BLOCKED:
         return 'blocked';
@@ -249,7 +257,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                         onKeyAction={onKeyAction}
                         onViewDetails={onViewDetails}
                         canPerformAction={canPerformAction}
-                        getStatusType={getStatusType}
+                        getStatusType={(status: number) => getStatusType(status, key.is_expired)}
                         canEdit={canEdit}
                         canDelete={canDelete}
                         canReset={canReset}
@@ -296,7 +304,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                   onKeyAction={onKeyAction}
                   onViewDetails={onViewDetails}
                   canPerformAction={canPerformAction}
-                  getStatusType={getStatusType}
+                  getStatusType={(status: number) => getStatusType(status, key.is_expired)}
                   canEdit={canEdit}
                   canDelete={canDelete}
                   canReset={canReset}

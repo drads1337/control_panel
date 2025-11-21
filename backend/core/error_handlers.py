@@ -8,6 +8,7 @@ import logging
 from flask import Flask, jsonify, request
 from flask_jwt_extended import JWTManager
 from flask_jwt_extended.exceptions import CSRFError
+from ..config.config import Config
 
 try:
     from flask_limiter.errors import RateLimitExceeded
@@ -36,15 +37,16 @@ def register_error_handlers(app: Flask) -> None:
 
         error_response = {"error": "Internal server error", "type": "internal_error"}
 
-        if app.debug:
+        if Config.FLASK_ENV != "production" and app.debug:
             error_response["traceback"] = error_details.split("\n")
             error_response["details"] = str(error)
             error_response["message"] = f"{type(error).__name__}: {str(error)}"
         else:
 
-            error_response["message"] = (
-                "An internal error occurred. Please contact support if the problem persists."
-            )
+            error_response = {
+                "error": "Internal Server Error",
+                "message": "An unexpected error occurred. Support team has been notified.",
+            }
 
         return jsonify(error_response), 500
 
@@ -144,15 +146,16 @@ def register_error_handlers(app: Flask) -> None:
 
         error_response = {"error": "Internal server error", "type": "unhandled_exception"}
 
-        if app.debug:
+        if Config.FLASK_ENV != "production" and app.debug:
             error_response["traceback"] = error_details.split("\n")
             error_response["details"] = str(e)
             error_response["message"] = f"{type(e).__name__}: {str(e)}"
         else:
 
-            error_response["message"] = (
-                "An internal error occurred. Please contact support if the problem persists."
-            )
+            error_response = {
+                "error": "Internal Server Error",
+                "message": "An unexpected error occurred. Support team has been notified.",
+            }
 
         return jsonify(error_response), 500
 

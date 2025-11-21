@@ -4,6 +4,30 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import create_engine
 import redis
 
+
+class SensitiveDataMixin:
+    """
+    Mixin that strips predefined sensitive fields when exporting SQLAlchemy models to dicts.
+    """
+
+    __sensitive_fields__ = ["password", "password_hash", "salt", "secret_key", "totp_secret"]
+
+    def to_dict(self):
+        """
+        Convert model columns to a dictionary while skipping sensitive fields.
+        """
+        data = {}
+        table = getattr(self, "__table__", None)
+        if table is None:
+            return data
+
+        for column in table.columns:
+            if column.name in self.__sensitive_fields__:
+                continue
+            data[column.name] = getattr(self, column.name)
+        return data
+
+
 class Database(SQLAlchemy):
     """
     Custom SQLAlchemy extension that supports read replica with custom engine options.

@@ -294,7 +294,7 @@ class KeyServiceFacade:
         Generate a cryptographically secure key string
         Delegates to KeyGenerationService
         """
-        from ...services.key_generation_service import key_generation_service
+        from .key_generation_service import key_generation_service
         return key_generation_service.generate_key_string(
             length=length,
             product=product,

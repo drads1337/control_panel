@@ -32,6 +32,7 @@ Usage:
 """
 
 import logging
+import time
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional
@@ -40,6 +41,10 @@ from ...core.extensions import db
 from ...models.core import User
 from ...models.rbac import Permission, RolePermission, UserRole
 from ...utils.rbac_utils import RBACManager
+from .authorization_audit import (
+    authorization_audit_service,
+    DecisionOutcome,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -139,6 +144,9 @@ class PolicyEngine:
                 context={"user_id": user_id}
             )
         
+        # Track execution time for performance monitoring
+        evaluation_start_time = time.perf_counter()
+        
         # Evaluate through each policy layer
         evaluated_policies = []
         for policy in self.policies:
@@ -161,11 +169,32 @@ class PolicyEngine:
                 
                 # If policy made a decision (not ABSTAIN), return it
                 if decision.policy_type != "abstain":
+                    execution_time_ms = (time.perf_counter() - evaluation_start_time) * 1000
+                    
+                    # Audit the authorization decision
+                    outcome = DecisionOutcome.ALLOW if decision.allowed else DecisionOutcome.DENY
+                    authorization_audit_service.audit_authorization_decision(
+                        user_id=user_id,
+                        permission=permission,
+                        outcome=outcome,
+                        policy_type=decision.policy_type,
+                        reason=decision.reason,
+                        context={
+                            "product_id": product_id,
+                            "resource_type": resource_type,
+                            "resource_id": resource_id,
+                            "project_id": user.project_id,
+                            **context,
+                        },
+                        evaluated_policies=evaluated_policies,
+                        execution_time_ms=execution_time_ms,
+                    )
+                    
                     logger.info(
                         f"POLICY_EVALUATION_RESULT user_id={user_id} permission={permission} "
                         f"policy={policy.__name__} decision={decision.policy_type} "
                         f"allowed={decision.allowed} reason={decision.reason} "
-                        f"evaluated_policies={len(evaluated_policies)}"
+                        f"evaluated_policies={len(evaluated_policies)} execution_time={execution_time_ms:.2f}ms"
                     )
                     return decision
                     
@@ -184,12 +213,9 @@ class PolicyEngine:
                 # Continue to next policy on error
         
         # If all policies abstained, deny by default (fail-secure)
-        logger.warning(
-            f"POLICY_EVALUATION_DENIED user_id={user_id} permission={permission} "
-            f"reason=No policy granted permission evaluated_policies={len(evaluated_policies)} "
-            f"policies={[p['policy'] for p in evaluated_policies]}"
-        )
-        return Decision(
+        execution_time_ms = (time.perf_counter() - evaluation_start_time) * 1000
+        
+        final_decision = Decision(
             allowed=False,
             reason="No policy granted permission",
             policy_type="default_deny",
@@ -202,6 +228,31 @@ class PolicyEngine:
                 "evaluated_policies": evaluated_policies,
             }
         )
+        
+        # Audit the denial decision
+        authorization_audit_service.audit_authorization_decision(
+            user_id=user_id,
+            permission=permission,
+            outcome=DecisionOutcome.DENY,
+            policy_type="default_deny",
+            reason="No policy granted permission",
+            context={
+                "product_id": product_id,
+                "resource_type": resource_type,
+                "resource_id": resource_id,
+                "project_id": user.project_id,
+                **context,
+            },
+            evaluated_policies=evaluated_policies,
+            execution_time_ms=execution_time_ms,
+        )
+        
+        logger.warning(
+            f"POLICY_EVALUATION_DENIED user_id={user_id} permission={permission} "
+            f"reason=No policy granted permission evaluated_policies={len(evaluated_policies)} "
+            f"policies={[p['policy'] for p in evaluated_policies]} execution_time={execution_time_ms:.2f}ms"
+        )
+        return final_decision
     
     def _check_owner_admin_bypass(
         self,

@@ -162,8 +162,7 @@ class ProjectService:
                     )
                     projects.append(
                         {
-                            "id": project.id,
-                            "unique_id": project.unique_id,
+                            "id": project.unique_id,
                             "name": project.name,
                             "description": project.description,
                             "admin_id": project.admin_id,
@@ -278,8 +277,7 @@ class ProjectService:
                     return {"error": "Project not found"}
 
                 return {
-                    "id": project.id,
-                    "unique_id": project.unique_id,
+                    "id": project.unique_id,
                     "name": project.name,
                     "description": project.description,
                     "admin_id": project.admin_id,
@@ -433,7 +431,6 @@ class ProjectService:
                 name=name,
                 description=description.strip(),
                 admin_id=user.id,
-                unique_id=str(uuid.uuid4()),
                 status="active",
                 subscription_status="trial",
                 subscription_expires_at=datetime.utcnow() + timedelta(days=30),
@@ -466,10 +463,9 @@ class ProjectService:
             return {
                 "message": "Project created successfully",
                 "project": {
-                    "id": project.id,
+                    "id": project.unique_id,
                     "name": project.name,
                     "description": project.description,
-                    "unique_id": project.unique_id,
                     "created_at": project.created_at.isoformat(),
                 },
             }
@@ -586,7 +582,7 @@ class ProjectService:
             return {
                 "message": "Project updated successfully",
                 "project": {
-                    "id": project.id,
+                    "id": project.unique_id,
                     "name": project.name,
                     "description": project.description,
                     "status": project.status,

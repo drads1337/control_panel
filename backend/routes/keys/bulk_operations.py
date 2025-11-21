@@ -60,14 +60,17 @@ def bulk_create_keys(current_user=None, project_id=None):
     is_access_code = product.login_type == "classic_login"
     item_type = "access codes" if is_access_code else "license keys"
 
-    ASYNC_THRESHOLD = 10
+    # Temporarily use synchronous method for all counts to debug
+    # Set to very high number to force async, or 0 to disable async
+    ASYNC_THRESHOLD = 10000  # Effectively disable async for now
 
     if count <= ASYNC_THRESHOLD:
 
+        # Use product.id (actual database ID) instead of product_id (which might be unique_id)
         created_count, error_message, created_keys = key_service.bulk_create_keys(
             user=current_user,
             count=count,
-            product_id=product_id,
+            product_id=product.id,  # Use actual product.id
             duration_hours=duration_hours,
             max_devices=max_devices,
         )
@@ -112,11 +115,14 @@ def bulk_create_keys(current_user=None, project_id=None):
             from ...services.tasks import task_service
             from ...tasks.key_tasks import bulk_create_keys_task
 
+            # Use product.id (actual database ID) instead of product_id (which might be unique_id)
+            actual_product_id = product.id
+            
             task_id = task_service.create_task(
                 task_type="bulk_create_keys",
                 task_data={
                     "count": count,
-                    "product_id": product_id,
+                    "product_id": actual_product_id,
                     "product_name": product.name,
                     "duration_hours": duration_hours,
                     "max_devices": max_devices,
@@ -129,7 +135,7 @@ def bulk_create_keys(current_user=None, project_id=None):
                 args=[
                     current_user.id,
                     count,
-                    product_id,
+                    actual_product_id,  # Use actual product.id
                     duration_hours,
                     max_devices,
                 ],

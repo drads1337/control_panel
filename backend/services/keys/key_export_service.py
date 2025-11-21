@@ -191,7 +191,7 @@ class KeyExportService:
             return {
                 "key": key.key,
                 "key_masked": False,
-                "id": key.id
+                "id": key.unique_id
             }, None
 
         except Exception as e:

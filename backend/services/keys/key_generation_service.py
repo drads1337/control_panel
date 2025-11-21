@@ -7,10 +7,10 @@ import secrets
 import string
 from typing import Optional, Union
 
-from ..models.products import Product
-from ..models.keys import Key
-from ..models.agents import Agent
-from ..utils.structured_logging import get_logger
+from ...models.products import Product
+from ...models.keys import Key
+from ...models.agents import Agent
+from ...utils.structured_logging import get_logger
 
 class KeyGenerationService:
     """Service for generating key strings"""
@@ -88,3 +88,4 @@ class KeyGenerationService:
         return prefix
 
 key_generation_service = KeyGenerationService()
+

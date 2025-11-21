@@ -178,25 +178,36 @@ def get_keys_analytics():
         }
     )
 
-@analytics_bp.route("/<int:key_id>/analytics", methods=["GET"])
+@analytics_bp.route("/<key_id>/analytics", methods=["GET"])
 @jwt_required()
 @require_project_isolation
-def get_key_analytics(key_id):
+def get_key_analytics(key_id, current_user=None, project_id=None):
     """Get analytics for a specific key"""
-    user_id = get_jwt_identity()
-    user = User.query.get(user_id)
+    if current_user is None:
+        from flask import g
+        current_user = g.current_user
 
-    if not user:
+    if not current_user:
         return jsonify({"error": "User not found"}), 404
 
-    if not user.project_id:
+    if not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
     from datetime import date, timedelta
 
     from ...models import Key, KeyAnalytics
 
-    key = Key.query.filter_by(id=key_id, project_id=user.project_id).first()
+    # Try as integer id first
+    key = None
+    try:
+        key_id_int = int(key_id)
+        key = Key.query.filter_by(id=key_id_int, project_id=current_user.project_id).first()
+    except (ValueError, TypeError):
+        pass
+    
+    # Try as unique_id (string) if not found
+    if not key:
+        key = Key.query.filter_by(unique_id=str(key_id), project_id=current_user.project_id).first()
 
     if not key:
         return jsonify({"error": "Key not found or access denied"}), 404
@@ -205,13 +216,13 @@ def get_key_analytics(key_id):
         thirty_days_ago = date.today() - timedelta(days=30)
         analytics = (
             KeyAnalytics.query.filter(
-                KeyAnalytics.key_id == key_id, KeyAnalytics.date >= thirty_days_ago
+                KeyAnalytics.key_id == key.id, KeyAnalytics.date >= thirty_days_ago
             )
             .order_by(KeyAnalytics.date.desc())
             .all()
         )
 
-        all_time_analytics = KeyAnalytics.query.filter(KeyAnalytics.key_id == key_id).all()
+        all_time_analytics = KeyAnalytics.query.filter(KeyAnalytics.key_id == key.id).all()
 
         analytics_data = []
         total_connections_all_time = 0

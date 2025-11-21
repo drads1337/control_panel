@@ -153,11 +153,90 @@ from .remote_control import (
     RemoteFeatureLog,
 )
 
-import sys
-_current_module = sys.modules[__name__]
-__all__ = sorted([
-    name for name in dir(_current_module)
-    if not name.startswith('_') and name not in ('sys', '_current_module')
-    and hasattr(getattr(_current_module, name, None), '__module__')
-])
-del sys, _current_module
+# Explicit __all__ for better IDE support and static type checking
+# This replaces the dynamic __all__ generation that breaks autocomplete
+__all__ = [
+    # Core models
+    "APIKey",
+    "DeveloperProductPermission",
+    "Project",
+    "ProjectEncryptionKeys",
+    "ProjectInviteCode",
+    "ProjectSettings",
+    "SystemBackup",
+    "SystemSettings",
+    "User",
+    "UserActionLog",
+    "UserActivity",
+    "UserProductPermission",
+    # Product models
+    "Announcement",
+    "ChangelogEntry",
+    "FeatureConfigSchema",
+    "FileDownloadLog",
+    "FileMeta",
+    "Message",
+    "Product",
+    "ProductChatSettings",
+    "ProductExtraFile",
+    "ProductFileConfig",
+    "ProductFileDownload",
+    "ProductInviteCode",
+    "ProductKeyPrice",
+    "ProductSecurityLog",
+    "ProductStatus",
+    "RemoteConfig",
+    # Key models
+    "ConnectToken",
+    "DeviceInfo",
+    "Key",
+    "KeyAnalytics",
+    "ReferralCode",
+    "TokenTransaction",
+    # Agent models
+    "Agent",
+    "AgentChangelog",
+    "AgentConfiguration",
+    "AgentDownloadLog",
+    "AgentNotification",
+    "AgentProductAssignment",
+    # RBAC models
+    "AttributeRule",
+    "Permission",
+    "ResourceAttribute",
+    "Role",
+    "RolePermission",
+    "UserAttribute",
+    "UserPermission",
+    "UserRole",
+    # Security models
+    "BlockedDeviceFingerprint",
+    "BlockedFingerprint",
+    "BlockedHWID",
+    "BlockedIP",
+    "LoginAttempt",
+    "SecurityAnalytics",
+    "SecurityEvent",
+    "SecurityRule",
+    "TwoFactorAuth",
+    "TwoFactorBackupCode",
+    "TwoFactorSession",
+    # Project-User models
+    "ProjectAdmin",
+    "ProjectUserRole",
+    # Other models
+    "Notification",
+    "Webhook",
+    "WebhookLog",
+    "Billing",
+    "ProjectAPIKey",
+    "Server",
+    "ChatGroup",
+    "ChatGroupProduct",
+    "ChatMessage",
+    "DiscordWebhook",
+    "TelegramBot",
+    "RemoteCategory",
+    "RemoteFeature",
+    "RemoteFeatureLog",
+]

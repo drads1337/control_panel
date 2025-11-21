@@ -15,13 +15,19 @@ from ...middleware.auth import (
     require_user,
 )
 from ...middleware.validation import validate_request
+from ...middleware.serialization import serialize_response
 from ...models import User
-from ...schemas.user import UserCreateSchema, UserUpdateSchema
+from ...schemas.user import UserCreateSchema, UserUpdateSchema, UserAdminResponse
 from ...services.activity import activity_service
 from ...services.rbac import rbac_service
 from ...services.users import user_management_service, user_profile_service
 from ...utils.rbac_utils import RBACManager
 from ...utils.role_constants import RolePermissions
+from ...utils.service_helpers import (
+    get_user_crud_service,
+    get_user_profile_service,
+)
+from ...utils.user_creation_helper import create_user_with_roles_and_products
 
 management_bp = Blueprint("users_management", __name__)
 
@@ -51,7 +57,9 @@ def get_users(current_user=None, project_id=None):
         roles_filter = request.args.getlist("roles")
         search = request.args.get("search")
 
-        result = user_management_service.get_users_with_key_counts(
+        # Use DI container to get service
+        user_crud_service = get_user_crud_service()
+        result = user_crud_service.get_users_with_key_counts(
             current_user=current_user,
             page=page,
             per_page=per_page,
@@ -91,7 +99,8 @@ def add_user(current_user=None, validated_data=None):
         return jsonify({"error": "No data provided"}), 400
 
     try:
-        user, error = user_management_service.create_user_with_roles_and_products(current_user, data)
+        # Use DI helper function instead of facade
+        user, error = create_user_with_roles_and_products(current_user, data)
 
         if error:
             return jsonify({"error": error}), 400
@@ -111,7 +120,7 @@ def add_user(current_user=None, validated_data=None):
                 {
                     "message": "User created successfully",
                     "user": {
-                        "id": user.id,
+                        "id": user.unique_id,
                         "username": user.username,
                         "token_balance": user.token_balance,
                         "created_at": user.created_at.isoformat(),
@@ -132,6 +141,7 @@ def add_user(current_user=None, validated_data=None):
 @enforce_project_scope
 @require_role(RolePermissions.ADMIN_ROLES)
 @validate_request(UserUpdateSchema)
+@serialize_response(UserAdminResponse)
 def update_user(user_id, current_user=None, validated_data=None):
     """Update a user with roles and product permissions"""
     import logging
@@ -165,49 +175,33 @@ def update_user(user_id, current_user=None, validated_data=None):
             if project_id and target_user.project_id != project_id:
                 return jsonify({"error": "Access denied"}), 403
 
+        # Use DI container to get service
+        user_profile_service = get_user_profile_service()
         success, error = user_profile_service.update_user_profile(target_user, data)
         if not success:
             return jsonify({"error": error}), 400
 
         db.session.refresh(target_user)
 
-        rbac_roles = []
         role_names = []
         try:
             rbac_roles = rbac_service.get_user_roles(target_user.id)
             role_names = [role["name"] for role in rbac_roles] if rbac_roles else []
         except Exception as e:
             logger.warning(f"Failed to get RBAC roles for user {target_user.id}: {e}", exc_info=True)
-
-            from ...utils.rbac_utils import RBACManager
             role_names = RBACManager.get_user_role_names(target_user)
 
         keys_count = target_user.total_keys or 0
         active_keys = target_user.active_keys or 0
 
-        user_data = {
-            "id": target_user.id,
-            "username": target_user.username,
-            "roles": role_names,
-            "first_name": target_user.first_name,
-            "last_name": target_user.last_name,
-            "email": target_user.email if hasattr(target_user, "email") else None,
-            "avatar": target_user.avatar,
-            "created_at": target_user.created_at.isoformat() if target_user.created_at else None,
-            "expires_at": target_user.expires_at.isoformat() if target_user.expires_at else None,
-            "last_login": target_user.last_login.isoformat() if target_user.last_login else None,
-            "last_ip": target_user.last_ip,
-            "last_country": target_user.last_country,
-            "last_city": target_user.last_city,
-            "total_keys_generated": target_user.total_keys_generated or 0,
-            "token_balance": target_user.token_balance or 0,
-            "project_id": target_user.project_id,
-            "keys_count": keys_count,
-            "active_keys": active_keys,
-            "referral_code": target_user.referral_code,
-            "invited_by": target_user.invited_by,
-            "rbac_roles": rbac_roles,
-        }
+        # Set dynamic attributes for schema validation
+        setattr(target_user, "role", role_names[0] if role_names else None)
+        setattr(target_user, "roles", role_names)
+        setattr(target_user, "keys_count", keys_count)
+        setattr(target_user, "active_keys", active_keys)
+        setattr(target_user, "is_admin", RBACManager.is_admin(target_user))
+        setattr(target_user, "permissions", [])  # Can be populated if needed
+        setattr(target_user, "needs_project_assignment", False)
 
         try:
             activity_service.log_activity(
@@ -219,7 +213,7 @@ def update_user(user_id, current_user=None, validated_data=None):
         except Exception as e:
             logger.warning(f"Failed to log activity for user update: {e}")
 
-        return jsonify(user_data), 200
+        return target_user
 
     except Exception as e:
         logger.error(f"Error updating user: {str(e)}", exc_info=True)
@@ -239,7 +233,9 @@ def delete_user(user_id, current_user=None):
         from flask import g
         current_user = g.current_user
 
-    success, error = user_management_service.delete_user_safely(current_user, user_id)
+    # Use DI container to get service
+    user_crud_service = get_user_crud_service()
+    success, error = user_crud_service.delete_user_safely(current_user, user_id)
 
     if not success:
         return jsonify({"error": error}), 400 if "not found" in error.lower() else 403
@@ -680,7 +676,7 @@ def get_user_stats(user_id):
     return jsonify(
         {
             "user": {
-                "id": target_user.id,
+                "id": target_user.unique_id,
                 "username": target_user.username,
                 "role": primary_role,
                 "created_at": target_user.created_at.isoformat(),

@@ -97,7 +97,7 @@ def create_loader_key(current_user=None, project_id=None, validated_data=None):
             db.session.add(key)
             created_keys.append(
                 {
-                    "id": key.id,
+                    "id": key.unique_id,
                     "key": key.key,
                     "product_id": key.product_id,
                     "product_name": product.name,
@@ -122,7 +122,7 @@ def create_loader_key(current_user=None, project_id=None, validated_data=None):
                 {
                     "message": f"Successfully created agent key for {len(products)} products",
                     "key": unified_key_string,
-                    "products": [{"id": product.id, "name": product.name} for product in products],
+                    "products": [{"id": product.unique_id, "name": product.name} for product in products],
                     "expires_at": None,
                     "max_devices": max_devices,
                     "duration_hours": duration_hours,
@@ -208,7 +208,7 @@ def create_custom_loader_key(current_user=None, project_id=None, validated_data=
             db.session.add(key)
             created_keys.append(
                 {
-                    "id": key.id,
+                    "id": key.unique_id,
                     "key": key.key,
                     "product_id": key.product_id,
                     "product_name": product.name,
@@ -233,7 +233,7 @@ def create_custom_loader_key(current_user=None, project_id=None, validated_data=
                 {
                     "message": f"Successfully created custom agent key for {len(products)} products",
                     "key": custom_key,
-                    "products": [{"id": product.id, "name": product.name} for product in products],
+                    "products": [{"id": product.unique_id, "name": product.name} for product in products],
                     "expires_at": None,
                     "max_devices": max_devices,
                     "duration_hours": duration_hours,

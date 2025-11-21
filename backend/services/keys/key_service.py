@@ -16,8 +16,8 @@ from ...models.core import User
 from ...models.products import Product
 from ...models.keys import DeviceInfo, Key, KeyAnalytics, TokenTransaction
 from ...models.agents import Agent
-from ...services.key_generation_service import key_generation_service
-from ...services.key_validation_service import key_validation_service
+from .key_generation_service import key_generation_service
+from .key_validation_service import key_validation_service
 from ...services.rbac import rbac_service
 from ...utils.data_masking import mask_license_key
 from ...utils.fulltext_search import fulltext_search_filter
@@ -167,9 +167,10 @@ class KeyService:
         agent = None
 
         if key_data.get("product_id"):
-            product = Product.query.filter_by(id=key_data["product_id"], project_id=user.project_id).first()
-            if not product:
-                return None, "Product not found or access denied"
+            from ...services.products import product_service
+            product, error = product_service.get_product(user, key_data["product_id"])
+            if error or not product:
+                return None, error or "Product not found or access denied"
 
         if key_data.get("agent_id"):
             agent = Agent.query.filter_by(
@@ -378,7 +379,9 @@ class KeyService:
 
                 product_name = key.product.name if key.product else None
 
-                is_expired = key.expires_at and key.expires_at <= datetime.utcnow()
+                # is_expired only applies to active keys (status = 1)
+                # Blocked/paused keys (status = 2, 3) are not considered expired
+                is_expired = key.status == 1 and key.expires_at and key.expires_at <= datetime.utcnow()
                 is_active = key.status == 1 and (not key.expires_at or not is_expired)
 
                 self.logger.info(
@@ -405,7 +408,7 @@ class KeyService:
 
                 keys.append(
                     {
-                        "id": key.id,
+                        "id": key.unique_id,
                         "key": mask_license_key(key.key),
                         "user_id": key.user_id,
                         "product_id": key.product_id,
@@ -611,7 +614,7 @@ class KeyService:
                     key = Key(
                         key=key_string,
                         user_id=user.id,
-                        product_id=product_id,
+                        product_id=product.id,  # Use product.id instead of product_id parameter
                         expires_at=expires_at,
                         max_devices=max_devices,
                         duration_hours=duration_hours,

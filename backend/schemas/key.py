@@ -22,6 +22,28 @@ class KeyCreateSchema(BaseSchema):
             raise ValueError("Product ID must be a positive integer")
         return v
 
+class CustomKeyCreateSchema(BaseSchema):
+    """Custom key creation request schema"""
+
+    product_id: int = Field(..., ge=1, description="Product ID")
+    custom_key: str = Field(..., min_length=1, max_length=64, description="Custom key string")
+    duration_hours: int = Field(default=24, ge=1, le=8760, description="Key duration in hours")
+    max_devices: int = Field(default=1, ge=1, le=1000, description="Maximum devices")
+
+    @validator("product_id")
+    def validate_product_id(cls, v):
+        if v <= 0:
+            raise ValueError("Product ID must be a positive integer")
+        return v
+
+    @validator("custom_key")
+    def validate_custom_key(cls, v):
+        if not v or not v.strip():
+            raise ValueError("Custom key is required")
+        if len(v) > 64:
+            raise ValueError("Custom key must be 64 characters or less")
+        return v.strip()
+
 class KeyUpdateSchema(BaseSchema):
     """Key update request schema"""
 

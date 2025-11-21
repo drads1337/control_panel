@@ -41,6 +41,8 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
 
   const form = useForm<CreateUserInput>({
     resolver: zodResolver(createUserSchema),
+    mode: 'onSubmit',
+    reValidateMode: 'onChange',
     defaultValues: {
       username: '',
       password: '',
@@ -63,6 +65,9 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
 
   const [roles, setRoles] = useState<Role[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+
+  // Watch form state for debugging
+  const formState = form.formState;
 
   const loadRoles = useCallback(async () => {
     try {
@@ -122,44 +127,141 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
     }
   }, [open, form]);
 
-  const handleCreate = form.handleSubmit(async (data) => {
-    try {
-      setLoading(true);
+  const handleCreate = form.handleSubmit(
+    async (data) => {
+      // Force console output
+      window.console.log('=== FORM SUBMISSION ===');
+      window.console.log('Form data:', JSON.stringify(data, null, 2));
+      window.console.log('Selected products:', data.selected_products);
+      window.console.log('Selected products type:', typeof data.selected_products);
+      window.console.log('Is array?', Array.isArray(data.selected_products));
+      window.console.log('RBAC role value:', data.selected_rbac_role);
+      window.console.log('RBAC role type:', typeof data.selected_rbac_role);
+      window.console.log('All form values:', form.getValues());
+      window.console.log('=== END FORM SUBMISSION ===');
+      
+      try {
+        setLoading(true);
 
-      const userData = {
-        username: data.username,
-        password: data.password,
-        first_name: data.first_name || undefined,
-        last_name: data.last_name || undefined,
-        email: data.email || undefined,
-        token_balance: data.token_balance,
-        work_duration_days: data.work_duration_days,
-        product_ids: data.selected_products,
-        rbac_role_ids: data.selected_rbac_role ? [data.selected_rbac_role] : []
-      };
-
-      await measurePerformance(
-        'user_creation',
-        () => createUser(userData),
-        {
-          has_email: !!data.email,
-          has_products: data.selected_products.length > 0,
-          has_role: !!data.selected_rbac_role,
+        const userData = {
+          username: data.username,
+          password: data.password,
+          first_name: data.first_name || undefined,
+          last_name: data.last_name || undefined,
+          email: data.email || undefined,
           token_balance: data.token_balance,
-        }
-      );
+          work_duration_days: data.work_duration_days,
+          product_ids: Array.isArray(data.selected_products) ? data.selected_products : [],
+          rbac_role_ids: data.selected_rbac_role ? [data.selected_rbac_role] : []
+        };
+        
+        console.log('UserData being sent:', userData);
+        console.log('Products array:', userData.product_ids);
+        console.log('Products type:', typeof userData.product_ids);
+        console.log('Is products array?', Array.isArray(userData.product_ids));
 
-      toast.success('Employee created successfully');
-      onOpenChange(false);
-      onSuccess();
-    } catch (error) {
+        await measurePerformance(
+          'user_creation',
+          () => createUser(userData),
+          {
+            has_email: !!data.email,
+            has_products: data.selected_products.length > 0,
+            has_role: !!data.selected_rbac_role,
+            token_balance: data.token_balance,
+          }
+        );
 
-      const errorMessage = getErrorMessage(error);
-      toast.error(errorMessage);
-    } finally {
-      setLoading(false);
+        toast.success('Employee created successfully');
+        onOpenChange(false);
+        onSuccess();
+      } catch (error) {
+        const errorMessage = getErrorMessage(error);
+        toast.error(errorMessage);
+      } finally {
+        setLoading(false);
+      }
+    },
+    (errors) => {
+      // This callback is called when validation fails
+      // Force console output
+      window.console.log('=== VALIDATION ERRORS ===');
+      window.console.error('VALIDATION FAILED!', errors);
+      console.log('All errors object:', errors);
+      console.log('Errors keys:', Object.keys(errors));
+      console.log('Current form values:', form.getValues());
+      console.log('Form state:', {
+        isValid: form.formState.isValid,
+        isDirty: form.formState.isDirty,
+        errors: form.formState.errors
+      });
+      
+      // Log each error in detail
+      Object.entries(errors).forEach(([key, error]) => {
+        console.log(`Error in field "${key}":`, {
+          type: error?.type,
+          message: error?.message,
+          value: form.getValues(key as any)
+        });
+      });
+      
+      // Show specific error messages for each field
+      const errorMessages: string[] = [];
+      
+      if (errors.username) {
+        console.log('Username error:', errors.username);
+        errorMessages.push(`Username: ${errors.username.message || 'required'}`);
+      }
+      if (errors.password) {
+        console.log('Password error:', errors.password);
+        errorMessages.push(`Password: ${errors.password.message || 'required'}`);
+      }
+      if (errors.selected_rbac_role) {
+        console.log('RBAC Role error:', errors.selected_rbac_role);
+        console.log('RBAC Role value:', form.getValues('selected_rbac_role'));
+        console.log('RBAC Role value type:', typeof form.getValues('selected_rbac_role'));
+        errorMessages.push(`RBAC Role: ${errors.selected_rbac_role.message || 'required'}`);
+      }
+      if (errors.token_balance) {
+        console.log('Token Balance error:', errors.token_balance);
+        errorMessages.push(`Token Balance: ${errors.token_balance.message || 'invalid'}`);
+      }
+      if (errors.work_duration_days) {
+        console.log('Work Duration error:', errors.work_duration_days);
+        errorMessages.push(`Work Duration: ${errors.work_duration_days.message || 'invalid'}`);
+      }
+      if (errors.first_name) {
+        console.log('First Name error:', errors.first_name);
+        errorMessages.push(`First Name: ${errors.first_name.message || 'invalid'}`);
+      }
+      if (errors.last_name) {
+        console.log('Last Name error:', errors.last_name);
+        errorMessages.push(`Last Name: ${errors.last_name.message || 'invalid'}`);
+      }
+      if (errors.email) {
+        console.log('Email error:', errors.email);
+        errorMessages.push(`Email: ${errors.email.message || 'invalid'}`);
+      }
+      if (errors.selected_products) {
+        const productsValue = form.getValues('selected_products');
+        window.console.error('Selected Products error:', errors.selected_products);
+        window.console.error('Selected Products value:', productsValue);
+        window.console.error('Selected Products value type:', typeof productsValue);
+        window.console.error('Is array?', Array.isArray(productsValue));
+        window.console.error('Error details:', JSON.stringify(errors.selected_products, null, 2));
+        
+        errorMessages.push(`Products: ${errors.selected_products.message || 'invalid'}`);
+      }
+      
+      console.log('Error messages array:', errorMessages);
+      console.log('=== END VALIDATION ERRORS ===');
+      
+      if (errorMessages.length > 0) {
+        toast.error(errorMessages.join(', '));
+      } else {
+        toast.error('Please fill in all required fields');
+      }
     }
-  });
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -322,26 +424,52 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
                   ) : rbacError ? (
                     <div className="text-sm text-red-500">Error loading roles: {rbacError}</div>
                   ) : (
-                    <Select
-                      value={field.value?.toString() || ""}
-                      onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)}
-                      disabled={loading}
-                    >
-                      <FormControl>
+                    <FormControl>
+                      <Select
+                        value={field.value ? field.value.toString() : ""}
+                        onValueChange={(value) => {
+                          console.log('=== SELECT VALUE CHANGE ===');
+                          console.log('Selected value (string):', value);
+                          console.log('Current field.value:', field.value);
+                          console.log('Current field.value type:', typeof field.value);
+                          
+                          const numValue = parseInt(value, 10);
+                          console.log('Parsed number value:', numValue);
+                          console.log('Is NaN?', isNaN(numValue));
+                          console.log('Is > 0?', numValue > 0);
+                          
+                          if (!isNaN(numValue) && numValue > 0) {
+                            console.log('Calling field.onChange with:', numValue);
+                            field.onChange(numValue);
+                            console.log('Field value after onChange:', form.getValues('selected_rbac_role'));
+                            
+                            // Trigger validation after value change
+                            setTimeout(() => {
+                              form.trigger('selected_rbac_role');
+                              console.log('After trigger - field value:', form.getValues('selected_rbac_role'));
+                              console.log('After trigger - errors:', form.formState.errors.selected_rbac_role);
+                            }, 0);
+                          } else {
+                            console.log('Value is invalid, not updating field');
+                          }
+                          console.log('=== END SELECT VALUE CHANGE ===');
+                        }}
+                        disabled={loading}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="Select a role" />
                         </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {roles
-                          .filter(role => role.name !== 'client')
-                          .map((role) => (
-                            <SelectItem key={role.id} value={role.id.toString()}>
-                              {role.name}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
+                        <SelectContent>
+                          {roles
+                            .filter(role => role.name !== 'client')
+                            .map((role) => (
+                              <SelectItem key={role.id} value={role.id.toString()}>
+                                {role.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
                   )}
                   <FormMessage />
                 </FormItem>
@@ -364,13 +492,29 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
                         <div key={product.id} className="flex items-center space-x-2">
                           <Checkbox
                             id={`product-${product.id}`}
-                            checked={field.value?.includes(product.id) || false}
+                            checked={
+                              (Array.isArray(field.value) ? field.value : [])
+                                .map(id => typeof id === 'number' ? id : parseInt(String(id), 10))
+                                .includes(typeof product.id === 'number' ? product.id : parseInt(String(product.id), 10))
+                            }
                             onCheckedChange={(checked) => {
-                              const currentProducts = field.value || [];
+                              const currentProducts = Array.isArray(field.value) ? field.value : [];
+                              // Ensure product.id is a number
+                              const productId = typeof product.id === 'number' ? product.id : parseInt(String(product.id), 10);
+                              
                               if (checked) {
-                                field.onChange([...currentProducts, product.id]);
+                                // Convert all IDs to numbers and add the new one
+                                const newProducts = [
+                                  ...currentProducts.map(id => typeof id === 'number' ? id : parseInt(String(id), 10)),
+                                  productId
+                                ].filter(id => !isNaN(id) && id > 0);
+                                field.onChange(newProducts);
                               } else {
-                                field.onChange(currentProducts.filter(id => id !== product.id));
+                                // Remove the product ID (convert to number for comparison)
+                                const newProducts = currentProducts
+                                  .map(id => typeof id === 'number' ? id : parseInt(String(id), 10))
+                                  .filter(id => !isNaN(id) && id > 0 && id !== productId);
+                                field.onChange(newProducts);
                               }
                             }}
                             disabled={loading}
@@ -394,7 +538,10 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={loading}>
+              <Button 
+                type="submit" 
+                disabled={loading || rbacLoading || productsLoading}
+              >
                 {loading ? 'Creating...' : 'Create Employee'}
               </Button>
             </DialogFooter>

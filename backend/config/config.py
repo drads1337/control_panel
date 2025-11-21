@@ -463,3 +463,17 @@ class Config:
             "description": "Handles general/default tasks",
         },
     }
+    
+    # SECURITY: Trusted proxy configuration for mTLS validation
+    # These IP addresses are trusted reverse proxies (e.g., Nginx)
+    # Requests from these IPs are considered safe for mTLS header validation
+    # In production, this should be set to the actual Nginx/proxy IP addresses
+    # Default: localhost only (127.0.0.1, ::1) for security
+    TRUSTED_PROXY_IPS = os.environ.get("TRUSTED_PROXY_IPS", "127.0.0.1,::1").split(",")
+    TRUSTED_PROXY_IPS = [ip.strip() for ip in TRUSTED_PROXY_IPS if ip.strip()]
+    
+    # SECURITY: Require WSGI environment variables instead of HTTP headers for mTLS
+    # WSGI variables (SSL_CLIENT_*) are set by the WSGI server and are harder to spoof
+    # HTTP headers (X-SSL-Client-*) can be spoofed if Nginx is misconfigured
+    # Set to True to strictly require WSGI variables (recommended for production)
+    MTLS_REQUIRE_WSGI_VARS = os.environ.get("MTLS_REQUIRE_WSGI_VARS", "true").lower() == "true"

@@ -19,6 +19,8 @@ class BaseSchema(BaseModel):
 
         validate_assignment = True
 
+        from_attributes = True
+
 class PaginationSchema(BaseSchema):
     """Pagination parameters"""
 

@@ -2,21 +2,16 @@
 Dynamic Configuration Service
 Manages dynamic configuration loading for clients
 Turns agents into "thin clients" that require server connection
+
+KISS Principle: Simplified implementation - removed redundant encryption layers.
+Config is encrypted only in the route handler using project-specific keys.
+Redis storage uses plain JSON (Redis is already protected by network isolation).
 """
 
-import base64
-import hashlib
 import json
 import logging
-import os
 import time
-from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
-
-import redis
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from flask import current_app
 
 from ...core.extensions import db
 from ...models.core import Project, User
@@ -24,26 +19,31 @@ from ...models.products import FeatureConfigSchema, Product
 from ...models.keys import Key
 
 class DynamicConfigService:
-    """Service for managing dynamic configuration for clients"""
+    """
+    Service for managing dynamic configuration for clients.
+    
+    KISS Principle: Simplified design - no encryption in service layer.
+    Encryption is handled at route level using project-specific keys.
+    Redis stores plain JSON (protected by network isolation).
+    """
 
     def __init__(self):
         self.config_ttl = 3600
-        self.encryption_key = self._get_encryption_key()
         self.redis_client = self._init_redis()
 
     def _init_redis(self):
         """
         Initialize Redis client for configuration storage.
         
-        SECURITY: Uses separate Redis database (REDIS_DB_DYNAMIC_CONFIG) to isolate
-        dynamic config data from other Redis data types. This reduces blast radius
-        if Redis is compromised.
+        KISS Principle: Simplified Redis initialization.
+        Uses separate Redis database for isolation, but no encryption at this layer.
+        Encryption is handled at route level using project-specific keys.
         
         FALLBACK: If Redis is unavailable, the service will still function but
         without caching (configs will be generated on-the-fly for each request).
         """
         try:
-            # SECURITY: Use separate DB for dynamic config
+            # Use separate DB for dynamic config isolation
             from ...utils.redis_client import get_redis_client_for_db
             
             try:
@@ -62,99 +62,13 @@ class DynamicConfigService:
                 return client
         except Exception as e:
             logging.error(f"Dynamic Config Redis initialization failed: {e}")
-            # SECURITY: Don't raise exception - allow fallback to on-the-fly generation
+            # Don't raise exception - allow fallback to on-the-fly generation
             # This prevents Redis from being a single point of failure
             logging.warning(
                 "Redis unavailable for DynamicConfig. Service will work without caching. "
                 "Configs will be generated on-the-fly for each request."
             )
             return None  # Return None to indicate Redis is unavailable
-
-    def _get_encryption_key(self) -> bytes:
-        """Get encryption key for configuration data (32 bytes for AES-256)"""
-        try:
-            from ...config.config import Config
-
-            key_source = f"{Config.MASTER_KEY}_dynamic_config_salt"
-            return hashlib.sha256(key_source.encode()).digest()
-        except Exception:
-
-            return hashlib.sha256(
-                "default_dynamic_config_key".encode()
-            ).digest()
-
-    def _encrypt_config(self, config_data: Dict) -> str:
-        """
-        Encrypt configuration data using AES-256-GCM
-        
-        KISS Principle: Simplified error handling and clearer structure
-        """
-        try:
-            json_data = json.dumps(config_data, sort_keys=True)
-            iv = os.urandom(12)
-            
-            cipher = Cipher(
-                algorithms.AES(self.encryption_key), modes.GCM(iv), backend=default_backend()
-            )
-            encryptor = cipher.encryptor()
-            encrypted_data = encryptor.update(json_data.encode("utf-8")) + encryptor.finalize()
-            
-            # Combine: IV (12 bytes) + encrypted data + tag (16 bytes)
-            combined = iv + encrypted_data + encryptor.tag
-            return base64.b64encode(combined).decode("utf-8")
-            
-        except (ValueError, TypeError, AttributeError) as crypto_error:
-            # Specific crypto errors: invalid key/data format, wrong types, missing attributes
-            logging.error(f"Config encryption crypto error: {type(crypto_error).__name__}: {crypto_error}")
-            raise ValueError(f"Failed to encrypt configuration: {str(crypto_error)}")
-        except Exception as unexpected_error:
-            # Catch-all for unexpected errors (should be rare)
-            logging.error(f"Config encryption unexpected error: {unexpected_error}", exc_info=True)
-            raise ValueError(f"Failed to encrypt configuration: {str(unexpected_error)}")
-
-    def _decrypt_config(self, encrypted_config: str) -> Dict:
-        """
-        Decrypt configuration data using AES-256-GCM
-        
-        KISS Principle: Simplified error handling with better error messages for debugging
-        """
-        try:
-            combined = base64.b64decode(encrypted_config.encode("utf-8"))
-            
-            if len(combined) < 28:
-                raise ValueError(
-                    f"Encrypted config too short: {len(combined)} bytes (minimum 28). "
-                    f"This usually indicates corrupted or incomplete data."
-                )
-            
-            # Extract components: IV (12 bytes) + encrypted data + tag (16 bytes)
-            iv = combined[:12]
-            tag = combined[-16:]
-            encrypted_data = combined[12:-16]
-            
-            cipher = Cipher(
-                algorithms.AES(self.encryption_key), modes.GCM(iv, tag), backend=default_backend()
-            )
-            decryptor = cipher.decryptor()
-            decrypted_data = decryptor.update(encrypted_data) + decryptor.finalize()
-            
-            return json.loads(decrypted_data.decode("utf-8"))
-            
-        except ValueError as e:
-            # Re-raise ValueError with original message (for debugging)
-            logging.error(f"Config decryption validation error: {e}")
-            raise
-        except json.JSONDecodeError as e:
-            logging.error(f"Config decryption JSON error: {e}. Data may be corrupted.")
-            raise ValueError(f"Failed to parse decrypted config as JSON: {str(e)}")
-        except (TypeError, AttributeError) as crypto_error:
-            # Specific crypto errors: wrong types, missing attributes
-            logging.error(f"Config decryption crypto error: {type(crypto_error).__name__}: {crypto_error}")
-            raise ValueError(f"Failed to decrypt configuration: {str(crypto_error)}")
-        except Exception as unexpected_error:
-            # Catch-all for unexpected errors (should be rare)
-            logging.error(f"Config decryption unexpected error: {unexpected_error}", exc_info=True)
-            raise ValueError(f"Failed to decrypt configuration: {str(unexpected_error)}")
 
     def generate_dynamic_config(self, user_key: str, product_name: str, project_id: int) -> Dict:
         """Generate dynamic configuration for a specific user and product"""
@@ -206,8 +120,8 @@ class DynamicConfigService:
                 "expires_at": expires_at,
             }
 
-            encrypted_config = self._encrypt_config(dynamic_config)
-
+            # KISS Principle: Store plain JSON in Redis (encryption happens at route level)
+            config_json = json.dumps(dynamic_config, sort_keys=True)
             config_key = f"dynamic_config:{user_key}:{product_name}:{project_id}"
             
             # SECURITY: Validate and monitor DynamicConfig operations
@@ -220,14 +134,16 @@ class DynamicConfigService:
                         f"[DYNAMIC_CONFIG] Security validation failed for key {config_key}, "
                         f"project_id={project_id}"
                     )
-                redis_security_monitor.log_critical_operation(config_key, "SETEX", encrypted_config)
+                redis_security_monitor.log_critical_operation(config_key, "SETEX")
             except Exception as e:
                 logging.warning(f"[DYNAMIC_CONFIG] Security monitoring error: {e}")
             
-            # FALLBACK: If Redis is unavailable, skip caching (config will be generated on-the-fly)
+            # KISS Principle: Simple Redis storage without additional encryption/integrity layers
+            # Redis is already protected by network isolation and separate DB
+            # Final encryption happens at route level using project-specific keys
             if self.redis_client:
                 try:
-                    self.redis_client.setex(config_key, self.config_ttl, encrypted_config)
+                    self.redis_client.setex(config_key, self.config_ttl, config_json)
                 except Exception as redis_error:
                     logging.warning(
                         f"[DYNAMIC_CONFIG] Failed to cache config in Redis: {redis_error}. "
@@ -243,10 +159,11 @@ class DynamicConfigService:
                 f"DYNAMIC_CONFIG_GENERATED user_key={user_key} product={product_name} project_id={project_id} schema={schema_name}"
             )
 
+            # Return config dict (will be encrypted at route level)
             return {
-                "config": encrypted_config,
+                "config": dynamic_config,
                 "metadata": dynamic_config["metadata"],
-                "config_size": len(encrypted_config),
+                "config_size": len(config_json),
             }
 
         except Exception as e:
@@ -290,11 +207,14 @@ class DynamicConfigService:
             except Exception as e:
                 logging.warning(f"[DYNAMIC_CONFIG] Security monitoring error: {e}")
             
-            # FALLBACK: If Redis is unavailable, return False (will generate on-the-fly)
+            # KISS Principle: Simple Redis retrieval without integrity checks
+            # Redis is already protected by network isolation
             stored_config = None
             if self.redis_client:
                 try:
                     stored_config = self.redis_client.get(config_key)
+                    if stored_config and isinstance(stored_config, bytes):
+                        stored_config = stored_config.decode("utf-8")
                 except Exception as redis_error:
                     logging.warning(
                         f"[DYNAMIC_CONFIG] Failed to get config from Redis: {redis_error}. "
@@ -308,8 +228,12 @@ class DynamicConfigService:
             if not stored_config:
                 return False
 
-            # Decrypt and validate config
-            config_data = self._decrypt_config(stored_config)
+            # KISS Principle: Parse JSON directly (no decryption needed)
+            try:
+                config_data = json.loads(stored_config)
+            except json.JSONDecodeError as e:
+                logging.error(f"[DYNAMIC_CONFIG] Failed to parse config JSON: {e}")
+                return False
             
             # KISS: Simple expiration check (removed checksum complexity)
             expires_at = config_data.get("metadata", {}).get("expires_at", 0)
@@ -361,7 +285,9 @@ class DynamicConfigService:
                 try:
                     stored_config = self.redis_client.get(config_key)
                     if stored_config:
-                        config_data = self._decrypt_config(stored_config)
+                        if isinstance(stored_config, bytes):
+                            stored_config = stored_config.decode("utf-8")
+                        config_data = json.loads(stored_config)
                         expires_at = config_data.get("metadata", {}).get("expires_at", 0)
 
                         if current_time < expires_at:
@@ -508,15 +434,5 @@ class DynamicConfigService:
                 elif isinstance(feature_value, dict):
                     self._disable_all_features({"feature_flags": feature_value})
 
-    def _calculate_checksum(self, config: Dict) -> str:
-        """
-        Calculate checksum for configuration (deprecated)
-        
-        KISS Principle: This method is kept for backward compatibility but is no longer used.
-        Checksum validation added unnecessary complexity and made debugging harder.
-        Config integrity is ensured by encryption and expiration checks.
-        """
-        # Deprecated - kept for backward compatibility only
-        return "0000000000000000"
 
 dynamic_config_service = DynamicConfigService()

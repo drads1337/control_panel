@@ -184,6 +184,10 @@ Desktop.ini
 *.old
 *.orig
 
+# Backup copies (created by copy_project_files.py)
+backend_copy/
+frontend_copy/
+
 # Local configuration
 config.local.py
 settings.local.py

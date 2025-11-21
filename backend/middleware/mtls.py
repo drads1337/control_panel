@@ -46,6 +46,8 @@ class MTLSValidator:
         2. Always prefer request.environ (WSGI) over HTTP headers
         3. Validate that verification status is "SUCCESS" (not "NONE" or "FAILED")
         4. Log suspicious patterns (e.g., verification status without certificate)
+        5. Verify that request comes from trusted proxy (prevents header spoofing)
+        6. Strictly require WSGI variables if configured (MTLS_REQUIRE_WSGI_VARS)
         
         Returns:
             Tuple of (is_valid, error_message)
@@ -53,12 +55,34 @@ class MTLSValidator:
         if not self.enabled:
             return True, None
         
+        # SECURITY: Verify that request comes from trusted proxy
+        # This prevents attackers from directly connecting to the application
+        # and spoofing mTLS headers
+        if not self._is_trusted_proxy():
+            logger.error(
+                f"[MTLS_SECURITY] Request from untrusted proxy: {request.remote_addr}. "
+                f"Path: {request.path}. "
+                "mTLS validation requires requests to come through trusted reverse proxy (Nginx)."
+            )
+            return False, "Request must come through trusted reverse proxy"
+        
         # SECURITY: Prefer WSGI environment variables over HTTP headers
         # WSGI variables (SSL_CLIENT_*) are set by the WSGI server and are harder to spoof
         # HTTP headers (X-SSL-Client-*) are set by reverse proxy and can be spoofed if misconfigured
         client_cert = request.environ.get("SSL_CLIENT_CERT")
         client_verify = request.environ.get("SSL_CLIENT_VERIFY")
         client_dn = request.environ.get("SSL_CLIENT_S_DN")  # Distinguished Name
+        
+        # SECURITY: Check if WSGI variables are required (MTLS_REQUIRE_WSGI_VARS)
+        # If required and not present, reject the request
+        if Config.MTLS_REQUIRE_WSGI_VARS and not client_cert:
+            logger.error(
+                "[MTLS_SECURITY] WSGI variables required but not found. "
+                "MTLS_REQUIRE_WSGI_VARS=true requires SSL_CLIENT_* WSGI variables. "
+                "Ensure WSGI server (gunicorn) is configured to pass SSL_CLIENT_* variables. "
+                f"IP: {request.remote_addr}, Path: {request.path}"
+            )
+            return False, "WSGI SSL variables required but not available"
         
         # SECURITY: Only fall back to HTTP headers if WSGI variables are not available
         # This is a security risk if Nginx is not properly configured to strip external headers
@@ -74,6 +98,7 @@ class MTLSValidator:
                     "[MTLS_SECURITY] Using HTTP headers for client certificate validation. "
                     "This is less secure than WSGI environment variables. "
                     "Ensure Nginx is configured to strip external X-SSL-Client-* headers. "
+                    "Consider setting MTLS_REQUIRE_WSGI_VARS=true for stricter security. "
                     f"IP: {request.remote_addr}, Path: {request.path}"
                 )
         
@@ -112,6 +137,36 @@ class MTLSValidator:
         
         logger.debug(f"mTLS validation successful for client: {client_dn}")
         return True, None
+    
+    def _is_trusted_proxy(self) -> bool:
+        """
+        Check if request comes from trusted proxy.
+        
+        SECURITY: This prevents attackers from directly connecting to the application
+        and spoofing mTLS headers. Only requests from configured trusted proxy IPs
+        (e.g., Nginx) are allowed.
+        
+        Returns:
+            True if request comes from trusted proxy, False otherwise
+        """
+        client_ip = request.remote_addr
+        
+        # Check if client IP is in trusted proxy list
+        if client_ip in Config.TRUSTED_PROXY_IPS:
+            return True
+        
+        # Also check X-Real-IP header (set by Nginx) if present
+        # But only if the direct connection is from trusted proxy
+        # This handles the case where Nginx forwards the real client IP
+        real_ip = request.headers.get("X-Real-IP")
+        if real_ip:
+            # The direct connection should still be from trusted proxy
+            # X-Real-IP contains the original client IP
+            # We trust it only if the direct connection is from trusted proxy
+            if client_ip in Config.TRUSTED_PROXY_IPS:
+                return True
+        
+        return False
     
     def _extract_cn_from_dn(self, dn: str) -> Optional[str]:
         """Extract Common Name from Distinguished Name string."""

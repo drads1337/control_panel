@@ -262,6 +262,7 @@ class ProductFileConfig(db.Model):
     __tablename__ = "productfileconfig"
 
     id = db.Column(db.Integer, primary_key=True)
+    unique_id = db.Column(db.String(8), unique=True, nullable=False)
     config_id = db.Column(db.String(8), unique=True, nullable=True)
     product_id = db.Column(db.Integer, db.ForeignKey("product.id"), nullable=False)
     name = db.Column(db.String(128), nullable=False)
@@ -282,6 +283,21 @@ class ProductFileConfig(db.Model):
     uploader = db.relationship("User", backref="uploaded_product_configs")
     product = db.relationship("Product", backref="file_configs")
 
+    def __init__(self, **kwargs):
+        super(ProductFileConfig, self).__init__(**kwargs)
+        if not self.unique_id:
+            self.unique_id = self._generate_unique_id()
+
+    def _generate_unique_id(self):
+        """Generate a unique 8-digit file ID"""
+        while True:
+            unique_id = "".join([str(random.randint(0, 9)) for _ in range(8)])
+            
+            existing_config = ProductFileConfig.query.filter_by(unique_id=unique_id).first()
+            existing_extra = ProductExtraFile.query.filter_by(unique_id=unique_id).first()
+            if not existing_config and not existing_extra:
+                return unique_id
+
     def __repr__(self):
         return f"<ProductFileConfig {self.name}>"
 
@@ -291,6 +307,7 @@ class ProductExtraFile(db.Model):
     __tablename__ = "productextrafile"
 
     id = db.Column(db.Integer, primary_key=True)
+    unique_id = db.Column(db.String(8), unique=True, nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey("product.id"), nullable=False)
     name = db.Column(db.String(128), nullable=False)
     original_filename = db.Column(
@@ -309,6 +326,21 @@ class ProductExtraFile(db.Model):
 
     uploader = db.relationship("User", backref="uploaded_product_extra_files")
     product = db.relationship("Product", backref="extra_files")
+
+    def __init__(self, **kwargs):
+        super(ProductExtraFile, self).__init__(**kwargs)
+        if not self.unique_id:
+            self.unique_id = self._generate_unique_id()
+
+    def _generate_unique_id(self):
+        """Generate a unique 8-digit file ID"""
+        while True:
+            unique_id = "".join([str(random.randint(0, 9)) for _ in range(8)])
+            
+            existing_config = ProductFileConfig.query.filter_by(unique_id=unique_id).first()
+            existing_extra = ProductExtraFile.query.filter_by(unique_id=unique_id).first()
+            if not existing_config and not existing_extra:
+                return unique_id
 
     def __repr__(self):
         return f"<ProductExtraFile {self.name}>"

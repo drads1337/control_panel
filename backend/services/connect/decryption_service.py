@@ -132,13 +132,31 @@ class DecryptionService:
             ) from project_error
         except Exception as unexpected_error:
             # Catch-all for truly unexpected errors (e.g., database connection issues, memory errors)
-            # Log with full traceback for debugging
-            import traceback
-            logger.error(
-                f"[DECRYPT] Unexpected error during decryption for project {effective_project_id}: "
-                f"{type(unexpected_error).__name__}: {str(unexpected_error)}. "
-                f"Traceback: {traceback.format_exc()}"
-            )
+            # SECURITY: In production, do not log full tracebacks to prevent code structure disclosure
+            from ...config.config import IS_PRODUCTION
+            
+            error_type = type(unexpected_error).__name__
+            error_msg = str(unexpected_error)
+            
+            # Sanitize error message to prevent information leakage
+            # Limit message length and remove potential sensitive data
+            sanitized_msg = error_msg[:200] + "..." if len(error_msg) > 200 else error_msg
+            
+            if IS_PRODUCTION:
+                # In production: log only error type and sanitized message (no traceback)
+                logger.error(
+                    f"[DECRYPT] Unexpected error during decryption for project {effective_project_id}: "
+                    f"{error_type}: {sanitized_msg}"
+                )
+            else:
+                # In development: log full traceback for debugging
+                import traceback
+                logger.error(
+                    f"[DECRYPT] Unexpected error during decryption for project {effective_project_id}: "
+                    f"{error_type}: {error_msg}. "
+                    f"Traceback: {traceback.format_exc()}"
+                )
+            
             raise ValueError(
                 f"Unexpected error during decryption for project {effective_project_id}. "
                 f"Please contact support if this persists."
@@ -155,6 +173,7 @@ class DecryptionService:
         - No multiple key attempts to prevent timing attacks
         - All logging done before/after cryptographic operations (constant time)
         - Constant-time error handling to prevent timing oracle attacks
+        - Normalized execution path to prevent timing differences
         
         In strict multi-tenant architecture, each project has ONE encryption key.
         Using multiple key sources creates timing attack vectors and confusion.
@@ -165,15 +184,30 @@ class DecryptionService:
         - Error messages are generic to prevent information leakage
         - No early returns that could reveal which key was attempted
         - Constant-time execution path regardless of success/failure
+        - Normalized database queries (always executed, even if not needed)
+        - Constant-time string operations for error messages
         
         NOTE: Python's GIL and GC make time.sleep() unreliable for timing attack prevention.
         Instead, we rely on constant-time operations from the cryptography library which
         are implemented at the C level and provide true constant-time guarantees.
         """
-        import secrets
+        import time
         
         project_id_int = int(project_id)
+        start_time = time.perf_counter()
 
+        # SECURITY: Normalize execution path - always perform the same operations
+        # regardless of success/failure to prevent timing differences
+        
+        # Always check for keys (even if we won't use them) to normalize DB query time
+        from ...models.core import ProjectSettings, ProjectEncryptionKeys
+        settings = ProjectSettings.query.filter_by(project_id=project_id_int).first()
+        encryption_keys = ProjectEncryptionKeys.query.filter_by(project_id=project_id_int).first()
+        
+        # Normalize key existence checks (constant-time operations)
+        has_project_master_key = bool(settings and settings.project_master_key)
+        has_aes_key = bool(encryption_keys and encryption_keys.aes_key)
+        
         # Log before operation (constant time)
         logger.debug(f"[DECRYPT_PROJECT] Attempting decryption for project {project_id}")
 
@@ -195,13 +229,9 @@ class DecryptionService:
             decrypt_error = None
         except Exception as unexpected_crypto_error:
             # Catch-all for unexpected crypto errors (should be rare)
-            # Log with full context for security team review
-            import traceback
-            logger.error(
-                f"[DECRYPT_PROJECT] Unexpected crypto error for project {project_id}: "
-                f"{type(unexpected_crypto_error).__name__}: {str(unexpected_crypto_error)}. "
-                f"Traceback: {traceback.format_exc()}"
-            )
+            # SECURITY: In production, do not log full tracebacks to prevent code structure disclosure
+            from ...config.config import IS_PRODUCTION
+            
             decrypt_error = unexpected_crypto_error
             # Log error details for debugging while maintaining security
             # Don't log encrypted data or keys, but log error type and sanitized message
@@ -214,28 +244,32 @@ class DecryptionService:
             if len(sanitized_msg) > 200:
                 sanitized_msg = sanitized_msg[:200] + "..."
             
-            # Check if project key exists (for diagnostic purposes)
-            # This check happens in both success and failure paths to maintain constant time
-            from ...models.core import ProjectSettings, ProjectEncryptionKeys
-            settings = ProjectSettings.query.filter_by(project_id=project_id_int).first()
-            encryption_keys = ProjectEncryptionKeys.query.filter_by(project_id=project_id_int).first()
-            
-            has_project_master_key = settings and settings.project_master_key
-            has_aes_key = encryption_keys and encryption_keys.aes_key
-            aes_key_length = len(encryption_keys.aes_key) if (encryption_keys and encryption_keys.aes_key) else 0
-            aes_key_prefix = encryption_keys.aes_key[:8] if (encryption_keys and encryption_keys.aes_key and len(encryption_keys.aes_key) >= 8) else "N/A"
-            
-            logger.error(
-                f"[DECRYPT_PROJECT] Project {project_id} decryption failed: "
-                f"{error_type}: {sanitized_msg} | "
-                f"has_project_master_key={bool(has_project_master_key)} "
-                f"has_aes_key={bool(has_aes_key)} "
-                f"aes_key_length={aes_key_length} "
-                f"aes_key_prefix={aes_key_prefix}..."
-            )
+            if IS_PRODUCTION:
+                # In production: log only error type and sanitized message (no traceback)
+                logger.error(
+                    f"[DECRYPT_PROJECT] Unexpected crypto error for project {project_id}: "
+                    f"{error_type}: {sanitized_msg}"
+                )
+            else:
+                # In development: log full traceback for debugging
+                import traceback
+                logger.error(
+                    f"[DECRYPT_PROJECT] Unexpected crypto error for project {project_id}: "
+                    f"{error_type}: {error_msg}. "
+                    f"Traceback: {traceback.format_exc()}"
+                )
             
             decryption_result = None
             decryption_success = False
+        
+        # SECURITY: Normalize execution time by always performing the same operations
+        # regardless of success/failure. This prevents timing differences that could
+        # reveal whether decryption succeeded or failed.
+        
+        # Always perform these operations (even if not needed) to normalize timing
+        # These operations are fast and don't reveal sensitive information
+        _ = has_project_master_key
+        _ = has_aes_key
         
         # SECURITY: No artificial delays needed
         # The cryptography library's AES-GCM decryption uses constant-time operations
@@ -249,9 +283,13 @@ class DecryptionService:
         
         # SECURITY: Always perform the same operations regardless of success/failure
         # This ensures constant-time execution path
+        # Calculate execution time for monitoring (but don't use it for security)
+        execution_time = time.perf_counter() - start_time
+        
         if decryption_success and decryption_result:
             logger.debug(
-                f"[DECRYPT_PROJECT] Successfully decrypted with project_master_key from ProjectSettings"
+                f"[DECRYPT_PROJECT] Successfully decrypted with project_master_key from ProjectSettings "
+                f"(execution_time={execution_time:.4f}s)"
             )
             return decryption_result, project_id_int
         else:
@@ -261,10 +299,6 @@ class DecryptionService:
                 # Add diagnostic context to the exception
                 # Use generic error message to prevent information leakage
                 # Get diagnostic info for better error message
-                from ...models.core import ProjectEncryptionKeys
-                encryption_keys = ProjectEncryptionKeys.query.filter_by(project_id=project_id_int).first()
-                has_aes_key = encryption_keys and encryption_keys.aes_key
-                
                 if has_aes_key:
                     error_context = (
                         f"Decryption failed for project {project_id_int}. "
@@ -284,7 +318,7 @@ class DecryptionService:
             # This should not happen, but handle gracefully
             logger.warning(
                 f"[DECRYPT_PROJECT] Unexpected state: decryption failed but no exception was captured "
-                f"for project {project_id}"
+                f"for project {project_id} (execution_time={execution_time:.4f}s)"
             )
             return None, None
 

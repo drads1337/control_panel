@@ -5,11 +5,11 @@ Handles key validation logic
 
 from typing import Any, Dict, Optional, Tuple
 
-from ..models.core import User
-from ..models.products import Product
-from ..models.keys import Key
-from ..models.agents import Agent
-from ..utils.structured_logging import get_logger
+from ...models.core import User
+from ...models.products import Product
+from ...models.keys import Key
+from ...models.agents import Agent
+from ...utils.structured_logging import get_logger
 
 class KeyValidationService:
     """Service for validating key data and operations"""
@@ -38,11 +38,10 @@ class KeyValidationService:
         agent = None
 
         if key_data.get("product_id"):
-            product = Product.query.filter_by(
-                id=key_data["product_id"], project_id=user.project_id
-            ).first()
-            if not product:
-                return False, "Product not found or access denied"
+            from ...services.products import product_service
+            product, error = product_service.get_product(user, key_data["product_id"])
+            if error or not product:
+                return False, error or "Product not found or access denied"
 
         if key_data.get("agent_id"):
             agent = Agent.query.filter_by(
@@ -79,3 +78,4 @@ class KeyValidationService:
         return True, None
 
 key_validation_service = KeyValidationService()
+

@@ -309,15 +309,29 @@ def get_features(project_id=None):
             )
 
         # Support both product_id (universal) and product_id (backward compatibility)
-        product_id = request.args.get("product_id", type=int) or request.args.get("product_id", type=int)
+        product_id_param = request.args.get("product_id")
         category_id = request.args.get("category_id", type=int)
 
         query = RemoteFeature.query.filter_by(project_id=project_id)
-        if product_id:
-            # Verify product belongs to project
-            product = Product.query.filter_by(id=product_id, project_id=project_id).first()
+        if product_id_param:
+            # Resolve product by id or unique_id
+            product = None
+            # Try as integer ID first
+            if isinstance(product_id_param, int) or (isinstance(product_id_param, str) and product_id_param.isdigit()):
+                try:
+                    product_id_int = int(product_id_param)
+                    product = Product.query.filter_by(id=product_id_int, project_id=project_id).first()
+                except (ValueError, TypeError):
+                    pass
+            
+            # If not found, try as unique_id (string)
+            if not product:
+                product = Product.query.filter_by(unique_id=str(product_id_param), project_id=project_id).first()
+            
             if not product:
                 return jsonify({"error": "Product not found or does not belong to this project"}), 404
+            
+            product_id = product.id
             query = query.filter_by(product_id=product_id)
         if category_id:
             query = query.filter_by(category_id=category_id)

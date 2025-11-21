@@ -142,9 +142,16 @@ export function useKeyMutations() {
       await queryClient.cancelQueries({ queryKey: keyKeys.lists() })
       const previousQueries = queryClient.getQueriesData({ queryKey: keyKeys.lists() })
 
-      updateAllKeyLists(queryClient, (keys) =>
-        keys.map((k) => (k.id === keyId ? { ...k, status: KEY_STATUS.BLOCKED } : k))
-      )
+      updateAllKeyLists(queryClient, (keys) => {
+        const updated = keys.map((k) => {
+          if (k.id === keyId || String(k.id) === String(keyId)) {
+            const newKey = { ...k, status: KEY_STATUS.BLOCKED, is_expired: false, is_active: false }
+            return newKey
+          }
+          return k
+        })
+        return updated
+      })
 
       return { previousQueries }
     },
@@ -156,11 +163,51 @@ export function useKeyMutations() {
       }
       toast.error(error?.message || 'Failed to block key')
     },
-    onSuccess: () => {
-      toast.success('Key blocked successfully')
+    onSuccess: (data: any, keyId: number) => {
+      // Update with server response data if available
+      if (data?.key) {
+        const serverKeyId = String(data.key.id)
+        updateAllKeyLists(queryClient, (keys) => {
+          const updated = keys.map((k) => {
+            // Compare both as strings to handle number/string mismatch
+            const keyIdStr = String(k.id)
+            if (keyIdStr === serverKeyId || k.id === keyId || keyIdStr === String(keyId)) {
+              const merged = { 
+                ...k, 
+                ...data.key,
+                // Ensure status is number
+                status: Number(data.key.status),
+                // Force is_expired to false for blocked keys (status = 2)
+                is_expired: Number(data.key.status) === KEY_STATUS.BLOCKED ? false : (data.key.is_expired ?? k.is_expired),
+                is_active: data.key.is_active ?? k.is_active
+              }
+              return merged
+            }
+            return k
+          })
+          return updated
+        })
+      }
+      toast.success(data?.message || 'Key blocked successfully')
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: keyKeys.lists() })
+    onSettled: async (data: any, error: any, keyId: number) => {
+      // After invalidation, ensure all blocked keys have correct is_expired
+      await queryClient.invalidateQueries({ queryKey: keyKeys.lists() })
+      
+      // Wait a bit for queries to refetch, then correct any blocked keys
+      setTimeout(() => {
+        updateAllKeyLists(queryClient, (keys) => {
+          const updated = keys.map((k) => {
+            // If key is blocked (status = 2), ensure is_expired is false
+            if (k.status === KEY_STATUS.BLOCKED && k.is_expired !== false) {
+              const corrected = { ...k, is_expired: false, is_active: false }
+              return corrected
+            }
+            return k
+          })
+          return updated
+        })
+      }, 500)
     },
   })
 
@@ -170,9 +217,18 @@ export function useKeyMutations() {
       await queryClient.cancelQueries({ queryKey: keyKeys.lists() })
       const previousQueries = queryClient.getQueriesData({ queryKey: keyKeys.lists() })
 
-      updateAllKeyLists(queryClient, (keys) =>
-        keys.map((k) => (k.id === keyId ? { ...k, status: KEY_STATUS.ACTIVE } : k))
-      )
+      updateAllKeyLists(queryClient, (keys) => {
+        const updated = keys.map((k) => {
+          if (k.id === keyId || String(k.id) === String(keyId)) {
+            // Calculate is_expired based on expires_at
+            const is_expired = k.expires_at ? new Date(k.expires_at) <= new Date() : false
+            const newKey = { ...k, status: KEY_STATUS.ACTIVE, is_expired, is_active: !is_expired }
+            return newKey
+          }
+          return k
+        })
+        return updated
+      })
 
       return { previousQueries }
     },
@@ -184,11 +240,24 @@ export function useKeyMutations() {
       }
       toast.error(error?.message || 'Failed to unblock key')
     },
-    onSuccess: () => {
-      toast.success('Key unblocked successfully')
+    onSuccess: (data: any, keyId: number) => {
+      // Update with server response data if available
+      if (data?.key) {
+        updateAllKeyLists(queryClient, (keys) => {
+          const updated = keys.map((k) => {
+            if (k.id === data.key.id || String(k.id) === String(data.key.id)) {
+              const merged = { ...k, ...data.key }
+              return merged
+            }
+            return k
+          })
+          return updated
+        })
+      }
+      toast.success(data?.message || 'Key unblocked successfully')
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: keyKeys.lists() })
+    onSettled: async () => {
+      await queryClient.invalidateQueries({ queryKey: keyKeys.lists() })
     },
   })
 

@@ -867,7 +867,7 @@ def get_product_permissions(current_user, product_id):
         return jsonify(
             {
                 "success": True,
-                "product": {"id": product.id, "name": product.name},
+                "product": {"id": product.unique_id, "name": product.name},
                 "permissions": permissions_data,
             }
         )
@@ -1291,9 +1291,11 @@ def get_rbac_status(current_user):
     try:
         project_id = current_user.project_id
 
+        from ...services.projects import project_relationships_service
+        
         roles_count = Role.query.filter_by(project_id=project_id).count()
         permissions_count = Permission.query.filter_by(project_id=project_id).count()
-        users_count = User.query.filter_by(project_id=project_id).count()
+        users_count = project_relationships_service.get_user_count(project_id)
 
         user_roles_count = UserRole.query.join(Role).filter(Role.project_id == project_id).count()
 
@@ -1313,7 +1315,7 @@ def get_rbac_status(current_user):
                     "users_count": users_count,
                     "user_roles_count": user_roles_count,
                     "current_user": {
-                        "id": current_user.id,
+                        "id": current_user.unique_id,
                         "username": current_user.username,
                         "roles": user_roles,
                         "permissions": list(user_permissions),

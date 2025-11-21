@@ -18,5 +18,6 @@ Import middleware directly from their modules:
 from .activity_logger import ActivityLoggerMiddleware
 from .mtls import require_mtls, is_mtls_enabled
 from .production_guard import development_only
+from .serialization import serialize_response
 
-__all__ = ["ActivityLoggerMiddleware", "require_mtls", "is_mtls_enabled", "development_only"]
+__all__ = ["ActivityLoggerMiddleware", "require_mtls", "is_mtls_enabled", "development_only", "serialize_response"]

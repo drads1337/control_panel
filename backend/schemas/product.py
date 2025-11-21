@@ -94,7 +94,7 @@ class ProductUpdateSchema(BaseSchema):
 class ProductResponseSchema(BaseSchema):
     """Product response schema"""
 
-    id: int = Field(..., description="Product ID")
+    id: str = Field(..., description="Product ID (unique random identifier)")
     name: str = Field(..., description="Product name")
     description: Optional[str] = Field(default=None, description="Product description")
     version: Optional[str] = Field(default=None, description="Product version")

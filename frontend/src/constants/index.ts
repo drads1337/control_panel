@@ -42,9 +42,9 @@ export const KEY_TYPES = {
 
 export const KEY_STATUS = {
   ACTIVE: 1,
-  BLOCKED: 0,
+  BLOCKED: 2,  // Fixed: backend uses 2 for blocked, not 0
   PAUSED: 3,
-  EXPIRED: 2
+  EXPIRED: 2   // Note: EXPIRED is also 2, but we distinguish by is_expired flag
 } as const;
 
 export const PAGINATION = {

@@ -76,41 +76,55 @@ class TaskService:
         task_key = f"task:{task_id}"
         self.redis_client.setex(task_key, self.task_timeout, json.dumps(task_info))
 
-        if not CELERY_AVAILABLE:
-            error_msg = f"Celery is not available. Cannot create task {task_id} of type {task_type}. Celery workers must be running."
-            logging.error(error_msg)
-            # Update task status to failed
-            self.update_task_status(task_id, "failed", error=error_msg)
-            raise RuntimeError(error_msg)
-
-        server_id = task_data.get("server_id")
-
-        celery_task_map = {
+        # Task types that are executed by task_service (server tasks)
+        server_task_types = {
             "server_start": server_start,
             "server_stop": server_stop,
             "server_restart": server_restart,
             "server_status_check": server_status_check,
         }
 
-        celery_task = celery_task_map.get(task_type)
-        if not celery_task:
-            error_msg = f"Unknown task type {task_type}. Cannot create task {task_id}. Supported types: {list(celery_task_map.keys())}"
+        # Task types that are tracked but executed elsewhere (key tasks)
+        # These tasks are executed directly by routes via apply_async()
+        tracked_task_types = {
+            "bulk_create_keys",
+            "bulk_create_loader_keys",
+        }
+
+        # Check if this is a server task that needs to be executed
+        if task_type in server_task_types:
+            if not CELERY_AVAILABLE:
+                error_msg = f"Celery is not available. Cannot create task {task_id} of type {task_type}. Celery workers must be running."
+                logging.error(error_msg)
+                # Update task status to failed
+                self.update_task_status(task_id, "failed", error=error_msg)
+                raise RuntimeError(error_msg)
+
+            server_id = task_data.get("server_id")
+            celery_task = server_task_types[task_type]
+
+            try:
+                celery_task.apply_async(
+                    args=[server_id], kwargs={"task_id": task_id, "project_id": project_id}
+                )
+                logging.info(f"Task queued with Celery: {task_id} type={task_type}")
+            except Exception as e:
+                error_msg = f"Failed to queue task with Celery: {str(e)}"
+                logging.error(f"{error_msg} - task_id={task_id}, type={task_type}")
+                # Update task status to failed
+                self.update_task_status(task_id, "failed", error=error_msg)
+                raise RuntimeError(error_msg) from e
+        elif task_type in tracked_task_types:
+            # For tracked tasks (like key tasks), we just create the record
+            # The actual task execution is handled by the route via apply_async()
+            # Celery availability is checked by the route, not here
+            logging.info(f"Task record created (execution handled elsewhere): {task_id} type={task_type}")
+        else:
+            error_msg = f"Unknown task type {task_type}. Cannot create task {task_id}. Supported types: {list(server_task_types.keys()) + list(tracked_task_types)}"
             logging.error(error_msg)
             # Update task status to failed
             self.update_task_status(task_id, "failed", error=error_msg)
             raise ValueError(error_msg)
-
-        try:
-            celery_task.apply_async(
-                args=[server_id], kwargs={"task_id": task_id, "project_id": project_id}
-            )
-            logging.info(f"Task queued with Celery: {task_id} type={task_type}")
-        except Exception as e:
-            error_msg = f"Failed to queue task with Celery: {str(e)}"
-            logging.error(f"{error_msg} - task_id={task_id}, type={task_type}")
-            # Update task status to failed
-            self.update_task_status(task_id, "failed", error=error_msg)
-            raise RuntimeError(error_msg) from e
 
         logging.info(f"Task created: {task_id} type={task_type}")
         return task_id
