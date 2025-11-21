@@ -21,12 +21,12 @@ import MultiFileUpload from '@/components/ui/multi-file-upload';
 import { useMultiFileUpload } from '@/hooks/use-multi-file-upload';
 import { usePermissions } from '@/hooks/use-permissions';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
-import type { Game } from '@/entities/game';
+import type { Product } from '@/entities/product';
 import { toast } from 'sonner';
 import { Spinner } from '@/components/ui/spinner';
 
 interface MultiFileUploadDialogProps {
-  game: Game | null;
+  product: Product | null;
   onUploadComplete?: () => void;
 }
 
@@ -41,11 +41,11 @@ interface FileWithPreview {
 }
 
 const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
-  game,
+  product,
   onUploadComplete
 }) => {
   const { hasPermission } = usePermissions();
-  const canUploadFiles = hasPermission('games.files_upload') || hasPermission('games.upload_files');
+  const canUploadFiles = hasPermission('products.files_upload') || hasPermission('products.upload_files');
   const [open, setOpen] = useState(false);
   const [uploadForm, setUploadForm] = useState({
     name: '',
@@ -81,12 +81,12 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
   };
 
   const handleUpload = async (files: FileWithPreview[]) => {
-    if (!game) {
+    if (!product) {
       return;
     }
 
     try {
-      const results = await uploadFiles(files, game.id, uploadForm, {
+      const results = await uploadFiles(files, product.id, uploadForm, {
         uploadInParallel: uploadSettings.uploadInParallel,
         onProgress: (fileId, progress) => {
           setSelectedFiles(prev => prev.map(f => 
@@ -138,7 +138,7 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
   };
 
   return (
-    <ConditionalRender permission="games.files_upload" fallback={null}>
+    <ConditionalRender permission="products.files_upload" fallback={null}>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
           <Button 
@@ -163,16 +163,16 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
         </DialogHeader>
 
         {}
-        {!game ? (
+        {!product ? (
           <Card className="border-dashed border-2 border-muted-foreground/25">
             <CardContent className="p-12">
               <div className="text-center">
                 <div className="w-20 h-20 bg-gradient-to-br from-primary/10 to-primary/5 rounded-full flex items-center justify-center mx-auto mb-6">
                   <AlertCircle className="h-10 w-10 text-primary" />
                 </div>
-                <h3 className="text-2xl font-semibold mb-3">Application Selection Required</h3>
+                <h3 className="text-2xl font-semibold mb-3">Product Selection Required</h3>
                 <p className="text-muted-foreground text-lg mb-6 max-w-md mx-auto">
-                  Please select an application first to upload files
+                  Please select an product first to upload files
                 </p>
               </div>
             </CardContent>

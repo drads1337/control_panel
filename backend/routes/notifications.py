@@ -9,7 +9,7 @@ from ..middleware.auth import require_project_isolation, require_project_with_gr
 from ..middleware.validation import validate_request
 from ..models.core import User
 from ..schemas.notification import (
-    GameUpdateNotificationSchema,
+    ProductUpdateNotificationSchema,
     LoaderNotificationCreateSchema,
     NotificationBulkActionSchema,
     NotificationBulkCreateSchema,
@@ -17,8 +17,8 @@ from ..schemas.notification import (
     NotificationCreateSchema,
     NotificationSendSchema,
 )
-from ..models.games import Game
-from ..models.loaders import Loader, LoaderNotification
+from ..models.products import Product
+from ..models.agents import Agent, AgentNotification
 from ..models.notifications import Notification
 from ..models.rbac import Role, UserRole
 from ..services.activity import activity_service
@@ -736,12 +736,12 @@ def create_bulk_notifications():
         db.session.rollback()
         return jsonify({"error": f"Failed to create bulk notifications: {str(e)}"}), 500
 
-@notifications_bp.route("/game-update", methods=["POST"])
+@notifications_bp.route("/product-update", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def create_game_update_notification():
-    """Create a game update notification"""
+def create_product_update_notification():
+    """Create a product update notification"""
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -757,7 +757,7 @@ def create_game_update_notification():
 
     data = request.get_json()
 
-    game_id = data.get("game_id")
+    product_id = data.get("product_id")
     version = data.get("version")
     update_message = data.get("message")
     notification_type = data.get("type", "info")
@@ -765,16 +765,16 @@ def create_game_update_notification():
     is_scheduled = data.get("is_scheduled", False)
     scheduled_at = data.get("scheduled_at")
 
-    if not all([game_id, version, update_message]):
-        return jsonify({"error": "Game ID, version and message are required"}), 400
+    if not all([product_id, version, update_message]):
+        return jsonify({"error": "Product ID, version and message are required"}), 400
 
     if not isinstance(repeat_count, int) or repeat_count < 1 or repeat_count > 10:
         return jsonify({"error": "Repeat count must be between 1 and 10"}), 400
 
     try:
-        game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
-        if not game:
-            return jsonify({"error": "Game not found"}), 404
+        product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+        if not product:
+            return jsonify({"error": "Product not found"}), 404
 
         project_users = User.query.filter_by(project_id=user.project_id).all()
 
@@ -789,7 +789,7 @@ def create_game_update_notification():
         notifications_created = 0
 
         for target_user in workers_only:
-            title = f"{game.name} Update"
+            title = f"{product.name} Update"
             message = f"Version {version}: {update_message}"
 
             created_time = datetime.utcnow()
@@ -826,24 +826,24 @@ def create_game_update_notification():
 
         activity_service.log_activity(
             user,
-            "create_game_update_notification",
-            details=f"Created game update notification for {game.name} v{version}",
+            "create_product_update_notification",
+            details=f"Created product update notification for {product.name} v{version}",
             ip=request.remote_addr,
         )
 
         return jsonify(
             {
-                "message": f"Successfully created {notifications_created} game update notifications",
+                "message": f"Successfully created {notifications_created} product update notifications",
                 "notifications_created": notifications_created,
-                "game_name": game.name,
+                "product_name": product.name,
                 "version": version,
             }
         )
 
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f"Error creating game update notifications: {str(e)}")
-        return jsonify({"error": f"Failed to create game update notifications: {str(e)}"}), 500
+        current_app.logger.error(f"Error creating product update notifications: {str(e)}")
+        return jsonify({"error": f"Failed to create product update notifications: {str(e)}"}), 500
 
 @notifications_bp.route("/cleanup", methods=["POST"])
 @jwt_required()
@@ -886,12 +886,12 @@ def cleanup_old_notifications():
         }
     )
 
-@notifications_bp.route("/loader-update", methods=["POST"])
+@notifications_bp.route("/agent-update", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
 def create_loader_update_notification():
-    """Create a loader update notification"""
+    """Create a agent update notification"""
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -917,19 +917,19 @@ def create_loader_update_notification():
     try:
         data = request.get_json()
 
-        loader_id = data.get("loader_id")
+        agent_id = data.get("agent_id")
         message = data.get("message")
         notification_type = data.get("type", "info")
 
-        if not loader_id or not message:
-            return jsonify({"error": "Loader ID and message are required"}), 400
+        if not agent_id or not message:
+            return jsonify({"error": "Agent ID and message are required"}), 400
 
-        loader = Loader.query.filter_by(id=loader_id, project_id=user.project_id).first()
-        if not loader:
-            return jsonify({"error": "Loader not found"}), 404
+        agent = Agent.query.filter_by(id=agent_id, project_id=user.project_id).first()
+        if not agent:
+            return jsonify({"error": "Agent not found"}), 404
 
-        loader_notification = LoaderNotification(
-            loader_id=loader_id,
+        loader_notification = AgentNotification(
+            agent_id=agent_id,
             message=message,
             type=notification_type,
             created_by=user.id,
@@ -953,7 +953,7 @@ def create_loader_update_notification():
         for project_user in workers_only:
             notification = Notification(
                 user_id=project_user.id,
-                message=f"[{loader.name}] {message}",
+                message=f"[{agent.name}] {message}",
                 type=notification_type,
                 project_id=user.project_id,
             )
@@ -965,28 +965,28 @@ def create_loader_update_notification():
         activity_service.log_activity(
             user,
             "loader_notification_created",
-            details=f"Created loader update notification for {loader.name}: {message}",
+            details=f"Created agent update notification for {agent.name}: {message}",
         )
 
         return jsonify(
             {
                 "success": True,
-                "message": "Loader update notification created successfully",
+                "message": "Agent update notification created successfully",
                 "notifications_created": notifications_created,
-                "loader_name": loader.name,
+                "agent_name": agent.name,
             }
         )
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({"error": f"Failed to create loader update notification: {str(e)}"}), 500
+        return jsonify({"error": f"Failed to create agent update notification: {str(e)}"}), 500
 
-@notifications_bp.route("/loaders/<int:loader_id>/notifications", methods=["GET"])
+@notifications_bp.route("/agents/<int:agent_id>/notifications", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def get_loader_notifications(loader_id):
-    """Get notifications for a specific loader"""
+def get_loader_notifications(agent_id):
+    """Get notifications for a specific agent"""
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -1002,13 +1002,13 @@ def get_loader_notifications(loader_id):
         return jsonify({"error": "No project associated"}), 400
 
     try:
-        loader = Loader.query.filter_by(id=loader_id, project_id=user.project_id).first()
-        if not loader:
-            return jsonify({"error": "Loader not found"}), 404
+        agent = Agent.query.filter_by(id=agent_id, project_id=user.project_id).first()
+        if not agent:
+            return jsonify({"error": "Agent not found"}), 404
 
         notifications = (
-            LoaderNotification.query.filter_by(loader_id=loader_id, project_id=user.project_id)
-            .order_by(LoaderNotification.created_at.desc())
+            AgentNotification.query.filter_by(agent_id=agent_id, project_id=user.project_id)
+            .order_by(AgentNotification.created_at.desc())
             .all()
         )
 
@@ -1034,21 +1034,21 @@ def get_loader_notifications(loader_id):
         return jsonify(
             {
                 "success": True,
-                "loader_id": loader_id,
-                "loader_name": loader.name,
+                "agent_id": agent_id,
+                "agent_name": agent.name,
                 "notifications": notifications_data,
             }
         )
 
     except Exception as e:
-        return jsonify({"error": f"Failed to fetch loader notifications: {str(e)}"}), 500
+        return jsonify({"error": f"Failed to fetch agent notifications: {str(e)}"}), 500
 
-@notifications_bp.route("/games/<int:game_id>/notifications", methods=["GET"])
+@notifications_bp.route("/products/<int:product_id>/notifications", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def get_game_notifications(game_id):
-    """Get notifications for a specific game"""
+def get_product_notifications(product_id):
+    """Get notifications for a specific product"""
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -1072,14 +1072,14 @@ def get_game_notifications(game_id):
         return jsonify({"error": "Insufficient permissions"}), 403
 
     try:
-        game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
-        if not game:
-            return jsonify({"error": "Game not found"}), 404
+        product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+        if not product:
+            return jsonify({"error": "Product not found"}), 404
 
         notifications = (
             db.session.query(Notification)
             .filter_by(project_id=user.project_id, is_deleted=False)
-            .filter(Notification.message.contains(game.name))
+            .filter(Notification.message.contains(product.name))
             .order_by(Notification.created_at.desc())
             .all()
         )
@@ -1171,21 +1171,21 @@ def get_game_notifications(game_id):
         return jsonify(
             {
                 "success": True,
-                "game_id": game_id,
-                "game_name": game.name,
+                "product_id": product_id,
+                "product_name": product.name,
                 "notifications": notifications_data,
             }
         )
 
     except Exception as e:
-        return jsonify({"error": f"Failed to fetch game notifications: {str(e)}"}), 500
+        return jsonify({"error": f"Failed to fetch product notifications: {str(e)}"}), 500
 
-@notifications_bp.route("/loaders/<int:loader_id>/notifications", methods=["POST"])
+@notifications_bp.route("/agents/<int:agent_id>/notifications", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def create_loader_notification(loader_id):
-    """Create a notification for a specific loader"""
+def create_loader_notification(agent_id):
+    """Create a notification for a specific agent"""
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -1209,9 +1209,9 @@ def create_loader_notification(loader_id):
         return jsonify({"error": "Insufficient permissions"}), 403
 
     try:
-        loader = Loader.query.filter_by(id=loader_id, project_id=user.project_id).first()
-        if not loader:
-            return jsonify({"error": "Loader not found"}), 404
+        agent = Agent.query.filter_by(id=agent_id, project_id=user.project_id).first()
+        if not agent:
+            return jsonify({"error": "Agent not found"}), 404
 
         data = request.get_json()
 
@@ -1223,8 +1223,8 @@ def create_loader_notification(loader_id):
         if not message:
             return jsonify({"error": "Message is required"}), 400
 
-        loader_notification = LoaderNotification(
-            loader_id=loader_id,
+        loader_notification = AgentNotification(
+            agent_id=agent_id,
             message=message,
             type=notification_type,
             is_scheduled=is_scheduled,
@@ -1253,7 +1253,7 @@ def create_loader_notification(loader_id):
             for project_user in workers_only:
                 notification = Notification(
                     user_id=project_user.id,
-                    message=f"[{loader.name}] {message}",
+                    message=f"[{agent.name}] {message}",
                     type=notification_type,
                     project_id=user.project_id,
                 )
@@ -1267,9 +1267,9 @@ def create_loader_notification(loader_id):
             return jsonify(
                 {
                     "success": True,
-                    "message": "Loader notification sent successfully",
+                    "message": "Agent notification sent successfully",
                     "notifications_created": notifications_created,
-                    "loader_name": loader.name,
+                    "agent_name": agent.name,
                 }
             )
         else:
@@ -1278,12 +1278,12 @@ def create_loader_notification(loader_id):
             return jsonify(
                 {
                     "success": True,
-                    "message": "Loader notification scheduled successfully",
+                    "message": "Agent notification scheduled successfully",
                     "scheduled_at": scheduled_at,
-                    "loader_name": loader.name,
+                    "agent_name": agent.name,
                 }
             )
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({"error": f"Failed to create loader notification: {str(e)}"}), 500
+        return jsonify({"error": f"Failed to create agent notification: {str(e)}"}), 500

@@ -10,7 +10,7 @@ import {
   Users,
   Settings,
   Server,
-  Gamepad2,
+  Database,
   FileText,
   Activity,
   Key,
@@ -60,7 +60,7 @@ const getAllSearchItems = (): SearchResult[] => [
   { 
     id: 'projects', 
     title: 'Projects', 
-    description: 'Manage game projects', 
+    description: 'Manage product projects', 
     type: 'project', 
     icon: <FolderOpen className="h-4 w-4" />, 
     href: '/projects',
@@ -168,11 +168,11 @@ const getAllSearchItems = (): SearchResult[] => [
   { 
     id: 'new-project', 
     title: 'New Project', 
-    description: 'Create a new game project', 
+    description: 'Create a new product project', 
     type: 'project', 
-    icon: <Gamepad2 className="h-4 w-4" />, 
+    icon: <Database className="h-4 w-4" />, 
     href: '/projects', 
-    tags: ['create', 'game', 'project'],
+    tags: ['create', 'product', 'project'],
     roles: ['owner']
   },
   { 

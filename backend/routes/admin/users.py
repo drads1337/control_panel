@@ -17,14 +17,14 @@ from sqlalchemy import and_, case, func, select
 from ...core.extensions import db
 from ...middleware.auth import enforce_project_scope
 from ...models import (
-    DeveloperGamePermission,
+    DeveloperProductPermission,
     Key,
     ProjectUserRole,
     ReferralCode,
     TokenTransaction,
     User,
     UserActivity,
-    UserGamePermission,
+    UserProductPermission,
     UserRole,
 )
 from ...services.activity import activity_service
@@ -78,7 +78,7 @@ def get_users(current_user=None, project_id=None):
 @require_role(RolePermissions.USER_CREATION_ROLES)
 @validate_request(UserCreateSchema)
 def add_user(current_user=None, validated_data=None):
-    """Create a new user with roles and game permissions"""
+    """Create a new user with roles and product permissions"""
     import logging
 
     logger = logging.getLogger(__name__)
@@ -92,7 +92,7 @@ def add_user(current_user=None, validated_data=None):
         return jsonify({"error": "No data provided"}), 400
 
     try:
-        user, error = user_management_service.create_user_with_roles_and_games(current_user, data)
+        user, error = user_management_service.create_user_with_roles_and_products(current_user, data)
 
         if error:
             return jsonify({"error": error}), 400
@@ -197,8 +197,8 @@ def bulk_action(current_user=None, project_id=None):
                 user.total_keys = 0
                 user.active_keys = 0
                 Key.query.filter_by(user_id=user.id).delete()
-                UserGamePermission.query.filter_by(user_id=user.id).delete()
-                DeveloperGamePermission.query.filter_by(user_id=user.id).delete()
+                UserProductPermission.query.filter_by(user_id=user.id).delete()
+                DeveloperProductPermission.query.filter_by(user_id=user.id).delete()
                 UserActivity.query.filter_by(user_id=user.id).delete()
 
                 UserRole.query.filter_by(user_id=user.id).delete()
@@ -533,8 +533,8 @@ def get_user_stats(user_id):
         )
     ).count()
 
-    game_permissions = UserGamePermission.query.filter_by(user_id=user_id).count()
-    developer_permissions = DeveloperGamePermission.query.filter_by(user_id=user_id).count()
+    product_permissions = UserProductPermission.query.filter_by(user_id=user_id).count()
+    developer_permissions = DeveloperProductPermission.query.filter_by(user_id=user_id).count()
 
     user_roles = RBACManager.get_user_role_names(target_user)
     primary_role = user_roles[0] if user_roles else "client"
@@ -557,7 +557,7 @@ def get_user_stats(user_id):
                 "last_30_days": keys_30d,
             },
             "activity": {"total": activity_count, "last_30_days": recent_activity},
-            "permissions": {"games": game_permissions, "developer_games": developer_permissions},
+            "permissions": {"products": product_permissions, "developer_products": developer_permissions},
             "balance": {"tokens": target_user.token_balance},
         }
     )

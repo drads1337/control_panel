@@ -9,29 +9,29 @@ import { Switch } from '@/components/ui/switch';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Bell, Send, Loader2, Clock, EyeOff } from 'lucide-react';
-import { sendGameNotification } from '@/entities/notification';
+import { sendProductNotification } from '@/entities/notification';
 import { useAuth } from '@/hooks/use-auth';
 import { usePermissions } from '@/hooks/use-permissions';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
 import { toast } from 'sonner';
-import type { Game } from '@/entities/game';
+import type { Product } from '@/entities/product';
 
 interface CreateNotificationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  game: Game;
+  product: Product;
   onNotificationCreated?: () => void;
 }
 
 const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
   open,
   onOpenChange,
-  game,
+  product,
   onNotificationCreated,
 }) => {
   const { hasPermission } = usePermissions();
 
-  const canCreateNotifications = hasPermission('games.notifications_create');
+  const canCreateNotifications = hasPermission('products.notifications_create');
 
   if (!canCreateNotifications) {
     return null;
@@ -71,7 +71,7 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
         scheduledAt = new Date(`${scheduledDate}T${scheduledTime}`).toISOString();
       }
 
-      const result = await sendGameNotification(game.id, {
+      const result = await sendProductNotification(product.id, {
         title: title.trim(),
         message: message.trim(),
         type: type === 'custom' ? customType.trim() : type,
@@ -154,7 +154,7 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
             Create New Notification
           </DialogTitle>
           <DialogDescription className="text-base">
-            Create a new notification for the game "{game.name}"
+            Create a new notification for the product "{product.name}"
           </DialogDescription>
         </DialogHeader>
 
@@ -344,7 +344,7 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
           >
             Cancel
           </Button>
-          <ConditionalRender permission="games.notifications_create" fallback={null}>
+          <ConditionalRender permission="products.notifications_create" fallback={null}>
             <Button 
               onClick={handleSendClick} 
               disabled={sending || !title.trim() || !message.trim() || (type === 'custom' && !customType.trim())}

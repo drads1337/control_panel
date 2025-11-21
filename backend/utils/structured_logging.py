@@ -104,7 +104,7 @@ class StructuredFormatter(logging.Formatter):
         return json.dumps(log_entry, ensure_ascii=False, default=str)
 
 class MetricsCollector:
-    """Collects application metrics for monitoring"""
+    """Collects product metrics for monitoring"""
 
     def __init__(self):
         self._metrics = {}
@@ -331,7 +331,7 @@ def setup_structured_logging(app):
             "/api/logs",
             "/api/users",
             "/api/keys",
-            "/api/games",
+            "/api/products",
             "/api/panel_tools/projects",
             "/api/projects",
             "/api/sessions",
@@ -340,7 +340,7 @@ def setup_structured_logging(app):
             "/api/me",
             "/api/chat",
             "/api/changelog",
-            "/api/loaders",
+            "/api/agents",
             "/api/servers",
             "/api/analytics",
             "/api/webhooks",

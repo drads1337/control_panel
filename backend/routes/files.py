@@ -7,7 +7,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required, verify_jwt_in_req
 
 from ..core.extensions import db
 from ..models.core import User
-from ..models.games import Game, GameExtraFile, GameFileConfig, GameFileDownload
+from ..models.products import Product, ProductExtraFile, ProductFileConfig, ProductFileDownload
 from ..services.activity import activity_service
 from ..services.files import file_service
 
@@ -101,7 +101,7 @@ def delete_file(filename):
 
     from ..services.rbac import rbac_service
 
-    if not user or not rbac_service.check_permission(user.id, "games.edit"):
+    if not user or not rbac_service.check_permission(user.id, "products.edit"):
         return jsonify({"error": "Access denied"}), 403
 
     is_valid, error = file_service.validate_user_project(user)
@@ -133,7 +133,7 @@ def bulk_action():
 
     from ..services.rbac import rbac_service
 
-    if not user or not rbac_service.check_permission(user.id, "games.edit"):
+    if not user or not rbac_service.check_permission(user.id, "products.edit"):
         return jsonify({"error": "Access denied"}), 403
 
     is_valid, error = file_service.validate_user_project(user)
@@ -252,10 +252,10 @@ def preview_file(filename):
 
     return jsonify(preview_data)
 
-@files_bp.route("/games", methods=["GET"])
+@files_bp.route("/products", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
-def get_games():
+def get_products():
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -271,55 +271,55 @@ def get_games():
 
     try:
 
-        from ..services.games import game_service
+        from ..services.products import product_service
 
-        result = game_service.get_games_cached(
-            project_id=user.project_id, game_type="all", user_id=user_id
+        result = product_service.get_products_cached(
+            project_id=user.project_id, product_type="all", user_id=user_id
         )
 
         if not result.get("success"):
             return (
                 jsonify(
-                    {"error": f'Failed to fetch games: {result.get("error", "Unknown error")}'}
+                    {"error": f'Failed to fetch products: {result.get("error", "Unknown error")}'}
                 ),
                 500,
             )
 
-        games_data = []
-        for game in result.get("games", []):
-            configs_count = GameFileConfig.query.filter_by(
-                game_id=game["id"], is_active=True
+        products_data = []
+        for product in result.get("products", []):
+            configs_count = ProductFileConfig.query.filter_by(
+                product_id=product["id"], is_active=True
             ).count()
-            extra_files_count = GameExtraFile.query.filter_by(
-                game_id=game["id"], is_active=True
+            extra_files_count = ProductExtraFile.query.filter_by(
+                product_id=product["id"], is_active=True
             ).count()
 
-            games_data.append(
+            products_data.append(
                 {
-                    "id": game["id"],
-                    "unique_id": game.get("unique_id", ""),
-                    "name": game["name"],
-                    "description": game.get("description", ""),
-                    "status": game.get("status", "active"),
+                    "id": product["id"],
+                    "unique_id": product.get("unique_id", ""),
+                    "name": product["name"],
+                    "description": product.get("description", ""),
+                    "status": product.get("status", "active"),
                     "configs_count": configs_count,
                     "extra_files_count": extra_files_count,
-                    "is_active": game.get("status", "active") == "active",
+                    "is_active": product.get("status", "active") == "active",
                     "created_at": (
-                        game.get("created_at", "").isoformat() if game.get("created_at") else ""
+                        product.get("created_at", "").isoformat() if product.get("created_at") else ""
                     ),
                     "updated_at": (
-                        game.get("updated_at", "").isoformat() if game.get("updated_at") else ""
+                        product.get("updated_at", "").isoformat() if product.get("updated_at") else ""
                     ),
                 }
             )
 
-        return jsonify({"games": games_data})
+        return jsonify({"products": products_data})
 
     except Exception as e:
-        return jsonify({"error": f"Failed to fetch games: {str(e)}"}), 500
+        return jsonify({"error": f"Failed to fetch products: {str(e)}"}), 500
 
-@files_bp.route("/games/<game_name>/configs", methods=["GET"])
-def get_game_configs_by_name(game_name):
+@files_bp.route("/products/<product_name>/configs", methods=["GET"])
+def get_product_configs_by_name(product_name):
     auth_header = request.headers.get("Authorization")
     user_id = None
     user = None
@@ -348,11 +348,11 @@ def get_game_configs_by_name(game_name):
         return jsonify({"error": "User must be assigned to a project"}), 403
 
     try:
-        game = Game.query.filter_by(name=game_name, project_id=user.project_id).first()
-        if not game:
-            return jsonify({"error": "Game not found"}), 404
+        product = Product.query.filter_by(name=product_name, project_id=user.project_id).first()
+        if not product:
+            return jsonify({"error": "Product not found"}), 404
 
-        configs = GameFileConfig.query.filter_by(game_id=game.id, is_active=True).all()
+        configs = ProductFileConfig.query.filter_by(product_id=product.id, is_active=True).all()
 
         configs_data = []
         for config in configs:
@@ -382,10 +382,10 @@ def get_game_configs_by_name(game_name):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch configs: {str(e)}"}), 500
 
-@files_bp.route("/games/<int:game_id>/configs", methods=["GET"])
+@files_bp.route("/products/<int:product_id>/configs", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
-def get_game_configs(game_id):
+def get_product_configs(product_id):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -397,11 +397,11 @@ def get_game_configs(game_id):
         return jsonify({"error": "User must be assigned to a project"}), 403
 
     try:
-        game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
-        if not game or game.project_id != user.project_id:
-            return jsonify({"error": "Game not found"}), 404
+        product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+        if not product or product.project_id != user.project_id:
+            return jsonify({"error": "Product not found"}), 404
 
-        configs = GameFileConfig.query.filter_by(game_id=game_id, is_active=True).all()
+        configs = ProductFileConfig.query.filter_by(product_id=product_id, is_active=True).all()
 
         configs_data = []
         for config in configs:
@@ -431,10 +431,10 @@ def get_game_configs(game_id):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch configs: {str(e)}"}), 500
 
-@files_bp.route("/games/<int:game_id>/extra-files", methods=["GET"])
+@files_bp.route("/products/<int:product_id>/extra-files", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
-def get_game_extra_files(game_id):
+def get_product_extra_files(product_id):
     user_id = get_jwt_identity()
     user = file_service.get_user_by_id(user_id)
 
@@ -442,15 +442,15 @@ def get_game_extra_files(game_id):
     if not is_valid:
         return jsonify({"error": error}), 404 if error == "User not found" else 403
 
-    files_data, error = file_service.get_game_extra_files(user, game_id)
+    files_data, error = file_service.get_product_extra_files(user, product_id)
     if error:
-        return jsonify({"error": error}), 404 if error == "Game not found" else 500
+        return jsonify({"error": error}), 404 if error == "Product not found" else 500
 
     return jsonify({"extra_files": files_data})
 
-@files_bp.route("/games/configs/<int:config_id>/download", methods=["GET"])
-def download_game_config(config_id):
-    logging.debug(f"[DEBUG] Request: GET /api/files/games/configs/{config_id}/download")
+@files_bp.route("/products/configs/<int:config_id>/download", methods=["GET"])
+def download_product_config(config_id):
+    logging.debug(f"[DEBUG] Request: GET /api/files/products/configs/{config_id}/download")
 
     auth_header = request.headers.get("Authorization")
     user_id = None
@@ -459,7 +459,7 @@ def download_game_config(config_id):
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header[7:]
         logging.debug(
-            f"[DEBUG] Processing token for GET /api/files/games/configs/{config_id}/download"
+            f"[DEBUG] Processing token for GET /api/files/products/configs/{config_id}/download"
         )
 
         try:
@@ -488,18 +488,18 @@ def download_game_config(config_id):
 
     try:
         config = (
-            GameFileConfig.query.join(Game)
-            .filter(GameFileConfig.id == config_id, Game.project_id == user.project_id)
+            ProductFileConfig.query.join(Product)
+            .filter(ProductFileConfig.id == config_id, Product.project_id == user.project_id)
             .first()
         )
         if not config:
             return jsonify({"error": "Config not found"}), 404
 
-        game = Game.query.get(config.game_id)
-        if not game:
-            return jsonify({"error": "Game not found"}), 404
+        product = Product.query.get(config.product_id)
+        if not product:
+            return jsonify({"error": "Product not found"}), 404
 
-        response, error = file_service.download_game_config(
+        response, error = file_service.download_product_config(
             config, user, request.remote_addr, request.headers.get("User-Agent")
         )
         if error:
@@ -507,8 +507,8 @@ def download_game_config(config_id):
 
         activity_service.log_activity(
             user,
-            "download_game_config",
-            details=f"Downloaded config {config.name} for game {game.name}",
+            "download_product_config",
+            details=f"Downloaded config {config.name} for product {product.name}",
             ip=request.remote_addr,
         )
 
@@ -517,9 +517,9 @@ def download_game_config(config_id):
     except Exception as e:
         return jsonify({"error": f"Failed to download config: {str(e)}"}), 500
 
-@files_bp.route("/games/configs/<config_id>/download", methods=["GET"])
-def download_game_config_by_string_id(config_id):
-    logging.debug(f"[DEBUG] Request: GET /api/files/games/configs/{config_id}/download")
+@files_bp.route("/products/configs/<config_id>/download", methods=["GET"])
+def download_product_config_by_string_id(config_id):
+    logging.debug(f"[DEBUG] Request: GET /api/files/products/configs/{config_id}/download")
 
     auth_header = request.headers.get("Authorization")
     user_id = None
@@ -528,7 +528,7 @@ def download_game_config_by_string_id(config_id):
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header[7:]
         logging.debug(
-            f"[DEBUG] Processing token for GET /api/files/games/configs/{config_id}/download"
+            f"[DEBUG] Processing token for GET /api/files/products/configs/{config_id}/download"
         )
 
         try:
@@ -556,15 +556,15 @@ def download_game_config_by_string_id(config_id):
         return jsonify({"error": "Access denied"}), 403
 
     try:
-        config = GameFileConfig.query.filter_by(config_id=config_id).first()
+        config = ProductFileConfig.query.filter_by(config_id=config_id).first()
         if not config:
             return jsonify({"error": "Config not found"}), 404
 
-        game = Game.query.filter_by(id=config.game_id, project_id=user.project_id).first()
-        if not game or game.project_id != user.project_id:
+        product = Product.query.filter_by(id=config.product_id, project_id=user.project_id).first()
+        if not product or product.project_id != user.project_id:
             return jsonify({"error": "Access denied"}), 403
 
-        response, error = file_service.download_game_config(
+        response, error = file_service.download_product_config(
             config, user, request.remote_addr, request.headers.get("User-Agent")
         )
         if error:
@@ -572,8 +572,8 @@ def download_game_config_by_string_id(config_id):
 
         activity_service.log_activity(
             user,
-            "download_game_config_by_id",
-            details=f"Downloaded config {config.name} (ID: {config_id}) for game {game.name}",
+            "download_product_config_by_id",
+            details=f"Downloaded config {config.name} (ID: {config_id}) for product {product.name}",
             ip=request.remote_addr,
         )
 
@@ -582,14 +582,14 @@ def download_game_config_by_string_id(config_id):
     except Exception as e:
         return jsonify({"error": f"Failed to download config: {str(e)}"}), 500
 
-@files_bp.route("/games/extra-files/<int:file_id>/download", methods=["GET"])
-def download_game_extra_file(file_id):
+@files_bp.route("/products/extra-files/<int:file_id>/download", methods=["GET"])
+def download_product_extra_file(file_id):
     try:
-        extra_file = GameExtraFile.query.get(file_id)
+        extra_file = ProductExtraFile.query.get(file_id)
         if not extra_file:
             return jsonify({"error": "File not found"}), 404
 
-        response, error = file_service.download_game_extra_file(extra_file)
+        response, error = file_service.download_product_extra_file(extra_file)
         if error:
             return jsonify({"error": error}), 404
 
@@ -598,7 +598,7 @@ def download_game_extra_file(file_id):
     except Exception as e:
         return jsonify({"error": f"Failed to download extra file: {str(e)}"}), 500
 
-@files_bp.route("/games/extra-files/<int:file_id>/status", methods=["PUT"])
+@files_bp.route("/products/extra-files/<int:file_id>/status", methods=["PUT"])
 @jwt_required()
 @enforce_project_scope
 def update_file_status(file_id):
@@ -609,7 +609,7 @@ def update_file_status(file_id):
         return jsonify({"error": "User must be assigned to a project"}), 403
     from ..services.rbac import rbac_service
 
-    if not user or not rbac_service.check_permission(user.id, "games.edit"):
+    if not user or not rbac_service.check_permission(user.id, "products.edit"):
         return jsonify({"error": "Access denied"}), 403
 
     try:
@@ -620,8 +620,8 @@ def update_file_status(file_id):
             return jsonify({"error": "Invalid status"}), 400
 
         extra_file = (
-            GameExtraFile.query.join(Game)
-            .filter(GameExtraFile.id == file_id, Game.project_id == user.project_id)
+            ProductExtraFile.query.join(Product)
+            .filter(ProductExtraFile.id == file_id, Product.project_id == user.project_id)
             .first()
         )
         if not extra_file:
@@ -645,10 +645,10 @@ def update_file_status(file_id):
     except Exception as e:
         return jsonify({"error": f"Failed to update status: {str(e)}"}), 500
 
-@files_bp.route("/games/<int:game_id>/storage-info", methods=["GET"])
+@files_bp.route("/products/<int:product_id>/storage-info", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
-def get_game_storage_info(game_id):
+def get_product_storage_info(product_id):
     user_id = get_jwt_identity()
     user = file_service.get_user_by_id(user_id)
 
@@ -656,16 +656,16 @@ def get_game_storage_info(game_id):
     if not is_valid:
         return jsonify({"error": error}), 404 if error == "User not found" else 403
 
-    storage_info, error = file_service.get_game_storage_info(user, game_id)
+    storage_info, error = file_service.get_product_storage_info(user, product_id)
     if error:
-        return jsonify({"error": error}), 404 if error == "Game not found" else 500
+        return jsonify({"error": error}), 404 if error == "Product not found" else 500
 
     return jsonify(storage_info)
 
-@files_bp.route("/games/<int:game_id>/configs/my", methods=["GET"])
+@files_bp.route("/products/<int:product_id>/configs/my", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
-def get_my_game_configs(game_id):
+def get_my_product_configs(product_id):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -677,12 +677,12 @@ def get_my_game_configs(game_id):
         return jsonify({"error": "User must be assigned to a project"}), 403
 
     try:
-        game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
-        if not game or game.project_id != user.project_id:
-            return jsonify({"error": "Game not found"}), 404
+        product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+        if not product or product.project_id != user.project_id:
+            return jsonify({"error": "Product not found"}), 404
 
-        configs = GameFileConfig.query.filter_by(
-            game_id=game_id, uploaded_by=user.id, is_active=True
+        configs = ProductFileConfig.query.filter_by(
+            product_id=product_id, uploaded_by=user.id, is_active=True
         ).all()
 
         configs_data = []
@@ -709,10 +709,10 @@ def get_my_game_configs(game_id):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch user configs: {str(e)}"}), 500
 
-@files_bp.route("/games/<int:game_id>/configs/public", methods=["GET"])
+@files_bp.route("/products/<int:product_id>/configs/public", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
-def get_public_game_configs(game_id):
+def get_public_product_configs(product_id):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -724,13 +724,13 @@ def get_public_game_configs(game_id):
         return jsonify({"error": "User must be assigned to a project"}), 403
 
     try:
-        game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
-        if not game or game.project_id != user.project_id:
-            return jsonify({"error": "Game not found"}), 404
+        product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+        if not product or product.project_id != user.project_id:
+            return jsonify({"error": "Product not found"}), 404
 
         configs = (
-            GameFileConfig.query.filter_by(game_id=game_id, is_public=True, is_active=True)
-            .order_by(GameFileConfig.rating.desc())
+            ProductFileConfig.query.filter_by(product_id=product_id, is_public=True, is_active=True)
+            .order_by(ProductFileConfig.rating.desc())
             .all()
         )
 
@@ -761,10 +761,10 @@ def get_public_game_configs(game_id):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch public configs: {str(e)}"}), 500
 
-@files_bp.route("/games/configs/<int:config_id>/update", methods=["PUT"])
+@files_bp.route("/products/configs/<int:config_id>/update", methods=["PUT"])
 @jwt_required()
 @enforce_project_scope
-def update_game_config(config_id):
+def update_product_config(config_id):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -777,21 +777,21 @@ def update_game_config(config_id):
 
     try:
         config = (
-            GameFileConfig.query.join(Game)
-            .filter(GameFileConfig.id == config_id, Game.project_id == user.project_id)
+            ProductFileConfig.query.join(Product)
+            .filter(ProductFileConfig.id == config_id, Product.project_id == user.project_id)
             .first()
         )
         if not config:
             return jsonify({"error": "Config not found"}), 404
 
-        game = Game.query.get(config.game_id)
-        if not game:
-            return jsonify({"error": "Game not found"}), 404
+        product = Product.query.get(config.product_id)
+        if not product:
+            return jsonify({"error": "Product not found"}), 404
 
         from ..services.rbac import rbac_service
 
         if config.uploaded_by != user.id and not rbac_service.check_permission(
-            user.id, "games.edit"
+            user.id, "products.edit"
         ):
             return jsonify({"error": "Access denied"}), 403
 
@@ -810,8 +810,8 @@ def update_game_config(config_id):
 
         activity_service.log_activity(
             user,
-            "update_game_config",
-            details=f"Updated config {config.name} for game {game.name}",
+            "update_product_config",
+            details=f"Updated config {config.name} for product {product.name}",
             ip=request.remote_addr,
         )
 
@@ -831,10 +831,10 @@ def update_game_config(config_id):
     except Exception as e:
         return jsonify({"error": f"Failed to update config: {str(e)}"}), 500
 
-@files_bp.route("/games/configs/<int:config_id>/rate", methods=["POST"])
+@files_bp.route("/products/configs/<int:config_id>/rate", methods=["POST"])
 @jwt_required()
 @enforce_project_scope
-def rate_game_config(config_id):
+def rate_product_config(config_id):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -847,8 +847,8 @@ def rate_game_config(config_id):
 
     try:
         config = (
-            GameFileConfig.query.join(Game)
-            .filter(GameFileConfig.id == config_id, Game.project_id == user.project_id)
+            ProductFileConfig.query.join(Product)
+            .filter(ProductFileConfig.id == config_id, Product.project_id == user.project_id)
             .first()
         )
         if not config:
@@ -871,7 +871,7 @@ def rate_game_config(config_id):
 
         activity_service.log_activity(
             user,
-            "rate_game_config",
+            "rate_product_config",
             details=f"Rated config {config.name} with {rating} stars",
             ip=request.remote_addr,
         )
@@ -888,274 +888,274 @@ def rate_game_config(config_id):
     except Exception as e:
         return jsonify({"error": f"Failed to submit rating: {str(e)}"}), 500
 
-@files_bp.route("/game-files", methods=["GET"])
+@files_bp.route("/product-files", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
-def get_game_files():
+def get_product_files():
     try:
         logging.debug(
-            f"[DEBUG] get_game_files route hit - URL: {request.url}, method: {request.method}"
+            f"[DEBUG] get_product_files route hit - URL: {request.url}, method: {request.method}"
         )
-        logging.debug(f"[DEBUG] get_game_files - Headers: {dict(request.headers)}")
-        logging.debug(f"[DEBUG] get_game_files - Args: {dict(request.args)}")
+        logging.debug(f"[DEBUG] get_product_files - Headers: {dict(request.headers)}")
+        logging.debug(f"[DEBUG] get_product_files - Args: {dict(request.args)}")
 
         user_id = get_jwt_identity()
-        logging.debug(f"[DEBUG] get_game_files - user_id from JWT: {user_id}")
+        logging.debug(f"[DEBUG] get_product_files - user_id from JWT: {user_id}")
 
         if not user_id:
-            logging.warning(f"[WARN] get_game_files: No user_id from JWT")
+            logging.warning(f"[WARN] get_product_files: No user_id from JWT")
             return jsonify({"error": "Invalid token", "message": "No user ID in token"}), 401
 
         user = User.query.get(user_id)
 
         if not user:
-            logging.debug(f"[DEBUG] get_game_files: User not found for user_id={user_id}")
+            logging.debug(f"[DEBUG] get_product_files: User not found for user_id={user_id}")
             return jsonify({"error": "User not found"}), 404
 
         if not user.project_id:
-            logging.debug(f"[DEBUG] get_game_files: User {user_id} has no project_id")
+            logging.debug(f"[DEBUG] get_product_files: User {user_id} has no project_id")
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        game_id = request.args.get("game_id", type=int)
+        product_id = request.args.get("product_id", type=int)
         target_type = request.args.get("target_type", "auto")
         category = request.args.get("category", "all")
         status = request.args.get("status", "all")
         search = request.args.get("search", "")
 
         logging.debug(
-            f"[DEBUG] get_game_files: game_id={game_id}, target_type={target_type}, category={category}, status={status}, search={search}, user_id={user_id}, project_id={user.project_id}"
+            f"[DEBUG] get_product_files: product_id={product_id}, target_type={target_type}, category={category}, status={status}, search={search}, user_id={user_id}, project_id={user.project_id}"
         )
 
-        if not game_id:
-            logging.debug(f"[DEBUG] get_game_files: No game_id provided")
-            return jsonify({"error": "Game ID is required"}), 400
+        if not product_id:
+            logging.debug(f"[DEBUG] get_product_files: No product_id provided")
+            return jsonify({"error": "Product ID is required"}), 400
 
-        from ..models.games import Game
-        from ..models.loaders import Loader
+        from ..models.products import Product
+        from ..models.agents import Agent
 
-        game = None
-        loader = None
+        product = None
+        agent = None
         is_loader = False
 
-        if target_type == "loader":
+        if target_type == "agent":
 
-            loader = Loader.query.filter_by(id=game_id, project_id=user.project_id).first()
-            if not loader:
+            agent = Agent.query.filter_by(id=product_id, project_id=user.project_id).first()
+            if not agent:
                 logging.debug(
-                    f"[DEBUG] get_game_files: Loader {game_id} not found for project_id={user.project_id}"
+                    f"[DEBUG] get_product_files: Agent {product_id} not found for project_id={user.project_id}"
                 )
-                loader_exists = Loader.query.filter_by(id=game_id).first()
+                loader_exists = Agent.query.filter_by(id=product_id).first()
                 if loader_exists:
                     logging.debug(
-                        f"[DEBUG] get_game_files: Loader {game_id} exists but belongs to project_id={loader_exists.project_id}, not {user.project_id}"
+                        f"[DEBUG] get_product_files: Agent {product_id} exists but belongs to project_id={loader_exists.project_id}, not {user.project_id}"
                     )
                 else:
-                    logging.debug(f"[DEBUG] get_game_files: Loader {game_id} does not exist at all")
-                return jsonify({"error": "Loader not found"}), 404
+                    logging.debug(f"[DEBUG] get_product_files: Agent {product_id} does not exist at all")
+                return jsonify({"error": "Agent not found"}), 404
             is_loader = True
-        elif target_type == "game":
+        elif target_type == "product":
 
-            game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
-            if not game:
+            product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+            if not product:
                 logging.debug(
-                    f"[DEBUG] get_game_files: Game {game_id} not found for project_id={user.project_id}"
+                    f"[DEBUG] get_product_files: Product {product_id} not found for project_id={user.project_id}"
                 )
-                game_exists = Game.query.filter_by(id=game_id).first()
-                if game_exists:
+                product_exists = Product.query.filter_by(id=product_id).first()
+                if product_exists:
                     logging.debug(
-                        f"[DEBUG] get_game_files: Game {game_id} exists but belongs to project_id={game_exists.project_id}, not {user.project_id}"
+                        f"[DEBUG] get_product_files: Product {product_id} exists but belongs to project_id={product_exists.project_id}, not {user.project_id}"
                     )
                 else:
-                    logging.debug(f"[DEBUG] get_game_files: Game {game_id} does not exist at all")
-                return jsonify({"error": "Game not found"}), 404
+                    logging.debug(f"[DEBUG] get_product_files: Product {product_id} does not exist at all")
+                return jsonify({"error": "Product not found"}), 404
         else:
 
-            game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
-            if not game:
-                logging.debug(f"[DEBUG] get_game_files: Game {game_id} not found, trying loader...")
-                loader = Loader.query.filter_by(id=game_id, project_id=user.project_id).first()
-                if loader:
-                    logging.debug(f"[DEBUG] get_game_files: Found Loader {game_id} instead of Game")
+            product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+            if not product:
+                logging.debug(f"[DEBUG] get_product_files: Product {product_id} not found, trying agent...")
+                agent = Agent.query.filter_by(id=product_id, project_id=user.project_id).first()
+                if agent:
+                    logging.debug(f"[DEBUG] get_product_files: Found Agent {product_id} instead of Product")
                     is_loader = True
                 else:
                     logging.debug(
-                        f"[DEBUG] get_game_files: Neither Game nor Loader {game_id} found for project_id={user.project_id}"
+                        f"[DEBUG] get_product_files: Neither Product nor Agent {product_id} found for project_id={user.project_id}"
                     )
 
-                    game_exists = Game.query.filter_by(id=game_id).first()
-                    loader_exists = Loader.query.filter_by(id=game_id).first()
-                    if game_exists or loader_exists:
+                    product_exists = Product.query.filter_by(id=product_id).first()
+                    loader_exists = Agent.query.filter_by(id=product_id).first()
+                    if product_exists or loader_exists:
                         logging.debug(
-                            f"[DEBUG] get_game_files: {game_id} exists but belongs to different project"
+                            f"[DEBUG] get_product_files: {product_id} exists but belongs to different project"
                         )
                     else:
-                        logging.debug(f"[DEBUG] get_game_files: {game_id} does not exist at all")
-                    return jsonify({"error": "Game or Loader not found"}), 404
+                        logging.debug(f"[DEBUG] get_product_files: {product_id} does not exist at all")
+                    return jsonify({"error": "Product or Agent not found"}), 404
             else:
-                logging.debug(f"[DEBUG] get_game_files: Found Game {game_id}")
+                logging.debug(f"[DEBUG] get_product_files: Found Product {product_id}")
 
         files_list = []
 
         if is_loader:
 
-            logging.debug(f"[DEBUG] get_game_files: Processing Loader {game_id} files")
+            logging.debug(f"[DEBUG] get_product_files: Processing Agent {product_id} files")
 
-            if loader.logo:
+            if agent.logo:
                 files_list.append(
                     {
-                        "id": f"loader_logo_{game_id}",
-                        "name": f"{loader.name} - Logo",
+                        "id": f"loader_logo_{product_id}",
+                        "name": f"{agent.name} - Logo",
                         "type": "image",
                         "size": 0,
-                        "path": loader.logo,
+                        "path": agent.logo,
                         "modified": (
-                            loader.updated_at.isoformat()
-                            if loader.updated_at
-                            else loader.created_at.isoformat()
+                            agent.updated_at.isoformat()
+                            if agent.updated_at
+                            else agent.created_at.isoformat()
                         ),
                         "status": "active",
-                        "gameId": game_id,
+                        "productId": product_id,
                         "category": "logo",
-                        "description": f"Logo for loader {loader.name}",
+                        "description": f"Logo for agent {agent.name}",
                         "download_count": 0,
                     }
                 )
 
-            if loader.banner:
+            if agent.banner:
                 files_list.append(
                     {
-                        "id": f"loader_banner_{game_id}",
-                        "name": f"{loader.name} - Banner",
+                        "id": f"loader_banner_{product_id}",
+                        "name": f"{agent.name} - Banner",
                         "type": "image",
                         "size": 0,
-                        "path": loader.banner,
+                        "path": agent.banner,
                         "modified": (
-                            loader.updated_at.isoformat()
-                            if loader.updated_at
-                            else loader.created_at.isoformat()
+                            agent.updated_at.isoformat()
+                            if agent.updated_at
+                            else agent.created_at.isoformat()
                         ),
                         "status": "active",
-                        "gameId": game_id,
+                        "productId": product_id,
                         "category": "banner",
-                        "description": f"Banner for loader {loader.name}",
+                        "description": f"Banner for agent {agent.name}",
                         "download_count": 0,
                     }
                 )
 
-            if loader.background:
+            if agent.background:
                 files_list.append(
                     {
-                        "id": f"loader_background_{game_id}",
-                        "name": f"{loader.name} - Background",
+                        "id": f"loader_background_{product_id}",
+                        "name": f"{agent.name} - Background",
                         "type": "image",
                         "size": 0,
-                        "path": loader.background,
+                        "path": agent.background,
                         "modified": (
-                            loader.updated_at.isoformat()
-                            if loader.updated_at
-                            else loader.created_at.isoformat()
+                            agent.updated_at.isoformat()
+                            if agent.updated_at
+                            else agent.created_at.isoformat()
                         ),
                         "status": "active",
-                        "gameId": game_id,
+                        "productId": product_id,
                         "category": "background",
-                        "description": f"Background for loader {loader.name}",
+                        "description": f"Background for agent {agent.name}",
                         "download_count": 0,
                     }
                 )
 
-            if loader.file:
+            if agent.file:
                 files_list.append(
                     {
-                        "id": f"loader_file_{game_id}",
-                        "name": f"{loader.name} - File",
+                        "id": f"loader_file_{product_id}",
+                        "name": f"{agent.name} - File",
                         "type": "file",
                         "size": 0,
-                        "path": loader.file,
+                        "path": agent.file,
                         "modified": (
-                            loader.updated_at.isoformat()
-                            if loader.updated_at
-                            else loader.created_at.isoformat()
+                            agent.updated_at.isoformat()
+                            if agent.updated_at
+                            else agent.created_at.isoformat()
                         ),
                         "status": "active",
-                        "gameId": game_id,
-                        "category": "loader",
-                        "description": f"File for loader {loader.name}",
-                        "download_count": loader.downloads or 0,
+                        "productId": product_id,
+                        "category": "agent",
+                        "description": f"File for agent {agent.name}",
+                        "download_count": agent.downloads or 0,
                     }
                 )
         else:
 
-            logging.debug(f"[DEBUG] get_game_files: Processing Game {game_id} files")
-            config_files = GameFileConfig.query.filter_by(game_id=game_id, is_active=True).all()
-            extra_files = GameExtraFile.query.filter_by(game_id=game_id, is_active=True).all()
+            logging.debug(f"[DEBUG] get_product_files: Processing Product {product_id} files")
+            config_files = ProductFileConfig.query.filter_by(product_id=product_id, is_active=True).all()
+            extra_files = ProductExtraFile.query.filter_by(product_id=product_id, is_active=True).all()
 
             logging.debug(
-                f"[DEBUG] Found {len(config_files)} config files and {len(extra_files)} extra files for game {game_id}"
+                f"[DEBUG] Found {len(config_files)} config files and {len(extra_files)} extra files for product {product_id}"
             )
             for extra in extra_files:
                 logging.debug(
                     f"[DEBUG] Extra file: id={extra.id}, name={extra.name}, is_active={extra.is_active}, status={extra.status}"
                 )
 
-            if game.logo:
+            if product.logo:
                 files_list.append(
                     {
-                        "id": f"game_logo_{game_id}",
-                        "name": f"{game.name} - Logo",
+                        "id": f"product_logo_{product_id}",
+                        "name": f"{product.name} - Logo",
                         "type": "image",
                         "size": 0,
-                        "path": game.logo,
+                        "path": product.logo,
                         "modified": (
-                            game.updated_at.isoformat()
-                            if game.updated_at
-                            else game.created_at.isoformat()
+                            product.updated_at.isoformat()
+                            if product.updated_at
+                            else product.created_at.isoformat()
                         ),
                         "status": "active",
-                        "gameId": game_id,
+                        "productId": product_id,
                         "category": "logo",
-                        "description": f"Logo for game {game.name}",
+                        "description": f"Logo for product {product.name}",
                         "download_count": 0,
                     }
                 )
 
-            if game.banner:
+            if product.banner:
                 files_list.append(
                     {
-                        "id": f"game_banner_{game_id}",
-                        "name": f"{game.name} - Banner",
+                        "id": f"product_banner_{product_id}",
+                        "name": f"{product.name} - Banner",
                         "type": "image",
                         "size": 0,
-                        "path": game.banner,
+                        "path": product.banner,
                         "modified": (
-                            game.updated_at.isoformat()
-                            if game.updated_at
-                            else game.created_at.isoformat()
+                            product.updated_at.isoformat()
+                            if product.updated_at
+                            else product.created_at.isoformat()
                         ),
                         "status": "active",
-                        "gameId": game_id,
+                        "productId": product_id,
                         "category": "banner",
-                        "description": f"Banner for game {game.name}",
+                        "description": f"Banner for product {product.name}",
                         "download_count": 0,
                     }
                 )
 
-            if game.loader_file:
+            if product.loader_file:
                 files_list.append(
                     {
-                        "id": f"game_loader_{game_id}",
-                        "name": f"{game.name} - Loader",
+                        "id": f"product_loader_{product_id}",
+                        "name": f"{product.name} - Agent",
                         "type": "file",
                         "size": 0,
-                        "path": game.loader_file,
+                        "path": product.loader_file,
                         "modified": (
-                            game.updated_at.isoformat()
-                            if game.updated_at
-                            else game.created_at.isoformat()
+                            product.updated_at.isoformat()
+                            if product.updated_at
+                            else product.created_at.isoformat()
                         ),
                         "status": "active",
-                        "gameId": game_id,
-                        "category": "loader",
-                        "description": f"Loader for game {game.name}",
+                        "productId": product_id,
+                        "category": "agent",
+                        "description": f"Agent for product {product.name}",
                         "download_count": 0,
                     }
                 )
@@ -1177,7 +1177,7 @@ def get_game_files():
                         "path": config.file_path,
                         "modified": config.uploaded_at.isoformat(),
                         "status": "active" if config.is_active else "inactive",
-                        "gameId": game_id,
+                        "productId": product_id,
                         "category": "config",
                         "description": config.description,
                         "version": config.version,
@@ -1203,7 +1203,7 @@ def get_game_files():
                         "path": extra.file_path,
                         "modified": extra.uploaded_at.isoformat(),
                         "status": extra.status,
-                        "gameId": game_id,
+                        "productId": product_id,
                         "category": "resource",
                         "description": extra.description,
                         "download_count": extra.download_count,
@@ -1215,28 +1215,28 @@ def get_game_files():
 
         files_list.sort(key=lambda x: x["modified"], reverse=True)
 
-        target_name = loader.name if is_loader else game.name
+        target_name = agent.name if is_loader else product.name
         logging.debug(
-            f"[DEBUG] get_game_files: Returning {len(files_list)} files for {target_type} {game_id} ({target_name})"
+            f"[DEBUG] get_product_files: Returning {len(files_list)} files for {target_type} {product_id} ({target_name})"
         )
 
         return jsonify(
             {
                 "files": files_list,
                 "total": len(files_list),
-                "target_type": "loader" if is_loader else "game",
+                "target_type": "agent" if is_loader else "product",
                 "target_name": target_name,
             }
         )
     except Exception as e:
-        logging.error(f"[ERROR] get_game_files: Exception: {str(e)}")
-        logging.error(f"[ERROR] get_game_files: Traceback: {traceback.format_exc()}")
-        return jsonify({"error": f"Failed to fetch game files: {str(e)}"}), 500
+        logging.error(f"[ERROR] get_product_files: Exception: {str(e)}")
+        logging.error(f"[ERROR] get_product_files: Traceback: {traceback.format_exc()}")
+        return jsonify({"error": f"Failed to fetch product files: {str(e)}"}), 500
 
-@files_bp.route("/game-files/<int:game_id>/download/<file_type>", methods=["GET"])
+@files_bp.route("/product-files/<int:product_id>/download/<file_type>", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
-def download_game_file(game_id, file_type):
+def download_product_file(product_id, file_type):
     user_id = get_jwt_identity()
     user = file_service.get_user_by_id(user_id)
 
@@ -1245,13 +1245,13 @@ def download_game_file(game_id, file_type):
         return jsonify({"error": error}), 404 if error == "User not found" else 403
 
     try:
-        from ..models.games import Game
+        from ..models.products import Product
 
-        game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
-        if not game or game.project_id != user.project_id:
-            return jsonify({"error": "Game not found"}), 404
+        product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+        if not product or product.project_id != user.project_id:
+            return jsonify({"error": "Product not found"}), 404
 
-        file_path, filename, error = file_service.get_game_file_path(game, file_type)
+        file_path, filename, error = file_service.get_product_file_path(product, file_type)
         if error:
             return jsonify({"error": error}), 404
 
@@ -1260,16 +1260,16 @@ def download_game_file(game_id, file_type):
     except Exception as e:
         return jsonify({"error": f"Failed to download file: {str(e)}"}), 500
 
-@files_bp.route("/game-files/<int:game_id>/<file_type>", methods=["DELETE"])
+@files_bp.route("/product-files/<int:product_id>/<file_type>", methods=["DELETE"])
 @jwt_required()
 @enforce_project_scope
-def delete_game_file(game_id, file_type):
+def delete_product_file(product_id, file_type):
     user_id = get_jwt_identity()
     user = file_service.get_user_by_id(user_id)
 
     from ..services.rbac import rbac_service
 
-    if not user or not rbac_service.check_permission(user.id, "games.edit"):
+    if not user or not rbac_service.check_permission(user.id, "products.edit"):
         return jsonify({"error": "Access denied"}), 403
 
     is_valid, error = file_service.validate_user_project(user)
@@ -1277,27 +1277,27 @@ def delete_game_file(game_id, file_type):
         return jsonify({"error": error}), 403
 
     try:
-        from ..models.games import Game
+        from ..models.products import Product
 
-        game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
-        if not game or game.project_id != user.project_id:
-            return jsonify({"error": "Game not found"}), 404
+        product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+        if not product or product.project_id != user.project_id:
+            return jsonify({"error": "Product not found"}), 404
 
-        success, error = file_service.delete_game_file(game, file_type)
+        success, error = file_service.delete_product_file(product, file_type)
         if not success:
             return jsonify({"error": error}), 404
 
         activity_service.log_activity(
             user,
-            "delete_game_file",
-            details=f"Deleted game {file_type} file for {game.name}",
+            "delete_product_file",
+            details=f"Deleted product {file_type} file for {product.name}",
             ip=request.remote_addr,
         )
 
-        return jsonify({"message": f"Game {file_type} file deleted successfully"})
+        return jsonify({"message": f"Product {file_type} file deleted successfully"})
 
     except Exception as e:
-        return jsonify({"error": f"Failed to delete game file: {str(e)}"}), 500
+        return jsonify({"error": f"Failed to delete product file: {str(e)}"}), 500
 
 @files_bp.route("/folders", methods=["POST"])
 @jwt_required()
@@ -1313,9 +1313,9 @@ def create_folder():
     data = request.get_json()
     folder_name = data.get("name")
     parent_path = data.get("parent_path", "/")
-    game_id = data.get("game_id")
+    product_id = data.get("product_id")
 
-    success, error, folder_data = file_service.create_folder(folder_name, parent_path, game_id)
+    success, error, folder_data = file_service.create_folder(folder_name, parent_path, product_id)
     if not success:
         return jsonify({"error": error}), 400
 
@@ -1348,7 +1348,7 @@ def delete_folder(folder_path):
 
     from ..services.rbac import rbac_service
 
-    if not user or not rbac_service.check_permission(user.id, "games.edit"):
+    if not user or not rbac_service.check_permission(user.id, "products.edit"):
         return jsonify({"error": "Access denied"}), 403
 
     success, error = file_service.delete_folder(folder_path)
@@ -1362,9 +1362,9 @@ def delete_folder(folder_path):
 
     return jsonify({"message": "Folder deleted successfully"})
 
-@files_bp.route("/game-files/config", methods=["POST"])
-def upload_game_config():
-    logging.debug(f"[DEBUG] Request: POST /api/files/game-files/config")
+@files_bp.route("/product-files/config", methods=["POST"])
+def upload_product_config():
+    logging.debug(f"[DEBUG] Request: POST /api/files/product-files/config")
     logging.debug(f"[DEBUG] Cookies: {list(request.cookies.keys()) if request.cookies else 'none'}")
 
     user_id = None
@@ -1412,26 +1412,26 @@ def upload_game_config():
         return jsonify({"error": "No file provided"}), 400
 
     file = request.files["file"]
-    game_name = request.form.get("game_name", "")
+    product_name = request.form.get("product_name", "")
     name = request.form.get("name", "")
     description = request.form.get("description", "")
     version = request.form.get("version", "1.0.0")
     is_public = request.form.get("is_public", "true").lower() == "true"
 
-    if not game_name:
-        return jsonify({"error": "Game name is required"}), 400
+    if not product_name:
+        return jsonify({"error": "Product name is required"}), 400
 
-    from ..models.games import Game
+    from ..models.products import Product
 
-    game = Game.query.filter_by(name=game_name, project_id=user.project_id).first()
-    if not game:
+    product = Product.query.filter_by(name=product_name, project_id=user.project_id).first()
+    if not product:
         logging.debug(
-            f"[DEBUG] Game with name '{game_name}' not found in project {user.project_id}"
+            f"[DEBUG] Product with name '{product_name}' not found in project {user.project_id}"
         )
-        return jsonify({"error": f'Game with name "{game_name}" not found'}), 404
+        return jsonify({"error": f'Product with name "{product_name}" not found'}), 404
     else:
-        logging.debug(f"[DEBUG] Found game: {game.name} (ID: {game.id})")
-        game_id = game.id
+        logging.debug(f"[DEBUG] Found product: {product.name} (ID: {product.id})")
+        product_id = product.id
 
     if file.filename == "":
         return jsonify({"error": "No file selected"}), 400
@@ -1445,23 +1445,23 @@ def upload_game_config():
         return jsonify({"error": message}), 400
 
     try:
-        config_data, error = file_service.upload_game_config(
-            user, file, game, name, description, version, is_public
+        config_data, error = file_service.upload_product_config(
+            user, file, product, name, description, version, is_public
         )
         if error:
             return jsonify({"error": error}), 400
 
         activity_service.log_activity(
             user,
-            "upload_game_config",
-            details=f"Uploaded game config: {config_data['name']} ({file_service.format_file_size(config_data['size'])}) for game {game_id}",
+            "upload_product_config",
+            details=f"Uploaded product config: {config_data['name']} ({file_service.format_file_size(config_data['size'])}) for product {product_id}",
             ip=request.remote_addr,
         )
 
         return (
             jsonify(
                 {
-                    "message": "Game config uploaded successfully",
+                    "message": "Product config uploaded successfully",
                     "config": config_data,
                 }
             ),
@@ -1469,13 +1469,13 @@ def upload_game_config():
         )
 
     except Exception as e:
-        return jsonify({"error": f"Failed to upload game config: {str(e)}"}), 500
+        return jsonify({"error": f"Failed to upload product config: {str(e)}"}), 500
 
-@files_bp.route("/game-files/extra", methods=["POST"])
+@files_bp.route("/product-files/extra", methods=["POST"])
 @jwt_required()
 @require_project_isolation
-def upload_game_extra_file():
-    logging.debug(f"[DEBUG] upload_game_extra_file called - endpoint: /api/files/game-files/extra")
+def upload_product_extra_file():
+    logging.debug(f"[DEBUG] upload_product_extra_file called - endpoint: /api/files/product-files/extra")
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -1490,38 +1490,38 @@ def upload_game_extra_file():
         return jsonify({"error": "No file provided"}), 400
 
     file = request.files["file"]
-    game_id = request.form.get("game_id", type=int)
+    product_id = request.form.get("product_id", type=int)
     name = request.form.get("name", "")
     description = request.form.get("description", "")
 
-    if not game_id:
-        return jsonify({"error": "Game ID is required"}), 400
+    if not product_id:
+        return jsonify({"error": "Product ID is required"}), 400
 
-    from ..models.games import Game
+    from ..models.products import Product
 
-    game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
-    if not game:
-        return jsonify({"error": "Game not found or access denied"}), 404
+    product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+    if not product:
+        return jsonify({"error": "Product not found or access denied"}), 404
 
     if file.filename == "":
         return jsonify({"error": "No file selected"}), 400
 
     try:
-        file_data, error = file_service.upload_game_extra_file(user, file, game, name, description)
+        file_data, error = file_service.upload_product_extra_file(user, file, product, name, description)
         if error:
             return jsonify({"error": error}), 400
 
         activity_service.log_activity(
             user,
-            "upload_game_extra_file",
-            details=f"Uploaded game extra file: {file_data['name']} ({file_service.format_file_size(file_data['size'])}) for game {game_id}",
+            "upload_product_extra_file",
+            details=f"Uploaded product extra file: {file_data['name']} ({file_service.format_file_size(file_data['size'])}) for product {product_id}",
             ip=request.remote_addr,
         )
 
         return (
             jsonify(
                 {
-                    "message": "Game extra file uploaded successfully",
+                    "message": "Product extra file uploaded successfully",
                     "file": file_data,
                 }
             ),
@@ -1529,92 +1529,92 @@ def upload_game_extra_file():
         )
 
     except Exception as e:
-        return jsonify({"error": f"Failed to upload game extra file: {str(e)}"}), 500
+        return jsonify({"error": f"Failed to upload product extra file: {str(e)}"}), 500
 
-@files_bp.route("/game-files/config/<int:config_id>", methods=["DELETE"])
+@files_bp.route("/product-files/config/<int:config_id>", methods=["DELETE"])
 @jwt_required()
 @require_project_isolation
-def delete_game_config(config_id):
+def delete_product_config(config_id):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
     from ..services.rbac import rbac_service
 
-    if not user or not rbac_service.check_permission(user.id, "games.edit"):
+    if not user or not rbac_service.check_permission(user.id, "products.edit"):
         return jsonify({"error": "Access denied"}), 403
 
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
     config = (
-        GameFileConfig.query.join(Game)
-        .filter(GameFileConfig.id == config_id, Game.project_id == user.project_id)
+        ProductFileConfig.query.join(Product)
+        .filter(ProductFileConfig.id == config_id, Product.project_id == user.project_id)
         .first()
     )
     if not config:
         return jsonify({"error": "Config not found"}), 404
 
     try:
-        success, error = file_service.delete_game_config(config, user)
+        success, error = file_service.delete_product_config(config, user)
         if not success:
             return jsonify({"error": error}), 500
 
         activity_service.log_activity(
             user,
-            "delete_game_config",
-            details=f"Deleted game config: {config.name}",
+            "delete_product_config",
+            details=f"Deleted product config: {config.name}",
             ip=request.remote_addr,
         )
 
-        return jsonify({"message": "Game config deleted successfully"})
+        return jsonify({"message": "Product config deleted successfully"})
 
     except Exception as e:
-        return jsonify({"error": f"Failed to delete game config: {str(e)}"}), 500
+        return jsonify({"error": f"Failed to delete product config: {str(e)}"}), 500
 
-@files_bp.route("/game-files/extra/<int:file_id>", methods=["DELETE"])
+@files_bp.route("/product-files/extra/<int:file_id>", methods=["DELETE"])
 @jwt_required()
 @require_project_isolation
-def delete_game_extra_file(file_id):
+def delete_product_extra_file(file_id):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
     from ..services.rbac import rbac_service
 
-    if not user or not rbac_service.check_permission(user.id, "games.edit"):
+    if not user or not rbac_service.check_permission(user.id, "products.edit"):
         return jsonify({"error": "Access denied"}), 403
 
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
     extra_file = (
-        GameExtraFile.query.join(Game)
-        .filter(GameExtraFile.id == file_id, Game.project_id == user.project_id)
+        ProductExtraFile.query.join(Product)
+        .filter(ProductExtraFile.id == file_id, Product.project_id == user.project_id)
         .first()
     )
     if not extra_file:
         return jsonify({"error": "File not found"}), 404
 
     try:
-        success, error = file_service.delete_game_extra_file(extra_file, user)
+        success, error = file_service.delete_product_extra_file(extra_file, user)
         if not success:
             return jsonify({"error": error}), 500
 
         activity_service.log_activity(
             user,
-            "delete_game_extra_file",
-            details=f"Deleted game extra file: {extra_file.name}",
+            "delete_product_extra_file",
+            details=f"Deleted product extra file: {extra_file.name}",
             ip=request.remote_addr,
         )
 
-        return jsonify({"message": "Game extra file deleted successfully"})
+        return jsonify({"message": "Product extra file deleted successfully"})
 
     except Exception as e:
-        return jsonify({"error": f"Failed to delete game extra file: {str(e)}"}), 500
+        return jsonify({"error": f"Failed to delete product extra file: {str(e)}"}), 500
 
-@files_bp.route("/stats/game/<int:game_id>", methods=["GET"])
+@files_bp.route("/stats/product/<int:product_id>", methods=["GET"])
 @jwt_required()
 @require_project_isolation
-def get_game_file_stats(game_id):
+def get_product_file_stats(product_id):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -1625,8 +1625,8 @@ def get_game_file_stats(game_id):
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    configs = GameFileConfig.query.filter_by(game_id=game_id).all()
-    extra_files = GameExtraFile.query.filter_by(game_id=game_id).all()
+    configs = ProductFileConfig.query.filter_by(product_id=product_id).all()
+    extra_files = ProductExtraFile.query.filter_by(product_id=product_id).all()
 
     total_configs = len(configs)
     total_extra_files = len(extra_files)

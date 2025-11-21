@@ -160,8 +160,8 @@ export const FILE_SIZES = {
 
 export const FILE_TYPES = {
   IMAGE: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
-  DOCUMENT: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
-  SPREADSHEET: ['application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
+  DOCUMENT: ['product/pdf', 'product/msword', 'product/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  SPREADSHEET: ['product/vnd.ms-excel', 'product/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
 } as const;
 
 export const COLORS = {
@@ -221,11 +221,11 @@ export const PERMISSION_CATEGORIES = {
     description: 'License key management permissions',
     permissions: ['keys.view', 'keys.create', 'keys.edit', 'keys.delete']
   },
-  GAMES: {
-    id: 'games',
-    name: 'Games',
-    description: 'Game management permissions',
-    permissions: ['games.view', 'games.create', 'games.edit', 'games.delete']
+  PRODUCTS: {
+    id: 'products',
+    name: 'Products',
+    description: 'Product management permissions',
+    permissions: ['products.view', 'products.create', 'products.edit', 'products.delete']
   },
   LOGS: {
     id: 'logs',

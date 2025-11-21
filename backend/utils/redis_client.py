@@ -3,7 +3,7 @@ Redis Client Utility
 Centralized Redis connection management to eliminate code duplication.
 
 This module provides a singleton Redis client instance that should be used
-throughout the application to avoid creating multiple connections and ensure
+throughout the product to avoid creating multiple connections and ensure
 consistent configuration.
 
 SECURITY: Supports separate Redis databases for different data types to reduce
@@ -14,7 +14,7 @@ RELIABILITY: Supports separate Redis instances for different data types:
 - Persistent instance: Used for sessions, queues, rate limiting, and other critical data
 
 The module now uses Flask extensions when available (preferred), falling back
-to a singleton instance when used outside Flask application context.
+to a singleton instance when used outside Flask product context.
 
 HIGH AVAILABILITY: 
 - Automatic health checking and reconnection
@@ -50,7 +50,7 @@ from typing import Any, Callable, Dict, Optional
 import redis
 from flask import current_app, has_app_context
 
-from ..config.config import Config
+from ..config.config import Config, IS_PRODUCTION
 
 logger = logging.getLogger(__name__)
 
@@ -131,8 +131,54 @@ class RedisClient:
             "max_connections": 20,
         }
 
+        # SECURITY: Add password authentication
         if password:
             redis_config["password"] = password
+        else:
+            # SECURITY: Warn if password is not set (especially for persistent instance)
+            if instance_type == "persistent":
+                logger.warning(
+                    "[REDIS_SECURITY] Redis persistent instance has no password configured. "
+                    "This is a security risk in production. Set REDIS_PERSISTENT_PASSWORD environment variable."
+                )
+
+        # SECURITY: Add TLS/SSL support for encrypted connections
+        # This is critical for production environments where Redis may be accessed over network
+        if instance_type == "cache":
+            ssl_enabled = Config.REDIS_CACHE_SSL
+            ssl_cert_reqs = Config.REDIS_CACHE_SSL_CERT_REQS
+            ssl_ca_certs = Config.REDIS_CACHE_SSL_CA_CERTS
+        else:  # persistent
+            ssl_enabled = Config.REDIS_PERSISTENT_SSL
+            ssl_cert_reqs = Config.REDIS_PERSISTENT_SSL_CERT_REQS
+            ssl_ca_certs = Config.REDIS_PERSISTENT_SSL_CA_CERTS
+        
+        if ssl_enabled:
+            # Convert cert_reqs string to ssl constant
+            import ssl
+            cert_reqs_map = {
+                "none": ssl.CERT_NONE,
+                "optional": ssl.CERT_OPTIONAL,
+                "required": ssl.CERT_REQUIRED,
+            }
+            cert_reqs = cert_reqs_map.get(ssl_cert_reqs.lower(), ssl.CERT_REQUIRED)
+            
+            redis_config["ssl"] = True
+            redis_config["ssl_cert_reqs"] = cert_reqs
+            if ssl_ca_certs:
+                redis_config["ssl_ca_certs"] = ssl_ca_certs
+            
+            logger.info(
+                f"[REDIS_SECURITY] TLS enabled for Redis {instance_type} instance "
+                f"(cert_reqs={ssl_cert_reqs})"
+            )
+        elif instance_type == "persistent" and IS_PRODUCTION:
+            # SECURITY: Warn in production if TLS is not enabled for persistent instance
+            logger.warning(
+                "[REDIS_SECURITY] Redis persistent instance TLS is not enabled in production. "
+                "This is a security risk. Set REDIS_PERSISTENT_SSL=true to enable encrypted connections. "
+                "Redis contains sensitive data (sessions, tokens, encrypted configs)."
+            )
 
         client = redis.Redis(**redis_config)
 

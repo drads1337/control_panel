@@ -26,7 +26,7 @@ from flask_cors import cross_origin
 from ..config.config import Config
 from ..core.extensions import db
 from ..models.core import Project, User
-from ..models.games import Game
+from ..models.products import Product
 from ..models.keys import DeviceInfo, Key, KeyAnalytics
 from ..models.security import BlockedFingerprint
 from ..middleware import require_mtls
@@ -60,19 +60,9 @@ TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
 PLAY_INTEGRITY_API_KEY = os.environ.get("PLAY_INTEGRITY_API_KEY")
 
-def encrypt_data(data: dict) -> str:
-    try:
-        raw = json.dumps(data)
-        return MasterKeyManager.encrypt_with_master_key(raw, Config.MASTER_KEY)
-    except Exception as e:
-        raise ValueError(f"Encryption error: {str(e)}")
-
-def decrypt_data(enc: str) -> dict:
-    try:
-        decrypted_raw = MasterKeyManager.decrypt_with_master_key(enc, Config.MASTER_KEY)
-        return json.loads(decrypted_raw)
-    except Exception as e:
-        raise ValueError(f"Decryption error: {str(e)}")
+# SECURITY: Removed encrypt_data() and decrypt_data() functions that used global MASTER_KEY
+# All client data must be encrypted/decrypted with project-specific keys only
+# Use encrypt_data_with_project_key() and decrypt_data_with_project_key() instead
 
 def rate_limited(func):
     """Rate limiting decorator that supports both sync and async functions"""
@@ -159,53 +149,47 @@ def api_heartbeat():
             logging.warning(f"HEARTBEAT_NO_BLOB ip={ip} user_agent={user_agent}")
             return jsonify({"error": "Missing encrypted data"}), 400
 
+        # SECURITY: Require project_id for decryption - no fallback to global MASTER_KEY
+        project_id_param = req_json.get("project_id")
+        if not project_id_param:
+            logging.warning(f"HEARTBEAT_NO_PROJECT_ID ip={ip} user_agent={user_agent}")
+            return jsonify({"error": "project_id is required for decryption"}), 400
+
         try:
-            data = None
-            used_global_key = False
-            project_id = None
+            project_id = int(project_id_param)
+        except (ValueError, TypeError):
+            logging.warning(f"HEARTBEAT_INVALID_PROJECT_ID ip={ip} project_id={project_id_param}")
+            return jsonify({"error": "Invalid project_id format"}), 400
 
-            def decrypt_heartbeat_data():
-                nonlocal data, used_global_key, project_id
-                try:
-                    import base64
+        # Decrypt request data using project-specific key only
+        data = None
 
-                    decoded = base64.b64decode(enc_data).decode("utf-8")
-                    data = json.loads(decoded)
-                    logging.debug(f"[DEBUG] Successfully decoded base64 heartbeat data")
-                    return
-                except (base64.binascii.Error, UnicodeDecodeError, json.JSONDecodeError):
-                    logging.debug(f"[DEBUG] Not base64, trying decryption...")
+        # Try base64 decode first (for backward compatibility with unencrypted data)
+        try:
+            import base64
+            decoded = base64.b64decode(enc_data).decode("utf-8")
+            data = json.loads(decoded)
+            logging.debug(f"[DEBUG] Successfully decoded base64 heartbeat data")
+        except (base64.binascii.Error, UnicodeDecodeError, json.JSONDecodeError):
+            logging.debug(f"[DEBUG] Not base64, trying decryption with project key...")
 
-                    try:
-                        data = decrypt_data(enc_data)
-                        used_global_key = True
-                        logging.debug(
-                            f"[DEBUG] Successfully decrypted heartbeat with global master key"
-                        )
-                        return
-                    except Exception as global_error:
-                        logging.debug(f"[DEBUG] Global master key failed: {str(global_error)[:100]}...")
-
-                        project_id_param = req_json.get("project_id")
-                        if project_id_param:
-                            try:
-                                from ..utils.secure_crypto import decrypt_data_with_project_key
-                                data = decrypt_data_with_project_key(enc_data, int(project_id_param))
-                                project_id = int(project_id_param)
-                                logging.debug(
-                                    f"[DEBUG] Successfully decrypted heartbeat with project {project_id} master key"
-                                )
-                                return
-                            except Exception as project_error:
-                                logging.debug(
-                                    f"[DEBUG] Project {project_id_param} master key failed: {str(project_error)[:50]}..."
-                                )
-                                raise global_error
-                        else:
-                            raise global_error
-
-            # Run decryption
-            decrypt_heartbeat_data()
+        # Decrypt with project-specific key only (no fallback to global MASTER_KEY)
+        if data is None:
+            try:
+                from ..utils.secure_crypto import decrypt_data_with_project_key
+                data = decrypt_data_with_project_key(enc_data, project_id)
+                logging.debug(
+                    f"[DEBUG] Successfully decrypted heartbeat with project {project_id} key"
+                )
+            except Exception as decrypt_error:
+                logging.warning(
+                    f"HEARTBEAT_DECRYPT_FAILED ip={ip} project_id={project_id} "
+                    f"error={type(decrypt_error).__name__}: {str(decrypt_error)[:100]}"
+                )
+                return jsonify({
+                    "error": "Failed to decrypt request data",
+                    "message": "Please ensure you are using the correct project encryption key"
+                }), 400
 
             session_id = data.get("session_id")
             heartbeat_data = data.get("heartbeat_data", {})
@@ -236,41 +220,23 @@ def api_heartbeat():
                 "timestamp": int(time.time()),
             }
 
-            def encrypt_response():
-                if used_global_key:
-                    encrypted_blob = encrypt_data(resp)
-                    logging.debug(f"[DEBUG] Encrypted heartbeat response with global master key")
-                    return encrypted_blob
-                elif project_id:
-                    try:
-                        encrypted_blob = encrypt_data_with_project_key(resp, project_id)
-                        logging.debug(
-                            f"[DEBUG] Encrypted heartbeat response with project {project_id} master key"
-                        )
-                        return encrypted_blob
-                    except Exception as e:
-                        logging.debug(
-                            f"Failed to encrypt heartbeat response with project key, falling back to global: {e}"
-                        )
-                        return encrypt_data(resp)
-                else:
-                    encrypted_blob = encrypt_data(resp)
-                    logging.debug(
-                        f"[DEBUG] Encrypted heartbeat response with global master key (fallback)"
-                    )
-                    return encrypted_blob
+            # SECURITY: Encrypt response with project-specific key only (no fallback to global MASTER_KEY)
+            try:
+                encrypted_blob = encrypt_data_with_project_key(resp, project_id)
+                logging.debug(
+                    f"[DEBUG] Encrypted heartbeat response with project {project_id} key"
+                )
+            except Exception as encrypt_error:
+                logging.error(
+                    f"HEARTBEAT_ENCRYPT_FAILED ip={ip} project_id={project_id} "
+                    f"error={type(encrypt_error).__name__}: {str(encrypt_error)}"
+                )
+                return jsonify({
+                    "error": "Failed to encrypt response",
+                    "message": "Please ensure project encryption key is configured"
+                }), 500
 
-            # Run encryption
-            encrypted_blob = encrypt_response()
             return encrypted_blob
-
-        except Exception as e:
-            import traceback
-
-            logging.error(
-                f"Exception in heartbeat decrypt_data: {str(e)}\n{traceback.format_exc()} ip={ip} user_agent={user_agent}"
-            )
-            return jsonify({"error": "Internal server error"}), 500
 
     except Exception as e:
         import traceback
@@ -304,53 +270,47 @@ def api_heartbeat_status():
             logging.warning(f"HEARTBEAT_STATUS_NO_BLOB ip={ip} user_agent={user_agent}")
             return jsonify({"error": "Missing encrypted data"}), 400
 
+        # SECURITY: Require project_id for decryption - no fallback to global MASTER_KEY
+        project_id_param = req_json.get("project_id")
+        if not project_id_param:
+            logging.warning(f"HEARTBEAT_STATUS_NO_PROJECT_ID ip={ip} user_agent={user_agent}")
+            return jsonify({"error": "project_id is required for decryption"}), 400
+
         try:
-            data = None
-            used_global_key = False
-            project_id = None
+            project_id = int(project_id_param)
+        except (ValueError, TypeError):
+            logging.warning(f"HEARTBEAT_STATUS_INVALID_PROJECT_ID ip={ip} project_id={project_id_param}")
+            return jsonify({"error": "Invalid project_id format"}), 400
 
-            def decrypt_heartbeat_status_data():
-                nonlocal data, used_global_key, project_id
-                try:
-                    import base64
+        # Decrypt request data using project-specific key only
+        data = None
 
-                    decoded = base64.b64decode(enc_data).decode("utf-8")
-                    data = json.loads(decoded)
-                    logging.debug(f"[DEBUG] Successfully decoded base64 heartbeat status data")
-                    return
-                except (base64.binascii.Error, UnicodeDecodeError, json.JSONDecodeError):
-                    logging.debug(f"[DEBUG] Not base64, trying decryption...")
+        # Try base64 decode first (for backward compatibility with unencrypted data)
+        try:
+            import base64
+            decoded = base64.b64decode(enc_data).decode("utf-8")
+            data = json.loads(decoded)
+            logging.debug(f"[DEBUG] Successfully decoded base64 heartbeat status data")
+        except (base64.binascii.Error, UnicodeDecodeError, json.JSONDecodeError):
+            logging.debug(f"[DEBUG] Not base64, trying decryption with project key...")
 
-                    try:
-                        data = decrypt_data(enc_data)
-                        used_global_key = True
-                        logging.debug(
-                            f"[DEBUG] Successfully decrypted heartbeat status with global master key"
-                        )
-                        return
-                    except Exception as global_error:
-                        logging.debug(f"[DEBUG] Global master key failed: {str(global_error)[:100]}...")
-
-                        project_id_param = req_json.get("project_id")
-                        if project_id_param:
-                            try:
-                                from ..utils.secure_crypto import decrypt_data_with_project_key
-                                data = decrypt_data_with_project_key(enc_data, int(project_id_param))
-                                project_id = int(project_id_param)
-                                logging.debug(
-                                    f"[DEBUG] Successfully decrypted heartbeat status with project {project_id} master key"
-                                )
-                                return
-                            except Exception as project_error:
-                                logging.debug(
-                                    f"[DEBUG] Project {project_id_param} master key failed: {str(project_error)[:50]}..."
-                                )
-                                raise global_error
-                        else:
-                            raise global_error
-
-            # Run decryption
-            decrypt_heartbeat_status_data()
+        # Decrypt with project-specific key only (no fallback to global MASTER_KEY)
+        if data is None:
+            try:
+                from ..utils.secure_crypto import decrypt_data_with_project_key
+                data = decrypt_data_with_project_key(enc_data, project_id)
+                logging.debug(
+                    f"[DEBUG] Successfully decrypted heartbeat status with project {project_id} key"
+                )
+            except Exception as decrypt_error:
+                logging.warning(
+                    f"HEARTBEAT_STATUS_DECRYPT_FAILED ip={ip} project_id={project_id} "
+                    f"error={type(decrypt_error).__name__}: {str(decrypt_error)[:100]}"
+                )
+                return jsonify({
+                    "error": "Failed to decrypt request data",
+                    "message": "Please ensure you are using the correct project encryption key"
+                }), 400
 
             session_id = data.get("session_id")
 
@@ -375,41 +335,23 @@ def api_heartbeat_status():
                 "timestamp": int(time.time()),
             }
 
-            def encrypt_status_response():
-                if used_global_key:
-                    encrypted_blob = encrypt_data(resp)
-                    logging.debug(f"[DEBUG] Encrypted heartbeat status response with global master key")
-                    return encrypted_blob
-                elif project_id:
-                    try:
-                        encrypted_blob = encrypt_data_with_project_key(resp, project_id)
-                        logging.debug(
-                            f"[DEBUG] Encrypted heartbeat status response with project {project_id} master key"
-                        )
-                        return encrypted_blob
-                    except Exception as e:
-                        logging.debug(
-                            f"Failed to encrypt heartbeat status response with project key, falling back to global: {e}"
-                        )
-                        return encrypt_data(resp)
-                else:
-                    encrypted_blob = encrypt_data(resp)
-                    logging.debug(
-                        f"[DEBUG] Encrypted heartbeat status response with global master key (fallback)"
-                    )
-                    return encrypted_blob
+            # SECURITY: Encrypt response with project-specific key only (no fallback to global MASTER_KEY)
+            try:
+                encrypted_blob = encrypt_data_with_project_key(resp, project_id)
+                logging.debug(
+                    f"[DEBUG] Encrypted heartbeat status response with project {project_id} key"
+                )
+            except Exception as encrypt_error:
+                logging.error(
+                    f"HEARTBEAT_STATUS_ENCRYPT_FAILED ip={ip} project_id={project_id} "
+                    f"error={type(encrypt_error).__name__}: {str(encrypt_error)}"
+                )
+                return jsonify({
+                    "error": "Failed to encrypt response",
+                    "message": "Please ensure project encryption key is configured"
+                }), 500
 
-            # Run encryption
-            encrypted_blob = encrypt_status_response()
             return encrypted_blob
-
-        except Exception as e:
-            import traceback
-
-            logging.error(
-                f"Exception in heartbeat status decrypt_data: {str(e)}\n{traceback.format_exc()} ip={ip} user_agent={user_agent}"
-            )
-            return jsonify({"error": "Internal server error"}), 500
 
     except Exception as e:
         import traceback

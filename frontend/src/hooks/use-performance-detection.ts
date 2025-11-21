@@ -10,6 +10,11 @@ interface PerformanceInfo {
   }
 }
 
+/**
+ * Упрощенный хук для определения производительности устройства.
+ * Использует только Navigator API, без создания Canvas/WebGL контекста.
+ * Подходит для базовой оптимизации UI компонентов.
+ */
 export function usePerformanceDetection(): PerformanceInfo {
   const [performanceInfo, setPerformanceInfo] = useState<PerformanceInfo>({
     isLowEndDevice: false,
@@ -23,43 +28,27 @@ export function usePerformanceDetection(): PerformanceInfo {
 
   useEffect(() => {
     const detectPerformance = () => {
-
-      const canvas = document.createElement('canvas')
-      const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl')
-
-      if (!gl) {
-
-        setPerformanceInfo({
-          isLowEndDevice: true,
-          recommendedSettings: {
-            lowPowerMode: true,
-            maxFPS: 30,
-            adaptiveQuality: true,
-            reducedEffects: true
-          }
-        })
-        return
-      }
-
-      const debugInfo = (gl as WebGLRenderingContext).getExtension('WEBGL_debug_renderer_info')
-      const renderer = debugInfo ? (gl as WebGLRenderingContext).getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : 'Unknown'
-
-      const isIntegratedGraphics = renderer.toLowerCase().includes('intel') || 
-                                  renderer.toLowerCase().includes('amd') ||
-                                  renderer.toLowerCase().includes('mali') ||
-                                  renderer.toLowerCase().includes('adreno')
-
-      const deviceMemory = (navigator as any).deviceMemory || 4
-
+      // Определяем мобильное устройство через User Agent
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      
+      // Определяем количество ядер CPU (fallback на 4 если недоступно)
       const cores = navigator.hardwareConcurrency || 4
 
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      // Определяем количество памяти устройства (fallback на 4 GB если недоступно)
+      // deviceMemory доступен только в Chrome/Edge
+      const deviceMemory = (navigator as { deviceMemory?: number }).deviceMemory || 4
 
+      // Определяем наличие touch-экрана (косвенный признак мобильного устройства)
+      const hasTouchScreen = 'ontouchstart' in window || navigator.maxTouchPoints > 0
+
+      // Определяем низкопроизводительное устройство на основе:
+      // - Мобильное устройство
+      // - Мало памяти (< 4 GB)
+      // - Мало ядер (< 4)
       const isLowEnd = isMobile || 
-                      isIntegratedGraphics || 
                       deviceMemory < 4 || 
                       cores < 4 ||
-                      renderer.toLowerCase().includes('software')
+                      hasTouchScreen // Считаем touch-устройства потенциально менее производительными
 
       setPerformanceInfo({
         isLowEndDevice: isLowEnd,

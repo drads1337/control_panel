@@ -30,7 +30,7 @@ class HeartbeatService:
         self.redis_client = get_redis_client()
 
     def create_session(
-        self, user_key: str, fingerprint: str, game: str, serial: str, ip_address: str
+        self, user_key: str, fingerprint: str, product: str, serial: str, ip_address: str
     ) -> Dict:
         """Create a new heartbeat session"""
         session_id = self._generate_session_id(user_key, fingerprint, serial)
@@ -40,7 +40,7 @@ class HeartbeatService:
             "session_id": session_id,
             "user_key": user_key,
             "fingerprint": fingerprint,
-            "game": game,
+            "product": product,
             "serial": serial,
             "ip_address": ip_address,
             "created_at": current_time,

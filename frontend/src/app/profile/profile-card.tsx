@@ -70,7 +70,7 @@ export function ProfileCard({
               const clonedResponse = response.clone()
               const contentType = clonedResponse.headers.get('content-type')
               
-              if (contentType && contentType.includes('application/json')) {
+              if (contentType && contentType.includes('product/json')) {
                 errorBody = await clonedResponse.json()
                 errorMessage = errorBody.error || errorBody.message || errorMessage
               } else {

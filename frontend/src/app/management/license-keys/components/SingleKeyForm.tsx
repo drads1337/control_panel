@@ -7,92 +7,92 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
-import { Plus, X, Gamepad2, Container } from 'lucide-react';
+import { Plus, X, Database, Container } from 'lucide-react';
 import { useKeyForm } from '../hooks/use-key-form';
 import { durationOptions, parseDuration } from '../hooks/use-duration';
 
 interface SingleKeyFormProps {
-  games: Array<{ id: number; name: string; is_multi_app: boolean }>;
-  loaders: Array<{ id: number; name: string; assigned_games: number[] }>;
-  loadersLoading: boolean;
+  products: Array<{ id: number; name: string; is_multi_app: boolean }>;
+  agents: Array<{ id: number; name: string; assigned_products: number[] }>;
+  agentsLoading: boolean;
   onSubmit: (data: {
-    targetType: 'game' | 'loader';
-    gameId?: number;
-    loaderId?: number;
-    selectedGames?: number[];
+    targetType: 'product' | 'agent';
+    productId?: number;
+    agentId?: number;
+    selectedProducts?: number[];
     duration_hours: number;
     max_devices: number;
   }) => Promise<void>;
   loading: boolean;
-  canViewGames: boolean;
-  canViewLoaders: boolean;
+  canViewProducts: boolean;
+  canViewAgents: boolean;
 }
 
 export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
-  games,
-  loaders,
-  loadersLoading,
+  products,
+  agents,
+  agentsLoading,
   onSubmit,
   loading,
-  canViewGames,
-  canViewLoaders,
+  canViewProducts,
+  canViewAgents,
 }) => {
-  const showTargetTypeToggle = canViewGames && canViewLoaders;
+  const showTargetTypeToggle = canViewProducts && canViewAgents;
 
   const getInitialTargetType = () => {
-    if (canViewGames && !canViewLoaders) return 'game';
-    if (canViewLoaders && !canViewGames) return 'loader';
-    return 'game';
+    if (canViewProducts && !canViewAgents) return 'product';
+    if (canViewAgents && !canViewProducts) return 'agent';
+    return 'product';
   };
 
   const {
     formData,
     updateField,
-    getGameLibraryGames,
-    getAssignedGamesForLoader,
+    getProductLibraryProducts,
+    getAssignedProductsForAgent,
     reset,
   } = useKeyForm({
-    games,
-    loaders,
+    products,
+    agents,
     initialTargetType: getInitialTargetType(),
   });
 
   useEffect(() => {
     if (!showTargetTypeToggle) {
-      if (canViewGames && !canViewLoaders && formData.targetType !== 'game') {
-        updateField('targetType', 'game');
-      } else if (canViewLoaders && !canViewGames && formData.targetType !== 'loader') {
-        updateField('targetType', 'loader');
+      if (canViewProducts && !canViewAgents && formData.targetType !== 'product') {
+        updateField('targetType', 'product');
+      } else if (canViewAgents && !canViewProducts && formData.targetType !== 'agent') {
+        updateField('targetType', 'agent');
       }
     }
-  }, [showTargetTypeToggle, canViewGames, canViewLoaders, formData.targetType, updateField]);
+  }, [showTargetTypeToggle, canViewProducts, canViewAgents, formData.targetType, updateField]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const duration_hours = parseDuration(formData.duration, formData.customHours);
 
-    if (formData.targetType === 'loader') {
-      if (!formData.loaderId || formData.selectedGames.length === 0) {
-        throw new Error('Please select a loader and at least one game');
+    if (formData.targetType === 'agent') {
+      if (!formData.agentId || formData.selectedProducts.length === 0) {
+        throw new Error('Please select a agent and at least one product');
       }
 
-      const promises = formData.selectedGames.map(gameId =>
+      const promises = formData.selectedProducts.map(productId =>
         onSubmit({
-          targetType: 'loader',
-          loaderId: parseInt(formData.loaderId),
-          selectedGames: formData.selectedGames,
+          targetType: 'agent',
+          agentId: parseInt(formData.agentId),
+          selectedProducts: formData.selectedProducts,
           duration_hours,
           max_devices: formData.maxDevices,
         })
       );
       await Promise.all(promises);
     } else {
-      if (!formData.gameId) {
-        throw new Error('Please select a game');
+      if (!formData.productId) {
+        throw new Error('Please select a product');
       }
       await onSubmit({
-        targetType: 'game',
-        gameId: parseInt(formData.gameId),
+        targetType: 'product',
+        productId: parseInt(formData.productId),
         duration_hours,
         max_devices: formData.maxDevices,
       });
@@ -108,7 +108,7 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
             <div>
               <CardTitle className="text-base">Create License Key</CardTitle>
               <CardDescription className="mt-1 text-xs">
-                Create a new license key for a game or loader.
+                Create a new license key for a product or agent.
               </CardDescription>
             </div>
           </div>
@@ -121,55 +121,55 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
                 <ToggleGroup
                   type="single"
                   value={formData.targetType}
-                  onValueChange={(value) => value && updateField('targetType', value as 'game' | 'loader')}
+                  onValueChange={(value) => value && updateField('targetType', value as 'product' | 'agent')}
                   className="grid grid-cols-2 w-full"
                 >
                   <ToggleGroupItem 
-                    value="game" 
+                    value="product" 
                     className="flex items-center justify-center gap-2 h-10 text-sm font-medium border border-border bg-background text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary hover:bg-muted hover:border-muted-foreground/20 transition-colors"
                   >
-                    <Gamepad2 className="h-4 w-4" />
-                    Game
+                    <Database className="h-4 w-4" />
+                    Product
                   </ToggleGroupItem>
                   <ToggleGroupItem 
-                    value="loader" 
+                    value="agent" 
                     className="flex items-center justify-center gap-2 h-10 text-sm font-medium border border-border bg-background text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary hover:bg-muted hover:border-muted-foreground/20 transition-colors"
                   >
                     <Container className="h-4 w-4" />
-                    Loader
+                    Agent
                   </ToggleGroupItem>
                 </ToggleGroup>
               </div>
             )}
 
-            {canViewGames && (formData.targetType === 'game' || !canViewLoaders) && (
+            {canViewProducts && (formData.targetType === 'product' || !canViewAgents) && (
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-foreground">Game</Label>
-                {getGameLibraryGames().length === 0 ? (
+                <Label className="text-sm font-medium text-foreground">Product</Label>
+                {getProductLibraryProducts().length === 0 ? (
                   <div className="p-4 border border-dashed border-muted-foreground/25 rounded-md bg-muted/20">
                     <div className="text-center">
-                      <Gamepad2 className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                      <Database className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                       <p className="text-sm text-muted-foreground">
-                        {games.length === 0 
-                          ? "No games available. Create an application first." 
-                          : "You only have access to multi-app games. Use Loader target type."}
+                        {products.length === 0 
+                          ? "No products available. Create an product first." 
+                          : "You only have access to multi-app products. Use Agent target type."}
                       </p>
                     </div>
                   </div>
                 ) : (
                   <div className="flex gap-2 items-center">
                     <Select
-                      value={formData.gameId}
-                      onValueChange={(value) => updateField('gameId', value)}
+                      value={formData.productId}
+                      onValueChange={(value) => updateField('productId', value)}
                       disabled={loading}
                     >
                       <SelectTrigger className="flex-1">
-                        <SelectValue placeholder="Select a game" />
+                        <SelectValue placeholder="Select a product" />
                       </SelectTrigger>
                       <SelectContent>
-                        {getGameLibraryGames().map((game) => (
-                          <SelectItem key={game.id} value={game.id.toString()}>
-                            {game.name}
+                        {getProductLibraryProducts().map((product) => (
+                          <SelectItem key={product.id} value={product.id.toString()}>
+                            {product.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -178,7 +178,7 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
                       type="button"
                       variant="outline"
                       size="icon"
-                      onClick={() => updateField('gameId', '')}
+                      onClick={() => updateField('productId', '')}
                       disabled={loading}
                       className="h-10 w-10"
                     >
@@ -189,34 +189,34 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
               </div>
             )}
 
-            {canViewLoaders && (formData.targetType === 'loader' || !canViewGames) && (
+            {canViewAgents && (formData.targetType === 'agent' || !canViewProducts) && (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-foreground">Loader</Label>
-                  {loaders.length === 0 ? (
+                  <Label className="text-sm font-medium text-foreground">Agent</Label>
+                  {agents.length === 0 ? (
                     <div className="p-4 border border-dashed border-muted-foreground/25 rounded-md bg-muted/20">
                       <div className="text-center">
                         <Container className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                        <p className="text-sm text-muted-foreground">No loaders available. Create a loader first.</p>
+                        <p className="text-sm text-muted-foreground">No agents available. Create a agent first.</p>
                       </div>
                     </div>
                   ) : (
                     <div className="flex gap-2 items-center">
                       <Select
-                        value={formData.loaderId}
+                        value={formData.agentId}
                         onValueChange={(value) => {
-                          updateField('loaderId', value);
-                          updateField('selectedGames', []);
+                          updateField('agentId', value);
+                          updateField('selectedProducts', []);
                         }}
-                        disabled={loading || loadersLoading}
+                        disabled={loading || agentsLoading}
                       >
                         <SelectTrigger className="flex-1">
-                          <SelectValue placeholder={loadersLoading ? "Loading loaders..." : "Select a loader"} />
+                          <SelectValue placeholder={agentsLoading ? "Loading agents..." : "Select a agent"} />
                         </SelectTrigger>
                         <SelectContent>
-                          {loaders.map((loader) => (
-                            <SelectItem key={loader.id} value={loader.id.toString()}>
-                              {loader.name}
+                          {agents.map((agent) => (
+                            <SelectItem key={agent.id} value={agent.id.toString()}>
+                              {agent.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -226,8 +226,8 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
                         variant="outline"
                         size="icon"
                         onClick={() => {
-                          updateField('loaderId', '');
-                          updateField('selectedGames', []);
+                          updateField('agentId', '');
+                          updateField('selectedProducts', []);
                         }}
                         disabled={loading}
                         className="h-10 w-10"
@@ -237,48 +237,48 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
                     </div>
                   )}
 
-                  {formData.loaderId && (
+                  {formData.agentId && (
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-foreground">Select Games</Label>
-                      {getAssignedGamesForLoader(parseInt(formData.loaderId)).length === 0 ? (
+                      <Label className="text-sm font-medium text-foreground">Select Products</Label>
+                      {getAssignedProductsForAgent(parseInt(formData.agentId)).length === 0 ? (
                         <div className="p-4 border border-dashed border-muted-foreground/25 rounded-md bg-muted/20">
                           <div className="text-center">
-                            <Gamepad2 className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                            <p className="text-sm text-muted-foreground">Create the application</p>
+                            <Database className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                            <p className="text-sm text-muted-foreground">Create the product</p>
                           </div>
                         </div>
                       ) : (
                         <div className="space-y-2">
                           <div className="flex items-center space-x-2">
                             <Checkbox
-                              id="select-all-games"
-                              checked={formData.selectedGames.length === getAssignedGamesForLoader(parseInt(formData.loaderId)).length && getAssignedGamesForLoader(parseInt(formData.loaderId)).length > 0}
+                              id="select-all-products"
+                              checked={formData.selectedProducts.length === getAssignedProductsForAgent(parseInt(formData.agentId)).length && getAssignedProductsForAgent(parseInt(formData.agentId)).length > 0}
                               onCheckedChange={(checked) => {
                                 if (checked) {
-                                  const allGameIds = getAssignedGamesForLoader(parseInt(formData.loaderId)).map(game => game.id);
-                                  updateField('selectedGames', allGameIds);
+                                  const allProductIds = getAssignedProductsForAgent(parseInt(formData.agentId)).map(product => product.id);
+                                  updateField('selectedProducts', allProductIds);
                                 } else {
-                                  updateField('selectedGames', []);
+                                  updateField('selectedProducts', []);
                                 }
                               }}
                             />
-                            <Label htmlFor="select-all-games" className="text-sm font-medium">All Games</Label>
+                            <Label htmlFor="select-all-products" className="text-sm font-medium">All Products</Label>
                           </div>
                           <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
-                            {getAssignedGamesForLoader(parseInt(formData.loaderId)).map(game => (
-                              <div key={game.id} className="flex items-center space-x-2">
+                            {getAssignedProductsForAgent(parseInt(formData.agentId)).map(product => (
+                              <div key={product.id} className="flex items-center space-x-2">
                                 <Checkbox
-                                  id={`game-${game.id}`}
-                                  checked={formData.selectedGames.includes(game.id)}
+                                  id={`product-${product.id}`}
+                                  checked={formData.selectedProducts.includes(product.id)}
                                   onCheckedChange={(checked) => {
                                     if (checked) {
-                                      updateField('selectedGames', [...formData.selectedGames, game.id]);
+                                      updateField('selectedProducts', [...formData.selectedProducts, product.id]);
                                     } else {
-                                      updateField('selectedGames', formData.selectedGames.filter(id => id !== game.id));
+                                      updateField('selectedProducts', formData.selectedProducts.filter(id => id !== product.id));
                                     }
                                   }}
                                 />
-                                <Label htmlFor={`game-${game.id}`} className="text-sm font-normal">{game.name}</Label>
+                                <Label htmlFor={`product-${product.id}`} className="text-sm font-normal">{product.name}</Label>
                               </div>
                             ))}
                           </div>
@@ -345,7 +345,7 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
             <div className="flex justify-end pt-4">
               <Button
                 type="submit"
-                disabled={loading || (formData.targetType === 'game' ? !formData.gameId : !formData.loaderId || formData.selectedGames.length === 0)}
+                disabled={loading || (formData.targetType === 'product' ? !formData.productId : !formData.agentId || formData.selectedProducts.length === 0)}
                 className="flex items-center gap-2"
               >
                 <Plus className="h-4 w-4" />

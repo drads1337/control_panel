@@ -6,10 +6,10 @@ import { ConditionalRender } from '@/components/rbac/conditional-render'
 import { useManagementData } from '@/hooks/use-management-data'
 import { useManagementStore } from '@/stores/management-store'
 
-const LicenseKeysMain = React.lazy(() => import('./license-keys').then(module => ({ default: module.LicenseKeysMain })))
-const GameDatabase = React.lazy(() => import('./games').then(module => ({ default: module.GameDatabase })))
-const FileManager = React.lazy(() => import('./files').then(module => ({ default: module.FileManager })))
-const LoaderManager = React.lazy(() => import('./loaders').then(module => ({ default: module.LoaderManager })))
+const LicenseKeysMain = React.lazy(() => import('./license-keys/LicenseKeysMain'))
+const ProductDatabase = React.lazy(() => import('./products/ProductDatabase'))
+const FileManager = React.lazy(() => import('./files/FileManager'))
+const AgentManager = React.lazy(() => import('./agents/AgentManager'))
 
 interface ManagementTabContentProps {
   tabValue: string
@@ -23,27 +23,27 @@ export const ManagementTabContent: React.FC<ManagementTabContentProps> = ({
   const {
     canViewKeys,
     canViewFiles,
-    canViewGames,
-    canViewLoaders,
+    canViewProducts,
+    canViewAgents,
     activeTab,
     setActiveTab,
   } = useManagementData()
 
   const {
     dialogs,
-    setCreateGameDialogRequested,
-    setCreateLoaderDialogRequested,
-    openViewGameDialog,
+    setCreateProductDialogRequested,
+    setCreateAgentDialogRequested,
+    openViewProductDialog,
   } = useManagementStore()
 
-  const { createGameDialogRequested, createLoaderDialogRequested } = dialogs
+  const { createProductDialogRequested, createAgentDialogRequested } = dialogs
 
   if (canViewKeys && tabValue === 'license-keys') {
     return (
       <div className="space-y-4">
         <Suspense fallback={<div className="flex items-center justify-center min-h-[400px]"><Spinner size="lg" message="Loading license keys..." /></div>}>
           <LicenseKeysMain 
-            onSwitchToGameDatabase={() => setActiveTab('game-database')} 
+            onSwitchToProductDatabase={() => setActiveTab('product-database')} 
             activeTab={activeTab}
           />
         </Suspense>
@@ -55,67 +55,66 @@ export const ManagementTabContent: React.FC<ManagementTabContentProps> = ({
     return (
       <div className="space-y-4">
         <Suspense fallback={<div className="flex items-center justify-center min-h-[400px]"><Spinner size="lg" message="Loading file manager..." /></div>}>
-          <FileManager onSwitchToGameDatabase={() => setActiveTab('game-database')} />
+          <FileManager onSwitchToProductDatabase={() => setActiveTab('product-database')} />
         </Suspense>
       </div>
     );
   }
 
-  if (canViewGames && tabValue === 'game-database') {
+  if (canViewProducts && tabValue === 'product-database') {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold mb-0 text-foreground">Applications Database</h3>
+            <h3 className="text-lg font-semibold mb-0 text-foreground">Products Database</h3>
             <p className="text-muted-foreground">
-              Manage the catalog of applications, their versions, and settings.
+              Manage the catalog of products, their versions, and settings.
             </p>
           </div>
-          <ConditionalRender permission="games.create" fallback={null}>
+          <ConditionalRender permission="products.create" fallback={null}>
             <Button 
-              onClick={() => setCreateGameDialogRequested(true)}
+              onClick={() => setCreateProductDialogRequested(true)}
               className="gap-2"
             >
               <Plus className="h-4 w-4" />
-              Create Application
+              Create Products
             </Button>
           </ConditionalRender>
         </div>
-        <Suspense fallback={<div className="flex items-center justify-center min-h-[400px]"><Spinner size="lg" message="Loading game database..." /></div>}>
-          <GameDatabase 
-            onViewGame={openViewGameDialog} 
-            onCreateGameRequested={createGameDialogRequested}
-            onCreateGameRequestHandled={() => setCreateGameDialogRequested(false)}
+        <Suspense fallback={<div className="flex items-center justify-center min-h-[400px]"><Spinner size="lg" message="Loading product database..." /></div>}>
+          <ProductDatabase 
+            onCreateProductRequested={createProductDialogRequested}
+            onCreateProductRequestHandled={() => setCreateProductDialogRequested(false)}
           />
         </Suspense>
       </div>
     );
   }
 
-  if (canViewLoaders && tabValue === 'loader-manager') {
+  if (canViewAgents && tabValue === 'agent-manager') {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold mb-0 text-foreground">Loader Management</h3>
+            <h3 className="text-lg font-semibold mb-0 text-foreground">Agent Management</h3>
             <p className="text-muted-foreground">
-              Configure and manage loaders for different platforms.
+              Configure and manage agents for different platforms.
             </p>
           </div>
-          <ConditionalRender permission="loaders.create" fallback={null}>
+          <ConditionalRender permission="agents.create" fallback={null}>
             <Button 
-              onClick={() => setCreateLoaderDialogRequested(true)}
+              onClick={() => setCreateAgentDialogRequested(true)}
               className="gap-2"
             >
               <Plus className="h-4 w-4" />
-              Create Loader
+              Create Agent
             </Button>
           </ConditionalRender>
         </div>
-        <Suspense fallback={<div className="flex items-center justify-center min-h-[400px]"><Spinner size="lg" message="Loading loader manager..." /></div>}>
-          <LoaderManager 
-            onCreateLoaderRequested={createLoaderDialogRequested}
-            onCreateLoaderRequestHandled={() => setCreateLoaderDialogRequested(false)}
+        <Suspense fallback={<div className="flex items-center justify-center min-h-[400px]"><Spinner size="lg" message="Loading agent manager..." /></div>}>
+          <AgentManager 
+            onCreateAgentRequested={createAgentDialogRequested}
+            onCreateAgentRequestHandled={() => setCreateAgentDialogRequested(false)}
           />
         </Suspense>
       </div>

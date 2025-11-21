@@ -12,8 +12,8 @@ import { Spinner } from '@/components/ui/spinner';
 import { useAuth } from '@/hooks/use-auth';
 import { usePermissions } from '@/hooks/use-permissions';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
-import { getGames } from '@/entities/game';
-import type { Game } from '@/entities/game';
+import { getProducts } from '@/entities/product';
+import type { Product } from '@/entities/product';
 import { enhancedApi } from '@/shared/api/enhanced-client';
 import { 
   Coins, 
@@ -25,12 +25,12 @@ import {
   Plus
 } from 'lucide-react';
 
-interface GamePrice {
+interface ProductPrice {
   period: string;
   price: number;
 }
 
-interface GameData {
+interface ProductData {
   id: number;
   name: string;
   is_multi_app: boolean;
@@ -39,7 +39,7 @@ interface GameData {
 interface PriceManagerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  gameId?: number;
+  productId?: number;
 }
 
 const commonDurations = [
@@ -55,15 +55,15 @@ const commonDurations = [
   { value: '8760', label: '1 year' },
 ] as const;
 
-const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, gameId }) => {
+const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, productId }) => {
   // All hooks must be called unconditionally and in the same order
   const { user, token } = useAuth();
   const { hasPermission } = usePermissions();
 
-  const canEditGames = hasPermission('games.edit');
+  const canEditProducts = hasPermission('products.edit');
 
-  const [game, setGame] = useState<GameData | null>(null);
-  const [prices, setPrices] = useState<GamePrice[]>([]);
+  const [product, setProduct] = useState<ProductData | null>(null);
+  const [prices, setPrices] = useState<ProductPrice[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editingPrices, setEditingPrices] = useState<{[key: string]: number}>({});
@@ -77,30 +77,30 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, gameId 
     }
 
     // Don't load if missing required data
-    if (!gameId || !user) {
+    if (!productId || !user) {
       setLoading(false);
       return;
     }
 
     let cancelled = false;
 
-    const loadGameData = async () => {
+    const loadProductData = async () => {
       try {
         setLoading(true);
 
-        const gamesResponse = await getGames('all');
+        const productsResponse = await getProducts('all');
         if (cancelled) return;
 
-        const foundGame = gamesResponse.games.find(g => g.id === gameId);
+        const foundProduct = productsResponse.products.find(g => g.id === productId);
 
-        if (!foundGame) {
-          throw new Error('Game not found');
+        if (!foundProduct) {
+          throw new Error('Product not found');
         }
 
         if (cancelled) return;
-        setGame(foundGame);
+        setProduct(foundProduct);
 
-        const pricesResponse = await enhancedApi.get(`/api/products/${gameId}/prices`, {
+        const pricesResponse = await enhancedApi.get(`/api/products/${productId}/prices`, {
           timeout: 10000, // 10 second timeout
         });
         if (cancelled) return;
@@ -141,12 +141,12 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, gameId 
       }
     };
 
-    loadGameData();
+    loadProductData();
 
     return () => {
       cancelled = true;
     };
-  }, [open, gameId, user]);
+  }, [open, productId, user]);
 
   const handlePriceChange = (period: string, value: string) => {
     // Allow empty string for clearing
@@ -190,8 +190,8 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, gameId 
   };
 
   const handleSavePrices = async () => {
-    if (!gameId) {
-      toast.error('Game ID is missing');
+    if (!productId) {
+      toast.error('Product ID is missing');
       return;
     }
     
@@ -210,7 +210,7 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, gameId 
     try {
       setSaving(true);
 
-      await enhancedApi.put(`/api/products/${gameId}/prices`, {
+      await enhancedApi.put(`/api/products/${productId}/prices`, {
         prices: editingPrices
       });
 
@@ -218,7 +218,7 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, gameId 
 
       // Reload prices after saving
       try {
-        const pricesResponse = await enhancedApi.get(`/api/products/${gameId}/prices`, {
+        const pricesResponse = await enhancedApi.get(`/api/products/${productId}/prices`, {
           timeout: 10000,
         });
         const pricesData = pricesResponse.data;
@@ -287,17 +287,17 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, gameId 
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Coins className="h-5 w-5" />
-            {!canEditGames ? 'Access Denied' : 'Price Management'}
+            {!canEditProducts ? 'Access Denied' : 'Price Management'}
           </DialogTitle>
           <DialogDescription>
-            {!canEditGames 
+            {!canEditProducts 
               ? 'You don\'t have permission to manage prices.'
-              : (game ? `Configure prices for the game "${game.name}"` : 'Configure prices for the game')
+              : (product ? `Configure prices for the product "${product.name}"` : 'Configure prices for the product')
             }
           </DialogDescription>
         </DialogHeader>
 
-        {!canEditGames ? (
+        {!canEditProducts ? (
           <div className="p-4 text-center text-muted-foreground">
             You don't have permission to manage prices.
           </div>
@@ -322,13 +322,13 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, gameId 
                       {duration.label}
                     </Label>
                     {editingPrices[duration.value] !== undefined && (
-                      <ConditionalRender permission="games.edit" fallback={null}>
+                      <ConditionalRender permission="products.edit" fallback={null}>
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => handleRemovePeriod(duration.value)}
                           className="text-destructive hover:text-destructive h-6 w-6 p-0"
-                          disabled={saving || !canEditGames}
+                          disabled={saving || !canEditProducts}
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>
@@ -344,19 +344,19 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, gameId 
                         value={editingPricesDisplay[duration.value] !== undefined ? editingPricesDisplay[duration.value] : ''}
                         onChange={(e) => handlePriceChange(duration.value, e.target.value)}
                         className="flex-1"
-                        disabled={saving || !canEditGames}
+                        disabled={saving || !canEditProducts}
                         inputMode="decimal"
                       />
                       <span className="text-xs text-muted-foreground whitespace-nowrap">tokens</span>
                     </div>
                   ) : (
-                    <ConditionalRender permission="games.edit" fallback={null}>
+                    <ConditionalRender permission="products.edit" fallback={null}>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleAddPeriod(duration.value)}
                         className="flex items-center gap-1 w-full"
-                        disabled={saving || !canEditGames}
+                        disabled={saving || !canEditProducts}
                       >
                         <Plus className="h-3 w-3" />
                         Add Price
@@ -381,7 +381,7 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, gameId 
                 e.stopPropagation();
                 handleSavePrices();
               }}
-              disabled={saving || !canEditGames}
+              disabled={saving || !canEditProducts}
               className="flex items-center gap-2"
             >
               {saving ? (

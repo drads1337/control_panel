@@ -10,7 +10,7 @@ from typing import Optional, Tuple
 
 from ...core.extensions import db
 from ...models.core import Project, User
-from ...models.games import Game
+from ...models.products import Product
 from ...models.keys import Key
 from ...utils.rbac_utils import RBACManager
 
@@ -60,16 +60,16 @@ class KeyValidator:
 
                 webhook_service = get_webhook_service()
 
-                game = None
-                if key_obj.game_id:
-                    game = Game.query.get(key_obj.game_id)
+                product = None
+                if key_obj.product_id:
+                    product = Product.query.get(key_obj.product_id)
 
                 webhook_data = {
                     "key_id": key_obj.id,
                     "key_value": key_obj.key,
                     "user_id": key_obj.user_id,
-                    "game_id": key_obj.game_id,
-                    "game_name": game.name if game else None,
+                    "product_id": key_obj.product_id,
+                    "product_name": product.name if product else None,
                     "duration_hours": key_obj.duration_hours,
                     "max_devices": key_obj.max_devices,
                     "activated_at": key_obj.activated_at.isoformat(),
@@ -82,47 +82,47 @@ class KeyValidator:
             except Exception as e:
                 logger.error(f"Failed to trigger webhook for key activation: {str(e)}")
 
-    def validate_game_access(
-        self, key_obj: Key, game: str, project_id: int
-    ) -> Tuple[bool, str, Optional[Game]]:
+    def validate_product_access(
+        self, key_obj: Key, product: str, project_id: int
+    ) -> Tuple[bool, str, Optional[Product]]:
         """
-        Validate user has access to the specified game
+        Validate user has access to the specified product
 
         Args:
             key_obj: Key object
-            game: Game name
+            product: Product name
             project_id: Project ID
 
         Returns:
-            Tuple of (is_valid, error_message, game_object)
+            Tuple of (is_valid, error_message, product_object)
         """
-        game_obj = None
+        product_obj = None
 
-        if key_obj.game_id:
-            game_obj = Game.query.filter_by(id=key_obj.game_id, project_id=project_id).first()
+        if key_obj.product_id:
+            product_obj = Product.query.filter_by(id=key_obj.product_id, project_id=project_id).first()
 
-            if not game_obj or game_obj.project_id != project_id:
+            if not product_obj or product_obj.project_id != project_id:
                 return False, "Key not found", None
 
-            if game_obj.name and game_obj.name.lower() != game.lower():
+            if product_obj.name and product_obj.name.lower() != product.lower():
                 return False, "Key not found", None
 
-            if game_obj.status == "inactive":
+            if product_obj.status == "inactive":
                 return (
                     False,
-                    "Game Inactive - This game is currently inactive and access is not allowed.",
-                    game_obj,
+                    "Product Inactive - This product is currently inactive and access is not allowed.",
+                    product_obj,
                 )
-            elif game_obj.status == "maintenance":
+            elif product_obj.status == "maintenance":
                 return (
                     False,
-                    "Game Maintenance - This game is currently under maintenance. Access is temporarily unavailable.",
-                    game_obj,
+                    "Product Maintenance - This product is currently under maintenance. Access is temporarily unavailable.",
+                    product_obj,
                 )
-            elif game_obj.status == "testing":
-                logger.info(f"GAME_TESTING_ACCESS user_key={key_obj.key} game={game}")
+            elif product_obj.status == "testing":
+                logger.info(f"PRODUCT_TESTING_ACCESS user_key={key_obj.key} product={product}")
 
-        return True, "", game_obj
+        return True, "", product_obj
 
     def validate_project_status(self, project_id: int) -> Tuple[bool, str, Optional[Project]]:
         """

@@ -380,7 +380,7 @@ export const logUserAction = async (action: string, meta: Record<string, any> = 
       method: 'POST',
       credentials: 'include',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'product/json',
       },
       body: JSON.stringify({ action, ...meta })
     });

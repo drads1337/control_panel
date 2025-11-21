@@ -27,17 +27,17 @@ interface CreateReferralDialogProps {
     code: string;
     expires_days: number;
     work_duration_days: number;
-    selected_games: number[];
+    selected_products: number[];
     selected_rbac_role: number | null;
     token_balance: number;
   };
   onFormChange: (form: any) => void;
   roles: Role[];
-  games: any[];
+  products: any[];
   rbacLoading: boolean;
   rbacError: string | null;
-  gamesLoading: boolean;
-  gamesError: string | null;
+  productsLoading: boolean;
+  productsError: string | null;
 }
 
 const CreateReferralDialog: React.FC<CreateReferralDialogProps> = ({
@@ -49,11 +49,11 @@ const CreateReferralDialog: React.FC<CreateReferralDialogProps> = ({
   form,
   onFormChange,
   roles,
-  games,
+  products,
   rbacLoading,
   rbacError,
-  gamesLoading,
-  gamesError
+  productsLoading,
+  productsError
 }) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -167,37 +167,37 @@ const CreateReferralDialog: React.FC<CreateReferralDialogProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label>Application Access</Label>
-            {gamesLoading ? (
-              <div className="text-sm text-muted-foreground">Loading games...</div>
-            ) : gamesError ? (
-              <div className="text-sm text-red-500">Error loading games: {gamesError}</div>
+            <Label>Product Access</Label>
+            {productsLoading ? (
+              <div className="text-sm text-muted-foreground">Loading products...</div>
+            ) : productsError ? (
+              <div className="text-sm text-red-500">Error loading products: {productsError}</div>
             ) : (
               <div className="max-h-[150px] overflow-y-auto border rounded-md p-2 space-y-2">
-                {games.map((game) => (
-                  <div key={game.id} className="flex items-center space-x-2">
+                {products.map((product) => (
+                  <div key={product.id} className="flex items-center space-x-2">
                     <Checkbox
-                      id={`referral-code-game-${game.id}`}
-                      checked={form.selected_games.includes(game.id)}
+                      id={`referral-code-product-${product.id}`}
+                      checked={form.selected_products.includes(product.id)}
                       onCheckedChange={(checked) => {
                         if (checked) {
                           onFormChange({
                             ...form,
-                            selected_games: [...form.selected_games, game.id]
+                            selected_products: [...form.selected_products, product.id]
                           })
                         } else {
                           onFormChange({
                             ...form,
-                            selected_games: form.selected_games.filter(id => id !== game.id)
+                            selected_products: form.selected_products.filter(id => id !== product.id)
                           })
                         }
                       }}
                       disabled={loading}
                     />
-                    <Label htmlFor={`referral-code-game-${game.id}`} className="text-sm">
+                    <Label htmlFor={`referral-code-product-${product.id}`} className="text-sm">
                       <div>
-                        <div className="font-medium">{game.name}</div>
-                        <div className="text-xs text-muted-foreground">{game.description || 'No description'}</div>
+                        <div className="font-medium">{product.name}</div>
+                        <div className="text-xs text-muted-foreground">{product.description || 'No description'}</div>
                       </div>
                     </Label>
                   </div>

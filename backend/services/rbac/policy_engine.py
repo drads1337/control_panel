@@ -81,7 +81,7 @@ class PolicyEngine:
     2. RBAC permissions (role-based)
     3. Resource-level permissions
     4. ABAC rules (attribute-based)
-    5. Game-specific permissions
+    5. Product-specific permissions
     
     Each layer can ALLOW, DENY, or ABSTAIN (pass to next layer).
     First DENY or final ABSTAIN results in denial.
@@ -93,14 +93,14 @@ class PolicyEngine:
             self._check_rbac_permissions,
             self._check_resource_permissions,
             self._check_abac_rules,
-            self._check_game_specific_permissions,
+            self._check_product_specific_permissions,
         ]
     
     def evaluate(
         self,
         user_id: int,
         permission: str,
-        game_id: Optional[int] = None,
+        product_id: Optional[int] = None,
         resource_type: Optional[str] = None,
         resource_id: Optional[int] = None,
         context: Optional[Dict[str, Any]] = None,
@@ -111,7 +111,7 @@ class PolicyEngine:
         Args:
             user_id: User ID requesting access
             permission: Permission name (e.g., "keys.create")
-            game_id: Optional game ID for game-specific permissions
+            product_id: Optional product ID for product-specific permissions
             resource_type: Optional resource type (e.g., "key", "user")
             resource_id: Optional resource ID for instance-level permissions
             context: Optional context dictionary (e.g., {"ip": "1.2.3.4"})
@@ -125,7 +125,7 @@ class PolicyEngine:
         # Log authorization request for debugging
         logger.info(
             f"POLICY_EVALUATION_START user_id={user_id} permission={permission} "
-            f"game_id={game_id} resource_type={resource_type} resource_id={resource_id}"
+            f"product_id={product_id} resource_type={resource_type} resource_id={resource_id}"
         )
         
         # Get user (required for all policies)
@@ -146,7 +146,7 @@ class PolicyEngine:
                 decision = policy(
                     user=user,
                     permission=permission,
-                    game_id=game_id,
+                    product_id=product_id,
                     resource_type=resource_type,
                     resource_id=resource_id,
                     context=context,
@@ -196,7 +196,7 @@ class PolicyEngine:
             context={
                 "user_id": user_id,
                 "permission": permission,
-                "game_id": game_id,
+                "product_id": product_id,
                 "resource_type": resource_type,
                 "resource_id": resource_id,
                 "evaluated_policies": evaluated_policies,
@@ -207,7 +207,7 @@ class PolicyEngine:
         self,
         user: User,
         permission: str,
-        game_id: Optional[int] = None,
+        product_id: Optional[int] = None,
         resource_type: Optional[str] = None,
         resource_id: Optional[int] = None,
         context: Optional[Dict[str, Any]] = None,
@@ -244,7 +244,7 @@ class PolicyEngine:
         self,
         user: User,
         permission: str,
-        game_id: Optional[int] = None,
+        product_id: Optional[int] = None,
         resource_type: Optional[str] = None,
         resource_id: Optional[int] = None,
         context: Optional[Dict[str, Any]] = None,
@@ -289,7 +289,7 @@ class PolicyEngine:
         self,
         user: User,
         permission: str,
-        game_id: Optional[int] = None,
+        product_id: Optional[int] = None,
         resource_type: Optional[str] = None,
         resource_id: Optional[int] = None,
         context: Optional[Dict[str, Any]] = None,
@@ -398,7 +398,7 @@ class PolicyEngine:
         self,
         user: User,
         permission: str,
-        game_id: Optional[int] = None,
+        product_id: Optional[int] = None,
         resource_type: Optional[str] = None,
         resource_id: Optional[int] = None,
         context: Optional[Dict[str, Any]] = None,
@@ -461,24 +461,24 @@ class PolicyEngine:
             context={}
         )
     
-    def _check_game_specific_permissions(
+    def _check_product_specific_permissions(
         self,
         user: User,
         permission: str,
-        game_id: Optional[int] = None,
+        product_id: Optional[int] = None,
         resource_type: Optional[str] = None,
         resource_id: Optional[int] = None,
         context: Optional[Dict[str, Any]] = None,
     ) -> Decision:
         """
-        Policy: Check game-specific permissions.
+        Policy: Check product-specific permissions.
         
-        This checks for permissions scoped to specific games.
+        This checks for permissions scoped to specific products.
         """
-        if not game_id or not user.project_id:
+        if not product_id or not user.project_id:
             return Decision(
                 allowed=False,
-                reason="No game_id or project_id",
+                reason="No product_id or project_id",
                 policy_type="abstain",
                 context={}
             )
@@ -502,54 +502,54 @@ class PolicyEngine:
                 context={}
             )
         
-        # Check for game-specific permission
-        game_permission = (
+        # Check for product-specific permission
+        product_permission = (
             db.session.query(Permission)
             .join(RolePermission, RolePermission.permission_id == Permission.id)
             .filter(
                 RolePermission.role_id.in_(role_ids),
                 Permission.resource == resource,
                 Permission.action == action,
-                Permission.game_id == game_id,
+                Permission.product_id == product_id,
                 Permission.project_id == user.project_id,
             )
             .first()
         )
         
-        if game_permission:
+        if product_permission:
             return Decision(
                 allowed=True,
-                reason=f"User has game-specific permission for game_id={game_id}",
-                policy_type="game_specific",
+                reason=f"User has product-specific permission for product_id={product_id}",
+                policy_type="product_specific",
                 context={
                     "user_id": user.id,
                     "permission": permission,
-                    "game_id": game_id,
+                    "product_id": product_id,
                 }
             )
         
-        # Check for game permission pattern: "permission.game.{game_id}"
+        # Check for product permission pattern: "permission.product.{product_id}"
         from .rbac_service import rbac_service
         user_permissions = rbac_service.get_user_permissions(user.id)
-        game_permission_pattern = f"{permission}.game.{game_id}"
+        product_permission_pattern = f"{permission}.product.{product_id}"
         
-        if game_permission_pattern in user_permissions:
+        if product_permission_pattern in user_permissions:
             return Decision(
                 allowed=True,
-                reason=f"User has game permission pattern for game_id={game_id}",
-                policy_type="game_pattern",
+                reason=f"User has product permission pattern for product_id={product_id}",
+                policy_type="product_pattern",
                 context={
                     "user_id": user.id,
                     "permission": permission,
-                    "game_id": game_id,
+                    "product_id": product_id,
                 }
             )
         
         return Decision(
             allowed=False,
-            reason="No game-specific permission found",
+            reason="No product-specific permission found",
             policy_type="abstain",
-            context={"game_id": game_id}
+            context={"product_id": product_id}
         )
 
 

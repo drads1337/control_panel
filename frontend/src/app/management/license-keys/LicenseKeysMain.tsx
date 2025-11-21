@@ -15,11 +15,11 @@ import { useKeysManagement } from '@/hooks/use-keys-management';
 import { Plus, Database } from 'lucide-react';
 
 interface LicenseKeysMainProps {
-  onSwitchToGameDatabase?: () => void;
+  onSwitchToProductDatabase?: () => void;
   activeTab?: string;
 }
 
-const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToGameDatabase, activeTab }) => {
+const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToProductDatabase, activeTab }) => {
   const { user } = useAuthContext();
   const { hasPermission } = usePermissions();
 
@@ -35,7 +35,7 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToGameDatabas
   const canManage = hasPermission('keys.manage');
 
   const [viewMode, setViewMode] = useState<'my' | 'all'>('my');
-  const [filters, setFilters] = useState({ status: 'all', gameId: 'all', search: '' });
+  const [filters, setFilters] = useState({ status: 'all', productId: 'all', search: '' });
   const [currentPage, setCurrentPage] = useState(1);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
@@ -56,7 +56,7 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToGameDatabas
   const {
     keys,
     loading,
-    games,
+    products,
     pagination,
     showKey,
     fullKeys,
@@ -73,7 +73,7 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToGameDatabas
     handleViewDetails,
     handleKeyCreated,
     handleDialogSuccess,
-    loadGames,
+    loadProducts,
     setDetailsDialogOpen,
     setEditDialogOpen,
     setExtendDialogOpen,
@@ -91,19 +91,19 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToGameDatabas
     }
   }, [loading, keys.length]);
 
-  const gamesLoadedRef = React.useRef(false);
+  const productsLoadedRef = React.useRef(false);
 
   useEffect(() => {
     if (activeTab === 'license-keys') {
-      if (!gamesLoadedRef.current) {
-        loadGames();
-        gamesLoadedRef.current = true;
+      if (!productsLoadedRef.current) {
+        loadProducts();
+        productsLoadedRef.current = true;
       }
     }
-  }, [activeTab, loadGames]);
+  }, [activeTab, loadProducts]);
 
   const handleClearFilters = () => {
-    setFilters({ status: 'all', gameId: 'all', search: '' });
+    setFilters({ status: 'all', productId: 'all', search: '' });
   };
 
   const hasAnyKeyPermission = canViewKeys || canCreateKeys || canEditKeys || canDeleteKeys || canGenerateKeys || canResetPcBinding || canPauseResume || canExtend || canBlock || canManage;
@@ -127,7 +127,7 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToGameDatabas
     );
   }
 
-  if (games.length === 0) {
+  if (products.length === 0) {
     return (
       <div className="space-y-6">
         {}
@@ -137,17 +137,17 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToGameDatabas
               <div className="w-20 h-20 bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl flex items-center justify-center mx-auto mb-6">
                 <Database className="h-10 w-10 text-primary" />
               </div>
-              <h3 className="text-2xl font-semibold mb-3">No Applications Yet</h3>
+              <h3 className="text-2xl font-semibold mb-3">No Products Yet</h3>
               <p className="text-muted-foreground mb-8 max-w-md mx-auto leading-relaxed">
-                Get started by creating your first application. You can manage settings, upload files, and track usage.
+                Get started by creating your first product. You can manage settings, upload files, and track usage.
               </p>
               <Button 
-                onClick={() => onSwitchToGameDatabase?.()}
+                onClick={() => onSwitchToProductDatabase?.()}
                 className="gap-2"
                 size="lg"
               >
                 <Plus className="h-5 w-5" />
-                Create Your First Application
+                Create Your First Product
               </Button>
             </div>
           </CardContent>
@@ -160,14 +160,14 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToGameDatabas
     <div className="space-y-6">
       {}
       <ConditionalRender permission="keys.create" fallback={null}>
-        <LicenseKeyCreationGrid games={games} onKeyCreated={handleKeyCreated} />
+        <LicenseKeyCreationGrid products={products} onKeyCreated={handleKeyCreated} />
       </ConditionalRender>
 
       {}
       <LicenseKeysFilters
         filters={filters}
         onFiltersChange={setFilters}
-        games={games}
+        products={products}
         onClearFilters={handleClearFilters}
       />
 

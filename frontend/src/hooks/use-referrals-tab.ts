@@ -3,15 +3,15 @@ import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useReferrals } from '@/hooks/use-referrals';
 import { useRBACRoles } from '@/hooks/use-rbac';
-import { getGames } from '@/entities/game/api/game';
-import type { Game } from '@/entities/game';
+import { getProducts } from '@/entities/product/api/product';
+import type { Product } from '@/entities/product';
 import type { Role } from '@/hooks/use-rbac';
 
 interface ReferralCodeForm {
   code: string;
   expires_days: number;
   work_duration_days: number;
-  selected_games: number[];
+  selected_products: number[];
   selected_rbac_role: number | null;
   token_balance: number;
 }
@@ -23,13 +23,13 @@ interface UseReferralsTabReturn {
 
   referralCodes: any[];
   roles: Role[];
-  availableGames: Game[];
+  availableProducts: Product[];
   isLoading: boolean;
   referralCodesError: Error | null;
   rbacLoading: boolean;
   rbacError: Error | null;
-  gamesLoading: boolean;
-  gamesError: Error | null;
+  productsLoading: boolean;
+  productsError: Error | null;
   isCreating: boolean;
 
   setReferralCodeForm: (form: ReferralCodeForm | ((prev: ReferralCodeForm) => ReferralCodeForm)) => void;
@@ -44,7 +44,7 @@ export function useReferralsTab(): UseReferralsTabReturn {
     code: '',
     expires_days: 7,
     work_duration_days: 7,
-    selected_games: [],
+    selected_products: [],
     selected_rbac_role: null,
     token_balance: 0
   });
@@ -66,14 +66,14 @@ export function useReferralsTab(): UseReferralsTabReturn {
   } = useRBACRoles();
 
   const { 
-    data: gamesData, 
-    isLoading: gamesLoading, 
-    error: gamesError 
+    data: productsData, 
+    isLoading: productsLoading, 
+    error: productsError 
   } = useQuery({
-    queryKey: ['games', 'for-referrals'],
+    queryKey: ['products', 'for-referrals'],
     queryFn: async () => {
-      const response = await getGames('all');
-      return response.games || [];
+      const response = await getProducts('all');
+      return response.products || [];
     },
     enabled: isCreateReferralDialogOpen,
     staleTime: 2 * 60 * 1000,
@@ -87,7 +87,7 @@ export function useReferralsTab(): UseReferralsTabReturn {
     refetchOnWindowFocus: false,
   });
 
-  const availableGames = gamesData || [];
+  const availableProducts = productsData || [];
 
   const handleCreateReferralCode = useCallback(async () => {
     try {
@@ -106,7 +106,7 @@ export function useReferralsTab(): UseReferralsTabReturn {
         expires_days: referralCodeForm.expires_days || 7,
         work_duration_days: referralCodeForm.work_duration_days || 7,
         rbac_role_ids: referralCodeForm.selected_rbac_role ? [referralCodeForm.selected_rbac_role] : [],
-        game_ids: referralCodeForm.selected_games || [],
+        product_ids: referralCodeForm.selected_products || [],
         token_balance: referralCodeForm.token_balance || 0
       });
 
@@ -114,7 +114,7 @@ export function useReferralsTab(): UseReferralsTabReturn {
         code: '',
         expires_days: 7,
         work_duration_days: 7,
-        selected_games: [],
+        selected_products: [],
         selected_rbac_role: null,
         token_balance: 0
       });
@@ -140,13 +140,13 @@ export function useReferralsTab(): UseReferralsTabReturn {
 
     referralCodes,
     roles,
-    availableGames,
+    availableProducts,
     isLoading: referralCodesLoading,
     referralCodesError: referralCodesError instanceof Error ? referralCodesError : null,
     rbacLoading,
     rbacError: rbacError instanceof Error ? rbacError : null,
-    gamesLoading,
-    gamesError: gamesError instanceof Error ? gamesError : null,
+    productsLoading,
+    productsError: productsError instanceof Error ? productsError : null,
     isCreating,
 
     setReferralCodeForm,

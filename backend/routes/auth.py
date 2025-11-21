@@ -201,6 +201,7 @@ def get_csrf_token():
     - This endpoint extracts the CSRF token from the JWT token in the cookie
     - This endpoint uses verify_jwt_in_request(optional=True) to avoid CSRF token requirement
       (since we're getting the CSRF token itself)
+    - Returns null csrf_token when not authenticated (200 status) to allow graceful handling
     """
 
     try:
@@ -211,11 +212,7 @@ def get_csrf_token():
         encoded_token = request.cookies.get(jwt_cookie_name)
 
         if not encoded_token:
-            logger.warning("No JWT token found in cookies for CSRF token request")
-            return (
-                jsonify({"error": "CSRF_TOKEN_FAILED", "message": "No authentication token found"}),
-                401,
-            )
+            return jsonify({"csrf_token": None}), 200
 
         jwt_data = get_jwt()
         csrf_token = jwt_data.get("csrf")
@@ -457,7 +454,13 @@ def change_password(validated_data=None):
 @jwt_required()
 @require_project_isolation
 def logout():
-    """User logout"""
+    """
+    User logout
+    
+    SECURITY: This endpoint clears HttpOnly JWT cookies server-side.
+    Frontend should NOT manually delete cookies with tokens as they should
+    have HttpOnly flag set. This prevents XSS attacks from stealing tokens.
+    """
     try:
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
@@ -475,15 +478,27 @@ def logout():
             except Exception as e:
                 logger.warning(f"Failed to log logout activity: {e}")
 
-        return jsonify({"message": "Logged out successfully"})
+        # SECURITY: Clear HttpOnly cookies server-side using unset_jwt_cookies
+        # This sets Set-Cookie headers with expired dates to invalidate the cookies
+        # Frontend cannot access HttpOnly cookies, so they must be cleared here
+        response = make_response(jsonify({"message": "Logged out successfully"}))
+        unset_jwt_cookies(response)
+        
+        return response
 
     except Exception as e:
         logger.error(f"Error in logout: {str(e)}")
-        return jsonify({"error": "LOGOUT_FAILED", "message": "Logout failed"}), 500
+        # Even on error, try to clear cookies to prevent token leakage
+        try:
+            response = make_response(jsonify({"error": "LOGOUT_FAILED", "message": "Logout failed"}), 500)
+            unset_jwt_cookies(response)
+            return response
+        except Exception:
+            return jsonify({"error": "LOGOUT_FAILED", "message": "Logout failed"}), 500
 
 @auth_bp.route("/validate-code", methods=["POST"])
 def validate_access_code():
-    """Validate access code for Classic Login games"""
+    """Validate access code for Classic Login products"""
     try:
         data = request.get_json()
         access_code = data.get("access_code")
@@ -491,7 +506,7 @@ def validate_access_code():
         if not access_code:
             return jsonify({"error": "Access code is required"}), 400
 
-        from ..models.games import Game
+        from ..models.products import Product
         from ..models.keys import Key
 
         key = Key.query.filter_by(key=access_code).first()
@@ -505,12 +520,12 @@ def validate_access_code():
         if key.expires_at and key.expires_at < datetime.utcnow():
             return jsonify({"valid": False, "message": "Access code has expired"}), 400
 
-        game = Game.query.filter_by(id=key.game_id, project_id=key.project_id).first()
-        if not game:
-            return jsonify({"valid": False, "message": "Game not found"}), 404
+        product = Product.query.filter_by(id=key.product_id, project_id=key.project_id).first()
+        if not product:
+            return jsonify({"valid": False, "message": "Product not found"}), 404
 
-        if game.login_type != "classic_login":
-            return jsonify({"valid": False, "message": "This game does not use Classic Login"}), 400
+        if product.login_type != "classic_login":
+            return jsonify({"valid": False, "message": "This product does not use Classic Login"}), 400
 
         generation_type = "license_key"
         if key.key_metadata:
@@ -526,8 +541,8 @@ def validate_access_code():
             {
                 "valid": True,
                 "message": "Access code is valid",
-                "game_id": game.id,
-                "game_name": game.name,
+                "product_id": product.id,
+                "product_name": product.name,
                 "generation_type": generation_type,
                 "expires_at": key.expires_at.isoformat() if key.expires_at else None,
                 "max_devices": key.max_devices,
@@ -555,13 +570,13 @@ def activate_access_code():
 
         data = request.get_json()
         access_code = data.get("access_code")
-        game_name = data.get("game_name")
+        product_name = data.get("product_name")
 
-        if not access_code or not game_name:
-            return jsonify({"error": "Access code and game name are required"}), 400
+        if not access_code or not product_name:
+            return jsonify({"error": "Access code and product name are required"}), 400
 
-        from ..models.core import UserGamePermission
-        from ..models.games import Game
+        from ..models.core import UserProductPermission
+        from ..models.products import Product
         from ..models.keys import Key
 
         key = Key.query.filter_by(key=access_code, project_id=user.project_id).first()
@@ -575,25 +590,25 @@ def activate_access_code():
         if key.expires_at and key.expires_at < datetime.utcnow():
             return jsonify({"error": "Access code has expired"}), 400
 
-        game = Game.query.filter_by(id=key.game_id, project_id=user.project_id).first()
-        if not game or game.name != game_name:
-            return jsonify({"error": "Game not found or name mismatch"}), 404
+        product = Product.query.filter_by(id=key.product_id, project_id=user.project_id).first()
+        if not product or product.name != product_name:
+            return jsonify({"error": "Product not found or name mismatch"}), 404
 
-        if game.login_type != "classic_login":
-            return jsonify({"error": "This game does not use Classic Login"}), 400
+        if product.login_type != "classic_login":
+            return jsonify({"error": "This product does not use Classic Login"}), 400
 
-        existing_permission = UserGamePermission.query.filter_by(
-            user_id=user_id, game_id=game.id, project_id=user.project_id
+        existing_permission = UserProductPermission.query.filter_by(
+            user_id=user_id, product_id=product.id, project_id=user.project_id
         ).first()
 
         if existing_permission:
             return jsonify(
-                {"message": "Access code already activated for this game", "game_name": game.name}
+                {"message": "Access code already activated for this product", "product_name": product.name}
             )
 
-        permission = UserGamePermission(
+        permission = UserProductPermission(
             user_id=user_id,
-            game_id=game.id,
+            product_id=product.id,
             project_id=user.project_id,
             granted_at=datetime.utcnow(),
             granted_by="access_code",
@@ -608,7 +623,7 @@ def activate_access_code():
                 request.remote_addr,
                 request.headers.get("User-Agent", ""),
                 "",
-                f"Activated access code for game: {game.name}",
+                f"Activated access code for product: {product.name}",
             )
         except Exception as e:
             logger.warning(f"Failed to log activation activity: {e}")
@@ -617,8 +632,8 @@ def activate_access_code():
 
         return jsonify(
             {
-                "message": f"Access code activated successfully for {game.name}",
-                "game_name": game.name,
+                "message": f"Access code activated successfully for {product.name}",
+                "product_name": product.name,
                 "expires_at": key.expires_at.isoformat() if key.expires_at else None,
             }
         )
@@ -630,7 +645,7 @@ def activate_access_code():
 
 @auth_bp.route("/register-with-code", methods=["POST"])
 def register_with_code():
-    """Register user with invite code for Classic Login games"""
+    """Register user with invite code for Classic Login products"""
     try:
         data = request.get_json()
         username = data.get("username", "").strip()
@@ -653,8 +668,8 @@ def register_with_code():
             if existing_email:
                 return jsonify({"error": "Email already exists"}), 400
 
-        from ..models.core import UserGamePermission
-        from ..models.games import Game
+        from ..models.core import UserProductPermission
+        from ..models.products import Product
         from ..models.keys import Key
 
         key = Key.query.filter_by(key=invite_code).first()
@@ -668,18 +683,18 @@ def register_with_code():
         if key.expires_at and key.expires_at < datetime.utcnow():
             return jsonify({"error": "Invite code has expired"}), 400
 
-        game = Game.query.filter_by(id=key.game_id, project_id=key.project_id).first()
-        if not game:
-            return jsonify({"error": "Game not found"}), 404
+        product = Product.query.filter_by(id=key.product_id, project_id=key.project_id).first()
+        if not product:
+            return jsonify({"error": "Product not found"}), 404
 
-        if game.login_type != "classic_login":
-            return jsonify({"error": "This game does not use Classic Login"}), 400
+        if product.login_type != "classic_login":
+            return jsonify({"error": "This product does not use Classic Login"}), 400
 
-        if game.invite_code_required and not invite_code:
-            return jsonify({"error": "Invite code is required for this game"}), 400
+        if product.invite_code_required and not invite_code:
+            return jsonify({"error": "Invite code is required for this product"}), 400
 
-        existing_permission = UserGamePermission.query.filter_by(
-            access_code=invite_code, project_id=game.project_id
+        existing_permission = UserProductPermission.query.filter_by(
+            access_code=invite_code, project_id=product.project_id
         ).first()
 
         if existing_permission:
@@ -694,17 +709,17 @@ def register_with_code():
             password=hashed_password,
             email=email.lower() if email else None,
             role=UserRoles.CLIENT.value,
-            project_id=game.project_id,
+            project_id=product.project_id,
             created_at=datetime.utcnow(),
         )
 
         db.session.add(user)
         db.session.flush()
 
-        permission = UserGamePermission(
+        permission = UserProductPermission(
             user_id=user.id,
-            game_id=game.id,
-            project_id=game.project_id,
+            product_id=product.id,
+            project_id=product.project_id,
             granted_at=datetime.utcnow(),
             granted_by="invite_code",
             access_code=invite_code,
@@ -719,7 +734,7 @@ def register_with_code():
                 request.remote_addr,
                 request.headers.get("User-Agent", ""),
                 "",
-                f"Registered with invite code for game: {game.name}",
+                f"Registered with invite code for product: {product.name}",
             )
         except Exception as e:
             logger.warning(f"Failed to log registration activity: {e}")
@@ -733,7 +748,7 @@ def register_with_code():
         return (
             jsonify(
                 {
-                    "message": f"Registration successful! Welcome to {game.name}",
+                    "message": f"Registration successful! Welcome to {product.name}",
                     "access_token": access_token,
                     "user": {
                         "id": user.id,
@@ -741,7 +756,7 @@ def register_with_code():
                         "email": user.email,
                         "roles": RBACManager.get_user_role_names(user),
                     },
-                    "game": {"id": game.id, "name": game.name, "login_type": game.login_type},
+                    "product": {"id": product.id, "name": product.name, "login_type": product.login_type},
                 }
             ),
             201,

@@ -8,23 +8,23 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from ..core.extensions import db
 from ..middleware.auth import require_project_isolation, require_project_with_grace_period
 from ..models.core import User
-from ..models.games import ChangelogEntry, Game
+from ..models.products import ChangelogEntry, Product
 from ..models.keys import Key
-from ..models.loaders import Loader, LoaderChangelog
+from ..models.agents import Agent, AgentChangelog
 from ..services.activity import activity_service
 from ..utils.fulltext_search import fulltext_search_filter
 from ..utils.rbac_utils import RBACManager
 
 changelog_bp = Blueprint("changelog", __name__)
 
-@changelog_bp.route("/games/<game_name>/changelog", methods=["GET"])
+@changelog_bp.route("/products/<product_name>/changelog", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def get_game_changelog_by_name(game_name):
+def get_product_changelog_by_name(product_name):
     """
     SECURITY FIX: This endpoint now requires authentication and validates project_id.
-    Removed hardcoded allowed_games list - all games are accessible if user has proper project access.
+    Removed hardcoded allowed_products list - all products are accessible if user has proper project access.
     """
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
@@ -37,13 +37,13 @@ def get_game_changelog_by_name(game_name):
 
     try:
 
-        game = Game.query.filter_by(name=game_name, project_id=user.project_id).first()
-        if not game:
-            return jsonify({"error": f'Game "{game_name}" not found'}), 404
+        product = Product.query.filter_by(name=product_name, project_id=user.project_id).first()
+        if not product:
+            return jsonify({"error": f'Product "{product_name}" not found'}), 404
 
         entries = (
             ChangelogEntry.query.filter_by(
-                game_id=game.id, project_id=user.project_id, is_public=True
+                product_id=product.id, project_id=user.project_id, is_public=True
             )
             .order_by(ChangelogEntry.release_date.desc())
             .all()
@@ -67,8 +67,8 @@ def get_game_changelog_by_name(game_name):
         return jsonify(
             {
                 "success": True,
-                "game_id": game.id,
-                "game_name": game.name,
+                "product_id": product.id,
+                "product_name": product.name,
                 "changelog": changelog_data,
             }
         )
@@ -76,11 +76,11 @@ def get_game_changelog_by_name(game_name):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch changelog: {str(e)}"}), 500
 
-@changelog_bp.route("/games/<int:game_id>/changelog", methods=["GET"])
+@changelog_bp.route("/products/<int:product_id>/changelog", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def get_game_changelog(game_id):
+def get_product_changelog(product_id):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -94,13 +94,13 @@ def get_game_changelog(game_id):
         return jsonify({"error": "No project associated"}), 400
 
     try:
-        game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
-        if not game:
-            return jsonify({"error": "Game not found"}), 404
+        product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+        if not product:
+            return jsonify({"error": "Product not found"}), 404
 
         entries = (
             ChangelogEntry.query.filter_by(
-                game_id=game_id, project_id=user.project_id, is_public=True
+                product_id=product_id, project_id=user.project_id, is_public=True
             )
             .order_by(ChangelogEntry.release_date.desc())
             .all()
@@ -124,8 +124,8 @@ def get_game_changelog(game_id):
         return jsonify(
             {
                 "success": True,
-                "game_id": game_id,
-                "game_name": game.name,
+                "product_id": product_id,
+                "product_name": product.name,
                 "changelog": changelog_data,
             }
         )
@@ -133,11 +133,11 @@ def get_game_changelog(game_id):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch changelog: {str(e)}"}), 500
 
-@changelog_bp.route("/games/<int:game_id>/changelog", methods=["POST"])
+@changelog_bp.route("/products/<int:product_id>/changelog", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def create_changelog_entry(game_id):
+def create_changelog_entry(product_id):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -153,15 +153,15 @@ def create_changelog_entry(game_id):
     from ..services.rbac import rbac_service
 
     can_manage_changelog = rbac_service.check_permission(
-        user.id, "applications.manage_changelog"
-    ) or rbac_service.check_permission(user.id, "loaders.manage_changelog")
+        user.id, "products.manage_changelog"
+    ) or rbac_service.check_permission(user.id, "agents.manage_changelog")
     if not can_manage_changelog:
         return jsonify({"error": "Insufficient permissions"}), 403
 
     try:
-        game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
-        if not game:
-            return jsonify({"error": "Game not found"}), 404
+        product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+        if not product:
+            return jsonify({"error": "Product not found"}), 404
 
         data = request.get_json()
 
@@ -173,14 +173,14 @@ def create_changelog_entry(game_id):
             return jsonify({"error": "Version and title are required"}), 400
 
         existing_entry = ChangelogEntry.query.filter_by(
-            game_id=game_id, version=version, project_id=user.project_id
+            product_id=product_id, version=version, project_id=user.project_id
         ).first()
 
         if existing_entry:
-            return jsonify({"error": "Version already exists for this game"}), 400
+            return jsonify({"error": "Version already exists for this product"}), 400
 
         changelog_entry = ChangelogEntry(
-            game_id=game_id,
+            product_id=product_id,
             version=version,
             title=title,
             description=data.get("description"),
@@ -197,15 +197,15 @@ def create_changelog_entry(game_id):
 
         db.session.add(changelog_entry)
 
-        game.version = version
-        game.updated_at = datetime.utcnow()
+        product.version = version
+        product.updated_at = datetime.utcnow()
 
         db.session.commit()
 
         activity_service.log_activity(
             user,
             "create_changelog_entry",
-            details=f"Created changelog entry {version} for game: {game.id}",
+            details=f"Created changelog entry {version} for product: {product.id}",
             ip=request.remote_addr,
         )
 
@@ -252,8 +252,8 @@ def update_changelog_entry(entry_id):
     from ..services.rbac import rbac_service
 
     can_manage_changelog = rbac_service.check_permission(
-        user.id, "applications.manage_changelog"
-    ) or rbac_service.check_permission(user.id, "loaders.manage_changelog")
+        user.id, "products.manage_changelog"
+    ) or rbac_service.check_permission(user.id, "agents.manage_changelog")
     if not can_manage_changelog:
         return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -279,7 +279,7 @@ def update_changelog_entry(entry_id):
         activity_service.log_activity(
             user,
             "update_changelog_entry",
-            details=f"Updated changelog entry {entry.version} for game: {entry.game_id}",
+            details=f"Updated changelog entry {entry.version} for product: {entry.product_id}",
             ip=request.remote_addr,
         )
 
@@ -323,8 +323,8 @@ def delete_changelog_entry(entry_id):
     from ..services.rbac import rbac_service
 
     can_manage_changelog = rbac_service.check_permission(
-        user.id, "applications.manage_changelog"
-    ) or rbac_service.check_permission(user.id, "loaders.manage_changelog")
+        user.id, "products.manage_changelog"
+    ) or rbac_service.check_permission(user.id, "agents.manage_changelog")
     if not can_manage_changelog:
         return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -334,7 +334,7 @@ def delete_changelog_entry(entry_id):
         if not entry:
             return jsonify({"error": "Changelog entry not found"}), 404
 
-        game_name = entry.game.name
+        product_name = entry.product.name
         version = entry.version
 
         db.session.delete(entry)
@@ -343,7 +343,7 @@ def delete_changelog_entry(entry_id):
         activity_service.log_activity(
             user,
             "delete_changelog_entry",
-            details=f"Deleted changelog entry {version} for game: {entry.game_id}",
+            details=f"Deleted changelog entry {version} for product: {entry.product_id}",
             ip=request.remote_addr,
         )
 
@@ -388,7 +388,7 @@ def get_changelog_entry(entry_id):
                     "release_date": entry.release_date.isoformat() if entry.release_date else None,
                     "is_public": entry.is_public,
                     "created_by": entry.created_by,
-                    "game_id": entry.game_id,
+                    "product_id": entry.product_id,
                 },
             }
         )
@@ -396,11 +396,11 @@ def get_changelog_entry(entry_id):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch changelog entry: {str(e)}"}), 500
 
-@changelog_bp.route("/games/<int:game_id>/changelog/latest", methods=["GET"])
+@changelog_bp.route("/products/<int:product_id>/changelog/latest", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def get_latest_changelog(game_id):
+def get_latest_changelog(product_id):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -414,13 +414,13 @@ def get_latest_changelog(game_id):
         return jsonify({"error": "No project associated"}), 400
 
     try:
-        game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
-        if not game:
-            return jsonify({"error": "Game not found"}), 404
+        product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+        if not product:
+            return jsonify({"error": "Product not found"}), 404
 
         latest_entry = (
             ChangelogEntry.query.filter_by(
-                game_id=game_id, project_id=user.project_id, is_public=True
+                product_id=product_id, project_id=user.project_id, is_public=True
             )
             .order_by(ChangelogEntry.release_date.desc())
             .first()
@@ -430,8 +430,8 @@ def get_latest_changelog(game_id):
             return jsonify(
                 {
                     "success": True,
-                    "game_id": game_id,
-                    "game_name": game.name,
+                    "product_id": product_id,
+                    "product_name": product.name,
                     "latest_changelog": None,
                 }
             )
@@ -439,8 +439,8 @@ def get_latest_changelog(game_id):
         return jsonify(
             {
                 "success": True,
-                "game_id": game_id,
-                "game_name": game.name,
+                "product_id": product_id,
+                "product_name": product.name,
                 "latest_changelog": {
                     "id": latest_entry.id,
                     "version": latest_entry.version,
@@ -477,13 +477,13 @@ def search_changelog():
 
     try:
         query = request.args.get("q", "")
-        game_id = request.args.get("game_id", type=int)
+        product_id = request.args.get("product_id", type=int)
         version = request.args.get("version", "")
 
         search_query = ChangelogEntry.query.filter_by(project_id=user.project_id, is_public=True)
 
-        if game_id:
-            search_query = search_query.filter_by(game_id=game_id)
+        if product_id:
+            search_query = search_query.filter_by(product_id=product_id)
 
         if version:
 
@@ -505,8 +505,8 @@ def search_changelog():
             results.append(
                 {
                     "id": entry.id,
-                    "game_id": entry.game_id,
-                    "game_name": entry.game.name,
+                    "product_id": entry.product_id,
+                    "product_name": entry.product.name,
                     "version": entry.version,
                     "title": entry.title,
                     "description": entry.description,
@@ -531,11 +531,11 @@ def search_changelog():
     except Exception as e:
         return jsonify({"error": f"Failed to search changelog: {str(e)}"}), 500
 
-@changelog_bp.route("/loaders/<int:loader_id>/changelog", methods=["GET"])
+@changelog_bp.route("/agents/<int:agent_id>/changelog", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def get_loader_changelog(loader_id):
+def get_loader_changelog(agent_id):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -551,15 +551,15 @@ def get_loader_changelog(loader_id):
         return jsonify({"error": "No project associated"}), 400
 
     try:
-        loader = Loader.query.filter_by(id=loader_id, project_id=user.project_id).first()
-        if not loader:
-            return jsonify({"error": "Loader not found"}), 404
+        agent = Agent.query.filter_by(id=agent_id, project_id=user.project_id).first()
+        if not agent:
+            return jsonify({"error": "Agent not found"}), 404
 
         entries = (
-            LoaderChangelog.query.filter_by(
-                loader_id=loader_id, project_id=user.project_id, is_public=True
+            AgentChangelog.query.filter_by(
+                agent_id=agent_id, project_id=user.project_id, is_public=True
             )
-            .order_by(LoaderChangelog.release_date.desc())
+            .order_by(AgentChangelog.release_date.desc())
             .all()
         )
 
@@ -583,8 +583,8 @@ def get_loader_changelog(loader_id):
         return jsonify(
             {
                 "success": True,
-                "loader_id": loader_id,
-                "loader_name": loader.name,
+                "agent_id": agent_id,
+                "agent_name": agent.name,
                 "changelog": changelog_data,
             }
         )
@@ -592,11 +592,11 @@ def get_loader_changelog(loader_id):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch changelog: {str(e)}"}), 500
 
-@changelog_bp.route("/loaders/<int:loader_id>/changelog", methods=["POST"])
+@changelog_bp.route("/agents/<int:agent_id>/changelog", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def create_loader_changelog_entry(loader_id):
+def create_loader_changelog_entry(agent_id):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -614,15 +614,15 @@ def create_loader_changelog_entry(loader_id):
     from ..services.rbac import rbac_service
 
     can_manage_changelog = rbac_service.check_permission(
-        user.id, "applications.manage_changelog"
-    ) or rbac_service.check_permission(user.id, "loaders.manage_changelog")
+        user.id, "products.manage_changelog"
+    ) or rbac_service.check_permission(user.id, "agents.manage_changelog")
     if not can_manage_changelog:
         return jsonify({"error": "Insufficient permissions"}), 403
 
     try:
-        loader = Loader.query.filter_by(id=loader_id, project_id=user.project_id).first()
-        if not loader:
-            return jsonify({"error": "Loader not found"}), 404
+        agent = Agent.query.filter_by(id=agent_id, project_id=user.project_id).first()
+        if not agent:
+            return jsonify({"error": "Agent not found"}), 404
 
         data = request.get_json()
 
@@ -635,15 +635,15 @@ def create_loader_changelog_entry(loader_id):
         if not version or not title:
             return jsonify({"error": "Version and title are required"}), 400
 
-        existing_entry = LoaderChangelog.query.filter_by(
-            loader_id=loader_id, version=version, project_id=user.project_id
+        existing_entry = AgentChangelog.query.filter_by(
+            agent_id=agent_id, version=version, project_id=user.project_id
         ).first()
 
         if existing_entry:
-            return jsonify({"error": "Version already exists for this loader"}), 400
+            return jsonify({"error": "Version already exists for this agent"}), 400
 
-        new_entry = LoaderChangelog(
-            loader_id=loader_id,
+        new_entry = AgentChangelog(
+            agent_id=agent_id,
             version=version,
             title=title,
             description=data.get("description"),
@@ -663,15 +663,15 @@ def create_loader_changelog_entry(loader_id):
         db.session.add(new_entry)
         db.session.commit()
 
-        loader.version = version
-        loader.changelog = title
-        loader.updated_at = datetime.utcnow()
+        agent.version = version
+        agent.changelog = title
+        agent.updated_at = datetime.utcnow()
         db.session.commit()
 
         activity_service.log_activity(
             user,
             "loader_changelog_created",
-            details=f"Created changelog entry v{version} for loader: {loader.id}",
+            details=f"Created changelog entry v{version} for agent: {agent.id}",
         )
 
         return jsonify(
@@ -691,11 +691,11 @@ def create_loader_changelog_entry(loader_id):
         db.session.rollback()
         return jsonify({"error": f"Failed to create changelog entry: {str(e)}"}), 500
 
-@changelog_bp.route("/loaders/<int:loader_id>/changelog/latest", methods=["GET"])
+@changelog_bp.route("/agents/<int:agent_id>/changelog/latest", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def get_latest_loader_changelog(loader_id):
+def get_latest_loader_changelog(agent_id):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -711,15 +711,15 @@ def get_latest_loader_changelog(loader_id):
         return jsonify({"error": "No project associated"}), 400
 
     try:
-        loader = Loader.query.filter_by(id=loader_id, project_id=user.project_id).first()
-        if not loader:
-            return jsonify({"error": "Loader not found"}), 404
+        agent = Agent.query.filter_by(id=agent_id, project_id=user.project_id).first()
+        if not agent:
+            return jsonify({"error": "Agent not found"}), 404
 
         latest_entry = (
-            LoaderChangelog.query.filter_by(
-                loader_id=loader_id, project_id=user.project_id, is_public=True
+            AgentChangelog.query.filter_by(
+                agent_id=agent_id, project_id=user.project_id, is_public=True
             )
-            .order_by(LoaderChangelog.release_date.desc())
+            .order_by(AgentChangelog.release_date.desc())
             .first()
         )
 
@@ -727,8 +727,8 @@ def get_latest_loader_changelog(loader_id):
             return jsonify(
                 {
                     "success": True,
-                    "loader_id": loader_id,
-                    "loader_name": loader.name,
+                    "agent_id": agent_id,
+                    "agent_name": agent.name,
                     "latest_changelog": None,
                     "message": "No changelog entries found",
                 }
@@ -751,8 +751,8 @@ def get_latest_loader_changelog(loader_id):
         return jsonify(
             {
                 "success": True,
-                "loader_id": loader_id,
-                "loader_name": loader.name,
+                "agent_id": agent_id,
+                "agent_name": agent.name,
                 "latest_changelog": changelog_data,
             }
         )

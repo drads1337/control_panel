@@ -29,9 +29,10 @@ else:
 from flask import Flask
 from backend.config.config import Config
 from backend.core.extensions import db
-from backend.models.core import User
+from backend.models.core import User, Project
 from backend.utils.rbac_utils import RBACManager
 from backend.models.rbac import Role, UserRole
+from backend.services.rbac import rbac_service
 
 def create_app():
     """Create Flask application"""
@@ -172,22 +173,61 @@ def create_owner():
                     raise
 
             # Assign owner role through RBAC
-            # Note: This requires finding or creating a system role for owners
-            # For now, we'll try to find an existing "owner" role in any project
-            # or create one if needed. Owners typically need special handling.
+            # Note: Owner role must be created in a project (project_id is required for Role model)
+            # We'll find or create a project, initialize RBAC, and assign the owner role
             print("\n🔐 Назначение роли владельца через RBAC...")
             
-            # Try to find or create owner role assignment
-            # Since owners have project_id=None, we need special handling
-            # For now, we'll check if there's a system project or handle it differently
             try:
-                # Check if owner role exists in any project (system roles might be project-agnostic)
-                # First try to find system role
-                owner_role = Role.query.filter_by(name='owner', is_system_role=True).first()
+                # Find or create a project for owner role
+                # Since Role model requires project_id, we need a project to create the owner role
+                project = Project.query.first()
                 
-                # If not found, try to find any role named 'owner'
+                if not project:
+                    print("   ⚠️  Проекты не найдены. Создаем системный проект для роли owner...")
+                    # Create a system project for owner roles
+                    project = Project(
+                        name="System",
+                        description="System project for owner roles",
+                        status="active"
+                    )
+                    db.session.add(project)
+                    db.session.commit()
+                    db.session.refresh(project)
+                    print(f"   ✅ Создан системный проект (ID: {project.id})")
+                
+                # Initialize RBAC for the project if not already initialized
+                # Check if roles exist for this project
+                existing_roles = Role.query.filter_by(project_id=project.id).count()
+                if existing_roles == 0:
+                    print(f"   ⚠️  RBAC не инициализирован для проекта {project.id}. Инициализируем...")
+                    success = rbac_service.initialize_default_data(project.id)
+                    if not success:
+                        print("   ⚠️  Ошибка при инициализации RBAC")
+                        raise Exception("Failed to initialize RBAC")
+                    print("   ✅ RBAC инициализирован")
+                
+                # Find owner role in the project
+                owner_role = Role.query.filter_by(
+                    name='owner', 
+                    project_id=project.id,
+                    is_system_role=True
+                ).first()
+                
                 if not owner_role:
-                    owner_role = Role.query.filter_by(name='owner').first()
+                    # Try to find any owner role
+                    owner_role = Role.query.filter_by(
+                        name='owner',
+                        project_id=project.id
+                    ).first()
+                
+                if not owner_role:
+                    print("   ⚠️  Роль 'owner' не найдена. Создаем...")
+                    # Re-initialize RBAC to ensure owner role is created
+                    rbac_service.initialize_default_data(project.id)
+                    owner_role = Role.query.filter_by(
+                        name='owner',
+                        project_id=project.id
+                    ).first()
                 
                 if owner_role:
                     print(f"   ℹ️  Найдена роль 'owner' (ID: {owner_role.id}, project_id: {owner_role.project_id})")
@@ -209,13 +249,14 @@ def create_owner():
                     else:
                         print("   ℹ️  Роль 'owner' уже назначена")
                 else:
-                    print("   ⚠️  Роль 'owner' не найдена в системе RBAC")
+                    print("   ⚠️  Не удалось найти или создать роль 'owner'")
                     print("   ⚠️  Владелец создан, но роль не назначена автоматически")
-                    print("   ⚠️  Возможно, требуется инициализация RBAC или создание системной роли")
-                    print("   ⚠️  Попробуйте создать роль 'owner' вручную через систему RBAC")
+                    raise Exception("Owner role not found after initialization")
             except Exception as rbac_error:
                 print(f"   ⚠️  Ошибка при назначении роли через RBAC: {str(rbac_error)}")
                 print("   ⚠️  Владелец создан, но роль может быть не назначена")
+                import traceback
+                traceback.print_exc()
 
             print(f"\n✅ Владелец успешно создан!")
             print(f"   ID: {owner.id}")

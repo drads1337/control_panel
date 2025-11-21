@@ -10,8 +10,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { enhancedApi, getErrorMessage } from '@/shared/api/enhanced-client';
 import { createUser } from '@/entities/user/api/user';
-import { getGames } from '@/entities/game/api/game';
-import { type Game } from '@/entities/game';
+import { getProducts } from '@/entities/product/api/product';
+import { type Product } from '@/entities/product';
 import { toast } from 'sonner';
 import { createUserSchema, type CreateUserInput } from '@/lib/validations/user';
 import { measurePerformance } from '@/lib/sentry-config';
@@ -49,20 +49,20 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
       email: '',
       token_balance: 0,
       work_duration_days: 7,
-      selected_games: [],
+      selected_products: [],
       selected_rbac_role: undefined,
     },
   });
 
   const [loading, setLoading] = useState(false);
   const [rbacLoading, setRbacLoading] = useState(false);
-  const [gamesLoading, setGamesLoading] = useState(false);
+  const [productsLoading, setProductsLoading] = useState(false);
 
   const [rbacError, setRbacError] = useState<string | null>(null);
-  const [gamesError, setGamesError] = useState<string | null>(null);
+  const [productsError, setProductsError] = useState<string | null>(null);
 
   const [roles, setRoles] = useState<Role[]>([]);
-  const [games, setGames] = useState<Game[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
 
   const loadRoles = useCallback(async () => {
     try {
@@ -80,29 +80,29 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
     }
   }, []);
 
-  const loadGames = useCallback(async () => {
+  const loadProducts = useCallback(async () => {
     try {
-      setGamesLoading(true);
-      setGamesError(null);
+      setProductsLoading(true);
+      setProductsError(null);
 
       // Use universal API function - it uses /api/products endpoint
-      const response = await getGames('all');
-      setGames(response.games || response.products || []);
+      const response = await getProducts('all');
+      setProducts(response.products || []);
     } catch (error) {
 
       const errorMessage = getErrorMessage(error);
-      setGamesError(errorMessage);
+      setProductsError(errorMessage);
     } finally {
-      setGamesLoading(false);
+      setProductsLoading(false);
     }
   }, []);
 
   useEffect(() => {
     if (open) {
       loadRoles();
-      loadGames();
+      loadProducts();
     }
-  }, [open, loadRoles, loadGames]);
+  }, [open, loadRoles, loadProducts]);
 
   useEffect(() => {
     if (!open) {
@@ -114,11 +114,11 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
         email: '',
         token_balance: 0,
         work_duration_days: 7,
-        selected_games: [],
+        selected_products: [],
         selected_rbac_role: undefined,
       });
       setRbacError(null);
-      setGamesError(null);
+      setProductsError(null);
     }
   }, [open, form]);
 
@@ -134,7 +134,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
         email: data.email || undefined,
         token_balance: data.token_balance,
         work_duration_days: data.work_duration_days,
-        game_ids: data.selected_games,
+        product_ids: data.selected_products,
         rbac_role_ids: data.selected_rbac_role ? [data.selected_rbac_role] : []
       };
 
@@ -143,7 +143,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
         () => createUser(userData),
         {
           has_email: !!data.email,
-          has_games: data.selected_games.length > 0,
+          has_products: data.selected_products.length > 0,
           has_role: !!data.selected_rbac_role,
           token_balance: data.token_balance,
         }
@@ -350,35 +350,35 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
 
             <FormField
               control={form.control}
-              name="selected_games"
+              name="selected_products"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Application Access</FormLabel>
-                  {gamesLoading ? (
-                    <div className="text-sm text-muted-foreground">Loading games...</div>
-                  ) : gamesError ? (
-                    <div className="text-sm text-red-500">Error loading games: {gamesError}</div>
+                  <FormLabel>Product Access</FormLabel>
+                  {productsLoading ? (
+                    <div className="text-sm text-muted-foreground">Loading products...</div>
+                  ) : productsError ? (
+                    <div className="text-sm text-red-500">Error loading products: {productsError}</div>
                   ) : (
                     <div className="max-h-[150px] overflow-y-auto border rounded-md p-2 space-y-2">
-                      {games.map((game) => (
-                        <div key={game.id} className="flex items-center space-x-2">
+                      {products.map((product) => (
+                        <div key={product.id} className="flex items-center space-x-2">
                           <Checkbox
-                            id={`game-${game.id}`}
-                            checked={field.value?.includes(game.id) || false}
+                            id={`product-${product.id}`}
+                            checked={field.value?.includes(product.id) || false}
                             onCheckedChange={(checked) => {
-                              const currentGames = field.value || [];
+                              const currentProducts = field.value || [];
                               if (checked) {
-                                field.onChange([...currentGames, game.id]);
+                                field.onChange([...currentProducts, product.id]);
                               } else {
-                                field.onChange(currentGames.filter(id => id !== game.id));
+                                field.onChange(currentProducts.filter(id => id !== product.id));
                               }
                             }}
                             disabled={loading}
                           />
-                          <Label htmlFor={`game-${game.id}`} className="text-sm">
+                          <Label htmlFor={`product-${product.id}`} className="text-sm">
                             <div>
-                              <div className="font-medium">{game.name}</div>
-                              <div className="text-xs text-muted-foreground">{game.description || 'No description'}</div>
+                              <div className="font-medium">{product.name}</div>
+                              <div className="text-xs text-muted-foreground">{product.description || 'No description'}</div>
                             </div>
                           </Label>
                         </div>

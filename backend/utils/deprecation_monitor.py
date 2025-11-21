@@ -111,7 +111,7 @@ def custom_warning_handler(message, category, filename, lineno, file=None, line=
             func_name = parts.split()[-1] if parts else "unknown"
             track_deprecation(func_name)
         
-        # Also log to application logger
+        # Also log to product logger
         logger.warning(
             f"DeprecationWarning: {message} at {filename}:{lineno}",
             extra={

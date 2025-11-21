@@ -6,14 +6,13 @@ from datetime import datetime, timedelta
 import telegram
 from flask import Blueprint, current_app, g, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
-from telegram.ext import Application
 
 from ..core.extensions import db
-from ..models.chat import ChatGroup, ChatGroupGame, ChatMessage, DiscordWebhook, TelegramBot
+from ..models.chat import ChatGroup, ChatGroupProduct, ChatMessage, DiscordWebhook, TelegramBot
 from ..models.core import Project, ProjectSettings, User
-from ..models.games import Game, GameChatSettings
+from ..models.products import Product, ProductChatSettings
 from ..models.keys import Key
-from ..models.loaders import Loader
+from ..models.agents import Agent
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -60,16 +59,16 @@ def get_messages(project_id=None):
         if not project_id:
             return jsonify({"error": "User not associated with any project"}), 400
 
-        game_id = request.args.get("game_id", type=int)
-        loader_id = request.args.get("loader_id", type=int)
+        product_id = request.args.get("product_id", type=int)
+        agent_id = request.args.get("agent_id", type=int)
         group_id = request.args.get("group_id", type=int)
 
         query = ChatMessage.query.filter_by(project_id=project_id)
 
-        if game_id:
-            query = query.filter(ChatMessage.game_id == game_id)
-        if loader_id:
-            query = query.filter(ChatMessage.loader_id == loader_id)
+        if product_id:
+            query = query.filter(ChatMessage.product_id == product_id)
+        if agent_id:
+            query = query.filter(ChatMessage.agent_id == agent_id)
         if group_id:
             query = query.filter(ChatMessage.group_id == group_id)
 
@@ -84,8 +83,8 @@ def get_messages(project_id=None):
                 "message": msg.message,
                 "created_at": msg.created_at.isoformat(),
                 "is_sent_to_telegram": msg.is_sent_to_telegram,
-                "game_id": msg.game_id,
-                "loader_id": msg.loader_id,
+                "product_id": msg.product_id,
+                "agent_id": msg.agent_id,
                 "group_id": msg.group_id,
             }
             messages_data.append(message_data)
@@ -112,8 +111,8 @@ def send_message(project_id=None):
 
         data = request.get_json()
         message_text = data.get("message", "").strip()
-        game_id = data.get("game_id")
-        loader_id = data.get("loader_id")
+        product_id = data.get("product_id")
+        agent_id = data.get("agent_id")
         group_id = data.get("group_id")
         platforms = data.get("platforms") or ["telegram", "discord"]
         platforms_set = set([p for p in platforms if isinstance(p, str)])
@@ -132,25 +131,25 @@ def send_message(project_id=None):
         )
 
         settings = ProjectSettings.query.filter_by(project_id=project_id).first()
-        game_settings = None
-        if game_id:
-            game_settings = GameChatSettings.query.filter_by(
-                game_id=game_id, project_id=project_id
+        product_settings = None
+        if product_id:
+            product_settings = ProductChatSettings.query.filter_by(
+                product_id=product_id, project_id=project_id
             ).first()
         if settings:
             max_len = (
-                game_settings.message_max_length
-                if (game_settings and game_settings.message_max_length is not None)
+                product_settings.message_max_length
+                if (product_settings and product_settings.message_max_length is not None)
                 else settings.chat_message_max_length
             )
             per_min = (
-                game_settings.message_limit_per_minute
-                if (game_settings and game_settings.message_limit_per_minute is not None)
+                product_settings.message_limit_per_minute
+                if (product_settings and product_settings.message_limit_per_minute is not None)
                 else settings.chat_message_limit_per_minute
             )
             daily = (
-                game_settings.daily_message_limit
-                if (game_settings and game_settings.daily_message_limit is not None)
+                product_settings.daily_message_limit
+                if (product_settings and product_settings.daily_message_limit is not None)
                 else settings.chat_daily_message_limit
             )
             if max_len and len(message_text) > max_len:
@@ -175,14 +174,14 @@ def send_message(project_id=None):
                 if daily_count >= daily:
                     return jsonify({"error": "Daily message limit reached"}), 429
 
-        if game_id:
-            game = Game.query.filter_by(id=game_id, project_id=project_id).first()
-            if not game:
-                return jsonify({"error": "Game not found"}), 404
-        if loader_id:
-            loader = Loader.query.filter_by(id=loader_id, project_id=project_id).first()
-            if not loader:
-                return jsonify({"error": "Loader not found"}), 404
+        if product_id:
+            product = Product.query.filter_by(id=product_id, project_id=project_id).first()
+            if not product:
+                return jsonify({"error": "Product not found"}), 404
+        if agent_id:
+            agent = Agent.query.filter_by(id=agent_id, project_id=project_id).first()
+            if not agent:
+                return jsonify({"error": "Agent not found"}), 404
         if group_id:
             group = ChatGroup.query.filter_by(id=group_id, project_id=project_id).first()
             if not group:
@@ -194,8 +193,8 @@ def send_message(project_id=None):
             sender_id=user.id if sender_type != "client" else None,
             message=message_text,
             created_at=datetime.utcnow(),
-            game_id=game_id,
-            loader_id=loader_id,
+            product_id=product_id,
+            agent_id=agent_id,
             group_id=group_id,
         )
 
@@ -204,18 +203,18 @@ def send_message(project_id=None):
 
         telegram_bot = TelegramBot.query.filter_by(project_id=project_id, is_active=True).first()
 
-        game_settings = None
-        if game_id:
-            game_settings = GameChatSettings.query.filter_by(
-                game_id=game_id, project_id=project_id
+        product_settings = None
+        if product_id:
+            product_settings = ProductChatSettings.query.filter_by(
+                product_id=product_id, project_id=project_id
             ).first()
 
         telegram_allowed = "telegram" in platforms_set
         discord_allowed = "discord" in platforms_set
-        if game_settings:
-            if not game_settings.telegram_enabled:
+        if product_settings:
+            if not product_settings.telegram_enabled:
                 telegram_allowed = False
-            if not game_settings.discord_enabled:
+            if not product_settings.discord_enabled:
                 discord_allowed = False
 
         if telegram_bot and telegram_allowed:
@@ -269,8 +268,8 @@ def send_message(project_id=None):
             "message": chat_message.message,
             "created_at": chat_message.created_at.isoformat(),
             "is_sent_to_telegram": chat_message.is_sent_to_telegram,
-            "game_id": chat_message.game_id,
-            "loader_id": chat_message.loader_id,
+            "product_id": chat_message.product_id,
+            "agent_id": chat_message.agent_id,
             "group_id": chat_message.group_id,
         }
 
@@ -451,8 +450,8 @@ def send_client_message():
         message_text = data.get("message", "").strip()
         client_key = data.get("key", "").strip()
         project_name = data.get("project", "").strip()
-        game_id = data.get("game_id")
-        loader_id = data.get("loader_id")
+        product_id = data.get("product_id")
+        agent_id = data.get("agent_id")
         group_id = data.get("group_id")
         platforms = data.get("platforms") or ["telegram", "discord"]
         platforms_set = set([p for p in platforms if isinstance(p, str)])
@@ -501,14 +500,14 @@ def send_client_message():
                 if daily_count >= settings.chat_daily_message_limit:
                     return jsonify({"error": "Daily message limit reached"}), 429
 
-        if game_id:
-            game = Game.query.filter_by(id=game_id, project_id=project.id).first()
-            if not game:
-                return jsonify({"error": "Game not found"}), 404
-        if loader_id:
-            loader = Loader.query.filter_by(id=loader_id, project_id=project.id).first()
-            if not loader:
-                return jsonify({"error": "Loader not found"}), 404
+        if product_id:
+            product = Product.query.filter_by(id=product_id, project_id=project.id).first()
+            if not product:
+                return jsonify({"error": "Product not found"}), 404
+        if agent_id:
+            agent = Agent.query.filter_by(id=agent_id, project_id=project.id).first()
+            if not agent:
+                return jsonify({"error": "Agent not found"}), 404
         if group_id:
             group = ChatGroup.query.filter_by(id=group_id, project_id=project.id).first()
             if not group:
@@ -520,8 +519,8 @@ def send_client_message():
             sender_key=client_key,
             message=message_text,
             created_at=datetime.utcnow(),
-            game_id=game_id,
-            loader_id=loader_id,
+            product_id=product_id,
+            agent_id=agent_id,
             group_id=group_id,
         )
 
@@ -577,10 +576,10 @@ def send_client_message():
         logger.error(f"Error sending client message: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-@chat_bp.route("/games/<int:game_id>/settings", methods=["GET"])
+@chat_bp.route("/products/<int:product_id>/settings", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
-def get_game_chat_settings(game_id: int):
+def get_product_chat_settings(product_id: int):
     try:
         current_user_id = get_jwt_identity()
         user = User.query.get(current_user_id).first()
@@ -592,10 +591,10 @@ def get_game_chat_settings(game_id: int):
             return jsonify({"error": "User must be assigned to a project"}), 403
             return jsonify({"error": "User not found"}), 404
         project_id = getattr(g, "project_id", user.project_id)
-        game = Game.query.filter_by(id=game_id, project_id=project_id).first()
-        if not game:
-            return jsonify({"error": "Game not found"}), 404
-        s = GameChatSettings.query.filter_by(game_id=game_id, project_id=project_id).first()
+        product = Product.query.filter_by(id=product_id, project_id=project_id).first()
+        if not product:
+            return jsonify({"error": "Product not found"}), 404
+        s = ProductChatSettings.query.filter_by(product_id=product_id, project_id=project_id).first()
         if not s:
 
             ps = ProjectSettings.query.filter_by(project_id=project_id).first()
@@ -625,13 +624,13 @@ def get_game_chat_settings(game_id: int):
             }
         )
     except Exception as e:
-        logger.error(f"Error getting game chat settings: {e}")
+        logger.error(f"Error getting product chat settings: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-@chat_bp.route("/games/<int:game_id>/settings", methods=["PUT"])
+@chat_bp.route("/products/<int:product_id>/settings", methods=["PUT"])
 @jwt_required()
 @enforce_project_scope
-def update_game_chat_settings(game_id: int):
+def update_product_chat_settings(product_id: int):
     try:
         current_user_id = get_jwt_identity()
         user = User.query.get(current_user_id)
@@ -649,13 +648,13 @@ def update_game_chat_settings(game_id: int):
         ):
             return jsonify({"error": "Admin access required"}), 403
         project_id = getattr(g, "project_id", user.project_id)
-        game = Game.query.filter_by(id=game_id, project_id=project_id).first()
-        if not game:
-            return jsonify({"error": "Game not found"}), 404
+        product = Product.query.filter_by(id=product_id, project_id=project_id).first()
+        if not product:
+            return jsonify({"error": "Product not found"}), 404
         data = request.get_json()
-        s = GameChatSettings.query.filter_by(game_id=game_id, project_id=project_id).first()
+        s = ProductChatSettings.query.filter_by(product_id=product_id, project_id=project_id).first()
         if not s:
-            s = GameChatSettings(game_id=game_id, project_id=project_id)
+            s = ProductChatSettings(product_id=product_id, project_id=project_id)
             db.session.add(s)
         if "telegram_enabled" in data:
             s.telegram_enabled = bool(data.get("telegram_enabled"))
@@ -671,9 +670,9 @@ def update_game_chat_settings(game_id: int):
             v = data.get("message_max_length")
             s.message_max_length = int(v) if (v is not None and v != "") else None
         db.session.commit()
-        return jsonify({"message": "Game chat settings updated"})
+        return jsonify({"message": "Product chat settings updated"})
     except Exception as e:
-        logger.error(f"Error updating game chat settings: {e}")
+        logger.error(f"Error updating product chat settings: {e}")
         db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
 
@@ -950,7 +949,7 @@ def create_group():
         data = request.get_json()
         name = (data.get("name") or "").strip()
         description = (data.get("description") or "").strip() or None
-        game_ids = data.get("game_ids") or []
+        product_ids = data.get("product_ids") or []
 
         if not name:
             return jsonify({"error": "Name is required"}), 400
@@ -960,13 +959,13 @@ def create_group():
         db.session.add(group)
         db.session.flush()
 
-        valid_games = (
-            Game.query.filter(Game.id.in_(game_ids), Game.project_id == project_id).all()
-            if game_ids
+        valid_products = (
+            Product.query.filter(Product.id.in_(product_ids), Product.project_id == project_id).all()
+            if product_ids
             else []
         )
-        for game in valid_games:
-            db.session.add(ChatGroupGame(group_id=group.id, game_id=game.id, project_id=project_id))
+        for product in valid_products:
+            db.session.add(ChatGroupProduct(group_id=group.id, product_id=product.id, project_id=project_id))
 
         db.session.commit()
 
@@ -1014,18 +1013,18 @@ def update_group(group_id: int):
             group.description = (data.get("description") or "").strip() or None
         if "is_active" in data:
             group.is_active = bool(data.get("is_active"))
-        if "game_ids" in data:
+        if "product_ids" in data:
 
-            ChatGroupGame.query.filter_by(group_id=group.id).delete()
-            game_ids = data.get("game_ids") or []
-            valid_games = (
-                Game.query.filter(Game.id.in_(game_ids), Game.project_id == project_id).all()
-                if game_ids
+            ChatGroupProduct.query.filter_by(group_id=group.id).delete()
+            product_ids = data.get("product_ids") or []
+            valid_products = (
+                Product.query.filter(Product.id.in_(product_ids), Product.project_id == project_id).all()
+                if product_ids
                 else []
             )
-            for game in valid_games:
+            for product in valid_products:
                 db.session.add(
-                    ChatGroupGame(group_id=group.id, game_id=game.id, project_id=project_id)
+                    ChatGroupProduct(group_id=group.id, product_id=product.id, project_id=project_id)
                 )
 
         db.session.commit()
@@ -1056,7 +1055,7 @@ def delete_group(group_id: int):
         if not group:
             return jsonify({"error": "Group not found"}), 404
 
-        ChatGroupGame.query.filter_by(group_id=group.id).delete()
+        ChatGroupProduct.query.filter_by(group_id=group.id).delete()
         db.session.delete(group)
         db.session.commit()
         return jsonify({"message": "Group deleted"})

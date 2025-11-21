@@ -109,8 +109,8 @@ def app() -> Generator[Flask, None, None]:
 
         with app.app_context():
             from backend.models import (
-                core, keys, games, notifications, webhooks, rbac, 
-                security, remote_control, chat, loaders
+                core, keys, products, notifications, webhooks, rbac, 
+                security, remote_control, chat, agents
             )
 
             # Create all tables

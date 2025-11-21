@@ -30,7 +30,7 @@ class RequestValidationService:
             "b": "challenge_response",
             "c": "canary",
             "d": "fingerprint",
-            "e": "game",
+            "e": "product",
             "f": "serial",
         }
 
@@ -39,7 +39,7 @@ class RequestValidationService:
             "challenge_response": "challenge_response",
             "canary": "canary",
             "fingerprint": "fingerprint",
-            "game": "game",
+            "product": "product",
             "serial": "serial",
         }
 
@@ -74,7 +74,7 @@ class RequestValidationService:
             "challenge_response": data.get("challenge_response") or data.get("b"),
             "canary": data.get("canary") or data.get("c"),
             "fingerprint": data.get("fingerprint") or data.get("d"),
-            "game": data.get("game") or data.get("e"),
+            "product": data.get("product") or data.get("e"),
             "serial": data.get("serial") or data.get("f"),
             "device_id": data.get("device_id") or data.get("g") or data.get("android_id"),
             "device_model": data.get("device_model") or data.get("h"),

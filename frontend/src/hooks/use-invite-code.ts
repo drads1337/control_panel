@@ -5,7 +5,7 @@ export interface InviteCodeInfo {
   role?: string
   roles?: string[]
   project_id?: number
-  game_ids?: number[]
+  product_ids?: number[]
   token_balance?: number
   expires_at?: string
   requires_project_name?: boolean

@@ -3,8 +3,8 @@ import { BaseEntity, PaginatedResponse } from '@/shared/api'
 export interface LicenseKey extends BaseEntity {
   key: string
   user_id: number | null
-  game_id: number | null
-  game_name: string | null
+  product_id: number | null
+  product_name: string | null
   status: number
   is_active: boolean
   is_expired: boolean
@@ -26,7 +26,7 @@ export interface LicenseKeysResponse extends PaginatedResponse<LicenseKey> {
 export interface CreateKeyData {
   duration_hours: number
   max_devices: number
-  game_id: number
+  product_id: number
   custom_key?: string
 }
 
@@ -34,23 +34,23 @@ export interface BulkCreateKeysData {
   count: number
   duration_hours: number
   max_devices: number
-  game_id: number
+  product_id: number
 }
 
-export interface CreateLoaderKeyData {
+export interface CreateAgentKeyData {
   duration_hours: number
   max_devices: number
-  loader_id: number
-  game_ids: number[]
+  agent_id: number
+  product_ids: number[]
   custom_key?: string
 }
 
-export interface BulkCreateLoaderKeysData {
+export interface BulkCreateAgentKeysData {
   count: number
   duration_hours: number
   max_devices: number
-  loader_id: number
-  game_ids: number[]
+  agent_id: number
+  product_ids: number[]
 }
 
 export interface KeysStats {

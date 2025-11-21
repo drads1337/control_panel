@@ -1,16 +1,16 @@
 import React, { useMemo, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuthContext } from '@/contexts/auth-context'
-import { getGames } from '@/entities/game'
-import { getGameFiles } from '@/entities/file'
+import { getProducts } from '@/entities/product'
+import { getProductFiles } from '@/entities/file'
 import { toast } from 'sonner'
-import type { Game } from '@/entities/game'
+import type { Product } from '@/entities/product'
 import type { FileItem } from '@/entities/file'
 
 export const fileManagerKeys = {
   all: ['fileManager'] as const,
-  games: () => [...fileManagerKeys.all, 'games'] as const,
-  files: (gameId: number, filters: any) => [...fileManagerKeys.all, 'files', gameId, filters] as const,
+  products: () => [...fileManagerKeys.all, 'products'] as const,
+  files: (productId: number, filters: any) => [...fileManagerKeys.all, 'files', productId, filters] as const,
 }
 
 export interface FileManagerFilters {
@@ -25,8 +25,8 @@ export type SortOrder = FileManagerFilters['sortOrder']
 
 interface UseFileManagerReturn {
 
-  games: Game[]
-  selectedGame: Game | null
+  products: Product[]
+  selectedProduct: Product | null
   files: FileItem[]
   loading: boolean
   refreshing: boolean
@@ -43,16 +43,16 @@ interface UseFileManagerReturn {
     resources: number
   }
 
-  selectGame: (game: Game | null) => void
+  selectProduct: (product: Product | null) => void
   updateFilters: (newFilters: Partial<FileManagerFilters>) => void
   refreshData: () => void
-  loadGameFiles: () => void
+  loadProductFiles: () => void
 }
 
 export function useFileManagerQuery(): UseFileManagerReturn {
   const { isAuthenticated } = useAuthContext()
 
-  const [selectedGameId, setSelectedGameId] = React.useState<number | null>(null)
+  const [selectedProductId, setSelectedProductId] = React.useState<number | null>(null)
   const [filters, setFilters] = React.useState<FileManagerFilters>({
     searchTerm: '',
     categoryFilter: 'all',
@@ -60,38 +60,38 @@ export function useFileManagerQuery(): UseFileManagerReturn {
     sortOrder: 'asc',
   })
 
-  const { data: gamesData, isLoading: gamesLoading } = useQuery({
-    queryKey: fileManagerKeys.games(),
-    queryFn: () => getGames('all'),
+  const { data: productsData, isLoading: productsLoading } = useQuery({
+    queryKey: fileManagerKeys.products(),
+    queryFn: () => getProducts('all'),
     enabled: isAuthenticated,
     staleTime: 5 * 60 * 1000,
   })
 
-  const games = gamesData?.games || []
+  const products = productsData?.products || []
 
   React.useEffect(() => {
-    if (games.length > 0 && !selectedGameId) {
-      setSelectedGameId(games[0].id)
+    if (products.length > 0 && !selectedProductId) {
+      setSelectedProductId(products[0].id)
     }
-  }, [games, selectedGameId])
+  }, [products, selectedProductId])
 
-  const selectedGame = games.find(g => g.id === selectedGameId) || null
+  const selectedProduct = products.find(g => g.id === selectedProductId) || null
 
   const { data: filesData, isLoading: filesLoading, refetch: refetchFiles } = useQuery({
-    queryKey: fileManagerKeys.files(selectedGameId || 0, {
+    queryKey: fileManagerKeys.files(selectedProductId || 0, {
       category: filters.categoryFilter,
       search: filters.searchTerm,
     }),
     queryFn: () => {
-      if (!selectedGameId) throw new Error('No game selected')
-      return getGameFiles(
-        selectedGameId,
+      if (!selectedProductId) throw new Error('No product selected')
+      return getProductFiles(
+        selectedProductId,
         filters.categoryFilter,
         'all',
         filters.searchTerm
       )
     },
-    enabled: isAuthenticated && !!selectedGameId,
+    enabled: isAuthenticated && !!selectedProductId,
     staleTime: 30 * 1000,
   })
 
@@ -135,8 +135,8 @@ export function useFileManagerQuery(): UseFileManagerReturn {
     resources: files.filter(f => f.category === 'resource').length,
   }), [files])
 
-  const selectGame = useCallback((game: Game | null) => {
-    setSelectedGameId(game?.id || null)
+  const selectProduct = useCallback((product: Product | null) => {
+    setSelectedProductId(product?.id || null)
   }, [])
 
   const updateFilters = useCallback((newFilters: Partial<FileManagerFilters>) => {
@@ -147,22 +147,22 @@ export function useFileManagerQuery(): UseFileManagerReturn {
     refetchFiles()
   }, [refetchFiles])
 
-  const loadGameFiles = useCallback(() => {
+  const loadProductFiles = useCallback(() => {
     refetchFiles()
   }, [refetchFiles])
 
   return {
-    games,
-    selectedGame,
+    products,
+    selectedProduct,
     files,
-    loading: gamesLoading || filesLoading,
+    loading: productsLoading || filesLoading,
     refreshing: false,
     filters,
     filteredFiles,
     stats,
-    selectGame,
+    selectProduct,
     updateFilters,
     refreshData,
-    loadGameFiles,
+    loadProductFiles,
   }
 }

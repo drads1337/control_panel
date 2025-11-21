@@ -15,7 +15,7 @@ import {
   RBACManagementGuard,
   ProjectSettingsGuard,
   KeyManagementGuard,
-  GameManagementGuard,
+  ProductManagementGuard,
   AnalyticsGuard,
   FileManagementGuard,
   RemoteControlGuard,

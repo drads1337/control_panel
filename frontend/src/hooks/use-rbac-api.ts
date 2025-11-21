@@ -19,7 +19,7 @@ interface Permission {
   action: string
   resource_type?: string
   resource_id?: number
-  game_id?: number
+  product_id?: number
   scope: string
   created_at: string
 }
@@ -40,7 +40,7 @@ interface UserPermission {
   action: string
   resource_type?: string
   resource_id?: number
-  game_id?: number
+  product_id?: number
   scope: string
   created_at: string
 }
@@ -71,7 +71,7 @@ export function useRBACApi() {
         method: 'GET',
         credentials: 'include',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'product/json'
         }
       })
 
@@ -85,7 +85,7 @@ export function useRBACApi() {
         method: 'GET',
         credentials: 'include',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'product/json'
         }
       })
 
@@ -99,7 +99,7 @@ export function useRBACApi() {
         method: 'GET',
         credentials: 'include',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'product/json'
         }
       })
 
@@ -113,7 +113,7 @@ export function useRBACApi() {
         method: 'GET',
         credentials: 'include',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'product/json'
         }
       })
 
@@ -160,7 +160,7 @@ export function useRBACApi() {
         method: 'POST',
         credentials: 'include',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'product/json'
         },
         body: JSON.stringify(roleData)
       })
@@ -187,7 +187,7 @@ export function useRBACApi() {
         method: 'PUT',
         credentials: 'include',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'product/json'
         },
         body: JSON.stringify(roleData)
       })
@@ -214,7 +214,7 @@ export function useRBACApi() {
         method: 'DELETE',
         credentials: 'include',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'product/json'
         }
       })
 
@@ -238,7 +238,7 @@ export function useRBACApi() {
         method: 'POST',
         credentials: 'include',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'product/json'
         },
         body: JSON.stringify({ role_id: roleId })
       })
@@ -265,7 +265,7 @@ export function useRBACApi() {
         method: 'DELETE',
         credentials: 'include',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'product/json'
         }
       })
 
@@ -289,7 +289,7 @@ export function useRBACApi() {
         method: 'POST',
         credentials: 'include',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'product/json'
         },
         body: JSON.stringify({ permission_id: permissionId })
       })
@@ -316,7 +316,7 @@ export function useRBACApi() {
         method: 'DELETE',
         credentials: 'include',
         headers: {
-          'Content-Type': 'application/json'
+            'Content-Type': 'product/json'
         }
       })
 

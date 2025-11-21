@@ -29,7 +29,7 @@ class PermissionService:
         description: str,
         resource: str,
         action: str,
-        game_id: int = None,
+        product_id: int = None,
         resource_type: str = None,
         resource_id: int = None,
         scope: str = "global",
@@ -40,7 +40,7 @@ class PermissionService:
             existing = Permission.query.filter_by(
                 name=name,
                 project_id=project_id,
-                game_id=game_id,
+                product_id=product_id,
                 resource_type=resource_type,
                 resource_id=resource_id,
             ).first()
@@ -61,7 +61,7 @@ class PermissionService:
                 description=description,
                 resource=resource,
                 action=action,
-                game_id=game_id,
+                product_id=product_id,
                 resource_type=resource_type,
                 resource_id=resource_id,
                 scope=scope,
@@ -85,7 +85,7 @@ class PermissionService:
                 "description": permission.description,
                 "resource": permission.resource,
                 "action": permission.action,
-                "game_id": permission.game_id,
+                "product_id": permission.product_id,
                 "resource_type": permission.resource_type,
                 "resource_id": permission.resource_id,
                 "scope": permission.scope,
@@ -112,7 +112,7 @@ class PermissionService:
                 existing = Permission.query.filter(
                     Permission.name == kwargs["name"],
                     Permission.project_id == project_id,
-                    Permission.game_id == permission.game_id,
+                    Permission.product_id == permission.product_id,
                     Permission.id != permission_id,
                 ).first()
 
@@ -130,8 +130,8 @@ class PermissionService:
             if "action" in kwargs:
                 permission.action = kwargs["action"]
 
-            if "game_id" in kwargs:
-                permission.game_id = kwargs["game_id"]
+            if "product_id" in kwargs:
+                permission.product_id = kwargs["product_id"]
 
             db.session.commit()
 
@@ -148,7 +148,7 @@ class PermissionService:
                 "description": permission.description,
                 "resource": permission.resource,
                 "action": permission.action,
-                "game_id": permission.game_id,
+                "product_id": permission.product_id,
                 "created_at": permission.created_at.isoformat(),
             }
 

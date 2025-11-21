@@ -9,14 +9,14 @@ STRUCTURE STANDARDS:
 
 1. MODULAR PACKAGES (for complex modules with multiple sub-modules):
    Use directory structure when a module has multiple related functionalities:
-   - routes/games/ - game management (management, prices, files, bulk_operations)
-   - routes/keys/ - key management (management, bulk_operations, analytics, loader, validation)
+   - routes/products/ - product management (management, prices, files, bulk_operations)
+   - routes/keys/ - key management (management, bulk_operations, analytics, agent, validation)
    - routes/users/ - user management (management, profile, balance, clients, tokens, referral_codes)
    - routes/admin/ - admin operations (system, users)
    - routes/connect/ - connection handling
 
    Each package's __init__.py should:
-   - Export only the main blueprint via __all__ (e.g., games_bp, keys_bp)
+   - Export only the main blueprint via __all__ (e.g., products_bp, keys_bp)
    - Import sub-blueprints and register them with the main blueprint
    - NOT re-export services or utilities (import them directly from their source modules)
 
@@ -32,7 +32,7 @@ STRUCTURE STANDARDS:
 3. IMPORT GUIDELINES:
    - Import blueprints directly from their modules:
      from .auth import auth_bp
-     from .games import games_bp
+     from .products import products_bp
 
    - Import services/utilities directly from their source modules (NOT through routes):
      from ...services.connect import SecurityChecker

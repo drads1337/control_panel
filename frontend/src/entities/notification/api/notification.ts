@@ -1,22 +1,22 @@
 import { enhancedApi as api } from '@/shared/api/enhanced-client'
 import { API_ENDPOINTS } from '@/shared/api/config'
-import type { GameNotification, GameNotificationsResponse } from '@/entities/notification';
-import type { Game } from '@/entities/game';
+import type { ProductNotification, ProductNotificationsResponse } from '@/entities/notification';
+import type { Product } from '@/entities/product';
 import type {
-  GameNotification as GameNotificationType,
-  GameNotificationsResponse as GameNotificationsResponseType
+  ProductNotification as ProductNotificationType,
+  ProductNotificationsResponse as ProductNotificationsResponseType
 } from '../model/types'
 
-export async function sendGameNotification(gameId: number, data: {
+export async function sendProductNotification(productId: number, data: {
   title: string;
   message: string;
   type: 'info' | 'warning' | 'error' | 'success' | string;
   repeatCount?: number;
   is_scheduled?: boolean;
   scheduled_at?: string | null;
-}): Promise<{ message: string; notifications_created: number; game_name: string }> {
+}): Promise<{ message: string; notifications_created: number; product_name: string }> {
   const requestData = {
-    game_id: gameId,
+    product_id: productId,
     version: '1.0.0',
     message: `${data.title}: ${data.message}`,
     type: data.type,
@@ -25,14 +25,14 @@ export async function sendGameNotification(gameId: number, data: {
     scheduled_at: data.scheduled_at
   };
 
-  const response = await api.post(API_ENDPOINTS.NOTIFICATIONS_GAME_UPDATE, requestData)
+  const response = await api.post(API_ENDPOINTS.NOTIFICATIONS_PRODUCT_UPDATE, requestData)
 
   return response.data;
 }
 
-export async function getGameNotifications(gameId: number): Promise<GameNotificationsResponseType> {
+export async function getProductNotifications(productId: number): Promise<ProductNotificationsResponseType> {
 
-  const response = await api.get(`${API_ENDPOINTS.NOTIFICATIONS_GAMES}/${gameId}/notifications`)
+  const response = await api.get(`${API_ENDPOINTS.NOTIFICATIONS_PRODUCTS}/${productId}/notifications`)
   return response.data;
 }
 

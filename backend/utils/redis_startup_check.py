@@ -1,6 +1,6 @@
 """
 Redis Startup Configuration Check
-Validates Redis security configuration when application starts.
+Validates Redis security configuration when product starts.
 
 This module checks critical Redis security settings and warns/errors
 if configuration is insecure.
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class RedisStartupChecker:
     """
-    Check Redis security configuration at application startup.
+    Check Redis security configuration at product startup.
     
     This class validates:
     - Authentication (password required)
@@ -195,10 +195,10 @@ class RedisStartupChecker:
 
 def check_redis_security_on_startup() -> Dict[str, any]:
     """
-    Check Redis security configuration at application startup.
+    Check Redis security configuration at product startup.
     
-    This function should be called during application initialization.
-    It will log warnings/errors but not prevent application startup.
+    This function should be called during product initialization.
+    It will log warnings/errors but not prevent product startup.
     
     Returns:
         Dictionary with check results

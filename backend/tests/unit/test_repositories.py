@@ -10,7 +10,7 @@ from werkzeug.security import generate_password_hash
 from backend.repositories import (
     UserRepository,
     KeyRepository,
-    GameRepository,
+    ProductRepository,
     ServerRepository,
     RoleRepository,
     PermissionRepository,
@@ -21,7 +21,7 @@ from backend.repositories import (
 )
 from backend.models.core import User, Project
 from backend.models.keys import Key, DeviceInfo
-from backend.models.games import Game
+from backend.models.products import Product
 from backend.models.servers import Server
 from backend.models.rbac import Role, Permission, UserRole
 from backend.models.webhooks import Webhook
@@ -259,68 +259,68 @@ class TestKeyRepository:
 
 
 @pytest.mark.unit
-class TestGameRepository:
-    """Tests for GameRepository"""
+class TestProductRepository:
+    """Tests for ProductRepository"""
 
     def test_get_by_unique_id(self, db_session, test_project):
         """Test get_by_unique_id method"""
-        game = Game(
+        product = Product(
             unique_id="1234567",
-            name="Test Game",
+            name="Test Product",
             project_id=test_project.id,
             is_active=True,
         )
-        db_session.add(game)
+        db_session.add(product)
         db_session.commit()
 
-        repo = GameRepository(project_id=test_project.id)
+        repo = ProductRepository(project_id=test_project.id)
         found = repo.get_by_unique_id("1234567", project_id=test_project.id)
 
         assert found is not None
         assert found.unique_id == "1234567"
 
-    def test_get_active_games(self, db_session, test_project):
-        """Test get_active_games method"""
-        active_game = Game(
+    def test_get_active_products(self, db_session, test_project):
+        """Test get_active_products method"""
+        active_product = Product(
             unique_id="1111111",
-            name="Active Game",
+            name="Active Product",
             project_id=test_project.id,
             is_active=True,
         )
-        inactive_game = Game(
+        inactive_product = Product(
             unique_id="2222222",
-            name="Inactive Game",
+            name="Inactive Product",
             project_id=test_project.id,
             is_active=False,
         )
-        db_session.add_all([active_game, inactive_game])
+        db_session.add_all([active_product, inactive_product])
         db_session.commit()
 
-        repo = GameRepository(project_id=test_project.id)
-        active_games = repo.get_active_games()
+        repo = ProductRepository(project_id=test_project.id)
+        active_products = repo.get_active_products()
 
-        assert len(active_games) == 1
-        assert active_games[0].is_active is True
+        assert len(active_products) == 1
+        assert active_products[0].is_active is True
 
-    def test_get_multi_app_games(self, db_session, test_project):
-        """Test get_multi_app_games method"""
-        multi_app = Game(
+    def test_get_multi_app_products(self, db_session, test_project):
+        """Test get_multi_app_products method"""
+        multi_app = Product(
             unique_id="3333333",
             name="Multi App",
             project_id=test_project.id,
             is_multi_app=True,
         )
-        regular = Game(
+        regular = Product(
             unique_id="4444444",
-            name="Regular Game",
+            name="Regular Product",
             project_id=test_project.id,
             is_multi_app=False,
         )
         db_session.add_all([multi_app, regular])
         db_session.commit()
 
-        repo = GameRepository(project_id=test_project.id)
-        multi_apps = repo.get_multi_app_games()
+        repo = ProductRepository(project_id=test_project.id)
+        multi_apps = repo.get_multi_app_products()
 
         assert len(multi_apps) == 1
         assert multi_apps[0].is_multi_app is True

@@ -6,7 +6,7 @@ This module replaces the monolithic keys.py file with a modular structure:
 - management.py: CRUD operations (create, read, update, delete)
 - bulk_operations.py: Bulk operations (bulk delete, reset, pause, etc.)
 - analytics.py: Analytics and statistics
-- loader.py: Loader key operations
+- agent.py: Agent key operations
 - validation.py: Key validation and testing
 """
 
@@ -14,7 +14,7 @@ from flask import Blueprint
 
 from .analytics import analytics_bp
 from .bulk_operations import bulk_operations_bp
-from .loader import loader_bp
+from .agent import loader_bp
 
 from .management import management_bp
 from .validation import validation_bp

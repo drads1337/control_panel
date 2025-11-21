@@ -1,5 +1,5 @@
 
-export interface GameNotification {
+export interface ProductNotification {
   id: number;
   message: string;
   type: 'info' | 'warning' | 'error' | 'success';
@@ -11,9 +11,9 @@ export interface GameNotification {
   user_count?: number;
 }
 
-export interface GameNotificationsResponse {
+export interface ProductNotificationsResponse {
   success: boolean;
-  game_id: number;
-  game_name: string;
-  notifications: GameNotification[];
+  product_id: number;
+  product_name: string;
+  notifications: ProductNotification[];
 }

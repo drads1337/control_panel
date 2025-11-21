@@ -9,7 +9,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ..middleware.auth import require_permission
-from ..services.monitoring.load_monitor import load_monitor
+from ..services.monitoring.prometheus_metrics_reader import prometheus_metrics_reader
 
 monitoring_bp = Blueprint("monitoring", __name__)
 logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ def get_load_status():
     Requires admin.view permission.
     """
     try:
-        status = load_monitor.get_all_endpoints_status()
+        status = prometheus_metrics_reader.get_all_endpoints_status()
         return jsonify({"status": "success", "data": status}), 200
     except Exception as e:
         logger.error(f"Failed to get load status: {e}")
@@ -48,7 +48,7 @@ def get_endpoint_load(endpoint: str):
         if endpoint not in ["connect", "heartbeat"]:
             return jsonify({"error": "Invalid endpoint"}), 400
         
-        metrics = load_monitor.check_load(endpoint)
+        metrics = prometheus_metrics_reader.get_endpoint_metrics(endpoint)
         return jsonify({"status": "success", "data": metrics}), 200
     except Exception as e:
         logger.error(f"Failed to get endpoint load: {e}")
@@ -73,9 +73,17 @@ def get_top_ips(endpoint: str):
             return jsonify({"error": "Invalid endpoint"}), 400
         
         limit = int(request.args.get("limit", 10))
-        top_ips = load_monitor.get_top_ips(endpoint, limit=limit)
-        
-        return jsonify({"status": "success", "data": {"endpoint": endpoint, "top_ips": top_ips}}), 200
+        # Note: IP tracking is not available in prometheus-flask-exporter by default
+        # This would require custom metrics or using a different approach
+        # For now, return empty list with a note
+        return jsonify({
+            "status": "success", 
+            "data": {
+                "endpoint": endpoint, 
+                "top_ips": [],
+                "note": "IP tracking requires custom metrics. Use Prometheus queries for detailed analysis."
+            }
+        }), 200
     except Exception as e:
         logger.error(f"Failed to get top IPs: {e}")
         return jsonify({"error": "Failed to get top IPs"}), 500

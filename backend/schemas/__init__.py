@@ -5,7 +5,7 @@ This package contains all Pydantic schemas organized by domain:
 - common.py: Common schemas and validators
 - auth.py: Authentication schemas
 - user.py: User schemas
-- game.py: Game schemas
+- product.py: Product schemas
 - project.py: Project schemas
 - admin.py: Admin schemas
 

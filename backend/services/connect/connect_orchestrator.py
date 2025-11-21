@@ -106,7 +106,7 @@ class ConnectOrchestrator:
                 return self._build_error_response(error_msg, used_global_key, successful_project_id), 400
 
             logger.info(
-                f"CONNECT_DATA ip={ip} user_key={user_key} game={fields.get('game')} serial={fields.get('serial')}"
+                f"CONNECT_DATA ip={ip} user_key={user_key} product={fields.get('product')} serial={fields.get('serial')}"
             )
 
             key_obj, project_id, error_msg = self.key_lookup.find_key_in_project(
@@ -180,15 +180,15 @@ class ConnectOrchestrator:
                 )
                 return encrypted_response, 403
 
-            is_valid, error_msg, game_obj = key_validator.validate_game_access(
-                key_obj, fields.get("game"), project_id
+            is_valid, error_msg, product_obj = key_validator.validate_product_access(
+                key_obj, fields.get("product"), project_id
             )
             if not is_valid:
-                logger.warning(f"GAME_ACCESS_DENIED ip={ip} user_key={user_key} game={fields.get('game')}")
-                self._log_user_activity(key_obj, project_id, "api_connect_error", f"user_key={user_key}, reason=GAME_ACCESS_DENIED", ip)
+                logger.warning(f"PRODUCT_ACCESS_DENIED ip={ip} user_key={user_key} product={fields.get('product')}")
+                self._log_user_activity(key_obj, project_id, "api_connect_error", f"user_key={user_key}, reason=PRODUCT_ACCESS_DENIED", ip)
 
-                if game_obj and game_obj.status in ["inactive", "maintenance"]:
-                    error_response = self.response_builder.build_game_inactive_response(game_obj)
+                if product_obj and product_obj.status in ["inactive", "maintenance"]:
+                    error_response = self.response_builder.build_product_inactive_response(product_obj)
                 else:
                     error_response = self.response_builder.build_error_response("Key not found")
                 encrypted_response = self.response_builder.encrypt_response(
@@ -261,17 +261,17 @@ class ConnectOrchestrator:
                 return self._build_error_response(msg, used_global_key, project_id), 403
 
             logger.info(
-                f"LOGIN_SUCCESS ip={ip} user_key={user_key} game={fields.get('game')} serial={fields.get('serial')}"
+                f"LOGIN_SUCCESS ip={ip} user_key={user_key} product={fields.get('product')} serial={fields.get('serial')}"
             )
 
             self.analytics_tracker.update_key_analytics(
-                key_obj.id, fields.get("game"), ip, fields.get("serial")
+                key_obj.id, fields.get("product"), ip, fields.get("serial")
             )
 
             heartbeat_session = self.analytics_tracker.create_heartbeat_session(
                 user_key,
                 fields.get("fingerprint"),
-                fields.get("game"),
+                fields.get("product"),
                 fields.get("serial"),
                 ip,
             )
@@ -281,7 +281,7 @@ class ConnectOrchestrator:
             )
 
             token = self.token_generator.generate_connect_token(
-                game=fields.get("game"),
+                product=fields.get("product"),
                 user_key=user_key,
                 serial=fields.get("serial"),
                 user_id=key_obj.user_id,
@@ -319,58 +319,84 @@ class ConnectOrchestrator:
 
             self._log_user_activity(
                 key_obj, project_id, "api_connect",
-                f"user_key={user_key}, game={fields.get('game')}, serial={fields.get('serial')}", ip
+                f"user_key={user_key}, product={fields.get('product')}, serial={fields.get('serial')}", ip
             )
 
             return encrypted_response, 200
 
-        except Exception as e:
+        except (ValueError, KeyError, AttributeError, TypeError) as e:
+            # Logical errors - these indicate bugs or invalid data, log with full traceback
             logger.error(
-                f"CONNECT_ERROR ip={ip} user_key={user_key if user_key else 'unknown'} error={e}"
+                f"CONNECT_LOGICAL_ERROR ip={ip} user_key={user_key if user_key else 'unknown'} "
+                f"error_type={type(e).__name__} error={e}",
+                exc_info=True
             )
-            import traceback
+            self.security_checker.log_suspicious_activity(ip, "LOGICAL_ERROR", str(e))
+            error_response = self.response_builder.build_error_response("Invalid request data")
+            encrypted_response = self._encrypt_error_response_safe(error_response, ip)
+            return encrypted_response, 400
 
-            error_traceback = traceback.format_exc()
-            logger.error(f"CONNECT_ERROR_TRACEBACK: {error_traceback}")
-
+        except Exception as e:
+            # System errors or unexpected exceptions - mask details in production
+            logger.error(
+                f"CONNECT_SYSTEM_ERROR ip={ip} user_key={user_key if user_key else 'unknown'} "
+                f"error_type={type(e).__name__} error={e}",
+                exc_info=True
+            )
             self.security_checker.log_suspicious_activity(ip, "FATAL", str(e))
             error_response = self.response_builder.build_error_response("Internal server error")
-
-            # Always return encrypted response, even on error
-            try:
-                encrypted_response = self.response_builder.encrypt_response(
-                    error_response, used_global_key=True, use_legacy=True
-                )
-            except Exception as encrypt_error:
-                logger.error(
-                    f"ENCRYPTION_FAILED_IN_ERROR_HANDLER ip={ip} error={encrypt_error}"
-                )
-                # Last resort: use MasterKeyManager directly
-                try:
-                    import json
-                    from ...utils.secure_crypto import MasterKeyManager
-                    from ...config.config import Config
-
-                    error_json = json.dumps(error_response)
-                    encrypted_response = MasterKeyManager.encrypt_with_master_key_legacy(
-                        error_json, Config.MASTER_KEY
-                    )
-                    logger.info("Used MasterKeyManager directly as fallback for error encryption")
-                except Exception as final_error:
-                    logger.critical(
-                        f"CRITICAL: Failed to encrypt error response ip={ip} error={final_error}"
-                    )
-                    # This should never happen, but if it does, return a minimal encrypted response
-                    import json
-                    from ...utils.secure_crypto import MasterKeyManager
-                    from ...config.config import Config
-
-                    minimal_error = {"error": "Internal server error", "r": "0000000000000000"}
-                    encrypted_response = MasterKeyManager.encrypt_with_master_key_legacy(
-                        json.dumps(minimal_error), Config.MASTER_KEY
-                    )
-
+            encrypted_response = self._encrypt_error_response_safe(error_response, ip)
             return encrypted_response, 500
+
+    def _encrypt_error_response_safe(self, error_response: dict, ip: str) -> str:
+        """
+        Safely encrypt error response with fallback mechanisms
+        
+        Args:
+            error_response: Error response dictionary
+            ip: Client IP for logging
+            
+        Returns:
+            Encrypted response string
+        """
+        # Always return encrypted response, even on error
+        try:
+            encrypted_response = self.response_builder.encrypt_response(
+                error_response, used_global_key=True, use_legacy=True
+            )
+            return encrypted_response
+        except Exception as encrypt_error:
+            logger.error(
+                f"ENCRYPTION_FAILED_IN_ERROR_HANDLER ip={ip} error={encrypt_error}",
+                exc_info=True
+            )
+            # Last resort: use MasterKeyManager directly
+            try:
+                import json
+                from ...utils.secure_crypto import MasterKeyManager
+                from ...config.config import Config
+
+                error_json = json.dumps(error_response)
+                encrypted_response = MasterKeyManager.encrypt_with_master_key_legacy(
+                    error_json, Config.MASTER_KEY
+                )
+                logger.info("Used MasterKeyManager directly as fallback for error encryption")
+                return encrypted_response
+            except Exception as final_error:
+                logger.critical(
+                    f"CRITICAL: Failed to encrypt error response ip={ip} error={final_error}",
+                    exc_info=True
+                )
+                # This should never happen, but if it does, return a minimal encrypted response
+                import json
+                from ...utils.secure_crypto import MasterKeyManager
+                from ...config.config import Config
+
+                minimal_error = {"error": "Internal server error", "r": "0000000000000000"}
+                encrypted_response = MasterKeyManager.encrypt_with_master_key_legacy(
+                    json.dumps(minimal_error), Config.MASTER_KEY
+                )
+                return encrypted_response
 
     def _build_error_response(
         self,
@@ -422,7 +448,7 @@ class ConnectOrchestrator:
 
             expiration_hours = max(1, min(168, expiration_hours))
 
-            game_id = key_obj.game_id if key_obj.game_id else None
+            product_id = key_obj.product_id if key_obj.product_id else None
 
             from datetime import datetime
             now = datetime.utcnow()
@@ -433,7 +459,7 @@ class ConnectOrchestrator:
                 "iat": int(now.timestamp()),
                 "exp": int((now + timedelta(hours=expiration_hours)).timestamp()),
                 "prj": project_id,
-                "gms": [game_id] if game_id else [],
+                "gms": [product_id] if product_id else [],
             }
 
             from ...config.config import Config

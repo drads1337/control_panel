@@ -1,25 +1,25 @@
 import { enhancedApi as api } from '@/shared/api/enhanced-client'
 import { API_ENDPOINTS } from '@/shared/api/config'
-import { getGames } from '@/entities/game'
+import { getProducts } from '@/entities/product'
 
-export async function uploadGameConfig(
+export async function uploadProductConfig(
   file: File, 
-  gameId: number, 
+  productId: number, 
   name: string = '', 
   description: string = '', 
   version: string = '1.0.0', 
   isPublic: boolean = true
 ): Promise<any> {
 
-  const games = await getGames('all')
-  const game = games.games.find(g => g.id === gameId)
-  if (!game) {
-    throw new Error('Game not found')
+  const products = await getProducts('all')
+  const product = products.products.find(g => g.id === productId)
+  if (!product) {
+    throw new Error('Product not found')
   }
 
   const formData = new FormData()
   formData.append('file', file)
-  formData.append('game_name', game.name)
+  formData.append('product_name', product.name)
   formData.append('name', name)
   formData.append('description', description)
   formData.append('version', version)
@@ -27,17 +27,17 @@ export async function uploadGameConfig(
 
   try {
 
-    const response = await api.post(`${API_ENDPOINTS.FILES}/game-files/config`, formData)
+    const response = await api.post(`${API_ENDPOINTS.FILES}/product-files/config`, formData)
     return response.data
   } catch (error: any) {
     const errorData = error.response?.data || {}
-    throw new Error(errorData.error || error.message || 'Failed to upload game config')
+    throw new Error(errorData.error || error.message || 'Failed to upload product config')
   }
 }
 
-export async function uploadGameExtraFile(
+export async function uploadProductExtraFile(
   file: File, 
-  gameId: number, 
+  productId: number, 
   name: string = '', 
   description: string = ''
 ): Promise<any> {
@@ -57,7 +57,7 @@ export async function uploadGameExtraFile(
   try {
     const formData = new FormData()
     formData.append('file', file)
-    formData.append('game_id', gameId.toString())
+    formData.append('product_id', productId.toString())
     formData.append('name', name)
     formData.append('description', description)
 
@@ -66,23 +66,23 @@ export async function uploadGameExtraFile(
       throw new Error('Failed to append file to FormData')
     }
 
-    const response = await api.post(`${API_ENDPOINTS.FILES}/game-files/extra`, formData)
+    const response = await api.post(`${API_ENDPOINTS.FILES}/product-files/extra`, formData)
     return response.data
   } catch (err: any) {
 
     const errorData = err.response?.data || {}
-    throw new Error(errorData.error || err.message || 'Failed to upload game extra file')
+    throw new Error(errorData.error || err.message || 'Failed to upload product extra file')
   }
 }
 
-export async function uploadGameFiles(
-  gameId: number,
+export async function uploadProductFiles(
+  productId: number,
   files: { file: File; type: 'logo' | 'banner' | 'file' }[],
   onProgress?: (fileIndex: number, progress: number) => void
 ): Promise<any> {
   const formData = new FormData()
 
-  formData.append('game_id', gameId.toString())
+  formData.append('product_id', productId.toString())
 
   files.forEach(({ file, type }, index) => {
     formData.append(`file_${index}`, file)
@@ -94,8 +94,8 @@ export async function uploadGameFiles(
   const { getCsrfHeaders } = await import('@/lib/csrf')
   const csrfHeaders = await getCsrfHeaders()
   const { getApiUrl } = await import('@/shared/api')
-  // Use universal endpoint - products instead of games
-  const url = getApiUrl(`${API_ENDPOINTS.PRODUCTS}/${gameId}/files`)
+  // Use universal endpoint - products instead of products
+  const url = getApiUrl(`${API_ENDPOINTS.PRODUCTS}/${productId}/files`)
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
@@ -120,7 +120,7 @@ export async function uploadGameFiles(
           resolve(xhr.responseText)
         }
       } else {
-        reject(new Error(`Failed to upload application files: ${xhr.statusText} - ${xhr.responseText}`))
+        reject(new Error(`Failed to upload product files: ${xhr.statusText} - ${xhr.responseText}`))
       }
     })
 

@@ -14,7 +14,7 @@ import { isMaskedKey } from '@/lib/key-masking';
 
 interface UseKeysUIParams {
   keys: LicenseKey[];
-  loadGames: () => Promise<void>;
+  loadProducts: () => Promise<void>;
   invalidateQueries: () => void;
 }
 
@@ -44,7 +44,7 @@ interface UseKeysUIReturn {
 
 export function useKeysUI({
   keys,
-  loadGames,
+  loadProducts,
   invalidateQueries,
 }: UseKeysUIParams): UseKeysUIReturn {
   const queryClient = useQueryClient();
@@ -368,8 +368,8 @@ export function useKeysUI({
 
   const handleDialogSuccess = useCallback(async () => {
     invalidateQueries();
-    await loadGames();
-  }, [invalidateQueries, loadGames]);
+    await loadProducts();
+  }, [invalidateQueries, loadProducts]);
 
   return {
 

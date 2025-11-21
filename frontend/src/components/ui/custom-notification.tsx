@@ -8,7 +8,7 @@ import {
   AlertCircle,
   Zap,
   Shield,
-  Gamepad2,
+  Database,
   Clock,
   Star
 } from 'lucide-react';
@@ -18,9 +18,9 @@ export type CustomNotificationType =
   | 'warning' 
   | 'info' 
   | 'loading' 
-  | 'game_update' 
-  | 'game_created' 
-  | 'game_deleted';
+  | 'product_update' 
+  | 'product_created' 
+  | 'product_deleted';
 export interface CustomNotificationProps {
   id: string;
   type: CustomNotificationType;
@@ -81,11 +81,11 @@ const CustomNotification: React.FC<CustomNotificationProps> = ({
         return <Info className="h-5 w-5 text-blue-600" />;
       case 'loading':
         return <Zap className="h-5 w-5 text-blue-600 animate-pulse" />;
-      case 'game_update':
-        return <Gamepad2 className="h-5 w-5 text-purple-600" />;
-      case 'game_created':
+      case 'product_update':
+        return <Database className="h-5 w-5 text-purple-600" />;
+      case 'product_created':
         return <Star className="h-5 w-5 text-green-600" />;
-      case 'game_deleted':
+      case 'product_deleted':
         return <AlertCircle className="h-5 w-5 text-red-600" />;
       default:
         return <Info className="h-5 w-5 text-blue-600" />;
@@ -104,11 +104,11 @@ const CustomNotification: React.FC<CustomNotificationProps> = ({
         return cn(baseStyles, 'border-blue-200 bg-blue-50 text-blue-800');
       case 'loading':
         return cn(baseStyles, 'border-blue-200 bg-blue-50 text-blue-800');
-      case 'game_update':
+      case 'product_update':
         return cn(baseStyles, 'border-purple-200 bg-purple-50 text-purple-800');
-      case 'game_created':
+      case 'product_created':
         return cn(baseStyles, 'border-green-200 bg-green-50 text-green-800');
-      case 'game_deleted':
+      case 'product_deleted':
         return cn(baseStyles, 'border-red-200 bg-red-50 text-red-800');
       default:
         return cn(baseStyles, 'border-gray-200 bg-gray-50 text-gray-800');

@@ -7,36 +7,36 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Bell, Plus, Trash2, Clock, Eye, EyeOff } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
-import { getGameNotifications, deleteNotification } from '@/entities/notification';
+import { getProductNotifications, deleteNotification } from '@/entities/notification';
 import { usePermissions } from '@/hooks/use-permissions';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
 import { toast } from 'sonner';
 import CreateNotificationDialog from './CreateNotificationDialog';
-import type { Game } from '@/entities/game';
-import type { GameNotification } from '@/entities/notification';
+import type { Product } from '@/entities/product';
+import type { ProductNotification } from '@/entities/notification';
 
 interface NotificationsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  game: Game | null;
+  product: Product | null;
 }
 
 const notificationKeys = {
   all: ['notifications'] as const,
-  game: (gameId: number) => [...notificationKeys.all, 'game', gameId] as const,
+  product: (productId: number) => [...notificationKeys.all, 'product', productId] as const,
 }
 
 const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
   open,
   onOpenChange,
-  game,
+  product,
 }) => {
   const queryClient = useQueryClient();
   const { hasPermission } = usePermissions();
 
-  const canViewNotifications = hasPermission('games.notifications_view');
-  const canCreateNotifications = hasPermission('games.notifications_create');
-  const canDeleteNotifications = hasPermission('games.notifications_delete');
+  const canViewNotifications = hasPermission('products.notifications_view');
+  const canCreateNotifications = hasPermission('products.notifications_create');
+  const canDeleteNotifications = hasPermission('products.notifications_delete');
 
   if (!canViewNotifications) {
     return null;
@@ -45,12 +45,12 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
   const { data: notificationsData, isLoading: loading } = useQuery({
-    queryKey: notificationKeys.game(game?.id || 0),
+    queryKey: notificationKeys.product(product?.id || 0),
     queryFn: async () => {
-      if (!game) throw new Error('Game is required');
-      return await getGameNotifications(game.id);
+      if (!product) throw new Error('Product is required');
+      return await getProductNotifications(product.id);
     },
-    enabled: open && !!game && canViewNotifications,
+    enabled: open && !!product && canViewNotifications,
     staleTime: 30 * 1000,
     gcTime: 2 * 60 * 1000,
     retry: (failureCount, error: any) => {
@@ -68,8 +68,8 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
     mutationFn: deleteNotification,
     onSuccess: () => {
 
-      if (game) {
-        queryClient.invalidateQueries({ queryKey: notificationKeys.game(game.id) });
+      if (product) {
+        queryClient.invalidateQueries({ queryKey: notificationKeys.product(product.id) });
       }
       toast.success('Notification deleted');
     },
@@ -101,12 +101,12 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
 
   const handleNotificationCreated = useCallback(() => {
 
-    if (game) {
-      queryClient.invalidateQueries({ queryKey: notificationKeys.game(game.id) });
+    if (product) {
+      queryClient.invalidateQueries({ queryKey: notificationKeys.product(product.id) });
     }
-  }, [game, queryClient]);
+  }, [product, queryClient]);
 
-  if (!game) {
+  if (!product) {
     return null;
   }
 
@@ -175,14 +175,14 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
             Manage Notifications
           </DialogTitle>
           <DialogDescription className="text-sm">
-            Make necessary changes to the settings for the game "{game.name}".
+            Make necessary changes to the settings for the product "{product.name}".
           </DialogDescription>
         </DialogHeader>
 
         {}
         <div className="flex items-center justify-between mb-1 px-1">
           <h3 className="text-base font-semibold">Notifications ({notifications.length})</h3>
-          <ConditionalRender permission="games.notifications_create" fallback={null}>
+          <ConditionalRender permission="products.notifications_create" fallback={null}>
           <Button 
             onClick={() => setShowCreateDialog(true)} 
             size="sm"
@@ -206,7 +206,7 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
                 <div className="text-center py-6 text-muted-foreground">
                   <Bell className="h-8 w-8 mx-auto mb-2 opacity-50" />
                   <p className="text-sm">No notifications found</p>
-                  <p className="text-xs">Create the first notification for this game.</p>
+                  <p className="text-xs">Create the first notification for this product.</p>
                 </div>
               ) : (
                 <div 
@@ -295,7 +295,7 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
                                     )}
                                   </div>
                                 </div>
-                                <ConditionalRender permission="games.notifications_delete" fallback={null}>
+                                <ConditionalRender permission="products.notifications_delete" fallback={null}>
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -376,7 +376,7 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
                                 )}
                               </div>
                             </div>
-                            <ConditionalRender permission="games.notifications_delete" fallback={null}>
+                            <ConditionalRender permission="products.notifications_delete" fallback={null}>
                             <Button
                               variant="ghost"
                               size="sm"
@@ -414,7 +414,7 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
       <CreateNotificationDialog
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
-        game={game}
+        product={product}
         onNotificationCreated={handleNotificationCreated}
       />
     </Dialog>

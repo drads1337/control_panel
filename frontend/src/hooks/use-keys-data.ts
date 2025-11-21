@@ -1,13 +1,13 @@
 import { useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useKeysQuery, keyKeys } from '@/hooks/use-keys-query';
-import { getGames } from '@/entities/game';
+import { getProducts } from '@/entities/product';
 
 interface UseKeysDataParams {
   viewMode: 'my' | 'all';
   filters: {
     status: string;
-    gameId: string;
+    productId: string;
     search: string;
   };
   currentPage: number;
@@ -18,7 +18,7 @@ interface UseKeysDataReturn {
 
   keys: any[];
   loading: boolean;
-  games: Array<{ id: number; name: string; is_multi_app: boolean }>;
+  products: Array<{ id: number; name: string; is_multi_app: boolean }>;
   pagination: {
     page: number;
     perPage: number;
@@ -26,7 +26,7 @@ interface UseKeysDataReturn {
     pages: number;
   };
 
-  loadGames: () => Promise<void>;
+  loadProducts: () => Promise<void>;
   invalidateQueries: () => void;
 }
 
@@ -43,7 +43,7 @@ export function useKeysData({
     page: currentPage,
     per_page: 20,
     status: filters.status !== 'all' ? filters.status : undefined,
-    game_id: filters.gameId !== 'all' ? parseInt(filters.gameId) : undefined,
+    product_id: filters.productId !== 'all' ? parseInt(filters.productId) : undefined,
     search: filters.search || undefined,
     my_keys: showMyKeysOnly,
   });
@@ -57,9 +57,9 @@ export function useKeysData({
     pages: keysQuery.pages,
   };
 
-  const loadGames = useCallback(async (): Promise<void> => {
+  const loadProducts = useCallback(async (): Promise<void> => {
     try {
-      await getGames('all');
+      await getProducts('all');
 
     } catch (error) {
 
@@ -76,10 +76,10 @@ export function useKeysData({
 
     keys,
     loading,
-    games: [],
+    products: [],
     pagination,
 
-    loadGames,
+    loadProducts,
     invalidateQueries,
   };
 }

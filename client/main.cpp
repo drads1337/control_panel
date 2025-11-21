@@ -949,7 +949,7 @@ std::string LogoutAccount() {
 std::string ConnectWithChallenge(const std::string& user_key,
                                  const std::string& challenge_data,
                                  const std::string& fingerprint,
-                                 const std::string& game_name,
+                                 const std::string& product_name,
                                  const std::string& serial,
                                  const std::string& android_id,
                                  const std::string& device_model,
@@ -994,7 +994,7 @@ std::string ConnectWithChallenge(const std::string& user_key,
     data["b"] = challenge_response; // challenge_response
     data["c"] = canary;            // canary
     data["d"] = fingerprint;       // fingerprint
-    data["e"] = game_name;         // game
+    data["e"] = product_name;         // product
     data["f"] = serial;            // serial
     data["g"] = android_id;        // android_id
     data["h"] = device_model;      // device_model
@@ -1138,9 +1138,9 @@ std::string ConnectWithChallenge(const std::string& user_key,
 }
 
 // Обновленная функция CheckLicense с правильным challenge-response
-std::string CheckLicense(const char* user_key, const char* game_name, JNIEnv* env, jobject context, const char* ca_path) {
+std::string CheckLicense(const char* user_key, const char* product_name, JNIEnv* env, jobject context, const char* ca_path) {
     LOGI("CheckLicense: START");
-    LOGI("CheckLicense: user_key = %s, game_name = %s", user_key, game_name);
+    LOGI("CheckLicense: user_key = %s, product_name = %s", user_key, product_name);
 
     if (!user_key || strlen(user_key) == 0) {
         LOGE("CheckLicense: Ключ лицензии не может быть пустым");
@@ -1174,7 +1174,7 @@ std::string CheckLicense(const char* user_key, const char* game_name, JNIEnv* en
     }
 
     std::string result = ConnectWithChallenge(user_key, challenge_data, fingerprint,
-                                              game_name, serial, android_id, device_model, device_brand);
+                                              product_name, serial, android_id, device_model, device_brand);
 
     env->ReleaseStringUTFChars(androidIdJStr, c_android_id);
     env->ReleaseStringUTFChars(deviceModelJStr, c_device_model);
@@ -1320,15 +1320,15 @@ void UpdateImGuiToasts() {
 }
 
 // Функция для получения changelog игры
-std::vector<ChangelogEntry> GetGameChangelog(const std::string& token, const std::string& project_id) {
-    LOGI("GetGameChangelog: START - project_id=%s", project_id.c_str());
+std::vector<ChangelogEntry> GetProductChangelog(const std::string& token, const std::string& project_id) {
+    LOGI("GetProductChangelog: START - project_id=%s", project_id.c_str());
 
     std::vector<ChangelogEntry> entries;
 
     cpr::Session session;
     // Используем новый endpoint для получения changelog по имени игры
-    std::string game_name = g_gameName.empty() ? "default_game" : g_gameName;
-    session.SetUrl(std::string(SERVER_URL) + "/api/changelog/games/" + game_name + "/changelog");
+    std::string product_name = g_gameName.empty() ? "default_game" : g_gameName;
+    session.SetUrl(std::string(SERVER_URL) + "/api/changelog/products/" + product_name + "/changelog");
     session.SetHeader({
                               {"Content-Type", "application/json"},
                               {"Authorization", "Bearer " + token}
@@ -1336,13 +1336,13 @@ std::vector<ChangelogEntry> GetGameChangelog(const std::string& token, const std
     session.SetTimeout(cpr::Timeout{5000});
     session.SetSslOptions(cpr::Ssl(cpr::ssl::TLSv1_2{}, cpr::ssl::VerifyHost{false}, cpr::ssl::VerifyPeer{false}));
 
-    LOGI("GetGameChangelog: Using game_name=%s for project_id=%s", game_name.c_str(), project_id.c_str());
-    LOGI("GetGameChangelog: Token length=%zu, first 20 chars=%s", token.length(), token.substr(0, 20).c_str());
-    LOGI("GetGameChangelog: Full token=%s", token.c_str());
+    LOGI("GetProductChangelog: Using product_name=%s for project_id=%s", product_name.c_str(), project_id.c_str());
+    LOGI("GetProductChangelog: Token length=%zu, first 20 chars=%s", token.length(), token.substr(0, 20).c_str());
+    LOGI("GetProductChangelog: Full token=%s", token.c_str());
 
     cpr::Response response = session.Get();
-    LOGI("GetGameChangelog: Response status=%d, text_length=%zu", response.status_code, response.text.length());
-    LOGI("GetGameChangelog: Response text = %s", response.text.c_str());
+    LOGI("GetProductChangelog: Response status=%d, text_length=%zu", response.status_code, response.text.length());
+    LOGI("GetProductChangelog: Response text = %s", response.text.c_str());
 
     if (response.status_code == 200) {
         try {
@@ -1357,7 +1357,7 @@ std::vector<ChangelogEntry> GetGameChangelog(const std::string& token, const std
             } else if (result.is_array()) {
                 changelog_data = result;
             } else {
-                LOGE("GetGameChangelog: Unexpected response format. Response: %s", result.dump().c_str());
+                LOGE("GetProductChangelog: Unexpected response format. Response: %s", result.dump().c_str());
                 return entries;
             }
 
@@ -1384,12 +1384,12 @@ std::vector<ChangelogEntry> GetGameChangelog(const std::string& token, const std
                 }
             }
 
-            LOGI("GetGameChangelog: SUCCESS - loaded %zu entries", entries.size());
+            LOGI("GetProductChangelog: SUCCESS - loaded %zu entries", entries.size());
         } catch (const std::exception& e) {
-            LOGE("GetGameChangelog: JSON parsing error: %s", e.what());
+            LOGE("GetProductChangelog: JSON parsing error: %s", e.what());
         }
     } else {
-        LOGE("GetGameChangelog: Server error: %d - %s", response.status_code, response.text.c_str());
+        LOGE("GetProductChangelog: Server error: %d - %s", response.status_code, response.text.c_str());
     }
 
     return entries;
@@ -1454,10 +1454,10 @@ std::string g_configStatusMessage = "";
 std::vector<GameInfo> GetGamesList(const std::string& token) {
     LOGI("GetGamesList: START - token length=%zu", token.length());
 
-    std::vector<GameInfo> games;
+    std::vector<GameInfo> products;
 
     cpr::Session session;
-    session.SetUrl(std::string(SERVER_URL) + "/api/files/games");
+    session.SetUrl(std::string(SERVER_URL) + "/api/files/products");
     session.SetHeader({
                               {"Content-Type", "application/json"},
                               {"Authorization", "Bearer " + token}
@@ -1475,24 +1475,24 @@ std::vector<GameInfo> GetGamesList(const std::string& token) {
         try {
             json result = json::parse(response.text);
 
-            if (result.contains("games") && result["games"].is_array()) {
-                for (const auto& game : result["games"]) {
+            if (result.contains("products") && result["products"].is_array()) {
+                for (const auto& product : result["products"]) {
                     GameInfo gameInfo;
-                    gameInfo.id = game.value("id", 0);
-                    gameInfo.name = game.value("name", "");
-                    gameInfo.description = game.value("description", "");
-                    gameInfo.status = game.value("status", "");
-                    gameInfo.configs_count = game.value("configs_count", 0);
-                    gameInfo.extra_files_count = game.value("extra_files_count", 0);
-                    gameInfo.is_active = game.value("is_active", false);
-                    gameInfo.created_at = game.value("created_at", "");
-                    gameInfo.updated_at = game.value("updated_at", "");
+                    gameInfo.id = product.value("id", 0);
+                    gameInfo.name = product.value("name", "");
+                    gameInfo.description = product.value("description", "");
+                    gameInfo.status = product.value("status", "");
+                    gameInfo.configs_count = product.value("configs_count", 0);
+                    gameInfo.extra_files_count = product.value("extra_files_count", 0);
+                    gameInfo.is_active = product.value("is_active", false);
+                    gameInfo.created_at = product.value("created_at", "");
+                    gameInfo.updated_at = product.value("updated_at", "");
 
-                    games.push_back(gameInfo);
+                    products.push_back(gameInfo);
                 }
             }
 
-            LOGI("GetGamesList: SUCCESS - loaded %zu games", games.size());
+            LOGI("GetGamesList: SUCCESS - loaded %zu products", products.size());
         } catch (const std::exception& e) {
             LOGE("GetGamesList: JSON parsing error: %s", e.what());
         }
@@ -1500,7 +1500,7 @@ std::vector<GameInfo> GetGamesList(const std::string& token) {
         LOGE("GetGamesList: Server error: %d - %s", response.status_code, response.text.c_str());
     }
 
-    return games;
+    return products;
 }
 
 // Функция для загрузки changelog при успешной авторизации
@@ -1509,7 +1509,7 @@ void LoadChangelogIfNeeded() {
         LOGI("LoadChangelogIfNeeded: Loading changelog for project_id=%s", g_ProjectId.c_str());
 
         // Используем project_id из глобальной переменной
-        g_changelogEntries = GetGameChangelog(g_Token, g_ProjectId);
+        g_changelogEntries = GetProductChangelog(g_Token, g_ProjectId);
         g_changelogLoaded = true;
 
         if (g_changelogEntries.empty()) {
@@ -1533,35 +1533,35 @@ void LoadChangelogIfNeeded() {
 // Функция для загрузки списка игр при успешной авторизации
 void LoadGamesIfNeeded() {
     if (!g_gamesLoaded && !g_Token.empty()) {
-        LOGI("LoadGamesIfNeeded: Loading games list");
+        LOGI("LoadGamesIfNeeded: Loading products list");
 
         g_games = GetGamesList(g_Token);
         g_gamesLoaded = true;
 
         if (g_games.empty()) {
-            LOGI("LoadGamesIfNeeded: No games found");
+            LOGI("LoadGamesIfNeeded: No products found");
         } else {
-            LOGI("LoadGamesIfNeeded: Loaded %zu games", g_games.size());
-            // Используем фиксированный ID игры (g_selectedGameId = 1)
+            LOGI("LoadGamesIfNeeded: Loaded %zu products", g_games.size());
+            // Используем фиксированный ID продукта (g_selectedGameId = 1)
         }
     } else {
         if (g_Token.empty()) {
-            LOGI("LoadGamesIfNeeded: Token is empty, skipping games load");
+            LOGI("LoadGamesIfNeeded: Token is empty, skipping products load");
         }
         if (g_gamesLoaded) {
-            LOGI("LoadGamesIfNeeded: Games already loaded");
+            LOGI("LoadGamesIfNeeded: Products already loaded");
         }
     }
 }
 
 // Функция для получения списка конфигов игры
-std::vector<ConfigInfo> GetGameConfigs(const std::string& token, const std::string& game_name) {
-    LOGI("GetGameConfigs: START - game_name=%s", game_name.c_str());
+std::vector<ConfigInfo> GetGameConfigs(const std::string& token, const std::string& product_name) {
+    LOGI("GetGameConfigs: START - product_name=%s", product_name.c_str());
 
     std::vector<ConfigInfo> configs;
 
     cpr::Session session;
-    session.SetUrl(std::string(SERVER_URL) + "/api/files/games/" + game_name + "/configs");
+    session.SetUrl(std::string(SERVER_URL) + "/api/files/products/" + product_name + "/configs");
     session.SetHeader({
                               {"Content-Type", "application/json"},
                               {"Authorization", "Bearer " + token}
@@ -1610,10 +1610,10 @@ std::vector<ConfigInfo> GetGameConfigs(const std::string& token, const std::stri
 }
 
 // Функция для загрузки конфига на сервер
-std::string UploadConfigFile(const std::string& token, const std::string& game_name, const std::string& file_path,
+std::string UploadConfigFile(const std::string& token, const std::string& product_name, const std::string& file_path,
                              const std::string& name, const std::string& description,
                              const std::string& version, bool is_public) {
-    LOGI("UploadConfigFile: START - game_name=%s, file_path=%s", game_name.c_str(), file_path.c_str());
+    LOGI("UploadConfigFile: START - product_name=%s, file_path=%s", product_name.c_str(), file_path.c_str());
 
     // Проверяем существование файла
     std::ifstream file(file_path, std::ios::binary);
@@ -1641,7 +1641,7 @@ std::string UploadConfigFile(const std::string& token, const std::string& game_n
 
     // Создаем multipart/form-data запрос
     cpr::Session session;
-    session.SetUrl(std::string(SERVER_URL) + "/api/files/game-files/config");
+    session.SetUrl(std::string(SERVER_URL) + "/api/files/product-files/config");
     session.SetHeader({
                               {"Authorization", "Bearer " + token}
                       });
@@ -1650,7 +1650,7 @@ std::string UploadConfigFile(const std::string& token, const std::string& game_n
 
     // Подготавливаем данные формы
     cpr::Multipart multipart{
-            {"game_name", game_name},
+            {"product_name", product_name},
             {"name", name},
             {"description", description},
             {"version", version},
@@ -1728,22 +1728,22 @@ std::string UploadConfigFile(const std::string& token, const std::string& game_n
 // Функция для загрузки конфигов при смене игры
 void LoadConfigsIfNeeded() {
     if (!g_configsLoaded && !g_Token.empty() && !g_selectedGameName.empty()) {
-        LOGI("LoadConfigsIfNeeded: Loading configs for game_name=%s", g_selectedGameName.c_str());
+        LOGI("LoadConfigsIfNeeded: Loading configs for product_name=%s", g_selectedGameName.c_str());
 
         g_configs = GetGameConfigs(g_Token, g_selectedGameName);
         g_configsLoaded = true;
 
         if (g_configs.empty()) {
-            LOGI("LoadConfigsIfNeeded: No configs found for game_name=%s", g_selectedGameName.c_str());
+            LOGI("LoadConfigsIfNeeded: No configs found for product_name=%s", g_selectedGameName.c_str());
         } else {
-            LOGI("LoadConfigsIfNeeded: Loaded %zu configs for game_name=%s", g_configs.size(), g_selectedGameName.c_str());
+            LOGI("LoadConfigsIfNeeded: Loaded %zu configs for product_name=%s", g_configs.size(), g_selectedGameName.c_str());
         }
     } else {
         if (g_Token.empty()) {
             LOGI("LoadConfigsIfNeeded: Token is empty, skipping configs load");
         }
         if (g_selectedGameName.empty()) {
-            LOGI("LoadConfigsIfNeeded: No game selected, skipping configs load");
+            LOGI("LoadConfigsIfNeeded: No product selected, skipping configs load");
         }
         if (g_configsLoaded) {
             LOGI("LoadConfigsIfNeeded: Configs already loaded");
@@ -1756,7 +1756,7 @@ std::string DownloadConfigById(const std::string& token, const std::string& conf
     LOGI("DownloadConfigById: START - config_id=%s, save_path=%s", config_id.c_str(), save_path.c_str());
 
     cpr::Session session;
-    session.SetUrl(std::string(SERVER_URL) + "/api/files/games/configs/" + config_id + "/download");
+    session.SetUrl(std::string(SERVER_URL) + "/api/files/products/configs/" + config_id + "/download");
     session.SetHeader({
                               {"Authorization", "Bearer " + token}
                       });
@@ -1826,8 +1826,8 @@ void UpdateStatusMessageFromResponse(std::string& statusMessage) {
         if (!g_lastDecryptedResponse.empty()) {
             auto result_json = json::parse(g_lastDecryptedResponse);
 
-            if (result_json.contains("game_status")) {
-                statusMessage += std::string("\nСтатус игры: ") + result_json["game_status"].get<std::string>();
+            if (result_json.contains("product_status")) {
+                statusMessage += std::string("\nСтатус игры: ") + result_json["product_status"].get<std::string>();
             }
 
             // Обработка уведомлений из ответа сервера

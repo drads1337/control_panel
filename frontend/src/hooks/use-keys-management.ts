@@ -1,14 +1,14 @@
 import { useState, useCallback } from 'react';
 import { useKeysData } from './use-keys-data';
 import { useKeysUI } from './use-keys-ui';
-import { getGames } from '@/entities/game';
+import { getProducts } from '@/entities/product';
 import type { LicenseKey } from '@/entities/key';
 
 interface UseKeysManagementParams {
   viewMode: 'my' | 'all';
   filters: {
     status: string;
-    gameId: string;
+    productId: string;
     search: string;
   };
   currentPage: number;
@@ -19,7 +19,7 @@ interface UseKeysManagementReturn {
 
   keys: LicenseKey[];
   loading: boolean;
-  games: Array<{ id: number; name: string; is_multi_app: boolean }>;
+  products: Array<{ id: number; name: string; is_multi_app: boolean }>;
   pagination: {
     page: number;
     perPage: number;
@@ -43,7 +43,7 @@ interface UseKeysManagementReturn {
   handleViewDetails: (key: LicenseKey) => void;
   handleKeyCreated: (createdKeyId?: number) => Promise<void>;
   handleDialogSuccess: () => Promise<void>;
-  loadGames: () => Promise<void>;
+  loadProducts: () => Promise<void>;
   setDetailsDialogOpen: (open: boolean) => void;
   setEditDialogOpen: (open: boolean) => void;
   setExtendDialogOpen: (open: boolean) => void;
@@ -56,7 +56,7 @@ export function useKeysManagement({
   currentPage,
   canViewKeys,
 }: UseKeysManagementParams): UseKeysManagementReturn {
-  const [games, setGames] = useState<Array<{ id: number; name: string; is_multi_app: boolean }>>([]);
+  const [products, setProducts] = useState<Array<{ id: number; name: string; is_multi_app: boolean }>>([]);
 
   const keysData = useKeysData({
     viewMode,
@@ -65,14 +65,14 @@ export function useKeysManagement({
     canViewKeys,
   });
 
-  const loadGames = useCallback(async () => {
+  const loadProducts = useCallback(async () => {
     try {
-      const response = await getGames('all');
-      setGames(
-        response.games.map((game) => ({
-          id: game.id,
-          name: game.name,
-          is_multi_app: game.is_multi_app,
+      const response = await getProducts('all');
+      setProducts(
+        response.products.map((product) => ({
+          id: product.id,
+          name: product.name,
+          is_multi_app: product.is_multi_app,
         }))
       );
     } catch (error) {
@@ -82,7 +82,7 @@ export function useKeysManagement({
 
   const keysUI = useKeysUI({
     keys: keysData.keys as LicenseKey[],
-    loadGames,
+    loadProducts,
     invalidateQueries: keysData.invalidateQueries,
   });
 
@@ -90,11 +90,11 @@ export function useKeysManagement({
 
     keys: keysData.keys as LicenseKey[],
     loading: keysData.loading,
-    games,
+    products,
     pagination: keysData.pagination,
 
     ...keysUI,
 
-    loadGames,
+    loadProducts,
   };
 }

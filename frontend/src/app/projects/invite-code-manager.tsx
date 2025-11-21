@@ -86,7 +86,7 @@ export function InviteCodeManager({ projectId }: InviteCodeManagerProps) {
       const data: CreateInviteCodeData = {
         expires_in_days: expiresInDays,
         project_id: projectId,
-        game_ids: []
+        product_ids: []
       }
 
       const result = await generateInviteCode(data)

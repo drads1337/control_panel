@@ -48,7 +48,7 @@ export async function getConnectionLogs(
   dateFrom?: string,
   dateTo?: string,
   ip?: string,
-  game?: string
+  product?: string
 ): Promise<ConnectionLogTypesResponse> {
   const params: Record<string, string> = {
     page: page.toString(),
@@ -60,7 +60,7 @@ export async function getConnectionLogs(
   if (dateFrom) params.date_from = dateFrom
   if (dateTo) params.date_to = dateTo
   if (ip) params.ip = ip
-  if (game) params.game = game
+  if (product) params.product = product
 
   const response = await api.get(API_ENDPOINTS.LOGS_CONNECTS, { params })
   return response.data

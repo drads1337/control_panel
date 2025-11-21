@@ -7,9 +7,9 @@ import secrets
 import string
 from typing import Optional, Union
 
-from ..models.games import Game
+from ..models.products import Product
 from ..models.keys import Key
-from ..models.loaders import Loader
+from ..models.agents import Agent
 from ..utils.structured_logging import get_logger
 
 class KeyGenerationService:
@@ -21,8 +21,8 @@ class KeyGenerationService:
     def generate_key_string(
         self,
         length: int = 32,
-        game: Optional[Game] = None,
-        loader: Optional[Loader] = None,
+        product: Optional[Product] = None,
+        agent: Optional[Agent] = None,
         duration_hours: Optional[float] = None,
         project_id: Optional[int] = None,
     ) -> str:
@@ -31,8 +31,8 @@ class KeyGenerationService:
 
         Args:
             length: Length of the key
-            game: Game object for prefix generation
-            loader: Loader object for prefix generation
+            product: Product object for prefix generation
+            agent: Agent object for prefix generation
             duration_hours: Duration in hours for prefix
             project_id: Project ID for uniqueness check
 
@@ -44,10 +44,10 @@ class KeyGenerationService:
 
         random_part = "".join(secrets.choice(characters) for _ in range(random_length))
 
-        if game and game.login_type == "license_generation":
-            prefix = self._generate_key_prefix(game, duration_hours, random_part)
-        elif loader and loader.login_type == "license_generation":
-            prefix = self._generate_key_prefix(loader, duration_hours, random_part)
+        if product and product.login_type == "license_generation":
+            prefix = self._generate_key_prefix(product, duration_hours, random_part)
+        elif agent and agent.login_type == "license_generation":
+            prefix = self._generate_key_prefix(agent, duration_hours, random_part)
         else:
             prefix = f"KEY-{random_part}"
 
@@ -55,15 +55,15 @@ class KeyGenerationService:
             if not Key.query.filter_by(key=prefix, project_id=project_id).first():
                 return prefix
             random_part = "".join(secrets.choice(characters) for _ in range(random_length))
-            if game and game.login_type == "license_generation":
-                prefix = self._generate_key_prefix(game, duration_hours, random_part)
-            elif loader and loader.login_type == "license_generation":
-                prefix = self._generate_key_prefix(loader, duration_hours, random_part)
+            if product and product.login_type == "license_generation":
+                prefix = self._generate_key_prefix(product, duration_hours, random_part)
+            elif agent and agent.login_type == "license_generation":
+                prefix = self._generate_key_prefix(agent, duration_hours, random_part)
             else:
                 prefix = f"KEY-{random_part}"
 
     def _generate_key_prefix(
-        self, item: Union[Game, Loader], duration_hours: Optional[float], random_part: str
+        self, item: Union[Product, Agent], duration_hours: Optional[float], random_part: str
     ) -> str:
         """Generate key prefix based on item configuration"""
         name_to_use = item.custom_key_prefix if item.custom_key_prefix else item.name

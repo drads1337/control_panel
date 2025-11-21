@@ -66,7 +66,7 @@ export async function getClients(): Promise<{ clients: UserType[] }> {
 export async function bulkDeleteClients(
   options: {
     client_ids?: number[];
-    game_id?: number;
+    product_id?: number;
     filters?: {
       status?: string;
       project_id?: number;

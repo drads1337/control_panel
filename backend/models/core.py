@@ -46,7 +46,7 @@ class Project(db.Model):
 
     total_users = db.Column(db.Integer, default=0, nullable=False)
     total_keys = db.Column(db.Integer, default=0, nullable=False)
-    total_games = db.Column(db.Integer, default=0, nullable=False)
+    total_products = db.Column(db.Integer, default=0, nullable=False)
     total_servers = db.Column(db.Integer, default=0, nullable=False)
     active_users = db.Column(db.Integer, default=0, nullable=False)
     active_keys = db.Column(db.Integer, default=0, nullable=False)
@@ -489,10 +489,12 @@ class UserActionLog(db.Model):
         db.Index("idx_user_action_log_user_created", "user_id", "created_at"),
     )
 
-class UserGamePermission(db.Model):
+class UserProductPermission(db.Model):
+    __tablename__ = "user_product_permission"
+    
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"))
-    game_id = db.Column(db.Integer, db.ForeignKey("game.id"))
+    product_id = db.Column(db.Integer, db.ForeignKey("product.id"))
     can_generate_keys = db.Column(db.Boolean, default=False)
     max_keys_per_day = db.Column(db.Integer, default=0)
     has_access = db.Column(
@@ -508,19 +510,27 @@ class UserGamePermission(db.Model):
     access_code = db.Column(
         db.String(255), nullable=True
     )
-    user = db.relationship("User", backref="game_permissions")
-    project = db.relationship("Project", backref="user_game_permissions")
-    __table_args__ = (db.UniqueConstraint("user_id", "game_id", name="uq_user_game_permission"),)
+    user = db.relationship("User", backref="product_permissions")
+    project = db.relationship("Project", backref="user_product_permissions")
+    product = db.relationship("Product", backref="user_permissions", foreign_keys=[product_id])
+    __table_args__ = (db.UniqueConstraint("user_id", "product_id", name="uq_user_product_permission"),)
 
-class DeveloperGamePermission(db.Model):
+class DeveloperProductPermission(db.Model):
+    __tablename__ = "developer_product_permission"
+    
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"))
-    game_id = db.Column(db.Integer, db.ForeignKey("game.id"))
-    __table_args__ = (db.UniqueConstraint("user_id", "game_id", name="uq_developer_game"),)
+    product_id = db.Column(db.Integer, db.ForeignKey("product.id"))
+    __table_args__ = (db.UniqueConstraint("user_id", "product_id", name="uq_developer_product"),)
     project_id = db.Column(
         db.Integer, db.ForeignKey("project.id"), nullable=True
     )
-    project = db.relationship("Project", backref="developer_game_permissions")
+    project = db.relationship("Project", backref="developer_product_permissions")
+    product = db.relationship("Product", backref="developer_permissions", foreign_keys=[product_id])
+
+# Backward compatibility aliases
+UserProductPermission = UserProductPermission
+DeveloperProductPermission = DeveloperProductPermission
 
 class SystemSettings(db.Model):
     id = db.Column(db.Integer, primary_key=True)

@@ -10,14 +10,14 @@ import { createChangelogEntry, updateChangelogEntry } from '@/entities/changelog
 import { usePermissions } from '@/hooks/use-permissions';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
 import { toast } from 'sonner';
-import type { Game } from '@/entities/game';
+import type { Product } from '@/entities/product';
 import type { ChangelogEntry, CreateChangelogData } from '@/entities/changelog';
 import { parseChangelogEntry, parseReleaseDate, parseChanges } from '@/lib/validations/changelog';
 
 interface ChangelogFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  game: Game | null;
+  product: Product | null;
   entry?: ChangelogEntry | null;
   onEntryCreated?: () => void;
   onEntryUpdated?: () => void;
@@ -27,7 +27,7 @@ interface ChangelogFormDialogProps {
 const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
   open,
   onOpenChange,
-  game,
+  product,
   entry,
   onEntryCreated,
   onEntryUpdated,
@@ -36,8 +36,8 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
   const { hasPermission } = usePermissions();
 
   const isEditMode = !!entry;
-  const canCreateChangelog = hasPermission('games.changelog_create');
-  const canEditChangelog = hasPermission('games.changelog_edit');
+  const canCreateChangelog = hasPermission('products.changelog_create');
+  const canEditChangelog = hasPermission('products.changelog_edit');
 
   const hasPermissionForAction = isEditMode ? canEditChangelog : canCreateChangelog;
 
@@ -109,7 +109,7 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
             setUseCurrentTime(true);
           }
         }
-      } else if (game) {
+      } else if (product) {
 
         const now = new Date();
         setFormData({
@@ -125,13 +125,13 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
         setUseCurrentTime(true);
       }
     }
-  }, [entry, open, game, isEditMode]);
+  }, [entry, open, product, isEditMode]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!game) {
-      toast.error('Game is required');
+    if (!product) {
+      toast.error('Product is required');
       return;
     }
 
@@ -185,7 +185,7 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
         onSave?.(result.entry);
       } else {
 
-        const result = await createChangelogEntry(game.id, data);
+        const result = await createChangelogEntry(product.id, data);
         toast.success('Changelog entry created successfully');
         onEntryCreated?.();
         onSave?.(result.entry);
@@ -224,7 +224,7 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
     }));
   };
 
-  if (!game) return null;
+  if (!product) return null;
 
   if (!hasPermissionForAction) {
     return null;
@@ -242,7 +242,7 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
             {isEditMode ? 'Edit Changelog Entry' : 'Create Changelog Entry'}
           </DialogTitle>
           <DialogDescription>
-            {isEditMode ? `Version ${entry?.version}` : game.name}
+            {isEditMode ? `Version ${entry?.version}` : product.name}
           </DialogDescription>
         </DialogHeader>
 
@@ -402,7 +402,7 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
             Cancel
           </Button>
           <ConditionalRender 
-            permission={isEditMode ? 'games.changelog_edit' : 'games.changelog_create'} 
+            permission={isEditMode ? 'products.changelog_edit' : 'products.changelog_create'} 
             fallback={null}
           >
             <Button 

@@ -2,6 +2,7 @@
 Validation middleware for request data validation using Pydantic
 """
 
+import json
 import logging
 from functools import wraps
 from typing import Any, Dict, Optional, Type
@@ -35,8 +36,15 @@ class ValidationMiddleware:
             @wraps(func)
             def wrapper(*args, **kwargs):
                 try:
+                    # Check if request is JSON - accept both application/json and product/json
+                    content_type = request.headers.get('Content-Type', '').lower()
+                    is_json_request = (
+                        request.is_json or 
+                        content_type == 'product/json' or
+                        content_type.startswith('product/json;')
+                    )
 
-                    if not request.is_json:
+                    if not is_json_request:
                         if allow_empty and not request.get_data():
 
                             validated_data = {}
@@ -51,8 +59,21 @@ class ValidationMiddleware:
                                 400,
                             )
                     else:
-
-                        json_data = request.get_json(silent=True)
+                        # Get JSON data - manually parse for product/json, otherwise use Flask's parser
+                        json_data = None
+                        if content_type == 'product/json' or content_type.startswith('product/json;'):
+                            # Manually parse JSON for product/json content type
+                            try:
+                                raw_data = request.get_data(as_text=True)
+                                if raw_data:
+                                    json_data = json.loads(raw_data)
+                                else:
+                                    json_data = {}
+                            except (json.JSONDecodeError, UnicodeDecodeError):
+                                json_data = None
+                        else:
+                            json_data = request.get_json(silent=True)
+                        
                         if json_data is None:
                             if allow_empty:
                                 validated_data = {}

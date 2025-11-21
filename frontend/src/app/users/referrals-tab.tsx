@@ -16,13 +16,13 @@ const ReferralsTab: React.FC = () => {
     isCreateReferralDialogOpen,
     referralCodes,
     roles,
-    availableGames,
+    availableProducts,
     isLoading: referralCodesLoading,
     referralCodesError,
     rbacLoading,
     rbacError,
-    gamesLoading,
-    gamesError,
+    productsLoading,
+    productsError,
     isCreating,
     setReferralCodeForm,
     setIsCreateReferralDialogOpen,
@@ -108,7 +108,7 @@ const ReferralsTab: React.FC = () => {
                           {refCode.role || 'No role'}
                         </p>
                         <span className="text-xs text-muted-foreground">
-                          • {refCode.game_ids?.length || 0} games
+                          • {refCode.product_ids?.length || 0} products
                         </span>
                         <span className="text-xs text-muted-foreground">
                           • {refCode.token_balance || 0} tokens
@@ -158,11 +158,11 @@ const ReferralsTab: React.FC = () => {
         form={referralCodeForm}
         onFormChange={setReferralCodeForm}
         roles={roles}
-        games={availableGames}
+        products={availableProducts}
         rbacLoading={rbacLoading}
         rbacError={rbacError?.message || null}
-        gamesLoading={gamesLoading}
-        gamesError={gamesError?.message || null}
+        productsLoading={productsLoading}
+        productsError={productsError?.message || null}
       />
     </div>
   );

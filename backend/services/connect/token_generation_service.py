@@ -30,7 +30,7 @@ class TokenGenerationService:
 
     def generate_connect_token(
         self,
-        game: str,
+        product: str,
         user_key: str,
         serial: str,
         user_id: Optional[int] = None,
@@ -45,7 +45,7 @@ class TokenGenerationService:
         preventing DoS attacks from token enumeration.
 
         Args:
-            game: Game name
+            product: Product name
             user_key: User key
             serial: Device serial
             user_id: User ID (required for database storage)
@@ -56,7 +56,7 @@ class TokenGenerationService:
         Returns:
             Generated token (SHA256 hash)
         """
-        real = f"{game}-{user_key}-{serial}-{self.static_word}"
+        real = f"{product}-{user_key}-{serial}-{self.static_word}"
         token = hashlib.sha256(real.encode()).hexdigest()
 
         if user_id is not None:
@@ -73,7 +73,7 @@ class TokenGenerationService:
                         token=token,
                         user_id=user_id,
                         key_id=key_id,
-                        game_name=game,
+                        product_name=product,
                         serial=serial,
                         is_classic=is_classic,
                         expires_at=expires_at,

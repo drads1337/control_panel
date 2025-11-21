@@ -11,6 +11,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_migrate import Migrate
 from flask_migrate import cli as migrate_cli
+from prometheus_flask_exporter import PrometheusMetrics
 
 from ..config.config import Config
 from ..config.cors_config import setup_cors
@@ -141,7 +142,7 @@ def setup_redis_and_limiter(app: Flask) -> None:
     from ..routes.connect.connect import connect_bp
     from ..routes.dashboard import dashboard_bp
     from ..routes.files import files_bp
-    from ..routes.games import games_bp
+    from ..routes.products import products_bp
     from ..routes.keys import keys_bp
     from ..routes.logs import logs_bp
     from ..routes.projects import projects_bp
@@ -153,7 +154,7 @@ def setup_redis_and_limiter(app: Flask) -> None:
     limiter.limit(rate_limits["keys"])(keys_bp)
     limiter.limit(rate_limits["projects"])(projects_bp)
     limiter.limit(rate_limits["users"])(users_bp)
-    limiter.limit(rate_limits["games"])(games_bp)
+    limiter.limit(rate_limits["products"])(products_bp)
     limiter.limit(rate_limits["files"])(files_bp)
     limiter.limit(rate_limits["settings"])(settings_bp)
     limiter.limit(rate_limits["logs"])(logs_bp)
@@ -187,7 +188,7 @@ def setup_redis_and_limiter(app: Flask) -> None:
         connect_limit=rate_limits["connect"],
         projects_limit=rate_limits["projects"],
         users_limit=rate_limits["users"],
-        games_limit=rate_limits["games"],
+        products_limit=rate_limits["products"],
         files_limit=rate_limits["files"],
         settings_limit=rate_limits["settings"],
         logs_limit=rate_limits["logs"],
@@ -280,10 +281,13 @@ def create_app() -> Flask:
     setup_cors(app)
     setup_redis_and_limiter(app)
     
-    # SECURITY: Check Redis security configuration at startup
-    # This runs after Redis is initialized but doesn't block startup
     with app.app_context():
         check_redis_security()
+    
+    if Config.ENABLE_METRICS:
+        metrics = PrometheusMetrics(app, path='/metrics', export_defaults=True)
+        app.prometheus_metrics = metrics
+        logger.info("Prometheus metrics initialized", endpoint="/metrics")
     
     setup_storage_and_monitoring(app)
     setup_migrations(app)

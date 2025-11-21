@@ -51,7 +51,7 @@ def get_refcodes(current_user=None, project_id=None):
                     "expires_at": code.expires_at.isoformat() if code.expires_at else None,
                     "used": code.used,
                     "used_by": code.used_by,
-                    "game_ids": code.game_ids_list,
+                    "product_ids": code.product_ids_list,
                     "rbac_role_ids": code.rbac_role_ids if code.rbac_role_ids else [],
                     "token_balance": code.token_balance,
                     "work_duration_days": code.work_duration_days,
@@ -94,7 +94,7 @@ def create_refcode(current_user=None, project_id=None):
         role = data.get("role", "client")
         token_balance = data.get("token_balance", 0)
         work_duration_days = data.get("work_duration_days")
-        game_ids = data.get("game_ids", [])
+        product_ids = data.get("product_ids", [])
         rbac_role_ids = data.get("rbac_role_ids", [])
         expires_in_days = data.get("expires_in_days", 90)
 
@@ -113,7 +113,7 @@ def create_refcode(current_user=None, project_id=None):
             token_balance=token_balance,
             work_duration_days=work_duration_days,
             expires_at=datetime.utcnow() + timedelta(days=expires_in_days),
-            game_ids=game_ids if game_ids else None,
+            product_ids=product_ids if product_ids else None,
             rbac_role_ids=rbac_role_ids if rbac_role_ids else None,
             created_by=current_user.id,
         )
@@ -138,7 +138,7 @@ def create_refcode(current_user=None, project_id=None):
                     "token_balance": referral_code.token_balance,
                     "work_duration_days": referral_code.work_duration_days,
                     "expires_at": referral_code.expires_at.isoformat() if referral_code.expires_at else None,
-                    "game_ids": referral_code.game_ids_list,
+                    "product_ids": referral_code.product_ids_list,
                     "rbac_role_ids": referral_code.rbac_role_ids if referral_code.rbac_role_ids else [],
                     "project_id": referral_code.project_id,
                     "created_by": referral_code.created_by,

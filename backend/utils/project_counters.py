@@ -1,6 +1,6 @@
 """
 Utility functions for maintaining denormalized statistics counters in Project model.
-These functions update the counters when users, keys, games, or servers are created,
+These functions update the counters when users, keys, products, or servers are created,
 deleted, or their status changes. This avoids expensive JOIN queries with subqueries.
 
 DEPRECATED: The increment_* and decrement_* functions are deprecated due to race conditions.
@@ -9,7 +9,7 @@ Use CachedStatisticsService instead, which uses cached COUNT queries for better 
 For migration, use:
 - CachedStatisticsService.invalidate_on_user_change(project_id) instead of increment_project_user_counters
 - CachedStatisticsService.invalidate_on_key_change(user_id, project_id) instead of increment_project_key_counters
-- CachedStatisticsService.invalidate_on_game_change(project_id) instead of increment_project_game_counters
+- CachedStatisticsService.invalidate_on_product_change(project_id) instead of increment_project_product_counters
 - CachedStatisticsService.invalidate_on_server_change(project_id) instead of increment_project_server_counters
 
 See: backend/services/statistics/cached_statistics_service.py
@@ -21,7 +21,7 @@ from sqlalchemy import func, case, and_, or_
 from ..core.extensions import db
 from ..models.core import Project, User
 from ..models.keys import Key
-from ..models.games import Game
+from ..models.products import Product
 from ..models.servers import Server
 
 def update_project_counters(project_id: Optional[int]):
@@ -56,7 +56,7 @@ def update_project_counters(project_id: Optional[int]):
         and_(Key.project_id == project_id, Key.status == 1)
     ).count()
 
-    total_games = Game.query.filter(Game.project_id == project_id).count()
+    total_products = Product.query.filter(Product.project_id == project_id).count()
 
     total_servers = Server.query.filter(Server.project_id == project_id).count()
 
@@ -64,7 +64,7 @@ def update_project_counters(project_id: Optional[int]):
     project.active_users = active_users
     project.total_keys = total_keys
     project.active_keys = active_keys
-    project.total_games = total_games
+    project.total_products = total_products
     project.total_servers = total_servers
 
     db.session.flush()
@@ -272,24 +272,24 @@ def update_project_key_counters_on_status_change(
 
     db.session.flush()
 
-def increment_project_game_counters(project_id: Optional[int]):
+def increment_project_product_counters(project_id: Optional[int]):
     """
     DEPRECATED: This function is deprecated due to race conditions.
-    Use CachedStatisticsService.invalidate_on_game_change() instead.
+    Use CachedStatisticsService.invalidate_on_product_change() instead.
     
-    Increment game counter when a new game is created.
+    Increment product counter when a new product is created.
 
     Args:
         project_id: ID of the project
     
     Deprecated:
         This function causes race conditions under high concurrency.
-        Use CachedStatisticsService.invalidate_on_game_change(project_id) instead.
+        Use CachedStatisticsService.invalidate_on_product_change(project_id) instead.
     """
     import warnings
     warnings.warn(
-        "increment_project_game_counters is deprecated. "
-        "Use CachedStatisticsService.invalidate_on_game_change() instead.",
+        "increment_project_product_counters is deprecated. "
+        "Use CachedStatisticsService.invalidate_on_product_change() instead.",
         DeprecationWarning,
         stacklevel=2
     )
@@ -300,27 +300,27 @@ def increment_project_game_counters(project_id: Optional[int]):
     if not project:
         return
 
-    project.total_games = (project.total_games or 0) + 1
+    project.total_products = (project.total_products or 0) + 1
     db.session.flush()
 
-def decrement_project_game_counters(project_id: Optional[int]):
+def decrement_project_product_counters(project_id: Optional[int]):
     """
     DEPRECATED: This function is deprecated due to race conditions.
-    Use CachedStatisticsService.invalidate_on_game_change() instead.
+    Use CachedStatisticsService.invalidate_on_product_change() instead.
     
-    Decrement game counter when a game is deleted.
+    Decrement product counter when a product is deleted.
 
     Args:
         project_id: ID of the project
     
     Deprecated:
         This function causes race conditions under high concurrency.
-        Use CachedStatisticsService.invalidate_on_game_change(project_id) instead.
+        Use CachedStatisticsService.invalidate_on_product_change(project_id) instead.
     """
     import warnings
     warnings.warn(
-        "decrement_project_game_counters is deprecated. "
-        "Use CachedStatisticsService.invalidate_on_game_change() instead.",
+        "decrement_project_product_counters is deprecated. "
+        "Use CachedStatisticsService.invalidate_on_product_change() instead.",
         DeprecationWarning,
         stacklevel=2
     )
@@ -331,7 +331,7 @@ def decrement_project_game_counters(project_id: Optional[int]):
     if not project:
         return
 
-    project.total_games = max(0, (project.total_games or 0) - 1)
+    project.total_products = max(0, (project.total_products or 0) - 1)
     db.session.flush()
 
 def increment_project_server_counters(project_id: Optional[int]):

@@ -5,21 +5,21 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Plus, Edit, Trash2, Calendar, Tag } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
-import { getGameChangelog, deleteChangelogEntry } from '@/entities/changelog';
+import { getProductChangelog, deleteChangelogEntry } from '@/entities/changelog';
 import { useAuth } from '@/hooks/use-auth';
 import { usePermissions } from '@/hooks/use-permissions';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
 import { toast } from 'sonner';
 import ChangelogFormDialog from './ChangelogFormDialog';
-import type { Game } from '@/entities/game';
+import type { Product } from '@/entities/product';
 import type { ChangelogEntry } from '@/entities/changelog';
 
 interface ChangelogManagerProps {
-  game: Game | null;
+  product: Product | null;
   onUpdate?: () => void;
 }
 
-const ChangelogManager: React.FC<ChangelogManagerProps> = ({ game, onUpdate }) => {
+const ChangelogManager: React.FC<ChangelogManagerProps> = ({ product, onUpdate }) => {
   const { hasPermission } = usePermissions();
 
   const canViewChangelog = hasPermission('changelog.view');
@@ -33,12 +33,12 @@ const ChangelogManager: React.FC<ChangelogManagerProps> = ({ game, onUpdate }) =
   const [editingEntry, setEditingEntry] = useState<ChangelogEntry | null>(null);
 
   const loadChangelog = async () => {
-    if (!game) return;
+    if (!product) return;
 
     try {
       setLoading(true);
       setError(null);
-      const response = await getGameChangelog(game.id);
+      const response = await getProductChangelog(product.id);
       setChangelog(response.changelog);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error loading changelog');
@@ -49,7 +49,7 @@ const ChangelogManager: React.FC<ChangelogManagerProps> = ({ game, onUpdate }) =
 
   useEffect(() => {
     loadChangelog();
-  }, [game]);
+  }, [product]);
 
   const handleCreateEntry = () => {
     setEditingEntry(null);
@@ -99,11 +99,11 @@ const ChangelogManager: React.FC<ChangelogManagerProps> = ({ game, onUpdate }) =
     );
   }
 
-  if (!game) {
+  if (!product) {
     return (
       <Alert>
         <AlertDescription>
-          Select a game to view the changelog.
+          Select a product to view the changelog.
         </AlertDescription>
       </Alert>
     );
@@ -113,9 +113,9 @@ const ChangelogManager: React.FC<ChangelogManagerProps> = ({ game, onUpdate }) =
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold">Changelog: {game.name}</h3>
+          <h3 className="text-lg font-semibold">Changelog: {product.name}</h3>
           <p className="text-sm text-muted-foreground">
-            Manage changelog entries for the game.
+            Manage changelog entries for the product.
           </p>
         </div>
         <ConditionalRender permission="changelog.create" fallback={null}>
@@ -141,7 +141,7 @@ const ChangelogManager: React.FC<ChangelogManagerProps> = ({ game, onUpdate }) =
           <CardContent className="flex flex-col items-center justify-center py-8">
             <div className="text-center space-y-2">
               <Tag className="h-12 w-12 text-muted-foreground mx-auto" />
-              <h3 className="text-lg font-semibold">No changelog for this game yet</h3>
+              <h3 className="text-lg font-semibold">No changelog for this product yet</h3>
               <p className="text-muted-foreground">
                 Create the first changelog entry to display the history of changes.
               </p>
@@ -220,7 +220,7 @@ const ChangelogManager: React.FC<ChangelogManagerProps> = ({ game, onUpdate }) =
       <ChangelogFormDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        game={game}
+        product={product}
         entry={editingEntry}
         onSave={handleSaveEntry}
         onEntryCreated={() => handleSaveEntry(null as any)}

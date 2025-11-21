@@ -127,14 +127,14 @@ export interface InviteCode {
   used_at?: string | null
   created_by?: number | null
   role?: string
-  game_ids?: number[]
+  product_ids?: number[]
 }
 
 export interface CreateInviteCodeData {
   code?: string
   expires_in_days?: number
   project_id?: number
-  game_ids?: number[]
+  product_ids?: number[]
   rbac_role_ids?: number[]
 }
 
@@ -147,7 +147,7 @@ export interface ReferralCode {
   expires_at: string | null
   used: boolean
   is_expired: boolean
-  game_ids: number[]
+  product_ids: number[]
 }
 
 export interface CreateProjectInviteCodeData {

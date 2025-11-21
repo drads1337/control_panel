@@ -167,7 +167,7 @@ class AdminStatsResponseSchema(BaseSchema):
     active_users: int = Field(..., description="Number of active users")
     total_projects: int = Field(..., description="Total number of projects")
     active_projects: int = Field(..., description="Number of active projects")
-    total_games: int = Field(..., description="Total number of games")
+    total_products: int = Field(..., description="Total number of products")
     total_keys: int = Field(..., description="Total number of keys")
     active_sessions: int = Field(..., description="Number of active sessions")
     system_uptime: Optional[str] = Field(default=None, description="System uptime")

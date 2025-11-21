@@ -87,7 +87,7 @@ class ScheduledTaskProcessor:
             from datetime import datetime
 
             from ..models.core import User
-            from ..models.games import Game
+            from ..models.products import Product
             from ..models.keys import Key
             from ..services.webhooks import get_webhook_service
 
@@ -112,9 +112,9 @@ class ScheduledTaskProcessor:
                 for key in expired_keys:
                     try:
 
-                        game = None
-                        if key.game_id:
-                            game = session.query(Game).get(key.game_id)
+                        product = None
+                        if key.product_id:
+                            product = session.query(Product).get(key.product_id)
 
                         user = None
                         if key.user_id:
@@ -125,8 +125,8 @@ class ScheduledTaskProcessor:
                             "key_value": key.key,
                             "user_id": key.user_id,
                             "username": user.username if user else None,
-                            "game_id": key.game_id,
-                            "game_name": game.name if game else None,
+                            "product_id": key.product_id,
+                            "product_name": product.name if product else None,
                             "duration_hours": key.duration_hours,
                             "max_devices": key.max_devices,
                             "activated_at": (

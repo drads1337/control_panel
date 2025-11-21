@@ -6,9 +6,9 @@ Handles key validation logic
 from typing import Any, Dict, Optional, Tuple
 
 from ..models.core import User
-from ..models.games import Game
+from ..models.products import Product
 from ..models.keys import Key
-from ..models.loaders import Loader
+from ..models.agents import Agent
 from ..utils.structured_logging import get_logger
 
 class KeyValidationService:
@@ -31,25 +31,25 @@ class KeyValidationService:
             Tuple of (is_valid, error_message)
         """
 
-        if not key_data.get("game_id") and not key_data.get("loader_id"):
-            return False, "Either game_id or loader_id is required"
+        if not key_data.get("product_id") and not key_data.get("agent_id"):
+            return False, "Either product_id or agent_id is required"
 
-        game = None
-        loader = None
+        product = None
+        agent = None
 
-        if key_data.get("game_id"):
-            game = Game.query.filter_by(
-                id=key_data["game_id"], project_id=user.project_id
+        if key_data.get("product_id"):
+            product = Product.query.filter_by(
+                id=key_data["product_id"], project_id=user.project_id
             ).first()
-            if not game:
-                return False, "Game not found or access denied"
+            if not product:
+                return False, "Product not found or access denied"
 
-        if key_data.get("loader_id"):
-            loader = Loader.query.filter_by(
-                id=key_data["loader_id"], project_id=user.project_id
+        if key_data.get("agent_id"):
+            agent = Agent.query.filter_by(
+                id=key_data["agent_id"], project_id=user.project_id
             ).first()
-            if not loader:
-                return False, "Loader not found or access denied"
+            if not agent:
+                return False, "Agent not found or access denied"
 
         duration_hours = key_data.get("duration_hours", 24)
         if duration_hours <= 0 or duration_hours > 8760:

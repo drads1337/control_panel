@@ -400,15 +400,15 @@ def requires_project_assignment(user: User) -> Tuple[bool, str]:
 
     return False, ""
 
-def validate_game_access(user: User, game_id: int) -> Tuple[bool, str]:
-    """Validate if user can access game"""
+def validate_product_access(user: User, product_id: int) -> Tuple[bool, str]:
+    """Validate if user can access product"""
     if not user:
         return False, "User not found"
 
-    from ..models.games import Game
+    from ..models.products import Product
 
-    game = Game.query.get(game_id)
-    if not game:
-        return False, "Game not found"
+    product = Product.query.get(product_id)
+    if not product:
+        return False, "Product not found"
 
-    return validate_project_access(user, game.project_id)
+    return validate_project_access(user, product.project_id)

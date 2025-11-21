@@ -22,7 +22,7 @@ class TestConnectRoutes:
                 "fingerprint": "test_fingerprint_123",
                 "project_id": test_project.id,
             },
-            content_type="application/json",
+            content_type="product/json",
         )
         assert response.status_code == 200
         data = json.loads(response.data)
@@ -36,7 +36,7 @@ class TestConnectRoutes:
         response = client.post(
             "/api/challenge",
             json={"fingerprint": "test_fingerprint"},
-            content_type="application/json",
+            content_type="product/json",
         )
         assert response.status_code == 400
         data = json.loads(response.data)
@@ -47,7 +47,7 @@ class TestConnectRoutes:
         response = client.post(
             "/api/challenge",
             json={"user_key": test_key.key},
-            content_type="application/json",
+            content_type="product/json",
         )
         assert response.status_code == 400
         data = json.loads(response.data)
@@ -61,7 +61,7 @@ class TestConnectRoutes:
                 "user_key": "INVALID_KEY_1234567890123456",
                 "fingerprint": "test_fingerprint",
             },
-            content_type="application/json",
+            content_type="product/json",
         )
         assert response.status_code in [400, 403]
         data = json.loads(response.data)
@@ -85,7 +85,7 @@ class TestConnectRoutes:
                 "username": test_user.username,
                 "password": "test_password_123",
             },
-            content_type="application/json",
+            content_type="product/json",
         )
 
         assert response.status_code in [200, 401]
@@ -104,7 +104,7 @@ class TestConnectRoutes:
                 "username": "nonexistent_user",
                 "password": "wrong_password",
             },
-            content_type="application/json",
+            content_type="product/json",
         )
         assert response.status_code == 401
         data = json.loads(response.data)
@@ -115,7 +115,7 @@ class TestConnectRoutes:
         response = client.post(
             "/api/classic_connect",
             json={},
-            content_type="application/json",
+            content_type="product/json",
         )
         assert response.status_code == 400
         data = json.loads(response.data)
@@ -126,7 +126,7 @@ class TestConnectRoutes:
         response = client.post(
             "/api/connect",
             json={},
-            content_type="application/json",
+            content_type="product/json",
         )
         assert response.status_code == 400
 
@@ -135,7 +135,7 @@ class TestConnectRoutes:
         response = client.post(
             "/api/connect",
             data="not json",
-            content_type="application/json",
+            content_type="product/json",
         )
         assert response.status_code == 400
 
@@ -152,7 +152,7 @@ class TestConnectRoutes:
                         "fingerprint": "test_fingerprint",
                         "project_id": test_project.id,
                     },
-                    content_type="application/json",
+                    content_type="product/json",
                 )
                 responses.append(response.status_code)
             except Exception:

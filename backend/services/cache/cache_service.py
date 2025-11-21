@@ -23,7 +23,7 @@ class CacheService:
         self._cache_wrapper = None
 
         self.cache_ttl_config = {
-            "games": 60,
+            "products": 60,
             "projects": 60,
             "settings": 300,
             "stats": 30,
@@ -41,7 +41,7 @@ class CacheService:
         self.stale_while_revalidate = True
 
         self.cache_tags = {
-            "games": ["project", "game"],
+            "products": ["project", "product"],
             "projects": ["project", "user"],
             "settings": ["project", "user"],
             "stats": ["project", "user"],
@@ -119,7 +119,7 @@ class CacheService:
             
             if "project_id" in kwargs:
                 project_id = kwargs["project_id"]
-                marker_pattern = f"{self.cache_prefix}:game_updated:{project_id}:*"
+                marker_pattern = f"{self.cache_prefix}:product_updated:{project_id}:*"
                 markers = cache_client.keys(marker_pattern)
 
                 if markers:
@@ -135,13 +135,13 @@ class CacheService:
                     logging.debug(f"Project update marker found: {project_marker}, bypassing cache")
                     return True
 
-            if "game_id" in kwargs:
-                game_id = kwargs["game_id"]
+            if "product_id" in kwargs:
+                product_id = kwargs["product_id"]
                 if "project_id" in kwargs:
                     project_id = kwargs["project_id"]
-                    game_marker = f"{self.cache_prefix}:game_updated:{project_id}:{game_id}"
-                    if cache_client.get(game_marker):
-                        logging.debug(f"Game update marker found: {game_marker}, bypassing cache")
+                    product_marker = f"{self.cache_prefix}:product_updated:{project_id}:{product_id}"
+                    if cache_client.get(product_marker):
+                        logging.debug(f"Product update marker found: {product_marker}, bypassing cache")
                         return True
 
             if cache_type.startswith("rbac"):
@@ -291,10 +291,10 @@ class CacheService:
 
             try:
                 common_keys = [
-                    f"{self.cache_prefix}:games:project_id={pattern.split('project_id=')[1].split(':')[0]}:*",
-                    f"{self.cache_prefix}:games:project_id={pattern.split('project_id=')[1].split(':')[0]}:type=all*",
-                    f"{self.cache_prefix}:games:project_id={pattern.split('project_id=')[1].split(':')[0]}:type=multi_app*",
-                    f"{self.cache_prefix}:games:project_id={pattern.split('project_id=')[1].split(':')[0]}:type=game_library*",
+                    f"{self.cache_prefix}:products:project_id={pattern.split('project_id=')[1].split(':')[0]}:*",
+                    f"{self.cache_prefix}:products:project_id={pattern.split('project_id=')[1].split(':')[0]}:type=all*",
+                    f"{self.cache_prefix}:products:project_id={pattern.split('project_id=')[1].split(':')[0]}:type=multi_app*",
+                    f"{self.cache_prefix}:products:project_id={pattern.split('project_id=')[1].split(':')[0]}:type=product_library*",
                 ]
                 deleted_count = 0
                 cache_wrapper = self._get_cache_client()
@@ -316,7 +316,7 @@ class CacheService:
         """Invalidate all cache entries for a specific project"""
         try:
 
-            pattern = f"panel_cache:games:project_id={project_id}:*"
+            pattern = f"panel_cache:products:project_id={project_id}:*"
             deleted_count = self.invalidate_pattern(pattern)
 
             patterns = [
@@ -360,31 +360,31 @@ class CacheService:
             logging.error(f"Smart invalidation error for tag {tag_type}={tag_value}: {e}")
             return 0
 
-    def invalidate_game_instantly(self, project_id: int, game_id: int = None) -> int:
-        """INSTANT invalidation of game cache - no waiting for TTL"""
+    def invalidate_product_instantly(self, project_id: int, product_id: int = None) -> int:
+        """INSTANT invalidation of product cache - no waiting for TTL"""
         try:
             total_deleted = 0
 
             total_deleted += self.invalidate_by_tag("project", project_id)
 
-            if game_id:
-                total_deleted += self.invalidate_by_tag("game", game_id)
+            if product_id:
+                total_deleted += self.invalidate_by_tag("product", product_id)
 
             patterns = [
-                f"games:project_id={project_id}:*",
-                f"games:project_id={project_id}:type=all*",
-                f"games:project_id={project_id}:type=multi_app*",
-                f"games:project_id={project_id}:type=game_library*",
-                f"games:project_id={project_id}:user_id=*",
-                f"games:project_id={project_id}:status=*",
-                f"games:project_id={project_id}:active=*",
+                f"products:project_id={project_id}:*",
+                f"products:project_id={project_id}:type=all*",
+                f"products:project_id={project_id}:type=multi_app*",
+                f"products:project_id={project_id}:type=product_library*",
+                f"products:project_id={project_id}:user_id=*",
+                f"products:project_id={project_id}:status=*",
+                f"products:project_id={project_id}:active=*",
             ]
 
-            if game_id:
+            if product_id:
                 patterns.extend(
                     [
-                        f"games:game_id={game_id}:*",
-                        f"games:project_id={project_id}:game_id={game_id}:*",
+                        f"products:product_id={product_id}:*",
+                        f"products:project_id={project_id}:product_id={product_id}:*",
                     ]
                 )
 
@@ -392,8 +392,8 @@ class CacheService:
                 total_deleted += self.invalidate_pattern(pattern)
 
             cache_wrapper = self._get_cache_client()
-            if game_id:
-                marker_key = f"{self.cache_prefix}:game_updated:{project_id}:{game_id}"
+            if product_id:
+                marker_key = f"{self.cache_prefix}:product_updated:{project_id}:{product_id}"
                 cache_wrapper.set(marker_key, "updated", ex=120)
             else:
 
@@ -401,12 +401,12 @@ class CacheService:
                 cache_wrapper.set(project_marker, "updated", ex=120)
 
             logging.info(
-                f"INSTANT game cache invalidation: {total_deleted} keys deleted for project {project_id}, game {game_id}"
+                f"INSTANT product cache invalidation: {total_deleted} keys deleted for project {project_id}, product {product_id}"
             )
             return total_deleted
 
         except Exception as e:
-            logging.error(f"INSTANT game cache invalidation error: {e}")
+            logging.error(f"INSTANT product cache invalidation error: {e}")
             return 0
 
     def invalidate_project_instantly(self, project_id: int) -> int:
@@ -661,42 +661,42 @@ class CacheService:
             logging.error(f"Clear all cache error: {e}")
             return 0
 
-    def force_refresh_game_cache(self, project_id: int, game_id: int = None) -> bool:
-        """Force refresh game cache by invalidating and immediately re-caching"""
+    def force_refresh_product_cache(self, project_id: int, product_id: int = None) -> bool:
+        """Force refresh product cache by invalidating and immediately re-caching"""
         try:
 
-            self.invalidate_game_instantly(project_id, game_id)
+            self.invalidate_product_instantly(project_id, product_id)
 
-            from ..games import game_service
+            from ..products import product_service
 
-            game_service.get_game_simple_cached(project_id)
+            product_service.get_product_simple_cached(project_id)
 
-            logging.info(f"Force refreshed game cache for project {project_id}, game {game_id}")
+            logging.info(f"Force refreshed product cache for project {project_id}, product {product_id}")
             return True
 
         except Exception as e:
             logging.error(f"Force refresh cache error: {e}")
             return False
 
-    def force_refresh_loader_cache(self, project_id: int, loader_id: int = None) -> bool:
-        """Force refresh loader cache by invalidating and immediately re-caching"""
+    def force_refresh_loader_cache(self, project_id: int, agent_id: int = None) -> bool:
+        """Force refresh agent cache by invalidating and immediately re-caching"""
         try:
 
-            patterns = [f"loaders:project_id={project_id}:*"]
-            if loader_id:
-                patterns.append(f"loaders:loader_id={loader_id}:*")
+            patterns = [f"agents:project_id={project_id}:*"]
+            if agent_id:
+                patterns.append(f"agents:agent_id={agent_id}:*")
 
             total_deleted = 0
             for pattern in patterns:
                 total_deleted += self.invalidate_pattern(pattern)
 
             logging.info(
-                f"Force refreshed loader cache for project {project_id}, loader {loader_id} ({total_deleted} keys deleted)"
+                f"Force refreshed agent cache for project {project_id}, agent {agent_id} ({total_deleted} keys deleted)"
             )
             return True
 
         except Exception as e:
-            logging.error(f"Force refresh loader cache error: {e}")
+            logging.error(f"Force refresh agent cache error: {e}")
             return False
 
     def should_cache(self, cache_type: str, operation_cost: str = "normal") -> bool:
@@ -717,7 +717,7 @@ class CacheService:
             return True
         elif operation_cost == "normal":
 
-            frequently_accessed = ["games", "projects", "analytics"]
+            frequently_accessed = ["products", "projects", "analytics"]
             return cache_type in frequently_accessed
         else:
 

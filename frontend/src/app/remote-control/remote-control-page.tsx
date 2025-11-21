@@ -4,7 +4,7 @@ import { usePermissions } from '@/hooks/use-permissions'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
-import { Settings, AlertCircle, RefreshCw, Gamepad2, Loader2 } from 'lucide-react'
+import { Settings, AlertCircle, RefreshCw, Database, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ConditionalRender } from '@/components/rbac/conditional-render'
 import {
@@ -20,17 +20,17 @@ import {
   RemoteFeature,
   CategoryStats
 } from '@/lib/remote-control-api'
-import { getGames } from '@/entities/game/api/game'
-import type { Game } from '@/entities/game'
+import { getProducts } from '@/entities/product/api/product'
+import type { Product } from '@/entities/product'
 import RemoteControlStatsCards from './remote-control-stats-cards'
 import RemoteControlTabs from './remote-control-tabs'
 import CategoryDialog from './category-dialog'
 
 export default function RemoteControl() {
   const { user, token } = useAuthContext()
-  const [selectedGameId, setSelectedGameId] = useState<number | null>(null)
-  const [games, setGames] = useState<Game[]>([])
-  const [gamesLoading, setGamesLoading] = useState(true)
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null)
+  const [products, setProducts] = useState<Product[]>([])
+  const [productsLoading, setProductsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('')
   const [features, setFeatures] = useState<RemoteFeature[]>([])
   const [categories, setCategories] = useState<RemoteCategory[]>([])
@@ -55,28 +55,28 @@ export default function RemoteControl() {
     name: '',
     description: '',
     color: '#3b82f6',
-    game_id: 0
+    product_id: 0
   })
 
   const { hasPermission } = usePermissions()
 
-  const loadGames = async () => {
+  const loadProducts = async () => {
     try {
-      setGamesLoading(true)
-      const response = await getGames('all')
-      setGames(response.games || [])
-      if (response.games && response.games.length > 0 && !selectedGameId) {
-        setSelectedGameId(response.games[0].id)
+      setProductsLoading(true)
+      const response = await getProducts('all')
+      setProducts(response.products || [])
+      if (response.products && response.products.length > 0 && !selectedProductId) {
+        setSelectedProductId(response.products[0].id)
       }
     } catch (err: any) {
-      toast.error('Failed to load games')
+      toast.error('Failed to load products')
     } finally {
-      setGamesLoading(false)
+      setProductsLoading(false)
     }
   }
 
   const loadData = async () => {
-    if (!selectedGameId) {
+    if (!selectedProductId) {
       setLoading(false)
       return
     }
@@ -86,9 +86,9 @@ export default function RemoteControl() {
       setError(null)
 
       const [categoriesData, featuresData, statsData] = await Promise.all([
-        remoteControlAPI.getCategories(selectedGameId),  // Uses product_id internally
-        remoteControlAPI.getFeatures(selectedGameId),  // Uses product_id internally
-        remoteControlAPI.getStats(selectedGameId)  // Uses product_id internally
+        remoteControlAPI.getCategories(selectedProductId),  // Uses product_id internally
+        remoteControlAPI.getFeatures(selectedProductId),  // Uses product_id internally
+        remoteControlAPI.getStats(selectedProductId)  // Uses product_id internally
       ])
 
       setCategories(categoriesData)
@@ -109,12 +109,12 @@ export default function RemoteControl() {
   }
 
   useEffect(() => {
-    loadGames()
+    loadProducts()
   }, [])
 
   useEffect(() => {
     loadData()
-  }, [selectedGameId])
+  }, [selectedProductId])
 
   const handleFeatureToggle = async (featureId: string) => {
     if (!hasPermission('remote_control.toggle')) {
@@ -249,8 +249,8 @@ export default function RemoteControl() {
       return
     }
 
-    if (!selectedGameId) {
-      toast.error("Please select a game first")
+    if (!selectedProductId) {
+      toast.error("Please select a product first")
       return
     }
 
@@ -264,7 +264,7 @@ export default function RemoteControl() {
         name: categoryFormData.name,
         description: categoryFormData.description,
         color: categoryFormData.color,
-        product_id: selectedGameId  // Use universal parameter
+        product_id: selectedProductId  // Use universal parameter
       })
 
       setCategories(prev => [...prev, newCategory])
@@ -289,7 +289,7 @@ export default function RemoteControl() {
       name: category.name,
       description: category.description,
       color: category.color,
-      game_id: parseInt(category.game_id)
+      product_id: category.product_id ? parseInt(category.product_id) : selectedProductId || 0
     })
     setCategoryDialogOpen(true)
   }
@@ -310,7 +310,7 @@ export default function RemoteControl() {
         name: categoryFormData.name,
         description: categoryFormData.description,
         color: categoryFormData.color,
-        product_id: selectedGameId || undefined  // Use universal parameter
+        product_id: selectedProductId || undefined  // Use universal parameter
       })
 
       setCategories(prev => prev.map(category =>
@@ -358,7 +358,7 @@ export default function RemoteControl() {
       name: '',
       description: '',
       color: '#3b82f6',
-      game_id: selectedGameId || 0
+      product_id: selectedProductId || 0
     })
   }
 
@@ -441,24 +441,24 @@ export default function RemoteControl() {
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2.5">
                 <div className="p-1.5 rounded-md bg-primary/10 text-primary pt-1 -mb-4">
-                  <Gamepad2 className="h-4 w-4" />
+                  <Database className="h-4 w-4" />
                 </div>
                 <div className="pt-1 -mb-4">
                 <Select
-                  value={selectedGameId?.toString() || ''}
+                  value={selectedProductId?.toString() || ''}
                   onValueChange={(value) => {
-                    setSelectedGameId(parseInt(value))
+                    setSelectedProductId(parseInt(value))
                     setActiveTab('')
                   }}
-                  disabled={gamesLoading}
+                  disabled={productsLoading}
                 >
-                    <SelectTrigger id="game-select" className="w-[280px] h-9 border-border/50 bg-background !mt-0 !mb-0">
-                    <SelectValue placeholder="Select a game" />
+                    <SelectTrigger id="product-select" className="w-[280px] h-9 border-border/50 bg-background !mt-0 !mb-0">
+                    <SelectValue placeholder="Select a product" />
                   </SelectTrigger>
                   <SelectContent>
-                    {games.map((game) => (
-                      <SelectItem key={game.id} value={game.id.toString()}>
-                        {game.name}
+                    {products.map((product) => (
+                      <SelectItem key={product.id} value={product.id.toString()}>
+                        {product.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -470,7 +470,7 @@ export default function RemoteControl() {
               variant="ghost" 
               size="icon"
               onClick={loadData}
-              disabled={loading || !selectedGameId}
+              disabled={loading || !selectedProductId}
               className="pt-1 -mb-4"
             >
               {loading ? (
@@ -482,11 +482,11 @@ export default function RemoteControl() {
           </div>
         </CardHeader>
         <CardContent className="pt-0 pb-4">
-          {!selectedGameId ? (
+          {!selectedProductId ? (
             <div className="flex items-center justify-center py-6">
               <div className="text-center">
                 <Settings className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                <div className="text-sm text-muted-foreground">Please select a game to manage remote control features</div>
+                <div className="text-sm text-muted-foreground">Please select a product to manage remote control features</div>
               </div>
             </div>
           ) : loading ? (
@@ -526,11 +526,11 @@ export default function RemoteControl() {
         </CardContent>
       </Card>
 
-      {selectedGameId && !loading && categories.length > 0 && (
+      {selectedProductId && !loading && categories.length > 0 && (
         <RemoteControlStatsCards categories={categories} stats={stats} />
       )}
 
-      {selectedGameId && (
+      {selectedProductId && (
         <CategoryDialog
           categoryDialogOpen={categoryDialogOpen}
           setCategoryDialogOpen={setCategoryDialogOpen}

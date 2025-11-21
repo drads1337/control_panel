@@ -11,10 +11,10 @@ export const WEBHOOK_EVENTS: WebhookEvent[] = [
   { name: 'user.login', description: 'User login', category: 'users' },
   { name: 'user.logout', description: 'User logout', category: 'users' },
 
-  { name: 'game.created', description: 'Game created', category: 'games' },
-  { name: 'game.updated', description: 'Game updated', category: 'games' },
-  { name: 'game.activated', description: 'Game activated', category: 'games' },
-  { name: 'game.deactivated', description: 'Game deactivated', category: 'games' },
+  { name: 'product.created', description: 'Product created', category: 'products' },
+  { name: 'product.updated', description: 'Product updated', category: 'products' },
+  { name: 'product.activated', description: 'Product activated', category: 'products' },
+  { name: 'product.deactivated', description: 'Product deactivated', category: 'products' },
 
   { name: 'security.alert', description: 'Security alert', category: 'security' },
   { name: 'security.block', description: 'Security block', category: 'security' },

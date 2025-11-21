@@ -30,7 +30,7 @@ class RolePermissions:
         UserRoles.MODERATOR.value,
     ]
 
-    GAME_MANAGEMENT_ROLES = [
+    PRODUCT_MANAGEMENT_ROLES = [
         UserRoles.OWNER.value,
         UserRoles.ADMIN.value,
         UserRoles.MODERATOR.value,
@@ -67,7 +67,7 @@ class RolePermissions:
         UserRoles.DEVELOPER.value,
     ]
 
-    APPLICATIONS_MANAGEMENT_ROLES = [
+    PRODUCTS_MANAGEMENT_ROLES = [
         UserRoles.OWNER.value,
         UserRoles.ADMIN.value,
         UserRoles.MODERATOR.value,

@@ -13,7 +13,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from ..core.extensions import db
 from ..middleware.auth import enforce_project_scope, require_project_isolation
 from ..models.core import Project, User
-from ..models.games import Game
+from ..models.products import Product
 from ..models.rbac import (
     AttributeRule,
     Permission,
@@ -311,7 +311,7 @@ def create_permission():
         description = data.get("description", "")
         resource = data.get("resource")
         action = data.get("action")
-        game_id = data.get("game_id")
+        product_id = data.get("product_id")
         resource_type = data.get("resource_type")
         resource_id = data.get("resource_id")
         scope = data.get("scope", "global")
@@ -325,7 +325,7 @@ def create_permission():
             description=description,
             resource=resource,
             action=action,
-            game_id=game_id,
+            product_id=product_id,
             resource_type=resource_type,
             resource_id=resource_id,
             scope=scope,
@@ -807,48 +807,48 @@ def initialize_rbac(current_user):
         logging.error(f"RBAC_INITIALIZATION_ERROR user_id={current_user.id} error={e}")
         return jsonify({"error": "Failed to initialize RBAC system"}), 500
 
-@rbac_bp.route("/games", methods=["GET"])
+@rbac_bp.route("/products", methods=["GET"])
 @jwt_required()
 @token_required
 @require_project_isolation
-def get_games_for_rbac(current_user):
-    """Get all games for RBAC management"""
+def get_products_for_rbac(current_user):
+    """Get all products for RBAC management"""
     try:
         project_id = current_user.project_id
-        games = Game.query.filter_by(project_id=project_id).all()
+        products = Product.query.filter_by(project_id=project_id).all()
 
-        games_data = []
-        for game in games:
-            games_data.append(
+        products_data = []
+        for product in products:
+            products_data.append(
                 {
-                    "id": game.id,
-                    "name": game.name,
-                    "description": game.description,
-                    "status": game.status,
-                    "created_at": game.created_at.isoformat() if game.created_at else None,
+                    "id": product.id,
+                    "name": product.name,
+                    "description": product.description,
+                    "status": product.status,
+                    "created_at": product.created_at.isoformat() if product.created_at else None,
                 }
             )
 
-        return jsonify({"success": True, "games": games_data})
+        return jsonify({"success": True, "products": products_data})
 
     except Exception as e:
-        logging.error(f"RBAC_GAMES_GET_ERROR user_id={current_user.id} error={e}")
-        return jsonify({"error": "Failed to get games"}), 500
+        logging.error(f"RBAC_PRODUCTS_GET_ERROR user_id={current_user.id} error={e}")
+        return jsonify({"error": "Failed to get products"}), 500
 
-@rbac_bp.route("/games/<int:game_id>/permissions", methods=["GET"])
+@rbac_bp.route("/products/<int:product_id>/permissions", methods=["GET"])
 @jwt_required()
 @token_required
 @require_project_isolation
-def get_game_permissions(current_user, game_id):
-    """Get permissions for a specific game"""
+def get_product_permissions(current_user, product_id):
+    """Get permissions for a specific product"""
     try:
 
-        game = Game.query.filter_by(id=game_id, project_id=current_user.project_id).first()
-        if not game:
-            return jsonify({"error": "Game not found"}), 404
+        product = Product.query.filter_by(id=product_id, project_id=current_user.project_id).first()
+        if not product:
+            return jsonify({"error": "Product not found"}), 404
 
         permissions = Permission.query.filter_by(
-            project_id=current_user.project_id, game_id=game_id
+            project_id=current_user.project_id, product_id=product_id
         ).all()
 
         permissions_data = []
@@ -860,29 +860,29 @@ def get_game_permissions(current_user, game_id):
                     "description": permission.description,
                     "resource": permission.resource,
                     "action": permission.action,
-                    "game_id": permission.game_id,
+                    "product_id": permission.product_id,
                 }
             )
 
         return jsonify(
             {
                 "success": True,
-                "game": {"id": game.id, "name": game.name},
+                "product": {"id": product.id, "name": product.name},
                 "permissions": permissions_data,
             }
         )
 
     except Exception as e:
         logging.error(
-            f"RBAC_GAME_PERMISSIONS_GET_ERROR user_id={current_user.id} game_id={game_id} error={e}"
+            f"RBAC_PRODUCT_PERMISSIONS_GET_ERROR user_id={current_user.id} product_id={product_id} error={e}"
         )
-        return jsonify({"error": "Failed to get game permissions"}), 500
+        return jsonify({"error": "Failed to get product permissions"}), 500
 
-@rbac_bp.route("/games/<int:game_id>/permissions", methods=["POST"])
+@rbac_bp.route("/products/<int:product_id>/permissions", methods=["POST"])
 @jwt_required()
 @require_project_isolation
-def create_game_permission(game_id):
-    """Create a new permission for a specific game"""
+def create_product_permission(product_id):
+    """Create a new permission for a specific product"""
     try:
         current_user = get_current_user()
         if not current_user:
@@ -894,9 +894,9 @@ def create_game_permission(game_id):
         if not rbac_service.check_permission(current_user.id, "rbac.view"):
             return jsonify({"error": "Admin access required"}), 403
 
-        game = Game.query.filter_by(id=game_id, project_id=current_user.project_id).first()
-        if not game:
-            return jsonify({"error": "Game not found"}), 404
+        product = Product.query.filter_by(id=product_id, project_id=current_user.project_id).first()
+        if not product:
+            return jsonify({"error": "Product not found"}), 404
 
         data = request.get_json()
         if not data:
@@ -915,7 +915,7 @@ def create_game_permission(game_id):
             description=description,
             resource=resource,
             action=action,
-            game_id=game_id,
+            product_id=product_id,
             project_id=current_user.project_id,
             created_at=datetime.utcnow(),
         )
@@ -924,7 +924,7 @@ def create_game_permission(game_id):
         db.session.commit()
 
         logging.info(
-            f"RBAC_GAME_PERMISSION_CREATED user_id={current_user.id} game_id={game_id} permission_id={permission.id}"
+            f"RBAC_PRODUCT_PERMISSION_CREATED user_id={current_user.id} product_id={product_id} permission_id={permission.id}"
         )
 
         return (
@@ -937,7 +937,7 @@ def create_game_permission(game_id):
                         "description": permission.description,
                         "resource": permission.resource,
                         "action": permission.action,
-                        "game_id": permission.game_id,
+                        "product_id": permission.product_id,
                     },
                 }
             ),
@@ -947,15 +947,15 @@ def create_game_permission(game_id):
     except Exception as e:
         db.session.rollback()
         logging.error(
-            f"RBAC_GAME_PERMISSION_CREATION_ERROR user_id={current_user.id} game_id={game_id} error={e}"
+            f"RBAC_PRODUCT_PERMISSION_CREATION_ERROR user_id={current_user.id} product_id={product_id} error={e}"
         )
-        return jsonify({"error": "Failed to create game permission"}), 500
+        return jsonify({"error": "Failed to create product permission"}), 500
 
-@rbac_bp.route("/roles/<int:role_id>/games/<int:game_id>/permissions", methods=["POST"])
+@rbac_bp.route("/roles/<int:role_id>/products/<int:product_id>/permissions", methods=["POST"])
 @jwt_required()
 @require_project_isolation
-def assign_game_permissions_to_role(role_id, game_id):
-    """Assign game-specific permissions to a role"""
+def assign_product_permissions_to_role(role_id, product_id):
+    """Assign product-specific permissions to a role"""
     try:
         current_user = get_current_user()
         if not current_user:
@@ -971,9 +971,9 @@ def assign_game_permissions_to_role(role_id, game_id):
         if not role:
             return jsonify({"error": "Role not found"}), 404
 
-        game = Game.query.filter_by(id=game_id, project_id=current_user.project_id).first()
-        if not game:
-            return jsonify({"error": "Game not found"}), 404
+        product = Product.query.filter_by(id=product_id, project_id=current_user.project_id).first()
+        if not product:
+            return jsonify({"error": "Product not found"}), 404
 
         data = request.get_json()
         if not data:
@@ -987,7 +987,7 @@ def assign_game_permissions_to_role(role_id, game_id):
         for permission_name in permissions:
 
             permission = Permission.query.filter_by(
-                name=permission_name, project_id=current_user.project_id, game_id=game_id
+                name=permission_name, project_id=current_user.project_id, product_id=product_id
             ).first()
 
             if not permission:
@@ -999,10 +999,10 @@ def assign_game_permissions_to_role(role_id, game_id):
                 )
                 permission = Permission(
                     name=permission_name,
-                    description=f"Game-specific permission for {game.name}",
+                    description=f"Product-specific permission for {product.name}",
                     resource=resource,
                     action=action,
-                    game_id=game_id,
+                    product_id=product_id,
                     project_id=current_user.project_id,
                     created_at=datetime.utcnow(),
                 )
@@ -1023,7 +1023,7 @@ def assign_game_permissions_to_role(role_id, game_id):
         db.session.commit()
 
         logging.info(
-            f"RBAC_GAME_PERMISSIONS_ASSIGNED user_id={current_user.id} role_id={role_id} game_id={game_id} permissions={assigned_permissions}"
+            f"RBAC_PRODUCT_PERMISSIONS_ASSIGNED user_id={current_user.id} role_id={role_id} product_id={product_id} permissions={assigned_permissions}"
         )
 
         return jsonify(
@@ -1031,16 +1031,16 @@ def assign_game_permissions_to_role(role_id, game_id):
                 "success": True,
                 "assigned_permissions": assigned_permissions,
                 "role": role.name,
-                "game": game.name,
+                "product": product.name,
             }
         )
 
     except Exception as e:
         db.session.rollback()
         logging.error(
-            f"RBAC_GAME_PERMISSIONS_ASSIGNMENT_ERROR user_id={current_user.id} role_id={role_id} game_id={game_id} error={e}"
+            f"RBAC_PRODUCT_PERMISSIONS_ASSIGNMENT_ERROR user_id={current_user.id} role_id={role_id} product_id={product_id} error={e}"
         )
-        return jsonify({"error": "Failed to assign game permissions"}), 500
+        return jsonify({"error": "Failed to assign product permissions"}), 500
 
 @rbac_bp.route("/files", methods=["GET"])
 @jwt_required()
@@ -1052,7 +1052,7 @@ def get_files_for_rbac(current_user):
         if not rbac_service.check_permission(current_user.id, "files.view"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
-        from ..models.games import FileMeta as File
+        from ..models.products import FileMeta as File
 
         project_id = current_user.project_id
         files = File.query.filter_by(project_id=project_id).all()
@@ -1124,7 +1124,7 @@ def get_changelog_for_rbac(current_user):
         if not rbac_service.check_permission(current_user.id, "changelog.view"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
-        from ..models.games import ChangelogEntry
+        from ..models.products import ChangelogEntry
 
         project_id = current_user.project_id
         changelog_entries = ChangelogEntry.query.filter_by(project_id=project_id).all()
@@ -1574,10 +1574,10 @@ def get_available_resources(current_user):
                 "display_name": "Keys",
                 "description": "License keys and activation codes",
             },
-            "games": {
-                "model": "Game",
-                "display_name": "Games",
-                "description": "Game configurations and settings",
+            "products": {
+                "model": "Product",
+                "display_name": "Products",
+                "description": "Product configurations and settings",
             },
             "files": {
                 "model": "File",
@@ -1603,18 +1603,18 @@ def get_available_resources(current_user):
             try:
 
                 from ..models.core import Project, User
-                from ..models.games import Game
+                from ..models.products import Product
                 from ..models.keys import Key
-                from ..models.loaders import Loader
+                from ..models.agents import Agent
                 from ..models.servers import Server
                 from ..models.webhooks import Webhook
 
                 model_mapping = {
                     "Project": Project,
                     "User": User,
-                    "Game": Game,
+                    "Product": Product,
                     "Key": Key,
-                    "Loader": Loader,
+                    "Agent": Agent,
                     "Webhook": Webhook,
                     "Server": Server,
                 }
@@ -1653,7 +1653,7 @@ def get_resource_instances(current_user, resource_type):
 
         model_mapping = {
             "keys": "Key",
-            "games": "Game",
+            "products": "Product",
             "files": "File",
             "servers": "Server",
             "users": "User",
@@ -1664,18 +1664,18 @@ def get_resource_instances(current_user, resource_type):
             return jsonify({"error": "Invalid resource type"}), 400
 
         from ..models.core import Project, User
-        from ..models.games import Game
+        from ..models.products import Product
         from ..models.keys import Key
-        from ..models.loaders import Loader
+        from ..models.agents import Agent
         from ..models.servers import Server
         from ..models.webhooks import Webhook
 
         model_classes = {
             "Project": Project,
             "User": User,
-            "Game": Game,
+            "Product": Product,
             "Key": Key,
-            "Loader": Loader,
+            "Agent": Agent,
             "Webhook": Webhook,
             "Server": Server,
         }
@@ -1760,7 +1760,7 @@ def _get_available_actions(resource_type):
     """Get available actions for a resource type"""
     action_mapping = {
         "keys": ["view", "create", "edit", "delete", "generate", "activate", "deactivate"],
-        "games": ["view", "create", "edit", "delete", "activate", "deactivate", "configure"],
+        "products": ["view", "create", "edit", "delete", "activate", "deactivate", "configure"],
         "files": ["view", "upload", "download", "delete", "manage"],
         "servers": ["view", "create", "edit", "delete", "start", "stop", "restart"],
         "users": ["view", "create", "edit", "delete", "manage_roles", "reset_password"],
@@ -2057,7 +2057,7 @@ def get_navigation_config(current_user):
                 },
                 {
                     "href": "/management-page",
-                    "permissionPrefixes": ["keys.", "files.", "games.", "loaders."]
+                    "permissionPrefixes": ["keys.", "files.", "products.", "agents."]
                 },
                 {
                     "href": "/users-management",

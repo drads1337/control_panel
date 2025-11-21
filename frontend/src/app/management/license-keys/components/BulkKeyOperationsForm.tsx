@@ -10,16 +10,16 @@ import {
   bulkPauseKeys,
   bulkActivateKeys,
   bulkAddHoursToKeys,
-  bulkPauseLoaderKeys,
-  bulkActivateLoaderKeys,
-  bulkAddHoursToLoaderKeys
+  bulkPauseAgentKeys as bulkPauseAgentKeys,
+  bulkActivateAgentKeys as bulkActivateAgentKeys,
+  bulkAddHoursToAgentKeys as bulkAddHoursToAgentKeys
 } from '@/entities/key/api/bulk';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/shared/api/enhanced-client';
 import {
   TargetTypeSelector,
-  GameSelector,
-  LoaderSelector,
+  ProductSelector,
+  AgentSelector,
   AdvancedFilters,
   FilteredOperations,
   QuickOperations,
@@ -27,50 +27,50 @@ import {
 } from './BulkOperations';
 
 interface BulkKeyOperationsFormProps {
-  games: Array<{ id: number; name: string; is_multi_app: boolean }>;
-  loaders: Array<{ id: number; name: string; assigned_games: number[] }>;
-  loadersLoading: boolean;
+  products: Array<{ id: number; name: string; is_multi_app: boolean }>;
+  agents: Array<{ id: number; name: string; assigned_products: number[] }>;
+  agentsLoading: boolean;
   onOperationComplete: () => void;
-  canViewGames: boolean;
-  canViewLoaders: boolean;
+  canViewProducts: boolean;
+  canViewAgents: boolean;
 }
 
 export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
-  games,
-  loaders,
-  loadersLoading,
+  products,
+  agents,
+  agentsLoading,
   onOperationComplete,
-  canViewGames,
-  canViewLoaders,
+  canViewProducts,
+  canViewAgents,
 }) => {
-  const showTargetTypeToggle = canViewGames && canViewLoaders;
+  const showTargetTypeToggle = canViewProducts && canViewAgents;
 
   const getInitialTargetType = () => {
-    if (canViewGames && !canViewLoaders) return 'game';
-    if (canViewLoaders && !canViewGames) return 'loader';
-    return 'game';
+    if (canViewProducts && !canViewAgents) return 'product';
+    if (canViewAgents && !canViewProducts) return 'agent';
+    return 'product';
   };
 
   const {
     formData,
     updateField,
-    getGameLibraryGames,
-    getAssignedGamesForLoader,
+    getProductLibraryProducts,
+    getAssignedProductsForAgent,
   } = useKeyForm({
-    games,
-    loaders,
+    products,
+    agents,
     initialTargetType: getInitialTargetType(),
   });
 
   useEffect(() => {
     if (!showTargetTypeToggle) {
-      if (canViewGames && !canViewLoaders && formData.targetType !== 'game') {
-        updateField('targetType', 'game');
-      } else if (canViewLoaders && !canViewGames && formData.targetType !== 'loader') {
-        updateField('targetType', 'loader');
+      if (canViewProducts && !canViewAgents && formData.targetType !== 'product') {
+        updateField('targetType', 'product');
+      } else if (canViewAgents && !canViewProducts && formData.targetType !== 'agent') {
+        updateField('targetType', 'agent');
       }
     }
-  }, [showTargetTypeToggle, canViewGames, canViewLoaders, formData.targetType, updateField]);
+  }, [showTargetTypeToggle, canViewProducts, canViewAgents, formData.targetType, updateField]);
 
   const [bulkActionLoading, setBulkActionLoading] = useState<string | null>(null);
   const [keysCount, setKeysCount] = useState<number | null>(null);
@@ -88,11 +88,11 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
   const buildFilters = () => {
     const filterParams: any = {};
 
-    if (formData.targetType === 'game' && formData.gameId) {
-      filterParams.game_id = parseInt(formData.gameId);
-    } else if (formData.targetType === 'loader' && formData.loaderId && formData.selectedGames.length > 0) {
-      filterParams.loader_id = parseInt(formData.loaderId);
-      filterParams.game_ids = formData.selectedGames;
+    if (formData.targetType === 'product' && formData.productId) {
+      filterParams.product_id = parseInt(formData.productId);
+    } else if (formData.targetType === 'agent' && formData.agentId && formData.selectedProducts.length > 0) {
+      filterParams.agent_id = parseInt(formData.agentId);
+      filterParams.product_ids = formData.selectedProducts;
     }
 
     if (filters.status !== 'all') {
@@ -196,46 +196,46 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
   };
 
   const handleQuickOperation = async (action: 'pause' | 'activate' | 'addHours') => {
-    if (formData.targetType === 'game' && !formData.gameId) {
-      toast.error('Please select a game');
+    if (formData.targetType === 'product' && !formData.productId) {
+      toast.error('Please select a product');
       return;
     }
-    if (formData.targetType === 'loader' && (!formData.loaderId || formData.selectedGames.length === 0)) {
-      toast.error('Please select a loader and games');
+    if (formData.targetType === 'agent' && (!formData.agentId || formData.selectedProducts.length === 0)) {
+      toast.error('Please select an agent and products');
       return;
     }
 
     setBulkActionLoading(action);
     try {
-      if (formData.targetType === 'game' && formData.gameId) {
+      if (formData.targetType === 'product' && formData.productId) {
         switch (action) {
           case 'pause':
-            await bulkPauseKeys(parseInt(formData.gameId));
+            await bulkPauseKeys(parseInt(formData.productId));
             break;
           case 'activate':
-            await bulkActivateKeys(parseInt(formData.gameId));
+            await bulkActivateKeys(parseInt(formData.productId));
             break;
           case 'addHours':
-            await bulkAddHoursToKeys(parseInt(formData.gameId), 24);
+            await bulkAddHoursToKeys(parseInt(formData.productId), 24);
             break;
         }
         toast.success(`Bulk ${action} operation completed`);
         onOperationComplete();
       } else {
 
-        if (formData.loaderId && formData.selectedGames && formData.selectedGames.length > 0) {
+        if (formData.agentId && formData.selectedProducts && formData.selectedProducts.length > 0) {
           switch (action) {
             case 'pause':
-              await bulkPauseLoaderKeys(parseInt(formData.loaderId), formData.selectedGames);
+              await bulkPauseAgentKeys(parseInt(formData.agentId), formData.selectedProducts);
               break;
             case 'activate':
-              await bulkActivateLoaderKeys(parseInt(formData.loaderId), formData.selectedGames);
+              await bulkActivateAgentKeys(parseInt(formData.agentId), formData.selectedProducts);
               break;
             case 'addHours':
-              await bulkAddHoursToLoaderKeys(parseInt(formData.loaderId), formData.selectedGames, 24);
+              await bulkAddHoursToAgentKeys(parseInt(formData.agentId), formData.selectedProducts, 24);
               break;
           }
-          toast.success(`Bulk ${action} operation completed for ${formData.selectedGames.length} games`);
+          toast.success(`Bulk ${action} operation completed for ${formData.selectedProducts.length} products`);
           onOperationComplete();
         }
       }
@@ -247,8 +247,8 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
     }
   };
 
-  const isTargetSelected = (formData.targetType === 'game' && formData.gameId) || 
-                          (formData.targetType === 'loader' && formData.loaderId && formData.selectedGames.length > 0);
+  const isTargetSelected = (formData.targetType === 'product' && formData.productId) || 
+                          (formData.targetType === 'agent' && formData.agentId && formData.selectedProducts.length > 0);
 
   return (
     <ConditionalRender permission="keys.generate" fallback={null}>
@@ -273,24 +273,24 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
           )}
 
           {}
-          {(formData.targetType === 'game' && canViewGames) || (canViewGames && !canViewLoaders) ? (
-            <GameSelector
-              games={getGameLibraryGames()}
-              value={formData.gameId}
-              onChange={(value) => updateField('gameId', value)}
+          {(formData.targetType === 'product' && canViewProducts) || (canViewProducts && !canViewAgents) ? (
+            <ProductSelector
+              products={getProductLibraryProducts()}
+              value={formData.productId}
+              onChange={(value) => updateField('productId', value)}
             />
-          ) : ((formData.targetType === 'loader' && canViewLoaders) || (canViewLoaders && !canViewGames)) ? (
-            <LoaderSelector
-              loaders={loaders}
-              loaderId={formData.loaderId}
-              selectedGames={formData.selectedGames}
-              availableGames={formData.loaderId ? getAssignedGamesForLoader(parseInt(formData.loaderId)) : []}
-              loadersLoading={loadersLoading}
-              onLoaderChange={(value) => {
-                updateField('loaderId', value);
-                updateField('selectedGames', []);
+          ) : ((formData.targetType === 'agent' && canViewAgents) || (canViewAgents && !canViewProducts)) ? (
+            <AgentSelector
+              agents={agents}
+              agentId={formData.agentId}
+              selectedProducts={formData.selectedProducts}
+              availableProducts={formData.agentId ? getAssignedProductsForAgent(parseInt(formData.agentId)) : []}
+              agentsLoading={agentsLoading}
+              onAgentChange={(value) => {
+                updateField('agentId', value);
+                updateField('selectedProducts', []);
               }}
-              onGamesChange={(gameIds) => updateField('selectedGames', gameIds)}
+              onProductsChange={(productIds) => updateField('selectedProducts', productIds)}
             />
           ) : null}
 

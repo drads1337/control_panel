@@ -160,8 +160,14 @@ class RequestValidationPipeline:
         try:
             if security_service.is_ip_blocked(ip, project_id):
                 return False, "IP_BLOCKED"
+        except (ConnectionError, TimeoutError) as e:
+            # Infrastructure errors - log but don't block requests
+            logger.warning(f"IP block check unavailable (connection issue): {e}")
+            # Don't fail validation on service errors - log and continue
+            # This prevents service errors from blocking legitimate requests
         except Exception as e:
-            logger.error(f"Error checking IP block status: {e}")
+            # Other errors - log with context
+            logger.error(f"Error checking IP block status: {e}", exc_info=True)
             # Don't fail validation on service errors - log and continue
             # This prevents service errors from blocking legitimate requests
 

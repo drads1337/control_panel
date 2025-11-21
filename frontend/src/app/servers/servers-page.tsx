@@ -24,7 +24,7 @@ export default function ServersPage() {
               <CardContent>
                 <p className="text-gray-600">
                   Here will be an interface for monitoring performance, 
-                  managing settings and controlling the state of game servers.
+                  managing settings and controlling the state of product servers.
                 </p>
               </CardContent>
             </Card>

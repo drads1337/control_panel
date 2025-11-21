@@ -11,13 +11,13 @@ from sqlalchemy import func as sql_func
 
 from ...core.extensions import db
 from ...models.core import (
-    DeveloperGamePermission,
+    DeveloperProductPermission,
     Project,
     User,
     UserActivity,
-    UserGamePermission,
+    UserProductPermission,
 )
-from ...models.games import Game
+from ...models.products import Product
 from ...models.keys import Key, ReferralCode, TokenTransaction
 from ...models.project_user import ProjectUserRole
 from ...models.rbac import Role, UserRole
@@ -338,11 +338,11 @@ class UserManagementService:
             self.logger.error(f"Traceback: {traceback.format_exc()}")
             return {"error": "Failed to get users"}, 500
 
-    def create_user_with_roles_and_games(
+    def create_user_with_roles_and_products(
         self, current_user: User, data: Dict[str, Any]
     ) -> Tuple[Optional[User], Optional[str]]:
         """
-        Create user with RBAC roles and game permissions
+        Create user with RBAC roles and product permissions
 
         Args:
             current_user: User creating the new user
@@ -358,11 +358,11 @@ class UserManagementService:
             last_name = data.get("last_name")
             email = data.get("email")
             token_balance = data.get("token_balance", 0)
-            game_ids = data.get("game_ids", [])
+            product_ids = data.get("product_ids", [])
             rbac_role_ids = data.get("rbac_role_ids", [])
 
             self.logger.info(
-                f"CREATE_USER_DEBUG: Received game_ids={game_ids}, type={type(game_ids)}"
+                f"CREATE_USER_DEBUG: Received product_ids={product_ids}, type={type(product_ids)}"
             )
             self.logger.info(f"CREATE_USER_DEBUG: Received rbac_role_ids={rbac_role_ids}")
 
@@ -466,65 +466,65 @@ class UserManagementService:
 
             if project_id:
 
-                processed_game_ids = []
-                if game_ids:
+                processed_product_ids = []
+                if product_ids:
 
-                    if isinstance(game_ids, str):
+                    if isinstance(product_ids, str):
 
                         try:
                             import json
 
-                            game_ids = json.loads(game_ids)
+                            product_ids = json.loads(product_ids)
                         except:
-                            game_ids = []
-                    elif isinstance(game_ids, (list, tuple)):
-                        game_ids = list(game_ids)
+                            product_ids = []
+                    elif isinstance(product_ids, (list, tuple)):
+                        product_ids = list(product_ids)
                     else:
                         self.logger.warning(
-                            f"Unexpected game_ids type: {type(game_ids)}, value: {game_ids}"
+                            f"Unexpected product_ids type: {type(product_ids)}, value: {product_ids}"
                         )
-                        game_ids = []
+                        product_ids = []
 
-                    processed_game_ids = []
-                    for gid in game_ids:
+                    processed_product_ids = []
+                    for gid in product_ids:
                         try:
                             gid_int = int(gid)
                             if gid_int > 0:
-                                processed_game_ids.append(gid_int)
+                                processed_product_ids.append(gid_int)
                         except (ValueError, TypeError):
-                            self.logger.warning(f"Invalid game_id: {gid}, skipping")
+                            self.logger.warning(f"Invalid product_id: {gid}, skipping")
                             continue
 
                 self.logger.info(
-                    f"Creating user {user.id} with game_ids: {processed_game_ids} (raw: {game_ids})"
+                    f"Creating user {user.id} with product_ids: {processed_product_ids} (raw: {product_ids})"
                 )
 
-                all_project_games = Game.query.filter_by(project_id=project_id).all()
-                all_game_ids = {game.id for game in all_project_games}
-                selected_game_ids = set(processed_game_ids) if processed_game_ids else set()
+                all_project_products = Product.query.filter_by(project_id=project_id).all()
+                all_product_ids = {product.id for product in all_project_products}
+                selected_product_ids = set(processed_product_ids) if processed_product_ids else set()
 
                 self.logger.info(
-                    f"Project has {len(all_game_ids)} games, selected: {len(selected_game_ids)}"
+                    f"Project has {len(all_product_ids)} products, selected: {len(selected_product_ids)}"
                 )
 
-                existing_permissions = UserGamePermission.query.filter_by(user_id=user.id).all()
-                existing_game_ids = {perm.game_id for perm in existing_permissions}
+                existing_permissions = UserProductPermission.query.filter_by(user_id=user.id).all()
+                existing_product_ids = {perm.product_id for perm in existing_permissions}
 
-                if existing_game_ids:
+                if existing_product_ids:
                     self.logger.warning(
-                        f"User {user.id} already has permissions for games: {existing_game_ids}"
+                        f"User {user.id} already has permissions for products: {existing_product_ids}"
                     )
 
                     for perm in existing_permissions:
                         db.session.delete(perm)
                     db.session.flush()
 
-                for game_id in selected_game_ids:
-                    if game_id in all_game_ids:
+                for product_id in selected_product_ids:
+                    if product_id in all_product_ids:
                         try:
 
-                            permission = UserGamePermission.query.filter_by(
-                                user_id=user.id, game_id=game_id
+                            permission = UserProductPermission.query.filter_by(
+                                user_id=user.id, product_id=product_id
                             ).first()
 
                             if permission:
@@ -534,13 +534,13 @@ class UserManagementService:
                                 permission.max_keys_per_day = 100
                                 permission.project_id = project_id
                                 self.logger.info(
-                                    f"Updated permission for user {user.id}, game {game_id} to has_access=True"
+                                    f"Updated permission for user {user.id}, product {product_id} to has_access=True"
                                 )
                             else:
 
-                                permission = UserGamePermission(
+                                permission = UserProductPermission(
                                     user_id=user.id,
-                                    game_id=game_id,
+                                    product_id=product_id,
                                     can_generate_keys=True,
                                     max_keys_per_day=100,
                                     has_access=True,
@@ -548,14 +548,14 @@ class UserManagementService:
                                 )
                                 db.session.add(permission)
                                 self.logger.info(
-                                    f"Created permission for user {user.id}, game {game_id} with has_access=True"
+                                    f"Created permission for user {user.id}, product {product_id} with has_access=True"
                                 )
                         except Exception as e:
-                            self.logger.error(f"Error creating permission for game {game_id}: {e}")
+                            self.logger.error(f"Error creating permission for product {product_id}: {e}")
                 else:
 
                     self.logger.info(
-                        f"No games selected for user {user.id}, no permissions will be created"
+                        f"No products selected for user {user.id}, no permissions will be created"
                     )
 
             if rbac_role_ids and project_id:
@@ -591,7 +591,7 @@ class UserManagementService:
 
         except Exception as e:
             db.session.rollback()
-            self.logger.error(f"Error creating user with roles and games: {str(e)}")
+            self.logger.error(f"Error creating user with roles and products: {str(e)}")
             return None, f"Failed to create user: {str(e)}"
 
     def delete_user_safely(
@@ -638,8 +638,8 @@ class UserManagementService:
             target_user.total_keys = 0
             target_user.active_keys = 0
             Key.query.filter_by(user_id=target_user_id).delete()
-            UserGamePermission.query.filter_by(user_id=target_user_id).delete()
-            DeveloperGamePermission.query.filter_by(user_id=target_user_id).delete()
+            UserProductPermission.query.filter_by(user_id=target_user_id).delete()
+            DeveloperProductPermission.query.filter_by(user_id=target_user_id).delete()
             UserActivity.query.filter_by(user_id=target_user_id).delete()
 
             UserRole.query.filter_by(user_id=target_user_id).delete()
@@ -702,8 +702,8 @@ class UserManagementService:
                 user.total_keys = 0
                 user.active_keys = 0
                 Key.query.filter_by(user_id=user.id).delete()
-                UserGamePermission.query.filter_by(user_id=user.id).delete()
-                DeveloperGamePermission.query.filter_by(user_id=user.id).delete()
+                UserProductPermission.query.filter_by(user_id=user.id).delete()
+                DeveloperProductPermission.query.filter_by(user_id=user.id).delete()
                 UserActivity.query.filter_by(user_id=user.id).delete()
 
                 UserRole.query.filter_by(user_id=user.id).delete()
@@ -963,8 +963,8 @@ class UserManagementService:
                 )
             ).count()
 
-            game_permissions = UserGamePermission.query.filter_by(user_id=user_id).count()
-            developer_permissions = DeveloperGamePermission.query.filter_by(user_id=user_id).count()
+            product_permissions = UserProductPermission.query.filter_by(user_id=user_id).count()
+            developer_permissions = DeveloperProductPermission.query.filter_by(user_id=user_id).count()
 
             user_roles = RBACManager.get_user_role_names(target_user)
             primary_role = user_roles[0] if user_roles else "client"
@@ -986,7 +986,7 @@ class UserManagementService:
                     "last_30_days": keys_30d,
                 },
                 "activity": {"total": activity_count, "last_30_days": recent_activity},
-                "permissions": {"games": game_permissions, "developer_games": developer_permissions},
+                "permissions": {"products": product_permissions, "developer_products": developer_permissions},
                 "balance": {"tokens": target_user.token_balance},
             }, None
 
@@ -1131,3 +1131,18 @@ class UserManagementService:
             }, None
 
 user_management_service = UserManagementService()
+
+
+def __getattr__(name):
+    """
+    Provide backward-compatible module-level attribute access.
+
+    Some legacy code imports this module directly (e.g.
+    `import backend.services.users.user_management_service as user_management_service`)
+    and expects functions like `create_user` to exist at the module level.
+    This module now exposes a service instance instead, so we delegate missing
+    attributes to the singleton service to maintain compatibility.
+    """
+    if hasattr(user_management_service, name):
+        return getattr(user_management_service, name)
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

@@ -155,7 +155,7 @@ class AnalyticsBufferService:
     def buffer_key_analytics_update(
         self,
         key_id: int,
-        game: str,
+        product: str,
         ip_address: Optional[str] = None,
         serial: Optional[str] = None,
         increment_connections: bool = True,
@@ -168,7 +168,7 @@ class AnalyticsBufferService:
         
         Args:
             key_id: Key ID
-            game: Game name
+            product: Product name
             ip_address: IP address
             serial: Device serial number (for unique device counting via HyperLogLog)
             increment_connections: Whether to increment connection count
@@ -190,9 +190,9 @@ class AnalyticsBufferService:
             if increment_connections:
                 pipeline.hincrby(analytics_key, "total_connections", 1)
             
-            # Store game in a set (for unique games)
-            if game:
-                pipeline.sadd(f"{analytics_key}:games", game)
+            # Store product in a set (for unique products)
+            if product:
+                pipeline.sadd(f"{analytics_key}:products", product)
             
             # Use HyperLogLog for efficient unique device counting
             # HyperLogLog uses ~12KB per key and provides ~0.81% error rate
@@ -208,7 +208,7 @@ class AnalyticsBufferService:
             
             # Set TTL
             pipeline.expire(analytics_key, self.buffer_ttl)
-            pipeline.expire(f"{analytics_key}:games", self.buffer_ttl)
+            pipeline.expire(f"{analytics_key}:products", self.buffer_ttl)
             pipeline.expire(f"{analytics_key}:ips", self.buffer_ttl)
             
             # Track this key+date combination for flushing
@@ -221,7 +221,7 @@ class AnalyticsBufferService:
             redis_client.client.incr(self.key_analytics_counter_key)
             redis_client.client.expire(self.key_analytics_counter_key, self.buffer_ttl)
             
-            logger.debug(f"Buffered key analytics update: key_id={key_id}, game={game}, serial={serial}")
+            logger.debug(f"Buffered key analytics update: key_id={key_id}, product={product}, serial={serial}")
             return True
             
         except Exception as e:
@@ -502,9 +502,9 @@ class AnalyticsBufferService:
                     
                     # Get aggregated updates from Redis
                     updates = redis_client.client.hgetall(analytics_key)
-                    games_set = redis_client.client.smembers(f"{analytics_key}:games")
+                    products_set = redis_client.client.smembers(f"{analytics_key}:products")
                     
-                    if not updates and not games_set:
+                    if not updates and not products_set:
                         # Empty entry, skip
                         redis_client.client.srem(f"{self.key_analytics_buffer_key}:keys", analytics_key)
                         continue
@@ -523,7 +523,7 @@ class AnalyticsBufferService:
                             total_connection_time=0,
                             peak_concurrent=0,
                             countries="[]",
-                            games_played="[]",
+                            products_played="[]",
                         )
                         db.session.add(analytics)
                     
@@ -531,14 +531,14 @@ class AnalyticsBufferService:
                     if "total_connections" in updates:
                         analytics.total_connections += int(updates["total_connections"])
                     
-                    # Update games list
-                    if games_set:
-                        existing_games = json.loads(analytics.games_played or "[]")
-                        new_games = [g.decode() if isinstance(g, bytes) else g for g in games_set]
-                        for game in new_games:
-                            if game not in existing_games:
-                                existing_games.append(game)
-                        analytics.games_played = json.dumps(existing_games)
+                    # Update products list
+                    if products_set:
+                        existing_products = json.loads(analytics.products_played or "[]")
+                        new_products = [g.decode() if isinstance(g, bytes) else g for g in products_set]
+                        for product in new_products:
+                            if product not in existing_products:
+                                existing_products.append(product)
+                        analytics.products_played = json.dumps(existing_products)
                     
                     # Get unique devices count from HyperLogLog (much faster than DB query)
                     # HyperLogLog provides approximate count with ~0.81% error rate
@@ -568,7 +568,7 @@ class AnalyticsBufferService:
                     
                     # Clean up Redis keys
                     redis_client.client.delete(analytics_key)
-                    redis_client.client.delete(f"{analytics_key}:games")
+                    redis_client.client.delete(f"{analytics_key}:products")
                     redis_client.client.delete(f"{analytics_key}:ips")
                     redis_client.client.delete(f"{analytics_key}:devices_hll")
                     redis_client.client.srem(f"{self.key_analytics_buffer_key}:keys", analytics_key)
@@ -627,7 +627,7 @@ class AnalyticsBufferService:
             
             for key in analytics_keys:
                 redis_client.client.delete(key)
-                redis_client.client.delete(f"{key}:games")
+                redis_client.client.delete(f"{key}:products")
                 redis_client.client.delete(f"{key}:ips")
             
             redis_client.client.delete(f"{self.key_analytics_buffer_key}:keys")

@@ -24,7 +24,7 @@ from flask_cors import cross_origin
 from ..config.config import Config
 from ..core.extensions import db
 from ..models.core import Project, User
-from ..models.games import FeatureConfigSchema, Game
+from ..models.products import FeatureConfigSchema, Product
 from ..models.keys import DeviceInfo, Key, KeyAnalytics
 from ..models.security import BlockedFingerprint
 from ..middleware import require_mtls
@@ -63,19 +63,9 @@ TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
 PLAY_INTEGRITY_API_KEY = os.environ.get("PLAY_INTEGRITY_API_KEY")
 
-def encrypt_data(data: dict) -> str:
-    try:
-        raw = json.dumps(data)
-        return MasterKeyManager.encrypt_with_master_key(raw, Config.MASTER_KEY)
-    except Exception as e:
-        raise ValueError(f"Encryption error: {str(e)}")
-
-def decrypt_data(enc: str) -> dict:
-    try:
-        decrypted_raw = MasterKeyManager.decrypt_with_master_key(enc, Config.MASTER_KEY)
-        return json.loads(decrypted_raw)
-    except Exception as e:
-        raise ValueError(f"Decryption error: {str(e)}")
+# SECURITY: Removed encrypt_data() and decrypt_data() functions that used global MASTER_KEY
+# All client data must be encrypted/decrypted with project-specific keys only
+# Use encrypt_data_with_project_key() and decrypt_data_with_project_key() instead
 
 def rate_limited(func):
     @wraps(func)
@@ -129,56 +119,70 @@ def api_config_request():
         logging.warning(f"DYNAMIC_CONFIG_NO_BLOB ip={ip} user_agent={user_agent}")
         return jsonify({"error": "Missing encrypted data"}), 400
 
-    # Decrypt request data
-    data = None
-    used_global_key = False
+    # SECURITY: Require project_id for decryption - no fallback to global MASTER_KEY
+    project_id_param = req_json.get("project_id")
+    if not project_id_param:
+        logging.warning(f"DYNAMIC_CONFIG_NO_PROJECT_ID ip={ip} user_agent={user_agent}")
+        return jsonify({"error": "project_id is required for decryption"}), 400
 
-    # Try base64 decode first
+    try:
+        project_id_int = int(project_id_param)
+    except (ValueError, TypeError):
+        logging.warning(f"DYNAMIC_CONFIG_INVALID_PROJECT_ID ip={ip} project_id={project_id_param}")
+        return jsonify({"error": "Invalid project_id format"}), 400
+
+    # Decrypt request data using project-specific key only
+    data = None
+
+    # Try base64 decode first (for backward compatibility with unencrypted data)
     try:
         import base64
         decoded = base64.b64decode(enc_data).decode("utf-8")
         data = json.loads(decoded)
         logging.debug("[DEBUG] Successfully decoded base64 dynamic config data")
     except (base64.binascii.Error, UnicodeDecodeError, json.JSONDecodeError):
-        logging.debug("[DEBUG] Not base64, trying decryption...")
+        logging.debug("[DEBUG] Not base64, trying decryption with project key...")
 
-    # Try global key decryption
+    # Decrypt with project-specific key only (no fallback to global MASTER_KEY)
     if data is None:
         try:
-            data = decrypt_data(enc_data)
-            used_global_key = True
-            logging.debug("[DEBUG] Successfully decrypted dynamic config with global master key")
-        except Exception as global_error:
-            logging.debug(f"[DEBUG] Global master key failed: {str(global_error)[:100]}...")
-
-            # Try project-specific key
-            project_id_param = req_json.get("project_id")
-            if project_id_param:
-                try:
-                    from ..utils.secure_crypto import decrypt_data_with_project_key
-                    data = decrypt_data_with_project_key(enc_data, int(project_id_param))
-                    logging.debug(
-                        f"[DEBUG] Successfully decrypted dynamic config with project {project_id_param} master key"
-                    )
-                except Exception:
-                    logging.debug(
-                        f"[DEBUG] Project {project_id_param} master key failed"
-                    )
-                    raise ValueError("Failed to decrypt request data") from global_error
-            else:
-                raise ValueError("Failed to decrypt request data") from global_error
+            from ..utils.secure_crypto import decrypt_data_with_project_key
+            data = decrypt_data_with_project_key(enc_data, project_id_int)
+            logging.debug(
+                f"[DEBUG] Successfully decrypted dynamic config with project {project_id_int} key"
+            )
+        except Exception as decrypt_error:
+            logging.warning(
+                f"DYNAMIC_CONFIG_DECRYPT_FAILED ip={ip} project_id={project_id_int} "
+                f"error={type(decrypt_error).__name__}: {str(decrypt_error)[:100]}"
+            )
+            return jsonify({
+                "error": "Failed to decrypt request data",
+                "message": "Please ensure you are using the correct project encryption key"
+            }), 400
 
     # Validate required parameters
     user_key = data.get("user_key")
-    game_name = data.get("game_name")
-    project_id = data.get("project_id")
+    product_name = data.get("product_name")
+    data_project_id = data.get("project_id")
     session_id = data.get("session_id")
 
-    if not all([user_key, game_name, project_id]):
+    # SECURITY: Verify that project_id from data matches project_id from request
+    if data_project_id and int(data_project_id) != project_id_int:
         logging.warning(
-            f"DYNAMIC_CONFIG_MISSING_PARAMS ip={ip} user_key={user_key} game_name={game_name} project_id={project_id}"
+            f"DYNAMIC_CONFIG_PROJECT_ID_MISMATCH ip={ip} "
+            f"request_project_id={project_id_int} data_project_id={data_project_id}"
         )
-        return jsonify({"error": "Missing required parameters"}), 400
+        return jsonify({"error": "Project ID mismatch"}), 400
+
+    # Use project_id from request (more secure - comes from unencrypted part)
+    project_id = project_id_int
+
+    if not all([user_key, product_name]):
+        logging.warning(
+            f"DYNAMIC_CONFIG_MISSING_PARAMS ip={ip} user_key={user_key} product_name={product_name} project_id={project_id}"
+        )
+        return jsonify({"error": "Missing required parameters: user_key and product_name"}), 400
 
     # Validate session if provided
     if session_id:
@@ -203,27 +207,27 @@ def api_config_request():
         )
         return jsonify({"error": "Key is not active"}), 403
 
-    # Validate game
-    game = Game.query.filter_by(name=game_name, project_id=project_id).first()
-    if not game:
+    # Validate product
+    product = Product.query.filter_by(name=product_name, project_id=project_id).first()
+    if not product:
         logging.warning(
-            f"DYNAMIC_CONFIG_GAME_NOT_FOUND ip={ip} game_name={game_name} project_id={project_id}"
+            f"DYNAMIC_CONFIG_PRODUCT_NOT_FOUND ip={ip} product_name={product_name} project_id={project_id}"
         )
-        return jsonify({"error": "Game not found"}), 404
+        return jsonify({"error": "Product not found"}), 404
 
-    if game.status != "active":
+    if product.status != "active":
         logging.warning(
-            f"DYNAMIC_CONFIG_GAME_INACTIVE ip={ip} game_name={game_name} status={game.status}"
+            f"DYNAMIC_CONFIG_PRODUCT_INACTIVE ip={ip} product_name={product_name} status={product.status}"
         )
-        return jsonify({"error": f"Game is {game.status}"}), 403
+        return jsonify({"error": f"Product is {product.status}"}), 403
 
     # Generate configuration
     config_data = dynamic_config_service.generate_dynamic_config(
-        user_key=user_key, game_name=game_name, project_id=project_id
+        user_key=user_key, product_name=product_name, project_id=project_id
     )
 
     logging.info(
-        f"DYNAMIC_CONFIG_GENERATED ip={ip} user_key={user_key} game={game_name} project_id={project_id}"
+        f"DYNAMIC_CONFIG_GENERATED ip={ip} user_key={user_key} product={product_name} project_id={project_id}"
     )
 
     resp = {
@@ -234,24 +238,21 @@ def api_config_request():
         "timestamp": int(time.time()),
     }
 
-    # Encrypt response
-    if used_global_key:
-        encrypted_blob = encrypt_data(resp)
-        logging.debug("[DEBUG] Encrypted dynamic config response with global master key")
-    elif project_id:
-        try:
-            encrypted_blob = encrypt_data_with_project_key(resp, project_id)
-            logging.debug(
-                f"[DEBUG] Encrypted dynamic config response with project {project_id} master key"
-            )
-        except Exception:
-            logging.debug(
-                "Failed to encrypt dynamic config response with project key, falling back to global"
-            )
-            encrypted_blob = encrypt_data(resp)
-    else:
-        encrypted_blob = encrypt_data(resp)
-        logging.debug("[DEBUG] Encrypted dynamic config response with global master key (fallback)")
+    # SECURITY: Encrypt response with project-specific key only (no fallback to global MASTER_KEY)
+    try:
+        encrypted_blob = encrypt_data_with_project_key(resp, project_id)
+        logging.debug(
+            f"[DEBUG] Encrypted dynamic config response with project {project_id} key"
+        )
+    except Exception as encrypt_error:
+        logging.error(
+            f"DYNAMIC_CONFIG_ENCRYPT_FAILED ip={ip} project_id={project_id} "
+            f"error={type(encrypt_error).__name__}: {str(encrypt_error)}"
+        )
+        return jsonify({
+            "error": "Failed to encrypt response",
+            "message": "Please ensure project encryption key is configured"
+        }), 500
 
     return encrypted_blob
 
@@ -283,80 +284,89 @@ def api_config_validate():
         logging.warning(f"DYNAMIC_CONFIG_VALIDATION_NO_BLOB ip={ip} user_agent={user_agent}")
         return jsonify({"error": "Missing encrypted data"}), 400
 
-    # Decrypt request data
-    data = None
-    used_global_key = False
+    # SECURITY: Require project_id for decryption - no fallback to global MASTER_KEY
+    project_id_param = req_json.get("project_id")
+    if not project_id_param:
+        logging.warning(f"DYNAMIC_CONFIG_VALIDATION_NO_PROJECT_ID ip={ip} user_agent={user_agent}")
+        return jsonify({"error": "project_id is required for decryption"}), 400
 
-    # Try base64 decode first
+    try:
+        project_id_int = int(project_id_param)
+    except (ValueError, TypeError):
+        logging.warning(f"DYNAMIC_CONFIG_VALIDATION_INVALID_PROJECT_ID ip={ip} project_id={project_id_param}")
+        return jsonify({"error": "Invalid project_id format"}), 400
+
+    # Decrypt request data using project-specific key only
+    data = None
+
+    # Try base64 decode first (for backward compatibility with unencrypted data)
     try:
         import base64
         decoded = base64.b64decode(enc_data).decode("utf-8")
         data = json.loads(decoded)
         logging.debug("[DEBUG] Successfully decoded base64 dynamic config validation data")
     except (base64.binascii.Error, UnicodeDecodeError, json.JSONDecodeError):
-        logging.debug("[DEBUG] Not base64, trying decryption...")
+        logging.debug("[DEBUG] Not base64, trying decryption with project key...")
 
-    # Try global key decryption
+    # Decrypt with project-specific key only (no fallback to global MASTER_KEY)
     if data is None:
         try:
-            data = decrypt_data(enc_data)
-            used_global_key = True
-            logging.debug("[DEBUG] Successfully decrypted dynamic config validation with global master key")
-        except Exception as global_error:
-            logging.debug(f"[DEBUG] Global master key failed: {str(global_error)[:100]}...")
+            data = decrypt_data_with_project_key(enc_data, project_id_int)
+            logging.debug(
+                f"[DEBUG] Successfully decrypted dynamic config validation with project {project_id_int} key"
+            )
+        except Exception as decrypt_error:
+            logging.warning(
+                f"DYNAMIC_CONFIG_VALIDATION_DECRYPT_FAILED ip={ip} project_id={project_id_int} "
+                f"error={type(decrypt_error).__name__}: {str(decrypt_error)[:100]}"
+            )
+            return jsonify({
+                "error": "Failed to decrypt request data",
+                "message": "Please ensure you are using the correct project encryption key"
+            }), 400
 
-            # Try project-specific keys
-            from ..models.core import ProjectSettings
-            project_settings = ProjectSettings.query.filter(
-                ProjectSettings.project_master_key.isnot(None)
-            ).all()
-
-            for settings in project_settings:
-                try:
-                    data = decrypt_data_with_project_key(enc_data, settings.project_id)
-                    project_id = settings.project_id
-                    logging.debug(
-                        f"[DEBUG] Successfully decrypted dynamic config validation with project {settings.project_id} master key"
-                    )
-                    break
-                except Exception:
-                    logging.debug(
-                        f"[DEBUG] Project {settings.project_id} master key failed"
-                    )
-                    continue
-
-            if data is None:
-                raise ValueError("Failed to decrypt request data") from global_error
+    project_id = project_id_int
 
     # Validate required parameters
     # KISS Principle: config_checksum is now optional (deprecated for backward compatibility)
     user_key = data.get("user_key")
-    game_name = data.get("game_name")
-    project_id = data.get("project_id")
+    product_name = data.get("product_name")
+    data_project_id = data.get("project_id")
     config_checksum = data.get("config_checksum")  # Optional, kept for backward compatibility
 
-    if not all([user_key, game_name, project_id]):
+    # SECURITY: Verify that project_id from data matches project_id from request
+    if data_project_id and int(data_project_id) != project_id_int:
         logging.warning(
-            f"DYNAMIC_CONFIG_VALIDATION_MISSING_PARAMS ip={ip} user_key={user_key} game_name={game_name} project_id={project_id}"
+            f"DYNAMIC_CONFIG_VALIDATION_PROJECT_ID_MISMATCH ip={ip} "
+            f"request_project_id={project_id_int} data_project_id={data_project_id}"
+        )
+        return jsonify({"error": "Project ID mismatch"}), 400
+
+    # Use project_id from request (more secure - comes from unencrypted part)
+    project_id = project_id_int
+
+    if not all([user_key, product_name]):
+        logging.warning(
+            f"DYNAMIC_CONFIG_VALIDATION_MISSING_PARAMS ip={ip} user_key={user_key} product_name={product_name} project_id={project_id}"
         )
         return jsonify({"error": "Missing required parameters"}), 400
 
     # Validate configuration
     is_valid = dynamic_config_service.validate_config_request(
         user_key=user_key,
-        game_name=game_name,
+        product_name=product_name,
         project_id=project_id,
         config_checksum=config_checksum,  # Optional, will be ignored
     )
 
     if not is_valid:
         logging.warning(
-            f"DYNAMIC_CONFIG_VALIDATION_FAILED ip={ip} user_key={user_key} game={game_name}"
+            f"DYNAMIC_CONFIG_VALIDATION_FAILED ip={ip} user_key={user_key} product={product_name}"
         )
         return jsonify({"error": "Invalid configuration"}), 403
 
     logging.info(
-        f"DYNAMIC_CONFIG_VALIDATION_SUCCESS ip={ip} user_key={user_key} game={game_name}"
+        f"DYNAMIC_CONFIG_VALIDATION_SUCCESS ip={ip} user_key={user_key} product={product_name}"
     )
 
     resp = {
@@ -365,24 +375,21 @@ def api_config_validate():
         "timestamp": int(time.time()),
     }
 
-    # Encrypt response
-    if used_global_key:
-        encrypted_blob = encrypt_data(resp)
-        logging.debug("[DEBUG] Encrypted dynamic config validation response with global master key")
-    elif project_id:
-        try:
-            encrypted_blob = encrypt_data_with_project_key(resp, project_id)
-            logging.debug(
-                f"[DEBUG] Encrypted dynamic config validation response with project {project_id} master key"
-            )
-        except Exception:
-            logging.debug(
-                "Failed to encrypt dynamic config validation response with project key, falling back to global"
-            )
-            encrypted_blob = encrypt_data(resp)
-    else:
-        encrypted_blob = encrypt_data(resp)
-        logging.debug("[DEBUG] Encrypted dynamic config validation response with global master key (fallback)")
+    # SECURITY: Encrypt response with project-specific key only (no fallback to global MASTER_KEY)
+    try:
+        encrypted_blob = encrypt_data_with_project_key(resp, project_id)
+        logging.debug(
+            f"[DEBUG] Encrypted dynamic config validation response with project {project_id} key"
+        )
+    except Exception as encrypt_error:
+        logging.error(
+            f"DYNAMIC_CONFIG_VALIDATION_ENCRYPT_FAILED ip={ip} project_id={project_id} "
+            f"error={type(encrypt_error).__name__}: {str(encrypt_error)}"
+        )
+        return jsonify({
+            "error": "Failed to encrypt response",
+            "message": "Please ensure project encryption key is configured"
+        }), 500
 
     return encrypted_blob
 
@@ -470,7 +477,7 @@ def create_feature_schema():
         - description: Schema description (optional)
         - json_schema: JSON Schema definition (required)
         - default_config: Default configuration values (optional)
-        - product_id: Product/Game ID (optional, None for project-level schema)
+        - product_id: Product/Product ID (optional, None for project-level schema)
         - version: Schema version (optional, defaults to "1.0.0")
     
     Returns:
@@ -519,7 +526,7 @@ def create_feature_schema():
         product_id = data.get("product_id")
         if product_id:
             # Validate product exists and belongs to project
-            product = Game.query.filter_by(id=product_id, project_id=project_id).first()
+            product = Product.query.filter_by(id=product_id, project_id=project_id).first()
             if not product:
                 return jsonify({"error": "Product not found or doesn't belong to project"}), 404
         

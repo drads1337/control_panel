@@ -6,7 +6,7 @@ This package contains Flask middleware components for request processing:
 - rate_limiting.py: Rate limiting middleware
 - validation.py: Request validation middleware
 - production_guard.py: Disables debug/test endpoints in production
-- mtls.py: Mutual TLS validation for loader/client connections
+- mtls.py: Mutual TLS validation for agent/client connections
 Import middleware directly from their modules:
 - from .activity_logger import ActivityLoggerMiddleware
 - from .auth import enforce_project_scope

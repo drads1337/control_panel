@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
-import { uploadGameConfig, uploadGameExtraFile } from '@/entities/file';
+import { uploadProductConfig, uploadProductExtraFile } from '@/entities/file';
 import { useAuth } from '@/hooks/use-auth';
 
 export interface UploadForm {
@@ -34,7 +34,7 @@ export const useMultiFileUpload = () => {
 
   const uploadFiles = useCallback(async (
     files: FileWithPreview[],
-    gameId: number,
+    productId: number,
     form: UploadForm,
     options: {
       uploadInParallel?: boolean;
@@ -66,9 +66,9 @@ export const useMultiFileUpload = () => {
           let result;
           if (form.category === 'config') {
 
-            result = await uploadGameConfig(
+            result = await uploadProductConfig(
               fileWithPreview.file,
-              gameId,
+              productId,
               form.name || fileWithPreview.file.name,
               form.description,
               form.version,
@@ -77,9 +77,9 @@ export const useMultiFileUpload = () => {
 
           } else {
 
-            result = await uploadGameExtraFile(
+            result = await uploadProductExtraFile(
               fileWithPreview.file,
-              gameId,
+              productId,
               form.name || fileWithPreview.file.name,
               form.description
             );

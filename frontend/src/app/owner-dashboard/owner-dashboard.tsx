@@ -8,7 +8,7 @@ import { SlowQueriesCard } from '@/app/dashboard/slow-queries-card'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Building2, Users, Key, Gamepad2, Server, TrendingUp, Activity } from 'lucide-react'
+import { Building2, Users, Key, Database, Server, TrendingUp, Activity } from 'lucide-react'
 import { format } from 'date-fns'
 import { Spinner } from '@/components/ui/spinner'
 
@@ -56,7 +56,7 @@ export default function OwnerDashboard() {
                     <TableHead>Project</TableHead>
                     <TableHead>Users</TableHead>
                     <TableHead>Keys</TableHead>
-                    <TableHead>Games</TableHead>
+                    <TableHead>Products</TableHead>
                     <TableHead>Servers</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Subscription</TableHead>
@@ -92,8 +92,8 @@ export default function OwnerDashboard() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <Gamepad2 className="h-4 w-4 text-muted-foreground" />
-                          <span>{project.games_count}</span>
+                          <Database className="h-4 w-4 text-muted-foreground" />
+                          <span>{project.products_count}</span>
                         </div>
                       </TableCell>
                       <TableCell>

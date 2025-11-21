@@ -31,7 +31,7 @@ class TestAuthRoutes:
                 "username": test_user.username,
                 "password": "test_password_123",
             },
-            content_type="application/json",
+            content_type="product/json",
         )
         assert response.status_code == 200
         data = json.loads(response.data)
@@ -51,7 +51,7 @@ class TestAuthRoutes:
                 "username": "nonexistent_user",
                 "password": "password",
             },
-            content_type="application/json",
+            content_type="product/json",
         )
 
         assert response.status_code in [401, 500]
@@ -70,7 +70,7 @@ class TestAuthRoutes:
                 "username": test_user.username,
                 "password": "wrong_password",
             },
-            content_type="application/json",
+            content_type="product/json",
         )
 
         assert response.status_code in [401, 500]
@@ -86,7 +86,7 @@ class TestAuthRoutes:
         response = client.post(
             "/api/auth/login",
             json={"username": "test_user"},
-            content_type="application/json",
+            content_type="product/json",
         )
         assert response.status_code == 400
 
@@ -99,7 +99,7 @@ class TestAuthRoutes:
                 "email": "new_user@test.com",
                 "password": "secure_password_123",
             },
-            content_type="application/json",
+            content_type="product/json",
         )
         assert response.status_code == 201
         data = json.loads(response.data)
@@ -120,7 +120,7 @@ class TestAuthRoutes:
                 "email": "different@test.com",
                 "password": "password123",
             },
-            content_type="application/json",
+            content_type="product/json",
         )
         assert response.status_code == 400
         data = json.loads(response.data)
@@ -135,7 +135,7 @@ class TestAuthRoutes:
                 "email": test_user.email,
                 "password": "password123",
             },
-            content_type="application/json",
+            content_type="product/json",
         )
         assert response.status_code == 400
         data = json.loads(response.data)
@@ -204,7 +204,7 @@ class TestAuthRoutes:
                 "new_password": "new_secure_password_456",
             },
             headers=headers,
-            content_type="application/json",
+            content_type="product/json",
         )
         assert response.status_code == 200
         data = json.loads(response.data)
@@ -216,7 +216,7 @@ class TestAuthRoutes:
                 "username": test_user.username,
                 "password": "new_secure_password_456",
             },
-            content_type="application/json",
+            content_type="product/json",
         )
         assert login_response.status_code == 200
 
@@ -235,7 +235,7 @@ class TestAuthRoutes:
                 "new_password": "new_password",
             },
             headers=headers,
-            content_type="application/json",
+            content_type="product/json",
         )
 
         assert response.status_code in [400, 500]
@@ -254,7 +254,7 @@ class TestAuthRoutes:
             "/api/auth/profile",
             json={"email": "updated_email@test.com"},
             headers=headers,
-            content_type="application/json",
+            content_type="product/json",
         )
         assert response.status_code == 200
         data = json.loads(response.data)
@@ -265,24 +265,24 @@ class TestAuthRoutes:
 
     def test_validate_access_code_success(self, client, test_key, db_session):
         """Test validating access code"""
-        from backend.models.games import Game
+        from backend.models.products import Product
 
-        game = Game(
-            name="Test Game",
+        product = Product(
+            name="Test Product",
             project_id=test_key.project_id,
             login_type="classic_login",
         )
-        db_session.add(game)
+        db_session.add(product)
         db_session.commit()
 
-        test_key.game_id = game.id
+        test_key.product_id = product.id
         test_key.status = 1
         db_session.commit()
 
         response = client.post(
             "/api/auth/validate-code",
             json={"access_code": test_key.key},
-            content_type="application/json",
+            content_type="product/json",
         )
         assert response.status_code == 200
         data = json.loads(response.data)
@@ -293,7 +293,7 @@ class TestAuthRoutes:
         response = client.post(
             "/api/auth/validate-code",
             json={"access_code": "INVALID_CODE_1234567890123456"},
-            content_type="application/json",
+            content_type="product/json",
         )
         assert response.status_code == 404
         data = json.loads(response.data)

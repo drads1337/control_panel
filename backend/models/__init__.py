@@ -3,9 +3,9 @@ Models package - organized by domain
 
 This package contains all database models organized by domain:
 - core.py: Core models (User, Project, ProjectSettings, etc.)
-- games.py: Product-related models (formerly Game-related, universal terminology)
+- products.py: Product-related models (formerly Product-related, universal terminology)
 - keys.py: Key and device models
-- loaders.py: Agent-related models (formerly Loader-related, universal terminology)
+- agents.py: Agent-related models (formerly Agent-related, universal terminology)
 - security.py: Security models (2FA, login attempts, etc.)
 - rbac.py: RBAC models (Role, Permission, etc.)
 - chat.py: Chat models
@@ -21,8 +21,8 @@ IMPORT GUIDELINES:
 
 RECOMMENDED: Import models directly from their modules for better IDE support and performance:
     from ..models.core import User, Project
-    from ..models.games import Product  # Universal name (Game is alias for backward compatibility)
-    from ..models.loaders import Agent  # Universal name (Loader is alias for backward compatibility)
+    from ..models.products import Product  # Universal name (Product is alias for backward compatibility)
+    from ..models.agents import Agent  # Universal name (Agent is alias for backward compatibility)
     from ..models.security import LoginAttempt, BlockedIP
 
 This approach:
@@ -32,7 +32,7 @@ This approach:
 - Works with static type checkers (mypy, pyright)
 
 BACKWARD COMPATIBILITY: Importing from this package is still supported:
-    from ..models import User, Project, Game
+    from ..models import User, Project, Product
 
 Note: All models are now imported explicitly at package load time. This is safe because:
 1. There are no circular dependencies between model modules
@@ -57,7 +57,7 @@ If you encounter import issues, check:
 
 from .core import (
     APIKey,
-    DeveloperGamePermission,
+    DeveloperProductPermission,
     Project,
     ProjectEncryptionKeys,
     ProjectInviteCode,
@@ -67,27 +67,17 @@ from .core import (
     User,
     UserActionLog,
     UserActivity,
-    UserGamePermission,
+    UserProductPermission,
 )
 
-from .games import (
+from .products import (
     Announcement,
     ChangelogEntry,
     FeatureConfigSchema,
     FileDownloadLog,
     FileMeta,
-    Game,  # Backward compatibility alias for Product
-    GameChatSettings,  # Backward compatibility alias
-    GameConfiguration,  # Backward compatibility alias for RemoteConfig
-    GameExtraFile,  # Backward compatibility alias
-    GameFileConfig,  # Backward compatibility alias
-    GameFileDownload,  # Backward compatibility alias
-    GameInviteCode,  # Backward compatibility alias
-    GameKeyPrice,  # Backward compatibility alias
-    GameSecurityLog,  # Backward compatibility alias
-    GameStatus,  # Backward compatibility alias
     Message,
-    Product,  # New universal name
+    Product,
     ProductChatSettings,
     ProductExtraFile,
     ProductFileConfig,
@@ -96,7 +86,7 @@ from .games import (
     ProductKeyPrice,
     ProductSecurityLog,
     ProductStatus,
-    RemoteConfig,  # New name for GameConfiguration
+    RemoteConfig,
 )
 
 from .keys import (
@@ -108,19 +98,13 @@ from .keys import (
     TokenTransaction,
 )
 
-from .loaders import (
-    Agent,  # New universal name
+from .agents import (
+    Agent,
     AgentChangelog,
     AgentConfiguration,
     AgentDownloadLog,
     AgentNotification,
     AgentProductAssignment,
-    Loader,  # Backward compatibility alias for Agent
-    LoaderChangelog,  # Backward compatibility alias
-    LoaderConfiguration,  # Backward compatibility alias
-    LoaderDownloadLog,  # Backward compatibility alias
-    LoaderGameAssignment,  # Backward compatibility alias
-    LoaderNotification,  # Backward compatibility alias
 )
 
 from .rbac import (
@@ -158,7 +142,7 @@ from .webhooks import Webhook, WebhookLog
 from .servers import Billing, ProjectAPIKey, Server
 from .chat import (
     ChatGroup,
-    ChatGroupGame,
+    ChatGroupProduct,
     ChatMessage,
     DiscordWebhook,
     TelegramBot,

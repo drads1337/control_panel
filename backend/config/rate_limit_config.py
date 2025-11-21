@@ -40,7 +40,7 @@ class RateLimitConfig:
     - users: Moderate limits for user management. Prevents abuse of user
              creation/modification endpoints.
 
-    - games: Moderate limits for game management operations.
+    - products: Moderate limits for product management operations.
 
     - files: Moderate limits for file operations. Prevents abuse of file
              upload/download endpoints which can be resource-intensive.
@@ -72,7 +72,7 @@ class RateLimitConfig:
 
         "users": "60 per minute",
 
-        "games": "45 per minute",
+        "products": "45 per minute",
 
         "files": "45 per minute",
 
@@ -99,7 +99,7 @@ class RateLimitConfig:
 
         "users": "30 per minute",
 
-        "games": "30 per minute",
+        "products": "30 per minute",
 
         "files": "30 per minute",
 

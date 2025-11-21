@@ -17,12 +17,11 @@ import {
   Key,
   Clock,
   Users,
-  Gamepad2,
+  Database,
   Calendar,
   Shield,
   Copy,
   ExternalLink,
-  Database,
   Activity,
   Monitor,
   Eye,
@@ -306,8 +305,8 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
                     </div>
                   </div>
                   <div>
-                    <Label className="text-sm font-medium">Game</Label>
-                    <p className="mt-1">{(keyDetails?.key || keyData)?.game_name || 'Not specified'}</p>
+                    <Label className="text-sm font-medium">Product</Label>
+                    <p className="mt-1">{(keyDetails?.key || keyData)?.product_name || 'Not specified'}</p>
                   </div>
                   <div>
                     <Label className="text-sm font-medium">Project</Label>
@@ -445,9 +444,9 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
                   </div>
                   <div className="bg-muted/50 p-4 rounded-lg">
                     <div className="text-2xl font-bold text-primary">
-                      {keyAnalytics.summary.games_played.length}
+                      {keyAnalytics.summary.products_played.length}
                     </div>
-                    <div className="text-sm text-muted-foreground">Games</div>
+                    <div className="text-sm text-muted-foreground">Products</div>
                   </div>
                   <div className="bg-muted/50 p-4 rounded-lg">
                     <div className="text-2xl font-bold text-primary">
@@ -458,12 +457,12 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
                 </div>
 
                 {}
-                {keyAnalytics.summary.games_played.length > 0 && (
+                {keyAnalytics.summary.products_played.length > 0 && (
                   <div>
-                    <h4 className="font-semibold mb-2">Games:</h4>
+                    <h4 className="font-semibold mb-2">Products:</h4>
                     <div className="flex flex-wrap gap-2">
-                      {keyAnalytics.summary.games_played.map((game: string, index: number) => (
-                        <Badge key={index} variant="secondary">{game}</Badge>
+                      {keyAnalytics.summary.products_played.map((product: string, index: number) => (
+                        <Badge key={index} variant="secondary">{product}</Badge>
                       ))}
                     </div>
                   </div>
@@ -479,7 +478,7 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
                           <div>
                             <div className="font-medium">{new Date(day.date).toLocaleDateString('en-US')}</div>
                             <div className="text-sm text-muted-foreground">
-                              {day.games_played.length > 0 && day.games_played.join(', ')}
+                              {day.products_played.length > 0 && day.products_played.join(', ')}
                             </div>
                           </div>
                           <div className="text-right">

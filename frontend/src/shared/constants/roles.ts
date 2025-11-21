@@ -7,7 +7,7 @@ export const SYSTEM_ROLES = {
 } as const;
 
 export const PERMISSION_CATEGORIES = {
-  GAMES: 'games',
+  PRODUCTS: 'products',
   KEYS: 'keys',
   USERS: 'users',
   FILES: 'files',

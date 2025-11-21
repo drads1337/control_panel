@@ -431,10 +431,10 @@ def get_my_stats(current_user=None):
         UserActivity.user_id == user.id, UserActivity.created_at >= thirty_days_ago
     ).count()
 
-    from ...models.core import DeveloperGamePermission, UserGamePermission
+    from ...models.core import DeveloperProductPermission, UserProductPermission
 
-    game_permissions = UserGamePermission.query.filter_by(user_id=user.id).count()
-    developer_permissions = DeveloperGamePermission.query.filter_by(user_id=user.id).count()
+    product_permissions = UserProductPermission.query.filter_by(user_id=user.id).count()
+    developer_permissions = DeveloperProductPermission.query.filter_by(user_id=user.id).count()
 
     user_roles = RBACManager.get_user_role_names(user)
     primary_role = user_roles[0] if user_roles else "client"
@@ -456,7 +456,7 @@ def get_my_stats(current_user=None):
                 "last_30_days": keys_30d,
             },
             "activity": {"total": activity_count, "last_30_days": recent_activity},
-            "permissions": {"games": game_permissions, "developer_games": developer_permissions},
+            "permissions": {"products": product_permissions, "developer_products": developer_permissions},
             "balance": {"tokens": user.token_balance},
         }
     )

@@ -163,7 +163,7 @@ class PersistenceLayer:
     def buffer_key_analytics_with_fallback(
         self,
         key_id: int,
-        game: str,
+        product: str,
         ip_address: Optional[str] = None,
         serial: Optional[str] = None,
         increment_connections: bool = True,
@@ -176,7 +176,7 @@ class PersistenceLayer:
         """
         analytics_data = {
             "key_id": key_id,
-            "game": game,
+            "product": product,
             "ip_address": ip_address,
             "serial": serial,
             "increment_connections": increment_connections,
@@ -189,7 +189,7 @@ class PersistenceLayer:
                 from ...services.analytics.analytics_buffer_service import analytics_buffer_service
                 success = analytics_buffer_service.buffer_key_analytics_update(
                     key_id=key_id,
-                    game=game,
+                    product=product,
                     ip_address=ip_address,
                     serial=serial,
                     increment_connections=increment_connections,
@@ -219,7 +219,7 @@ class PersistenceLayer:
             success = self._backup_to_disk("key_analytics", analytics_data)
             if success:
                 self.stats["disk_backups"] += 1
-                logger.debug(f"Backed up key analytics to disk: key_id={key_id}, game={game}")
+                logger.debug(f"Backed up key analytics to disk: key_id={key_id}, product={product}")
                 return True
         except Exception as e:
             logger.error(f"Disk backup failed: {e}")
@@ -231,7 +231,7 @@ class PersistenceLayer:
                 self.stats["db_fallbacks"] += 1
                 logger.warning(
                     f"Wrote key analytics directly to DB (Redis and disk failed): "
-                    f"key_id={key_id}, game={game}"
+                    f"key_id={key_id}, product={product}"
                 )
                 return True
         except Exception as e:

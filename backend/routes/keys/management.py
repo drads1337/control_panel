@@ -13,10 +13,10 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from ...core.extensions import db
 from ...middleware.auth import require_project_isolation, require_project_with_grace_period
 from ...middleware.validation import validate_request
-from ...models import Game, Key, User
+from ...models import Product, Key, User
 from ...schemas.key import KeyCreateSchema, KeyExtendSchema, KeyMoveSchema, KeyUpdateSchema
 from ...services.activity import activity_service
-from ...services.keys import key_service
+from ...services.keys.key_service_facade import key_service
 from ...services.rbac import rbac_service
 from ...utils.data_masking import mask_license_key
 from ...utils.rbac_utils import RBACManager
@@ -47,15 +47,15 @@ def get_keys(current_user=None, project_id=None):
         "page": request.args.get("page", 1, type=int),
         "per_page": request.args.get("per_page", 20, type=int),
         "status": request.args.get("status"),
-        "game_id": request.args.get("game_id", type=int),
+        "product_id": request.args.get("product_id", type=int),
         "search": request.args.get("search"),
         "my_keys": my_keys,
     }
 
-    if filters["game_id"]:
-        game = Game.query.filter_by(id=filters["game_id"], project_id=current_user.project_id).first()
-        if not game:
-            return jsonify({"error": "Game not found or access denied"}), 404
+    if filters["product_id"]:
+        product = Product.query.filter_by(id=filters["product_id"], project_id=current_user.project_id).first()
+        if not product:
+            return jsonify({"error": "Product not found or access denied"}), 404
 
     keys, total_count = key_service.get_keys(current_user, filters)
 
@@ -99,19 +99,19 @@ def create_key(current_user=None, project_id=None, validated_data=None):
     data = validated_data or request.get_json()
 
     key_data = {
-        "game_id": data.get("game_id"),
+        "product_id": data.get("product_id"),
         "duration_hours": data.get("duration_hours", 24),
         "max_devices": data.get("max_devices", 1),
         "length": data.get("length", 32),
     }
 
-    game = None
-    if data.get("game_id"):
-        game = Game.query.filter_by(id=data["game_id"], project_id=current_user.project_id).first()
-        if not game:
-            return jsonify({"error": "Game not found or access denied"}), 404
+    product = None
+    if data.get("product_id"):
+        product = Product.query.filter_by(id=data["product_id"], project_id=current_user.project_id).first()
+        if not product:
+            return jsonify({"error": "Product not found or access denied"}), 404
 
-        is_access_code = game.login_type == "classic_login"
+        is_access_code = product.login_type == "classic_login"
         generation_type = "access_code" if is_access_code else "license_key"
 
         key_metadata = {
@@ -126,8 +126,8 @@ def create_key(current_user=None, project_id=None, validated_data=None):
         }
         key_data["key_metadata"] = json.dumps(key_metadata)
 
-    if not game:
-        return jsonify({"error": "Game ID is required"}), 400
+    if not product:
+        return jsonify({"error": "Product ID is required"}), 400
 
     key, error = key_service.create_key(current_user, key_data)
     if error:
@@ -145,12 +145,12 @@ def create_key(current_user=None, project_id=None, validated_data=None):
     except ImportError:
         pass
 
-    game = Game.query.get(key.game_id)
-    if not game:
-        logger.error(f"🔑 Game not found for key {key.id}, game_id: {key.game_id}")
-        return jsonify({"error": "Game not found"}), 404
+    product = Product.query.get(key.product_id)
+    if not product:
+        logger.error(f"🔑 Product not found for key {key.id}, product_id: {key.product_id}")
+        return jsonify({"error": "Product not found"}), 404
 
-    is_access_code = game.login_type == "classic_login"
+    is_access_code = product.login_type == "classic_login"
     item_type = "access code" if is_access_code else "license key"
     generation_type = "access_code" if is_access_code else "license_key"
 
@@ -159,8 +159,8 @@ def create_key(current_user=None, project_id=None, validated_data=None):
         "key": {
             "id": key.id,
             "key": key.key,
-            "game_id": key.game_id,
-            "game_name": game.name,
+            "product_id": key.product_id,
+            "product_name": product.name,
             "expires_at": key.expires_at.isoformat() if key.expires_at else None,
             "max_devices": key.max_devices,
             "duration_hours": key.duration_hours,
@@ -176,7 +176,7 @@ def create_key(current_user=None, project_id=None, validated_data=None):
         activity_service.log_activity(
             current_user,
             "create_key",
-            details=f"Created production {item_type}: {key.key[:8]}... for game: {game.name}",
+            details=f"Created production {item_type}: {key.key[:8]}... for product: {product.name}",
             ip=request.remote_addr,
         )
     except Exception as e:
@@ -475,21 +475,21 @@ def duplicate_key(key_id):
         return jsonify({"error": "Key not found or access denied"}), 404
 
     try:
-        from ...services.keys import key_service
+        from ...services.keys.key_service_facade import key_service
 
-        game = Game.query.get(key.game_id) if key.game_id else None
+        product = Product.query.get(key.product_id) if key.product_id else None
 
-        if not game:
-            return jsonify({"error": "Game not found"}), 404
+        if not product:
+            return jsonify({"error": "Product not found"}), 404
 
         new_key_string = key_service.generate_key_string(
-            length=32, game=game, duration_hours=key.duration_hours, project_id=user.project_id
+            length=32, product=product, duration_hours=key.duration_hours, project_id=user.project_id
         )
 
         duplicate_key = Key(
             key=new_key_string,
             user_id=key.user_id,
-            game_id=key.game_id,
+            product_id=key.product_id,
             expires_at=key.expires_at,
             max_devices=key.max_devices,
             duration_hours=key.duration_hours,
@@ -515,7 +515,7 @@ def duplicate_key(key_id):
                     "key": {
                         "id": duplicate_key.id,
                         "key": duplicate_key.key,
-                        "game_id": duplicate_key.game_id,
+                        "product_id": duplicate_key.product_id,
                     },
                 }
             ),
@@ -774,17 +774,17 @@ def export_key(key_id):
         return jsonify({"error": "Key not found or access denied"}), 404
 
     try:
-        game = (
-            Game.query.filter_by(id=key.game_id, project_id=user.project_id).first()
-            if key.game_id
+        product = (
+            Product.query.filter_by(id=key.product_id, project_id=user.project_id).first()
+            if key.product_id
             else None
         )
 
         export_data = {
             "key_id": key.id,
             "key": key.key,
-            "game_id": key.game_id,
-            "game_name": game.name if game else None,
+            "product_id": key.product_id,
+            "product_name": product.name if product else None,
             "status": key.status,
             "is_active": key.status == 1
             and (not key.expires_at or key.expires_at > datetime.utcnow()),
@@ -858,9 +858,9 @@ def download_key(key_id):
 
         key_value = key.key if can_download_full_key else mask_license_key(key.key)
 
-        game = (
-            Game.query.filter_by(id=key.game_id, project_id=user.project_id).first()
-            if key.game_id
+        product = (
+            Product.query.filter_by(id=key.product_id, project_id=user.project_id).first()
+            if key.product_id
             else None
         )
 
@@ -868,8 +868,8 @@ def download_key(key_id):
             "key_id": key.id,
             "key": key_value,
             "key_masked": not can_download_full_key,
-            "game_id": key.game_id,
-            "game_name": game.name if game else None,
+            "product_id": key.product_id,
+            "product_name": product.name if product else None,
             "status": key.status,
             "is_active": key.status == 1
             and (not key.expires_at or key.expires_at > datetime.utcnow()),
@@ -888,7 +888,7 @@ def download_key(key_id):
         }
 
         response = make_response(json.dumps(export_data, indent=2, ensure_ascii=False))
-        response.headers["Content-Type"] = "application/json"
+        response.headers["Content-Type"] = "product/json"
         response.headers["Content-Disposition"] = f"attachment; filename=key_{key_id}.json"
 
         return response
@@ -926,9 +926,9 @@ def get_key_details(key_id):
         return jsonify({"error": "Key not found or access denied"}), 404
 
     try:
-        game = (
-            Game.query.filter_by(id=key.game_id, project_id=user.project_id).first()
-            if key.game_id
+        product = (
+            Product.query.filter_by(id=key.product_id, project_id=user.project_id).first()
+            if key.product_id
             else None
         )
 
@@ -969,8 +969,8 @@ def get_key_details(key_id):
             "id": key.id,
             "key": key_value,
             "key_masked": not can_view_full_key,
-            "game_id": key.game_id,
-            "game_name": game.name if game else None,
+            "product_id": key.product_id,
+            "product_name": product.name if product else None,
             "status": key.status,
             "is_active": key.status == 1
             and (not key.expires_at or key.expires_at > datetime.utcnow()),

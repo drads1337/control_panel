@@ -10,7 +10,7 @@ from sqlalchemy import and_, func
 
 from ...core.extensions import db
 from ...models.core import Project, ProjectEncryptionKeys, ProjectInviteCode, User, UserActivity
-from ...models.games import Game, GameKeyPrice
+from ...models.products import Product, ProductKeyPrice
 from ...models.keys import Key
 from ...models.servers import Server
 from ...utils.fulltext_search import fulltext_search_filter
@@ -184,7 +184,7 @@ class ProjectService:
                             "stats": {
                                 "users": project.total_users or 0,
                                 "keys": project.total_keys or 0,
-                                "games": project.total_games or 0,
+                                "products": project.total_products or 0,
                                 "servers": project.total_servers or 0,
                             },
                         }
@@ -335,7 +335,7 @@ class ProjectService:
                     db.session.query(
                         func.count(User.id).label("total_users"),
                         func.count(Key.id).label("total_keys"),
-                        func.count(Game.id).label("total_games"),
+                        func.count(Product.id).label("total_products"),
                         func.count(Server.id).label("total_servers"),
                         func.count(func.distinct(User.id))
                         .filter(User.is_active == True)
@@ -346,16 +346,16 @@ class ProjectService:
                     )
                     .outerjoin(User, User.project_id == project_id)
                     .outerjoin(Key, Key.project_id == project_id)
-                    .outerjoin(Game, Game.project_id == project_id)
+                    .outerjoin(Product, Product.project_id == project_id)
                     .outerjoin(Server, Server.project_id == project_id)
                     .first()
                 )
 
-                top_games = (
-                    db.session.query(Game.name, func.count(Key.id).label("key_count"))
-                    .outerjoin(Key, and_(Key.game_id == Game.id, Key.project_id == project_id))
-                    .filter(Game.project_id == project_id)
-                    .group_by(Game.id, Game.name)
+                top_products = (
+                    db.session.query(Product.name, func.count(Key.id).label("key_count"))
+                    .outerjoin(Key, and_(Key.product_id == Product.id, Key.project_id == project_id))
+                    .filter(Product.project_id == project_id)
+                    .group_by(Product.id, Product.name)
                     .order_by(func.count(Key.id).desc())
                     .limit(5)
                     .all()
@@ -366,12 +366,12 @@ class ProjectService:
                     "stats": {
                         "total_users": stats.total_users or 0,
                         "total_keys": stats.total_keys or 0,
-                        "total_games": stats.total_games or 0,
+                        "total_products": stats.total_products or 0,
                         "total_servers": stats.total_servers or 0,
                         "active_users": stats.active_users or 0,
                         "active_keys": stats.active_keys or 0,
                     },
-                    "top_games": [{"game": game, "keys": count} for game, count in top_games],
+                    "top_products": [{"product": product, "keys": count} for product, count in top_products],
                 }
 
             except Exception as e:
@@ -642,7 +642,7 @@ class ProjectService:
                 from ...utils.key_counters import update_user_key_counters
                 for user_id in affected_user_ids:
                     update_user_key_counters(user_id, project_id=project_id)
-                Game.query.filter_by(project_id=project_id).delete()
+                Product.query.filter_by(project_id=project_id).delete()
                 Server.query.filter_by(project_id=project_id).delete()
                 User.query.filter_by(project_id=project_id).delete()
                 UserActivity.query.filter_by(project_id=project_id).delete()

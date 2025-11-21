@@ -20,10 +20,10 @@ from ..routes.dashboard import dashboard_bp
 from ..routes.dynamic_config import dynamic_config_bp
 from ..routes.files import files_bp
 
-from ..routes.games import games_bp
+from ..routes.products import products_bp
 from ..routes.heartbeat import heartbeat_bp
 from ..routes.keys import keys_bp
-from ..routes.loaders import loaders_bp
+from ..routes.agents import agents_bp
 
 from ..routes.logs import logs_bp
 from ..routes.monitoring import monitoring_bp
@@ -66,11 +66,11 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(servers_bp, url_prefix="/api/servers")
     app.register_blueprint(files_bp, url_prefix="/api/files")
     # Universal terminology endpoints (new)
-    app.register_blueprint(games_bp, url_prefix="/api/products")
-    app.register_blueprint(loaders_bp, url_prefix="/api/agents")
+    app.register_blueprint(products_bp, url_prefix="/api/products", name="products")
+    app.register_blueprint(agents_bp, url_prefix="/api/agents", name="agents")
     # Backward compatibility endpoints (deprecated but still supported)
-    app.register_blueprint(games_bp, url_prefix="/api/games", name="games_deprecated")
-    app.register_blueprint(loaders_bp, url_prefix="/api/loaders", name="loaders_deprecated")
+    app.register_blueprint(products_bp, url_prefix="/api/products", name="products_deprecated")
+    app.register_blueprint(agents_bp, url_prefix="/api/agents", name="loaders_deprecated")
 
     app.register_blueprint(notifications_bp, url_prefix="/api/notifications")
     app.register_blueprint(chat_bp, url_prefix="/api/chat")

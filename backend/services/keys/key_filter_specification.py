@@ -43,7 +43,7 @@ class KeyFilterSpecification:
         if self.logger:
             self.logger.info(f"🔧 Applying filters: {self.filters}")
 
-        query = self._apply_game_filters(query)
+        query = self._apply_product_filters(query)
         query = self._apply_status_filters(query)
         query = self._apply_activation_filters(query)
         query = self._apply_date_filters(query)
@@ -52,19 +52,19 @@ class KeyFilterSpecification:
 
         return query
 
-    def _apply_game_filters(self, query: Query) -> Query:
-        """Apply game-related filters"""
-        if self.filters.get("game_id"):
+    def _apply_product_filters(self, query: Query) -> Query:
+        """Apply product-related filters"""
+        if self.filters.get("product_id"):
             if self.logger:
-                self.logger.info(f"🎮 Filtering by game_id: {self.filters['game_id']}")
-            query = query.filter_by(game_id=self.filters["game_id"])
-        elif self.filters.get("loader_id") and self.filters.get("game_ids"):
+                self.logger.info(f"🎮 Filtering by product_id: {self.filters['product_id']}")
+            query = query.filter_by(product_id=self.filters["product_id"])
+        elif self.filters.get("agent_id") and self.filters.get("product_ids"):
             if self.logger:
                 self.logger.info(
-                    f"📦 Filtering by loader_id: {self.filters['loader_id']}, "
-                    f"game_ids: {self.filters['game_ids']}"
+                    f"📦 Filtering by agent_id: {self.filters['agent_id']}, "
+                    f"product_ids: {self.filters['product_ids']}"
                 )
-            query = query.filter(Key.game_id.in_(self.filters["game_ids"]))
+            query = query.filter(Key.product_id.in_(self.filters["product_ids"]))
 
         return query
 

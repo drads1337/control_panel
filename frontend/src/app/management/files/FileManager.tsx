@@ -14,24 +14,24 @@ import {
   Image, Package, Search, AlertTriangle,
   Folder, File, Video, Music, Zap,
   CloudUpload,
-  RefreshCw, X, Check, ChevronRight, Gamepad2, Container
+  RefreshCw, X, Check, ChevronRight, Database, Container
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { usePermissions } from '@/hooks/use-permissions';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
-import { getGames } from '@/entities/game'
-import { getLoaders } from '@/entities/loader'
-import { getGameFiles, createFolder, uploadGameConfig, uploadGameExtraFile, deleteGameConfig, deleteGameExtraFile, deleteGameFile, downloadGameConfig, downloadGameExtraFile, downloadGameFile } from '@/entities/file';
+import { getProducts } from '@/entities/product'
+import { getAgents } from '@/entities/agent'
+import { getProductFiles, createFolder, uploadProductConfig, uploadProductExtraFile, deleteProductConfig, deleteProductExtraFile, deleteProductFile, downloadProductConfig, downloadProductExtraFile, downloadProductFile } from '@/entities/file';
 import { toast } from 'sonner';
 import { Spinner } from '@/components/ui/spinner';
 import { getErrorMessage } from '@/shared/api/enhanced-client';
 import MultiFileUploadDialog from './MultiFileUploadDialog';
-import type { Game } from '@/entities/game';
+import type { Product } from '@/entities/product';
 import type { FileItem } from '@/entities/file';
-import type { Agent, Loader } from '@/entities/loader';
+import type { Agent } from '@/entities/agent';
 
 interface FileManagerProps {
-  onSwitchToGameDatabase?: () => void;
+  onSwitchToProductDatabase?: () => void;
 }
 
 interface FileItemProps {
@@ -114,7 +114,7 @@ const FileItemComponent = React.memo(function FileItemComponent({
       </div>
       {!isFolder && (
         <div className="flex items-center gap-1">
-          <ConditionalRender permission="games.files_view" fallback={null}>
+          <ConditionalRender permission="products.files_view" fallback={null}>
             <Button 
               variant="ghost" 
               size="icon"
@@ -127,7 +127,7 @@ const FileItemComponent = React.memo(function FileItemComponent({
               <Eye className="h-4 w-4" />
             </Button>
           </ConditionalRender>
-          <ConditionalRender permission="games.files_download" fallback={null}>
+          <ConditionalRender permission="products.files_download" fallback={null}>
             <Button 
               variant="ghost" 
               size="icon"
@@ -141,7 +141,7 @@ const FileItemComponent = React.memo(function FileItemComponent({
               <Download className="h-4 w-4" />
             </Button>
           </ConditionalRender>
-          <ConditionalRender permission="games.files_delete" fallback={null}>
+          <ConditionalRender permission="products.files_delete" fallback={null}>
             <Button 
               variant="ghost" 
               size="icon"
@@ -272,18 +272,18 @@ const FilesList: React.FC<FilesListProps> = ({
   );
 };
 
-const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => {
+const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) => {
   const { isAuthenticated } = useAuth();
   const { hasPermission } = usePermissions();
 
-  const canViewFiles = hasPermission('games.files_view');
-  const canUploadFiles = hasPermission('games.files_upload');
-  const canDeleteFiles = hasPermission('games.files_delete');
-  const canDownloadFiles = hasPermission('games.files_download');
+  const canViewFiles = hasPermission('products.files_view');
+  const canUploadFiles = hasPermission('products.files_upload');
+  const canDeleteFiles = hasPermission('products.files_delete');
+  const canDownloadFiles = hasPermission('products.files_download');
 
-  const canViewGames = hasPermission('games.view');
-  const canViewLoaders = hasPermission('loaders.view');
-  const showTargetTypeToggle = canViewGames && canViewLoaders;
+  const canViewProducts = hasPermission('products.view');
+  const canViewAgents = hasPermission('agents.view');
+  const showTargetTypeToggle = canViewProducts && canViewAgents;
 
   if (!canViewFiles) {
     return (
@@ -295,20 +295,20 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
     );
   }
 
-  const [games, setGames] = useState<Game[]>([]);
-  const [loaders, setLoaders] = useState<Agent[]>([]);
-  const [selectedGame, setSelectedGame] = useState<Game | null>(null);
-  const [selectedLoader, setSelectedLoader] = useState<Agent | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [files, setFiles] = useState<FileItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [currentPath, setCurrentPath] = useState<string>('/');
   const [showConfigsFolder, setShowConfigsFolder] = useState(false);
-  const [targetType, setTargetType] = useState<'application' | 'loader'>('application');
+  const [targetType, setTargetType] = useState<'product' | 'agent'>('product');
 
-  const [isLoadingGames, setIsLoadingGames] = useState(false);
-  const [lastGamesLoad, setLastGamesLoad] = useState<number>(0);
-  const GAMES_LOAD_COOLDOWN = 5000;
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+  const [lastProductsLoad, setLastProductsLoad] = useState<number>(0);
+  const PRODUCTS_LOAD_COOLDOWN = 5000;
 
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -381,47 +381,47 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
     saveFiltersToStorage();
   }, [categoryFilter]);
 
-  const filteredGamesForSelect = useMemo(() => {
-    if (!games || !Array.isArray(games)) {
+  const filteredProductsForSelect = useMemo(() => {
+    if (!products || !Array.isArray(products)) {
       return [];
     }
-    if (targetType === 'application') {
-      return games.filter(g => g.is_multi_app === false);
+    if (targetType === 'product') {
+      return products.filter(g => g.is_multi_app === false);
     } else {
-      return games.filter(g => g.is_multi_app === true);
+      return products.filter(g => g.is_multi_app === true);
     }
-  }, [games, targetType]);
+  }, [products, targetType]);
 
   useEffect(() => {
-    if (targetType === 'application' && filteredGamesForSelect.length > 0 && !selectedGame) {
-      setSelectedGame(filteredGamesForSelect[0]);
-      setSelectedLoader(null);
-    } else if (targetType === 'loader') {
-      const allItems = [...loaders, ...filteredGamesForSelect];
-      if (allItems.length > 0 && !selectedGame && !selectedLoader) {
+    if (targetType === 'product' && filteredProductsForSelect.length > 0 && !selectedProduct) {
+      setSelectedProduct(filteredProductsForSelect[0]);
+      setSelectedAgent(null);
+    } else if (targetType === 'agent') {
+      const allItems = [...agents, ...filteredProductsForSelect];
+      if (allItems.length > 0 && !selectedProduct && !selectedAgent) {
 
-        const firstLoader = loaders[0];
-        if (firstLoader) {
-          setSelectedLoader(firstLoader);
-          setSelectedGame(null);
-        } else if (filteredGamesForSelect.length > 0) {
-          setSelectedGame(filteredGamesForSelect[0]);
-          setSelectedLoader(null);
+        const firstAgent = agents[0];
+        if (firstAgent) {
+          setSelectedAgent(firstAgent);
+          setSelectedProduct(null);
+        } else if (filteredProductsForSelect.length > 0) {
+          setSelectedProduct(filteredProductsForSelect[0]);
+          setSelectedAgent(null);
         }
       }
     }
-  }, [filteredGamesForSelect, loaders, selectedGame, selectedLoader, targetType]);
+  }, [filteredProductsForSelect, agents, selectedProduct, selectedAgent, targetType]);
 
   useEffect(() => {
-    if ((selectedGame || selectedLoader) && isAuthenticated) {
-      loadGameFiles();
+    if ((selectedProduct || selectedAgent) && isAuthenticated) {
+      loadProductFiles();
     }
-  }, [selectedGame, selectedLoader, isAuthenticated]);
+  }, [selectedProduct, selectedAgent, isAuthenticated]);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      if ((selectedGame || selectedLoader) && isAuthenticated) {
-        loadGameFiles();
+      if ((selectedProduct || selectedAgent) && isAuthenticated) {
+        loadProductFiles();
       }
     }, 300);
 
@@ -430,44 +430,44 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
 
   useEffect(() => {
     if (!showTargetTypeToggle) {
-      if (canViewGames && !canViewLoaders && targetType !== 'application') {
-        setTargetType('application');
-      } else if (canViewLoaders && !canViewGames && targetType !== 'loader') {
-        setTargetType('loader');
+      if (canViewProducts && !canViewAgents && targetType !== 'product') {
+        setTargetType('product');
+      } else if (canViewAgents && !canViewProducts && targetType !== 'agent') {
+        setTargetType('agent');
       }
     }
-  }, [showTargetTypeToggle, canViewGames, canViewLoaders, targetType]);
+  }, [showTargetTypeToggle, canViewProducts, canViewAgents, targetType]);
 
   useEffect(() => {
-    setSelectedGame(null);
-    setSelectedLoader(null);
+    setSelectedProduct(null);
+    setSelectedAgent(null);
     setFiles([]);
   }, [targetType]);
 
   const loadInitialData = async (retryCount = 0) => {
 
     const now = Date.now();
-    if (isLoadingGames || (now - lastGamesLoad < GAMES_LOAD_COOLDOWN)) {
+    if (isLoadingProducts || (now - lastProductsLoad < PRODUCTS_LOAD_COOLDOWN)) {
 
       return;
     }
 
     try {
-      setIsLoadingGames(true);
+      setIsLoadingProducts(true);
       setLoading(true);
-      setLastGamesLoad(now);
+      setLastProductsLoad(now);
 
-      const response = await getGames('all');
-      setGames(response.games || []);
+      const response = await getProducts('all');
+      setProducts(response.products || []);
 
       try {
-        const loadersResponse = await getLoaders();
-        setLoaders(loadersResponse.loaders || []);
-      } catch (loaderError) {
+        const agentsResponse = await getAgents();
+        setAgents(agentsResponse.agents || []);
+      } catch (agentError) {
 
       }
 
-      await ensureConfigsFoldersExist(response.games || []);
+      await ensureConfigsFoldersExist(response.products || []);
     } catch (error: any) {
 
       if (error.message?.includes('429') || error.message?.includes('TOO MANY REQUESTS')) {
@@ -484,25 +484,25 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
           toast.error('Too many requests. Please wait a moment and refresh the page.');
         }
       } else {
-        toast.error('Error loading games');
+        toast.error('Error loading products');
       }
     } finally {
       setLoading(false);
-      setIsLoadingGames(false);
+      setIsLoadingProducts(false);
     }
   };
 
-  const ensureConfigsFoldersExist = async (games: Game[]) => {
+  const ensureConfigsFoldersExist = async (products: Product[]) => {
     if (!isAuthenticated) return;
 
     try {
 
-      const promises = games.map(async (game) => {
+      const promises = products.map(async (product) => {
         try {
           await createFolder({
             name: 'configs',
             parent_path: '/',
-            game_id: game.id
+            product_id: product.id
           });
         } catch (error) {
 
@@ -515,10 +515,10 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
     }
   };
 
-  const loadGameFiles = async () => {
-    const targetId = selectedGame?.id || selectedLoader?.id;
-    const targetType = selectedGame ? 'game' : 'loader';
-    const targetName = selectedGame?.name || selectedLoader?.name || 'Unknown';
+  const loadProductFiles = async () => {
+    const targetId = selectedProduct?.id || selectedAgent?.id;
+    const targetType = selectedProduct ? 'product' : 'agent';
+    const targetName = selectedProduct?.name || selectedAgent?.name || 'Unknown';
 
     if (!targetId) {
 
@@ -531,14 +531,14 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
 
       const apiStartTime = performance.now();
 
-      const targetTypeForApi = selectedLoader ? 'loader' : selectedGame ? 'game' : 'auto';
+      const targetTypeForApi = selectedAgent ? 'agent' : selectedProduct ? 'product' : 'auto';
 
-      const response = await getGameFiles(
+      const response = await getProductFiles(
         targetId, 
         categoryFilter, 
         'all', 
         searchTerm,
-        targetTypeForApi as 'game' | 'loader' | 'auto'
+        targetTypeForApi as 'product' | 'agent' | 'auto'
       );
 
       const apiDuration = performance.now() - apiStartTime;
@@ -564,20 +564,20 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
   };
 
   const refreshData = async () => {
-    if (selectedGame || selectedLoader) {
-      await loadGameFiles();
+    if (selectedProduct || selectedAgent) {
+      await loadProductFiles();
     }
   };
 
-  const handleRefreshGames = async () => {
-    if (isLoadingGames) {
-      toast.info('Games are already loading, please wait...');
+  const handleRefreshProducts = async () => {
+    if (isLoadingProducts) {
+      toast.info('Products are already loading, please wait...');
       return;
     }
 
     const now = Date.now();
-    if (now - lastGamesLoad < GAMES_LOAD_COOLDOWN) {
-      const remainingTime = Math.ceil((GAMES_LOAD_COOLDOWN - (now - lastGamesLoad)) / 1000);
+    if (now - lastProductsLoad < PRODUCTS_LOAD_COOLDOWN) {
+      const remainingTime = Math.ceil((PRODUCTS_LOAD_COOLDOWN - (now - lastProductsLoad)) / 1000);
       toast.info(`Please wait ${remainingTime} seconds before refreshing again`);
       return;
     }
@@ -602,9 +602,9 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
   };
 
   const handleFileUpload = async (file: File) => {
-    const targetId = selectedGame?.id || selectedLoader?.id;
+    const targetId = selectedProduct?.id || selectedAgent?.id;
     if (!targetId) {
-      toast.error('Please select an application or loader first');
+      toast.error('Please select an product or agent first');
       return false;
     }
 
@@ -627,32 +627,32 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
 
       let uploadResult;
 
-      const gameId = selectedGame?.id || selectedLoader?.id;
-      if (!gameId) {
-        toast.error('No application or loader selected');
+      const productId = selectedProduct?.id || selectedAgent?.id;
+      if (!productId) {
+        toast.error('No product or agent selected');
         return false;
       }
 
       if (showConfigsFolder || uploadForm.uploadPath === '/configs') {
-        uploadResult = await uploadGameExtraFile(
+        uploadResult = await uploadProductExtraFile(
           file,
-          gameId,
+          productId,
           uploadForm.name || file.name,
           uploadForm.description
         );
       } else if (uploadForm.category === 'config') {
-        uploadResult = await uploadGameConfig(
+        uploadResult = await uploadProductConfig(
           file,
-          gameId,
+          productId,
           uploadForm.name || file.name,
           uploadForm.description,
           uploadForm.version,
           true
         );
       } else {
-        uploadResult = await uploadGameExtraFile(
+        uploadResult = await uploadProductExtraFile(
           file,
-          gameId,
+          productId,
           uploadForm.name || file.name,
           uploadForm.description
         );
@@ -665,7 +665,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
       setUploadDialogOpen(false);
       resetUploadForm();
 
-      await loadGameFiles();
+      await loadProductFiles();
 
       return true;
     } catch (error: any) {
@@ -678,8 +678,8 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
           errorMessage = 'Insufficient storage space';
         } else if (error.message.includes('File type not allowed')) {
           errorMessage = 'File type not allowed';
-        } else if (error.message.includes('Game not found')) {
-          errorMessage = 'Selected game not found';
+        } else if (error.message.includes('Product not found')) {
+          errorMessage = 'Selected product not found';
         } else {
           errorMessage = error.message;
         }
@@ -768,26 +768,26 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
           toast.error('Invalid config ID');
           return;
         }
-        blob = await downloadGameConfig(configId);
+        blob = await downloadProductConfig(configId);
       } else if (file.category === 'resource') {
         const fileId = parseInt(file.id.replace('extra_', ''));
         if (isNaN(fileId)) {
           toast.error('Invalid file ID');
           return;
         }
-        const result = await downloadGameExtraFile(fileId);
+        const result = await downloadProductExtraFile(fileId);
         blob = result.blob;
         filename = result.filename || file.name;
-      } else if (file.category === 'logo' || file.category === 'banner' || file.category === 'loader') {
-        const gameId = file.gameId;
-        if (!gameId) {
-          toast.error('Could not determine game ID to download the file');
+      } else if (file.category === 'logo' || file.category === 'banner' || file.category === 'agent') {
+        const productId = file.productId;
+        if (!productId) {
+          toast.error('Could not determine product ID to download the file');
           return;
         }
-        const fileType = file.category as 'logo' | 'banner' | 'loader';
-        blob = await downloadGameFile(gameId, fileType);
+        const fileType = file.category as 'logo' | 'banner' | 'agent';
+        blob = await downloadProductFile(productId, fileType);
 
-        filename = `${file.name}_${fileType}.${fileType === 'loader' ? 'exe' : 'png'}`;
+        filename = `${file.name}_${fileType}.${fileType === 'agent' ? 'exe' : 'png'}`;
       } else {
         toast.error('Unsupported file type for download');
         return;
@@ -845,22 +845,22 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
           toast.error('Invalid config ID');
           return false;
         }
-        await deleteGameConfig(configId);
+        await deleteProductConfig(configId);
       } else if (file.category === 'resource') {
         const fileId = parseInt(file.id.replace('extra_', ''));
         if (isNaN(fileId)) {
           toast.error('Invalid file ID');
           return false;
         }
-        await deleteGameExtraFile(fileId);
-      } else if (file.category === 'logo' || file.category === 'banner' || file.category === 'loader') {
-        const gameId = file.gameId;
-        if (!gameId) {
-          toast.error('Could not determine game ID to delete the file');
+        await deleteProductExtraFile(fileId);
+      } else if (file.category === 'logo' || file.category === 'banner' || file.category === 'agent') {
+        const productId = file.productId;
+        if (!productId) {
+          toast.error('Could not determine product ID to delete the file');
           return false;
         }
-        const fileType = file.category as 'logo' | 'banner' | 'loader';
-        await deleteGameFile(gameId, fileType);
+        const fileType = file.category as 'logo' | 'banner' | 'agent';
+        await deleteProductFile(productId, fileType);
       } else {
         toast.error('Unsupported file type for deletion');
         return false;
@@ -870,7 +870,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
 
       setSelectedFiles(prev => prev.filter(id => id !== file.id));
 
-      await loadGameFiles();
+      await loadProductFiles();
 
       return true;
     } catch (error: any) {
@@ -1125,7 +1125,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
           status: 'active',
           path: '/configs',
           description: 'Folder for user settings',
-          gameId: selectedGame?.id
+          productId: selectedProduct?.id
         };
 
         return [configsFolder, ...regularFiles];
@@ -1133,7 +1133,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
 
       return regularFiles;
     }
-  }, [files, searchTerm, categoryFilter, showConfigsFolder, selectedGame]);
+  }, [files, searchTerm, categoryFilter, showConfigsFolder, selectedProduct]);
 
   const stats = useMemo(() => ({
     total: files.length,
@@ -1144,35 +1144,35 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
     archived: files.filter(f => f.status === 'archived').length
   }), [files]);
 
-  const filteredGames = useMemo(() => {
-    if (!games || !Array.isArray(games)) {
+  const filteredProducts = useMemo(() => {
+    if (!products || !Array.isArray(products)) {
       return [];
     }
-    if (targetType === 'application') {
+    if (targetType === 'product') {
 
-      return games.filter(g => g.is_multi_app === false);
+      return products.filter(g => g.is_multi_app === false);
     } else {
 
-      return games.filter(g => g.is_multi_app === true);
+      return products.filter(g => g.is_multi_app === true);
     }
-  }, [games, targetType]);
+  }, [products, targetType]);
 
   const displayItems = useMemo(() => {
-    if (targetType === 'loader') {
+    if (targetType === 'agent') {
 
       return [
-        ...loaders.map(l => ({ type: 'loader' as const, item: l })),
-        ...filteredGames.map(g => ({ type: 'game' as const, item: g }))
+        ...agents.map(l => ({ type: 'agent' as const, item: l })),
+        ...filteredProducts.map(g => ({ type: 'product' as const, item: g }))
       ];
     } else {
 
-      return filteredGames.map(g => ({ type: 'game' as const, item: g }));
+      return filteredProducts.map(g => ({ type: 'product' as const, item: g }));
     }
-  }, [targetType, loaders, filteredGames]);
+  }, [targetType, agents, filteredProducts]);
 
-  const hasItems = targetType === 'application' 
-    ? filteredGames.length > 0 
-    : (loaders.length > 0 || filteredGames.length > 0);
+  const hasItems = targetType === 'product' 
+    ? filteredProducts.length > 0 
+    : (agents.length > 0 || filteredProducts.length > 0);
 
   if (loading) {
     return (
@@ -1194,20 +1194,20 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
                 <FolderOpen className="h-10 w-10 text-primary" />
               </div>
               <h3 className="text-2xl font-semibold mb-3">
-                {targetType === 'application' ? 'No Applications Yet' : 'No Loaders Yet'}
+                {targetType === 'product' ? 'No Products Yet' : 'No Agents Yet'}
               </h3>
               <p className="text-muted-foreground mb-8 max-w-md mx-auto leading-relaxed">
-                {targetType === 'application' 
-                  ? 'Get started by creating your first application. You can manage settings, upload files, and track usage.'
-                  : 'Get started by creating your first loader or game with loader support.'}
+                {targetType === 'product' 
+                  ? 'Get started by creating your first product. You can manage settings, upload files, and track usage.'
+                  : 'Get started by creating your first agent or product with agent support.'}
               </p>
               <Button 
-                onClick={() => onSwitchToGameDatabase?.()}
+                onClick={() => onSwitchToProductDatabase?.()}
                 className="gap-2"
                 size="lg"
               >
                 <Plus className="h-5 w-5" />
-                {targetType === 'application' ? 'Create Your First Application' : 'Create Loader'}
+                {targetType === 'product' ? 'Create Your First Product' : 'Create Agent'}
               </Button>
             </div>
           </CardContent>
@@ -1220,21 +1220,21 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
           <CardHeader className="pb-0">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-base">Select Application</CardTitle>
+                <CardTitle className="text-base">Select Product</CardTitle>
                 <CardDescription className="mt-1 text-xs">
-                  {targetType === 'application' 
-                    ? `${filteredGames.length} ${filteredGames.length === 1 ? 'application' : 'applications'} available`
-                    : `${loaders.length + filteredGames.length} ${loaders.length + filteredGames.length === 1 ? 'loader' : 'loaders'} available`}
+                  {targetType === 'product' 
+                    ? `${filteredProducts.length} ${filteredProducts.length === 1 ? 'product' : 'products'} available`
+                    : `${agents.length + filteredProducts.length} ${agents.length + filteredProducts.length === 1 ? 'agent' : 'agents'} available`}
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2">
                 <Button 
                   variant="ghost" 
                   size="icon"
-                  onClick={handleRefreshGames}
-                  disabled={isLoadingGames}
+                  onClick={handleRefreshProducts}
+                  disabled={isLoadingProducts}
                 >
-                  <RefreshCw className={`h-4 w-4 ${isLoadingGames ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`h-4 w-4 ${isLoadingProducts ? 'animate-spin' : ''}`} />
                 </Button>
               </div>
             </div>
@@ -1246,22 +1246,22 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
                 <ToggleGroup
                   type="single"
                   value={targetType}
-                  onValueChange={(value) => value && setTargetType(value as 'application' | 'loader')}
+                  onValueChange={(value) => value && setTargetType(value as 'product' | 'agent')}
                   className="grid grid-cols-2 w-full"
                 >
                   <ToggleGroupItem 
-                    value="application" 
+                    value="product" 
                     className="flex items-center justify-center gap-2 h-8 text-xs font-medium border border-border bg-background text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary hover:bg-muted hover:border-muted-foreground/20 transition-colors"
                   >
-                    <Gamepad2 className="h-3 w-3" />
-                    App
+                    <Database className="h-3 w-3" />
+                    Product
                   </ToggleGroupItem>
                   <ToggleGroupItem 
-                    value="loader" 
+                    value="agent" 
                     className="flex items-center justify-center gap-2 h-8 text-xs font-medium border border-border bg-background text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary hover:bg-muted hover:border-muted-foreground/20 transition-colors"
                   >
                     <Container className="h-3 w-3" />
-                    Loader
+                    Agent
                   </ToggleGroupItem>
                 </ToggleGroup>
               </div>
@@ -1269,9 +1269,9 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
 
             <div className="divide-y">
               {displayItems.map(({ type, item }) => {
-                const isSelected = type === 'loader' 
-                  ? selectedLoader?.id === item.id
-                  : selectedGame?.id === item.id;
+                const isSelected = type === 'agent' 
+                  ? selectedAgent?.id === item.id
+                  : selectedProduct?.id === item.id;
 
                 return (
                   <div
@@ -1280,22 +1280,22 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
                       isSelected ? 'bg-primary/5' : ''
                     }`}
                     onClick={() => {
-                      if (type === 'loader') {
-                        setSelectedLoader(item as Agent);
-                        setSelectedGame(null);
+                      if (type === 'agent') {
+                        setSelectedAgent(item as Agent);
+                        setSelectedProduct(null);
                       } else {
-                        setSelectedGame(item as Game);
-                        setSelectedLoader(null);
+                        setSelectedProduct(item as Product);
+                        setSelectedAgent(null);
                       }
                       setSelectedFiles([]);
                     }}
                   >
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <div className="w-9 h-9 bg-gradient-to-br from-primary/20 to-primary/10 rounded flex items-center justify-center flex-shrink-0">
-                        {type === 'loader' ? (
+                        {type === 'agent' ? (
                           <Container className="h-4 w-4 text-primary" />
                         ) : (
-                          <Gamepad2 className="h-4 w-4 text-primary" />
+                          <Database className="h-4 w-4 text-primary" />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -1335,7 +1335,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
                 </Button>
               </div>
               <div className="flex items-center gap-2">
-                <ConditionalRender permission="games.files_download" fallback={null}>
+                <ConditionalRender permission="products.files_download" fallback={null}>
                   <Button 
                     variant="outline" 
                     size="sm"
@@ -1346,7 +1346,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
                     Download All
                   </Button>
                 </ConditionalRender>
-                <ConditionalRender permission="games.files_delete" fallback={null}>
+                <ConditionalRender permission="products.files_delete" fallback={null}>
                   <Button 
                     variant="outline" 
                     size="sm" 
@@ -1365,29 +1365,29 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
       )}
 
       {}
-      {hasItems && !selectedGame && !selectedLoader ? (
+      {hasItems && !selectedProduct && !selectedAgent ? (
         <Card className="border-dashed border-2 border-muted-foreground/25">
           <CardContent className="p-12">
             <div className="text-center">
               <div className="w-20 h-20 bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl flex items-center justify-center mx-auto mb-6">
                 <FolderOpen className="h-10 w-10 text-primary" />
               </div>
-              <h3 className="text-2xl font-semibold mb-3">Select an Application</h3>
+              <h3 className="text-2xl font-semibold mb-3">Select an Product</h3>
               <p className="text-muted-foreground text-lg mb-6 max-w-md mx-auto">
-                Choose an application from the list above to view and manage its files, 
+                Choose an product from the list above to view and manage its files, 
                 configurations, and resources.
               </p>
               <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                 <span className="inline-flex items-center justify-center rounded-md border px-3 py-1 text-xs font-medium">
-                  {targetType === 'application' 
-                    ? `${filteredGames.length} applications available`
-                    : `${loaders.length + filteredGames.length} loaders available`}
+                  {targetType === 'product' 
+                    ? `${filteredProducts.length} products available`
+                    : `${agents.length + filteredProducts.length} agents available`}
                 </span>
               </div>
             </div>
           </CardContent>
         </Card>
-      ) : hasItems && (selectedGame || selectedLoader) ? (
+      ) : hasItems && (selectedProduct || selectedAgent) ? (
         <Card 
           className={`transition-colors ${dragOver ? 'border-primary bg-primary/5' : ''}`}
           onDragOver={handleDragOver}
@@ -1411,7 +1411,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
                   <CardTitle className="text-base">
                     {showConfigsFolder 
                       ? 'Configs Folder' 
-                      : `${selectedGame?.name || selectedLoader?.name || 'Unknown'} Files`}
+                      : `${selectedProduct?.name || selectedAgent?.name || 'Unknown'} Files`}
                   </CardTitle>
                 </div>
                 <CardDescription className="mt-1 text-xs">
@@ -1439,7 +1439,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
                   <Check className="h-4 w-4 mr-1.5" />
                   Select All
                 </Button>
-                <ConditionalRender permission="games.files_upload" fallback={null}>
+                <ConditionalRender permission="products.files_upload" fallback={null}>
                   <Button 
                     variant="default" 
                     size="sm"
@@ -1450,10 +1450,10 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
                     Upload
                   </Button>
                 </ConditionalRender>
-                {selectedGame && (
+                {selectedProduct && (
                   <MultiFileUploadDialog 
-                    game={selectedGame}
-                    onUploadComplete={loadGameFiles}
+                    product={selectedProduct}
+                    onUploadComplete={loadProductFiles}
                   />
                 )}
               </div>
@@ -1533,7 +1533,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
                     {selectedFile.category === 'resource' && 'Extra file'}
                     {selectedFile.category === 'logo' && 'Logo'}
                     {selectedFile.category === 'banner' && 'Banner'}
-                    {selectedFile.category === 'loader' && 'Loader'}
+                    {selectedFile.category === 'agent' && 'Agent'}
                   </div>
                 </div>
               </div>
@@ -1601,7 +1601,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
               Close
             </Button>
             {selectedFile && (
-              <ConditionalRender permission="games.files_download" fallback={null}>
+              <ConditionalRender permission="products.files_download" fallback={null}>
                 <Button onClick={() => {
                   setFileDetailsOpen(false);
                   handleFileDownload(selectedFile);
@@ -1624,9 +1624,9 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
               Upload File
             </DialogTitle>
             <DialogDescription>
-              {selectedGame || selectedLoader
-                ? `Upload a file for ${selectedGame?.name || selectedLoader?.name || 'the selected item'}${showConfigsFolder ? ' to the configs folder' : ''}`
-                : 'Select an application or loader to upload a file'
+              {selectedProduct || selectedAgent
+                ? `Upload a file for ${selectedProduct?.name || selectedAgent?.name || 'the selected item'}${showConfigsFolder ? ' to the configs folder' : ''}`
+                : 'Select an product or agent to upload a file'
               }
             </DialogDescription>
           </DialogHeader>
@@ -1678,10 +1678,10 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <ConditionalRender permission="games.files_manage_configs" fallback={null}>
+                    <ConditionalRender permission="products.files_manage_configs" fallback={null}>
                       <SelectItem value="config">Configuration</SelectItem>
                     </ConditionalRender>
-                    <ConditionalRender permission="games.files_manage_resources" fallback={null}>
+                    <ConditionalRender permission="products.files_manage_resources" fallback={null}>
                       <SelectItem value="resource">Resource</SelectItem>
                     </ConditionalRender>
                   </SelectContent>
@@ -1718,7 +1718,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
             </div>
 
             {!showConfigsFolder && uploadForm.category === 'config' && (
-              <ConditionalRender permission="games.files_manage_configs" fallback={null}>
+              <ConditionalRender permission="products.files_manage_configs" fallback={null}>
                 <div className="grid gap-2">
                   <Label htmlFor="upload-version">Version</Label>
                   <Input
@@ -1763,7 +1763,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToGameDatabase }) => 
                   toast.error('Select a file to upload');
                 }
               }}
-              disabled={uploading || (!selectedGame && !selectedLoader)}
+              disabled={uploading || (!selectedProduct && !selectedAgent)}
             >
               {uploading ? (
                 <div className="flex items-center gap-2">

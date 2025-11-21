@@ -1,13 +1,13 @@
 import { enhancedApi as api } from '@/shared/api/enhanced-client'
 import { API_ENDPOINTS } from '@/shared/api/config'
-import type { Loader } from '@/entities/loader';
+import type { Agent } from '@/entities/agent';
 
 export async function bulkDeleteKeysByFilters(
 
   filters: {
-    game_id?: number;
-    loader_id?: number;
-    game_ids?: number[];
+    product_id?: number;
+    agent_id?: number;
+    product_ids?: number[];
     status?: string;
     activation_status?: string;
     date_from?: string;
@@ -24,9 +24,9 @@ export async function bulkDeleteKeysByFilters(
 export async function bulkResetKeysByFilters(
 
   filters: {
-    game_id?: number;
-    loader_id?: number;
-    game_ids?: number[];
+    product_id?: number;
+    agent_id?: number;
+    product_ids?: number[];
     status?: string;
     activation_status?: string;
     date_from?: string;
@@ -44,9 +44,9 @@ export async function bulkExtendKeysByFilters(
 
   hours: number,
   filters: {
-    game_id?: number;
-    loader_id?: number;
-    game_ids?: number[];
+    product_id?: number;
+    agent_id?: number;
+    product_ids?: number[];
     status?: string;
     activation_status?: string;
     date_from?: string;
@@ -63,9 +63,9 @@ export async function bulkExtendKeysByFilters(
 export async function getKeysCountByFilters(
 
   filters: {
-    game_id?: number;
-    loader_id?: number;
-    game_ids?: number[];
+    product_id?: number;
+    agent_id?: number;
+    product_ids?: number[];
     status?: string;
     activation_status?: string;
     date_from?: string;
@@ -89,50 +89,50 @@ export async function getKeysCountByFilters(
   return response.data
 }
 
-export async function bulkPauseKeys(gameId: number): Promise<{ message: string }> {
+export async function bulkPauseKeys(productId: number): Promise<{ message: string }> {
 
-  const response = await api.post(API_ENDPOINTS.KEYS_BULK_PAUSE, { game_id: gameId })
+  const response = await api.post(API_ENDPOINTS.KEYS_BULK_PAUSE, { product_id: productId })
   return response.data
 }
 
-export async function bulkActivateKeys(gameId: number): Promise<{ message: string }> {
+export async function bulkActivateKeys(productId: number): Promise<{ message: string }> {
 
-  const response = await api.post(API_ENDPOINTS.KEYS_BULK_ACTIVATE, { game_id: gameId })
+  const response = await api.post(API_ENDPOINTS.KEYS_BULK_ACTIVATE, { product_id: productId })
   return response.data
 }
 
-export async function bulkDeleteKeys(gameId: number): Promise<{ message: string }> {
+export async function bulkDeleteKeys(productId: number): Promise<{ message: string }> {
 
-  const response = await api.post(API_ENDPOINTS.KEYS_BULK_DELETE, { game_id: gameId })
+  const response = await api.post(API_ENDPOINTS.KEYS_BULK_DELETE, { product_id: productId })
   return response.data
 }
 
-export async function bulkAddHoursToKeys(gameId: number, hours: number): Promise<{ message: string }> {
+export async function bulkAddHoursToKeys(productId: number, hours: number): Promise<{ message: string }> {
 
-  const response = await api.post(API_ENDPOINTS.KEYS_BULK_ADD_HOURS, { game_id: gameId, hours })
+  const response = await api.post(API_ENDPOINTS.KEYS_BULK_ADD_HOURS, { product_id: productId, hours })
   return response.data
 }
 
-export async function bulkPauseLoaderKeys(loaderId: number, gameIds: number[]): Promise<{ message: string }> {
+export async function bulkPauseAgentKeys(agentId: number, productIds: number[]): Promise<{ message: string }> {
 
-  const response = await api.post(API_ENDPOINTS.KEYS_BULK_LOADER_PAUSE, { loader_id: loaderId, game_ids: gameIds })
+  const response = await api.post(API_ENDPOINTS.KEYS_BULK_AGENT_PAUSE, { agent_id: agentId, product_ids: productIds })
   return response.data
 }
 
-export async function bulkActivateLoaderKeys(loaderId: number, gameIds: number[]): Promise<{ message: string }> {
+export async function bulkActivateAgentKeys(agentId: number, productIds: number[]): Promise<{ message: string }> {
 
-  const response = await api.post(API_ENDPOINTS.KEYS_BULK_LOADER_ACTIVATE, { loader_id: loaderId, game_ids: gameIds })
+  const response = await api.post(API_ENDPOINTS.KEYS_BULK_AGENT_ACTIVATE, { agent_id: agentId, product_ids: productIds })
   return response.data
 }
 
-export async function bulkDeleteLoaderKeys(loaderId: number, gameIds: number[]): Promise<{ message: string }> {
+export async function bulkDeleteAgentKeys(agentId: number, productIds: number[]): Promise<{ message: string }> {
 
-  const response = await api.post(API_ENDPOINTS.KEYS_BULK_LOADER_DELETE, { loader_id: loaderId, game_ids: gameIds })
+  const response = await api.post(API_ENDPOINTS.KEYS_BULK_AGENT_DELETE, { agent_id: agentId, product_ids: productIds })
   return response.data
 }
 
-export async function bulkAddHoursToLoaderKeys(loaderId: number, gameIds: number[], hours: number): Promise<{ message: string }> {
+export async function bulkAddHoursToAgentKeys(agentId: number, productIds: number[], hours: number): Promise<{ message: string }> {
 
-  const response = await api.post(API_ENDPOINTS.KEYS_BULK_LOADER_ADD_HOURS, { loader_id: loaderId, game_ids: gameIds, hours })
+  const response = await api.post(API_ENDPOINTS.KEYS_BULK_AGENT_ADD_HOURS, { agent_id: agentId, product_ids: productIds, hours })
   return response.data
 }

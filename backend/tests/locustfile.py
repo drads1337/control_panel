@@ -76,7 +76,7 @@ class TestDataManager:
             "challenge_response": "test_challenge_response",
             "canary": "test_canary",
             "fingerprint": f"test_fingerprint_{random.randint(1000, 9999)}",
-            "game": "test_game",
+            "product": "test_product",
             "serial": f"test_serial_{random.randint(1000, 9999)}",
         }
         
@@ -147,7 +147,7 @@ class ConnectTaskSet(TaskSet):
         with self.client.post(
             "/api/connect",
             json=payload,
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "product/json"},
             catch_response=True,
             name="connect",
         ) as response:
@@ -172,7 +172,7 @@ class ConnectTaskSet(TaskSet):
         with self.client.post(
             "/api/connect",
             json={},
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "product/json"},
             catch_response=True,
             name="connect_missing_blob",
         ) as response:
@@ -210,7 +210,7 @@ class HeartbeatTaskSet(TaskSet):
         with self.client.post(
             "/api/heartbeat",
             json=payload,
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "product/json"},
             catch_response=True,
             name="heartbeat",
         ) as response:
@@ -235,7 +235,7 @@ class HeartbeatTaskSet(TaskSet):
         with self.client.post(
             "/api/heartbeat",
             json={},
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "product/json"},
             catch_response=True,
             name="heartbeat_missing_blob",
         ) as response:

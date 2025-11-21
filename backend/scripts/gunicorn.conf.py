@@ -20,7 +20,7 @@ worker_tmp_dir = "/dev/shm"
 
 # SECURITY: Mutual TLS (mTLS) Configuration
 # Enable mTLS by setting MTLS_ENABLED=true and providing certificate paths
-# This requires client certificates for loader/client connections
+# This requires client certificates for agent/client connections
 MTLS_ENABLED = os.environ.get("MTLS_ENABLED", "false").lower() == "true"
 
 if MTLS_ENABLED:

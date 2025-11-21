@@ -444,7 +444,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
         method: 'POST',
         credentials: 'include',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'product/json'
         },
         body: JSON.stringify(notificationData)
       })

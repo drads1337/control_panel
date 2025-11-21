@@ -78,8 +78,8 @@ class Permission(db.Model):
 
     resource_type = db.Column(db.String(50), nullable=True)
     resource_id = db.Column(db.Integer, nullable=True)
-    game_id = db.Column(
-        db.Integer, db.ForeignKey("game.id", ondelete="CASCADE"), nullable=True
+    product_id = db.Column(
+        db.Integer, db.ForeignKey("product.id", ondelete="CASCADE"), nullable=True
     )
 
     scope = db.Column(db.String(20), default="global")

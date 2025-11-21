@@ -23,7 +23,7 @@ from flask import current_app
 
 from ...core.extensions import db
 from ...models.core import Project, User
-from ...models.games import Game
+from ...models.products import Product
 from ...models.keys import Key
 from ...models.webhooks import Webhook, WebhookLog
 
@@ -474,7 +474,7 @@ class WebhookService:
                 signature = self._generate_signature(json.dumps(payload), secret)
                 headers["X-Webhook-Signature"] = f"sha256={signature}"
 
-            headers["Content-Type"] = "application/json"
+            headers["Content-Type"] = "product/json"
 
             for attempt in range(self.max_retries):
                 try:
@@ -768,7 +768,7 @@ class WebhookService:
                 signature = self._generate_signature(json.dumps(payload), webhook.secret)
                 headers["X-Webhook-Signature"] = f"sha256={signature}"
 
-            headers["Content-Type"] = "application/json"
+            headers["Content-Type"] = "product/json"
 
             response = requests.post(
                 webhook.url, json=payload, headers=headers, timeout=self.timeout
@@ -949,8 +949,8 @@ class WebhookService:
             "user.role_changed": "👑 User role changed",
             "project.created": "🏗️ New project created",
             "project.updated": "📝 Project updated",
-            "game.created": "🎮 New game created",
-            "game.updated": "🎮 Game updated",
+            "product.created": "🎮 New product created",
+            "product.updated": "🎮 Product updated",
             "security.alert": "⚠️ Security alert",
             "security.block": "🚫 Security block",
             "system.maintenance": "🔧 System maintenance",
@@ -958,10 +958,10 @@ class WebhookService:
             "user.created": "👤 New user",
             "user.login": "🔐 User login",
             "user.logout": "👋 User logout",
-            "game.created": "🎮 New game",
-            "game.updated": "📝 Game updated",
-            "game.activated": "✅ Game activated",
-            "game.deactivated": "❌ Game deactivated",
+            "product.created": "🎮 New product",
+            "product.updated": "📝 Product updated",
+            "product.activated": "✅ Product activated",
+            "product.deactivated": "❌ Product deactivated",
             "security.alert": "⚠️ Security alert",
             "security.block": "🛡️ Security block",
             "system.maintenance": "🔧 System maintenance",
@@ -978,8 +978,8 @@ class WebhookService:
         elif event.startswith("user."):
             message += f"<b>User:</b> {data.get('username', 'N/A')}\n"
             message += f"<b>Email:</b> {data.get('email', 'N/A')}\n"
-        elif event.startswith("game."):
-            message += f"<b>Game:</b> {data.get('game_name', 'N/A')}\n"
+        elif event.startswith("product."):
+            message += f"<b>Product:</b> {data.get('product_name', 'N/A')}\n"
             message += f"<b>Status:</b> {data.get('status', 'N/A')}\n"
         elif event.startswith("security."):
             message += f"<b>Details:</b> {data.get('details', 'N/A')}\n"
@@ -1006,8 +1006,8 @@ class WebhookService:
             "user.role_changed": {"title": "👑 User role changed", "color": 0x9932CC},
             "project.created": {"title": "🏗️ New project created", "color": 0x00FF00},
             "project.updated": {"title": "📝 Project updated", "color": 0x0099FF},
-            "game.created": {"title": "🎮 New game created", "color": 0x00FF00},
-            "game.updated": {"title": "🎮 Game updated", "color": 0x0099FF},
+            "product.created": {"title": "🎮 New product created", "color": 0x00FF00},
+            "product.updated": {"title": "🎮 Product updated", "color": 0x0099FF},
             "security.alert": {"title": "⚠️ Security alert", "color": 0xFFA500},
             "security.block": {"title": "🚫 Security block", "color": 0xFF0000},
             "system.maintenance": {"title": "🔧 System maintenance", "color": 0x0099FF},
@@ -1015,10 +1015,10 @@ class WebhookService:
             "user.created": {"title": "👤 New user", "color": 0x0099FF},
             "user.login": {"title": "🔐 User login", "color": 0x00FF00},
             "user.logout": {"title": "👋 User logout", "color": 0x666666},
-            "game.created": {"title": "🎮 New game", "color": 0x00FF00},
-            "game.updated": {"title": "📝 Game updated", "color": 0x0099FF},
-            "game.activated": {"title": "✅ Game activated", "color": 0x00FF00},
-            "game.deactivated": {"title": "❌ Game deactivated", "color": 0xFF0000},
+            "product.created": {"title": "🎮 New product", "color": 0x00FF00},
+            "product.updated": {"title": "📝 Product updated", "color": 0x0099FF},
+            "product.activated": {"title": "✅ Product activated", "color": 0x00FF00},
+            "product.deactivated": {"title": "❌ Product deactivated", "color": 0xFF0000},
             "security.alert": {"title": "⚠️ Security alert", "color": 0xFFAA00},
             "security.block": {"title": "🛡️ Security block", "color": 0xFF0000},
             "system.maintenance": {"title": "🔧 System maintenance", "color": 0x666666},
@@ -1052,10 +1052,10 @@ class WebhookService:
                     {"name": "Email", "value": data.get("email", "N/A"), "inline": True},
                 ]
             )
-        elif event.startswith("game."):
+        elif event.startswith("product."):
             embed["fields"].extend(
                 [
-                    {"name": "Game", "value": data.get("game_name", "N/A"), "inline": True},
+                    {"name": "Product", "value": data.get("product_name", "N/A"), "inline": True},
                     {"name": "Status", "value": data.get("status", "N/A"), "inline": True},
                 ]
             )
@@ -1083,10 +1083,10 @@ class WebhookService:
             "user.logout",
             "user.password_changed",
             "user.role_changed",
-            "game.created",
-            "game.updated",
-            "game.activated",
-            "game.deactivated",
+            "product.created",
+            "product.updated",
+            "product.activated",
+            "product.deactivated",
             "project.created",
             "project.updated",
             "security.alert",

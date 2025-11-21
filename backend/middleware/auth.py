@@ -3,7 +3,7 @@ Unified Authentication and Authorization Middleware
 Consolidates all authentication and authorization decorators in one place
 
 This module provides a canonical set of decorators for authentication and authorization.
-This is the SINGLE SOURCE OF TRUTH for all authorization checks in the application.
+This is the SINGLE SOURCE OF TRUTH for all authorization checks in the product.
 
 All authorization is based on RBAC (Role-Based Access Control) system only.
 Static roles (user.role, user.is_admin) are no longer supported - all users must use RBAC.
@@ -953,8 +953,8 @@ def validate_project_access(resource_id=None, resource_model=None):
         resource_model: The SQLAlchemy model class to check
 
     Usage:
-    @validate_project_access(resource_id='game_id', resource_model=Game)
-    def get_game(game_id):
+    @validate_project_access(resource_id='product_id', resource_model=Product)
+    def get_product(product_id):
 
         pass
     """

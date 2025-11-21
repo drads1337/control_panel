@@ -326,7 +326,7 @@ def get_connection_logs():
     date_from = request.args.get("date_from")
     date_to = request.args.get("date_to")
     ip_filter = request.args.get("ip")
-    game_filter = request.args.get("game")
+    product_filter = request.args.get("product")
     project_id_param = request.args.get("project_id", type=int)
 
     query = UserActivity.query.filter(
@@ -372,9 +372,9 @@ def get_connection_logs():
 
         query = fulltext_search_filter(query, ip_filter, "search_vector")
 
-    if game_filter:
+    if product_filter:
 
-        query = fulltext_search_filter(query, game_filter, "search_vector")
+        query = fulltext_search_filter(query, product_filter, "search_vector")
 
     try:
         pagination = query.order_by(UserActivity.created_at.desc()).paginate(
@@ -425,7 +425,7 @@ def get_connection_logs():
                     "created_at": activity.created_at.isoformat() if activity.created_at else None,
                     "details": activity.details,
                     "user_agent": activity.user_agent,
-                    "game": details.get("game", "Unknown"),
+                    "product": details.get("product", "Unknown"),
                     "user_key": details.get("user_key", "N/A"),
                     "serial": details.get("serial", "N/A"),
                     "reason": details.get("reason", "N/A") if is_error else None,

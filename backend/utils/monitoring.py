@@ -329,12 +329,12 @@ class SystemHealthCheck:
         except Exception as e:
             return {"healthy": False, "error": str(e), "details": "System resource check failed"}
 
-class ApplicationHealthCheck:
-    """Application-specific health checks"""
+class ProductHealthCheck:
+    """Product-specific health checks"""
 
     @staticmethod
-    def check_application():
-        """Check application health"""
+    def check_product():
+        """Check product health"""
         try:
 
             app_healthy = current_app is not None
@@ -349,10 +349,10 @@ class ApplicationHealthCheck:
                 "healthy": app_healthy,
                 "app_running": app_healthy,
                 "recent_activities": recent_activities,
-                "details": "Application is running normally",
+                "details": "Product is running normally",
             }
         except Exception as e:
-            return {"healthy": False, "error": str(e), "details": "Application health check failed"}
+            return {"healthy": False, "error": str(e), "details": "Product health check failed"}
 
 def _update_system_metrics():
     """Update Prometheus system resource metrics"""
@@ -464,7 +464,7 @@ class MonitoringSystem:
         self.add_health_check("system_resources", SystemHealthCheck.check_resources, critical=False)
 
         self.add_health_check(
-            "application", ApplicationHealthCheck.check_application, critical=True
+            "product", ProductHealthCheck.check_product, critical=True
         )
 
     def add_health_check(
@@ -547,7 +547,7 @@ class MonitoringSystem:
                     "disk_percent": disk.percent,
                     "load_average": psutil.getloadavg() if hasattr(psutil, "getloadavg") else None,
                 },
-                "application": {
+                "product": {
                     "total_users": total_users,
                     "total_projects": total_projects,
                     "recent_activities": recent_activities,
@@ -578,37 +578,41 @@ def setup_monitoring_endpoints(app):
         """Metrics endpoint for Prometheus scraping (JSON format for backward compatibility)"""
         return jsonify(monitoring_system.get_metrics_summary())
     
-    @app.route("/metrics", methods=["GET"])
-    def prometheus_metrics():
-        """
-        Prometheus metrics endpoint (text format).
-        
-        This endpoint returns all Prometheus metrics in the standard text format
-        that Prometheus can scrape. It includes:
-        - System metrics (CPU, memory, disk)
-        - Redis health metrics
-        - Database health metrics
-        - Load monitor metrics (from load_monitor.py)
-        - Application metrics (from structured_logging)
-        
-        This endpoint should be scraped by Prometheus at regular intervals.
-        """
-        try:
-            # Update system metrics
-            _update_system_metrics()
-            
-            # Update Redis health metrics
-            _update_redis_health_metrics()
-            
-            # Update database health metrics
-            _update_database_health_metrics()
-            
-            # Generate Prometheus text format
-            output = generate_latest(REGISTRY)
-            return Response(output, mimetype='text/plain; version=0.0.4; charset=utf-8')
-        except Exception as e:
-            logger.error(f"Error generating Prometheus metrics: {e}", exc_info=True)
-            return Response(f"# Error generating metrics: {e}\n", mimetype='text/plain'), 500
+    # Note: PrometheusMetrics already creates /metrics endpoint in app.py
+    # This custom route is disabled to avoid conflict.
+    # The PrometheusMetrics class from prometheus_flask_exporter handles the /metrics endpoint.
+    # If custom metrics updates are needed, they should be called via app.before_request or scheduled tasks.
+    # @app.route("/metrics", methods=["GET"])
+    # def prometheus_metrics():
+    #     """
+    #     Prometheus metrics endpoint (text format).
+    #     
+    #     This endpoint returns all Prometheus metrics in the standard text format
+    #     that Prometheus can scrape. It includes:
+    #     - System metrics (CPU, memory, disk)
+    #     - Redis health metrics
+    #     - Database health metrics
+    #     - Load monitor metrics (from load_monitor.py)
+    #     - product metrics (from structured_logging)
+    #     
+    #     This endpoint should be scraped by Prometheus at regular intervals.
+    #     """
+    #     try:
+    #         # Update system metrics
+    #         _update_system_metrics()
+    #         
+    #         # Update Redis health metrics
+    #         _update_redis_health_metrics()
+    #         
+    #         # Update database health metrics
+    #         _update_database_health_metrics()
+    #         
+    #         # Generate Prometheus text format
+    #         output = generate_latest(REGISTRY)
+    #         return Response(output, mimetype='text/plain; version=0.0.4; charset=utf-8')
+    #     except Exception as e:
+    #         logger.error(f"Error generating Prometheus metrics: {e}", exc_info=True)
+    #         return Response(f"# Error generating metrics: {e}\n", mimetype='text/plain'), 500
 
     @app.route("/api/status", methods=["GET"])
     def status():

@@ -17,7 +17,7 @@ export async function generateInviteCode(data: CreateInviteCodeDataType): Promis
     const response = await api.post(API_ENDPOINTS.USERS_REFCODES, {
       code: data.code || '',
       expires_in_days: data.expires_in_days || 7,
-      game_ids: data.game_ids || [],
+      product_ids: data.product_ids || [],
       rbac_role_ids: data.rbac_role_ids || [],
     })
 

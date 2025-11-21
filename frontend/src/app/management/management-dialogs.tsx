@@ -1,32 +1,43 @@
 import React, { Suspense } from 'react'
 import { useManagementStore } from '@/stores/management-store'
-import type { Game } from '@/entities/game'
+import { useProductDialogs } from '@/hooks/products'
 
-const ViewGameDialog = React.lazy(() =>
-  import('./games').then((module) => ({ default: module.ViewGameDialog }))
+const ViewProductDialog = React.lazy(() =>
+  import('./products').then((module) => ({ default: module.ViewProductDialog }))
 )
 
-interface ManagementDialogsProps {
-  onEditGame: (game: Game) => void
-  onUploadGame: (game: Game) => void
-}
-
-export function ManagementDialogs({ onEditGame, onUploadGame }: ManagementDialogsProps) {
+export function ManagementDialogs() {
   const {
     dialogs,
-    setViewGameDialogOpen,
+    setViewProductDialogOpen,
+    openEditProductDialog,
+    openUploadProductDialog,
   } = useManagementStore()
 
-  const { viewGameDialogOpen, selectedGame } = dialogs
+  const { viewProductDialogOpen, selectedProduct } = dialogs
+
+  const handleEdit = (product: typeof selectedProduct) => {
+    if (product) {
+      openEditProductDialog(product);
+      setViewProductDialogOpen(false);
+    }
+  };
+
+  const handleUpload = (product: typeof selectedProduct) => {
+    if (product) {
+      openUploadProductDialog(product);
+      setViewProductDialogOpen(false);
+    }
+  };
 
   return (
     <Suspense fallback={null}>
-      <ViewGameDialog
-        open={viewGameDialogOpen}
-        onOpenChange={setViewGameDialogOpen}
-        game={selectedGame}
-        onEdit={onEditGame}
-        onUpload={onUploadGame}
+      <ViewProductDialog
+        open={viewProductDialogOpen}
+        onOpenChange={setViewProductDialogOpen}
+        product={selectedProduct}
+        onEdit={handleEdit}
+        onUpload={handleUpload}
       />
     </Suspense>
   )

@@ -13,9 +13,9 @@ from sqlalchemy.orm import joinedload
 
 from ...core.extensions import db
 from ...models.core import User
-from ...models.games import Game
+from ...models.products import Product
 from ...models.keys import DeviceInfo, Key, KeyAnalytics, TokenTransaction
-from ...models.loaders import Loader
+from ...models.agents import Agent
 from ...services.key_generation_service import key_generation_service
 from ...services.key_validation_service import key_validation_service
 from ...services.rbac import rbac_service
@@ -38,8 +38,8 @@ class KeyService:
     def generate_key_string(
         self,
         length: int = 32,
-        game: Optional[Game] = None,
-        loader: Optional[Loader] = None,
+        product: Optional[Product] = None,
+        agent: Optional[Agent] = None,
         duration_hours: Optional[float] = None,
         project_id: Optional[int] = None,
     ) -> str:
@@ -49,8 +49,8 @@ class KeyService:
 
         Args:
             length: Length of the key
-            game: Game object for prefix generation
-            loader: Loader object for prefix generation
+            product: Product object for prefix generation
+            agent: Agent object for prefix generation
             duration_hours: Duration in hours for prefix
             project_id: Project ID for uniqueness check
 
@@ -59,8 +59,8 @@ class KeyService:
         """
         return self.generation_service.generate_key_string(
             length=length,
-            game=game,
-            loader=loader,
+            product=product,
+            agent=agent,
             duration_hours=duration_hours,
             project_id=project_id,
         )
@@ -89,8 +89,8 @@ class KeyService:
                 key_attrs = {
                     "id": key_id,
                     "key": key.key,
-                    "game_id": key.game_id,
-                    "loader_id": key.loader_id,
+                    "product_id": key.product_id,
+                    "agent_id": key.agent_id,
                     "expires_at": key.expires_at,
                     "max_devices": key.max_devices,
                     "duration_hours": key.duration_hours,
@@ -163,28 +163,28 @@ class KeyService:
         if not is_valid:
             return None, error_msg
 
-        game = None
-        loader = None
+        product = None
+        agent = None
 
-        if key_data.get("game_id"):
-            game = Game.query.filter_by(id=key_data["game_id"], project_id=user.project_id).first()
-            if not game:
-                return None, "Game not found or access denied"
+        if key_data.get("product_id"):
+            product = Product.query.filter_by(id=key_data["product_id"], project_id=user.project_id).first()
+            if not product:
+                return None, "Product not found or access denied"
 
-        if key_data.get("loader_id"):
-            loader = Loader.query.filter_by(
-                id=key_data["loader_id"], project_id=user.project_id
+        if key_data.get("agent_id"):
+            agent = Agent.query.filter_by(
+                id=key_data["agent_id"], project_id=user.project_id
             ).first()
-            if not loader:
-                return None, "Loader not found or access denied"
+            if not agent:
+                return None, "Agent not found or access denied"
 
         duration_hours = key_data.get("duration_hours", 24)
         max_devices = key_data.get("max_devices", 1)
 
         key_string = self.generation_service.generate_key_string(
             length=key_data.get("length", 32),
-            game=game,
-            loader=loader,
+            product=product,
+            agent=agent,
             duration_hours=duration_hours,
             project_id=user.project_id,
         )
@@ -196,8 +196,8 @@ class KeyService:
         key = Key(
             key=key_string,
             user_id=user.id,
-            game_id=key_data.get("game_id"),
-            loader_id=key_data.get("loader_id"),
+            product_id=key_data.get("product_id"),
+            agent_id=key_data.get("agent_id"),
             expires_at=expires_at,
             max_devices=max_devices,
             duration_hours=duration_hours,
@@ -223,8 +223,8 @@ class KeyService:
                 "key_value": key.key,
                 "user_id": user.id,
                 "username": user.username,
-                "game_id": key.game_id,
-                "game_name": game.name if game else None,
+                "product_id": key.product_id,
+                "product_name": product.name if product else None,
                 "duration_hours": key.duration_hours,
                 "max_devices": key.max_devices,
                 "expires_at": key.expires_at.isoformat() if key.expires_at else None,
@@ -320,7 +320,7 @@ class KeyService:
                 f"🔍 Getting keys for user {user.id}, project {user.project_id} with filters: {filters}"
             )
 
-            query = Key.query.options(joinedload(Key.game)).filter_by(project_id=user.project_id)
+            query = Key.query.options(joinedload(Key.product)).filter_by(project_id=user.project_id)
 
             my_keys_only = filters.get("my_keys", False)
 
@@ -376,13 +376,13 @@ class KeyService:
             keys = []
             for key in pagination.items:
 
-                game_name = key.game.name if key.game else None
+                product_name = key.product.name if key.product else None
 
                 is_expired = key.expires_at and key.expires_at <= datetime.utcnow()
                 is_active = key.status == 1 and (not key.expires_at or not is_expired)
 
                 self.logger.info(
-                    f"🔑 Key {key.id}: status={key.status}, expires_at={key.expires_at}, is_active={is_active}, game_name={game_name}"
+                    f"🔑 Key {key.id}: status={key.status}, expires_at={key.expires_at}, is_active={is_active}, product_name={product_name}"
                 )
 
                 device_count = 0
@@ -408,8 +408,8 @@ class KeyService:
                         "id": key.id,
                         "key": mask_license_key(key.key),
                         "user_id": key.user_id,
-                        "game_id": key.game_id,
-                        "game_name": game_name,
+                        "product_id": key.product_id,
+                        "product_name": product_name,
                         "expires_at": key.expires_at.isoformat() if key.expires_at else None,
                         "max_devices": key.max_devices,
                         "devices": key.devices,
@@ -555,7 +555,7 @@ class KeyService:
         self,
         user: User,
         count: int,
-        game_id: int,
+        product_id: int,
         duration_hours: float,
         max_devices: int,
     ) -> Tuple[int, Optional[str], Optional[List[Key]]]:
@@ -565,7 +565,7 @@ class KeyService:
         Args:
             user: User creating the keys
             count: Number of keys to create
-            game_id: ID of the game
+            product_id: ID of the product
             duration_hours: Duration in hours
             max_devices: Maximum devices per key
 
@@ -574,11 +574,11 @@ class KeyService:
         """
         try:
 
-            game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
-            if not game:
-                return 0, "Game not found or access denied", None
+            product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+            if not product:
+                return 0, "Product not found or access denied", None
 
-            is_access_code = game.login_type == "classic_login"
+            is_access_code = product.login_type == "classic_login"
             item_type = "access codes" if is_access_code else "license keys"
 
             created_keys = []
@@ -592,7 +592,7 @@ class KeyService:
             for i in range(count):
                 try:
                     key_string = self.generate_key_string(
-                        length=32, game=game, duration_hours=duration_hours, project_id=user.project_id
+                        length=32, product=product, duration_hours=duration_hours, project_id=user.project_id
                     )
 
                     user_roles = RBACManager.get_user_role_names(user)
@@ -611,7 +611,7 @@ class KeyService:
                     key = Key(
                         key=key_string,
                         user_id=user.id,
-                        game_id=game_id,
+                        product_id=product_id,
                         expires_at=expires_at,
                         max_devices=max_devices,
                         duration_hours=duration_hours,
@@ -759,29 +759,29 @@ class KeyService:
             self.logger.error(f"Failed to bulk extend keys by filters: {str(e)}")
             return 0, f"Failed to bulk extend keys by filters: {str(e)}"
 
-    def bulk_pause_keys_by_game(
-        self, user: User, game_id: int
+    def bulk_pause_keys_by_product(
+        self, user: User, product_id: int
     ) -> Tuple[int, Optional[str], Optional[str]]:
         """
-        Bulk pause keys by game
+        Bulk pause keys by product
 
         Args:
             user: User performing the operation
-            game_id: Game ID
+            product_id: Product ID
 
         Returns:
-            Tuple of (affected_count, error_message, game_name)
+            Tuple of (affected_count, error_message, product_name)
         """
         try:
 
-            game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
-            if not game:
-                return 0, "Game not found or access denied", None
+            product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+            if not product:
+                return 0, "Product not found or access denied", None
 
-            keys = Key.query.filter_by(game_id=game_id, project_id=user.project_id).all()
+            keys = Key.query.filter_by(product_id=product_id, project_id=user.project_id).all()
 
             if not keys:
-                return 0, None, game.name
+                return 0, None, product.name
 
             affected_user_ids = set()
             for key in keys:
@@ -796,37 +796,37 @@ class KeyService:
                 update_user_key_counters(user_id, project_id=user.project_id)
             db.session.commit()
 
-            self.logger.info(f"Bulk paused {len(keys)} keys for game {game_id} by user {user.id}")
-            return len(keys), None, game.name
+            self.logger.info(f"Bulk paused {len(keys)} keys for product {product_id} by user {user.id}")
+            return len(keys), None, product.name
 
         except Exception as e:
             db.session.rollback()
-            self.logger.error(f"Failed to bulk pause keys by game: {str(e)}")
+            self.logger.error(f"Failed to bulk pause keys by product: {str(e)}")
             return 0, f"Failed to pause keys: {str(e)}", None
 
-    def bulk_resume_keys_by_game(
-        self, user: User, game_id: int
+    def bulk_resume_keys_by_product(
+        self, user: User, product_id: int
     ) -> Tuple[int, Optional[str], Optional[str]]:
         """
-        Bulk resume keys by game
+        Bulk resume keys by product
 
         Args:
             user: User performing the operation
-            game_id: Game ID
+            product_id: Product ID
 
         Returns:
-            Tuple of (affected_count, error_message, game_name)
+            Tuple of (affected_count, error_message, product_name)
         """
         try:
 
-            game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
-            if not game:
-                return 0, "Game not found or access denied", None
+            product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+            if not product:
+                return 0, "Product not found or access denied", None
 
-            keys = Key.query.filter_by(game_id=game_id, project_id=user.project_id).all()
+            keys = Key.query.filter_by(product_id=product_id, project_id=user.project_id).all()
 
             if not keys:
-                return 0, None, game.name
+                return 0, None, product.name
 
             affected_user_ids = set()
             for key in keys:
@@ -841,37 +841,37 @@ class KeyService:
                 update_user_key_counters(user_id, project_id=user.project_id)
             db.session.commit()
 
-            self.logger.info(f"Bulk resumed {len(keys)} keys for game {game_id} by user {user.id}")
-            return len(keys), None, game.name
+            self.logger.info(f"Bulk resumed {len(keys)} keys for product {product_id} by user {user.id}")
+            return len(keys), None, product.name
 
         except Exception as e:
             db.session.rollback()
-            self.logger.error(f"Failed to bulk resume keys by game: {str(e)}")
+            self.logger.error(f"Failed to bulk resume keys by product: {str(e)}")
             return 0, f"Failed to resume keys: {str(e)}", None
 
-    def bulk_reset_keys_by_game(
-        self, user: User, game_id: int
+    def bulk_reset_keys_by_product(
+        self, user: User, product_id: int
     ) -> Tuple[int, Optional[str], Optional[str]]:
         """
-        Bulk reset keys by game
+        Bulk reset keys by product
 
         Args:
             user: User performing the operation
-            game_id: Game ID
+            product_id: Product ID
 
         Returns:
-            Tuple of (affected_count, error_message, game_name)
+            Tuple of (affected_count, error_message, product_name)
         """
         try:
 
-            game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
-            if not game:
-                return 0, "Game not found or access denied", None
+            product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+            if not product:
+                return 0, "Product not found or access denied", None
 
-            keys = Key.query.filter_by(game_id=game_id, project_id=user.project_id).all()
+            keys = Key.query.filter_by(product_id=product_id, project_id=user.project_id).all()
 
             if not keys:
-                return 0, None, game.name
+                return 0, None, product.name
 
             key_ids = [key.id for key in keys]
 
@@ -884,38 +884,38 @@ class KeyService:
 
             db.session.commit()
 
-            self.logger.info(f"Bulk reset {len(keys)} keys for game {game_id} by user {user.id}")
-            return len(keys), None, game.name
+            self.logger.info(f"Bulk reset {len(keys)} keys for product {product_id} by user {user.id}")
+            return len(keys), None, product.name
 
         except Exception as e:
             db.session.rollback()
-            self.logger.error(f"Failed to bulk reset keys by game: {str(e)}")
+            self.logger.error(f"Failed to bulk reset keys by product: {str(e)}")
             return 0, f"Failed to reset keys: {str(e)}", None
 
-    def bulk_add_hours_by_game(
-        self, user: User, game_id: int, hours: float
+    def bulk_add_hours_by_product(
+        self, user: User, product_id: int, hours: float
     ) -> Tuple[int, Optional[str], Optional[str]]:
         """
-        Bulk add hours to keys by game
+        Bulk add hours to keys by product
 
         Args:
             user: User performing the operation
-            game_id: Game ID
+            product_id: Product ID
             hours: Hours to add
 
         Returns:
-            Tuple of (affected_count, error_message, game_name)
+            Tuple of (affected_count, error_message, product_name)
         """
         try:
 
-            game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
-            if not game:
-                return 0, "Game not found or access denied", None
+            product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+            if not product:
+                return 0, "Product not found or access denied", None
 
-            keys = Key.query.filter_by(game_id=game_id, project_id=user.project_id).all()
+            keys = Key.query.filter_by(product_id=product_id, project_id=user.project_id).all()
 
             if not keys:
-                return 0, None, game.name
+                return 0, None, product.name
 
             for key in keys:
                 if key.expires_at:
@@ -926,13 +926,13 @@ class KeyService:
             db.session.commit()
 
             self.logger.info(
-                f"Bulk added {hours} hours to {len(keys)} keys for game {game_id} by user {user.id}"
+                f"Bulk added {hours} hours to {len(keys)} keys for product {product_id} by user {user.id}"
             )
-            return len(keys), None, game.name
+            return len(keys), None, product.name
 
         except Exception as e:
             db.session.rollback()
-            self.logger.error(f"Failed to bulk add hours by game: {str(e)}")
+            self.logger.error(f"Failed to bulk add hours by product: {str(e)}")
             return 0, f"Failed to add hours: {str(e)}", None
 
     def get_key_stats(self, user: User) -> Dict[str, Any]:
@@ -947,11 +947,11 @@ class KeyService:
             expired_keys = query.filter(Key.expires_at <= datetime.utcnow()).count()
             inactive_keys = query.filter(Key.status == 0).count()
 
-            keys_by_game = (
-                db.session.query(Game.name, func.count(Key.id).label("count"))
-                .join(Key, Game.id == Key.game_id)
+            keys_by_product = (
+                db.session.query(Product.name, func.count(Key.id).label("count"))
+                .join(Key, Product.id == Key.product_id)
                 .filter(Key.project_id == user.project_id)
-                .group_by(Game.id, Game.name)
+                .group_by(Product.id, Product.name)
                 .all()
             )
 
@@ -960,8 +960,8 @@ class KeyService:
                 "active_keys": active_keys,
                 "expired_keys": expired_keys,
                 "inactive_keys": inactive_keys,
-                "keys_by_game": [
-                    {"game_name": name, "count": count} for name, count in keys_by_game
+                "keys_by_product": [
+                    {"product_name": name, "count": count} for name, count in keys_by_product
                 ],
             }
 
@@ -972,22 +972,22 @@ class KeyService:
                 "active_keys": 0,
                 "expired_keys": 0,
                 "inactive_keys": 0,
-                "keys_by_game": [],
+                "keys_by_product": [],
             }
 
     def bulk_delete_unused_loader_keys(
-        self, user: User, loader_id: int
+        self, user: User, agent_id: int
     ) -> Tuple[int, Optional[str]]:
-        """Delete unused loader keys"""
+        """Delete unused agent keys"""
         try:
             keys = Key.query.filter(
-                Key.loader_id == loader_id,
+                Key.agent_id == agent_id,
                 Key.project_id == user.project_id,
                 or_(Key.devices == "", Key.devices.is_(None)),
             ).all()
 
             if not keys:
-                return 0, "No unused loader keys found"
+                return 0, "No unused agent keys found"
 
             if len(keys) > self.max_bulk_operations:
                 return 0, f"Too many keys to delete. Maximum: {self.max_bulk_operations}"
@@ -1005,27 +1005,27 @@ class KeyService:
                 update_user_key_counters(user_id, project_id=user.project_id)
             db.session.commit()
 
-            self.logger.info(f"Bulk deleted {len(keys)} unused loader keys for user {user.id}")
+            self.logger.info(f"Bulk deleted {len(keys)} unused agent keys for user {user.id}")
             return len(keys), None
 
         except Exception as e:
             db.session.rollback()
-            self.logger.error(f"Failed to bulk delete unused loader keys: {str(e)}")
-            return 0, f"Failed to bulk delete unused loader keys: {str(e)}"
+            self.logger.error(f"Failed to bulk delete unused agent keys: {str(e)}")
+            return 0, f"Failed to bulk delete unused agent keys: {str(e)}"
 
     def bulk_delete_expired_loader_keys(
-        self, user: User, loader_id: int
+        self, user: User, agent_id: int
     ) -> Tuple[int, Optional[str]]:
-        """Delete expired loader keys"""
+        """Delete expired agent keys"""
         try:
             keys = Key.query.filter(
-                Key.loader_id == loader_id,
+                Key.agent_id == agent_id,
                 Key.project_id == user.project_id,
                 Key.expires_at <= datetime.utcnow(),
             ).all()
 
             if not keys:
-                return 0, "No expired loader keys found"
+                return 0, "No expired agent keys found"
 
             if len(keys) > self.max_bulk_operations:
                 return 0, f"Too many keys to delete. Maximum: {self.max_bulk_operations}"
@@ -1043,13 +1043,13 @@ class KeyService:
                 update_user_key_counters(user_id, project_id=user.project_id)
             db.session.commit()
 
-            self.logger.info(f"Bulk deleted {len(keys)} expired loader keys for user {user.id}")
+            self.logger.info(f"Bulk deleted {len(keys)} expired agent keys for user {user.id}")
             return len(keys), None
 
         except Exception as e:
             db.session.rollback()
-            self.logger.error(f"Failed to bulk delete expired loader keys: {str(e)}")
-            return 0, f"Failed to bulk delete expired loader keys: {str(e)}"
+            self.logger.error(f"Failed to bulk delete expired agent keys: {str(e)}")
+            return 0, f"Failed to bulk delete expired agent keys: {str(e)}"
 
     def update_key(
         self, user: User, key_id: int, data: Dict[str, Any]
@@ -1421,18 +1421,18 @@ class KeyService:
             if not key:
                 return None, "Key not found or access denied"
 
-            game = Game.query.get(key.game_id) if key.game_id else None
-            if not game:
-                return None, "Game not found"
+            product = Product.query.get(key.product_id) if key.product_id else None
+            if not product:
+                return None, "Product not found"
 
             new_key_string = self.generate_key_string(
-                length=32, game=game, duration_hours=key.duration_hours, project_id=user.project_id
+                length=32, product=product, duration_hours=key.duration_hours, project_id=user.project_id
             )
 
             duplicate_key = Key(
                 key=new_key_string,
                 user_id=key.user_id,
-                game_id=key.game_id,
+                product_id=key.product_id,
                 expires_at=key.expires_at,
                 max_devices=key.max_devices,
                 duration_hours=key.duration_hours,
@@ -1510,9 +1510,9 @@ class KeyService:
             if not key:
                 return None, "Key not found or access denied"
 
-            game = (
-                Game.query.filter_by(id=key.game_id, project_id=user.project_id).first()
-                if key.game_id
+            product = (
+                Product.query.filter_by(id=key.product_id, project_id=user.project_id).first()
+                if key.product_id
                 else None
             )
 
@@ -1547,8 +1547,8 @@ class KeyService:
                 "id": key.id,
                 "key": key_value,
                 "key_masked": not can_view_full_key,
-                "game_id": key.game_id,
-                "game_name": game.name if game else None,
+                "product_id": key.product_id,
+                "product_name": product.name if product else None,
                 "status": key.status,
                 "is_active": key.status == 1
                 and (not key.expires_at or key.expires_at > datetime.utcnow()),
@@ -1590,17 +1590,17 @@ class KeyService:
             if not key:
                 return None, "Key not found or access denied"
 
-            game = (
-                Game.query.filter_by(id=key.game_id, project_id=user.project_id).first()
-                if key.game_id
+            product = (
+                Product.query.filter_by(id=key.product_id, project_id=user.project_id).first()
+                if key.product_id
                 else None
             )
 
             export_data = {
                 "key_id": key.id,
                 "key": key.key,
-                "game_id": key.game_id,
-                "game_name": game.name if game else None,
+                "product_id": key.product_id,
+                "product_name": product.name if product else None,
                 "status": key.status,
                 "is_active": key.status == 1
                 and (not key.expires_at or key.expires_at > datetime.utcnow()),
@@ -1653,9 +1653,9 @@ class KeyService:
 
             key_value = key.key if can_download_full_key else mask_license_key(key.key)
 
-            game = (
-                Game.query.filter_by(id=key.game_id, project_id=user.project_id).first()
-                if key.game_id
+            product = (
+                Product.query.filter_by(id=key.product_id, project_id=user.project_id).first()
+                if key.product_id
                 else None
             )
 
@@ -1663,8 +1663,8 @@ class KeyService:
                 "key_id": key.id,
                 "key": key_value,
                 "key_masked": not can_download_full_key,
-                "game_id": key.game_id,
-                "game_name": game.name if game else None,
+                "product_id": key.product_id,
+                "product_name": product.name if product else None,
                 "status": key.status,
                 "is_active": key.status == 1
                 and (not key.expires_at or key.expires_at > datetime.utcnow()),

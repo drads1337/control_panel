@@ -40,7 +40,7 @@ export interface ConnectionLog {
   created_at: string | null
   details: string | null
   user_agent: string | null
-  game: string
+  product: string
   user_key: string
   serial: string
   reason: string | null

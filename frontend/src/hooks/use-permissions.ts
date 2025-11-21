@@ -19,6 +19,12 @@ import {
   canRemoveRole
 } from '@/lib/rbac-utils'
 
+// SECURITY NOTE: Frontend RBAC checks are for UX ONLY, NOT for security
+// All API endpoints on the backend MUST duplicate these permission checks
+// Attackers can bypass frontend checks by calling APIs directly
+// Never rely on frontend checks for authorization - they are purely cosmetic
+// Backend is the source of truth for all permission checks
+
 export function usePermissions() {
   const { user, isAuthenticated, isInitialized } = useAuthContext()
 

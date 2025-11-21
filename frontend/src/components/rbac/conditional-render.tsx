@@ -1,6 +1,11 @@
 import React from 'react'
 import { usePermissions } from '@/hooks/use-permissions'
 
+// SECURITY WARNING: This component provides UX-only permission-based rendering
+// It does NOT provide security - attackers can bypass this by modifying client code
+// All permission checks MUST be duplicated on the backend for each API endpoint
+// This component is purely for user experience - showing/hiding UI elements
+
 interface ConditionalRenderProps {
   children: React.ReactNode
   fallback?: React.ReactNode

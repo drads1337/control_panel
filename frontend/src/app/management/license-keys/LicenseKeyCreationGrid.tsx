@@ -6,18 +6,18 @@ import { useAuthContext } from '@/contexts/auth-context';
 import { enhancedApi } from '@/shared/api/enhanced-client';
 import { toast } from 'sonner';
 import { createLicenseKey, createCustomLicenseKey, bulkCreateLicenseKeys } from '@/entities/key';
-import { getLoaders } from '@/entities/loader';
+import { getAgents } from '@/entities/agent';
 import { SingleKeyForm } from './components/SingleKeyForm';
 import { CustomKeyForm } from './components/CustomKeyForm';
 import { BulkKeyForm } from './components/BulkKeyForm';
 import { BulkKeyOperationsForm } from './components/BulkKeyOperationsForm';
 
 interface LicenseKeyCreationGridProps {
-  games: Array<{ id: number; name: string; is_multi_app: boolean }>;
+  products: Array<{ id: number; name: string; is_multi_app: boolean }>;
   onKeyCreated: (createdKeyId?: number) => void;
 }
 
-const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, onKeyCreated }) => {
+const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ products, onKeyCreated }) => {
   const { hasPermission } = usePermissions();
   const { user } = useAuthContext();
   const canCreate = hasPermission('keys.create');
@@ -29,69 +29,69 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
     bulk: false,
   });
 
-  const [loaders, setLoaders] = useState<Array<{ id: number; name: string; assigned_games: number[] }>>([]);
-  const [loadersLoading, setLoadersLoading] = useState(false);
+  const [agents, setAgents] = useState<Array<{ id: number; name: string; assigned_products: number[] }>>([]);
+  const [agentsLoading, setAgentsLoading] = useState(false);
 
-  const [userGameAccess, setUserGameAccess] = useState<number[]>([]);
-  const [gameAccessLoading, setGameAccessLoading] = useState(false);
+  const [userProductAccess, setUserProductAccess] = useState<number[]>([]);
+  const [productAccessLoading, setProductAccessLoading] = useState(false);
 
-  const loadUserGameAccess = async () => {
+  const loadUserProductAccess = async () => {
     if (!user?.id) return;
 
     try {
-      setGameAccessLoading(true);
-      // Use universal endpoint - products instead of games
+      setProductAccessLoading(true);
+      // Use universal endpoint - products instead of products
       const response = await enhancedApi.get(`/api/clients/${user.id}/products`);
       if (Array.isArray(response.data)) {
 
-        const accessibleGames = response.data
-          .filter((game: any) => game.has_access === true)
-          .map((game: any) => game.game_id || game.id);
-        setUserGameAccess(accessibleGames);
+        const accessibleProducts = response.data
+          .filter((product: any) => product.has_access === true)
+          .map((product: any) => product.product_id || product.id);
+        setUserProductAccess(accessibleProducts);
       }
     } catch (error: any) {
 
-      setUserGameAccess([]);
+      setUserProductAccess([]);
     } finally {
-      setGameAccessLoading(false);
+      setProductAccessLoading(false);
     }
   };
 
-  const gameLibraryGames = games.filter(game => !game.is_multi_app);
-  const canViewGames = gameLibraryGames.length > 0;
+  const productLibraryProducts = products.filter(product => !product.is_multi_app);
+  const canViewProducts = productLibraryProducts.length > 0;
 
-  const multiAppGames = games.filter(game => game.is_multi_app);
-  const canViewLoaders = multiAppGames.length > 0;
+  const multiAppProducts = products.filter(product => product.is_multi_app);
+  const canViewAgents = multiAppProducts.length > 0;
 
   useEffect(() => {
-    loadLoaders();
-    loadUserGameAccess();
-  }, [user?.id, games.length]);
+    loadAgents();
+    loadUserProductAccess();
+  }, [user?.id, products.length]);
 
-  const loadLoaders = async () => {
+  const loadAgents = async () => {
     try {
-      setLoadersLoading(true);
-      const response = await getLoaders();
+      setAgentsLoading(true);
+      const response = await getAgents();
       if (response.success) {
-        setLoaders(response.loaders.map(loader => ({
-          id: loader.id,
-          name: loader.name,
-          assigned_games: loader.assigned_games || []
+        setAgents(response.agents.map(agent => ({
+          id: agent.id,
+          name: agent.name,
+          assigned_products: agent.assigned_products || []
         })));
       }
     } catch (error) {
 
-      toast.error('Error loading loaders');
+      toast.error('Error loading agents');
     } finally {
-      setLoadersLoading(false);
+      setAgentsLoading(false);
     }
   };
 
   const handleSingleKeySubmit = async (data: {
-    targetType: 'game' | 'loader';
-    gameId?: number;
-    loaderId?: number;
-    selectedGames?: number[];
+    targetType: 'product' | 'agent';
+    productId?: number;
+    agentId?: number;
+    selectedProducts?: number[];
     duration_hours: number;
     max_devices: number;
   }) => {
@@ -103,31 +103,31 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
     setLoading(prev => ({ ...prev, single: true }));
 
     try {
-      if (data.targetType === 'loader') {
-        if (!data.loaderId || !data.selectedGames || data.selectedGames.length === 0) {
-          throw new Error('Please select a loader and at least one game');
+      if (data.targetType === 'agent') {
+        if (!data.agentId || !data.selectedProducts || data.selectedProducts.length === 0) {
+          throw new Error('Please select a agent and at least one product');
         }
 
-        const promises = data.selectedGames.map(gameId =>
+        const promises = data.selectedProducts.map(productId =>
           createLicenseKey({
-            game_id: gameId,
+            product_id: productId,
             duration_hours: data.duration_hours,
             max_devices: data.max_devices
           })
         );
 
         const results = await Promise.all(promises);
-        toast.success(`${data.selectedGames.length} license keys created successfully!`);
+        toast.success(`${data.selectedProducts.length} license keys created successfully!`);
 
         const firstKeyId = results[0]?.key?.id;
         onKeyCreated(firstKeyId);
       } else {
-        if (!data.gameId) {
-          throw new Error('Please select a game');
+        if (!data.productId) {
+          throw new Error('Please select a product');
         }
 
         const result = await createLicenseKey({
-          game_id: data.gameId,
+          product_id: data.productId,
           duration_hours: data.duration_hours,
           max_devices: data.max_devices
         });
@@ -144,10 +144,10 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
   };
 
   const handleCustomKeySubmit = async (data: {
-    targetType: 'game' | 'loader';
-    gameId?: number;
-    loaderId?: number;
-    selectedGames?: number[];
+    targetType: 'product' | 'agent';
+    productId?: number;
+    agentId?: number;
+    selectedProducts?: number[];
     keyName: string;
     duration_hours: number;
     max_devices: number;
@@ -160,29 +160,29 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
     setLoading(prev => ({ ...prev, custom: true }));
 
     try {
-      if (data.targetType === 'loader') {
-        if (!data.loaderId || !data.selectedGames || data.selectedGames.length === 0) {
-          throw new Error('Please select a loader and at least one game');
+      if (data.targetType === 'agent') {
+        if (!data.agentId || !data.selectedProducts || data.selectedProducts.length === 0) {
+          throw new Error('Please select a agent and at least one product');
         }
 
-        const promises = data.selectedGames.map(gameId =>
+        const promises = data.selectedProducts.map(productId =>
           createCustomLicenseKey({
-            game_id: gameId,
+            product_id: productId,
             duration_hours: data.duration_hours,
             max_devices: data.max_devices,
-            custom_key: `${data.keyName}-${Date.now()}-${gameId}`
+            custom_key: `${data.keyName}-${Date.now()}-${productId}`
           })
         );
 
         await Promise.all(promises);
-        toast.success(`${data.selectedGames.length} custom license keys created successfully!`);
+        toast.success(`${data.selectedProducts.length} custom license keys created successfully!`);
       } else {
-        if (!data.gameId) {
-          throw new Error('Please select a game');
+        if (!data.productId) {
+          throw new Error('Please select a product');
         }
 
         const result = await createCustomLicenseKey({
-          game_id: data.gameId,
+          product_id: data.productId,
           duration_hours: data.duration_hours,
           max_devices: data.max_devices,
           custom_key: data.keyName || `CUSTOM-${Date.now()}`
@@ -201,10 +201,10 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
   };
 
   const handleBulkKeySubmit = async (data: {
-    targetType: 'game' | 'loader';
-    gameId?: number;
-    loaderId?: number;
-    selectedGames?: number[];
+    targetType: 'product' | 'agent';
+    productId?: number;
+    agentId?: number;
+    selectedProducts?: number[];
     quantity: number;
     duration_hours: number;
     max_devices: number;
@@ -217,14 +217,14 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
     setLoading(prev => ({ ...prev, bulk: true }));
 
     try {
-      if (data.targetType === 'loader') {
-        if (!data.loaderId || !data.selectedGames || data.selectedGames.length === 0) {
-          throw new Error('Please select a loader and at least one game');
+      if (data.targetType === 'agent') {
+        if (!data.agentId || !data.selectedProducts || data.selectedProducts.length === 0) {
+          throw new Error('Please select a agent and at least one product');
         }
 
-        const promises = data.selectedGames.map(gameId =>
+        const promises = data.selectedProducts.map(productId =>
           bulkCreateLicenseKeys({
-            game_id: gameId,
+            product_id: productId,
             count: data.quantity,
             duration_hours: data.duration_hours,
             max_devices: data.max_devices
@@ -232,15 +232,15 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
         );
 
         await Promise.all(promises);
-        toast.success(`${data.quantity * data.selectedGames.length} keys created successfully!`);
+        toast.success(`${data.quantity * data.selectedProducts.length} keys created successfully!`);
         onKeyCreated();
       } else {
-        if (!data.gameId) {
-          throw new Error('Please select a game');
+        if (!data.productId) {
+          throw new Error('Please select a product');
         }
 
         const result = await bulkCreateLicenseKeys({
-          game_id: data.gameId,
+          product_id: data.productId,
           count: data.quantity,
           duration_hours: data.duration_hours,
           max_devices: data.max_devices
@@ -257,7 +257,7 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
     }
   };
 
-  if (games.length === 0) {
+  if (products.length === 0) {
     return (
       <div className="space-y-6">
         <Card className="border-dashed border-2 border-muted-foreground/25">
@@ -266,9 +266,9 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
               <div className="w-20 h-20 bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl flex items-center justify-center mx-auto mb-6">
                 <Database className="h-10 w-10 text-primary" />
               </div>
-              <h3 className="text-2xl font-semibold mb-3">No Applications Available</h3>
+              <h3 className="text-2xl font-semibold mb-3">No Products Available</h3>
               <p className="text-muted-foreground mb-8 max-w-md mx-auto leading-relaxed">
-                Create your first application to start generating license keys. You can create both regular applications and multi-app applications.
+                Create your first product to start generating license keys. You can create both regular products and multi-app products.
               </p>
             </div>
           </CardContent>
@@ -287,45 +287,45 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ games, 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {}
         <SingleKeyForm
-          games={games}
-          loaders={loaders}
-          loadersLoading={loadersLoading}
+          products={products}
+          agents={agents}
+          agentsLoading={agentsLoading}
           onSubmit={handleSingleKeySubmit}
           loading={loading.single}
-          canViewGames={canViewGames}
-          canViewLoaders={canViewLoaders}
+          canViewProducts={canViewProducts}
+          canViewAgents={canViewAgents}
         />
 
         {}
         <CustomKeyForm
-          games={games}
-          loaders={loaders}
-          loadersLoading={loadersLoading}
+          products={products}
+          agents={agents}
+          agentsLoading={agentsLoading}
           onSubmit={handleCustomKeySubmit}
           loading={loading.custom}
-          canViewGames={canViewGames}
-          canViewLoaders={canViewLoaders}
+          canViewProducts={canViewProducts}
+          canViewAgents={canViewAgents}
         />
 
         {}
         <BulkKeyForm
-          games={games}
-          loaders={loaders}
-          loadersLoading={loadersLoading}
+          products={products}
+          agents={agents}
+          agentsLoading={agentsLoading}
           onSubmit={handleBulkKeySubmit}
           loading={loading.bulk}
-          canViewGames={canViewGames}
-          canViewLoaders={canViewLoaders}
+          canViewProducts={canViewProducts}
+          canViewAgents={canViewAgents}
         />
 
         {}
         <BulkKeyOperationsForm
-          games={games}
-          loaders={loaders}
-          loadersLoading={loadersLoading}
+          products={products}
+          agents={agents}
+          agentsLoading={agentsLoading}
           onOperationComplete={onKeyCreated}
-          canViewGames={canViewGames}
-          canViewLoaders={canViewLoaders}
+          canViewProducts={canViewProducts}
+          canViewAgents={canViewAgents}
         />
       </div>
     </div>

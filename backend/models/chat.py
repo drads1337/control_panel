@@ -9,7 +9,7 @@ from ..utils.rbac_utils import RBACManager
 from ..utils.role_constants import UserRoles
 
 class TelegramBot(db.Model):
-    """Модель для Telegram ботов проектов"""
+    """Model for Telegram bots"""
 
     id = db.Column(db.Integer, primary_key=True)
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=False)
@@ -26,7 +26,7 @@ class TelegramBot(db.Model):
         return f"<TelegramBot {self.bot_username} for project {self.project_id}>"
 
 class DiscordWebhook(db.Model):
-    """Модель для Discord вебхуков проектов"""
+    """Model for Discord webhooks"""
 
     id = db.Column(db.Integer, primary_key=True)
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=False)
@@ -42,7 +42,7 @@ class DiscordWebhook(db.Model):
         return f"<DiscordWebhook {self.name or self.webhook_url} for project {self.project_id}>"
 
 class ChatMessage(db.Model):
-    """Модель для сообщений чата"""
+    """Model for chat messages"""
 
     id = db.Column(db.Integer, primary_key=True)
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=False)
@@ -56,21 +56,21 @@ class ChatMessage(db.Model):
     is_sent_to_telegram = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    game_id = db.Column(db.Integer, db.ForeignKey("game.id"), nullable=True)
-    loader_id = db.Column(db.Integer, db.ForeignKey("loader.id"), nullable=True)
+    product_id = db.Column(db.Integer, db.ForeignKey("product.id"), nullable=True)
+    agent_id = db.Column(db.Integer, db.ForeignKey("agent.id"), nullable=True)
     group_id = db.Column(db.Integer, db.ForeignKey("chat_group.id"), nullable=True)
 
     project = db.relationship("Project", backref="chat_messages")
     sender = db.relationship("User", backref="sent_messages")
-    game = db.relationship("Product", backref="chat_messages", foreign_keys=[game_id])  # Using Product instead of Game
-    loader = db.relationship("Agent", backref="chat_messages", foreign_keys=[loader_id])  # Using Agent instead of Loader
+    product = db.relationship("Product", backref="chat_messages", foreign_keys=[product_id])  # Using Product instead of Product
+    agent = db.relationship("Agent", backref="chat_messages", foreign_keys=[agent_id])  # Using Agent instead of Agent
 
     def __repr__(self):
         return f"<ChatMessage {self.sender_type}:{self.message[:50]}...>"
 
     @property
     def sender_display_name(self):
-        """Получить отображаемое имя отправителя"""
+        """Get the display name of the sender"""
         if self.sender_type == UserRoles.CLIENT.value and self.sender_key:
             return f"Client ({self.sender_key[-4:]})"
         elif self.sender:
@@ -82,7 +82,7 @@ class ChatMessage(db.Model):
             return self.sender_type.title()
 
 class ChatGroup(db.Model):
-    """Групповые чаты: позволяют объединять несколько игр (и при необходимости лоадеров) в один канал"""
+    """Group chats: allow combining multiple products (and optionally agents) into one channel"""
 
     id = db.Column(db.Integer, primary_key=True)
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=False)
@@ -97,19 +97,19 @@ class ChatGroup(db.Model):
     def __repr__(self):
         return f"<ChatGroup {self.name} (project {self.project_id})>"
 
-class ChatGroupGame(db.Model):
-    """Связь игр с группами чатов (многие-ко-многим через явную таблицу)"""
+class ChatGroupProduct(db.Model):
+    """Relationship between products and chat groups (many-to-many through explicit table)"""
 
     id = db.Column(db.Integer, primary_key=True)
     group_id = db.Column(
         db.Integer, db.ForeignKey("chat_group.id", ondelete="CASCADE"), nullable=False
     )
-    game_id = db.Column(db.Integer, db.ForeignKey("game.id", ondelete="CASCADE"), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey("product.id", ondelete="CASCADE"), nullable=False)
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=False)
     added_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    group = db.relationship("ChatGroup", backref="group_games")
-    game = db.relationship("Product", backref="game_groups")  # Using Product instead of Game
-    project = db.relationship("Project", backref="chat_group_games")
+    group = db.relationship("ChatGroup", backref="group_products")
+    product = db.relationship("Product", backref="product_groups")
+    project = db.relationship("Project", backref="chat_group_products")
 
-    __table_args__ = (db.UniqueConstraint("group_id", "game_id", name="uq_group_game"),)
+    __table_args__ = (db.UniqueConstraint("group_id", "product_id", name="uq_group_product"),)

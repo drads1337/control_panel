@@ -62,8 +62,8 @@ def api_connect():
     user_agent = request.headers.get("User-Agent", "")
     logger.info(f"CONNECT_ATTEMPT ip={ip} user_agent={user_agent}")
 
+    # Redis rate limiting check with specific error handling
     try:
-        # Redis rate limiting check
         import redis
         from ...config.config import Config
 
@@ -93,8 +93,16 @@ def api_connect():
             error_response = response_builder.build_error_response("Rate limit exceeded")
             encrypted_response = response_builder.encrypt_response(error_response, True)
             return encrypted_response, 429
+    except (redis.ConnectionError, redis.TimeoutError) as e:
+        # Redis connection issues - log but don't block request
+        # Rate limiting is best-effort, not critical path
+        logger.warning(f"Redis rate limiting unavailable (connection issue): {e}", exc_info=False)
+    except redis.RedisError as e:
+        # Other Redis errors - log but continue
+        logger.warning(f"Redis rate limiting check failed: {e}", exc_info=False)
     except Exception as e:
-        logger.error(f"IP rate limiting check failed: {e}")
+        # Unexpected errors - log with traceback for debugging
+        logger.error(f"Unexpected error in Redis rate limiting: {e}", exc_info=True)
 
     if not request.is_json:
         logger.warning(f"NO_JSON ip={ip}")

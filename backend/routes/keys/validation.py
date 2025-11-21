@@ -9,7 +9,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from ...core.extensions import db
 from ...middleware.auth import require_project_isolation, require_project_with_grace_period
 from ...middleware.validation import validate_request
-from ...models import Game, Key, Project, User
+from ...models import Product, Key, Project, User
 from ...schemas.key import KeyValidateSchema
 from ...services.keys import key_validator
 
@@ -36,7 +36,7 @@ def validate_key(current_user=None, project_id=None, validated_data=None):
     data = validated_data or request.get_json()
     key_value = data.get("key")
     device_id = data.get("device_id")
-    game_id = data.get("game_id")
+    product_id = data.get("product_id")
 
     key = Key.query.filter_by(key=key_value, project_id=current_user.project_id).first()
     if not key:
@@ -67,29 +67,29 @@ def validate_key(current_user=None, project_id=None, validated_data=None):
             )
         return jsonify({"error": error_msg}), 403
 
-    if game_id:
-        if key.game_id and key.game_id != game_id:
-            return jsonify({"error": "Key is not valid for this game"}), 403
+    if product_id:
+        if key.product_id and key.product_id != product_id:
+            return jsonify({"error": "Key is not valid for this product"}), 403
 
-        game = Game.query.filter_by(id=game_id, project_id=current_user.project_id).first()
-        if game:
+        product = Product.query.filter_by(id=product_id, project_id=current_user.project_id).first()
+        if product:
 
-            is_valid, error_msg, game_obj = key_validator.validate_game_access(
-                key, game.name, key.project_id
+            is_valid, error_msg, product_obj = key_validator.validate_product_access(
+                key, product.name, key.project_id
             )
             if not is_valid:
-                if game_obj and game_obj.status in ["inactive", "maintenance"]:
+                if product_obj and product_obj.status in ["inactive", "maintenance"]:
                     return (
                         jsonify(
                             {
                                 "error": (
-                                    "Game Inactive"
-                                    if game_obj.status == "inactive"
-                                    else "Game Maintenance"
+                                    "Product Inactive"
+                                    if product_obj.status == "inactive"
+                                    else "Product Maintenance"
                                 ),
                                 "message": error_msg,
-                                "game_name": game_obj.name,
-                                "game_status": game_obj.status,
+                                "product_name": product_obj.name,
+                                "product_status": product_obj.status,
                             }
                         ),
                         403,

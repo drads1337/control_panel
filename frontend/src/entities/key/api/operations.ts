@@ -44,9 +44,9 @@ export async function duplicateLicenseKey(keyId: number): Promise<{ message: str
   return response.data
 }
 
-export async function moveLicenseKey(keyId: number, gameId: number): Promise<{ message: string }> {
+export async function moveLicenseKey(keyId: number, productId: number): Promise<{ message: string }> {
 
-  const response = await api.post(`${API_ENDPOINTS.KEYS}/${keyId}/move`, { game_id: gameId })
+  const response = await api.post(`${API_ENDPOINTS.KEYS}/${keyId}/move`, { product_id: productId })
   return response.data
 }
 
@@ -73,7 +73,7 @@ export async function getLicenseKeyAnalytics(keyId: number): Promise<{
   summary: {
     total_connections_all_time: number;
     max_unique_devices_all_time: number;
-    games_played: string[];
+    products_played: string[];
     analytics_days_count: number;
     first_analytics_date: string | null;
     last_analytics_date: string | null;
@@ -84,7 +84,7 @@ export async function getLicenseKeyAnalytics(keyId: number): Promise<{
     unique_devices: number;
     total_connection_time: number;
     peak_concurrent: number;
-    games_played: string[];
+    products_played: string[];
     created_at: string | null;
     updated_at: string | null;
   }>;

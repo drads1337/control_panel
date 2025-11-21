@@ -131,7 +131,7 @@ export function DashboardPage({ type }: DashboardPageProps) {
             </Suspense>
             <Suspense fallback={<div className="flex items-center justify-center min-h-[400px]"><Spinner size="lg" message="Loading data table..." /></div>}>
               <DataTable 
-                data={(data as DashboardData)?.top_games || []} 
+                data={(data as DashboardData)?.top_products || []} 
                 announcements={(data as DashboardData)?.announcements || []}
                 topUsers={(data as DashboardData)?.top_users || []}
               />
@@ -173,7 +173,7 @@ export function DashboardPage({ type }: DashboardPageProps) {
                             <div className="flex items-center gap-4 text-sm text-muted-foreground">
                               <span>{project.users_count} users</span>
                               <span>{project.keys_count} keys</span>
-                              <span>{project.games_count} games</span>
+                              <span>{project.products_count} products</span>
                               <span>{project.servers_count} servers</span>
                             </div>
                           </div>

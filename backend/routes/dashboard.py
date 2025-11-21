@@ -9,10 +9,10 @@ from sqlalchemy import and_, desc, func, or_
 from ..core.extensions import db
 from ..middleware.auth import require_project_isolation, require_project_with_grace_period
 from ..models.core import Project, User, UserActivity
-from ..models.games import Announcement, Game, GameKeyPrice
+from ..models.products import Announcement, Product, ProductKeyPrice
 from ..models.keys import Key
 from ..models.servers import Server
-from ..services.monitoring.load_monitor import load_monitor
+from ..services.monitoring.prometheus_metrics_reader import prometheus_metrics_reader
 from ..utils.rbac_utils import RBACManager
 from ..utils.role_constants import UserRoles
 from ..utils.slow_query_monitor import get_slow_query_monitor
@@ -53,7 +53,7 @@ def get_dashboard_stats():
 
             total_users = User.query.filter(User.project_id == project_filter).count()
             total_keys = Key.query.filter(Key.project_id == project_filter).count()
-            total_games = Game.query.filter(Game.project_id == project_filter).count()
+            total_products = Product.query.filter(Product.project_id == project_filter).count()
             total_servers = Server.query.filter(Server.project_id == project_filter).count()
             active_users = User.query.filter(
                 and_(
@@ -68,7 +68,7 @@ def get_dashboard_stats():
 
             total_users = User.query.count()
             total_keys = Key.query.count()
-            total_games = Game.query.count()
+            total_products = Product.query.count()
             total_servers = Server.query.count()
             active_users = User.query.filter(
                 or_(User.expires_at.is_(None), User.expires_at > datetime.utcnow())
@@ -80,41 +80,41 @@ def get_dashboard_stats():
 
         class Stats:
             def __init__(
-                self, total_users, total_keys, total_games, total_servers, active_users, active_keys
+                self, total_users, total_keys, total_products, total_servers, active_users, active_keys
             ):
                 self.total_users = total_users
                 self.total_keys = total_keys
-                self.total_games = total_games
+                self.total_products = total_products
                 self.total_servers = total_servers
                 self.active_users = active_users
                 self.active_keys = active_keys
 
         stats = Stats(
-            total_users, total_keys, total_games, total_servers, active_users, active_keys
+            total_users, total_keys, total_products, total_servers, active_users, active_keys
         )
 
         projects_stats = []
 
         if project_filter:
-            top_games_query = (
-                db.session.query(Game.name, func.count(Key.id).label("key_count"))
-                .outerjoin(Key, and_(Key.game_id == Game.id, Key.project_id == project_filter))
-                .filter(Game.project_id == project_filter)
-                .group_by(Game.id, Game.name)
+            top_products_query = (
+                db.session.query(Product.name, func.count(Key.id).label("key_count"))
+                .outerjoin(Key, and_(Key.product_id == Product.id, Key.project_id == project_filter))
+                .filter(Product.project_id == project_filter)
+                .group_by(Product.id, Product.name)
                 .order_by(desc(func.count(Key.id)))
                 .limit(5)
             )
         else:
 
-            top_games_query = (
-                db.session.query(Game.name, func.count(Key.id).label("key_count"))
-                .outerjoin(Key, Key.game_id == Game.id)
-                .group_by(Game.id, Game.name)
+            top_products_query = (
+                db.session.query(Product.name, func.count(Key.id).label("key_count"))
+                .outerjoin(Key, Key.product_id == Product.id)
+                .group_by(Product.id, Product.name)
                 .order_by(desc(func.count(Key.id)))
                 .limit(5)
             )
 
-        top_games = [{"game": game, "keys": count} for game, count in top_games_query.all()]
+        top_products = [{"product": product, "keys": count} for product, count in top_products_query.all()]
 
         week_ago = datetime.utcnow() - timedelta(days=7)
         if project_filter:
@@ -298,9 +298,9 @@ def get_dashboard_stats():
                     "created_today": new_keys_today,
                     "created_week": new_keys_week,
                 },
-                "games": {
-                    "total": stats.total_games or 0,
-                    "active": stats.total_games or 0,
+                "products": {
+                    "total": stats.total_products or 0,
+                    "active": stats.total_products or 0,
                 },
                 "servers": {
                     "total": stats.total_servers or 0,
@@ -319,7 +319,7 @@ def get_dashboard_stats():
             "project_stats": projects_stats,
             "daily_stats": daily_stats,
             "top_users": top_users,
-            "top_games": top_games,
+            "top_products": top_products,
             "announcements": announcements_data,
         }
 
@@ -917,10 +917,10 @@ def get_load_status():
 
         # Get load status for the project (or all projects for owner)
         if project_filter:
-            load_status = load_monitor.get_all_endpoints_status(project_id=project_filter)
+            load_status = prometheus_metrics_reader.get_all_endpoints_status(project_id=project_filter)
         else:
             # Owner gets overall system status
-            load_status = load_monitor.get_all_endpoints_status(project_id=None)
+            load_status = prometheus_metrics_reader.get_all_endpoints_status(project_id=None)
 
         return jsonify({"status": "success", "data": load_status}), 200
 

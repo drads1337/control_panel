@@ -14,7 +14,7 @@ from sqlalchemy import case, func
 
 from ...core.extensions import db
 from ...middleware.auth import require_project_isolation
-from ...models import Game, Key, User
+from ...models import Product, Key, User
 from ...utils.rbac_utils import RBACManager
 
 analytics_bp = Blueprint("keys_analytics", __name__)
@@ -67,11 +67,11 @@ def get_keys_usage():
 
     monthly_stats.reverse()
 
-    game_stats = (
-        db.session.query(Game.name, func.count(Key.id).label("count"))
-        .join(Key, Game.id == Key.game_id)
-        .filter(Game.project_id == user.project_id)
-        .group_by(Game.id, Game.name)
+    product_stats = (
+        db.session.query(Product.name, func.count(Key.id).label("count"))
+        .join(Key, Product.id == Key.product_id)
+        .filter(Product.project_id == user.project_id)
+        .group_by(Product.id, Product.name)
         .all()
     )
 
@@ -82,7 +82,7 @@ def get_keys_usage():
             "expired_keys": expired_keys,
             "inactive_keys": inactive_keys,
             "monthly_stats": monthly_stats,
-            "keys_by_game": [{"game": game, "count": count} for game, count in game_stats],
+            "keys_by_product": [{"product": product, "count": count} for product, count in product_stats],
         }
     )
 
@@ -113,16 +113,16 @@ def get_keys_analytics():
         .all()
     )
 
-    game_analytics = (
+    product_analytics = (
         db.session.query(
-            Game.name,
+            Product.name,
             func.count(Key.id).label("total_keys"),
             func.avg(Key.max_devices).label("avg_devices"),
             func.avg(Key.duration_hours).label("avg_duration"),
         )
-        .join(Key, Game.id == Key.game_id)
-        .filter(Game.project_id == user.project_id)
-        .group_by(Game.id, Game.name)
+        .join(Key, Product.id == Key.product_id)
+        .filter(Product.project_id == user.project_id)
+        .group_by(Product.id, Product.name)
         .all()
     )
 
@@ -153,14 +153,14 @@ def get_keys_analytics():
             "daily_creation": [
                 {"date": stat.date.isoformat(), "count": stat.count} for stat in daily_stats
             ],
-            "game_analytics": [
+            "product_analytics": [
                 {
-                    "game_name": stat.name,
+                    "product_name": stat.name,
                     "total_keys": stat.total_keys,
                     "avg_devices": round(stat.avg_devices or 0, 2),
                     "avg_duration_hours": round(stat.avg_duration or 0, 2),
                 }
-                for stat in game_analytics
+                for stat in product_analytics
             ],
             "activation_rate": {
                 "total": activation_stats.total,
@@ -216,16 +216,16 @@ def get_key_analytics(key_id):
         analytics_data = []
         total_connections_all_time = 0
         total_unique_devices = 0
-        all_games = set()
+        all_products = set()
 
         for analytic in all_time_analytics:
-            games_list = json.loads(analytic.games_played or "[]")
-            all_games.update(games_list)
+            products_list = json.loads(analytic.products_played or "[]")
+            all_products.update(products_list)
             total_connections_all_time += analytic.total_connections
             total_unique_devices = max(total_unique_devices, analytic.unique_devices)
 
         for analytic in analytics:
-            games_list = json.loads(analytic.games_played or "[]")
+            products_list = json.loads(analytic.products_played or "[]")
 
             analytics_data.append(
                 {
@@ -234,7 +234,7 @@ def get_key_analytics(key_id):
                     "unique_devices": analytic.unique_devices,
                     "total_connection_time": analytic.total_connection_time,
                     "peak_concurrent": analytic.peak_concurrent,
-                    "games_played": games_list,
+                    "products_played": products_list,
                     "created_at": analytic.created_at.isoformat() if analytic.created_at else None,
                     "updated_at": analytic.updated_at.isoformat() if analytic.updated_at else None,
                 }
@@ -243,7 +243,7 @@ def get_key_analytics(key_id):
         summary = {
             "total_connections_all_time": total_connections_all_time,
             "max_unique_devices_all_time": total_unique_devices,
-            "games_played": list(all_games),
+            "products_played": list(all_products),
             "analytics_days_count": len(analytics_data),
             "first_analytics_date": analytics_data[-1]["date"] if analytics_data else None,
             "last_analytics_date": analytics_data[0]["date"] if analytics_data else None,
@@ -268,7 +268,7 @@ def get_keys_stats():
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    from ...services.keys import key_service
+    from ...services.keys.key_service_facade import key_service
 
     stats = key_service.get_key_stats(user)
 
@@ -280,7 +280,7 @@ def get_keys_stats():
                 "active": stats["active_keys"],
                 "expired": stats["expired_keys"],
                 "inactive": stats["inactive_keys"],
-                "keys_by_game": stats["keys_by_game"],
+                "keys_by_product": stats["keys_by_product"],
             },
         }
     )
@@ -300,7 +300,7 @@ def export_keys():
         return jsonify({"error": "User must be assigned to a project"}), 403
 
     status = request.args.get("status")
-    game_id = request.args.get("game_id", type=int)
+    product_id = request.args.get("product_id", type=int)
 
     import csv
     from datetime import datetime
@@ -330,11 +330,11 @@ def export_keys():
         else:
             query = query.filter_by(status=int(status))
 
-    if game_id:
-        game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
-        if not game:
-            return jsonify({"error": "Game not found or access denied"}), 404
-        query = query.filter_by(game_id=game_id)
+    if product_id:
+        product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+        if not product:
+            return jsonify({"error": "Product not found or access denied"}), 404
+        query = query.filter_by(product_id=product_id)
 
     def generate_csv():
         """Generator function to stream CSV data"""
@@ -344,8 +344,8 @@ def export_keys():
         header = [
             "ID",
             "Key",
-            "Game ID",
-            "Game Name",
+            "Product ID",
+            "Product Name",
             "Status",
             "Created At",
             "Expires At",
@@ -370,23 +370,23 @@ def export_keys():
             if not keys_batch:
                 break
 
-            game_ids = [key.game_id for key in keys_batch if key.game_id]
-            games_dict = {}
-            if game_ids:
-                games = Game.query.filter(
-                    Game.id.in_(game_ids), Game.project_id == user.project_id
+            product_ids = [key.product_id for key in keys_batch if key.product_id]
+            products_dict = {}
+            if product_ids:
+                products = Product.query.filter(
+                    Product.id.in_(product_ids), Product.project_id == user.project_id
                 ).all()
-                games_dict = {game.id: game.name for game in games}
+                products_dict = {product.id: product.name for product in products}
 
             for key in keys_batch:
-                key_game_name = games_dict.get(key.game_id, "") if key.game_id else ""
+                key_product_name = products_dict.get(key.product_id, "") if key.product_id else ""
 
                 writer.writerow(
                     [
                         key.id,
                         key.key,
-                        key.game_id or "",
-                        key_game_name,
+                        key.product_id or "",
+                        key_product_name,
                         key.status,
                         key.created_at.isoformat() if key.created_at else "",
                         key.expires_at.isoformat() if key.expires_at else "",

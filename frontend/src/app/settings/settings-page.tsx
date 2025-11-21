@@ -93,7 +93,7 @@ export default function SettingsPage() {
       <div>
         <h2 className="text-2xl font-semibold mb-1">Settings</h2>
         <p className="text-sm text-muted-foreground">
-          Manage application settings and configuration
+          Manage product settings and configuration
         </p>
       </div>
 

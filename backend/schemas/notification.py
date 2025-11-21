@@ -100,11 +100,11 @@ class NotificationBulkCreateSchema(BaseSchema):
             raise ValueError("Message is required")
         return v.strip()
 
-class GameUpdateNotificationSchema(BaseSchema):
-    """Game update notification request schema"""
+class ProductUpdateNotificationSchema(BaseSchema):
+    """Product update notification request schema"""
 
-    game_id: int = Field(..., ge=1, description="Game ID")
-    version: str = Field(..., min_length=1, max_length=50, description="Game version")
+    product_id: int = Field(..., ge=1, description="Product ID")
+    version: str = Field(..., min_length=1, max_length=50, description="Product version")
     message: str = Field(..., min_length=1, max_length=1000, description="Update message")
     type: str = Field(default="info", description="Notification type")
     repeat_count: int = Field(default=1, ge=1, le=10, description="Repeat count")
@@ -119,7 +119,7 @@ class GameUpdateNotificationSchema(BaseSchema):
         return v
 
 class LoaderNotificationCreateSchema(BaseSchema):
-    """Loader notification creation request schema"""
+    """Agent notification creation request schema"""
 
     message: str = Field(..., min_length=1, max_length=1000, description="Notification message")
     type: str = Field(default="info", description="Notification type")

@@ -8,18 +8,18 @@ import { Search, X } from 'lucide-react';
 interface LicenseKeysFiltersProps {
   filters: {
     status: string;
-    gameId: string;
+    productId: string;
     search: string;
   };
-  onFiltersChange: (filters: { status: string; gameId: string; search: string }) => void;
-  games: Array<{ id: number; name: string; is_multi_app: boolean }>;
+  onFiltersChange: (filters: { status: string; productId: string; search: string }) => void;
+  products: Array<{ id: number; name: string; is_multi_app: boolean }>;
   onClearFilters: () => void;
 }
 
 const LicenseKeysFilters: React.FC<LicenseKeysFiltersProps> = ({
   filters,
   onFiltersChange,
-  games,
+  products,
   onClearFilters
 }) => {
   const handleFilterChange = (key: string, value: string) => {
@@ -29,7 +29,7 @@ const LicenseKeysFilters: React.FC<LicenseKeysFiltersProps> = ({
     });
   };
 
-  const hasActiveFilters = filters.status !== 'all' || filters.gameId !== 'all' || filters.search !== '';
+  const hasActiveFilters = filters.status !== 'all' || filters.productId !== 'all' || filters.search !== '';
 
   return (
     <div className="space-y-4">
@@ -51,7 +51,7 @@ const LicenseKeysFilters: React.FC<LicenseKeysFiltersProps> = ({
             <div className="relative ml-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
               <Input
-                placeholder="Search by key, game, or user..."
+                placeholder="Search by key, product, or user..."
                 value={filters.search}
                 onChange={(e) => handleFilterChange('search', e.target.value)}
                 className="pl-10 h-10"
@@ -80,19 +80,19 @@ const LicenseKeysFilters: React.FC<LicenseKeysFiltersProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label className="text-sm font-medium">Game</Label>
+            <Label className="text-sm font-medium">Product</Label>
             <Select
-              value={filters.gameId}
-              onValueChange={(value) => handleFilterChange('gameId', value)}
+              value={filters.productId}
+              onValueChange={(value) => handleFilterChange('productId', value)}
             >
               <SelectTrigger>
-                <SelectValue placeholder="All games" />
+                <SelectValue placeholder="All products" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Games</SelectItem>
-                {games.map((game) => (
-                  <SelectItem key={game.id} value={game.id.toString()}>
-                    {game.name}
+                <SelectItem value="all">All Products</SelectItem>
+                {products.map((product) => (
+                  <SelectItem key={product.id} value={product.id.toString()}>
+                    {product.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -115,13 +115,13 @@ const LicenseKeysFilters: React.FC<LicenseKeysFiltersProps> = ({
                 </Button>
               </div>
             )}
-            {filters.gameId !== 'all' && (
+            {filters.productId !== 'all' && (
               <div className="flex items-center space-x-1 bg-primary/10 text-primary px-2 py-1 rounded-md text-sm">
-                <span>Game: {games.find(g => g.id.toString() === filters.gameId)?.name}</span>
+                <span>Product: {products.find(p => p.id.toString() === filters.productId)?.name}</span>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => handleFilterChange('gameId', 'all')}
+                  onClick={() => handleFilterChange('productId', 'all')}
                   className="h-auto p-0 ml-1"
                 >
                   <X className="h-3 w-3" />

@@ -1,5 +1,5 @@
 import { StatCard } from './stat-card'
-import { Users, Key, Gamepad2, Server, Building2, DollarSign } from 'lucide-react'
+import { Users, Key, Database, Server, Building2, DollarSign } from 'lucide-react'
 import { DashboardData } from '@/hooks/use-dashboard-stats'
 import { OwnerDashboardStats } from '@/hooks/use-owner-dashboard'
 
@@ -34,12 +34,12 @@ export function StatCardsGrid({ data, type }: StatCardsGridProps) {
         }
       },
       {
-        title: 'Applications',
-        value: data.overview.games.total,
-        icon: Gamepad2,
-        subtitle: data.overview.games.active > 0 ? `${data.overview.games.active} active` : 'No games yet',
+        title: 'Products',
+        value: data.overview.products.total,
+        icon: Database,
+        subtitle: data.overview.products.active > 0 ? `${data.overview.products.active} active` : 'No products yet',
         badge: {
-          text: `${data.overview.games.active} active`,
+          text: `${data.overview.products.active} active`,
           color: 'primary' as const
         }
       },

@@ -17,8 +17,8 @@ from werkzeug.utils import secure_filename
 
 from ...core.extensions import db
 from ...models.core import Project, User
-from ...models.games import Game, GameExtraFile, GameFileConfig, GameFileDownload
-from ...models.loaders import Loader
+from ...models.products import Product, ProductExtraFile, ProductFileConfig, ProductFileDownload
+from ...models.agents import Agent
 
 class FileService:
     """Service for handling file management operations"""
@@ -198,12 +198,12 @@ class FileService:
                 upload_folder = self.upload_folder
                 root_path = os.getcwd()
 
-            project_games_path = os.path.join(root_path, upload_folder, "games", str(project_id))
+            project_products_path = os.path.join(root_path, upload_folder, "products", str(project_id))
 
             total_size = 0
 
-            if os.path.exists(project_games_path):
-                for root, dirs, files in os.walk(project_games_path):
+            if os.path.exists(project_products_path):
+                for root, dirs, files in os.walk(project_products_path):
                     for file in files:
                         file_path = os.path.join(root, file)
                         if os.path.isfile(file_path):
@@ -211,16 +211,16 @@ class FileService:
 
             try:
                 configs_size = (
-                    db.session.query(db.func.sum(GameFileConfig.file_size))
-                    .join(Game)
-                    .filter(Game.project_id == project_id)
+                    db.session.query(db.func.sum(ProductFileConfig.file_size))
+                    .join(Product)
+                    .filter(Product.project_id == project_id)
                     .scalar()
                     or 0
                 )
                 extra_files_size = (
-                    db.session.query(db.func.sum(GameExtraFile.file_size))
-                    .join(Game)
-                    .filter(Game.project_id == project_id)
+                    db.session.query(db.func.sum(ProductExtraFile.file_size))
+                    .join(Product)
+                    .filter(Product.project_id == project_id)
                     .scalar()
                     or 0
                 )
@@ -306,7 +306,7 @@ class FileService:
                         "size": file_size,
                         "size_human": self.format_file_size(file_size),
                         "modified": modified_time.isoformat(),
-                        "type": mime_type or "application/octet-stream",
+                        "type": mime_type or "product/octet-stream",
                         "extension": filename.rsplit(".", 1)[1].lower() if "." in filename else "",
                         "path": file_path,
                     }
@@ -385,7 +385,7 @@ class FileService:
                     "size": file_size,
                     "size_human": self.format_file_size(file_size),
                     "hash": file_hash,
-                    "type": mime_type or "application/octet-stream",
+                    "type": mime_type or "product/octet-stream",
                     "uploaded_at": datetime.utcnow().isoformat(),
                 },
                 None,
@@ -572,7 +572,7 @@ class FileService:
                     {
                         "type": "other",
                         "filename": filename,
-                        "mime_type": mime_type or "application/octet-stream",
+                        "mime_type": mime_type or "product/octet-stream",
                         "size": stat.st_size,
                         "size_human": self.format_file_size(stat.st_size),
                         "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
@@ -602,16 +602,16 @@ class FileService:
         self.clear_storage_cache(user.project_id)
         return deleted_count, None
 
-    def get_game_configs(
-        self, user: User, game_id: int
+    def get_product_configs(
+        self, user: User, product_id: int
     ) -> Tuple[Optional[List[Dict[str, Any]]], Optional[str]]:
-        """Get game configs"""
+        """Get product configs"""
         try:
-            game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
-            if not game or game.project_id != user.project_id:
-                return None, "Game not found"
+            product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+            if not product or product.project_id != user.project_id:
+                return None, "Product not found"
 
-            configs = GameFileConfig.query.filter_by(game_id=game_id, is_active=True).all()
+            configs = ProductFileConfig.query.filter_by(product_id=product_id, is_active=True).all()
 
             configs_data = []
             for config in configs:
@@ -638,19 +638,19 @@ class FileService:
 
             return configs_data, None
         except Exception as e:
-            self.logger.error(f"Error getting game configs: {e}")
+            self.logger.error(f"Error getting product configs: {e}")
             return None, f"Failed to fetch configs: {str(e)}"
 
-    def get_game_extra_files(
-        self, user: User, game_id: int
+    def get_product_extra_files(
+        self, user: User, product_id: int
     ) -> Tuple[Optional[List[Dict[str, Any]]], Optional[str]]:
-        """Get game extra files"""
+        """Get product extra files"""
         try:
-            game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
-            if not game or game.project_id != user.project_id:
-                return None, "Game not found"
+            product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+            if not product or product.project_id != user.project_id:
+                return None, "Product not found"
 
-            extra_files = GameExtraFile.query.filter_by(game_id=game_id, is_active=True).all()
+            extra_files = ProductExtraFile.query.filter_by(product_id=product_id, is_active=True).all()
 
             files_data = []
             for file in extra_files:
@@ -672,40 +672,40 @@ class FileService:
 
             return files_data, None
         except Exception as e:
-            self.logger.error(f"Error getting game extra files: {e}")
+            self.logger.error(f"Error getting product extra files: {e}")
             return None, f"Failed to fetch extra files: {str(e)}"
 
-    def get_game_storage_info(
-        self, user: User, game_id: int
+    def get_product_storage_info(
+        self, user: User, product_id: int
     ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
-        """Get storage info for a specific game"""
+        """Get storage info for a specific product"""
         try:
-            game = Game.query.filter_by(id=game_id, project_id=user.project_id).first()
-            if not game or game.project_id != user.project_id:
-                return None, "Game not found"
+            product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+            if not product or product.project_id != user.project_id:
+                return None, "Product not found"
 
             configs_size = (
-                db.session.query(db.func.sum(GameFileConfig.file_size))
-                .filter_by(game_id=game_id)
+                db.session.query(db.func.sum(ProductFileConfig.file_size))
+                .filter_by(product_id=product_id)
                 .scalar()
                 or 0
             )
             extra_files_size = (
-                db.session.query(db.func.sum(GameExtraFile.file_size))
-                .filter_by(game_id=game_id)
+                db.session.query(db.func.sum(ProductExtraFile.file_size))
+                .filter_by(product_id=product_id)
                 .scalar()
                 or 0
             )
             total_size = configs_size + extra_files_size
 
-            configs_count = GameFileConfig.query.filter_by(game_id=game_id).count()
-            extra_files_count = GameExtraFile.query.filter_by(game_id=game_id).count()
+            configs_count = ProductFileConfig.query.filter_by(product_id=product_id).count()
+            extra_files_count = ProductExtraFile.query.filter_by(product_id=product_id).count()
             total_files = configs_count + extra_files_count
 
             return (
                 {
-                    "game_id": game_id,
-                    "game_name": game.name,
+                    "product_id": product_id,
+                    "product_name": product.name,
                     "total_files": total_files,
                     "configs_count": configs_count,
                     "extra_files_count": extra_files_count,
@@ -719,7 +719,7 @@ class FileService:
                 None,
             )
         except Exception as e:
-            self.logger.error(f"Error getting game storage info: {e}")
+            self.logger.error(f"Error getting product storage info: {e}")
             return None, f"Failed to get storage info: {str(e)}"
 
     def get_file_path_for_download(self, filename: str) -> Tuple[Optional[str], Optional[str]]:
@@ -751,22 +751,22 @@ class FileService:
                 return 0
         return 0
 
-    def get_game_file_path(self, game: Game, file_type: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    def get_product_file_path(self, product: Product, file_type: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
         """
-        Get game file path (logo, banner, loader)
+        Get product file path (logo, banner, agent)
 
         Returns:
             Tuple of (file_path, filename, error_message)
         """
-        if file_type == "logo" and game.logo:
-            file_path = os.path.join(self.get_upload_path(), game.logo)
-            filename = f"{game.name}_logo.png"
-        elif file_type == "banner" and game.banner:
-            file_path = os.path.join(self.get_upload_path(), game.banner)
-            filename = f"{game.name}_banner.png"
-        elif file_type == "loader" and game.loader_file:
-            file_path = os.path.join(self.get_upload_path(), game.loader_file)
-            filename = f"{game.name}_loader.exe"
+        if file_type == "logo" and product.logo:
+            file_path = os.path.join(self.get_upload_path(), product.logo)
+            filename = f"{product.name}_logo.png"
+        elif file_type == "banner" and product.banner:
+            file_path = os.path.join(self.get_upload_path(), product.banner)
+            filename = f"{product.name}_banner.png"
+        elif file_type == "agent" and product.loader_file:
+            file_path = os.path.join(self.get_upload_path(), product.loader_file)
+            filename = f"{product.name}_loader.exe"
         else:
             return None, None, "File not found"
 
@@ -775,14 +775,14 @@ class FileService:
 
         return file_path, filename, None
 
-    def delete_game_file(self, game: Game, file_type: str) -> Tuple[bool, Optional[str]]:
+    def delete_product_file(self, product: Product, file_type: str) -> Tuple[bool, Optional[str]]:
         """
-        Delete game file (logo, banner, loader)
+        Delete product file (logo, banner, agent)
 
         Returns:
             Tuple of (success, error_message)
         """
-        file_path, _, error = self.get_game_file_path(game, file_type)
+        file_path, _, error = self.get_product_file_path(product, file_type)
         if error:
             return False, error
 
@@ -791,7 +791,7 @@ class FileService:
             field_to_clear = "logo"
         elif file_type == "banner":
             field_to_clear = "banner"
-        elif file_type == "loader":
+        elif file_type == "agent":
             field_to_clear = "loader_file"
 
         try:
@@ -799,16 +799,16 @@ class FileService:
                 os.remove(file_path)
 
             if field_to_clear:
-                setattr(game, field_to_clear, None)
+                setattr(product, field_to_clear, None)
                 db.session.commit()
 
-            self.clear_storage_cache(game.project_id)
+            self.clear_storage_cache(product.project_id)
             return True, None
         except Exception as e:
-            self.logger.error(f"Error deleting game file: {e}")
+            self.logger.error(f"Error deleting product file: {e}")
             return False, f"Failed to delete file: {str(e)}"
 
-    def create_folder(self, folder_name: str, parent_path: str = "/", game_id: Optional[int] = None) -> Tuple[bool, Optional[str], Optional[Dict[str, Any]]]:
+    def create_folder(self, folder_name: str, parent_path: str = "/", product_id: Optional[int] = None) -> Tuple[bool, Optional[str], Optional[Dict[str, Any]]]:
         """
         Create a folder
 
@@ -819,8 +819,8 @@ class FileService:
             return False, "Folder name is required", None
 
         base_path = self.get_upload_path()
-        if game_id:
-            base_path = os.path.join(base_path, "games", str(game_id))
+        if product_id:
+            base_path = os.path.join(base_path, "products", str(product_id))
 
         folder_path = os.path.join(base_path, parent_path.lstrip("/"), folder_name)
 
@@ -858,9 +858,9 @@ class FileService:
             self.logger.error(f"Error deleting folder: {e}")
             return False, f"Failed to delete folder: {str(e)}"
 
-    def download_game_config(self, config: GameFileConfig, user: User, ip_address: Optional[str] = None, user_agent: Optional[str] = None) -> Tuple[Optional[Any], Optional[str]]:
+    def download_product_config(self, config: ProductFileConfig, user: User, ip_address: Optional[str] = None, user_agent: Optional[str] = None) -> Tuple[Optional[Any], Optional[str]]:
         """
-        Download game config file
+        Download product config file
 
         Returns:
             Tuple of (send_file_response, error_message)
@@ -871,7 +871,7 @@ class FileService:
         try:
             config.download_count += 1
 
-            download_log = GameFileDownload(
+            download_log = ProductFileDownload(
                 file_id=config.id,
                 file_type="config",
                 user_id=user.id,
@@ -883,12 +883,12 @@ class FileService:
 
             return send_file(config.file_path, as_attachment=True, download_name=config.name), None
         except Exception as e:
-            self.logger.error(f"Error downloading game config: {e}")
+            self.logger.error(f"Error downloading product config: {e}")
             return None, f"Failed to download config: {str(e)}"
 
-    def download_game_extra_file(self, extra_file: GameExtraFile) -> Tuple[Optional[Any], Optional[str]]:
+    def download_product_extra_file(self, extra_file: ProductExtraFile) -> Tuple[Optional[Any], Optional[str]]:
         """
-        Download game extra file
+        Download product extra file
 
         Returns:
             Tuple of (send_file_response, error_message)
@@ -904,21 +904,21 @@ class FileService:
                 extra_file.file_path, as_attachment=True, download_name=extra_file.original_filename
             ), None
         except Exception as e:
-            self.logger.error(f"Error downloading game extra file: {e}")
+            self.logger.error(f"Error downloading product extra file: {e}")
             return None, f"Failed to download file: {str(e)}"
 
-    def upload_game_config(
+    def upload_product_config(
         self,
         user: User,
         file,
-        game: Game,
+        product: Product,
         name: str,
         description: str,
         version: str,
         is_public: bool,
     ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         """
-        Upload game config file
+        Upload product config file
 
         Returns:
             Tuple of (config_data, error_message)
@@ -941,7 +941,7 @@ class FileService:
             filename = f"{name_part}_{timestamp}{ext}"
 
             upload_path = os.path.join(
-                self.get_upload_path(), "games", str(game.id), "configs"
+                self.get_upload_path(), "products", str(product.id), "configs"
             )
             if not os.path.exists(upload_path):
                 os.makedirs(upload_path)
@@ -968,9 +968,9 @@ class FileService:
 
             display_name = name if name else file.filename
 
-            config = GameFileConfig(
+            config = ProductFileConfig(
                 config_id=config_id,
-                game_id=game.id,
+                product_id=product.id,
                 name=display_name,
                 description=description,
                 file_path=file_path,
@@ -997,19 +997,19 @@ class FileService:
                 "uploaded_at": config.uploaded_at.isoformat(),
             }, None
         except Exception as e:
-            self.logger.error(f"Error uploading game config: {e}")
-            return None, f"Failed to upload game config: {str(e)}"
+            self.logger.error(f"Error uploading product config: {e}")
+            return None, f"Failed to upload product config: {str(e)}"
 
-    def upload_game_extra_file(
+    def upload_product_extra_file(
         self,
         user: User,
         file,
-        game: Game,
+        product: Product,
         name: str,
         description: str,
     ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         """
-        Upload game extra file
+        Upload product extra file
 
         Returns:
             Tuple of (file_data, error_message)
@@ -1034,7 +1034,7 @@ class FileService:
             unique_filename = f"{name_part}_{timestamp}{ext}"
 
             upload_path = os.path.join(
-                self.get_upload_path(), "games", str(game.id), "extra"
+                self.get_upload_path(), "products", str(product.id), "extra"
             )
             if not os.path.exists(upload_path):
                 os.makedirs(upload_path)
@@ -1056,8 +1056,8 @@ class FileService:
             file_hash = self.get_file_hash(file_path)
             file_type = ext.lstrip(".").lower()
 
-            extra_file = GameExtraFile(
-                game_id=game.id,
+            extra_file = ProductExtraFile(
+                product_id=product.id,
                 name=name or original_filename,
                 original_filename=original_filename,
                 description=description,
@@ -1084,12 +1084,12 @@ class FileService:
                 "uploaded_at": extra_file.uploaded_at.isoformat(),
             }, None
         except Exception as e:
-            self.logger.error(f"Error uploading game extra file: {e}")
-            return None, f"Failed to upload game extra file: {str(e)}"
+            self.logger.error(f"Error uploading product extra file: {e}")
+            return None, f"Failed to upload product extra file: {str(e)}"
 
-    def delete_game_config(self, config: GameFileConfig, user: User) -> Tuple[bool, Optional[str]]:
+    def delete_product_config(self, config: ProductFileConfig, user: User) -> Tuple[bool, Optional[str]]:
         """
-        Delete game config
+        Delete product config
 
         Returns:
             Tuple of (success, error_message)
@@ -1104,12 +1104,12 @@ class FileService:
             self.clear_storage_cache(user.project_id)
             return True, None
         except Exception as e:
-            self.logger.error(f"Error deleting game config: {e}")
-            return False, f"Failed to delete game config: {str(e)}"
+            self.logger.error(f"Error deleting product config: {e}")
+            return False, f"Failed to delete product config: {str(e)}"
 
-    def delete_game_extra_file(self, extra_file: GameExtraFile, user: User) -> Tuple[bool, Optional[str]]:
+    def delete_product_extra_file(self, extra_file: ProductExtraFile, user: User) -> Tuple[bool, Optional[str]]:
         """
-        Delete game extra file
+        Delete product extra file
 
         Returns:
             Tuple of (success, error_message)
@@ -1124,7 +1124,7 @@ class FileService:
             self.clear_storage_cache(user.project_id)
             return True, None
         except Exception as e:
-            self.logger.error(f"Error deleting game extra file: {e}")
-            return False, f"Failed to delete game extra file: {str(e)}"
+            self.logger.error(f"Error deleting product extra file: {e}")
+            return False, f"Failed to delete product extra file: {str(e)}"
 
 file_service = FileService()

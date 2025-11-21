@@ -22,7 +22,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
         fullscreen
         size="xl"
         message="Loading..."
-        description="Please wait while we initialize the application"
+        description="Please wait while we initialize the product"
       />
     )
   }

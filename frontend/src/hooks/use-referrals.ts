@@ -8,7 +8,7 @@ export interface ReferralCode {
   code: string
   expires_days?: number
   work_duration_days?: number
-  game_ids?: number[]
+  product_ids?: number[]
   rbac_role_ids?: number[]
   token_balance?: number
   used?: boolean
@@ -22,7 +22,7 @@ export interface CreateReferralCodeData {
   code: string
   expires_days?: number
   work_duration_days?: number
-  game_ids?: number[]
+  product_ids?: number[]
   rbac_role_ids?: number[]
   token_balance?: number
 }
@@ -71,7 +71,7 @@ export function useCreateReferralCode() {
         expires_days: data.expires_days || 7,
         work_duration_days: data.work_duration_days || 7,
         rbac_role_ids: data.rbac_role_ids || [],
-        game_ids: data.game_ids || [],
+        product_ids: data.product_ids || [],
         token_balance: data.token_balance || 0,
       })
       return response.data

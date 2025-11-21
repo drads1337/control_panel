@@ -9,15 +9,15 @@ export interface FileItem {
   path: string
   modified: string
   status: 'active' | 'inactive' | 'archived'
-  gameId?: number
-  category: 'config' | 'resource' | 'game' | 'other' | 'logo' | 'banner' | 'loader' | 'folder'
+  productId?: number
+  category: 'config' | 'resource' | 'product' | 'other' | 'logo' | 'banner' | 'agent' | 'folder'
   description?: string
   version?: string
   download_count?: number
   rating?: number
 }
 
-export interface GameFileStats {
+export interface ProductFileStats {
   overview: {
     total_configs: number
     total_extra_files: number
@@ -62,5 +62,5 @@ export interface FileStats {
 export interface CreateFolderData {
   name: string
   parent_path?: string
-  game_id?: number
+  product_id?: number
 }

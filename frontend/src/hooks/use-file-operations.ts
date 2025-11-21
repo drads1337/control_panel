@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
-import { uploadGameConfig, uploadGameExtraFile, deleteGameConfig, deleteGameExtraFile, deleteGameFile, downloadGameConfig, downloadGameExtraFile, downloadGameFile } from '@/entities/file';
+import { uploadProductConfig, uploadProductExtraFile, deleteProductConfig, deleteProductExtraFile, deleteProductFile, downloadProductConfig, downloadProductExtraFile, downloadProductFile } from '@/entities/file';
 import { toast } from 'sonner';
-import type { Game } from '@/entities/game';
+import type { Product } from '@/entities/product';
 import type { FileItem } from '@/entities/file';
 
 export interface UploadForm {
@@ -18,7 +18,7 @@ export const useFileOperations = () => {
 
   const handleFileUpload = useCallback(async (
     file: File,
-    game: Game,
+    product: Product,
     form: UploadForm
   ) => {
     setUploading(true);
@@ -26,18 +26,18 @@ export const useFileOperations = () => {
 
     try {
       if (form.category === 'config') {
-        await uploadGameConfig(
+        await uploadProductConfig(
           file,
-          game.id,
+          product.id,
           form.name || file.name,
           form.description,
           form.version,
           form.isPublic
         );
       } else {
-        await uploadGameExtraFile(
+        await uploadProductExtraFile(
           file,
-          game.id,
+          product.id,
           form.name || file.name,
           form.description
         );
@@ -61,19 +61,19 @@ export const useFileOperations = () => {
 
       if (file.category === 'config') {
         const configId = parseInt(file.id.replace('config_', ''));
-        blob = await downloadGameConfig(configId);
+        blob = await downloadProductConfig(configId);
       } else if (file.category === 'resource') {
         const fileId = parseInt(file.id.replace('extra_', ''));
-        const { blob: extraBlob } = await downloadGameExtraFile(fileId);
+        const { blob: extraBlob } = await downloadProductExtraFile(fileId);
         blob = extraBlob;
-      } else if (file.category === 'logo' || file.category === 'banner' || file.category === 'loader') {
-        const gameId = file.gameId;
-        if (!gameId) {
-          toast.error('Не удалось определить ID игры для скачивания файла');
+      } else if (file.category === 'logo' || file.category === 'banner' || file.category === 'agent') {
+        const productId = file.productId;
+        if (!productId) {
+          toast.error('Не удалось определить ID продукта для скачивания файла');
           return;
         }
-        const fileType = file.category as 'logo' | 'banner' | 'loader';
-        blob = await downloadGameFile(gameId, fileType);
+        const fileType = file.category as 'logo' | 'banner' | 'agent';
+        blob = await downloadProductFile(productId, fileType);
       } else {
         toast.error('Неподдерживаемый тип файла для скачивания');
         return;
@@ -105,18 +105,18 @@ export const useFileOperations = () => {
     try {
       if (file.category === 'config') {
         const configId = parseInt(file.id.replace('config_', ''));
-        await deleteGameConfig(configId);
+        await deleteProductConfig(configId);
       } else if (file.category === 'resource') {
         const fileId = parseInt(file.id.replace('extra_', ''));
-        await deleteGameExtraFile(fileId);
-      } else if (file.category === 'logo' || file.category === 'banner' || file.category === 'loader') {
-        const gameId = file.gameId;
-        if (!gameId) {
-          toast.error('Не удалось определить ID игры для удаления файла');
+        await deleteProductExtraFile(fileId);
+      } else if (file.category === 'logo' || file.category === 'banner' || file.category === 'agent') {
+        const productId = file.productId;
+        if (!productId) {
+          toast.error('Не удалось определить ID продукта для удаления файла');
           return false;
         }
-        const fileType = file.category as 'logo' | 'banner' | 'loader';
-        await deleteGameFile(gameId, fileType);
+        const fileType = file.category as 'logo' | 'banner' | 'agent';
+        await deleteProductFile(productId, fileType);
       } else {
         toast.error('Неподдерживаемый тип файла для удаления');
         return false;

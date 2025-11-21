@@ -204,6 +204,10 @@ class Config:
     REDIS_CACHE_PORT = int(os.environ.get("REDIS_CACHE_PORT", os.environ.get("REDIS_PORT", 6379)))
     REDIS_CACHE_DB = int(os.environ.get("REDIS_CACHE_DB", 0))
     REDIS_CACHE_PASSWORD = os.environ.get("REDIS_CACHE_PASSWORD", os.environ.get("REDIS_PASSWORD", None))
+    # SECURITY: TLS support for Redis cache instance
+    REDIS_CACHE_SSL = os.environ.get("REDIS_CACHE_SSL", "false").lower() == "true"
+    REDIS_CACHE_SSL_CERT_REQS = os.environ.get("REDIS_CACHE_SSL_CERT_REQS", "required")  # none, optional, required
+    REDIS_CACHE_SSL_CA_CERTS = os.environ.get("REDIS_CACHE_SSL_CA_CERTS", None)  # Path to CA certificate
     
     # Redis Persistent Instance (persistent, must not lose data)
     # Used for: sessions, queues (Celery), rate limiting, dynamic config, analytics
@@ -211,6 +215,11 @@ class Config:
     REDIS_PERSISTENT_PORT = int(os.environ.get("REDIS_PERSISTENT_PORT", os.environ.get("REDIS_PORT", 6379)))
     REDIS_PERSISTENT_DB = int(os.environ.get("REDIS_PERSISTENT_DB", 0))
     REDIS_PERSISTENT_PASSWORD = os.environ.get("REDIS_PERSISTENT_PASSWORD", os.environ.get("REDIS_PASSWORD", None))
+    # SECURITY: TLS support for Redis persistent instance (CRITICAL for production)
+    # In production, Redis should use TLS encryption to protect sensitive data (sessions, tokens, configs)
+    REDIS_PERSISTENT_SSL = os.environ.get("REDIS_PERSISTENT_SSL", "false").lower() == "true"
+    REDIS_PERSISTENT_SSL_CERT_REQS = os.environ.get("REDIS_PERSISTENT_SSL_CERT_REQS", "required")  # none, optional, required
+    REDIS_PERSISTENT_SSL_CA_CERTS = os.environ.get("REDIS_PERSISTENT_SSL_CA_CERTS", None)  # Path to CA certificate
     
     # Backward compatibility: default Redis config (uses persistent instance)
     REDIS_HOST = REDIS_PERSISTENT_HOST
@@ -397,20 +406,20 @@ class Config:
     MAX_AVATAR_HEIGHT = int(os.environ.get("MAX_AVATAR_HEIGHT", 300))
     MAX_AVATAR_DIMENSIONS = (MAX_AVATAR_WIDTH, MAX_AVATAR_HEIGHT)
 
-    _game_extensions_str = os.environ.get(
-        "ALLOWED_GAME_FILE_EXTENSIONS",
+    _product_extensions_str = os.environ.get(
+        "ALLOWED_PRODUCT_FILE_EXTENSIONS",
         '{"logo": "png,jpg,jpeg,gif", "banner": "png,jpg,jpeg,gif", "background": "png,jpg,jpeg,gif", "file": "exe,apk,xapk,so,dmg,deb,rpm,zip,rar,7z,tar,gz,bin,iso,msi,pkg,app,dll,jar,war,ear,py,js,html,css,json,xml,txt,md,pdf,doc,docx,xls,xlsx,ppt,pptx"}'
     )
     try:
         import json
-        _game_extensions_dict = json.loads(_game_extensions_str)
-        ALLOWED_GAME_FILE_EXTENSIONS = {
+        _product_extensions_dict = json.loads(_product_extensions_str)
+        ALLOWED_PRODUCT_FILE_EXTENSIONS = {
             k: set(v.split(",")) if isinstance(v, str) else set(v)
-            for k, v in _game_extensions_dict.items()
+            for k, v in _product_extensions_dict.items()
         }
     except (json.JSONDecodeError, AttributeError):
 
-        ALLOWED_GAME_FILE_EXTENSIONS = {
+        ALLOWED_PRODUCT_FILE_EXTENSIONS = {
             "logo": {"png", "jpg", "jpeg", "gif"},
             "banner": {"png", "jpg", "jpeg", "gif"},
             "background": {"png", "jpg", "jpeg", "gif"},

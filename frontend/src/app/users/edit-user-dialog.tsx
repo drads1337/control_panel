@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { enhancedApi, getErrorMessage } from '@/shared/api/enhanced-client';
 import { updateUser } from '@/entities/user/api/user';
-import { getGames } from '@/entities/game/api/game';
+import { getProducts } from '@/entities/product/api/product';
 import { toast } from 'sonner';
 import type { User } from '@/entities/user';
 
@@ -22,7 +22,7 @@ interface Role {
   updated_at?: string;
 }
 
-interface Game {
+interface Product {
   id: number;
   name: string;
   description: string | null;
@@ -52,23 +52,23 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
     email: '',
     token_balance: 0,
     work_duration_days: 7,
-    selected_games: [] as number[],
+    selected_products: [] as number[],
     selected_rbac_role: null as number | null,
     selected_permissions: [] as string[]
   });
 
   const [loading, setLoading] = useState(false);
   const [rbacLoading, setRbacLoading] = useState(false);
-  const [gamesLoading, setGamesLoading] = useState(false);
+  const [productsLoading, setProductsLoading] = useState(false);
   const [permissionsLoading, setPermissionsLoading] = useState(false);
   const [userLoading, setUserLoading] = useState(false);
 
   const [rbacError, setRbacError] = useState<string | null>(null);
-  const [gamesError, setGamesError] = useState<string | null>(null);
+  const [productsError, setProductsError] = useState<string | null>(null);
   const [permissionsError, setPermissionsError] = useState<string | null>(null);
 
   const [roles, setRoles] = useState<Role[]>([]);
-  const [games, setGames] = useState<Game[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [availablePermissions, setAvailablePermissions] = useState<Permission>({});
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
@@ -94,24 +94,24 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
     }
   }, []);
 
-  const loadGames = useCallback(async (): Promise<Game[]> => {
+  const loadProducts = useCallback(async (): Promise<Product[]> => {
     try {
-      setGamesLoading(true);
-      setGamesError(null);
+      setProductsLoading(true);
+      setProductsError(null);
 
       // Use universal API function - it uses /api/products endpoint
-      const response = await getGames('all');
-      const gamesData = response.games || response.products || [];
-      setGames(gamesData);
-      return gamesData;
+      const response = await getProducts('all');
+      const productsData = response.products || [];
+      setProducts(productsData);
+      return productsData;
     } catch (error) {
 
       const errorMessage = getErrorMessage(error);
-      setGamesError(errorMessage);
-      toast.error(`Failed to load games: ${errorMessage}`);
+      setProductsError(errorMessage);
+      toast.error(`Failed to load products: ${errorMessage}`);
       return [];
     } finally {
-      setGamesLoading(false);
+      setProductsLoading(false);
     }
   }, []);
 
@@ -157,15 +157,15 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
     }
   }, []);
 
-  const loadUserGameAccess = useCallback(async (userId: number): Promise<number[]> => {
+  const loadUserProductAccess = useCallback(async (userId: number): Promise<number[]> => {
     try {
-      // Use universal endpoint - products instead of games
+      // Use universal endpoint - products instead of products
       const response = await enhancedApi.get(`/api/clients/${userId}/products`);
       if (Array.isArray(response.data)) {
 
         return response.data
-          .filter((game: any) => game.has_access === true)
-          .map((game: any) => game.game_id || game.id);
+          .filter((product: any) => product.has_access === true)
+          .map((product: any) => product.product_id || product.id);
       }
       return [];
     } catch (error: any) {
@@ -194,11 +194,11 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
 
     Promise.all([
       loadRoles(),
-      loadGames(),
+      loadProducts(),
       loadPermissions(),
       loadUserPermissions(user.id),
-      loadUserGameAccess(user.id)
-    ]).then(([loadedRoles, , , userPermissions, userGameAccess]) => {
+      loadUserProductAccess(user.id)
+    ]).then(([loadedRoles, , , userPermissions, userProductAccess]) => {
 
       if (lastLoadedUserIdRef.current !== user.id) {
         return;
@@ -241,7 +241,7 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
         email: user.email || '',
         token_balance: user.token_balance || 0,
         work_duration_days: workDurationDays,
-        selected_games: userGameAccess,
+        selected_products: userProductAccess,
         selected_rbac_role: userRoleId,
         selected_permissions: initialPermissions
       });
@@ -253,7 +253,7 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
       }
       setUserLoading(false);
     });
-  }, [user?.id, open, loadRoles, loadGames, loadPermissions, loadUserPermissions, loadUserGameAccess]);
+  }, [user?.id, open, loadRoles, loadProducts, loadPermissions, loadUserPermissions, loadUserProductAccess]);
 
   useEffect(() => {
     if (!open) {
@@ -263,13 +263,13 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
         email: '',
         token_balance: 0,
         work_duration_days: 7,
-        selected_games: [],
+        selected_products: [],
         selected_rbac_role: null,
         selected_permissions: []
       });
       setCurrentUser(null);
       setRbacError(null);
-      setGamesError(null);
+      setProductsError(null);
       setPermissionsError(null);
       lastLoadedUserIdRef.current = null;
     }
@@ -331,26 +331,26 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
 
       try {
 
-        const currentGameAccess = await loadUserGameAccess(currentUser.id);
-        const currentGameSet = new Set(currentGameAccess);
-        const newGameSet = new Set(form.selected_games || []);
+        const currentProductAccess = await loadUserProductAccess(currentUser.id);
+        const currentProductSet = new Set(currentProductAccess);
+        const newProductSet = new Set(form.selected_products || []);
 
-        const gamesToAdd = form.selected_games.filter(gameId => !currentGameSet.has(gameId));
-        const gamesToRemove = currentGameAccess.filter(gameId => !newGameSet.has(gameId));
+        const productsToAdd = form.selected_products.filter(productId => !currentProductSet.has(productId));
+        const productsToRemove = currentProductAccess.filter(productId => !newProductSet.has(productId));
 
-        for (const gameId of gamesToAdd) {
+        for (const productId of productsToAdd) {
           try {
-            // Use universal endpoint - products instead of games
-            await enhancedApi.post(`/api/clients/${currentUser.id}/products/${gameId}/toggle`);
+            // Use universal endpoint - products instead of products
+            await enhancedApi.post(`/api/clients/${currentUser.id}/products/${productId}/toggle`);
           } catch (error) {
 
           }
         }
 
-        for (const gameId of gamesToRemove) {
+        for (const productId of productsToRemove) {
           try {
-            // Use universal endpoint - products instead of games
-            await enhancedApi.post(`/api/clients/${currentUser.id}/products/${gameId}/toggle`);
+            // Use universal endpoint - products instead of products
+            await enhancedApi.post(`/api/clients/${currentUser.id}/products/${productId}/toggle`);
           } catch (error) {
 
           }
@@ -358,7 +358,7 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
       } catch (error) {
 
         const errorMessage = getErrorMessage(error);
-        toast.warning(`User updated but failed to update application access: ${errorMessage}`);
+        toast.warning(`User updated but failed to update product access: ${errorMessage}`);
       }
 
       try {
@@ -547,46 +547,46 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label>Application Access</Label>
+            <Label>Product Access</Label>
             <p className="text-xs text-muted-foreground mb-2">
-              Select games this user has access to
+              Select products this user has access to
             </p>
-            {gamesLoading ? (
-              <div className="text-sm text-muted-foreground">Loading games...</div>
-            ) : gamesError ? (
-              <div className="text-sm text-red-500">Error loading games: {gamesError}</div>
+            {productsLoading ? (
+              <div className="text-sm text-muted-foreground">Loading products...</div>
+            ) : productsError ? (
+              <div className="text-sm text-red-500">Error loading products: {productsError}</div>
             ) : (
               <div className="max-h-[150px] overflow-y-auto border rounded-md p-2 space-y-2">
-                {games.length === 0 ? (
-                  <div className="text-sm text-muted-foreground text-center py-4">No games available</div>
+                {products.length === 0 ? (
+                  <div className="text-sm text-muted-foreground text-center py-4">No products available</div>
                 ) : (
-                  games.map((game) => {
-                    const hasAccess = form.selected_games.includes(game.id);
+                  products.map((product) => {
+                    const hasAccess = form.selected_products.includes(product.id);
                     return (
-                      <div key={game.id} className="flex items-center space-x-2">
+                      <div key={product.id} className="flex items-center space-x-2">
                         <Checkbox
-                          id={`game-${game.id}`}
+                          id={`product-${product.id}`}
                           checked={hasAccess}
                           onCheckedChange={(checked) => {
                             if (checked) {
                               setForm({
                                 ...form,
-                                selected_games: [...form.selected_games, game.id]
+                                selected_products: [...form.selected_products, product.id]
                               })
                             } else {
                               setForm({
                                 ...form,
-                                selected_games: form.selected_games.filter(id => id !== game.id)
+                                selected_products: form.selected_products.filter(id => id !== product.id)
                               })
                             }
                           }}
                           disabled={loading}
                         />
-                        <Label htmlFor={`game-${game.id}`} className="text-sm cursor-pointer flex-1">
+                        <Label htmlFor={`product-${product.id}`} className="text-sm cursor-pointer flex-1">
                           <div className="flex items-center justify-between">
                             <div>
-                              <div className="font-medium">{game.name}</div>
-                              <div className="text-xs text-muted-foreground">{game.description || 'No description'}</div>
+                              <div className="font-medium">{product.name}</div>
+                              <div className="text-xs text-muted-foreground">{product.description || 'No description'}</div>
                             </div>
                             {hasAccess && (
                               <span className="text-xs text-green-600 font-medium ml-2">✓ Access</span>

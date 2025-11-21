@@ -522,7 +522,7 @@ def get_webhook_events():
             "keys": [e for e in events if e.startswith("key.")],
             "users": [e for e in events if e.startswith("user.")],
             "projects": [e for e in events if e.startswith("project.")],
-            "games": [e for e in events if e.startswith("game.")],
+            "products": [e for e in events if e.startswith("product.")],
             "security": [e for e in events if e.startswith("security.")],
             "payments": [e for e in events if e.startswith("payment.")],
             "system": [e for e in events if e.startswith("system.")],

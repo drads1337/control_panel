@@ -31,7 +31,7 @@ test.describe('Key Creation Flow', () => {
       await createButton.click()
       
       // Check for form fields
-      await expect(page.getByLabel(/game|title|name/i).first()).toBeVisible({
+      await expect(page.getByLabel(/product|title|name/i).first()).toBeVisible({
         timeout: 5000,
       })
     }

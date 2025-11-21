@@ -18,7 +18,7 @@ export interface DashboardData {
       created_today: number
       created_week: number
     }
-    games: {
+    products: {
       total: number
       active: number
     }
@@ -44,8 +44,8 @@ export interface DashboardData {
     username: string
     activities: number
   }>
-  top_games: Array<{
-    game: string
+  top_products: Array<{
+    product: string
     keys: number
   }>
   announcements: Array<{

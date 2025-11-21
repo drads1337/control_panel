@@ -1,37 +1,85 @@
 import { create } from 'zustand'
 import { produce } from 'immer'
-import type { Game } from '@/entities/game'
+import type { Product } from '@/entities/product'
+
+// Backward compatibility type alias
+type Product = Product
 
 interface ManagementState {
   activeTab: string
   dialogs: {
-    viewGameDialogOpen: boolean
-    selectedGame: Game | null
-    createGameDialogRequested: boolean
-    createLoaderDialogRequested: boolean
+    // Product/Product dialogs
+    viewProductDialogOpen: boolean
+    selectedProduct: Product | null
+    createProductDialogRequested: boolean
+    editProductDialogOpen: boolean
+    uploadProductDialogOpen: boolean
+    pricesProductDialogOpen: boolean
+    notificationsProductDialogOpen: boolean
+    changelogProductDialogOpen: boolean
+    // Agent dialogs
+    createAgentDialogRequested: boolean
+    // Backward compatibility
+    viewProductDialogOpen: boolean
+    selectedProduct: Product | null
+    createProductDialogRequested: boolean
   }
 }
 
 interface ManagementActions {
   setActiveTab: (tab: string) => void
-  openViewGameDialog: (game: Game) => void
-  closeViewGameDialog: () => void
-  setViewGameDialogOpen: (open: boolean) => void
-  requestCreateGameDialog: () => void
-  clearCreateGameDialogRequest: () => void
-  setCreateGameDialogRequested: (requested: boolean) => void
-  requestCreateLoaderDialog: () => void
-  clearCreateLoaderDialogRequest: () => void
-  setCreateLoaderDialogRequested: (requested: boolean) => void
+  
+  // Product dialog actions
+  openViewProductDialog: (product: Product) => void
+  closeViewProductDialog: () => void
+  setViewProductDialogOpen: (open: boolean) => void
+  requestCreateProductDialog: () => void
+  clearCreateProductDialogRequest: () => void
+  setCreateProductDialogRequested: (requested: boolean) => void
+  openEditProductDialog: (product: Product) => void
+  closeEditProductDialog: () => void
+  openUploadProductDialog: (product: Product) => void
+  closeUploadProductDialog: () => void
+  openPricesProductDialog: (product: Product) => void
+  closePricesProductDialog: () => void
+  openNotificationsProductDialog: (product: Product) => void
+  closeNotificationsProductDialog: () => void
+  openChangelogProductDialog: (product: Product) => void
+  closeChangelogProductDialog: () => void
+  closeAllProductDialogs: () => void
+  
+  // Agent dialog actions
+  requestCreateAgentDialog: () => void
+  clearCreateAgentDialogRequest: () => void
+  setCreateAgentDialogRequested: (requested: boolean) => void
+  
+  // Backward compatibility actions
+  openViewProductDialog: (product: Product) => void
+  closeViewProductDialog: () => void
+  setViewProductDialogOpen: (open: boolean) => void
+  requestCreateProductDialog: () => void
+  clearCreateProductDialogRequest: () => void
+  setCreateProductDialogRequested: (requested: boolean) => void
 }
 
 const initialState: ManagementState = {
   activeTab: 'license-keys',
   dialogs: {
-    viewGameDialogOpen: false,
-    selectedGame: null,
-    createGameDialogRequested: false,
-    createLoaderDialogRequested: false
+    // Product dialogs
+    viewProductDialogOpen: false,
+    selectedProduct: null,
+    createProductDialogRequested: false,
+    editProductDialogOpen: false,
+    uploadProductDialogOpen: false,
+    pricesProductDialogOpen: false,
+    notificationsProductDialogOpen: false,
+    changelogProductDialogOpen: false,
+    // Agent dialogs
+    createAgentDialogRequested: false,
+    // Backward compatibility
+    viewProductDialogOpen: false,
+    selectedProduct: null,
+    createProductDialogRequested: false,
   }
 }
 
@@ -40,66 +88,220 @@ export const useManagementStore = create<ManagementState & ManagementActions>((s
 
   setActiveTab: (tab) => set({ activeTab: tab }),
 
-  openViewGameDialog: (game) => set(
+  // Product dialog actions
+  openViewProductDialog: (product) => set(
     produce((state: ManagementState) => {
-      state.dialogs.viewGameDialogOpen = true
-      state.dialogs.selectedGame = game
-      state.dialogs.createGameDialogRequested = false
-      state.dialogs.createLoaderDialogRequested = false
+      state.dialogs.viewProductDialogOpen = true
+      state.dialogs.selectedProduct = product
+      state.dialogs.createProductDialogRequested = false
+      // Backward compatibility
+      state.dialogs.viewProductDialogOpen = true
+      state.dialogs.selectedProduct = product
+      state.dialogs.createProductDialogRequested = false
     })
   ),
 
-  closeViewGameDialog: () => set(
+  closeViewProductDialog: () => set(
     produce((state: ManagementState) => {
-      state.dialogs.viewGameDialogOpen = false
-      state.dialogs.selectedGame = null
-      state.dialogs.createGameDialogRequested = false
-      state.dialogs.createLoaderDialogRequested = false
+      state.dialogs.viewProductDialogOpen = false
+      state.dialogs.selectedProduct = null
+      // Backward compatibility
+      state.dialogs.viewProductDialogOpen = false
+      state.dialogs.selectedProduct = null
     })
   ),
 
-  setViewGameDialogOpen: (open) => set(
+  setViewProductDialogOpen: (open) => set(
     produce((state: ManagementState) => {
-      state.dialogs.viewGameDialogOpen = open
+      state.dialogs.viewProductDialogOpen = open
       if (!open) {
-        state.dialogs.selectedGame = null
+        state.dialogs.selectedProduct = null
+      }
+      // Backward compatibility
+      state.dialogs.viewProductDialogOpen = open
+      if (!open) {
+        state.dialogs.selectedProduct = null
       }
     })
   ),
 
-  requestCreateGameDialog: () => set(
+  requestCreateProductDialog: () => set(
     produce((state: ManagementState) => {
-      state.dialogs.createGameDialogRequested = true
+      state.dialogs.createProductDialogRequested = true
+      // Backward compatibility
+      state.dialogs.createProductDialogRequested = true
     })
   ),
 
-  clearCreateGameDialogRequest: () => set(
+  clearCreateProductDialogRequest: () => set(
     produce((state: ManagementState) => {
-      state.dialogs.createGameDialogRequested = false
+      state.dialogs.createProductDialogRequested = false
+      // Backward compatibility
+      state.dialogs.createProductDialogRequested = false
     })
   ),
 
-  setCreateGameDialogRequested: (requested) => set(
+  setCreateProductDialogRequested: (requested) => set(
     produce((state: ManagementState) => {
-      state.dialogs.createGameDialogRequested = requested
+      state.dialogs.createProductDialogRequested = requested
+      // Backward compatibility
+      state.dialogs.createProductDialogRequested = requested
     })
   ),
 
-  requestCreateLoaderDialog: () => set(
+  openEditProductDialog: (product) => set(
     produce((state: ManagementState) => {
-      state.dialogs.createLoaderDialogRequested = true
+      state.dialogs.editProductDialogOpen = true
+      state.dialogs.selectedProduct = product
     })
   ),
 
-  clearCreateLoaderDialogRequest: () => set(
+  closeEditProductDialog: () => set(
     produce((state: ManagementState) => {
-      state.dialogs.createLoaderDialogRequested = false
+      state.dialogs.editProductDialogOpen = false
+      state.dialogs.selectedProduct = null
     })
   ),
 
-  setCreateLoaderDialogRequested: (requested) => set(
+  openUploadProductDialog: (product) => set(
     produce((state: ManagementState) => {
-      state.dialogs.createLoaderDialogRequested = requested
+      state.dialogs.uploadProductDialogOpen = true
+      state.dialogs.selectedProduct = product
     })
-  )
+  ),
+
+  closeUploadProductDialog: () => set(
+    produce((state: ManagementState) => {
+      state.dialogs.uploadProductDialogOpen = false
+      state.dialogs.selectedProduct = null
+    })
+  ),
+
+  openPricesProductDialog: (product) => set(
+    produce((state: ManagementState) => {
+      state.dialogs.pricesProductDialogOpen = true
+      state.dialogs.selectedProduct = product
+    })
+  ),
+
+  closePricesProductDialog: () => set(
+    produce((state: ManagementState) => {
+      state.dialogs.pricesProductDialogOpen = false
+      state.dialogs.selectedProduct = null
+    })
+  ),
+
+  openNotificationsProductDialog: (product) => set(
+    produce((state: ManagementState) => {
+      state.dialogs.notificationsProductDialogOpen = true
+      state.dialogs.selectedProduct = product
+    })
+  ),
+
+  closeNotificationsProductDialog: () => set(
+    produce((state: ManagementState) => {
+      state.dialogs.notificationsProductDialogOpen = false
+      state.dialogs.selectedProduct = null
+    })
+  ),
+
+  openChangelogProductDialog: (product) => set(
+    produce((state: ManagementState) => {
+      state.dialogs.changelogProductDialogOpen = true
+      state.dialogs.selectedProduct = product
+    })
+  ),
+
+  closeChangelogProductDialog: () => set(
+    produce((state: ManagementState) => {
+      state.dialogs.changelogProductDialogOpen = false
+      state.dialogs.selectedProduct = null
+    })
+  ),
+
+  closeAllProductDialogs: () => set(
+    produce((state: ManagementState) => {
+      state.dialogs.viewProductDialogOpen = false
+      state.dialogs.editProductDialogOpen = false
+      state.dialogs.uploadProductDialogOpen = false
+      state.dialogs.pricesProductDialogOpen = false
+      state.dialogs.notificationsProductDialogOpen = false
+      state.dialogs.changelogProductDialogOpen = false
+      state.dialogs.selectedProduct = null
+      // Backward compatibility
+      state.dialogs.viewProductDialogOpen = false
+      state.dialogs.selectedProduct = null
+    })
+  ),
+
+  // Agent dialog actions
+  requestCreateAgentDialog: () => set(
+    produce((state: ManagementState) => {
+      state.dialogs.createAgentDialogRequested = true
+    })
+  ),
+
+  clearCreateAgentDialogRequest: () => set(
+    produce((state: ManagementState) => {
+      state.dialogs.createAgentDialogRequested = false
+    })
+  ),
+
+  setCreateAgentDialogRequested: (requested) => set(
+    produce((state: ManagementState) => {
+      state.dialogs.createAgentDialogRequested = requested
+    })
+  ),
+
+  // Backward compatibility actions
+  openViewProductDialog: (product) => set(
+    produce((state: ManagementState) => {
+      state.dialogs.viewProductDialogOpen = true
+      state.dialogs.selectedProduct = product
+      state.dialogs.viewProductDialogOpen = true
+      state.dialogs.selectedProduct = product
+      state.dialogs.createProductDialogRequested = false
+    })
+  ),
+
+  closeViewProductDialog: () => set(
+    produce((state: ManagementState) => {
+      state.dialogs.viewProductDialogOpen = false
+      state.dialogs.selectedProduct = null
+      state.dialogs.viewProductDialogOpen = false
+      state.dialogs.selectedProduct = null
+    })
+  ),
+
+  setViewProductDialogOpen: (open) => set(
+    produce((state: ManagementState) => {
+      state.dialogs.viewProductDialogOpen = open
+      state.dialogs.viewProductDialogOpen = open
+      if (!open) {
+        state.dialogs.selectedProduct = null
+        state.dialogs.selectedProduct = null
+      }
+    })
+  ),
+
+  requestCreateProductDialog: () => set(
+    produce((state: ManagementState) => {
+      state.dialogs.createProductDialogRequested = true
+      state.dialogs.createProductDialogRequested = true
+    })
+  ),
+
+  clearCreateProductDialogRequest: () => set(
+    produce((state: ManagementState) => {
+      state.dialogs.createProductDialogRequested = false
+      state.dialogs.createProductDialogRequested = false
+    })
+  ),
+
+  setCreateProductDialogRequested: (requested) => set(
+    produce((state: ManagementState) => {
+      state.dialogs.createProductDialogRequested = requested
+      state.dialogs.createProductDialogRequested = requested
+    })
+  ),
 }))

@@ -45,7 +45,7 @@ class UserCreateSchema(BaseSchema):
     role: Optional[str] = Field(default="user", description="User role")
     token_balance: Optional[int] = Field(default=0, description="Initial token balance")
     work_duration_days: Optional[int] = Field(default=None, description="Work duration in days")
-    game_ids: Optional[list] = Field(default_factory=list, description="List of game IDs")
+    product_ids: Optional[list] = Field(default_factory=list, description="List of product IDs")
     rbac_role_ids: Optional[list] = Field(default_factory=list, description="List of RBAC role IDs")
     expires_at: Optional[str] = Field(default=None, description="Expiration date (ISO format)")
     project_id: Optional[int] = Field(default=None, description="Project ID")

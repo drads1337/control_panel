@@ -11,15 +11,15 @@ from .common import BaseSchema
 class KeyCreateSchema(BaseSchema):
     """Key creation request schema"""
 
-    game_id: int = Field(..., ge=1, description="Game ID")
+    product_id: int = Field(..., ge=1, description="Product ID")
     duration_hours: int = Field(default=24, ge=1, le=8760, description="Key duration in hours")
     max_devices: int = Field(default=1, ge=1, le=1000, description="Maximum devices")
     length: Optional[int] = Field(default=32, ge=16, le=128, description="Key length")
 
-    @validator("game_id")
-    def validate_game_id(cls, v):
+    @validator("product_id")
+    def validate_product_id(cls, v):
         if v <= 0:
-            raise ValueError("Game ID must be a positive integer")
+            raise ValueError("Product ID must be a positive integer")
         return v
 
 class KeyUpdateSchema(BaseSchema):
@@ -63,33 +63,33 @@ class KeyExtendSchema(BaseSchema):
         return v
 
 class LoaderKeyCreateSchema(BaseSchema):
-    """Loader key creation request schema"""
+    """Agent key creation request schema"""
 
-    loader_id: int = Field(..., ge=1, description="Loader ID")
-    game_ids: list[int] = Field(..., min_items=1, description="List of game IDs")
+    agent_id: int = Field(..., ge=1, description="Agent ID")
+    product_ids: list[int] = Field(..., min_items=1, description="List of product IDs")
     duration_hours: int = Field(default=24, ge=1, le=8760, description="Key duration in hours")
     max_devices: int = Field(default=1, ge=1, le=1000, description="Maximum devices")
 
-    @validator("loader_id")
+    @validator("agent_id")
     def validate_loader_id(cls, v):
         if v <= 0:
-            raise ValueError("Loader ID must be a positive integer")
+            raise ValueError("Agent ID must be a positive integer")
         return v
 
-    @validator("game_ids")
-    def validate_game_ids(cls, v):
+    @validator("product_ids")
+    def validate_product_ids(cls, v):
         if not v or len(v) == 0:
-            raise ValueError("At least one game ID is required")
+            raise ValueError("At least one product ID is required")
         if any(gid <= 0 for gid in v):
-            raise ValueError("All game IDs must be positive integers")
+            raise ValueError("All product IDs must be positive integers")
         return v
 
 class CustomLoaderKeyCreateSchema(BaseSchema):
-    """Custom loader key creation request schema"""
+    """Custom agent key creation request schema"""
 
     custom_key: str = Field(..., min_length=1, max_length=64, description="Custom key string")
-    loader_id: int = Field(..., ge=1, description="Loader ID")
-    game_ids: list[int] = Field(..., min_items=1, description="List of game IDs")
+    agent_id: int = Field(..., ge=1, description="Agent ID")
+    product_ids: list[int] = Field(..., min_items=1, description="List of product IDs")
     duration_hours: int = Field(default=24, ge=1, le=8760, description="Key duration in hours")
     max_devices: int = Field(default=1, ge=1, le=1000, description="Maximum devices")
 
@@ -101,82 +101,82 @@ class CustomLoaderKeyCreateSchema(BaseSchema):
             raise ValueError("Custom key must be 64 characters or less")
         return v.strip()
 
-    @validator("loader_id")
+    @validator("agent_id")
     def validate_loader_id(cls, v):
         if v <= 0:
-            raise ValueError("Loader ID must be a positive integer")
+            raise ValueError("Agent ID must be a positive integer")
         return v
 
-    @validator("game_ids")
-    def validate_game_ids(cls, v):
+    @validator("product_ids")
+    def validate_product_ids(cls, v):
         if not v or len(v) == 0:
-            raise ValueError("At least one game ID is required")
+            raise ValueError("At least one product ID is required")
         if any(gid <= 0 for gid in v):
-            raise ValueError("All game IDs must be positive integers")
+            raise ValueError("All product IDs must be positive integers")
         return v
 
 class BulkLoaderKeyCreateSchema(BaseSchema):
-    """Bulk loader key creation request schema"""
+    """Bulk agent key creation request schema"""
 
     count: int = Field(..., ge=1, le=100, description="Number of keys to create")
-    loader_id: int = Field(..., ge=1, description="Loader ID")
-    game_ids: list[int] = Field(..., min_items=1, description="List of game IDs")
+    agent_id: int = Field(..., ge=1, description="Agent ID")
+    product_ids: list[int] = Field(..., min_items=1, description="List of product IDs")
     duration_hours: int = Field(default=24, ge=1, le=8760, description="Key duration in hours")
     max_devices: int = Field(default=1, ge=1, le=1000, description="Maximum devices")
 
-    @validator("loader_id")
+    @validator("agent_id")
     def validate_loader_id(cls, v):
         if v <= 0:
-            raise ValueError("Loader ID must be a positive integer")
+            raise ValueError("Agent ID must be a positive integer")
         return v
 
-    @validator("game_ids")
-    def validate_game_ids(cls, v):
+    @validator("product_ids")
+    def validate_product_ids(cls, v):
         if not v or len(v) == 0:
-            raise ValueError("At least one game ID is required")
+            raise ValueError("At least one product ID is required")
         if any(gid <= 0 for gid in v):
-            raise ValueError("All game IDs must be positive integers")
+            raise ValueError("All product IDs must be positive integers")
         return v
 
 class BulkLoaderKeyActionSchema(BaseSchema):
-    """Bulk loader key action request schema"""
+    """Bulk agent key action request schema"""
 
-    loader_id: int = Field(..., ge=1, description="Loader ID")
-    game_ids: list[int] = Field(..., min_items=1, description="List of game IDs")
+    agent_id: int = Field(..., ge=1, description="Agent ID")
+    product_ids: list[int] = Field(..., min_items=1, description="List of product IDs")
 
-    @validator("loader_id")
+    @validator("agent_id")
     def validate_loader_id(cls, v):
         if v <= 0:
-            raise ValueError("Loader ID must be a positive integer")
+            raise ValueError("Agent ID must be a positive integer")
         return v
 
-    @validator("game_ids")
-    def validate_game_ids(cls, v):
+    @validator("product_ids")
+    def validate_product_ids(cls, v):
         if not v or len(v) == 0:
-            raise ValueError("At least one game ID is required")
+            raise ValueError("At least one product ID is required")
         if any(gid <= 0 for gid in v):
-            raise ValueError("All game IDs must be positive integers")
+            raise ValueError("All product IDs must be positive integers")
         return v
 
 class BulkAddHoursSchema(BaseSchema):
-    """Bulk add hours to loader keys schema"""
+    """Bulk add hours to agent keys schema"""
 
-    loader_id: int = Field(..., ge=1, description="Loader ID")
-    game_ids: list[int] = Field(..., min_items=1, description="List of game IDs")
+    agent_id: int = Field(..., ge=1, description="Agent ID")
+    product_ids: list[int] = Field(..., min_items=1, description="List of product IDs")
     hours: int = Field(..., ge=1, le=8760, description="Hours to add")
 
-    @validator("loader_id")
+    @validator("agent_id")
     def validate_loader_id(cls, v):
         if v <= 0:
-            raise ValueError("Loader ID must be a positive integer")
+            raise ValueError("Agent ID must be a positive integer")
         return v
 
-    @validator("game_ids")
-    def validate_game_ids(cls, v):
+    @validator("product_ids")
+    def validate_product_ids(cls, v):
         if not v or len(v) == 0:
-            raise ValueError("At least one game ID is required")
+            raise ValueError("At least one product ID is required")
         if any(gid <= 0 for gid in v):
-            raise ValueError("All game IDs must be positive integers")
+            raise ValueError("All product IDs must be positive integers")
         return v
 
 class KeyValidateSchema(BaseSchema):
@@ -184,7 +184,7 @@ class KeyValidateSchema(BaseSchema):
 
     key: str = Field(..., min_length=1, description="Key to validate")
     device_id: Optional[str] = Field(default=None, description="Device ID")
-    game_id: Optional[int] = Field(default=None, ge=1, description="Game ID")
+    product_id: Optional[int] = Field(default=None, ge=1, description="Product ID")
 
     @validator("key")
     def validate_key(cls, v):

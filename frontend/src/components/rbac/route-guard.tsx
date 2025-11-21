@@ -4,6 +4,11 @@ import { useAuthContext } from '@/contexts/auth-context'
 import { hasPermission, hasAnyRole, hasAllRoles, canAccessFeature, hasManagementAccess } from '@/lib/rbac-utils'
 import { Spinner } from '@/components/ui/spinner'
 
+// SECURITY WARNING: All route guards in this file provide UX-only protection
+// They do NOT provide security - attackers can bypass these by calling APIs directly
+// All permission checks MUST be duplicated on the backend for each API endpoint
+// These components are purely for user experience - redirecting unauthorized users
+
 function hasAnyPermission(user: any, permissions: string[]): boolean {
   return permissions.some(permission => hasPermission(user, permission))
 }
@@ -257,12 +262,12 @@ export function KeyManagementGuard({ children, fallbackPath = '/dashboard' }: { 
   )
 }
 
-export function GameManagementGuard({ children, fallbackPath = '/dashboard' }: { children: React.ReactNode; fallbackPath?: string }) {
+export function ProductManagementGuard({ children, fallbackPath = '/dashboard' }: { children: React.ReactNode; fallbackPath?: string }) {
   return (
     <RouteGuard
-      feature="game_management"
+      feature="product_management"
       fallbackPath={fallbackPath}
-      loadingMessage="Checking game management access..."
+      loadingMessage="Checking product management access..."
     >
       {children}
     </RouteGuard>

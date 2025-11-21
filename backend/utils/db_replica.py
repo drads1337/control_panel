@@ -37,7 +37,7 @@ def init_replica_binds(app):
     Initialize read replica bind configuration using native SQLAlchemy binds.
     This sets up read-only mode for the read replica connection.
     
-    Called during application initialization.
+    Called during product initialization.
     The engine is created by the custom Database class in extensions.py
     which applies engine options from configuration.
     """

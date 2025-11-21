@@ -10,7 +10,7 @@ from flask import Flask
 from flask_jwt_extended import create_access_token
 
 from backend.models.core import Project, User
-from backend.models.games import Game
+from backend.models.products import Product
 from backend.models.keys import Key
 
 @pytest.fixture
@@ -82,43 +82,43 @@ def user2(db_session, project2: Project) -> User:
     return user
 
 @pytest.fixture
-def game1(db_session, project1: Project) -> Game:
-    """Create game in project 1"""
+def product1(db_session, project1: Project) -> Product:
+    """Create product in project 1"""
     from datetime import datetime
-    game = Game(
-        name="Game 1",
+    product = Product(
+        name="Product 1",
         project_id=project1.id,
         status="active",
         created_at=datetime.utcnow(),
     )
-    db_session.add(game)
+    db_session.add(product)
     db_session.commit()
-    db_session.refresh(game)
-    return game
+    db_session.refresh(product)
+    return product
 
 @pytest.fixture
-def game2(db_session, project2: Project) -> Game:
-    """Create game in project 2"""
+def product2(db_session, project2: Project) -> Product:
+    """Create product in project 2"""
     from datetime import datetime
-    game = Game(
-        name="Game 2",
+    product = Product(
+        name="Product 2",
         project_id=project2.id,
         status="active",
         created_at=datetime.utcnow(),
     )
-    db_session.add(game)
+    db_session.add(product)
     db_session.commit()
-    db_session.refresh(game)
-    return game
+    db_session.refresh(product)
+    return product
 
 @pytest.fixture
-def key1(db_session, project1: Project, game1: Game) -> Key:
+def key1(db_session, project1: Project, product1: Product) -> Key:
     """Create key in project 1"""
     from datetime import datetime
     key = Key(
         key="TEST-KEY-1-12345678901234567890",
         project_id=project1.id,
-        game_id=game1.id,
+        product_id=product1.id,
         status=1,
         created_at=datetime.utcnow(),
         max_devices=1,
@@ -129,13 +129,13 @@ def key1(db_session, project1: Project, game1: Game) -> Key:
     return key
 
 @pytest.fixture
-def key2(db_session, project2: Project, game2: Game) -> Key:
+def key2(db_session, project2: Project, product2: Product) -> Key:
     """Create key in project 2"""
     from datetime import datetime
     key = Key(
         key="TEST-KEY-2-12345678901234567890",
         project_id=project2.id,
-        game_id=game2.id,
+        product_id=product2.id,
         status=1,
         created_at=datetime.utcnow(),
         max_devices=1,
@@ -183,22 +183,22 @@ class TestProjectIsolation:
         assert response.status_code in [403, 404], \
             f"Expected 403 or 404, got {response.status_code}. Response: {response.get_json()}"
 
-    def test_user_cannot_access_other_project_game(self, client, auth_headers_user1, game2: Game):
-        """Test that user from project1 cannot access game from project2"""
+    def test_user_cannot_access_other_project_product(self, client, auth_headers_user1, product2: Product):
+        """Test that user from project1 cannot access product from project2"""
         response = client.get(
-            f"/api/games/{game2.id}",
+            f"/api/products/{product2.id}",
             headers=auth_headers_user1
         )
 
         assert response.status_code in [403, 404], \
             f"Expected 403 or 404, got {response.status_code}. Response: {response.get_json()}"
 
-    def test_user_cannot_update_other_project_game(self, client, auth_headers_user1, game2: Game):
-        """Test that user from project1 cannot update game from project2"""
+    def test_user_cannot_update_other_project_product(self, client, auth_headers_user1, product2: Product):
+        """Test that user from project1 cannot update product from project2"""
         response = client.put(
-            f"/api/games/{game2.id}",
+            f"/api/products/{product2.id}",
             headers=auth_headers_user1,
-            json={"name": "Hacked Game"}
+            json={"name": "Hacked Product"}
         )
 
         assert response.status_code in [403, 404], \
@@ -244,10 +244,10 @@ class TestProjectIsolation:
         assert response.status_code == 200, \
             f"Expected 200, got {response.status_code}. Response: {response.get_json()}"
 
-    def test_user_can_access_own_project_game(self, client, auth_headers_user1, game1: Game):
-        """Test that user can access game from their own project"""
+    def test_user_can_access_own_project_product(self, client, auth_headers_user1, product1: Product):
+        """Test that user can access product from their own project"""
         response = client.get(
-            f"/api/games/{game1.id}",
+            f"/api/products/{product1.id}",
             headers=auth_headers_user1
         )
         assert response.status_code == 200, \
@@ -279,19 +279,19 @@ class TestProjectIsolation:
 
         assert key2.id not in key_ids, "Other project's key should NOT be in the list"
 
-    def test_games_list_filtered_by_project(self, client, auth_headers_user1, game1: Game, game2: Game):
-        """Test that games list only shows games from user's project"""
+    def test_products_list_filtered_by_project(self, client, auth_headers_user1, product1: Product, product2: Product):
+        """Test that products list only shows products from user's project"""
         response = client.get(
-            "/api/games",
+            "/api/products",
             headers=auth_headers_user1
         )
         assert response.status_code == 200, \
             f"Expected 200, got {response.status_code}. Response: {response.get_json()}"
 
         data = response.get_json()
-        games = data.get("games", [])
-        game_ids = [g.get("id") for g in games]
+        products = data.get("products", [])
+        product_ids = [g.get("id") for g in products]
 
-        assert game1.id in game_ids, "User's own game should be in the list"
+        assert product1.id in product_ids, "User's own product should be in the list"
 
-        assert game2.id not in game_ids, "Other project's game should NOT be in the list"
+        assert product2.id not in product_ids, "Other project's product should NOT be in the list"

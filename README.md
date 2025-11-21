@@ -120,4 +120,4 @@ backend/
 
 HTTP-only cookies with CSRF protection enabled.
 
-Added alias for game and change to the product 
+Added alias for product and change to the product 

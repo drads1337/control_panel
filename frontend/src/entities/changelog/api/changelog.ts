@@ -7,9 +7,9 @@ import type {
   CreateChangelogData as CreateChangelogDataType
 } from '../model/types'
 
-export async function getGameChangelog(gameId: number): Promise<ChangelogResponseType> {
+export async function getProductChangelog(productId: number): Promise<ChangelogResponseType> {
 
-  const response = await api.get(`${API_ENDPOINTS.CHANGELOG_GAMES}/${gameId}/changelog`, {
+  const response = await api.get(`${API_ENDPOINTS.CHANGELOG_PRODUCTS}/${productId}/changelog`, {
     params: { t: Date.now() },
     headers: { 'Cache-Control': 'no-cache' }
   })
@@ -30,13 +30,13 @@ export async function getChangelogEntry(entryId: number): Promise<{
   return response.data
 }
 
-export async function createChangelogEntry(gameId: number, data: CreateChangelogDataType): Promise<{
+export async function createChangelogEntry(productId: number, data: CreateChangelogDataType): Promise<{
   success: boolean
   message: string
   entry: ChangelogEntryType
 }> {
 
-  const response = await api.post(`${API_ENDPOINTS.CHANGELOG_GAMES}/${gameId}/changelog`, data)
+  const response = await api.post(`${API_ENDPOINTS.CHANGELOG_PRODUCTS}/${productId}/changelog`, data)
   return response.data
 }
 

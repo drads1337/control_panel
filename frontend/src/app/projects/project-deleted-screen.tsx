@@ -60,7 +60,7 @@ export function ProjectDeletedScreen({
                       Data Deletion Complete
                     </p>
                     <p className="text-sm">
-                      All project data including keys, users, games, and settings 
+                      All project data including keys, users, products, and settings 
                       have been permanently deleted and cannot be recovered.
                     </p>
                   </div>
@@ -72,7 +72,7 @@ export function ProjectDeletedScreen({
                 <ul className="text-xs text-destructive/80 space-y-1">
                   <li>• All license keys have been deleted</li>
                   <li>• All user accounts have been removed</li>
-                  <li>• All games and configurations deleted</li>
+                  <li>• All products and configurations deleted</li>
                   <li>• All project settings removed</li>
                 </ul>
               </div>

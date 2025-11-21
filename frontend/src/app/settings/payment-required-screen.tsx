@@ -94,7 +94,7 @@ export function PaymentRequiredScreen({
                   <ul className="text-xs text-destructive/80 space-y-1">
                     <li>• License Keys</li>
                     <li>• Users</li>
-                    <li>• Games</li>
+                    <li>• Products</li>
                     <li>• Settings</li>
                   </ul>
                 </div>

@@ -1,7 +1,7 @@
 """
 Dynamic Configuration Service
 Manages dynamic configuration loading for clients
-Turns loaders into "thin clients" that require server connection
+Turns agents into "thin clients" that require server connection
 """
 
 import base64
@@ -20,7 +20,7 @@ from flask import current_app
 
 from ...core.extensions import db
 from ...models.core import Project, User
-from ...models.games import FeatureConfigSchema, Game
+from ...models.products import FeatureConfigSchema, Product
 from ...models.keys import Key
 
 class DynamicConfigService:
@@ -156,13 +156,13 @@ class DynamicConfigService:
             logging.error(f"Config decryption unexpected error: {unexpected_error}", exc_info=True)
             raise ValueError(f"Failed to decrypt configuration: {str(unexpected_error)}")
 
-    def generate_dynamic_config(self, user_key: str, game_name: str, project_id: int) -> Dict:
-        """Generate dynamic configuration for a specific user and game"""
+    def generate_dynamic_config(self, user_key: str, product_name: str, project_id: int) -> Dict:
+        """Generate dynamic configuration for a specific user and product"""
         try:
 
-            game = Game.query.filter_by(name=game_name, project_id=project_id).first()
-            if not game:
-                raise ValueError(f"Game {game_name} not found in project {project_id}")
+            product = Product.query.filter_by(name=product_name, project_id=project_id).first()
+            if not product:
+                raise ValueError(f"Product {product_name} not found in project {project_id}")
 
             project = Project.query.get(project_id)
             if not project:
@@ -173,7 +173,7 @@ class DynamicConfigService:
                 raise ValueError(f"Key {user_key} not found in project {project_id}")
 
             # Get feature config schema from database (product-specific or project-level)
-            schema = self._get_feature_schema(game, project_id)
+            schema = self._get_feature_schema(product, project_id)
             
             # Get base config from schema or create empty config
             base_config = schema.default_config_dict if schema and schema.default_config_dict else {}
@@ -185,11 +185,11 @@ class DynamicConfigService:
                     "settings": {},
                 }
 
-            dynamic_config = self._customize_config(base_config, user_key, game, project, key_obj, schema)
+            dynamic_config = self._customize_config(base_config, user_key, product, project, key_obj, schema)
 
             # KISS Principle: Simplified metadata structure for easier debugging
             # Removed complex versioning and checksum - these added unnecessary complexity
-            # Config validation is handled by expiration time and key/game validation
+            # Config validation is handled by expiration time and key/product validation
             generated_at = int(time.time())
             expires_at = generated_at + self.config_ttl
             
@@ -198,7 +198,7 @@ class DynamicConfigService:
             
             dynamic_config["metadata"] = {
                 "user_key": user_key,
-                "game_name": game_name,
+                "product_name": product_name,
                 "project_id": project_id,
                 "schema_name": schema_name,
                 "schema_version": schema_version,
@@ -208,7 +208,7 @@ class DynamicConfigService:
 
             encrypted_config = self._encrypt_config(dynamic_config)
 
-            config_key = f"dynamic_config:{user_key}:{game_name}:{project_id}"
+            config_key = f"dynamic_config:{user_key}:{product_name}:{project_id}"
             
             # SECURITY: Validate and monitor DynamicConfig operations
             try:
@@ -240,7 +240,7 @@ class DynamicConfigService:
                 )
 
             logging.info(
-                f"DYNAMIC_CONFIG_GENERATED user_key={user_key} game={game_name} project_id={project_id} schema={schema_name}"
+                f"DYNAMIC_CONFIG_GENERATED user_key={user_key} product={product_name} project_id={project_id} schema={schema_name}"
             )
 
             return {
@@ -251,12 +251,12 @@ class DynamicConfigService:
 
         except Exception as e:
             logging.error(
-                f"DYNAMIC_CONFIG_GENERATION_ERROR user_key={user_key} game={game_name} error={e}"
+                f"DYNAMIC_CONFIG_GENERATION_ERROR user_key={user_key} product={product_name} error={e}"
             )
             raise ValueError(f"Failed to generate dynamic configuration: {str(e)}")
 
     def validate_config_request(
-        self, user_key: str, game_name: str, project_id: int, config_checksum: Optional[str] = None
+        self, user_key: str, product_name: str, project_id: int, config_checksum: Optional[str] = None
     ) -> bool:
         """
         Validate a configuration request from client
@@ -265,16 +265,16 @@ class DynamicConfigService:
         unnecessary complexity. Config validity is ensured by:
         1. Expiration time check
         2. Key status validation
-        3. Game status validation
+        3. Product status validation
         
         Args:
             user_key: User key
-            game_name: Game name
+            product_name: Product name
             project_id: Project ID
             config_checksum: Optional checksum (deprecated, kept for backward compatibility)
         """
         try:
-            config_key = f"dynamic_config:{user_key}:{game_name}:{project_id}"
+            config_key = f"dynamic_config:{user_key}:{product_name}:{project_id}"
             
             # SECURITY: Validate and monitor DynamicConfig access
             try:
@@ -314,25 +314,25 @@ class DynamicConfigService:
             # KISS: Simple expiration check (removed checksum complexity)
             expires_at = config_data.get("metadata", {}).get("expires_at", 0)
             if time.time() > expires_at:
-                logging.debug(f"Config expired for user_key={user_key} game={game_name}")
+                logging.debug(f"Config expired for user_key={user_key} product={product_name}")
                 return False
 
-            # Validate key and game status
+            # Validate key and product status
             key_obj = Key.query.filter_by(key=user_key, project_id=project_id).first()
             if not key_obj or key_obj.status != 1:
                 logging.debug(f"Key invalid or inactive: user_key={user_key}")
                 return False
 
-            game = Game.query.filter_by(name=game_name, project_id=project_id).first()
-            if not game or game.status != "active":
-                logging.debug(f"Game invalid or inactive: game={game_name}")
+            product = Product.query.filter_by(name=product_name, project_id=project_id).first()
+            if not product or product.status != "active":
+                logging.debug(f"Product invalid or inactive: product={product_name}")
                 return False
 
             return True
 
         except Exception as e:
             logging.error(
-                f"DYNAMIC_CONFIG_VALIDATION_ERROR user_key={user_key} game={game_name} error={e}",
+                f"DYNAMIC_CONFIG_VALIDATION_ERROR user_key={user_key} product={product_name} error={e}",
                 exc_info=True
             )
             return False
@@ -385,9 +385,9 @@ class DynamicConfigService:
             logging.error(f"DYNAMIC_CONFIG_STATISTICS_ERROR: {e}")
             return {}
 
-    def _get_feature_schema(self, game: Game, project_id: int) -> Optional[FeatureConfigSchema]:
+    def _get_feature_schema(self, product: Product, project_id: int) -> Optional[FeatureConfigSchema]:
         """
-        Get feature configuration schema for a game/product.
+        Get feature configuration schema for a product/product.
         
         Priority:
         1. Product-specific schema (if product_id is set)
@@ -396,9 +396,9 @@ class DynamicConfigService:
         """
         try:
             # First, try to get product-specific schema
-            if game.id:
+            if product.id:
                 schema = FeatureConfigSchema.query.filter_by(
-                    product_id=game.id,
+                    product_id=product.id,
                     project_id=project_id,
                     is_active=True
                 ).first()
@@ -414,14 +414,14 @@ class DynamicConfigService:
             
             return schema
         except Exception as e:
-            logging.error(f"Error getting feature schema for game {game.id}, project {project_id}: {e}")
+            logging.error(f"Error getting feature schema for product {product.id}, project {project_id}: {e}")
             return None
 
     def _customize_config(
-        self, base_config: Dict, user_key: str, game: Game, project: Project, key_obj: Key, schema: Optional[FeatureConfigSchema] = None
+        self, base_config: Dict, user_key: str, product: Product, project: Project, key_obj: Key, schema: Optional[FeatureConfigSchema] = None
     ) -> Dict:
         """
-        Customize configuration based on user, project, and game specifics.
+        Customize configuration based on user, project, and product specifics.
         
         This method now works with arbitrary config structures defined by JSON schemas.
         It applies security rules and RBAC-based feature flags dynamically.
@@ -444,9 +444,9 @@ class DynamicConfigService:
 
                 is_owner = rbac_service.check_permission(user.id, "system.manage_all_projects")
                 is_admin = rbac_service.check_permission(
-                    user.id, "games.edit"
-                ) or rbac_service.check_permission(user.id, "games.view")
-                is_seller = rbac_service.check_permission(user.id, "games.view")
+                    user.id, "products.edit"
+                ) or rbac_service.check_permission(user.id, "products.view")
+                is_seller = rbac_service.check_permission(user.id, "products.view")
                 
                 if is_owner:
                     # Owner has full access - no restrictions
@@ -461,11 +461,11 @@ class DynamicConfigService:
                     # Regular user - strict restrictions
                     self._disable_features_by_pattern(customized_config, ["hack", "god", "teleport", "wallhack"])
 
-            # Apply game status-based restrictions
-            if game.status == "testing":
+            # Apply product status-based restrictions
+            if product.status == "testing":
                 # Enable all features for testing
                 self._enable_all_features(customized_config)
-            elif game.status == "maintenance":
+            elif product.status == "maintenance":
                 # Disable all features during maintenance
                 self._disable_all_features(customized_config)
 

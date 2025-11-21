@@ -30,7 +30,7 @@ export interface LogFilters {
   dateTo?: string
   ip?: string
   status?: string
-  game?: string
+  product?: string
   projectId?: number | string
 }
 
@@ -184,7 +184,7 @@ interface UseConnectionLogsParams {
     dateFrom?: string
     dateTo?: string
     ip?: string
-    game?: string
+    product?: string
   }
 }
 
@@ -230,7 +230,7 @@ export function useConnectionLogsQuery(options: UseConnectionLogsParams = {}): U
       filters?.dateFrom,
       filters?.dateTo,
       filters?.ip,
-      filters?.game
+      filters?.product
     ),
     enabled: isAuthenticated,
     staleTime: 30 * 1000,

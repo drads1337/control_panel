@@ -32,24 +32,24 @@ export function ManagementStatsCards({ stats, loading }: ManagementStatsCardsPro
       />
 
       <ManagementStatCard
-        permission="games.view"
-        title="Games"
-        value={stats.totalGames}
+        permission="products.view"
+        title="Products"
+        value={stats.totalProducts}
         icon={Database}
         badge={{
           text: 'in database',
           icon: Database,
         }}
         footer={{
-          description: 'Application catalog management',
+          description: 'Product catalog management',
           icon: Database,
-          details: 'Total applications in the database',
+          details: 'Total products in the database',
         }}
         loading={loading}
       />
 
       <ManagementStatCard
-        permission="games.files_view"
+        permission="products.files_view"
         title="Files"
         value={stats.totalFiles}
         icon={FolderOpen}
@@ -66,18 +66,18 @@ export function ManagementStatsCards({ stats, loading }: ManagementStatsCardsPro
       />
 
       <ManagementStatCard
-        permission="loaders.view"
-        title="Loaders"
-        value={stats.totalLoaders}
+        permission="agents.view"
+        title="Agents"
+        value={stats.totalAgents}
         icon={Zap}
         badge={{
-          text: 'total loaders',
+          text: 'total agents',
           icon: Zap,
         }}
         footer={{
-          description: 'Loader management system',
+          description: 'Agent management system',
           icon: Zap,
-          details: 'Total loaders available',
+          details: 'Total agents available',
         }}
         loading={loading}
       />

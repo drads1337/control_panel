@@ -8,7 +8,6 @@ import { ManagementAccessDenied } from './management-access-denied';
 import ManagementStats from './management-stats';
 import { ManagementTabContent } from './ManagementTabContent';
 import { ManagementDialogs } from './management-dialogs';
-import type { Game } from '@/entities/game';
 
 export default function ManagementPage() {
   const { user, isInitialized } = useAuthContext();
@@ -20,28 +19,13 @@ export default function ManagementPage() {
     setActiveTab,
     canViewKeys,
     canViewFiles,
-    canViewGames,
-    canViewLoaders,
+    canViewProducts,
+    canViewAgents,
   } = useManagementData();
 
   const { stats, isLoading: statsLoading } = useManagementStats();
 
-  const {
-    openViewGameDialog,
-    closeViewGameDialog,
-  } = useManagementStore();
-
-  const handleViewGame = (game: Game) => {
-    openViewGameDialog(game);
-  };
-
-  const handleEditGame = (game: Game) => {
-    closeViewGameDialog();
-  };
-
-  const handleUploadGame = (game: Game) => {
-    closeViewGameDialog();
-  };
+  // No longer need handlers - components use store directly
 
   useEffect(() => {
     if (availableTabs.length > 0 && !availableTabs.some(tab => tab.value === activeTab)) {
@@ -75,7 +59,7 @@ export default function ManagementPage() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">System Management</h1>
         <p className="text-muted-foreground mt-2">
-          Comprehensive management of licenses, games, files, and loaders
+          Comprehensive management of licenses, products, files, and agents
         </p>
       </div>
 
@@ -124,19 +108,19 @@ export default function ManagementPage() {
                   </TabsContent>
                 )}
 
-                {canViewGames && (
-                  <TabsContent value="game-database" className="space-y-6">
+                {canViewProducts && (
+                  <TabsContent value="product-database" className="space-y-6">
                     <ManagementTabContent 
-                      tabValue="game-database"
+                      tabValue="product-database"
                       wrapInTabsContent={false}
                     />
                   </TabsContent>
                 )}
 
-                {canViewLoaders && (
-                  <TabsContent value="loader-manager" className="space-y-6">
+                {canViewAgents && (
+                  <TabsContent value="agent-manager" className="space-y-6">
                     <ManagementTabContent 
-                      tabValue="loader-manager"
+                      tabValue="agent-manager"
                       wrapInTabsContent={false}
                     />
                   </TabsContent>
@@ -161,18 +145,18 @@ export default function ManagementPage() {
                   />
                 </div>
               )}
-              {canViewGames && activeTab === 'game-database' && (
+              {canViewProducts && activeTab === 'product-database' && (
                 <div className="space-y-6 mt-4">
                   <ManagementTabContent 
-                    tabValue="game-database"
+                    tabValue="product-database"
                     wrapInTabsContent={false}
                   />
                 </div>
               )}
-              {canViewLoaders && activeTab === 'loader-manager' && (
+              {canViewAgents && activeTab === 'agent-manager' && (
                 <div className="space-y-6 mt-4">
                   <ManagementTabContent 
-                    tabValue="loader-manager"
+                    tabValue="agent-manager"
                     wrapInTabsContent={false}
                   />
                 </div>
@@ -182,7 +166,7 @@ export default function ManagementPage() {
         </>
       )}
 
-      <ManagementDialogs onEditGame={handleEditGame} onUploadGame={handleUploadGame} />
+      <ManagementDialogs />
     </div>
   );
 }

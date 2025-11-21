@@ -9,11 +9,11 @@ import time
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import and_, desc, func, or_
+from sqlalchemy import and_, desc, func, or_, text
 
 from ...core.extensions import db
 from ...models.core import Project, User, UserActivity
-from ...models.games import Game
+from ...models.products import Product
 from ...models.keys import DeviceInfo, Key, KeyAnalytics
 from ...models.notifications import Notification
 from ...models.rbac import Role, UserRole
@@ -136,12 +136,12 @@ class AnalyticsService:
 
             active_projects = project_query.filter(Project.is_active == True).count()
 
-            game_query = Game.query
+            product_query = Product.query
             if project_id:
-                game_query = game_query.filter(Game.project_id == project_id)
-            total_games = game_query.count()
+                product_query = product_query.filter(Product.project_id == project_id)
+            total_products = product_query.count()
 
-            active_games = game_query.filter(Game.status == "active").count()
+            active_products = product_query.filter(Product.status == "active").count()
 
             total_revenue = 0
 
@@ -152,8 +152,8 @@ class AnalyticsService:
                 "active_keys": active_keys,
                 "total_projects": total_projects,
                 "active_projects": active_projects,
-                "total_games": total_games,
-                "active_games": active_games,
+                "total_products": total_products,
+                "active_products": active_products,
                 "total_revenue": total_revenue,
                 "user_growth_rate": self._calculate_growth_rate(new_users, total_users, 30),
             }
@@ -213,27 +213,27 @@ class AnalyticsService:
 
                 current_week += timedelta(days=7)
 
-            top_games = (
-                db.session.query(Game.name, func.count(Key.id).label("key_count"))
-                .join(Key, Game.id == Key.game_id)
+            top_products = (
+                db.session.query(Product.name, func.count(Key.id).label("key_count"))
+                .join(Key, Product.id == Key.product_id)
                 .filter(Key.created_at >= start_date)
             )
 
             if project_id:
-                top_games = top_games.filter(Game.project_id == project_id)
+                top_products = top_products.filter(Product.project_id == project_id)
 
-            top_games = top_games.group_by(Game.name).order_by(desc("key_count")).limit(10).all()
+            top_products = top_products.group_by(Product.name).order_by(desc("key_count")).limit(10).all()
 
             return {
                 "daily_sales": daily_sales,
                 "weekly_sales": weekly_sales,
-                "top_games": [
+                "top_products": [
                     {
-                        "game_name": game.name,
-                        "key_count": game.key_count,
-                        "revenue": game.key_count * 10,
+                        "product_name": product.name,
+                        "key_count": product.key_count,
+                        "revenue": product.key_count * 10,
                     }
-                    for game in top_games
+                    for product in top_products
                 ],
                 "total_period_sales": sum(day["count"] for day in daily_sales),
                 "total_period_revenue": sum(day["revenue"] for day in daily_sales),
@@ -347,23 +347,23 @@ class AnalyticsService:
         """Get popular products analytics"""
         try:
 
-            popular_games = (
+            popular_products = (
                 db.session.query(
-                    Game.name,
-                    Game.id,
+                    Product.name,
+                    Product.id,
                     func.count(Key.id).label("key_count"),
                     func.count(DeviceInfo.id).label("activation_count"),
                 )
-                .join(Key, Game.id == Key.game_id)
+                .join(Key, Product.id == Key.product_id)
                 .outerjoin(DeviceInfo, Key.id == DeviceInfo.key_id)
                 .filter(Key.created_at >= start_date)
             )
 
             if project_id:
-                popular_games = popular_games.filter(Game.project_id == project_id)
+                popular_products = popular_products.filter(Product.project_id == project_id)
 
-            popular_games = (
-                popular_games.group_by(Game.id, Game.name)
+            popular_products = (
+                popular_products.group_by(Product.id, Product.name)
                 .order_by(desc("key_count"))
                 .limit(10)
                 .all()
@@ -386,14 +386,14 @@ class AnalyticsService:
             )
 
             return {
-                "popular_games": [
+                "popular_products": [
                     {
-                        "game_name": game.name,
-                        "game_id": game.id,
-                        "key_count": game.key_count,
-                        "activation_count": game.activation_count,
+                        "product_name": product.name,
+                        "product_id": product.id,
+                        "key_count": product.key_count,
+                        "activation_count": product.activation_count,
                     }
-                    for game in popular_games
+                    for product in popular_products
                 ],
                 "active_users": [
                     {"username": user.username, "user_id": user.id, "key_count": user.key_count}
@@ -544,10 +544,10 @@ class AnalyticsService:
         """Check database health"""
         try:
 
-            db.session.execute("SELECT 1")
+            db.session.execute(text("SELECT 1"))
 
             start_time = time.time()
-            db.session.execute("SELECT COUNT(*) FROM user")
+            db.session.execute(text("SELECT COUNT(*) FROM user"))
             response_time = time.time() - start_time
 
             if response_time < 0.1:
@@ -769,8 +769,8 @@ class AnalyticsService:
             total_projects = Project.query.count()
             active_projects = Project.query.filter(Project.is_active == True).count()
 
-            total_games = Game.query.count()
-            active_games = Game.query.filter(Game.status == "active").count()
+            total_products = Product.query.count()
+            active_products = Product.query.filter(Product.status == "active").count()
 
             from ...models.servers import Server
 
@@ -789,7 +789,7 @@ class AnalyticsService:
                 "active_users": active_users,
                 "total_keys": total_keys,
                 "active_keys": active_keys,
-                "total_games": total_games,
+                "total_products": total_products,
                 "total_servers": total_servers,
                 "online_servers": online_servers,
                 "system_uptime": system_uptime,
@@ -814,7 +814,7 @@ class AnalyticsService:
 
                 keys_count = Key.query.filter(Key.project_id == project.id).count()
 
-                games_count = Game.query.filter(Game.project_id == project.id).count()
+                products_count = Product.query.filter(Product.project_id == project.id).count()
 
                 from ...models.servers import Server
 
@@ -826,7 +826,7 @@ class AnalyticsService:
                         "project_name": project.name,
                         "users_count": users_count,
                         "keys_count": keys_count,
-                        "games_count": games_count,
+                        "products_count": products_count,
                         "servers_count": servers_count,
                         "status": project.status,
                         "subscription_status": project.subscription_status_display,
@@ -969,16 +969,16 @@ class AnalyticsService:
 
             with current_app.app_context():
 
-                popular_games = (
-                    db.session.query(Game.name, func.count(Key.id).label("key_count"))
-                    .join(Key, Game.id == Key.game_id)
-                    .group_by(Game.id, Game.name)
+                popular_products = (
+                    db.session.query(Product.name, func.count(Key.id).label("key_count"))
+                    .join(Key, Product.id == Key.product_id)
+                    .group_by(Product.id, Product.name)
                     .order_by(func.count(Key.id).desc())
                     .limit(10)
                     .all()
                 )
 
-                return [{"game": game, "keys": count} for game, count in popular_games]
+                return [{"product": product, "keys": count} for product, count in popular_products]
 
         except Exception as e:
             logging.error(f"ANALYTICS_SYSTEM_POPULAR_PRODUCTS_ERROR error={e}")

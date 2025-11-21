@@ -53,8 +53,8 @@ export const useCustomNotifications = () => {
   const clearAllNotifications = useCallback(() => {
     setNotifications([]);
   }, []);
-  const showGameUpdateNotification = useCallback((
-    gameName: string,
+  const showProductUpdateNotification = useCallback((
+    productName: string,
     options?: {
       description?: string;
       action?: {
@@ -64,15 +64,15 @@ export const useCustomNotifications = () => {
       };
     }
   ) => {
-    return addNotification('game_update', `Игра "${gameName}" обновлена`, {
+    return addNotification('product_update', `Игра "${productName}" обновлена`, {
       description: options?.description || 'Настройки игры были успешно изменены',
       duration: 5000,
       showProgress: true,
       action: options?.action
     });
   }, [addNotification]);
-  const showGameCreatedNotification = useCallback((
-    gameName: string,
+  const showProductCreatedNotification = useCallback((
+    productName: string,
     options?: {
       description?: string;
       action?: {
@@ -82,15 +82,15 @@ export const useCustomNotifications = () => {
       };
     }
   ) => {
-    return addNotification('game_created', `Игра "${gameName}" создана`, {
+    return addNotification('product_created', `Игра "${productName}" создана`, {
       description: options?.description || 'Новая игра была успешно добавлена в систему',
       duration: 5000,
       showProgress: true,
       action: options?.action
     });
   }, [addNotification]);
-  const showGameDeletedNotification = useCallback((
-    gameName: string,
+  const showProductDeletedNotification = useCallback((
+    productName: string,
     options?: {
       description?: string;
       action?: {
@@ -100,7 +100,7 @@ export const useCustomNotifications = () => {
       };
     }
   ) => {
-    return addNotification('game_deleted', `Игра "${gameName}" удалена`, {
+    return addNotification('product_deleted', `Игра "${productName}" удалена`, {
       description: options?.description || 'Игра была успешно удалена из системы',
       duration: 5000,
       showProgress: true,
@@ -199,9 +199,9 @@ export const useCustomNotifications = () => {
     addNotification,
     removeNotification,
     clearAllNotifications,
-    showGameUpdateNotification,
-    showGameCreatedNotification,
-    showGameDeletedNotification,
+    showProductUpdateNotification,
+    showProductCreatedNotification,
+    showProductDeletedNotification,
     showLoadingNotification,
     showSuccessNotification,
     showErrorNotification,

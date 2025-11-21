@@ -18,10 +18,10 @@ from ..middleware.auth import (
     require_project_with_grace_period,
 )
 from ..models.core import Project, User, UserActivity
-from ..models.games import Game
+from ..models.products import Product
 from ..models.keys import DeviceInfo, Key, KeyAnalytics
 from ..services.analytics import analytics_service
-from ..services.monitoring.load_monitor import load_monitor
+from ..services.monitoring.prometheus_metrics_reader import prometheus_metrics_reader
 from ..utils.rbac_utils import RBACManager
 from ..utils.role_constants import UserRoles
 
@@ -62,7 +62,7 @@ def get_dashboard_overview():
 
         # Add load status filtered by project_id for project isolation
         try:
-            load_status = load_monitor.get_all_endpoints_status(project_id=project_id)
+            load_status = prometheus_metrics_reader.get_all_endpoints_status(project_id=project_id)
             if load_status:
                 analytics_data["load_status"] = load_status
                 logging.info(f"Added load_status to dashboard overview for project {project_id}: {load_status.get('overall_status', 'unknown')}")
@@ -109,12 +109,12 @@ def get_owner_dashboard_overview():
             return jsonify({"error": "Failed to generate system analytics"}), 500
 
         try:
-            load_status = load_monitor.get_all_endpoints_status(project_id=None)
+            load_status = prometheus_metrics_reader.get_all_endpoints_status(project_id=None)
             if load_status:
                 analytics_data["load_status"] = load_status
                 logging.info(f"Added load_status to owner dashboard overview: {load_status.get('overall_status', 'unknown')}")
             else:
-                logging.warning("load_monitor.get_all_endpoints_status returned None or empty")
+                logging.warning("prometheus_metrics_reader.get_all_endpoints_status returned None or empty for owner dashboard")
         except Exception as load_error:
             logging.error(f"Error getting load status for owner dashboard: {load_error}", exc_info=True)
             # Don't fail the entire request if load status fails
@@ -182,7 +182,7 @@ def get_sales_trends():
                 "status": "success",
                 "data": {
                     "trends": trends_data,
-                    "top_games": sales_data.get("top_games", []),
+                    "top_products": sales_data.get("top_products", []),
                     "total_sales": sales_data.get("total_period_sales", 0),
                     "total_revenue": sales_data.get("total_period_revenue", 0),
                     "granularity": granularity,
@@ -332,8 +332,8 @@ def get_popular_products():
         start_date = datetime.utcnow() - timedelta(days=period_days)
         products_data = analytics_service._get_popular_products(project_id, start_date)
 
-        if "popular_games" in products_data:
-            products_data["popular_games"] = products_data["popular_games"][:limit]
+        if "popular_products" in products_data:
+            products_data["popular_products"] = products_data["popular_products"][:limit]
         if "active_users" in products_data:
             products_data["active_users"] = products_data["active_users"][:limit]
 

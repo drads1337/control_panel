@@ -3,7 +3,7 @@ import { useAuthContext } from '@/contexts/auth-context'
 import { hasManagementAccess } from '@/lib/rbac-utils'
 import { useManagementStore } from '@/stores/management-store'
 import { Key, Database, FolderOpen, Zap } from 'lucide-react'
-import { getGames } from '@/entities/game'
+import { getProducts } from '@/entities/product'
 import { usePermissions } from '@/hooks/use-permissions'
 
 export interface ManagementTab {
@@ -17,74 +17,74 @@ export function useManagementData() {
   const { isAuthenticated, user } = useAuthContext()
   const { activeTab, setActiveTab } = useManagementStore()
   const { hasPermission } = usePermissions()
-  const [gamesCount, setGamesCount] = useState<number | null>(null)
+  const [productsCount, setProductsCount] = useState<number | null>(null)
 
   const permissionChecks = useMemo(() => {
     return hasManagementAccess(user)
   }, [user])
 
-  let { canViewKeys, canViewFiles, canViewGames, canViewLoaders, hasAccess } = permissionChecks
+  let { canViewKeys, canViewFiles, canViewProducts, canViewAgents, hasAccess } = permissionChecks
 
   useEffect(() => {
-    const loadGamesCount = async () => {
+    const loadProductsCount = async () => {
 
-      if (canViewGames) {
-        setGamesCount(1)
+      if (canViewProducts) {
+        setProductsCount(1)
         return
       }
 
       if (canViewKeys || hasPermission('keys.create')) {
         try {
-          const response = await getGames('all')
-          if (response.success && response.games) {
-            setGamesCount(response.games.length)
+          const response = await getProducts('all')
+          if (response.success && response.products) {
+            setProductsCount(response.products.length)
           } else {
-            setGamesCount(0)
+            setProductsCount(0)
           }
         } catch (error) {
 
-          setGamesCount(0)
+          setProductsCount(0)
         }
       } else {
-        setGamesCount(0)
+        setProductsCount(0)
       }
     }
 
     if (isAuthenticated && user) {
-      loadGamesCount()
+      loadProductsCount()
     }
-  }, [isAuthenticated, user, canViewGames, canViewKeys, hasPermission])
+  }, [isAuthenticated, user, canViewProducts, canViewKeys, hasPermission])
 
-  // Check for specific game permissions from rbac_service.py (lines 105-108 and 115-125)
-  const hasAnyGamePermission = useMemo(() => {
-    const gamePermissions = [
-      'games.view',
-      'games.create',
-      'games.edit',
-      'games.upload_files',
-      'games.manage_prices',
-      'games.notifications_create',
-      'games.notifications_edit',
-      'games.notifications_delete',
-      'games.changelog_view',
-      'games.changelog_create',
-      'games.changelog_edit',
-      'games.changelog_delete',
-      'games.status',
-      'games.delete',
+  // Check for specific product permissions from rbac_service.py (lines 105-108 and 115-125)
+  const hasAnyProductPermission = useMemo(() => {
+    const productPermissions = [
+      'products.view',
+      'products.create',
+      'products.edit',
+      'products.upload_files',
+      'products.manage_prices',
+      'products.notifications_create',
+      'products.notifications_edit',
+      'products.notifications_delete',
+      'products.changelog_view',
+      'products.changelog_create',
+      'products.changelog_edit',
+      'products.changelog_delete',
+      'products.status',
+      'products.delete',
     ]
-    return gamePermissions.some(permission => hasPermission(permission))
+    return productPermissions.some(permission => hasPermission(permission))
   }, [hasPermission])
 
-  const effectiveCanViewGames = useMemo(() => {
-    // Only show games tab if user has at least one of the specific game permissions
-    if (!hasAnyGamePermission) return false
-    if (canViewGames) return true
-    if ((canViewKeys || hasPermission('keys.create')) && gamesCount !== null && gamesCount > 0) {
+  const effectiveCanViewProducts = useMemo(() => {
+    // Only show products tab if user has at least one of the specific product permissions
+    if (!hasAnyProductPermission) return false
+    if (canViewProducts) return true
+    if ((canViewKeys || hasPermission('keys.create')) && productsCount !== null && productsCount > 0) {
       return true
     }
     return false
-  }, [hasAnyGamePermission, canViewGames, canViewKeys, hasPermission, gamesCount])
+  }, [hasAnyProductPermission, canViewProducts, canViewKeys, hasPermission, productsCount])
 
   const availableTabs = useMemo<ManagementTab[]>(() => {
     const tabs: ManagementTab[] = []
@@ -105,24 +105,24 @@ export function useManagementData() {
       })
     }
 
-    if (effectiveCanViewGames) {
+    if (effectiveCanViewProducts) {
       tabs.push({
-        value: 'game-database',
-        label: 'Applications',
+        value: 'product-database',
+        label: 'Products',
         shortLabel: 'Apps',
         icon: Database,
       })
     }
-    if (canViewLoaders) {
+    if (canViewAgents) {
       tabs.push({
-        value: 'loader-manager',
-        label: 'Loaders',
-        shortLabel: 'Loaders',
+        value: 'agent-manager',
+        label: 'Agents',
+        shortLabel: 'Agents',
         icon: Zap,
       })
     }
     return tabs
-  }, [canViewKeys, canViewFiles, effectiveCanViewGames, canViewLoaders])
+  }, [canViewKeys, canViewFiles, effectiveCanViewProducts, canViewAgents])
 
   useEffect(() => {
     if (availableTabs.length > 0 && !availableTabs.some(tab => tab.value === activeTab)) {
@@ -132,15 +132,15 @@ export function useManagementData() {
 
   useEffect(() => {
     if (import.meta.env.DEV && !hasAccess && user) {
-      const filesPermissions = user.permissions?.filter(p => p.startsWith('games.files_')) || []
-      const gamesPermissions = user.permissions?.filter(p => p.startsWith('games.')) || []
+      const filesPermissions = user.permissions?.filter(p => p.startsWith('products.files_')) || []
+      const productsPermissions = user.permissions?.filter(p => p.startsWith('products.')) || []
       const keysPermissions = user.permissions?.filter(p => p.startsWith('keys.')) || []
-      const loadersPermissions = user.permissions?.filter(p => p.startsWith('loaders.')) || []
+      const agentsPermissions = user.permissions?.filter(p => p.startsWith('agents.')) || []
 
     }
-  }, [user, canViewKeys, canViewFiles, canViewGames, canViewLoaders, hasAccess])
+  }, [user, canViewKeys, canViewFiles, canViewProducts, canViewAgents, hasAccess])
 
-  const effectiveHasAccess = hasAccess || effectiveCanViewGames
+  const effectiveHasAccess = hasAccess || effectiveCanViewProducts
 
   return {
     isAuthenticated,
@@ -148,8 +148,8 @@ export function useManagementData() {
     hasAccess: effectiveHasAccess,
     canViewKeys,
     canViewFiles,
-    canViewGames: effectiveCanViewGames,
-    canViewLoaders,
+    canViewProducts: effectiveCanViewProducts,
+    canViewAgents,
     availableTabs,
     activeTab,
     setActiveTab,

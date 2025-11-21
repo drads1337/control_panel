@@ -4,6 +4,11 @@ import { useAuthContext } from '@/contexts/auth-context'
 import { hasPermission, hasAnyRole, hasAllRoles, canAccessFeature } from '@/lib/rbac-utils'
 import { Spinner } from '@/components/ui/spinner'
 
+// SECURITY WARNING: This component provides UX-only permission-based route protection
+// It does NOT provide security - attackers can bypass this by calling APIs directly
+// All permission checks MUST be duplicated on the backend for each API endpoint
+// This component is purely for user experience - redirecting unauthorized users
+
 interface PermissionGuardProps {
   children: React.ReactNode
   permission?: string

@@ -32,46 +32,21 @@ export function useAuthActions(
 
   navigateRef.current = navigate
 
-  const clearCookies = useCallback(() => {
-    document.cookie = 'access_token_cookie=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
-    document.cookie = 'refresh_token_cookie=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
-  }, [])
+  // SECURITY: Removed clearCookies function
+  // JWT cookies should have HttpOnly flag and cannot be accessed from JavaScript.
+  // Cookies must be cleared server-side via logout endpoint which uses Set-Cookie
+  // headers with expired dates. This prevents XSS attacks from stealing tokens.
+  // If cookies can be read/deleted by JavaScript, they are not HttpOnly and this
+  // is a critical security vulnerability.
 
-  const createFallbackUser = useCallback((data: any, username: string): User => {
-    return {
-      id: parseInt(data.user_id || '0') || 0,
-      username: data.username || username,
-      roles: data.roles || [data.role || 'user'],
-      first_name: data.first_name || null,
-      last_name: data.last_name || null,
-      email: data.email || null,
-      avatar: data.avatar || null,
-      expires_at: data.expires_at || null,
-      last_login: data.last_login || null,
-      last_ip: data.last_ip || null,
-      last_country: data.last_country || null,
-      last_city: data.last_city || null,
-      total_keys_generated: data.total_keys_generated || 0,
-      token_balance: data.token_balance || 0,
-      project_id: data.project_id || null,
-      keys_count: data.keys_count || 0,
-      active_keys: data.active_keys || 0,
-      referral_code: data.referral_code || null,
-      invited_by: data.invited_by || null,
-      created_at: data.created_at || null,
-      updated_at: data.updated_at || null,
-      rbac_roles: Array.isArray(data.rbac_roles) && 
-        data.rbac_roles.length > 0 && 
-        typeof data.rbac_roles[0] === 'object' 
-        ? (data.rbac_roles as unknown as Array<{ 
-            id: number
-            name: string
-            description: string
-            assigned_at: string 
-          }>)
-        : undefined
-    }
-  }, [])
+  // SECURITY: Removed createFallbackUser function
+  // Creating fallback users from login data when user data fetch fails is dangerous:
+  // 1. It can cause state desynchronization with backend
+  // 2. It may grant UI access based on stale/incomplete data
+  // 3. Backend may have already revoked access, but frontend shows it as available
+  // 4. Permissions and roles may be out of sync
+  // If user data fetch fails, we should show an error and require re-authentication
+  // or retry, rather than creating a potentially incorrect user object.
 
   const login = useCallback(async (username: string, password: string) => {
     if (isLoggingIn.current) {
@@ -91,7 +66,8 @@ export function useAuthActions(
     const controller = new AbortController()
     abortControllerRef.current = controller
 
-    clearCookies()
+    // SECURITY: Do not manually clear cookies - they should be HttpOnly
+    // and cleared by backend on login/logout
     isLoggingIn.current = true
     loginAttempts.current++
     setLoading(true)
@@ -111,9 +87,15 @@ export function useAuthActions(
       loginAttempts.current = 0
       const isClassicUser = data.login_type === 'classic_web'
 
-      prefetchCsrfToken().catch((error) => {
-
-      })
+      // Fetch CSRF token after a short delay to ensure JWT cookies are set
+      // This is non-blocking and errors are handled gracefully
+      setTimeout(() => {
+        prefetchCsrfToken().catch((error) => {
+          // Silently handle CSRF token fetch errors - it's not critical for login
+          // CSRF tokens are only needed for authenticated requests, and login is exempt
+          // If the token fetch fails (e.g., cookies not set yet), it will be retried on next request
+        })
+      }, 100)
 
       try {
         const userData = await authService.getFullUserData(controller)
@@ -131,34 +113,39 @@ export function useAuthActions(
             justLoggedIn.current = false
           }, 5000)
         } else {
-
-          const fallbackUser = createFallbackUser(data, username)
-          authService.saveUserToCache(fallbackUser)
-          setUser(fallbackUser)
+          // SECURITY: Do not create fallback user - this can cause state desynchronization
+          // If user data is not available, show error and require proper authentication
+          setError('Failed to load user data. Please try logging in again.')
           updateState({
             isLoading: false,
             isInitialized: true,
-            error: null
+            isAuthenticated: false,
+            user: null
           })
-          justLoggedIn.current = true
-          setTimeout(() => {
-            justLoggedIn.current = false
-          }, 5000)
+          // Clear auth state since we couldn't verify user
+          await authService.logout()
         }
       } catch (error) {
-
-        const fallbackUser = createFallbackUser(data, username)
-        authService.saveUserToCache(fallbackUser)
-        setUser(fallbackUser)
+        // SECURITY: Do not create fallback user - handle error properly instead
+        // Creating fallback users can grant access based on stale data when backend
+        // may have already revoked permissions
+        const errorMessage = error instanceof Error
+          ? error.message
+          : 'Failed to load user data'
+        
+        setError(`Unable to verify user account: ${errorMessage}. Please try logging in again.`)
         updateState({
           isLoading: false,
           isInitialized: true,
-          error: null
+          isAuthenticated: false,
+          user: null
         })
-        justLoggedIn.current = true
-        setTimeout(() => {
-          justLoggedIn.current = false
-        }, 5000)
+        // Clear auth state since we couldn't verify user
+        try {
+          await authService.logout()
+        } catch (logoutError) {
+          // Ignore logout errors - we're already handling an error state
+        }
       }
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -182,7 +169,7 @@ export function useAuthActions(
         abortControllerRef.current = null
       }
     }
-  }, [isLoggingIn, loginAttempts, abortControllerRef, justLoggedIn, setUser, updateState, setError, setLoading, clearCookies, createFallbackUser])
+  }, [isLoggingIn, loginAttempts, abortControllerRef, justLoggedIn, setUser, updateState, setError, setLoading])
 
   const register = useCallback(async (
     username: string,
@@ -201,7 +188,8 @@ export function useAuthActions(
     const controller = new AbortController()
     abortControllerRef.current = controller
 
-    clearCookies()
+    // SECURITY: Do not manually clear cookies - they should be HttpOnly
+    // and cleared by backend on login/logout
     isLoggingIn.current = true
     setLoading(true)
     setError(null)
@@ -232,7 +220,7 @@ export function useAuthActions(
         abortControllerRef.current = null
       }
     }
-  }, [isLoggingIn, abortControllerRef, setLoading, setError, updateState, clearCookies, login])
+  }, [isLoggingIn, abortControllerRef, setLoading, setError, updateState, login])
 
   const registerWithInvite = useCallback(async (
     username: string,
@@ -251,7 +239,8 @@ export function useAuthActions(
     const controller = new AbortController()
     abortControllerRef.current = controller
 
-    clearCookies()
+    // SECURITY: Do not manually clear cookies - they should be HttpOnly
+    // and cleared by backend on login/logout
     isLoggingIn.current = true
     setLoading(true)
     setError(null)
@@ -282,7 +271,7 @@ export function useAuthActions(
         abortControllerRef.current = null
       }
     }
-  }, [isLoggingIn, abortControllerRef, setLoading, setError, updateState, clearCookies, login])
+  }, [isLoggingIn, abortControllerRef, setLoading, setError, updateState, login])
 
   const logout = useCallback(async () => {
     if (isLoggingIn.current) {

@@ -51,7 +51,7 @@ export function UserDashboard() {
       </Suspense>
       <Suspense fallback={<div className="flex items-center justify-center min-h-[400px]"><Spinner size="lg" message="Loading data table..." /></div>}>
         <DataTable 
-          data={(data as DashboardData)?.top_games || []} 
+          data={(data as DashboardData)?.top_products || []} 
           announcements={(data as DashboardData)?.announcements || []}
           topUsers={(data as DashboardData)?.top_users || []}
         />

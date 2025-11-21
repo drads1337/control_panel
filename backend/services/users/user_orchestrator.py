@@ -36,12 +36,12 @@ class UserOrchestrator:
         ip_address: Optional[str] = None,
     ) -> Tuple[Optional[User], Optional[str]]:
         """
-        Create a new user with complete setup: roles, games, permissions, and initial balance
+        Create a new user with complete setup: roles, products, permissions, and initial balance
         Orchestrates the complete user creation process
 
         Args:
             current_user: User creating the new user
-            user_data: Complete user data including roles, games, permissions
+            user_data: Complete user data including roles, products, permissions
             ip_address: IP address for activity logging
 
         Returns:
@@ -63,7 +63,7 @@ class UserOrchestrator:
                 if not balance_result[0]:
                     return None, balance_result[1]
 
-            user, error = self.user_management_service.create_user_with_roles_and_games(current_user, user_data)
+            user, error = self.user_management_service.create_user_with_roles_and_products(current_user, user_data)
             if error:
 
                 if token_balance > 0:
@@ -102,13 +102,13 @@ class UserOrchestrator:
         ip_address: Optional[str] = None,
     ) -> Tuple[bool, Optional[str]]:
         """
-        Update user with complete setup: profile, roles, games, permissions
+        Update user with complete setup: profile, roles, products, permissions
         Orchestrates the complete user update process
 
         Args:
             current_user: User performing the update
             target_user: User being updated
-            user_data: Update data including roles, games, permissions
+            user_data: Update data including roles, products, permissions
             ip_address: IP address for activity logging
 
         Returns:
@@ -129,12 +129,12 @@ class UserOrchestrator:
                 if not role_result[0]:
                     return False, role_result[1]
 
-            if "game_ids" in user_data:
-                game_result = self._update_user_game_permissions(
-                    target_user, user_data["game_ids"]
+            if "product_ids" in user_data:
+                product_result = self._update_user_product_permissions(
+                    target_user, user_data["product_ids"]
                 )
-                if not game_result[0]:
-                    return False, game_result[1]
+                if not product_result[0]:
+                    return False, product_result[1]
 
             try:
                 self.activity_service.log_activity(
@@ -160,7 +160,7 @@ class UserOrchestrator:
         ip_address: Optional[str] = None,
     ) -> Tuple[bool, Optional[str]]:
         """
-        Delete user with complete cleanup: roles, games, keys, activities
+        Delete user with complete cleanup: roles, products, keys, activities
         Orchestrates the complete user deletion process
 
         Args:
@@ -323,17 +323,17 @@ class UserOrchestrator:
             logger.error(f"Error updating user roles: {str(e)}")
             return False, "Failed to update user roles"
 
-    def _update_user_game_permissions(
-        self, target_user: User, game_ids: List[int]
+    def _update_user_product_permissions(
+        self, target_user: User, product_ids: List[int]
     ) -> Tuple[bool, Optional[str]]:
-        """Update user game permissions"""
+        """Update user product permissions"""
         try:
-            from ...models.core import UserGamePermission
+            from ...models.core import UserProductPermission
 
-            UserGamePermission.query.filter_by(user_id=target_user.id).delete()
+            UserProductPermission.query.filter_by(user_id=target_user.id).delete()
 
-            for game_id in game_ids:
-                permission = UserGamePermission(user_id=target_user.id, game_id=game_id)
+            for product_id in product_ids:
+                permission = UserProductPermission(user_id=target_user.id, product_id=product_id)
                 db.session.add(permission)
 
             db.session.commit()
@@ -341,7 +341,7 @@ class UserOrchestrator:
 
         except Exception as e:
             db.session.rollback()
-            logger.error(f"Error updating user game permissions: {str(e)}")
-            return False, "Failed to update user game permissions"
+            logger.error(f"Error updating user product permissions: {str(e)}")
+            return False, "Failed to update user product permissions"
 
 user_orchestrator = UserOrchestrator()

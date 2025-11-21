@@ -1,14 +1,13 @@
 import { enhancedApi as api } from '@/shared/api/enhanced-client'
 import { API_ENDPOINTS } from '@/shared/api/config'
 import { preventDuplicateRequest } from '@/lib/request-manager'
-import { getApiBaseUrl } from '@/lib/utils'
-import type { LicenseKeysResponse, CreateKeyData, BulkCreateKeysData, CreateLoaderKeyData, BulkCreateLoaderKeysData, LicenseKey, KeysStats } from '@/entities/key';
+import type { LicenseKeysResponse, CreateKeyData, BulkCreateKeysData, CreateAgentKeyData, BulkCreateAgentKeysData, LicenseKey, KeysStats } from '@/entities/key';
 import type {
   LicenseKeysResponse as LicenseKeysResponseType,
   CreateKeyData as CreateKeyDataType,
   BulkCreateKeysData as BulkCreateKeysDataType,
-  CreateLoaderKeyData as CreateLoaderKeyDataType,
-  BulkCreateLoaderKeysData as BulkCreateLoaderKeysDataType,
+  CreateAgentKeyData as CreateAgentKeyDataType,
+  BulkCreateAgentKeysData as BulkCreateAgentKeysDataType,
   LicenseKey as LicenseKeyType,
   KeysStats as KeysStatsType
 } from '../model/types'
@@ -17,7 +16,7 @@ export async function getLicenseKeys(
   page: number = 1, 
   perPage: number = 20, 
   status?: string,
-  gameId?: number,
+  productId?: number,
   search?: string,
   myKeys?: boolean
 ): Promise<LicenseKeysResponseType> {
@@ -27,11 +26,11 @@ export async function getLicenseKeys(
   }
 
   if (status) params.status = status
-  if (gameId) params.game_id = gameId.toString()
+  if (productId) params.product_id = productId.toString()
   if (search) params.search = search
   if (myKeys) params.my_keys = 'true'
 
-  const requestKey = `keys-${page}-${perPage}-${status || 'all'}-${gameId || 'all'}-${search || ''}-${myKeys ? 'my' : 'all'}`
+  const requestKey = `keys-${page}-${perPage}-${status || 'all'}-${productId || 'all'}-${search || ''}-${myKeys ? 'my' : 'all'}`
 
   return preventDuplicateRequest(requestKey, async () => {
 
@@ -41,19 +40,14 @@ export async function getLicenseKeys(
 }
 
 export async function createLicenseKey(data: CreateKeyDataType): Promise<{ message: string; key: LicenseKeyType }> {
-
-  const apiBaseUrl = getApiBaseUrl()
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : ''
-  const isDevelopment = import.meta.env.DEV
 
   try {
 
     await api.get('/api/users/me')
   } catch (error: any) {
     if (error.response?.status === 401) {
-      const errorMsg = currentOrigin.includes('192.168.1.7')
-        ? '❌ Не авторизован! Войдите снова через http://192.168.1.7:3000 (не через localhost). Cookies привязаны к домену.'
-        : '❌ Не авторизован! Пожалуйста, войдите снова.'
+      const errorMsg = 'Authentication error. Please log in again. Cookies may not be set properly.'
       throw new Error(errorMsg)
     }
 
@@ -69,17 +63,17 @@ export async function createLicenseKey(data: CreateKeyDataType): Promise<{ messa
   } catch (error: any) {
 
     if (error.response?.status === 401) {
-      let errorMsg = '❌ Ошибка авторизации! '
+      let errorMsg = 'Authentication error. Please log in again. Cookies may not be set properly.'
 
-      if (currentOrigin.includes('192.168.1.7')) {
-        errorMsg += 'Войдите снова через http://192.168.1.7:3000 (НЕ через localhost!). Cookies работают только для того домена, через который вы вошли.'
-      } else if (currentOrigin.includes('localhost') || currentOrigin.includes('127.0.0.1')) {
-        errorMsg += 'Войдите снова. Проверьте, что вы вошли через правильный адрес.'
+      if (currentOrigin.includes('localhost') || currentOrigin.includes('127.0.0.1')) {
+        errorMsg += 'Please log in again. Check that you are logged in through the correct address.'
       } else {
-        errorMsg += 'Пожалуйста, войдите снова. Cookies могут быть не установлены правильно.'
+        errorMsg += 'Please log in again. Cookies may not be set properly.'
       }
 
-      errorMsg += '\n\nПроверьте:\n1. Откройте DevTools → Application → Cookies\n2. Убедитесь, что access_token_cookie существует для ' + currentOrigin + '\n3. Если нет - войдите снова'
+      if (import.meta.env.DEV) {
+        errorMsg += '\n\nCheck:\n1. Open DevTools → Product → Cookies\n2. Ensure that access_token_cookie exists for ' + currentOrigin + '\n3. If not, log in again'
+      }
 
       throw new Error(errorMsg)
     }
@@ -136,12 +130,6 @@ export async function createCustomLicenseKey(data: CreateKeyDataType & { custom_
 
 export async function bulkCreateLicenseKeys(data: BulkCreateKeysDataType): Promise<{ message: string; keys: string[]; summary: any }> {
   try {
-
-    const isDevelopment = import.meta.env.DEV
-
-    const apiBaseUrl = getApiBaseUrl()
-    const currentOrigin = typeof window !== 'undefined' ? window.location.origin : ''
-
     const response = await api.post(API_ENDPOINTS.KEYS_BULK, data)
 
     return response.data
@@ -161,33 +149,33 @@ export async function bulkCreateLicenseKeys(data: BulkCreateKeysDataType): Promi
   }
 }
 
-export async function createLoaderKey(data: CreateLoaderKeyDataType): Promise<{ message: string; key: string; games: any[] }> {
+export async function createAgentKey(data: CreateAgentKeyDataType): Promise<{ message: string; key: string; products: any[] }> {
   try {
 
-    const response = await api.post(API_ENDPOINTS.KEYS_LOADER, data)
+    const response = await api.post(API_ENDPOINTS.KEYS_AGENT, data)
     return response.data
   } catch (err: any) {
-    throw new Error(err.response?.data?.error || err.message || 'Failed to create loader key')
+    throw new Error(err.response?.data?.error || err.message || 'Failed to create agent key')
   }
 }
 
-export async function createCustomLoaderKey(data: CreateLoaderKeyData & { custom_key: string }): Promise<{ message: string; key: string; games: any[] }> {
+export async function createCustomAgentKey(data: CreateAgentKeyData & { custom_key: string }): Promise<{ message: string; key: string; products: any[] }> {
   try {
 
-    const response = await api.post(API_ENDPOINTS.KEYS_LOADER_CUSTOM, data)
+    const response = await api.post(API_ENDPOINTS.KEYS_AGENT_CUSTOM, data)
     return response.data
   } catch (err: any) {
-    throw new Error(err.response?.data?.error || err.message || 'Failed to create custom loader key')
+    throw new Error(err.response?.data?.error || err.message || 'Failed to create custom agent key')
   }
 }
 
-export async function bulkCreateLoaderKeys(data: BulkCreateLoaderKeysDataType): Promise<{ message: string; keys: string[]; summary: any }> {
+export async function bulkCreateAgentKeys(data: BulkCreateAgentKeysDataType): Promise<{ message: string; keys: string[]; summary: any }> {
   try {
 
-    const response = await api.post(API_ENDPOINTS.KEYS_BULK_LOADER, data)
+    const response = await api.post(API_ENDPOINTS.KEYS_BULK_AGENT, data)
     return response.data
   } catch (err: any) {
-    throw new Error(err.response?.data?.error || err.message || 'Failed to create bulk loader keys')
+    throw new Error(err.response?.data?.error || err.message || 'Failed to create bulk agent keys')
   }
 }
 

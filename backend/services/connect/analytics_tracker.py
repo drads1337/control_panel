@@ -18,7 +18,7 @@ class AnalyticsTracker:
     """Handles analytics tracking and related functionality"""
 
     def update_key_analytics(
-        self, key_id: int, game: str, ip_address: str, serial: Optional[str] = None
+        self, key_id: int, product: str, ip_address: str, serial: Optional[str] = None
     ) -> None:
         """
         Update analytics for a key using write-behind buffer pattern.
@@ -32,7 +32,7 @@ class AnalyticsTracker:
 
         Args:
             key_id: Key ID
-            game: Game name
+            product: Product name
             ip_address: IP address
             serial: Device serial number (optional, used for HyperLogLog unique device counting)
         """
@@ -41,7 +41,7 @@ class AnalyticsTracker:
             # HyperLogLog is used for efficient unique device counting
             success = analytics_buffer_service.buffer_key_analytics_update(
                 key_id=key_id,
-                game=game,
+                product=product,
                 ip_address=ip_address,
                 serial=serial,
                 increment_connections=True,
@@ -49,25 +49,25 @@ class AnalyticsTracker:
             
             if success:
                 logging.debug(
-                    f"ANALYTICS_BUFFERED key_id={key_id} game={game} (will be flushed to DB by background worker)"
+                    f"ANALYTICS_BUFFERED key_id={key_id} product={product} (will be flushed to DB by background worker)"
                 )
             else:
                 # Fallback to direct write if buffer fails
                 logging.warning(
                     f"ANALYTICS_BUFFER_FAILED key_id={key_id}, falling back to direct DB write"
                 )
-                self._update_key_analytics_direct(key_id, game, ip_address, serial)
+                self._update_key_analytics_direct(key_id, product, ip_address, serial)
 
         except Exception as e:
             logging.error(f"ANALYTICS_UPDATE_ERROR key_id={key_id} error={e}")
             # Fallback to direct write on error
             try:
-                self._update_key_analytics_direct(key_id, game, ip_address, serial)
+                self._update_key_analytics_direct(key_id, product, ip_address, serial)
             except Exception as fallback_error:
                 logging.error(f"ANALYTICS_FALLBACK_ERROR key_id={key_id} error={fallback_error}")
 
     def _update_key_analytics_direct(
-        self, key_id: int, game: str, ip_address: str, serial: Optional[str] = None
+        self, key_id: int, product: str, ip_address: str, serial: Optional[str] = None
     ) -> None:
         """
         Direct database update (fallback method when buffer fails).
@@ -89,7 +89,7 @@ class AnalyticsTracker:
                     total_connection_time=0,
                     peak_concurrent=0,
                     countries="[]",
-                    games_played="[]",
+                    products_played="[]",
                 )
                 db.session.add(analytics)
 
@@ -102,10 +102,10 @@ class AnalyticsTracker:
             )
             analytics.unique_devices = unique_devices_today or 0
 
-            games_list = json.loads(analytics.games_played or "[]")
-            if game not in games_list:
-                games_list.append(game)
-            analytics.games_played = json.dumps(games_list)
+            products_list = json.loads(analytics.products_played or "[]")
+            if product not in products_list:
+                products_list.append(product)
+            analytics.products_played = json.dumps(products_list)
 
             analytics.updated_at = datetime.utcnow()
             db.session.commit()
@@ -178,7 +178,7 @@ class AnalyticsTracker:
             return []
 
     def create_heartbeat_session(
-        self, user_key: str, fingerprint: str, game: str, serial: str, ip_address: str
+        self, user_key: str, fingerprint: str, product: str, serial: str, ip_address: str
     ) -> Optional[Dict]:
         """
         Create heartbeat session for connection
@@ -186,7 +186,7 @@ class AnalyticsTracker:
         Args:
             user_key: User key
             fingerprint: Device fingerprint
-            game: Game name
+            product: Product name
             serial: Device serial
             ip_address: IP address
 
@@ -197,7 +197,7 @@ class AnalyticsTracker:
             heartbeat_session = heartbeat_service.create_session(
                 user_key=user_key,
                 fingerprint=fingerprint,
-                game=game,
+                product=product,
                 serial=serial,
                 ip_address=ip_address,
             )
@@ -253,19 +253,19 @@ class AnalyticsTracker:
             total_connections = sum(a.total_connections for a in analytics)
             total_unique_devices = max((a.unique_devices for a in analytics), default=0)
 
-            all_games = set()
+            all_products = set()
             for a in analytics:
-                if a.games_played:
+                if a.products_played:
                     try:
-                        games = json.loads(a.games_played)
-                        all_games.update(games)
+                        products = json.loads(a.products_played)
+                        all_products.update(products)
                     except:
                         pass
 
             return {
                 "total_connections": total_connections,
                 "total_unique_devices": total_unique_devices,
-                "unique_games": list(all_games),
+                "unique_products": list(all_products),
                 "days_analyzed": len(analytics),
                 "period": f"{start_date} to {end_date}",
             }
@@ -275,7 +275,7 @@ class AnalyticsTracker:
             return {
                 "total_connections": 0,
                 "total_unique_devices": 0,
-                "unique_games": [],
+                "unique_products": [],
                 "days_analyzed": 0,
                 "period": "Error",
             }
@@ -307,7 +307,7 @@ class AnalyticsTracker:
                     "total_connections": 0,
                     "total_keys": 0,
                     "active_keys": 0,
-                    "unique_games": [],
+                    "unique_products": [],
                 }
 
             analytics = KeyAnalytics.query.filter(
@@ -321,12 +321,12 @@ class AnalyticsTracker:
             active_key_ids = set(a.key_id for a in analytics)
             active_keys = len(active_key_ids)
 
-            all_games = set()
+            all_products = set()
             for a in analytics:
-                if a.games_played:
+                if a.products_played:
                     try:
-                        games = json.loads(a.games_played)
-                        all_games.update(games)
+                        products = json.loads(a.products_played)
+                        all_products.update(products)
                     except:
                         pass
 
@@ -334,7 +334,7 @@ class AnalyticsTracker:
                 "total_connections": total_connections,
                 "total_keys": len(keys),
                 "active_keys": active_keys,
-                "unique_games": list(all_games),
+                "unique_products": list(all_products),
                 "period": f"{start_date} to {end_date}",
             }
 
@@ -344,6 +344,6 @@ class AnalyticsTracker:
                 "total_connections": 0,
                 "total_keys": 0,
                 "active_keys": 0,
-                "unique_games": [],
+                "unique_products": [],
                 "period": "Error",
             }

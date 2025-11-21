@@ -17,12 +17,12 @@ export const API_ENDPOINTS = {
     USER_PERMISSIONS: (userId: number) => `/api/rbac/users/${userId}/permissions`,
     ROLE_PERMISSIONS: (roleId: number) => `/api/rbac/roles/${roleId}/permissions`,
   },
-  GAMES: {
+  PRODUCTS: {
     BASE: '/api/products',  // Universal terminology - use products endpoint
-    PRICES: (gameId: number) => `/api/products/${gameId}/prices`,  // Universal terminology
+    PRICES: (productId: number) => `/api/products/${productId}/prices`,  // Universal terminology
     // Backward compatibility aliases
-    BASE_LEGACY: '/api/games',
-    PRICES_LEGACY: (gameId: number) => `/api/games/${gameId}/prices`,
+    BASE_LEGACY: '/api/products',
+    PRICES_LEGACY: (productId: number) => `/api/products/${productId}/prices`,
   },
   KEYS: {
     BASE: '/api/keys',

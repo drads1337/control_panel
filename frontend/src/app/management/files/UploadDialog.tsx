@@ -4,12 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import FileUpload from '@/components/ui/file-upload';
 import MultiFileUpload from '@/components/ui/multi-file-upload';
-import { uploadGameFiles, uploadGameExtraFile, getFileStats } from '@/entities/file';
+import { uploadProductFiles, uploadProductExtraFile, getFileStats } from '@/entities/file';
 import { useAuth } from '@/hooks/use-auth';
 import { usePermissions } from '@/hooks/use-permissions';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
 import { toast } from 'sonner';
-import type { Game } from '@/entities/game';
+import type { Product } from '@/entities/product';
 import type { FileStats } from '@/entities/file';
 import { 
   Package, 
@@ -23,7 +23,7 @@ import {
 interface UploadDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  game: Game | null;
+  product: Product | null;
 }
 
 interface SelectedFile {
@@ -31,10 +31,10 @@ interface SelectedFile {
   type: 'logo' | 'banner' | 'file' | 'additional';
 }
 
-const UploadDialog: React.FC<UploadDialogProps> = ({ open, onOpenChange, game }) => {
+const UploadDialog: React.FC<UploadDialogProps> = ({ open, onOpenChange, product }) => {
   const { token } = useAuth();
   const { hasPermission } = usePermissions();
-  const canUploadFiles = hasPermission('games.files_upload') || hasPermission('games.upload_files');
+  const canUploadFiles = hasPermission('products.files_upload') || hasPermission('products.upload_files');
   const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [storageInfo, setStorageInfo] = useState<FileStats['storage_info'] | null>(null);
@@ -54,7 +54,7 @@ const UploadDialog: React.FC<UploadDialogProps> = ({ open, onOpenChange, game })
     }
   };
 
-  if (!game || !canUploadFiles) return null;
+  if (!product || !canUploadFiles) return null;
 
   const handleFileSelect = (files: any[], type: 'logo' | 'banner' | 'file' | 'additional') => {
     const newFiles = files.map(fileWithPreview => ({ file: fileWithPreview.file, type }));
@@ -83,18 +83,18 @@ const UploadDialog: React.FC<UploadDialogProps> = ({ open, onOpenChange, game })
           type: f.type as 'logo' | 'banner' | 'file'
         }));
 
-        await uploadGameFiles(game.id, filesToUpload);
+        await uploadProductFiles(product.id, filesToUpload);
         toast.success(`Uploaded ${mainFiles.length} main files`);
       }
 
       if (additionalFiles.length > 0) {
         for (const additionalFile of additionalFiles) {
           try {
-            await uploadGameExtraFile(
+            await uploadProductExtraFile(
               additionalFile.file, 
-              game.id, 
+              product.id, 
               additionalFile.file.name,
-              `Additional file for the game ${game.name}`
+              `Additional file for the product ${product.name}`
             );
           } catch (error) {
 
@@ -125,10 +125,10 @@ const UploadDialog: React.FC<UploadDialogProps> = ({ open, onOpenChange, game })
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Cloud className="h-5 w-5" />
-            Upload Files for Game
+            Upload Files for Product
           </DialogTitle>
           <DialogDescription>
-            Upload files for the game "{game.name}"
+            Upload files for the product "{product.name}"
           </DialogDescription>
         </DialogHeader>
 
@@ -138,14 +138,14 @@ const UploadDialog: React.FC<UploadDialogProps> = ({ open, onOpenChange, game })
               <Package className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <h4 className="font-semibold text-lg">{game.name}</h4>
+              <h4 className="font-semibold text-lg">{product.name}</h4>
               <p className="text-sm text-muted-foreground">
-                {game.description || 'No description available'}
+                {product.description || 'No description available'}
               </p>
               <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                <span>Version: {game.version}</span>
-                <span>Status: {game.status}</span>
-                <span>Type: {game.is_multi_app ? 'Multi-App' : 'Application Library'}</span>
+                <span>Version: {product.version}</span>
+                <span>Status: {product.status}</span>
+                <span>Type: {product.is_multi_app ? 'Multi-App' : 'Product Library'}</span>
               </div>
             </div>
           </div>
@@ -155,7 +155,7 @@ const UploadDialog: React.FC<UploadDialogProps> = ({ open, onOpenChange, game })
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <Image className="w-5 h-5 text-blue-500" />
-              <label className="text-base font-medium">Game Logo</label>
+              <label className="text-base font-medium">Product Logo</label>
               <Badge variant="outline" className="text-xs">Optional</Badge>
             </div>
             <FileUpload
@@ -167,7 +167,7 @@ const UploadDialog: React.FC<UploadDialogProps> = ({ open, onOpenChange, game })
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <Image className="w-5 h-5 text-purple-500" />
-              <label className="text-base font-medium">Game Banner</label>
+              <label className="text-base font-medium">Product Banner</label>
               <Badge variant="outline" className="text-xs">Recommended</Badge>
             </div>
             <FileUpload
@@ -179,7 +179,7 @@ const UploadDialog: React.FC<UploadDialogProps> = ({ open, onOpenChange, game })
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <Package className="w-5 h-5 text-orange-500" />
-              <label className="text-base font-medium">Game File</label>
+              <label className="text-base font-medium">Product File</label>
               <Badge variant="outline" className="text-xs">Optional</Badge>
             </div>
             <FileUpload
@@ -255,7 +255,7 @@ const UploadDialog: React.FC<UploadDialogProps> = ({ open, onOpenChange, game })
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={uploading}>
             Cancel
           </Button>
-          <ConditionalRender permission="games.files_upload" fallback={null}>
+          <ConditionalRender permission="products.files_upload" fallback={null}>
             <Button 
               onClick={handleUploadAll}
               disabled={uploading || selectedFiles.length === 0}

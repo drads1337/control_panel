@@ -26,7 +26,9 @@ export function ManagementAccessDenied({
   }
 
   if (!hasAccess) {
-    const userPermissions = user?.permissions || []
+    // SECURITY: Do not leak information about user roles, permissions, or required permissions
+    // This helps prevent attackers from understanding the RBAC model structure
+    // Show only generic error message without details
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
@@ -35,18 +37,7 @@ export function ManagementAccessDenied({
             You don't have permission to access the management panel.
           </p>
           <p className="text-sm text-muted-foreground mt-2">
-            Your roles: {user?.roles?.join(', ') || 'unknown'}
-          </p>
-          <p className="text-sm text-muted-foreground mt-1">
-            Your permissions ({userPermissions.length}):{' '}
-            {userPermissions.length > 0
-              ? userPermissions.slice(0, 10).join(', ') +
-                (userPermissions.length > 10 ? '...' : '')
-              : 'none (using role-based mapping)'}
-          </p>
-          <p className="text-sm text-muted-foreground mt-1">
-            Required permissions: any permission starting with keys.*, games.files_*,
-            games.*, or loaders.*
+            Please contact your administrator if you believe this is an error.
           </p>
         </div>
       </div>

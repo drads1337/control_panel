@@ -12,8 +12,8 @@ export interface ChangelogEntry {
 
 export interface ChangelogResponse {
   success: boolean
-  game_id: number
-  game_name: string
+  product_id: number
+  product_name: string
   changelog: ChangelogEntry[]
 }
 

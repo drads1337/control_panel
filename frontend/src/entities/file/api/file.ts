@@ -1,22 +1,22 @@
 import { enhancedApi as api } from '@/shared/api/enhanced-client'
 import { API_ENDPOINTS } from '@/shared/api/config'
-import type { FileItem, GameFileStats, FileStats, CreateFolderData } from '@/entities/file';
+import type { FileItem, ProductFileStats, FileStats, CreateFolderData } from '@/entities/file';
 import type {
   FileItem as FileItemType,
-  GameFileStats as GameFileStatsType,
+  ProductFileStats as ProductFileStatsType,
   FileStats as FileStatsType,
   CreateFolderData as CreateFolderDataType
 } from '../model/types'
 
-export async function getGameFiles(
-  gameId: number, 
+export async function getProductFiles(
+  productId: number, 
   category: string = 'all', 
   status: string = 'all', 
   search: string = '',
-  targetType: 'game' | 'loader' | 'auto' = 'auto'
+  targetType: 'product' | 'agent' | 'auto' = 'auto'
 ): Promise<{ files: FileItemType[]; total: number }> {
   const params: Record<string, string> = {
-    game_id: gameId.toString(),
+    product_id: productId.toString(),
     category,
     status,
     search
@@ -26,7 +26,7 @@ export async function getGameFiles(
     params.target_type = targetType
   }
 
-  const endpoint = API_ENDPOINTS.GAME_FILES;
+  const endpoint = API_ENDPOINTS.PRODUCT_FILES;
 
   try {
     const response = await api.get(endpoint, { params });
@@ -43,9 +43,9 @@ export async function getGameFiles(
   }
 }
 
-export async function getGameFileStats(gameId: number): Promise<GameFileStatsType> {
+export async function getProductFileStats(productId: number): Promise<ProductFileStatsType> {
 
-  const response = await api.get(`${API_ENDPOINTS.GAME_FILE_STATS}/${gameId}`)
+  const response = await api.get(`${API_ENDPOINTS.PRODUCT_FILE_STATS}/${productId}`)
   return response.data
 }
 

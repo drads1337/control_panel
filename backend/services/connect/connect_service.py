@@ -74,7 +74,7 @@ class ConnectService:
 
             expiration_hours = max(1, min(168, expiration_hours))
 
-            game_id = key_obj.game_id if key_obj.game_id else None
+            product_id = key_obj.product_id if key_obj.product_id else None
 
             max_devices = key_obj.max_devices if key_obj.max_devices else 1
 
@@ -86,7 +86,7 @@ class ConnectService:
                 "iat": int(now.timestamp()),
                 "exp": int((now + timedelta(hours=expiration_hours)).timestamp()),
                 "prj": project_id,
-                "gms": [game_id] if game_id else [],
+                "gms": [product_id] if product_id else [],
                 "max_dev": max_devices,
             }
 

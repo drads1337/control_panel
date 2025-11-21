@@ -1,7 +1,7 @@
 import type { User } from '@/entities/user';
 import type { Project } from '@/entities/project';
-import type { Game, Product } from '@/entities/game';  // Product is universal name, Game is alias
-import type { Loader, Agent } from '@/entities/loader';  // Agent is universal name, Loader is alias
+import type { Product } from '@/entities/product';
+import type { Agent } from '@/entities/agent';
 import type { Session } from '@/entities/session';
 import type { Log } from '@/entities/log';
 
@@ -32,9 +32,9 @@ export const API_ENDPOINTS = {
 
   FILES: '/api/files',
   FILE_STATS: '/api/files/stats',
-  GAME_FILES: '/api/files/game-files',
+  PRODUCT_FILES: '/api/files/product-files',
   FOLDERS: '/api/files/folders',
-  GAME_FILE_STATS: '/api/files/stats/game',
+  PRODUCT_FILE_STATS: '/api/files/stats/product',
 
   // Universal terminology endpoints (new)
   PRODUCTS: '/api/products',
@@ -44,20 +44,14 @@ export const API_ENDPOINTS = {
   AGENTS_STATS: '/api/agents/stats',
   
   // Backward compatibility endpoints (deprecated but still supported)
-  GAMES: '/api/games',
-  GAMES_AVAILABLE_FOR_ASSIGNMENT: '/api/games/available-for-assignment',
-  GAMES_CLASSIC_USERS: '/api/clients',
-
-  LOADERS: '/api/loaders',
-  LOADERS_AVAILABLE_GAMES: '/api/loaders/available-games',
-  LOADERS_STATS: '/api/loaders/stats',
+  PRODUCTS_CLASSIC_USERS: '/api/clients',
 
   KEYS: '/api/keys',
   KEYS_CUSTOM: '/api/keys/custom',
   KEYS_BULK: '/api/keys/bulk',
-  KEYS_LOADER: '/api/keys/loader',
-  KEYS_LOADER_CUSTOM: '/api/keys/loader/custom',
-  KEYS_BULK_LOADER: '/api/keys/bulk/loader',
+  KEYS_AGENT: '/api/keys/agent',
+  KEYS_AGENT_CUSTOM: '/api/keys/agent/custom',
+  KEYS_BULK_AGENT: '/api/keys/bulk/agent',
   KEYS_VALIDATE: '/api/keys/validate',
   KEYS_STATS: '/api/keys/stats',
   KEYS_COUNT_BY_FILTERS: '/api/keys/countByFilters',
@@ -68,10 +62,10 @@ export const API_ENDPOINTS = {
   KEYS_BULK_ACTIVATE: '/api/keys/bulk/activate',
   KEYS_BULK_DELETE: '/api/keys/bulk/delete',
   KEYS_BULK_ADD_HOURS: '/api/keys/bulk/addHours',
-  KEYS_BULK_LOADER_PAUSE: '/api/keys/bulk/loader/pause',
-  KEYS_BULK_LOADER_ACTIVATE: '/api/keys/bulk/loader/activate',
-  KEYS_BULK_LOADER_DELETE: '/api/keys/bulk/loader/delete',
-  KEYS_BULK_LOADER_ADD_HOURS: '/api/keys/bulk/loader/addHours',
+  KEYS_BULK_AGENT_PAUSE: '/api/keys/bulk/agent/pause',
+  KEYS_BULK_AGENT_ACTIVATE: '/api/keys/bulk/agent/activate',
+  KEYS_BULK_AGENT_DELETE: '/api/keys/bulk/agent/delete',
+  KEYS_BULK_AGENT_ADD_HOURS: '/api/keys/bulk/agent/addHours',
 
   SESSIONS: '/api/sessions',
   SESSIONS_STATS: '/api/sessions/stats',
@@ -94,10 +88,10 @@ export const API_ENDPOINTS = {
   SETTINGS_KEYS: '/api/settings/keys',
   SETTINGS_REGENERATE_MASTER_KEY: '/api/settings/regenerate-master-key',
 
-  NOTIFICATIONS_GAME_UPDATE: '/api/notifications/game-update',
-  NOTIFICATIONS_GAMES: '/api/notifications/games',
+  NOTIFICATIONS_PRODUCT_UPDATE: '/api/notifications/product-update',
+  NOTIFICATIONS_PRODUCTS: '/api/notifications/products',
 
-  CHANGELOG_GAMES: '/api/changelog/games',
+  CHANGELOG_PRODUCTS: '/api/changelog/products',
   CHANGELOG_CHANGELOG: '/api/changelog/changelog',
 
   DASHBOARD_API_METRICS: '/api/dashboard/api-metrics',

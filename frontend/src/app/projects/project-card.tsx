@@ -16,11 +16,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  Gamepad2,
+  Database,
   Users,
   KeyRound,
   Server,
-  Database,
   CalendarDays,
   Clock,
   MoreVertical,
@@ -131,7 +130,7 @@ const ProjectCardHeader = ({ project, onManage, onQuickAction }: Pick<ProjectCar
   <CardHeader>
     <div className="flex items-start justify-between gap-4">
       <div className={cn('w-12 h-12 rounded-lg flex items-center justify-center shrink-0', getIconColor(project.status))}>
-        <Gamepad2 className="h-6 w-6" />
+        <Database className="h-6 w-6" />
       </div>
       <div className="flex items-center gap-2">
         <div className="flex flex-col items-end gap-2">
@@ -159,7 +158,7 @@ const ProjectStats = ({ project }: { project: Project }) => {
   const stats: { icon: LucideIcon; label: string; value: string | number }[] = [
     { icon: Users, label: 'Users', value: project.stats.users },
     { icon: KeyRound, label: 'Keys', value: project.stats.keys },
-    { icon: Gamepad2, label: 'Games', value: project.stats.games },
+    { icon: Database, label: 'Products', value: project.stats.products },
     { icon: Server, label: 'Servers', value: project.stats.servers },
     { icon: Database, label: 'Storage', value: `${project.storage_limit_gb} GB` },
   ];

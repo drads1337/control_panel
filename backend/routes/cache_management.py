@@ -103,10 +103,10 @@ def invalidate_cache_type(cache_type):
         if not project_id:
             project_id = user.project_id
 
-        if cache_type == "games" and project_id:
-            from ..services.games import game_service
+        if cache_type == "products" and project_id:
+            from ..services.products import product_service
 
-            deleted_count = game_service.invalidate_game_cache(project_id)
+            deleted_count = product_service.invalidate_product_cache(project_id)
         else:
 
             pattern = f"{cache_type}:*"

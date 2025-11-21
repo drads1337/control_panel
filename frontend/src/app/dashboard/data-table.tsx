@@ -30,10 +30,10 @@ import {
   MoreVertical,
   GripVertical,
   Layout,
-  Loader as LoaderIcon,
+  User as UserIcon,
   Plus,
   TrendingUp,
-  Gamepad2,
+  Database,
   Key,
   Users,
   Activity,
@@ -103,8 +103,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import type { Loader } from '@/entities/loader';
-import type { Game } from '@/entities/game';
+import type { Agent } from '@/entities/agent';
+import type { Product } from '@/entities/product';
 import type { User } from '@/entities/user';
 import type { Log } from '@/entities/log';
 import {
@@ -124,8 +124,8 @@ export const schema = z.object({
   reviewer: z.string(),
 })
 
-export const gameSchema = z.object({
-  game: z.string(),
+export const productSchema = z.object({
+  product: z.string(),
   keys: z.number(),
 })
 
@@ -160,7 +160,7 @@ function DragHandle({ id }: { id: number }) {
   )
 }
 
-const gameColumns: ColumnDef<z.infer<typeof gameSchema>>[] = [
+const productColumns: ColumnDef<z.infer<typeof productSchema>>[] = [
   {
     id: "select",
     header: ({ table }) => (
@@ -188,12 +188,12 @@ const gameColumns: ColumnDef<z.infer<typeof gameSchema>>[] = [
     enableHiding: false,
   },
   {
-    accessorKey: "game",
-    header: "Application Name",
+    accessorKey: "product",
+    header: "Product Name",
     cell: ({ row }) => (
       <div className="flex items-center gap-2">
-        <Gamepad2 className="h-4 w-4 text-muted-foreground" />
-        <span className="font-medium">{row.original.game}</span>
+        <Database className="h-4 w-4 text-muted-foreground" />
+        <span className="font-medium">{row.original.product}</span>
       </div>
     ),
     enableHiding: false,
@@ -499,7 +499,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
         {row.original.status === "Done" ? (
           <CheckCircle className="fill-green-500 dark:fill-green-400 h-3 w-3 mr-1" />
         ) : (
-          <LoaderIcon className="h-3 w-3 mr-1" />
+          <UserIcon className="h-3 w-3 mr-1" />
         )}
         {row.original.status}
       </Badge>
@@ -640,13 +640,13 @@ const DraggableRow = React.memo(function DraggableRow({ row }: { row: Row<z.infe
 })
 
 interface DataTableProps {
-  data?: z.infer<typeof gameSchema>[]
+  data?: z.infer<typeof productSchema>[]
   announcements?: z.infer<typeof announcementSchema>[]
   topUsers?: z.infer<typeof userSchema>[]
 }
 
 export function DataTable({ data, announcements, topUsers }: DataTableProps) {
-  const [activeTab, setActiveTab] = React.useState("games")
+  const [activeTab, setActiveTab] = React.useState("products")
   const [rowSelection, setRowSelection] = React.useState({})
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({})
@@ -661,7 +661,7 @@ export function DataTable({ data, announcements, topUsers }: DataTableProps) {
 
   const currentData = React.useMemo(() => {
     switch (activeTab) {
-      case "games":
+      case "products":
         return data || []
       case "users":
         return topUsers || []
@@ -674,14 +674,14 @@ export function DataTable({ data, announcements, topUsers }: DataTableProps) {
 
   const currentColumns = React.useMemo(() => {
     switch (activeTab) {
-      case "games":
-        return gameColumns
+      case "products":
+        return productColumns
       case "users":
         return userColumns
       case "announcements":
         return announcementColumns
       default:
-        return gameColumns
+        return productColumns
     }
   }, [activeTab])
 
@@ -699,8 +699,8 @@ export function DataTable({ data, announcements, topUsers }: DataTableProps) {
 
       if ('id' in row) {
         return row.id.toString()
-      } else if ('game' in row) {
-        return `game-${index}`
+      } else if ('product' in row) {
+        return `product-${index}`
       } else if ('username' in row) {
         return `user-${index}`
       }
@@ -738,14 +738,14 @@ export function DataTable({ data, announcements, topUsers }: DataTableProps) {
             <SelectValue placeholder="Select a view" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="games">Top applications</SelectItem>
+            <SelectItem value="products">Top Products</SelectItem>
             <SelectItem value="users">Active Users</SelectItem>
             <SelectItem value="announcements">Announcements</SelectItem>
           </SelectContent>
         </Select>
         <TabsList className="**:data-[slot=badge]:bg-muted-foreground/30 hidden **:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:px-1 @4xl/main:flex">
-          <TabsTrigger value="games">
-            Top applications <Badge variant="secondary">{data?.length || 0}</Badge>
+          <TabsTrigger value="products">
+            Top products <Badge variant="secondary">{data?.length || 0}</Badge>
           </TabsTrigger>
           <TabsTrigger value="users">
             Active Users <Badge variant="secondary">{topUsers?.length || 0}</Badge>
@@ -792,7 +792,7 @@ export function DataTable({ data, announcements, topUsers }: DataTableProps) {
       </div>
 
       <TabsContent
-        value="games"
+        value="products"
         className="relative flex flex-col gap-6 overflow-auto pb-8"
       >
         <div className="overflow-hidden rounded-lg border">
@@ -832,7 +832,7 @@ export function DataTable({ data, announcements, topUsers }: DataTableProps) {
                     colSpan={currentColumns.length}
                     className="h-24 text-center"
                   >
-                    No applications found.
+                    No products found.
                   </TableCell>
                 </TableRow>
               )}

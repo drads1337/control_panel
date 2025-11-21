@@ -166,7 +166,7 @@ class S3StorageBackend(StorageBackend):
         try:
 
             if not content_type:
-                content_type = mimetypes.guess_type(file_path)[0] or "application/octet-stream"
+                content_type = mimetypes.guess_type(file_path)[0] or "product/octet-stream"
 
             self.s3_client.put_object(
                 Bucket=self.bucket_name,

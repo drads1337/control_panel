@@ -14,7 +14,7 @@ export interface OwnerDashboardStats {
     active_users: number
     total_keys: number
     active_keys: number
-    total_games: number
+    total_products: number
     total_servers: number
     online_servers: number
     system_uptime: number
@@ -26,7 +26,7 @@ export interface OwnerDashboardStats {
     project_name: string
     users_count: number
     keys_count: number
-    games_count: number
+    products_count: number
     servers_count: number
     status: string
     subscription_status: string

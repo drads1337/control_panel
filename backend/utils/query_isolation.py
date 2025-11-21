@@ -52,7 +52,7 @@ SYSTEM_MODELS: Set[str] = {
 # These models will be filtered, but can be excluded if needed
 PROJECT_SCOPED_MODELS: Set[str] = {
     "Key",
-    "Game",
+    "Product",
     "Server",
     "Webhook",
     "UserActivity",
@@ -67,8 +67,8 @@ PROJECT_SCOPED_MODELS: Set[str] = {
     "ProjectAppearanceSettings",
     "ProjectInviteSettings",
     "ProjectSettings",
-    "UserGamePermission",
-    "DeveloperGamePermission",
+    "UserProductPermission",
+    "DeveloperProductPermission",
     "ProjectUserRole",
     "ProjectAdmin",
     "RemoteCategory",
@@ -77,7 +77,7 @@ PROJECT_SCOPED_MODELS: Set[str] = {
     "Billing",
     "ProjectAPIKey",
     "KeyAnalytics",
-    "Loader",
+    "Agent",
     "Changelog",
     "Notification",
     "ChatMessage",
@@ -313,13 +313,13 @@ def _do_orm_execute(execute_state: ORMExecuteState):
 
 def init_query_isolation(app) -> None:
     """
-    Initialize automatic query isolation for the Flask application.
+    Initialize automatic query isolation for the Flask product.
     
     This sets up SQLAlchemy event listeners that automatically filter
     all queries by project_id when a project context is available.
     
     Args:
-        app: Flask application instance
+        app: Flask product instance
     """
     # The event listener is registered at module level, so we just need to
     # verify it's loaded and log the initialization
@@ -343,7 +343,7 @@ def disable_project_isolation(reason: Optional[str] = None, require_owner: bool 
     - Should only be used by system administrators/owners
     - Must be used with explicit reason for audit trail
     - Should only be used for system models (Project, User, SystemSettings, etc.)
-    - Never use for project-scoped models (Key, Game, Server, etc.)
+    - Never use for project-scoped models (Key, Product, Server, etc.)
     
     Args:
         reason: REQUIRED reason for disabling isolation (for audit trail)

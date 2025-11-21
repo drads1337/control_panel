@@ -85,7 +85,7 @@ class RedisSecurityMonitor:
         )
         
         # Extract project_id from key if possible
-        # Format: dynamic_config:{user_key}:{game_name}:{project_id}
+        # Format: dynamic_config:{user_key}:{product_name}:{project_id}
         try:
             parts = key.split(":")
             if len(parts) >= 4:

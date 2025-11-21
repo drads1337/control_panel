@@ -26,7 +26,7 @@ interface UseKeysParams {
   page?: number
   per_page?: number
   status?: string
-  game_id?: number
+  product_id?: number
   search?: string
   my_keys?: boolean
 }
@@ -47,7 +47,7 @@ interface UseKeysReturn {
   setPage: (page: number) => void
   setPerPage: (perPage: number) => void
   setStatus: (status: string) => void
-  setGameId: (gameId: number | undefined) => void
+  setProductId: (productId: number | undefined) => void
   setSearch: (search: string) => void
   setMyKeys: (myKeys: boolean) => void
 
@@ -71,7 +71,7 @@ export function useKeysQuery(initialParams: UseKeysParams = {}): UseKeysReturn {
       if (initialParams.page !== undefined) updated.page = initialParams.page
       if (initialParams.per_page !== undefined) updated.per_page = initialParams.per_page
       if (initialParams.status !== undefined) updated.status = initialParams.status
-      if (initialParams.game_id !== undefined) updated.game_id = initialParams.game_id
+      if (initialParams.product_id !== undefined) updated.product_id = initialParams.product_id
       if (initialParams.search !== undefined) updated.search = initialParams.search
       if (initialParams.my_keys !== undefined) updated.my_keys = initialParams.my_keys
 
@@ -79,13 +79,13 @@ export function useKeysQuery(initialParams: UseKeysParams = {}): UseKeysReturn {
         updated.page !== prev.page ||
         updated.per_page !== prev.per_page ||
         updated.status !== prev.status ||
-        updated.game_id !== prev.game_id ||
+        updated.product_id !== prev.product_id ||
         updated.search !== prev.search ||
         updated.my_keys !== prev.my_keys
 
       return hasChanges ? updated : prev
     })
-  }, [initialParams.page, initialParams.per_page, initialParams.status, initialParams.game_id, initialParams.search, initialParams.my_keys])
+  }, [initialParams.page, initialParams.per_page, initialParams.status, initialParams.product_id, initialParams.search, initialParams.my_keys])
 
   const {
     data: keysData,
@@ -101,7 +101,7 @@ export function useKeysQuery(initialParams: UseKeysParams = {}): UseKeysReturn {
           params.page || 1,
           params.per_page || 20,
           params.status,
-          params.game_id,
+          params.product_id,
           params.search,
           params.my_keys
         ),
@@ -109,7 +109,7 @@ export function useKeysQuery(initialParams: UseKeysParams = {}): UseKeysReturn {
           page: params.page || 1,
           per_page: params.per_page || 20,
           status: params.status || 'all',
-          has_game_filter: !!params.game_id,
+          has_product_filter: !!params.product_id,
           has_search: !!params.search,
           my_keys: params.my_keys || false,
         }
@@ -168,8 +168,8 @@ export function useKeysQuery(initialParams: UseKeysParams = {}): UseKeysReturn {
     setParams(prev => ({ ...prev, status: status === 'all' ? undefined : status, page: 1 }))
   }
 
-  const setGameId = (gameId: number | undefined) => {
-    setParams(prev => ({ ...prev, game_id: gameId, page: 1 }))
+  const setProductId = (productId: number | undefined) => {
+    setParams(prev => ({ ...prev, product_id: productId, page: 1 }))
   }
 
   const setSearch = (search: string) => {
@@ -196,7 +196,7 @@ export function useKeysQuery(initialParams: UseKeysParams = {}): UseKeysReturn {
     setPage,
     setPerPage,
     setStatus,
-    setGameId,
+    setProductId,
     setSearch,
     setMyKeys,
 

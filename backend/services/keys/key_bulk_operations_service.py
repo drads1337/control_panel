@@ -1,0 +1,505 @@
+"""
+Key Bulk Operations Service
+Handles bulk operations on keys: bulk create, delete, pause, resume, reset, extend
+"""
+
+import json
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional, Tuple
+
+from ...core.extensions import db
+from ...models.core import User
+from ...models.products import Product
+from ...models.keys import DeviceInfo, Key
+from ...models.agents import Agent
+from ...services.key_generation_service import key_generation_service
+from ...services.key_validation_service import key_validation_service
+from ...utils.rbac_utils import RBACManager
+from ...utils.role_constants import UserRoles
+from ...utils.structured_logging import get_logger
+from .key_crud_service import key_crud_service
+from .key_filter_specification import KeyFilterSpecification
+from .key_status_service import key_status_service
+
+
+class KeyBulkOperationsService:
+    """Service for handling bulk operations on keys"""
+
+    def __init__(self):
+        self.logger = get_logger("key_bulk_operations_service")
+        self.max_bulk_operations = 1000
+        self.generation_service = key_generation_service
+        self.validation_service = key_validation_service
+
+    def _get_keys_by_ids(self, user: User, key_ids: List[int]) -> List[Key]:
+        """
+        Get keys by IDs with security check
+
+        Args:
+            user: User requesting keys
+            key_ids: List of key IDs
+
+        Returns:
+            List of Key objects
+        """
+        if len(key_ids) > self.max_bulk_operations:
+            raise ValueError(f"Too many IDs in one request. Maximum: {self.max_bulk_operations}")
+
+        return Key.query.filter(Key.id.in_(key_ids), Key.project_id == user.project_id).all()
+
+    def _get_keys_by_filters(self, user: User, filters: Dict[str, Any]) -> List[Key]:
+        """
+        Get keys by filters for bulk operations
+
+        Args:
+            user: User requesting keys
+            filters: Filter parameters
+
+        Returns:
+            List of Key objects
+        """
+        query = Key.query.filter_by(project_id=user.project_id)
+        filter_spec = KeyFilterSpecification(filters, logger=self.logger)
+        query = filter_spec.apply(query)
+        return query.all()
+
+    def create_keys_bulk(
+        self, user: User, keys_data: List[Dict[str, Any]]
+    ) -> Tuple[int, List[str]]:
+        """
+        Create multiple keys in bulk
+
+        Args:
+            user: User creating the keys
+            keys_data: List of key data dictionaries
+
+        Returns:
+            Tuple of (created_count, list_of_errors)
+        """
+        is_valid, error_msg = self.validation_service.validate_bulk_operation(
+            len(keys_data), self.max_bulk_operations
+        )
+        if not is_valid:
+            return 0, [error_msg]
+
+        created_count = 0
+        errors = []
+
+        for i, key_data in enumerate(keys_data):
+            try:
+                key, error = key_crud_service.create_key(user, key_data)
+                if key:
+                    created_count += 1
+                else:
+                    errors.append(f"Key {i+1}: {error}")
+            except Exception as e:
+                try:
+                    db.session.rollback()
+                except Exception:
+                    pass
+                error_msg = str(e)
+                errors.append(f"Key {i+1}: Failed to create key: {error_msg}")
+                self.logger.error(f"Failed to create key {i+1} in bulk: {error_msg}")
+
+        self.logger.info(f"Bulk created {created_count} keys for user {user.id}")
+        return created_count, errors
+
+    def bulk_create_keys(
+        self,
+        user: User,
+        count: int,
+        product_id: int,
+        duration_hours: float,
+        max_devices: int,
+    ) -> Tuple[int, Optional[str], Optional[List[Key]]]:
+        """
+        Bulk create keys synchronously
+
+        Args:
+            user: User creating the keys
+            count: Number of keys to create
+            product_id: ID of the product
+            duration_hours: Duration in hours
+            max_devices: Maximum devices per key
+
+        Returns:
+            Tuple of (created_count, error_message, list of created keys)
+        """
+        try:
+            product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+            if not product:
+                return 0, "Product not found or access denied", None
+
+            is_access_code = product.login_type == "classic_login"
+            item_type = "access codes" if is_access_code else "license keys"
+
+            created_keys = []
+            batch_id = f'batch_{datetime.utcnow().strftime("%Y%m%d_%H%M%S")}'
+            errors = []
+
+            expires_at = None
+            if duration_hours:
+                expires_at = datetime.utcnow() + timedelta(hours=duration_hours)
+
+            for i in range(count):
+                try:
+                    key_string = self.generation_service.generate_key_string(
+                        length=32, product=product, duration_hours=duration_hours, project_id=user.project_id
+                    )
+
+                    user_roles = RBACManager.get_user_role_names(user)
+                    created_by_role = (
+                        user_roles[0] if user_roles else UserRoles.CLIENT.value
+                    )
+
+                    key_metadata = {
+                        "type": "production",
+                        "generation_type": "access_code" if is_access_code else "license_key",
+                        "created_by": user.id,
+                        "created_by_role": created_by_role,
+                        "batch_id": batch_id,
+                    }
+
+                    key = Key(
+                        key=key_string,
+                        user_id=user.id,
+                        product_id=product_id,
+                        expires_at=expires_at,
+                        max_devices=max_devices,
+                        duration_hours=duration_hours,
+                        status=1,
+                        project_id=user.project_id,
+                        key_metadata=json.dumps(key_metadata),
+                    )
+
+                    db.session.add(key)
+                    db.session.flush()
+
+                    from ...utils.key_counters import increment_user_key_counters
+                    increment_user_key_counters(user.id, is_active=True)
+
+                    created_keys.append(key)
+                except Exception as key_error:
+                    errors.append(f"Key {i+1}: {str(key_error)}")
+                    self.logger.error(f"Failed to create key {i+1}: {str(key_error)}")
+
+            if created_keys:
+                db.session.commit()
+                self.logger.info(f"Bulk created {len(created_keys)} keys")
+
+            if errors and not created_keys:
+                return 0, f"All keys failed to create: {errors}", None
+
+            created_count = len(created_keys)
+            error_message = f"Some keys failed: {errors}" if errors else None
+
+            return created_count, error_message, created_keys
+
+        except Exception as e:
+            db.session.rollback()
+            self.logger.error(f"Failed to create bulk keys: {str(e)}")
+            import traceback
+            self.logger.error(f"Traceback: {traceback.format_exc()}")
+            return 0, f"Failed to create bulk keys: {str(e)}", None
+
+    def bulk_pause_keys(self, user: User, key_ids: List[int]) -> Tuple[int, Optional[str]]:
+        """Pause multiple keys"""
+        try:
+            keys = self._get_keys_by_ids(user, key_ids)
+            if not keys:
+                return 0, "No keys found or access denied"
+
+            affected_count = 0
+            for key in keys:
+                success, error = key_status_service.pause_key(user, key.id)
+                if success:
+                    affected_count += 1
+
+            self.logger.info(f"Bulk paused {affected_count} keys for user {user.id}")
+            return affected_count, None
+        except Exception as e:
+            self.logger.error(f"Failed to bulk pause keys: {str(e)}")
+            return 0, f"Failed to bulk pause keys: {str(e)}"
+
+    def bulk_resume_keys(self, user: User, key_ids: List[int]) -> Tuple[int, Optional[str]]:
+        """Resume multiple keys"""
+        try:
+            keys = self._get_keys_by_ids(user, key_ids)
+            if not keys:
+                return 0, "No keys found or access denied"
+
+            affected_count = 0
+            for key in keys:
+                success, error = key_status_service.resume_key(user, key.id)
+                if success:
+                    affected_count += 1
+
+            self.logger.info(f"Bulk resumed {affected_count} keys for user {user.id}")
+            return affected_count, None
+        except Exception as e:
+            self.logger.error(f"Failed to bulk resume keys: {str(e)}")
+            return 0, f"Failed to bulk resume keys: {str(e)}"
+
+    def bulk_delete_keys(self, user: User, key_ids: List[int]) -> Tuple[int, Optional[str]]:
+        """Delete multiple keys"""
+        try:
+            keys = self._get_keys_by_ids(user, key_ids)
+            if not keys:
+                return 0, "No keys found or access denied"
+
+            affected_count = 0
+            for key in keys:
+                success, error = key_crud_service.delete_key(user, key.id)
+                if success:
+                    affected_count += 1
+
+            self.logger.info(f"Bulk deleted {affected_count} keys for user {user.id}")
+            return affected_count, None
+        except Exception as e:
+            self.logger.error(f"Failed to bulk delete keys: {str(e)}")
+            return 0, f"Failed to bulk delete keys: {str(e)}"
+
+    def bulk_reset_keys(self, user: User, key_ids: List[int]) -> Tuple[int, Optional[str]]:
+        """Reset multiple keys"""
+        try:
+            keys = self._get_keys_by_ids(user, key_ids)
+            if not keys:
+                return 0, "No keys found or access denied"
+
+            key_ids_list = [key.id for key in keys]
+
+            for key in keys:
+                key.devices = ""
+                key.activated_at = None
+                key.fingerprint = None
+
+            DeviceInfo.query.filter(DeviceInfo.key_id.in_(key_ids_list)).delete()
+
+            db.session.commit()
+            self.logger.info(f"Bulk reset {len(keys)} keys for user {user.id}")
+            return len(keys), None
+        except Exception as e:
+            db.session.rollback()
+            self.logger.error(f"Failed to bulk reset keys: {str(e)}")
+            return 0, f"Failed to bulk reset keys: {str(e)}"
+
+    def bulk_extend_keys(
+        self, user: User, key_ids: List[int], hours: float
+    ) -> Tuple[int, Optional[str]]:
+        """Extend multiple keys"""
+        try:
+            keys = self._get_keys_by_ids(user, key_ids)
+            if not keys:
+                return 0, "No keys found or access denied"
+
+            affected_count = 0
+            for key in keys:
+                success, error = key_status_service.extend_key(user, key.id, hours)
+                if success:
+                    affected_count += 1
+
+            self.logger.info(f"Bulk extended {affected_count} keys for user {user.id}")
+            return affected_count, None
+        except Exception as e:
+            self.logger.error(f"Failed to bulk extend keys: {str(e)}")
+            return 0, f"Failed to bulk extend keys: {str(e)}"
+
+    def bulk_delete_keys_by_filters(
+        self, user: User, filters: Dict[str, Any]
+    ) -> Tuple[int, Optional[str]]:
+        """Delete keys by filters"""
+        try:
+            keys = self._get_keys_by_filters(user, filters)
+            if not keys:
+                return 0, "No keys found matching filters"
+
+            if len(keys) > self.max_bulk_operations:
+                return 0, f"Too many keys to delete. Maximum: {self.max_bulk_operations}"
+
+            key_ids = [key.id for key in keys]
+            return self.bulk_delete_keys(user, key_ids)
+
+        except Exception as e:
+            self.logger.error(f"Failed to bulk delete keys by filters: {str(e)}")
+            return 0, f"Failed to bulk delete keys by filters: {str(e)}"
+
+    def bulk_reset_keys_by_filters(
+        self, user: User, filters: Dict[str, Any]
+    ) -> Tuple[int, Optional[str]]:
+        """Reset keys by filters"""
+        try:
+            keys = self._get_keys_by_filters(user, filters)
+            if not keys:
+                return 0, "No keys found matching filters"
+
+            if len(keys) > self.max_bulk_operations:
+                return 0, f"Too many keys to reset. Maximum: {self.max_bulk_operations}"
+
+            key_ids = [key.id for key in keys]
+            return self.bulk_reset_keys(user, key_ids)
+
+        except Exception as e:
+            self.logger.error(f"Failed to bulk reset keys by filters: {str(e)}")
+            return 0, f"Failed to bulk reset keys by filters: {str(e)}"
+
+    def bulk_extend_keys_by_filters(
+        self, user: User, filters: Dict[str, Any], hours: float
+    ) -> Tuple[int, Optional[str]]:
+        """Extend keys by filters"""
+        try:
+            keys = self._get_keys_by_filters(user, filters)
+            if not keys:
+                return 0, "No keys found matching filters"
+
+            if len(keys) > self.max_bulk_operations:
+                return 0, f"Too many keys to extend. Maximum: {self.max_bulk_operations}"
+
+            key_ids = [key.id for key in keys]
+            return self.bulk_extend_keys(user, key_ids, hours)
+
+        except Exception as e:
+            self.logger.error(f"Failed to bulk extend keys by filters: {str(e)}")
+            return 0, f"Failed to bulk extend keys by filters: {str(e)}"
+
+    def bulk_pause_keys_by_product(
+        self, user: User, product_id: int
+    ) -> Tuple[int, Optional[str], Optional[str]]:
+        """Bulk pause keys by product"""
+        try:
+            product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+            if not product:
+                return 0, "Product not found or access denied", None
+
+            keys = Key.query.filter_by(product_id=product_id, project_id=user.project_id).all()
+            if not keys:
+                return 0, None, product.name
+
+            key_ids = [key.id for key in keys]
+            affected_count, error = self.bulk_pause_keys(user, key_ids)
+
+            return affected_count, error, product.name
+
+        except Exception as e:
+            self.logger.error(f"Failed to bulk pause keys by product: {str(e)}")
+            return 0, f"Failed to pause keys: {str(e)}", None
+
+    def bulk_resume_keys_by_product(
+        self, user: User, product_id: int
+    ) -> Tuple[int, Optional[str], Optional[str]]:
+        """Bulk resume keys by product"""
+        try:
+            product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+            if not product:
+                return 0, "Product not found or access denied", None
+
+            keys = Key.query.filter_by(product_id=product_id, project_id=user.project_id).all()
+            if not keys:
+                return 0, None, product.name
+
+            key_ids = [key.id for key in keys]
+            affected_count, error = self.bulk_resume_keys(user, key_ids)
+
+            return affected_count, error, product.name
+
+        except Exception as e:
+            self.logger.error(f"Failed to bulk resume keys by product: {str(e)}")
+            return 0, f"Failed to resume keys: {str(e)}", None
+
+    def bulk_reset_keys_by_product(
+        self, user: User, product_id: int
+    ) -> Tuple[int, Optional[str], Optional[str]]:
+        """Bulk reset keys by product"""
+        try:
+            product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+            if not product:
+                return 0, "Product not found or access denied", None
+
+            keys = Key.query.filter_by(product_id=product_id, project_id=user.project_id).all()
+            if not keys:
+                return 0, None, product.name
+
+            key_ids = [key.id for key in keys]
+            affected_count, error = self.bulk_reset_keys(user, key_ids)
+
+            return affected_count, error, product.name
+
+        except Exception as e:
+            self.logger.error(f"Failed to bulk reset keys by product: {str(e)}")
+            return 0, f"Failed to reset keys: {str(e)}", None
+
+    def bulk_add_hours_by_product(
+        self, user: User, product_id: int, hours: float
+    ) -> Tuple[int, Optional[str], Optional[str]]:
+        """Bulk add hours to keys by product"""
+        try:
+            product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+            if not product:
+                return 0, "Product not found or access denied", None
+
+            keys = Key.query.filter_by(product_id=product_id, project_id=user.project_id).all()
+            if not keys:
+                return 0, None, product.name
+
+            key_ids = [key.id for key in keys]
+            affected_count, error = self.bulk_extend_keys(user, key_ids, hours)
+
+            return affected_count, error, product.name
+
+        except Exception as e:
+            self.logger.error(f"Failed to bulk add hours by product: {str(e)}")
+            return 0, f"Failed to add hours: {str(e)}", None
+
+    def bulk_delete_unused_loader_keys(
+        self, user: User, agent_id: int
+    ) -> Tuple[int, Optional[str]]:
+        """Delete unused agent keys"""
+        try:
+            from sqlalchemy import or_
+
+            keys = Key.query.filter(
+                Key.agent_id == agent_id,
+                Key.project_id == user.project_id,
+                or_(Key.devices == "", Key.devices.is_(None)),
+            ).all()
+
+            if not keys:
+                return 0, "No unused agent keys found"
+
+            if len(keys) > self.max_bulk_operations:
+                return 0, f"Too many keys to delete. Maximum: {self.max_bulk_operations}"
+
+            key_ids = [key.id for key in keys]
+            return self.bulk_delete_keys(user, key_ids)
+
+        except Exception as e:
+            self.logger.error(f"Failed to bulk delete unused agent keys: {str(e)}")
+            return 0, f"Failed to bulk delete unused agent keys: {str(e)}"
+
+    def bulk_delete_expired_loader_keys(
+        self, user: User, agent_id: int
+    ) -> Tuple[int, Optional[str]]:
+        """Delete expired agent keys"""
+        try:
+            keys = Key.query.filter(
+                Key.agent_id == agent_id,
+                Key.project_id == user.project_id,
+                Key.expires_at <= datetime.utcnow(),
+            ).all()
+
+            if not keys:
+                return 0, "No expired agent keys found"
+
+            if len(keys) > self.max_bulk_operations:
+                return 0, f"Too many keys to delete. Maximum: {self.max_bulk_operations}"
+
+            key_ids = [key.id for key in keys]
+            return self.bulk_delete_keys(user, key_ids)
+
+        except Exception as e:
+            self.logger.error(f"Failed to bulk delete expired agent keys: {str(e)}")
+            return 0, f"Failed to bulk delete expired agent keys: {str(e)}"
+
+
+# Singleton instance
+key_bulk_operations_service = KeyBulkOperationsService()
+

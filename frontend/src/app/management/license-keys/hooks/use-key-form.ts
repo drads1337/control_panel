@@ -1,33 +1,33 @@
 import { useState, useCallback } from 'react';
 
 export interface KeyFormData {
-  targetType: 'game' | 'loader';
-  gameId: string;
-  loaderId: string;
-  selectedGames: number[];
+  targetType: 'product' | 'agent';
+  productId: string;
+  agentId: string;
+  selectedProducts: number[];
   duration: string;
   customHours: string;
   maxDevices: number;
 }
 
 const initialFormData: KeyFormData = {
-  targetType: 'game',
-  gameId: '',
-  loaderId: '',
-  selectedGames: [],
+  targetType: 'product',
+  productId: '',
+  agentId: '',
+  selectedProducts: [],
   duration: '1mo',
   customHours: '',
   maxDevices: 1,
 };
 
 export function useKeyForm({
-  games,
-  loaders,
-  initialTargetType = 'game',
+  products,
+  agents,
+  initialTargetType = 'product',
 }: {
-  games: Array<{ id: number; name: string; is_multi_app: boolean }>;
-  loaders: Array<{ id: number; name: string; assigned_games: number[] }>;
-  initialTargetType?: 'game' | 'loader';
+  products: Array<{ id: number; name: string; is_multi_app: boolean }>;
+  agents: Array<{ id: number; name: string; assigned_products: number[] }>;
+  initialTargetType?: 'product' | 'agent';
 }) {
   const [formData, setFormData] = useState<KeyFormData>({
     ...initialFormData,
@@ -51,24 +51,24 @@ export function useKeyForm({
     });
   }, [initialTargetType]);
 
-  const getGameLibraryGames = useCallback(() => {
-    return games.filter((game) => !game.is_multi_app);
-  }, [games]);
+  const getProductLibraryProducts = useCallback(() => {
+    return products.filter((product) => !product.is_multi_app);
+  }, [products]);
 
-  const getAssignedGamesForLoader = useCallback(
-    (loaderId: number) => {
-      const loader = loaders.find((l) => l.id === loaderId);
-      if (!loader) return [];
-      return games.filter((game) => loader.assigned_games.includes(game.id));
+  const getAssignedProductsForAgent = useCallback(
+    (agentId: number) => {
+      const agent = agents.find((l) => l.id === agentId);
+      if (!agent) return [];
+      return products.filter((product) => agent.assigned_products.includes(product.id));
     },
-    [loaders, games]
+    [agents, products]
   );
 
   return {
     formData,
     updateField,
     reset,
-    getGameLibraryGames,
-    getAssignedGamesForLoader,
+    getProductLibraryProducts,
+    getAssignedProductsForAgent,
   };
 }

@@ -1,6 +1,6 @@
 """
 Isolation Utilities
-Utility functions for ensuring proper project_id isolation across the application
+Utility functions for ensuring proper project_id isolation across the product
 """
 
 import logging
@@ -279,7 +279,7 @@ def get_project_statistics(project_id: Optional[int] = None) -> Dict[str, Any]:
         return {}
 
     from ..models.core import User, UserActivity
-    from ..models.games import Game
+    from ..models.products import Product
     from ..models.keys import Key
     from ..utils.rbac_utils import RBACManager
 
@@ -289,7 +289,7 @@ def get_project_statistics(project_id: Optional[int] = None) -> Dict[str, Any]:
         "is_active": project.is_active,
         "user_count": User.query.filter_by(project_id=project_id).count(),
         "key_count": Key.query.filter_by(project_id=project_id).count(),
-        "game_count": Game.query.filter_by(project_id=project_id).count(),
+        "product_count": Product.query.filter_by(project_id=project_id).count(),
         "activity_count": UserActivity.query.filter_by(project_id=project_id).count(),
     }
 

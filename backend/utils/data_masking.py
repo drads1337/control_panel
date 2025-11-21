@@ -235,7 +235,7 @@ def create_safe_log_details(action: str, **kwargs) -> str:
     safe_details = [action]
 
     for key, value in kwargs.items():
-        if key in ["user_id", "project_id", "game_id", "key_id"]:
+        if key in ["user_id", "project_id", "product_id", "key_id"]:
 
             safe_details.append(f"{key}: {value}")
         elif key in ["username", "email"]:

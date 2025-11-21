@@ -23,11 +23,11 @@ from sqlalchemy.orm import sessionmaker
 from ..config.config import Config
 from ..core.extensions import db
 from ..models.core import User
-from ..models.games import Game
+from ..models.products import Product
 from ..models.keys import Key
-from ..models.loaders import Loader
+from ..models.agents import Agent
 from ..services.activity import activity_service
-from ..services.keys import key_service
+from ..services.keys.key_service_facade import key_service
 from ..services.tasks import task_service
 from ..utils.rbac_utils import RBACManager
 
@@ -109,7 +109,7 @@ def bulk_create_keys_task(
     self,
     user_id: int,
     count: int,
-    game_id: int,
+    product_id: int,
     duration_hours: float,
     max_devices: int,
     task_id: str = None,
@@ -122,7 +122,7 @@ def bulk_create_keys_task(
     Args:
         user_id: ID of the user creating keys
         count: Number of keys to create
-        game_id: ID of the game
+        product_id: ID of the product
         duration_hours: Duration in hours
         max_devices: Maximum devices per key
         task_id: Optional task ID for status tracking
@@ -155,15 +155,15 @@ def bulk_create_keys_task(
         if not project_id:
             project_id = user.project_id
 
-        game = session.query(Game).filter_by(id=game_id, project_id=project_id).first()
-        if not game:
-            error_msg = f"Game {game_id} not found or access denied"
+        product = session.query(Product).filter_by(id=product_id, project_id=project_id).first()
+        if not product:
+            error_msg = f"Product {product_id} not found or access denied"
             logger.error(error_msg)
             if task_id:
                 task_service.update_task_status(task_id, "failed", error=error_msg)
             return {"status": "error", "error": error_msg}
 
-        is_access_code = game.login_type == "classic_login"
+        is_access_code = product.login_type == "classic_login"
         generation_type = "access_code" if is_access_code else "license_key"
 
         if task_id:
@@ -186,7 +186,7 @@ def bulk_create_keys_task(
                     task_service.update_task_status(task_id, "in_progress", progress=progress)
 
                 key_string = key_service.generate_key_string(
-                    length=32, game=game, duration_hours=duration_hours, project_id=project_id
+                    length=32, product=product, duration_hours=duration_hours, project_id=project_id
                 )
 
                 key_metadata = {
@@ -204,7 +204,7 @@ def bulk_create_keys_task(
                 key = Key(
                     key=key_string,
                     user_id=user.id,
-                    game_id=game_id,
+                    product_id=product_id,
                     expires_at=expires_at,
                     max_devices=max_devices,
                     duration_hours=duration_hours,
@@ -252,7 +252,7 @@ def bulk_create_keys_task(
         activity_service.log_activity(
             user,
             "bulk_create_keys",
-            details=f"Created {created_count} production {item_type} for game: {game.name}",
+            details=f"Created {created_count} production {item_type} for product: {product.name}",
             ip=remote_addr,
         )
 
@@ -261,7 +261,7 @@ def bulk_create_keys_task(
             "message": f"Successfully created {created_count} {item_type}",
             "summary": {
                 "count": created_count,
-                "game_name": game.name,
+                "product_name": product.name,
                 "duration_hours": duration_hours,
                 "max_devices": max_devices,
             },
@@ -300,8 +300,8 @@ def bulk_create_loader_keys_task(
     self,
     user_id: int,
     count: int,
-    loader_id: int,
-    game_ids: list,
+    agent_id: int,
+    product_ids: list,
     duration_hours: float,
     max_devices: int,
     task_id: str = None,
@@ -309,13 +309,13 @@ def bulk_create_loader_keys_task(
     remote_addr: str = None,
 ):
     """
-    Bulk create loader keys asynchronously
+    Bulk create agent keys asynchronously
 
     Args:
         user_id: ID of the user creating keys
         count: Number of keys to create
-        loader_id: ID of the loader
-        game_ids: List of game IDs
+        agent_id: ID of the agent
+        product_ids: List of product IDs
         duration_hours: Duration in hours
         max_devices: Maximum devices per key
         task_id: Optional task ID for status tracking
@@ -348,21 +348,21 @@ def bulk_create_loader_keys_task(
         if not project_id:
             project_id = user.project_id
 
-        loader = session.query(Loader).filter_by(id=loader_id, project_id=project_id).first()
-        if not loader:
-            error_msg = f"Loader {loader_id} not found or access denied"
+        agent = session.query(Agent).filter_by(id=agent_id, project_id=project_id).first()
+        if not agent:
+            error_msg = f"Agent {agent_id} not found or access denied"
             logger.error(error_msg)
             if task_id:
                 task_service.update_task_status(task_id, "failed", error=error_msg)
             return {"status": "error", "error": error_msg}
 
-        games = (
-            session.query(Game)
-            .filter(Game.id.in_(game_ids), Game.project_id == project_id)
+        products = (
+            session.query(Product)
+            .filter(Product.id.in_(product_ids), Product.project_id == project_id)
             .all()
         )
-        if len(games) != len(game_ids):
-            error_msg = "Some games not found or access denied"
+        if len(products) != len(product_ids):
+            error_msg = "Some products not found or access denied"
             logger.error(error_msg)
             if task_id:
                 task_service.update_task_status(task_id, "failed", error=error_msg)
@@ -372,7 +372,7 @@ def bulk_create_loader_keys_task(
             task_service.update_task_status(task_id, "in_progress", progress=10)
 
         created_keys = []
-        total_operations = count * len(games)
+        total_operations = count * len(products)
 
         for i in range(count):
             try:
@@ -382,14 +382,14 @@ def bulk_create_loader_keys_task(
                     task_service.update_task_status(task_id, "in_progress", progress=progress)
 
                 key_string = key_service.generate_key_string(
-                    length=32, loader=loader, duration_hours=duration_hours, project_id=project_id
+                    length=32, agent=agent, duration_hours=duration_hours, project_id=project_id
                 )
 
-                for game in games:
+                for product in products:
                     key = Key(
                         key=key_string,
                         user_id=None,
-                        game_id=game.id,
+                        product_id=product.id,
                         status=1,
                         max_devices=max_devices,
                         duration_hours=duration_hours,
@@ -406,8 +406,8 @@ def bulk_create_loader_keys_task(
                             if RBACManager.get_user_role_names(user)
                             else "client"
                         ),
-                        "loader_id": loader_id,
-                        "game_ids": game_ids,
+                        "agent_id": agent_id,
+                        "product_ids": product_ids,
                         "batch_id": f'loader_batch_{datetime.utcnow().strftime("%Y%m%d_%H%M%S")}_{i}',
                     }
                     key.key_metadata = json.dumps(key_metadata)
@@ -416,27 +416,27 @@ def bulk_create_loader_keys_task(
                     created_keys.append(key_string)
 
             except Exception as key_error:
-                logger.error(f"🔑 Failed to create loader key {i+1}: {str(key_error)}")
+                logger.error(f"🔑 Failed to create agent key {i+1}: {str(key_error)}")
 
         if created_keys:
             session.commit()
-            logger.info(f"🔑 Bulk created {len(set(created_keys))} loader keys")
+            logger.info(f"🔑 Bulk created {len(set(created_keys))} agent keys")
 
         activity_service.log_activity(
             user,
             "bulk_create_loader_keys",
-            details=f"Created {count} loader keys for {len(games)} games via loader: {loader.name}",
+            details=f"Created {count} agent keys for {len(products)} products via agent: {agent.name}",
             ip=remote_addr,
         )
 
         result = {
             "status": "completed",
-            "message": f"Successfully created {count} loader keys for {len(games)} games",
+            "message": f"Successfully created {count} agent keys for {len(products)} products",
             "keys": list(set(created_keys)),
             "summary": {
                 "count": count,
-                "games_count": len(games),
-                "loader_name": loader.name,
+                "products_count": len(products),
+                "agent_name": agent.name,
                 "duration_hours": duration_hours,
                 "max_devices": max_devices,
             },
@@ -454,7 +454,7 @@ def bulk_create_loader_keys_task(
         import traceback
 
         logger.error(f"Traceback: {traceback.format_exc()}")
-        error_msg = f"Failed to create loader keys: {str(e)}"
+        error_msg = f"Failed to create agent keys: {str(e)}"
         if task_id:
             task_service.update_task_status(task_id, "failed", error=error_msg)
         return {"status": "error", "error": error_msg}

@@ -3,10 +3,14 @@ import { toast } from 'sonner'
 import {
   setGlobalNotificationHandler,
   clearGlobalNotificationHandler,
+  showGlobalError,
+  showGlobalWarning,
+  triggerProjectExpiration,
   type NotificationType,
   type NotificationOptions,
   type GlobalNotificationHandler,
 } from '@/lib/global-notifications'
+import { setApiErrorHandlers, clearApiErrorHandlers } from '@/shared/api/enhanced-client'
 
 interface NotificationContextType {
   showNotification: (options: NotificationOptions) => void
@@ -86,10 +90,20 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       triggerProjectExpiration,
     }
 
+    // Set up global notification handler for UI components
     setGlobalNotificationHandler(handler)
+
+    // Set up API error handlers - this connects the API client to the UI layer
+    // without creating a direct dependency from API layer to UI layer
+    setApiErrorHandlers({
+      showError: showGlobalError,
+      showWarning: showGlobalWarning,
+      handleProjectExpiration: triggerProjectExpiration,
+    })
 
     return () => {
       clearGlobalNotificationHandler()
+      clearApiErrorHandlers()
     }
   }, [showNotification, showError, showWarning, showInfo, showSuccess, triggerProjectExpiration])
 

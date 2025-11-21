@@ -15,7 +15,7 @@ export interface Project extends BaseEntity {
   stats: {
     users: number
     keys: number
-    games: number
+    products: number
     servers: number
   }
 }

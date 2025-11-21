@@ -41,9 +41,8 @@ class ActivityService:
             
             self._last_load_check = current_time
             
-            # Try to get load metrics from LoadMonitor
+            # Check system load using psutil (replaces custom load_monitor)
             try:
-                from ...services.monitoring.load_monitor import load_monitor
                 import psutil
                 
                 # Check CPU usage
@@ -52,15 +51,9 @@ class ActivityService:
                 # Check memory usage
                 memory = psutil.virtual_memory()
                 
-                # Check request rate (approximate from Redis)
-                from ...utils.redis_client import redis_client
-                current_second = int(current_time)
-                request_key = f"load_monitor:total:requests:{current_second}"
-                recent_requests = redis_client.client.get(request_key) or 0
-                try:
-                    recent_requests = int(recent_requests)
-                except (ValueError, TypeError):
-                    recent_requests = 0
+                # Note: Request rate tracking moved to Prometheus
+                # Using simplified check based on system resources
+                recent_requests = 0
                 
                 # Switch to buffer mode if:
                 # - CPU > 70% OR

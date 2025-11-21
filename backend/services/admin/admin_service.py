@@ -11,7 +11,7 @@ from flask import current_app
 
 from ...core.extensions import db
 from ...models.core import Project, ProjectInviteCode, User
-from ...models.games import Game
+from ...models.products import Product
 from ...models.keys import Key, ReferralCode
 from ...models.rbac import Role, UserRole
 from ...utils.rbac_utils import RBACManager
@@ -154,7 +154,7 @@ class AdminService:
             for user_id in affected_user_ids:
                 update_user_key_counters(user_id, project_id=project_id)
 
-            Game.query.filter_by(project_id=project_id).delete()
+            Product.query.filter_by(project_id=project_id).delete()
 
             owner_user_ids = (
                 db.session.query(UserRole.user_id)
@@ -217,7 +217,7 @@ class AdminService:
                     "active": Key.query.filter_by(status=1).count(),
                     "inactive": Key.query.filter_by(status=0).count(),
                 },
-                "games": {"total": Game.query.count()},
+                "products": {"total": Product.query.count()},
                 "invite_codes": {
                     "total": ProjectInviteCode.query.count(),
                     "active": ProjectInviteCode.query.filter(

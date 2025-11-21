@@ -241,7 +241,7 @@ class ResponseBuilder:
         access_token: str,
         user: Any,
         project: Any,
-        accessible_games: list,
+        accessible_products: list,
         device_info: list,
         subscription_info: Dict,
     ) -> Dict[str, Any]:
@@ -252,7 +252,7 @@ class ResponseBuilder:
             access_token: JWT access token
             user: User object
             project: Project object
-            accessible_games: List of accessible games
+            accessible_products: List of accessible products
             device_info: List of device information
             subscription_info: Subscription information
 
@@ -271,7 +271,7 @@ class ResponseBuilder:
             ),
             "project_id": user.project_id,
             "subscription_info": subscription_info,
-            "accessible_games": accessible_games,
+            "accessible_products": accessible_products,
             "device_info": device_info,
             "login_type": "classic_web",
         }
@@ -303,34 +303,34 @@ class ResponseBuilder:
             "contact_owner": "Please contact the project owner for assistance.",
         }
 
-    def build_game_inactive_response(self, game_obj: Any) -> Dict[str, Any]:
+    def build_product_inactive_response(self, product_obj: Any) -> Dict[str, Any]:
         """
-        Build response for inactive game
+        Build response for inactive product
 
         Args:
-            game_obj: Game object
+            product_obj: Product object
 
         Returns:
-            Game inactive response dictionary
+            Product inactive response dictionary
         """
-        if game_obj.status == "inactive":
+        if product_obj.status == "inactive":
             return {
-                "error": "Game Inactive",
-                "message": "This game is currently inactive and access is not allowed.",
-                "game_name": game_obj.name,
-                "game_status": game_obj.status,
+                "error": "Product Inactive",
+                "message": "This product is currently inactive and access is not allowed.",
+                "product_name": product_obj.name,
+                "product_status": product_obj.status,
             }
-        elif game_obj.status == "maintenance":
+        elif product_obj.status == "maintenance":
             return {
-                "error": "Game Maintenance",
-                "message": "This game is currently under maintenance. Access is temporarily unavailable.",
-                "game_name": game_obj.name,
-                "game_status": game_obj.status,
+                "error": "Product Maintenance",
+                "message": "This product is currently under maintenance. Access is temporarily unavailable.",
+                "product_name": product_obj.name,
+                "product_status": product_obj.status,
             }
 
         return {
-            "error": "Application Access Denied",
-            "message": "Access to this game is not allowed.",
-            "game_name": game_obj.name,
-            "game_status": game_obj.status,
+            "error": "Product Access Denied",
+            "message": "Access to this product is not allowed.",
+            "product_name": product_obj.name,
+            "product_status": product_obj.status,
         }

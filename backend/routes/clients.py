@@ -20,7 +20,7 @@ from ..middleware.auth import (
     require_role,
     require_user,
 )
-from ..models.core import DeveloperGamePermission, User, UserActivity, UserGamePermission
+from ..models.core import DeveloperProductPermission, User, UserActivity, UserProductPermission
 from ..models.keys import Key
 from ..models.rbac import Role, UserRole
 
@@ -125,10 +125,10 @@ def bulk_delete_clients(current_user=None, project_id=None):
     data = request.get_json()
 
     client_ids = data.get("client_ids", [])
-    game_id = data.get("game_id")
+    product_id = data.get("product_id")
     filters = data.get("filters", {})
 
-    if not client_ids and not game_id and not filters:
+    if not client_ids and not product_id and not filters:
         return jsonify({"error": "No selection criteria provided"}), 400
 
     try:
@@ -145,18 +145,18 @@ def bulk_delete_clients(current_user=None, project_id=None):
         if client_ids:
             query = query.filter(User.id.in_(client_ids))
 
-        if game_id:
+        if product_id:
 
-            clients_with_game_keys = (
+            clients_with_product_keys = (
                 db.session.query(User.id)
                 .join(Key)
                 .filter(
-                    Key.game_id == game_id,
+                    Key.product_id == product_id,
                     User.id.in_(select(UserRole.user_id).join(Role).where(Role.name == "client")),
                 )
                 .subquery()
             )
-            query = query.filter(User.id.in_(clients_with_game_keys))
+            query = query.filter(User.id.in_(clients_with_product_keys))
 
         if filters.get("status") == "active":
             query = query.filter(
@@ -182,8 +182,8 @@ def bulk_delete_clients(current_user=None, project_id=None):
             client.total_keys = 0
             client.active_keys = 0
             Key.query.filter_by(user_id=client.id).delete()
-            UserGamePermission.query.filter_by(user_id=client.id).delete()
-            DeveloperGamePermission.query.filter_by(user_id=client.id).delete()
+            UserProductPermission.query.filter_by(user_id=client.id).delete()
+            DeveloperProductPermission.query.filter_by(user_id=client.id).delete()
             UserActivity.query.filter_by(user_id=client.id).delete()
 
             deleted_clients.append(
@@ -219,34 +219,34 @@ def bulk_delete_clients(current_user=None, project_id=None):
         db.session.rollback()
         return jsonify({"error": f"Failed to delete clients: {str(e)}"}), 500
 
-@clients_bp.route("/<int:game_id>/classic-users", methods=["GET"])
+@clients_bp.route("/<int:product_id>/classic-users", methods=["GET"])
 @jwt_required()
 @require_user
-@require_role(RolePermissions.GAME_MANAGEMENT_ROLES)
+@require_role(RolePermissions.PRODUCT_MANAGEMENT_ROLES)
 @require_project_isolation
-def get_classic_users_for_game(game_id, current_user=None):
-    """Get users who have permissions for a specific game"""
+def get_classic_users_for_product(product_id, current_user=None):
+    """Get users who have permissions for a specific product"""
 
     if current_user is None:
         from flask import g
         current_user = g.current_user
 
-    from ..models.games import Game
+    from ..models.products import Product
 
-    game = Game.query.filter_by(id=game_id, project_id=current_user.project_id).first()
-    if not game:
-        return jsonify({"error": "Game not found"}), 404
+    product = Product.query.filter_by(id=product_id, project_id=current_user.project_id).first()
+    if not product:
+        return jsonify({"error": "Product not found"}), 404
 
     from ..services.rbac import rbac_service
     from ..utils.rbac_utils import RBACManager
 
     can_view_all = rbac_service.check_permission(current_user.id, "clients.view")
-    if not can_view_all and game.project_id != current_user.project_id:
+    if not can_view_all and product.project_id != current_user.project_id:
         return jsonify({"error": "Access denied"}), 403
 
     user_permissions = (
-        UserGamePermission.query.filter_by(game_id=game_id, project_id=game.project_id)
-        .options(joinedload(UserGamePermission.user))
+        UserProductPermission.query.filter_by(product_id=product_id, project_id=product.project_id)
+        .options(joinedload(UserProductPermission.user))
         .all()
     )
 
@@ -266,16 +266,16 @@ def get_classic_users_for_game(game_id, current_user=None):
             }
         )
 
-    return jsonify({"users": users, "game_id": game_id, "game_name": game.name})
+    return jsonify({"users": users, "product_id": product_id, "product_name": product.name})
 
-@clients_bp.route("/<int:user_id>/games", methods=["GET"])
+@clients_bp.route("/<int:user_id>/products", methods=["GET"])
 @clients_bp.route("/<int:user_id>/products", methods=["GET"])
 @jwt_required()
 @require_user
 @require_permission("clients.view")
 @require_project_isolation
-def get_user_games(user_id, current_user=None):
-    """Get games/products accessible by a specific user (supports both /games and /products endpoints)"""
+def get_user_products(user_id, current_user=None):
+    """Get products/products accessible by a specific user (supports both /products and /products endpoints)"""
 
     if current_user is None:
         from flask import g
@@ -293,44 +293,44 @@ def get_user_games(user_id, current_user=None):
             return jsonify({"error": "Access denied"}), 403
 
     try:
-        from ..models.games import Game
+        from ..models.products import Product
 
-        project_games = Game.query.filter_by(project_id=target_user.project_id).all()
+        project_products = Product.query.filter_by(project_id=target_user.project_id).all()
 
-        if not project_games:
+        if not project_products:
             return jsonify([])
 
-        user_permissions = UserGamePermission.query.filter_by(user_id=user_id).all()
-        permission_map = {up.game_id: up.has_access for up in user_permissions}
+        user_permissions = UserProductPermission.query.filter_by(user_id=user_id).all()
+        permission_map = {up.product_id: up.has_access for up in user_permissions}
 
-        game_list = []
-        for game in project_games:
-            has_access = permission_map.get(game.id, False)
+        product_list = []
+        for product in project_products:
+            has_access = permission_map.get(product.id, False)
 
-            game_list.append(
+            product_list.append(
                 {
-                    "id": game.id,
-                    "game_id": game.id,
-                    "game_name": game.name,
+                    "id": product.id,
+                    "product_id": product.id,
+                    "product_name": product.name,
                     "has_access": has_access,
                 }
             )
 
-        return jsonify(game_list)
+        return jsonify(product_list)
 
     except Exception as e:
         db.session.rollback()
-        logging.error(f"Error in get_user_games: {e}")
+        logging.error(f"Error in get_user_products: {e}")
         return jsonify([])
 
-@clients_bp.route("/<int:user_id>/games/<int:game_id>/toggle", methods=["POST"])
-@clients_bp.route("/<int:user_id>/products/<int:game_id>/toggle", methods=["POST"])
+@clients_bp.route("/<int:user_id>/products/<int:product_id>/toggle", methods=["POST"])
+@clients_bp.route("/<int:user_id>/products/<int:product_id>/toggle", methods=["POST"])
 @jwt_required()
 @require_user
-@require_role(RolePermissions.GAME_MANAGEMENT_ROLES)
+@require_role(RolePermissions.PRODUCT_MANAGEMENT_ROLES)
 @require_project_isolation
-def toggle_user_game_access(user_id, game_id, current_user=None):
-    """Toggle user access to a specific game/product (supports both /games and /products endpoints)"""
+def toggle_user_product_access(user_id, product_id, current_user=None):
+    """Toggle user access to a specific product/product (supports both /products and /products endpoints)"""
 
     if current_user is None:
         from flask import g
@@ -340,11 +340,11 @@ def toggle_user_game_access(user_id, game_id, current_user=None):
     if not target_user:
         return jsonify({"error": "User not found"}), 404
 
-    from ..models.games import Game
+    from ..models.products import Product
 
-    game = Game.query.filter_by(id=game_id, project_id=target_user.project_id).first()
-    if not game:
-        return jsonify({"error": "Game not found"}), 404
+    product = Product.query.filter_by(id=product_id, project_id=target_user.project_id).first()
+    if not product:
+        return jsonify({"error": "Product not found"}), 404
 
     from ..services.rbac import rbac_service
     from ..utils.rbac_utils import RBACManager
@@ -352,40 +352,40 @@ def toggle_user_game_access(user_id, game_id, current_user=None):
     if not rbac_service.check_permission(current_user.id, "clients.view"):
         if (
             current_user.project_id != target_user.project_id
-            or current_user.project_id != game.project_id
+            or current_user.project_id != product.project_id
         ):
             return jsonify({"error": "Access denied"}), 403
 
     try:
-        user_game = UserGamePermission.query.filter_by(user_id=user_id, game_id=game_id).first()
+        user_product = UserProductPermission.query.filter_by(user_id=user_id, product_id=product_id).first()
 
-        if user_game:
-            user_game.has_access = not user_game.has_access
-            new_status = user_game.has_access
+        if user_product:
+            user_product.has_access = not user_product.has_access
+            new_status = user_product.has_access
         else:
-            user_game = UserGamePermission(
-                user_id=user_id, game_id=game_id, has_access=True, project_id=target_user.project_id
+            user_product = UserProductPermission(
+                user_id=user_id, product_id=product_id, has_access=True, project_id=target_user.project_id
             )
-            db.session.add(user_game)
+            db.session.add(user_product)
             new_status = True
 
         db.session.commit()
 
         try:
             from ..services.cache import cache_service
-            from ..services.games import game_service
+            from ..services.products import product_service
 
-            game_service.invalidate_game_cache(target_user.project_id, game_id)
+            product_service.invalidate_product_cache(target_user.project_id, product_id)
 
-            cache_service.invalidate_game_instantly(target_user.project_id, game_id)
+            cache_service.invalidate_product_instantly(target_user.project_id, product_id)
 
-            all_user_game_cache_patterns = [
-                f"games:project_id={target_user.project_id}:user_id=*:*",
-                f"games:project_id={target_user.project_id}:type=all:user_id=*",
-                f"games:project_id={target_user.project_id}:type=multi_app:user_id=*",
-                f"games:project_id={target_user.project_id}:type=game_library:user_id=*",
+            all_user_product_cache_patterns = [
+                f"products:project_id={target_user.project_id}:user_id=*:*",
+                f"products:project_id={target_user.project_id}:type=all:user_id=*",
+                f"products:project_id={target_user.project_id}:type=multi_app:user_id=*",
+                f"products:project_id={target_user.project_id}:type=product_library:user_id=*",
             ]
-            for pattern in all_user_game_cache_patterns:
+            for pattern in all_user_product_cache_patterns:
                 try:
                     deleted = cache_service.invalidate_pattern(pattern)
                     if deleted > 0:
@@ -394,29 +394,29 @@ def toggle_user_game_access(user_id, game_id, current_user=None):
                     logging.warning(f"Failed to invalidate pattern {pattern}: {pattern_error}")
 
             logging.info(
-                f"Invalidated game cache for project {target_user.project_id}, game {game_id} and ALL users after access change for user {user_id}"
+                f"Invalidated product cache for project {target_user.project_id}, product {product_id} and ALL users after access change for user {user_id}"
             )
         except Exception as cache_error:
-            logging.warning(f"Failed to invalidate game cache: {cache_error}")
+            logging.warning(f"Failed to invalidate product cache: {cache_error}")
 
         action = "granted" if new_status else "revoked"
         activity_service.log_activity(
             current_user,
-            "toggle_game_access",
-            details=f'{action} access to game "{game.name}" for user {target_user.username} (ID: {target_user.id})',
+            "toggle_product_access",
+            details=f'{action} access to product "{product.name}" for user {target_user.username} (ID: {target_user.id})',
             ip=request.remote_addr,
         )
 
         return jsonify(
             {
-                "message": f"Application access {action} successfully",
+                "message": f"Product access {action} successfully",
                 "user_id": user_id,
-                "game_id": game_id,
-                "game_name": game.name,
+                "product_id": product_id,
+                "product_name": product.name,
                 "has_access": new_status,
             }
         )
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({"error": f"Failed to toggle application access: {str(e)}"}), 500
+        return jsonify({"error": f"Failed to toggle product access: {str(e)}"}), 500

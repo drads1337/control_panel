@@ -11,7 +11,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ...middleware.auth import require_project_isolation, require_project_with_grace_period
 from ...services.activity import activity_service
-from ...services.keys import key_service
+from ...services.keys.key_service_facade import key_service
 
 bulk_operations_bp = Blueprint("keys_bulk", __name__)
 
@@ -38,10 +38,10 @@ def bulk_create_keys(current_user=None, project_id=None):
     count = data.get("count", 1)
     duration_hours = data.get("duration_hours", 24)
     max_devices = data.get("max_devices", 1)
-    game_id = data.get("game_id")
+    product_id = data.get("product_id")
 
-    if not game_id:
-        return jsonify({"error": "Game ID is required"}), 400
+    if not product_id:
+        return jsonify({"error": "Product ID is required"}), 400
 
     if count < 1 or count > 100:
         return jsonify({"error": "Count must be between 1 and 100"}), 400
@@ -52,12 +52,12 @@ def bulk_create_keys(current_user=None, project_id=None):
     if duration_hours <= 0:
         return jsonify({"error": "Duration must be greater than 0"}), 400
 
-    from ...services.games import game_service
-    game, error = game_service.get_game(current_user, game_id)
-    if error or not game:
-        return jsonify({"error": "Game not found or access denied"}), 404
+    from ...services.products import product_service
+    product, error = product_service.get_product(current_user, product_id)
+    if error or not product:
+        return jsonify({"error": "Product not found or access denied"}), 404
 
-    is_access_code = game.login_type == "classic_login"
+    is_access_code = product.login_type == "classic_login"
     item_type = "access codes" if is_access_code else "license keys"
 
     ASYNC_THRESHOLD = 10
@@ -67,7 +67,7 @@ def bulk_create_keys(current_user=None, project_id=None):
         created_count, error_message, created_keys = key_service.bulk_create_keys(
             user=current_user,
             count=count,
-            game_id=game_id,
+            product_id=product_id,
             duration_hours=duration_hours,
             max_devices=max_devices,
         )
@@ -85,7 +85,7 @@ def bulk_create_keys(current_user=None, project_id=None):
         activity_service.log_activity(
             current_user,
             "bulk_create_keys",
-            details=f"Created {created_count} production {item_type} for game: {game.name}",
+            details=f"Created {created_count} production {item_type} for product: {product.name}",
             ip=request.remote_addr,
         )
 
@@ -93,7 +93,7 @@ def bulk_create_keys(current_user=None, project_id=None):
             "message": f"Successfully created {created_count} {item_type}",
             "summary": {
                 "count": created_count,
-                "game_name": game.name,
+                "product_name": product.name,
                 "duration_hours": duration_hours,
                 "max_devices": max_devices,
             },
@@ -116,8 +116,8 @@ def bulk_create_keys(current_user=None, project_id=None):
                 task_type="bulk_create_keys",
                 task_data={
                     "count": count,
-                    "game_id": game_id,
-                    "game_name": game.name,
+                    "product_id": product_id,
+                    "product_name": product.name,
                     "duration_hours": duration_hours,
                     "max_devices": max_devices,
                 },
@@ -129,7 +129,7 @@ def bulk_create_keys(current_user=None, project_id=None):
                 args=[
                     current_user.id,
                     count,
-                    game_id,
+                    product_id,
                     duration_hours,
                     max_devices,
                 ],
@@ -150,7 +150,7 @@ def bulk_create_keys(current_user=None, project_id=None):
                         "status": "pending",
                         "summary": {
                             "count": count,
-                            "game_name": game.name,
+                            "product_name": product.name,
                             "duration_hours": duration_hours,
                             "max_devices": max_devices,
                         },
@@ -352,12 +352,12 @@ def bulk_add_hours(current_user=None, project_id=None):
 
     return jsonify({"message": f"Successfully added {hours} hours to {affected_count} keys"})
 
-@bulk_operations_bp.route("/bulk/pause/by_game", methods=["POST"])
+@bulk_operations_bp.route("/bulk/pause/by_product", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def bulk_pause_keys_by_game(current_user=None, project_id=None):
-    """Bulk pause keys by game"""
+def bulk_pause_keys_by_product(current_user=None, project_id=None):
+    """Bulk pause keys by product"""
 
     if current_user is None:
         from flask import g
@@ -367,34 +367,34 @@ def bulk_pause_keys_by_game(current_user=None, project_id=None):
         return jsonify({"error": "User not found"}), 404
 
     data = request.get_json()
-    game_id = data.get("game_id")
+    product_id = data.get("product_id")
 
-    if not game_id:
-        return jsonify({"error": "game_id is required"}), 400
+    if not product_id:
+        return jsonify({"error": "product_id is required"}), 400
 
-    affected_count, error, game_name = key_service.bulk_pause_keys_by_game(current_user, game_id)
+    affected_count, error, product_name = key_service.bulk_pause_keys_by_product(current_user, product_id)
 
     if error:
-        return jsonify({"error": error}), 500 if error != "Game not found or access denied" else 404
+        return jsonify({"error": error}), 500 if error != "Product not found or access denied" else 404
 
     if affected_count == 0:
-        return jsonify({"message": "No keys found for this game"}), 200
+        return jsonify({"message": "No keys found for this product"}), 200
 
     activity_service.log_activity(
         current_user,
-        "bulk_pause_keys_by_game",
-        details=f"Paused {affected_count} keys for game: {game_name}",
+        "bulk_pause_keys_by_product",
+        details=f"Paused {affected_count} keys for product: {product_name}",
         ip=request.remote_addr,
     )
 
-    return jsonify({"message": f"Successfully paused {affected_count} keys for game: {game_name}"})
+    return jsonify({"message": f"Successfully paused {affected_count} keys for product: {product_name}"})
 
-@bulk_operations_bp.route("/bulk/resume/by_game", methods=["POST"])
+@bulk_operations_bp.route("/bulk/resume/by_product", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def bulk_resume_keys_by_game(current_user=None, project_id=None):
-    """Bulk resume keys by game"""
+def bulk_resume_keys_by_product(current_user=None, project_id=None):
+    """Bulk resume keys by product"""
 
     if current_user is None:
         from flask import g
@@ -404,34 +404,34 @@ def bulk_resume_keys_by_game(current_user=None, project_id=None):
         return jsonify({"error": "User not found"}), 404
 
     data = request.get_json()
-    game_id = data.get("game_id")
+    product_id = data.get("product_id")
 
-    if not game_id:
-        return jsonify({"error": "game_id is required"}), 400
+    if not product_id:
+        return jsonify({"error": "product_id is required"}), 400
 
-    affected_count, error, game_name = key_service.bulk_resume_keys_by_game(current_user, game_id)
+    affected_count, error, product_name = key_service.bulk_resume_keys_by_product(current_user, product_id)
 
     if error:
-        return jsonify({"error": error}), 500 if error != "Game not found or access denied" else 404
+        return jsonify({"error": error}), 500 if error != "Product not found or access denied" else 404
 
     if affected_count == 0:
-        return jsonify({"message": "No keys found for this game"}), 200
+        return jsonify({"message": "No keys found for this product"}), 200
 
     activity_service.log_activity(
         current_user,
-        "bulk_resume_keys_by_game",
-        details=f"Resumed {affected_count} keys for game: {game_name}",
+        "bulk_resume_keys_by_product",
+        details=f"Resumed {affected_count} keys for product: {product_name}",
         ip=request.remote_addr,
     )
 
-    return jsonify({"message": f"Successfully resumed {affected_count} keys for game: {game_name}"})
+    return jsonify({"message": f"Successfully resumed {affected_count} keys for product: {product_name}"})
 
-@bulk_operations_bp.route("/bulk/reset/by_game", methods=["POST"])
+@bulk_operations_bp.route("/bulk/reset/by_product", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def bulk_reset_keys_by_game(current_user=None, project_id=None):
-    """Bulk reset keys by game"""
+def bulk_reset_keys_by_product(current_user=None, project_id=None):
+    """Bulk reset keys by product"""
 
     if current_user is None:
         from flask import g
@@ -441,34 +441,34 @@ def bulk_reset_keys_by_game(current_user=None, project_id=None):
         return jsonify({"error": "User not found"}), 404
 
     data = request.get_json()
-    game_id = data.get("game_id")
+    product_id = data.get("product_id")
 
-    if not game_id:
-        return jsonify({"error": "game_id is required"}), 400
+    if not product_id:
+        return jsonify({"error": "product_id is required"}), 400
 
-    affected_count, error, game_name = key_service.bulk_reset_keys_by_game(current_user, game_id)
+    affected_count, error, product_name = key_service.bulk_reset_keys_by_product(current_user, product_id)
 
     if error:
-        return jsonify({"error": error}), 500 if error != "Game not found or access denied" else 404
+        return jsonify({"error": error}), 500 if error != "Product not found or access denied" else 404
 
     if affected_count == 0:
-        return jsonify({"message": "No keys found for this game"}), 200
+        return jsonify({"message": "No keys found for this product"}), 200
 
     activity_service.log_activity(
         current_user,
-        "bulk_reset_keys_by_game",
-        details=f"Reset {affected_count} keys for game: {game_name}",
+        "bulk_reset_keys_by_product",
+        details=f"Reset {affected_count} keys for product: {product_name}",
         ip=request.remote_addr,
     )
 
-    return jsonify({"message": f"Successfully reset {affected_count} keys for game: {game_name}"})
+    return jsonify({"message": f"Successfully reset {affected_count} keys for product: {product_name}"})
 
-@bulk_operations_bp.route("/bulk/addHours/by_game", methods=["POST"])
+@bulk_operations_bp.route("/bulk/addHours/by_product", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def bulk_add_hours_by_game(current_user=None, project_id=None):
-    """Bulk add hours to keys by game"""
+def bulk_add_hours_by_product(current_user=None, project_id=None):
+    """Bulk add hours to keys by product"""
 
     if current_user is None:
         from flask import g
@@ -478,35 +478,35 @@ def bulk_add_hours_by_game(current_user=None, project_id=None):
         return jsonify({"error": "User not found"}), 404
 
     data = request.get_json()
-    game_id = data.get("game_id")
+    product_id = data.get("product_id")
     hours = data.get("hours", 0)
 
-    if not game_id:
-        return jsonify({"error": "game_id is required"}), 400
+    if not product_id:
+        return jsonify({"error": "product_id is required"}), 400
 
     if hours <= 0:
         return jsonify({"error": "hours must be positive"}), 400
 
-    affected_count, error, game_name = key_service.bulk_add_hours_by_game(
-        current_user, game_id, hours
+    affected_count, error, product_name = key_service.bulk_add_hours_by_product(
+        current_user, product_id, hours
     )
 
     if error:
-        return jsonify({"error": error}), 500 if error != "Game not found or access denied" else 404
+        return jsonify({"error": error}), 500 if error != "Product not found or access denied" else 404
 
     if affected_count == 0:
-        return jsonify({"message": "No keys found for this game"}), 200
+        return jsonify({"message": "No keys found for this product"}), 200
 
     activity_service.log_activity(
         current_user,
-        "bulk_add_hours_by_game",
-        details=f"Added {hours} hours to {affected_count} keys for game: {game_name}",
+        "bulk_add_hours_by_product",
+        details=f"Added {hours} hours to {affected_count} keys for product: {product_name}",
         ip=request.remote_addr,
     )
 
     return jsonify(
         {
-            "message": f"Successfully added {hours} hours to {affected_count} keys for game: {game_name}"
+            "message": f"Successfully added {hours} hours to {affected_count} keys for product: {product_name}"
         }
     )
 

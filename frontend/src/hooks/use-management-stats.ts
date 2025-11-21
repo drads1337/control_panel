@@ -1,18 +1,18 @@
 import { useQuery } from '@tanstack/react-query'
 import { useAuthContext } from '@/contexts/auth-context'
 import { getKeysStats } from '@/entities/key/api/key'
-import { getGames } from '@/entities/game/api/game'
+import { getProducts } from '@/entities/product/api/product'
 import { getFileStats } from '@/entities/file/api/file'
-import { getLoaderStats } from '@/entities/loader/api/loader'
+import { getAgentStats } from '@/entities/agent/api/agent'
 import { hasManagementAccess } from '@/lib/rbac-utils'
 
 export interface ManagementStats {
   totalKeys: number
   activeKeys: number
   expiredKeys: number
-  totalGames: number
+  totalProducts: number
   totalFiles: number
-  totalLoaders: number
+  totalAgents: number
 }
 
 export const managementStatsKeys = {
@@ -24,7 +24,7 @@ export function useManagementStats() {
   const { isAuthenticated, user } = useAuthContext()
 
   const permissionChecks = hasManagementAccess(user)
-  const { canViewKeys, canViewFiles, canViewGames, canViewLoaders, hasAccess } = permissionChecks
+  const { canViewKeys, canViewFiles, canViewProducts, canViewAgents, hasAccess } = permissionChecks
 
   const {
     data: stats,
@@ -38,9 +38,9 @@ export function useManagementStats() {
         totalKeys: 0,
         activeKeys: 0,
         expiredKeys: 0,
-        totalGames: 0,
+        totalProducts: 0,
         totalFiles: 0,
-        totalLoaders: 0,
+        totalAgents: 0,
       }
 
       const promises: Promise<unknown>[] = []
@@ -63,11 +63,11 @@ export function useManagementStats() {
         })
       }
 
-      if (canViewGames) {
-        promises.push(getGames())
+      if (canViewProducts) {
+        promises.push(getProducts('all'))
         promiseHandlers.push({
-          handler: (gamesResponse) => {
-            statsData.totalGames = gamesResponse.games?.length || 0
+          handler: (productsResponse) => {
+            statsData.totalProducts = productsResponse.products?.length || 0
           },
           errorHandler: (error) => {
 
@@ -87,11 +87,11 @@ export function useManagementStats() {
         })
       }
 
-      if (canViewLoaders) {
-        promises.push(getLoaderStats())
+      if (canViewAgents) {
+        promises.push(getAgentStats())
         promiseHandlers.push({
-          handler: (loaderStats) => {
-            statsData.totalLoaders = loaderStats.stats?.total_loaders || 0
+          handler: (agentStats) => {
+            statsData.totalAgents = agentStats.stats?.total_agents || 0
           },
           errorHandler: (error) => {
 
@@ -131,9 +131,9 @@ export function useManagementStats() {
       totalKeys: 0,
       activeKeys: 0,
       expiredKeys: 0,
-      totalGames: 0,
+      totalProducts: 0,
       totalFiles: 0,
-      totalLoaders: 0,
+      totalAgents: 0,
     },
     isLoading,
     error,

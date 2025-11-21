@@ -1,6 +1,6 @@
 
-export * from './games';
-export * from './loaders';
+export * from './products';
+export * from './agents';
 export * from './changelog';
 export * from './notifications';
 export * from './files';

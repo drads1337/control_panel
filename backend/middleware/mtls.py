@@ -1,6 +1,6 @@
 """
 Mutual TLS (mTLS) Middleware
-Validates client certificates for loader/client connections to prevent request emulation
+Validates client certificates for agent/client connections to prevent request emulation
 """
 
 import logging
@@ -19,7 +19,7 @@ class MTLSValidator:
     """
     Validates client certificates for mTLS connections.
     
-    SECURITY: mTLS provides strong authentication for loader connections,
+    SECURITY: mTLS provides strong authentication for agent connections,
     making it much harder to emulate requests even if challenge obfuscation
     is reverse-engineered.
     """
@@ -40,35 +40,74 @@ class MTLSValidator:
         """
         Validate client certificate from request.
         
+        SECURITY: This method validates client certificates passed from Nginx/WSGI server.
+        Critical security considerations:
+        1. Headers can be spoofed if Nginx is misconfigured
+        2. Always prefer request.environ (WSGI) over HTTP headers
+        3. Validate that verification status is "SUCCESS" (not "NONE" or "FAILED")
+        4. Log suspicious patterns (e.g., verification status without certificate)
+        
         Returns:
             Tuple of (is_valid, error_message)
         """
         if not self.enabled:
             return True, None
         
-        # In Flask/WSGI, client certificate info is available in request.environ
-        # when using a reverse proxy (nginx) or WSGI server (gunicorn) with SSL
+        # SECURITY: Prefer WSGI environment variables over HTTP headers
+        # WSGI variables (SSL_CLIENT_*) are set by the WSGI server and are harder to spoof
+        # HTTP headers (X-SSL-Client-*) are set by reverse proxy and can be spoofed if misconfigured
         client_cert = request.environ.get("SSL_CLIENT_CERT")
         client_verify = request.environ.get("SSL_CLIENT_VERIFY")
         client_dn = request.environ.get("SSL_CLIENT_S_DN")  # Distinguished Name
         
+        # SECURITY: Only fall back to HTTP headers if WSGI variables are not available
+        # This is a security risk if Nginx is not properly configured to strip external headers
         if not client_cert:
             # Check alternative locations (depends on WSGI server configuration)
             client_cert = request.environ.get("HTTP_X_SSL_CLIENT_CERT")
             client_verify = request.environ.get("HTTP_X_SSL_CLIENT_VERIFY")
             client_dn = request.environ.get("HTTP_X_SSL_CLIENT_S_DN")
+            
+            # SECURITY: Log warning if using HTTP headers (potential spoofing risk)
+            if client_cert:
+                logger.warning(
+                    "[MTLS_SECURITY] Using HTTP headers for client certificate validation. "
+                    "This is less secure than WSGI environment variables. "
+                    "Ensure Nginx is configured to strip external X-SSL-Client-* headers. "
+                    f"IP: {request.remote_addr}, Path: {request.path}"
+                )
+        
+        # SECURITY: Check for suspicious patterns
+        # If verification status exists but certificate is missing, this is suspicious
+        if client_verify and not client_cert:
+            logger.error(
+                "[MTLS_SECURITY] Suspicious pattern detected: verification status present "
+                f"but certificate missing. Verify: {client_verify}, IP: {request.remote_addr}"
+            )
+            return False, "Invalid certificate configuration detected"
         
         if not client_cert:
             return False, "Client certificate not provided"
         
+        # SECURITY: Strict validation of verification status
+        # Only "SUCCESS" is acceptable. "NONE", "FAILED", or any other value is rejected.
         if client_verify != "SUCCESS":
+            logger.warning(
+                f"[MTLS_SECURITY] Client certificate verification failed: {client_verify}. "
+                f"IP: {request.remote_addr}, Path: {request.path}"
+            )
             return False, f"Client certificate verification failed: {client_verify}"
         
-        # Validate Common Name if required
+        # SECURITY: Validate Common Name if required
+        # This provides additional layer of authentication beyond certificate validity
         if self.required_cn and client_dn:
             # Extract CN from DN (format: CN=value,OU=...,O=...)
             cn = self._extract_cn_from_dn(client_dn)
             if not cn or not self._matches_cn_pattern(cn, self.required_cn):
+                logger.warning(
+                    f"[MTLS_SECURITY] Client certificate CN does not match required pattern. "
+                    f"CN: {cn}, Required: {self.required_cn}, IP: {request.remote_addr}"
+                )
                 return False, f"Client certificate CN does not match required pattern: {self.required_cn}"
         
         logger.debug(f"mTLS validation successful for client: {client_dn}")
@@ -91,7 +130,7 @@ class MTLSValidator:
         Check if CN matches pattern (supports wildcards).
         
         Examples:
-            - "loader-*" matches "loader-001", "loader-dev"
+            - "agent-*" matches "agent-001", "agent-dev"
             - "client-*.example.com" matches "client-1.example.com"
         """
         if pattern == cn:
@@ -100,7 +139,7 @@ class MTLSValidator:
         # Simple wildcard matching
         if "*" in pattern:
             import re
-            # Convert pattern to regex: "loader-*" -> "loader-.*"
+            # Convert pattern to regex: "agent-*" -> "agent-.*"
             regex_pattern = pattern.replace("*", ".*")
             return bool(re.match(f"^{regex_pattern}$", cn))
         
