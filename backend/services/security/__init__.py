@@ -3,7 +3,7 @@ Security services package
 Contains business logic for security operations
 """
 
-from .security_service import SecurityContext, SecurityService, security_service
+from .security_service import SecurityContext, SecurityService
 
 import sys
 _current_module = sys.modules[__name__]

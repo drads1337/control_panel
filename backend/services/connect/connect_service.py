@@ -264,8 +264,9 @@ class ConnectService:
 
             elif username and password:
 
-                from ...services.auth import auth_service
+                from ...utils.service_helpers import get_service
 
+                auth_service = get_service('auth_service')
                 response_data, error_code, error_message = auth_service.process_simple_login(
                     username, password, ip, user_agent
                 )

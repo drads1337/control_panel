@@ -13,7 +13,7 @@ from ..middleware.auth import (
 )
 from ..models.core import User, UserActivity
 from ..services.activity import activity_service
-from ..services.rbac import rbac_service
+from ..utils.service_helpers import get_service
 from ..utils.fulltext_search import fulltext_search_filter
 from ..utils.rbac_utils import RBACManager
 
@@ -54,6 +54,7 @@ def _get_logs_query_filter(user, user_id, project_id_param=None):
     logger = logging.getLogger(__name__)
     
     # Check permission - try multiple methods to ensure we get the correct result
+    rbac_service = get_service('rbac_service')
     has_logs_view_check = rbac_service.check_permission(user_id, "logs.view")
     user_permissions = rbac_service.get_user_permissions(user_id)
     has_logs_view_direct = "logs.view" in user_permissions
@@ -106,6 +107,7 @@ def get_logs():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
+        rbac_service = get_service('rbac_service')
         has_logs_view = rbac_service.check_permission(user_id, "logs.view")
 
         if not has_logs_view:
@@ -728,6 +730,7 @@ def export_logs():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
+        rbac_service = get_service('rbac_service')
         has_logs_view = rbac_service.check_permission(user_id, "logs.view")
         if not has_logs_view:
             return jsonify({"error": "Insufficient permissions. logs.view permission required"}), 403

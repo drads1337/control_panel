@@ -5,6 +5,7 @@ import { CheckCircle, XCircle, Clock, Loader2 } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { sanitizeString } from '@/lib/sanitization'
 import type { User } from '@/entities/user';
 
 interface TaskStatusProps {
@@ -106,7 +107,7 @@ export const TaskStatus = React.memo(function TaskStatus({ task, showDetails = f
         {task.error && (
           <div className="p-3 bg-red-50 border border-red-200 rounded-md">
             <p className="text-sm text-red-800 font-medium">Error:</p>
-            <p className="text-sm text-red-700">{task.error}</p>
+            <p className="text-sm text-red-700">{sanitizeString(String(task.error))}</p>
           </div>
         )}
 
@@ -114,7 +115,7 @@ export const TaskStatus = React.memo(function TaskStatus({ task, showDetails = f
           <div className="p-3 bg-green-50 border border-green-200 rounded-md">
             <p className="text-sm text-green-800 font-medium">Result:</p>
             <p className="text-sm text-green-700">
-              {typeof task.result === 'string' ? task.result : JSON.stringify(task.result)}
+              {typeof task.result === 'string' ? sanitizeString(task.result) : sanitizeString(JSON.stringify(task.result))}
             </p>
           </div>
         )}
@@ -211,7 +212,7 @@ export function TaskNotification({ task, onClose }: TaskNotificationProps) {
             </div>
           )}
           {task.error && (
-            <p className="text-xs text-red-600 mt-1">{task.error}</p>
+            <p className="text-xs text-red-600 mt-1">{sanitizeString(String(task.error))}</p>
           )}
         </div>
         {onClose && (

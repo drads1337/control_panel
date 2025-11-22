@@ -5,6 +5,17 @@ Provides backward compatibility by delegating to specialized services.
 This facade maintains the original UserManagementService interface while delegating
 to the new specialized services. This allows gradual migration without
 breaking existing code.
+
+⚠️ MIGRATION NOTE:
+This facade is a temporary solution for backward compatibility during refactoring.
+For new code, use specialized services directly:
+- UserCRUDService for CRUD operations
+- UserRoleService for role management
+- UserPermissionService for permission management
+- UserStatisticsService for statistics
+- UserInviteService for invitations
+
+See: backend/docs/FACADE_PATTERN_MIGRATION.md for migration strategy.
 """
 
 from datetime import datetime
@@ -22,8 +33,17 @@ class UserManagementServiceFacade:
     """
     Facade for UserManagementService that delegates to specialized services.
     
+    ⚠️ DEPRECATED: This facade is for backward compatibility only.
+    Use specialized services directly in new code.
+    
     This maintains backward compatibility with the original UserManagementService
     interface while using the new refactored services internally.
+    
+    Migration path:
+    1. Old code: user_management_service.create_user(...)
+    2. New code: user_crud_service.create_user(...)
+    
+    See: backend/docs/FACADE_PATTERN_MIGRATION.md
     """
 
     def __init__(self, logger=None):

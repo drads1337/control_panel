@@ -1,11 +1,18 @@
-import React from 'react'
+import React, { Suspense } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { User, BarChart3 } from 'lucide-react'
-import { SessionStatsCharts } from '../dashboard/session-stats-charts'
+import { Spinner } from '@/components/ui/spinner'
 import SessionsSearch from './sessions-search'
 import SessionsTable from './sessions-table'
 import type { Session } from '@/entities/session'
+
+// Lazy load chart component to reduce initial bundle size
+const SessionStatsCharts = React.lazy(() => 
+  import('../dashboard/session-stats-charts').then(module => ({ 
+    default: module.SessionStatsCharts 
+  }))
+)
 
 interface SessionsTabsProps {
   activeTab: string
@@ -99,7 +106,9 @@ export default function SessionsTabs({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <SessionStatsCharts stats={stats} />
+            <Suspense fallback={<div className="flex items-center justify-center h-[300px]"><Spinner size="lg" message="Loading charts..." /></div>}>
+              <SessionStatsCharts stats={stats} />
+            </Suspense>
           </CardContent>
         </Card>
       </TabsContent>

@@ -135,6 +135,14 @@ def init_services(app):
     from ..services.activity.activity_service import ActivityService
     container.register('activity_service', lambda: ActivityService())
     
+    # Register auth service
+    from ..services.auth.auth_service import AuthService
+    container.register('auth_service', lambda: AuthService())
+    
+    # Register security service
+    from ..services.security.security_service import SecurityService
+    container.register('security_service', lambda: SecurityService())
+    
     # Store container in app for access via current_app
     app.service_container = container
 

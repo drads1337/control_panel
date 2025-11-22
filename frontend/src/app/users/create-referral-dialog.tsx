@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Spinner } from '@/components/ui/spinner';
+import { sanitizeString } from '@/lib/sanitization';
 
 interface Role {
   id: number;
@@ -203,8 +204,8 @@ const CreateReferralDialog: React.FC<CreateReferralDialogProps> = ({
                     />
                     <Label htmlFor={`referral-code-product-${product.id}`} className="text-sm">
                       <div>
-                        <div className="font-medium">{product.name}</div>
-                        <div className="text-xs text-muted-foreground">{product.description || 'No description'}</div>
+                        <div className="font-medium">{sanitizeString(product.name)}</div>
+                        <div className="text-xs text-muted-foreground">{product.description ? sanitizeString(product.description) : 'No description'}</div>
                       </div>
                     </Label>
                   </div>

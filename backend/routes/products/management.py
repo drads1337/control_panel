@@ -15,6 +15,7 @@ from ...middleware.validation import validate_request
 from ...models import Product, User
 from ...models.agents import AgentProductAssignment
 from ...schemas.product import ProductCreateSchema, ProductStatusUpdateSchema, ProductUpdateSchema
+from ...utils.service_helpers import get_service
 from ...services.activity import activity_service
 from ...services.products import product_service
 from ...services.rbac import rbac_service

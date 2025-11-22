@@ -8,11 +8,8 @@ import logging
 from typing import Any, Dict, List, Optional, Tuple
 
 from ...core.extensions import db
+from ...utils.service_helpers import get_service
 from ...models.core import User
-from ...services.activity import activity_service
-from ...services.rbac import rbac_service
-from .user_management_service import user_management_service
-from .user_profile_service import user_profile_service
 
 logger = logging.getLogger(__name__)
 
@@ -24,10 +21,10 @@ class UserOrchestrator:
 
     def __init__(self):
         """Initialize orchestrator with all required services"""
-        self.user_management_service = user_management_service
-        self.user_profile_service = user_profile_service
-        self.rbac_service = rbac_service
-        self.activity_service = activity_service
+        self.user_management_service = get_service('user_management_service')
+        self.user_profile_service = get_service('user_profile_service')
+        self.rbac_service = get_service('rbac_service')
+        self.activity_service = get_service('activity_service')
 
     def create_user_with_full_setup(
         self,
@@ -344,4 +341,7 @@ class UserOrchestrator:
             logger.error(f"Error updating user product permissions: {str(e)}")
             return False, "Failed to update user product permissions"
 
-user_orchestrator = UserOrchestrator()
+# NOTE: Global singleton removed for better testability.
+# Use ServiceContainer to get service instances:
+#   from ...utils.service_helpers import get_service
+#   user_orchestrator = get_service('user_orchestrator')

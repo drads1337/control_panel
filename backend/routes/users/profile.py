@@ -16,10 +16,10 @@ from sqlalchemy import case, func
 from werkzeug.utils import secure_filename
 
 from ...core.extensions import db
+from ...utils.service_helpers import get_service
 from ...models import Key, User, UserActivity
 from ...services.activity import activity_service
 from ...services.users import user_profile_service
-from ...services.rbac import rbac_service
 from ...utils.service_helpers import get_user_profile_service
 from ...middleware.auth import (
     require_project_assignment,
@@ -99,6 +99,7 @@ def get_me(current_user=None):
 
         user_permissions = []
         try:
+            rbac_service = get_service('rbac_service')
             permissions_set = rbac_service.get_user_permissions(user.id)
             user_permissions = list(permissions_set) if permissions_set else []
         except Exception as e:
@@ -135,6 +136,7 @@ def get_me(current_user=None):
 
     user_permissions = []
     try:
+        rbac_service = get_service('rbac_service')
         permissions_set = rbac_service.get_user_permissions(user.id)
         user_permissions = list(permissions_set) if permissions_set else []
     except Exception as e:

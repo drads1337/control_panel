@@ -5,6 +5,17 @@ Provides backward compatibility by delegating to specialized services.
 This facade maintains the original KeyService interface while delegating
 to the new specialized services. This allows gradual migration without
 breaking existing code.
+
+⚠️ MIGRATION NOTE:
+This facade is a temporary solution for backward compatibility during refactoring.
+For new code, use specialized services directly:
+- KeyCRUDService for CRUD operations
+- KeyBulkOperationsService for bulk operations
+- KeyStatusService for status management
+- KeyExportService for export operations
+- KeyStatisticsService for statistics
+
+See: backend/docs/FACADE_PATTERN_MIGRATION.md for migration strategy.
 """
 
 from typing import Any, Dict, List, Optional, Tuple
@@ -22,8 +33,17 @@ class KeyServiceFacade:
     """
     Facade for KeyService that delegates to specialized services.
     
+    ⚠️ DEPRECATED: This facade is for backward compatibility only.
+    Use specialized services directly in new code.
+    
     This maintains backward compatibility with the original KeyService
     interface while using the new refactored services internally.
+    
+    Migration path:
+    1. Old code: key_service.create_key(...)
+    2. New code: key_crud_service.create_key(...)
+    
+    See: backend/docs/FACADE_PATTERN_MIGRATION.md
     """
 
     def __init__(self):
@@ -42,14 +62,41 @@ class KeyServiceFacade:
         return self.crud_service.create_key(user, key_data)
 
     def get_keys(self, user: User, filters: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], int]:
-        """Get keys with filters and pagination"""
-        return self.crud_service.get_keys(user, filters)
+        """
+        Get keys with filters and pagination
+        
+        Note: Returns legacy format (List[Dict], int) for backward compatibility.
+        The underlying service returns KeyListResponse, which is converted here.
+        """
+        result, error = self.crud_service.get_keys(user, filters)
+        if error:
+            return [], 0
+        if result:
+            # Convert KeyListResponse to legacy format
+            keys_dict = [key.model_dump() for key in result.keys]
+            return keys_dict, result.total
+        return [], 0
 
     def get_key_details(
         self, user: User, key_id: int
     ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
-        """Get detailed information about a key"""
-        return self.crud_service.get_key_details(user, key_id)
+        """
+        Get detailed information about a key
+        
+        Note: Returns legacy format (Dict) for backward compatibility.
+        The underlying service returns KeyDetailsResponse, which is converted here.
+        """
+        result, error = self.crud_service.get_key_details(user, key_id)
+        if error:
+            return None, error
+        if result:
+            # Convert KeyDetailsResponse to legacy format
+            return {
+                "key": result.key.model_dump(),
+                "devices": [device.model_dump() for device in result.devices],
+                "usage_history": result.usage_history,
+            }, None
+        return None, "Key not found"
 
     def update_key(
         self, user: User, key_id: int, data: Dict[str, Any]
@@ -225,20 +272,18 @@ class KeyServiceFacade:
         Note: This method is kept in facade as it combines CRUD operations
         """
         try:
-            key_details, error = self.crud_service.get_key_details(user, key_id)
-            if error or not key_details:
+            key_details_response, error = self.crud_service.get_key_details(user, key_id)
+            if error or not key_details_response:
                 return None, error or "Key not found"
 
-            key_data = key_details.get("key", {})
-            if not key_data:
-                return None, "Key data not found"
+            key_data = key_details_response.key
 
             # Create new key with same data
             new_key_data = {
-                "product_id": key_data.get("product_id"),
-                "duration_hours": key_data.get("duration_hours"),
-                "max_devices": key_data.get("max_devices"),
-                "key_metadata": key_data.get("key_metadata"),
+                "product_id": key_data.product_id,
+                "duration_hours": key_data.duration_hours,
+                "max_devices": key_data.max_devices,
+                "key_metadata": key_data.key_metadata,
             }
 
             return self.crud_service.create_key(user, new_key_data)
@@ -257,9 +302,9 @@ class KeyServiceFacade:
             from ...core.extensions import db
             from ...models.core import User as UserModel
 
-            key = self.crud_service.get_key_details(user, key_id)
-            if not key or key[1]:
-                return False, key[1] if key else "Key not found"
+            key_details_response, error = self.crud_service.get_key_details(user, key_id)
+            if error or not key_details_response:
+                return False, error or "Key not found"
 
             new_user = UserModel.query.filter_by(
                 id=new_user_id, project_id=user.project_id

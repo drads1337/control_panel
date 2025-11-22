@@ -7,6 +7,7 @@ import CreateRoleDialog from './create-role-dialog';
 import EditRoleDialog from './edit-role-dialog';
 import { Plus, Shield, Key, Edit, Trash2 } from 'lucide-react';
 import { useRBACTab } from '@/hooks/use-rbac-tab';
+import { sanitizeString } from '@/lib/sanitization';
 
 const RBACTab: React.FC = () => {
   const {
@@ -191,7 +192,7 @@ const RBACTab: React.FC = () => {
                                 </div>
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="text-xs text-muted-foreground truncate">
-                              {permission.description || 'No description'}
+                              {permission.description ? sanitizeString(permission.description) : 'No description'}
                             </p>
                           </div>
                               </div>

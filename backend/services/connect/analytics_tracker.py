@@ -9,9 +9,8 @@ from datetime import date, datetime
 from typing import Dict, List, Optional
 
 from ...core.extensions import db
+from ...utils.service_helpers import get_service
 from ...models import DeviceInfo, KeyAnalytics, Notification, User
-from ...services.activity import activity_service
-from ...services.analytics import analytics_buffer_service
 from ...services.heartbeat import heartbeat_service
 
 class AnalyticsTracker:
@@ -39,6 +38,7 @@ class AnalyticsTracker:
         try:
             # Use write-behind buffer instead of direct DB write
             # HyperLogLog is used for efficient unique device counting
+            analytics_buffer_service = get_service('analytics_buffer_service')
             success = analytics_buffer_service.buffer_key_analytics_update(
                 key_id=key_id,
                 product=product,
@@ -222,7 +222,7 @@ class AnalyticsTracker:
             ip: IP address
         """
         try:
-
+            activity_service = get_service('activity_service')
             activity_service.log_activity(user, action, details=details, ip=ip)
         except Exception as e:
             logging.error(f"Error logging user activity: {e}")

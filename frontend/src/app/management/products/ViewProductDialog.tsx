@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Package, Edit, Upload } from 'lucide-react';
 import { getStatusClasses, getStatusText, type StatusType } from '@/lib/status-utils';
 import { useProductPermissions } from '@/hooks/use-product-permissions';
+import { sanitizeString } from '@/lib/sanitization';
 import type { Product } from '@/entities/product';
 
 interface ViewProductDialogProps {
@@ -43,7 +44,7 @@ const ViewProductDialog: React.FC<ViewProductDialogProps> = ({
             {product.name}
           </DialogTitle>
           <DialogDescription>
-            {product.description || 'No description'}
+            {product.description ? sanitizeString(product.description) : 'No description'}
           </DialogDescription>
         </DialogHeader>
 

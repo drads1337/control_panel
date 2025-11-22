@@ -103,7 +103,13 @@ class PersistenceLayer:
         # Try Redis first
         if self._redis_available:
             try:
-                from ...services.analytics.analytics_buffer_service import analytics_buffer_service
+                from ...utils.service_helpers import get_service
+                try:
+                    analytics_buffer_service = get_service('analytics_buffer_service')
+                except (RuntimeError, ValueError):
+                    # Fallback for contexts without Flask app
+                    from ...services.analytics.analytics_buffer_service import AnalyticsBufferService
+                    analytics_buffer_service = AnalyticsBufferService()
                 success = analytics_buffer_service.buffer_user_activity(
                     user_id=user_id,
                     action=action,
@@ -186,7 +192,13 @@ class PersistenceLayer:
         # Try Redis first
         if self._redis_available:
             try:
-                from ...services.analytics.analytics_buffer_service import analytics_buffer_service
+                from ...utils.service_helpers import get_service
+                try:
+                    analytics_buffer_service = get_service('analytics_buffer_service')
+                except (RuntimeError, ValueError):
+                    # Fallback for contexts without Flask app
+                    from ...services.analytics.analytics_buffer_service import AnalyticsBufferService
+                    analytics_buffer_service = AnalyticsBufferService()
                 success = analytics_buffer_service.buffer_key_analytics_update(
                     key_id=key_id,
                     product=product,

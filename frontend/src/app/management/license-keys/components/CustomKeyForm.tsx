@@ -10,6 +10,7 @@ import { Plus, X, Database, Container } from 'lucide-react';
 import { useKeyForm } from '../hooks/use-key-form';
 import { durationOptions, parseDuration } from '../hooks/use-duration';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
+import { sanitizeString } from '@/lib/sanitization';
 
 interface CustomKeyFormProps {
   products: Array<{ id: number; name: string; is_multi_app: boolean }>;
@@ -280,7 +281,7 @@ export const CustomKeyForm: React.FC<CustomKeyFormProps> = ({
                                   }
                                 }}
                               />
-                              <Label htmlFor={`custom-product-${product.id}`} className="text-sm font-normal">{product.name}</Label>
+                              <Label htmlFor={`custom-product-${product.id}`} className="text-sm font-normal">{sanitizeString(product.name)}</Label>
                             </div>
                           ))}
                         </div>

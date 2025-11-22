@@ -17,10 +17,10 @@ from ..middleware.auth import (
     require_project_isolation,
     require_project_with_grace_period,
 )
+from ..utils.service_helpers import get_service
 from ..models.core import Project, User, UserActivity
 from ..models.products import Product
 from ..models.keys import DeviceInfo, Key, KeyAnalytics
-from ..services.analytics import analytics_service
 from ..services.monitoring.prometheus_metrics_reader import prometheus_metrics_reader
 from ..utils.rbac_utils import RBACManager
 from ..utils.role_constants import UserRoles
@@ -53,6 +53,7 @@ def get_dashboard_overview():
 
         period_days = min(max(period_days, 1), 365)
 
+        analytics_service = get_service('analytics_service')
         analytics_data = analytics_service.get_dashboard_overview(
             project_id=project_id, period_days=period_days
         )
@@ -103,6 +104,7 @@ def get_owner_dashboard_overview():
 
         period_days = min(max(period_days, 1), 365)
 
+        analytics_service = get_service('analytics_service')
         analytics_data = analytics_service.get_system_overview(period_days=period_days)
 
         if not analytics_data:
@@ -167,6 +169,7 @@ def get_sales_trends():
         if not user_roles or user_roles[0] != UserRoles.OWNER.value:
             project_id = user.project_id
 
+        analytics_service = get_service('analytics_service')
         start_date = datetime.utcnow() - timedelta(days=period_days)
         sales_data = analytics_service._get_sales_analytics(project_id, start_date)
 
@@ -233,6 +236,7 @@ def get_user_insights():
         if not user_roles or user_roles[0] != UserRoles.OWNER.value:
             project_id = user.project_id
 
+        analytics_service = get_service('analytics_service')
         start_date = datetime.utcnow() - timedelta(days=period_days)
         user_data = analytics_service._get_user_analytics(project_id, start_date)
 
@@ -280,6 +284,7 @@ def get_geography_activations():
         if not user_roles or user_roles[0] != UserRoles.OWNER.value:
             project_id = user.project_id
 
+        analytics_service = get_service('analytics_service')
         start_date = datetime.utcnow() - timedelta(days=period_days)
         geography_data = analytics_service._get_geography_analytics(project_id, start_date)
 
@@ -329,6 +334,7 @@ def get_popular_products():
         if not user_roles or user_roles[0] != UserRoles.OWNER.value:
             project_id = user.project_id
 
+        analytics_service = get_service('analytics_service')
         start_date = datetime.utcnow() - timedelta(days=period_days)
         products_data = analytics_service._get_popular_products(project_id, start_date)
 
@@ -382,6 +388,7 @@ def get_security_overview():
         if not user_roles or user_roles[0] != UserRoles.OWNER.value:
             project_id = user.project_id
 
+        analytics_service = get_service('analytics_service')
         start_date = datetime.utcnow() - timedelta(days=period_days)
         security_data = analytics_service._get_security_analytics(project_id, start_date)
 
@@ -425,6 +432,7 @@ def get_system_health():
         if not user_roles or user_roles[0] != UserRoles.OWNER.value:
             project_id = user.project_id
 
+        analytics_service = get_service('analytics_service')
         health_data = analytics_service._get_system_health(project_id)
 
         return jsonify({"status": "success", "data": health_data})
@@ -480,6 +488,7 @@ def generate_analytics_report():
         if not user_roles or user_roles[0] != UserRoles.OWNER.value:
             project_id = user.project_id
 
+        analytics_service = get_service('analytics_service')
         if report_type == "comprehensive":
             report_data = analytics_service.get_dashboard_overview(project_id, period_days)
         elif report_type == "sales":

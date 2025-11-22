@@ -2,6 +2,7 @@ import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Package, Check } from 'lucide-react';
 import { getStatusClasses, getStatusText, type StatusType } from '@/lib/status-utils';
+import { sanitizeString } from '@/lib/sanitization';
 import type { Product } from '@/entities/product';
 import { ProductSelectionCheckbox } from './ProductSelectionCheckbox';
 import { ProductActions } from './ProductActions';
@@ -75,7 +76,7 @@ export const ProductRow: React.FC<ProductRowProps> = React.memo(({
           
           {product.description && (
             <p className="text-xs text-muted-foreground truncate mb-1">
-              {product.description}
+              {sanitizeString(product.description)}
             </p>
           )}
           

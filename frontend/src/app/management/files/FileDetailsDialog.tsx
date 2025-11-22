@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Eye, Download } from 'lucide-react';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
+import { sanitizeString } from '@/lib/sanitization';
 import type { FileItem } from '@/entities/file';
 
 interface FileDetailsDialogProps {
@@ -67,7 +68,7 @@ const FileDetailsDialog: React.FC<FileDetailsDialogProps> = ({
               <div>
                 <Label className="text-sm font-medium">Description</Label>
                 <div className="text-sm text-muted-foreground mt-1">
-                  {selectedFile.description}
+                  {sanitizeString(selectedFile.description)}
                 </div>
               </div>
             )}

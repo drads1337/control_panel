@@ -9,10 +9,8 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ..core.extensions import db
+from ..utils.service_helpers import get_service
 from ..models.core import User
-from ..services.admin import admin_service
-from ..services.rbac import rbac_service
-from ..services.users import user_management_service
 from ..utils.service_helpers import get_user_crud_service
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
@@ -35,6 +33,7 @@ def deactivate_expired_projects():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
+        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_all_projects"):
             return (
                 jsonify(
@@ -43,6 +42,7 @@ def deactivate_expired_projects():
                 403,
             )
 
+        admin_service = get_service('admin_service')
         deactivated_count, cleaned_codes, error = admin_service.deactivate_expired_projects(user)
 
         if error:
@@ -76,6 +76,7 @@ def cleanup_expired_projects():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
+        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_all_projects"):
             return (
                 jsonify(
@@ -84,6 +85,7 @@ def cleanup_expired_projects():
                 403,
             )
 
+        admin_service = get_service('admin_service')
         deleted_count, deleted_projects, error = admin_service.cleanup_expired_projects(user)
 
         if error:
@@ -114,6 +116,7 @@ def get_system_stats():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
+        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_all_projects"):
             return (
                 jsonify(
@@ -122,6 +125,7 @@ def get_system_stats():
                 403,
             )
 
+        admin_service = get_service('admin_service')
         stats = admin_service.get_system_stats(user)
 
         if "error" in stats:
@@ -146,6 +150,7 @@ def get_expired_projects():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
+        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_all_projects"):
             return (
                 jsonify(
@@ -154,6 +159,7 @@ def get_expired_projects():
                 403,
             )
 
+        admin_service = get_service('admin_service')
         projects_info = admin_service.get_expired_projects_info(user)
 
         return jsonify({"expired_projects": projects_info, "count": len(projects_info)})
@@ -175,6 +181,7 @@ def suspend_project(project_id):
         if not user:
             return jsonify({"error": "User not found"}), 404
 
+        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_all_projects"):
             return (
                 jsonify(
@@ -186,6 +193,7 @@ def suspend_project(project_id):
         data = request.get_json() or {}
         reason = data.get("reason", "")
 
+        admin_service = get_service('admin_service')
         success, error = admin_service.suspend_project(project_id, user, reason)
 
         if not success:
@@ -210,6 +218,7 @@ def reactivate_project(project_id):
         if not user:
             return jsonify({"error": "User not found"}), 404
 
+        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_all_projects"):
             return (
                 jsonify(
@@ -221,6 +230,7 @@ def reactivate_project(project_id):
         data = request.get_json() or {}
         new_expiry_date_str = data.get("new_expiry_date")
 
+        admin_service = get_service('admin_service')
         success, error = admin_service.reactivate_project(project_id, user, new_expiry_date_str=new_expiry_date_str)
 
         if not success:

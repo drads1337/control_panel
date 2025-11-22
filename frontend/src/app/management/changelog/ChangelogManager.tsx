@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { usePermissions } from '@/hooks/use-permissions';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
 import { toast } from 'sonner';
+import { sanitizeString } from '@/lib/sanitization';
 import ChangelogFormDialog from './ChangelogFormDialog';
 import type { Product } from '@/entities/product';
 import type { ChangelogEntry } from '@/entities/changelog';
@@ -113,7 +114,7 @@ const ChangelogManager: React.FC<ChangelogManagerProps> = ({ product, onUpdate }
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold">Changelog: {product.name}</h3>
+          <h3 className="text-lg font-semibold">Changelog: {sanitizeString(product.name)}</h3>
           <p className="text-sm text-muted-foreground">
             Manage changelog entries for the product.
           </p>
@@ -164,7 +165,7 @@ const ChangelogManager: React.FC<ChangelogManagerProps> = ({ product, onUpdate }
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <CardTitle className="text-lg">{entry.title}</CardTitle>
+                      <CardTitle className="text-lg">{sanitizeString(entry.title)}</CardTitle>
                       <Badge variant="secondary">{entry.version}</Badge>
                     </div>
                     <CardDescription className="flex items-center gap-2">
@@ -198,7 +199,7 @@ const ChangelogManager: React.FC<ChangelogManagerProps> = ({ product, onUpdate }
               </CardHeader>
               <CardContent className="space-y-3">
                 {entry.description && (
-                  <p className="text-sm text-muted-foreground">{entry.description}</p>
+                  <p className="text-sm text-muted-foreground">{sanitizeString(entry.description)}</p>
                 )}
                 <div className="space-y-2">
                   <h4 className="text-sm font-medium">Changes:</h4>
@@ -206,7 +207,7 @@ const ChangelogManager: React.FC<ChangelogManagerProps> = ({ product, onUpdate }
                     {entry.changes.map((change, index) => (
                       <li key={index} className="text-sm flex items-start gap-2">
                         <span className="text-primary mt-1">•</span>
-                        <span>{change}</span>
+                        <span>{sanitizeString(change)}</span>
                       </li>
                     ))}
                   </ul>

@@ -16,6 +16,7 @@ import { type Product } from '@/entities/product';
 import { toast } from 'sonner';
 import { createUserSchema, type CreateUserInput } from '@/lib/validations/user';
 import { measurePerformance } from '@/lib/sentry-config';
+import { sanitizeString } from '@/lib/sanitization';
 
 interface Role {
   id: number;
@@ -457,8 +458,8 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
                           />
                           <Label htmlFor={`product-${product.id}`} className="text-sm">
                             <div>
-                              <div className="font-medium">{product.name}</div>
-                              <div className="text-xs text-muted-foreground">{product.description || 'No description'}</div>
+                              <div className="font-medium">{sanitizeString(product.name)}</div>
+                              <div className="text-xs text-muted-foreground">{product.description ? sanitizeString(product.description) : 'No description'}</div>
                             </div>
                           </Label>
                         </div>

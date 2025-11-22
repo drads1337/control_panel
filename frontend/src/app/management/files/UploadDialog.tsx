@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { usePermissions } from '@/hooks/use-permissions';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
 import { toast } from 'sonner';
+import { sanitizeString } from '@/lib/sanitization';
 import type { Product } from '@/entities/product';
 import type { FileStats } from '@/entities/file';
 import { 
@@ -140,7 +141,7 @@ const UploadDialog: React.FC<UploadDialogProps> = ({ open, onOpenChange, product
             <div>
               <h4 className="font-semibold text-lg">{product.name}</h4>
               <p className="text-sm text-muted-foreground">
-                {product.description || 'No description available'}
+                {product.description ? sanitizeString(product.description) : 'No description available'}
               </p>
               <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                 <span>Version: {product.version}</span>

@@ -20,8 +20,8 @@ from ...models.core import Project, ProjectInviteCode, User
 from ...models.keys import ReferralCode
 from ...utils.ip_utils import get_location_from_ip, get_real_ip
 from ...utils.rbac_utils import RBACManager
+from ...utils.service_helpers import get_service
 from ...services.activity import activity_service
-from ...services.security import security_service
 from ...services.validation import request_validation_pipeline
 
 class AuthService:
@@ -301,6 +301,7 @@ class AuthService:
             if not validation_result.is_valid:
                 return False, validation_result.reason
 
+            security_service = get_service('security_service')
             if security_service.check_session_limit(user.id, user.project_id):
                 return False, "SESSION_LIMIT_EXCEEDED"
 
@@ -324,6 +325,7 @@ class AuthService:
             return
 
         try:
+            security_service = get_service('security_service')
             security_service.record_login_attempt(
                 ip, user.username, success, user.project_id, user_agent
             )

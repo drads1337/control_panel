@@ -24,6 +24,7 @@ import type { WebhookData, WebhookLog } from './types';
 import { webhookAPI } from '@/entities/webhook';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
 import { handleError } from '@/lib/error-handler';
+import { sanitizeString } from '@/lib/sanitization';
 
 interface WebhookLogsDialogProps {
   open: boolean;
@@ -114,8 +115,8 @@ export function WebhookLogsDialog({
                     </TableCell>
                     <TableCell>
                       {log.error_message && (
-                        <div className="text-sm text-red-600 max-w-xs truncate" title={log.error_message}>
-                          {log.error_message}
+                        <div className="text-sm text-red-600 max-w-xs truncate" title={sanitizeString(log.error_message)}>
+                          {sanitizeString(log.error_message)}
                         </div>
                       )}
                     </TableCell>

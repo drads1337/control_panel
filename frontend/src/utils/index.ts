@@ -359,20 +359,25 @@ export const logoutUser = (): void => {
 };
 
 export const isAuthenticated = (): boolean => {
-  is deprecated. Use useAuthContext().isAuthenticated instead');
+  // DEPRECATED: Use useAuthContext().isAuthenticated instead
+  console.warn('isAuthenticated() is deprecated. Use useAuthContext().isAuthenticated instead');
 
   return false;
 };
 
 export const getToken = (): string | null => {
-  is deprecated. Tokens are now stored in HTTP-only cookies and not accessible from JavaScript');
+  // DEPRECATED: Tokens are now stored in HTTP-only cookies and not accessible from JavaScript
+  console.warn('getToken() is deprecated. Tokens are now stored in HTTP-only cookies and not accessible from JavaScript');
 
   return null;
 };
 
 export const getUser = (): any => {
-  const user = localStorage.getItem('user');
-  return user ? JSON.parse(user) : null;
+  // SECURITY: This function is deprecated. Tokens should not be stored in localStorage.
+  // Use useAuthContext() or authService.getCachedUser() instead.
+  // This function is kept for backward compatibility but returns null.
+  console.warn('getUser() is deprecated. Use useAuthContext() or authService.getCachedUser() instead.');
+  return null;
 };
 
 export const logUserAction = async (action: string, meta: Record<string, any> = {}): Promise<void> => {

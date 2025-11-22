@@ -26,6 +26,7 @@ import ChangelogManagementDialog from '../changelog/ChangelogManagementDialog';
 import { toast } from 'sonner';
 import { getStatusClasses, getStatusText, type StatusType } from '@/lib/status-utils';
 import { Spinner } from '@/components/ui/spinner';
+import { sanitizeString } from '@/lib/sanitization';
 import type { Agent } from '@/entities/agent';
 import type { Product } from '@/entities/product';
 
@@ -120,7 +121,7 @@ const AgentItem = React.memo(({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            <h4 className="font-medium text-sm truncate">{agent.name}</h4>
+            <h4 className="font-medium text-sm truncate">{sanitizeString(agent.name)}</h4>
             {isSelected && (
               <Check className="h-3 w-3 text-primary" />
             )}
@@ -128,7 +129,7 @@ const AgentItem = React.memo(({
           </div>
           {agent.description && (
             <p className="text-xs text-muted-foreground truncate mb-1">
-              {agent.description}
+              {sanitizeString(agent.description)}
             </p>
           )}
           <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">

@@ -12,11 +12,12 @@ import { Badge } from '@/components/ui/badge'
 import { Building2, BarChart3 } from 'lucide-react'
 import { usePermissions } from '@/hooks/use-permissions'
 import { SlowQueriesCard } from './slow-queries-card'
-import { OwnerLoadStatusCard } from './owner-load-status-card'
 import { Spinner } from '@/components/ui/spinner'
 
+// Lazy load heavy components with charts to reduce initial bundle size
 const ChartAreaInteractive = React.lazy(() => import('@/app/dashboard/chart-area-interactive').then(module => ({ default: module.ChartAreaInteractive })))
 const DataTable = React.lazy(() => import('@/app/dashboard/data-table').then(module => ({ default: module.DataTable })))
+const OwnerLoadStatusCard = React.lazy(() => import('./owner-load-status-card').then(module => ({ default: module.OwnerLoadStatusCard })))
 
 interface DashboardPageProps {
   type: 'dashboard' | 'owner'
@@ -147,7 +148,9 @@ export function DashboardPage({ type }: DashboardPageProps) {
               <StatCardsGrid data={data} type="owner" />
             </div>
 
-            <OwnerLoadStatusCard loadStatus={(data as OwnerDashboardStats)?.load_status} />
+            <Suspense fallback={<div className="flex items-center justify-center min-h-[200px]"><Spinner size="lg" message="Loading status..." /></div>}>
+              <OwnerLoadStatusCard loadStatus={(data as OwnerDashboardStats)?.load_status} />
+            </Suspense>
 
             <Card>
               <CardHeader>

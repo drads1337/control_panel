@@ -12,6 +12,22 @@ Architecture:
 - Supports RBAC, ABAC, and resource-level permissions
 - Extensible for future authorization models
 
+SECURITY: Conflict Resolution
+-----------------------------
+All policies are evaluated before applying conflict resolution rules.
+This ensures that DENY always takes precedence over ALLOW, preventing
+privilege escalation when:
+- RBAC grants access through a role, but ABAC denies it
+- Resource-level permissions allow access, but ABAC denies it
+- Product-specific permissions allow access, but ABAC denies it
+
+Conflict Resolution Priority:
+1. DENY (highest priority) - Any policy that denies access
+2. ALLOW - Any policy that allows access (only if no DENY)
+3. ABSTAIN - Policy doesn't apply (default deny if all abstain)
+
+This prevents logical security holes where multiple policies conflict.
+
 Usage:
     from backend.services.rbac.policy_engine import PolicyEngine
     
@@ -38,13 +54,11 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from ...core.extensions import db
+from ...utils.service_helpers import get_service
 from ...models.core import User
 from ...models.rbac import Permission, RolePermission, UserRole
 from ...utils.rbac_utils import RBACManager
-from .authorization_audit import (
-    authorization_audit_service,
-    DecisionOutcome,
-)
+from .authorization_audit import DecisionOutcome
 
 logger = logging.getLogger(__name__)
 
@@ -89,10 +103,26 @@ class PolicyEngine:
     5. Product-specific permissions
     
     Each layer can ALLOW, DENY, or ABSTAIN (pass to next layer).
-    First DENY or final ABSTAIN results in denial.
+    
+    SECURITY: All policies are evaluated before conflict resolution.
+    Conflict resolution priority: DENY > ALLOW > ABSTAIN (default deny).
+    This ensures that ABAC DENY can override RBAC ALLOW, preventing
+    privilege escalation through conflicting policies.
     """
     
     def __init__(self):
+        """
+        Policy evaluation order:
+        1. Owner/Admin bypass - fastest path for privileged users
+        2. RBAC permissions - role-based checks
+        3. Resource-level permissions - instance-specific checks
+        4. ABAC rules - attribute-based checks (can DENY even if RBAC allows)
+        5. Product-specific permissions - product-scoped checks
+        
+        SECURITY NOTE: All policies are evaluated before conflict resolution.
+        DENY always takes precedence over ALLOW, regardless of evaluation order.
+        This prevents privilege escalation when RBAC grants access but ABAC denies it.
+        """
         self.policies: List[callable] = [
             self._check_owner_admin_bypass,
             self._check_rbac_permissions,
@@ -147,8 +177,12 @@ class PolicyEngine:
         # Track execution time for performance monitoring
         evaluation_start_time = time.perf_counter()
         
-        # Evaluate through each policy layer
+        # SECURITY FIX: Evaluate all policies first, then apply conflict resolution
+        # This ensures DENY always takes precedence over ALLOW, preventing privilege escalation
+        # when RBAC grants access but ABAC should deny it.
         evaluated_policies = []
+        all_decisions = []
+        
         for policy in self.policies:
             try:
                 decision = policy(
@@ -160,43 +194,17 @@ class PolicyEngine:
                     context=context,
                 )
                 
-                evaluated_policies.append({
+                policy_info = {
                     "policy": policy.__name__,
                     "type": decision.policy_type,
                     "allowed": decision.allowed,
                     "reason": decision.reason
-                })
+                }
+                evaluated_policies.append(policy_info)
                 
-                # If policy made a decision (not ABSTAIN), return it
+                # Store decision if it's not an abstention
                 if decision.policy_type != "abstain":
-                    execution_time_ms = (time.perf_counter() - evaluation_start_time) * 1000
-                    
-                    # Audit the authorization decision
-                    outcome = DecisionOutcome.ALLOW if decision.allowed else DecisionOutcome.DENY
-                    authorization_audit_service.audit_authorization_decision(
-                        user_id=user_id,
-                        permission=permission,
-                        outcome=outcome,
-                        policy_type=decision.policy_type,
-                        reason=decision.reason,
-                        context={
-                            "product_id": product_id,
-                            "resource_type": resource_type,
-                            "resource_id": resource_id,
-                            "project_id": user.project_id,
-                            **context,
-                        },
-                        evaluated_policies=evaluated_policies,
-                        execution_time_ms=execution_time_ms,
-                    )
-                    
-                    logger.info(
-                        f"POLICY_EVALUATION_RESULT user_id={user_id} permission={permission} "
-                        f"policy={policy.__name__} decision={decision.policy_type} "
-                        f"allowed={decision.allowed} reason={decision.reason} "
-                        f"evaluated_policies={len(evaluated_policies)} execution_time={execution_time_ms:.2f}ms"
-                    )
-                    return decision
+                    all_decisions.append(decision)
                     
             except Exception as e:
                 logger.error(
@@ -212,47 +220,77 @@ class PolicyEngine:
                 })
                 # Continue to next policy on error
         
-        # If all policies abstained, deny by default (fail-secure)
+        # Conflict resolution: DENY > ALLOW > ABSTAIN
+        # This prevents privilege escalation when multiple policies conflict
         execution_time_ms = (time.perf_counter() - evaluation_start_time) * 1000
         
-        final_decision = Decision(
-            allowed=False,
-            reason="No policy granted permission",
-            policy_type="default_deny",
-            context={
-                "user_id": user_id,
-                "permission": permission,
-                "product_id": product_id,
-                "resource_type": resource_type,
-                "resource_id": resource_id,
-                "evaluated_policies": evaluated_policies,
-            }
-        )
+        if all_decisions:
+            # Check for any DENY first (highest priority)
+            deny_decisions = [d for d in all_decisions if not d.allowed]
+            if deny_decisions:
+                # Use the first DENY decision (most specific)
+                final_decision = deny_decisions[0]
+                outcome = DecisionOutcome.DENY
+                
+                # Log conflict if there were also ALLOW decisions
+                allow_decisions = [d for d in all_decisions if d.allowed]
+                if allow_decisions:
+                    logger.warning(
+                        f"POLICY_CONFLICT_RESOLVED user_id={user_id} permission={permission} "
+                        f"deny_policy={final_decision.policy_type} allow_policies={[d.policy_type for d in allow_decisions]} "
+                        f"reason=DENY takes precedence over ALLOW"
+                    )
+                    final_decision.context["conflict_resolved"] = True
+                    final_decision.context["conflicting_allow_policies"] = [d.policy_type for d in allow_decisions]
+            else:
+                # No DENY, use first ALLOW
+                final_decision = all_decisions[0]
+                outcome = DecisionOutcome.ALLOW
+        else:
+            # All policies abstained - default deny (fail-secure)
+            final_decision = Decision(
+                allowed=False,
+                reason="No policy granted permission",
+                policy_type="default_deny",
+                context={
+                    "user_id": user_id,
+                    "permission": permission,
+                    "product_id": product_id,
+                    "resource_type": resource_type,
+                    "resource_id": resource_id,
+                }
+            )
+            outcome = DecisionOutcome.DENY
         
-        # Audit the denial decision
+        # Audit the authorization decision
+        authorization_audit_service = get_service('authorization_audit_service')
         authorization_audit_service.audit_authorization_decision(
             user_id=user_id,
             permission=permission,
-            outcome=DecisionOutcome.DENY,
-            policy_type="default_deny",
-            reason="No policy granted permission",
+            outcome=outcome,
+            policy_type=final_decision.policy_type,
+            reason=final_decision.reason,
             context={
                 "product_id": product_id,
                 "resource_type": resource_type,
                 "resource_id": resource_id,
                 "project_id": user.project_id,
                 **context,
+                **final_decision.context,
             },
             evaluated_policies=evaluated_policies,
             execution_time_ms=execution_time_ms,
         )
         
-        logger.warning(
-            f"POLICY_EVALUATION_DENIED user_id={user_id} permission={permission} "
-            f"reason=No policy granted permission evaluated_policies={len(evaluated_policies)} "
-            f"policies={[p['policy'] for p in evaluated_policies]} execution_time={execution_time_ms:.2f}ms"
+        logger.info(
+            f"POLICY_EVALUATION_RESULT user_id={user_id} permission={permission} "
+            f"policy={final_decision.policy_type} decision={'ALLOW' if final_decision.allowed else 'DENY'} "
+            f"allowed={final_decision.allowed} reason={final_decision.reason} "
+            f"evaluated_policies={len(evaluated_policies)} total_decisions={len(all_decisions)} "
+            f"execution_time={execution_time_ms:.2f}ms"
         )
         return final_decision
+        
     
     def _check_owner_admin_bypass(
         self,
@@ -314,7 +352,7 @@ class PolicyEngine:
             )
         
         # Get user permissions through RBAC
-        from .rbac_service import rbac_service
+        rbac_service = get_service('rbac_service')
         user_permissions = rbac_service.get_user_permissions(user.id)
         
         if permission in user_permissions:
@@ -580,7 +618,7 @@ class PolicyEngine:
             )
         
         # Check for product permission pattern: "permission.product.{product_id}"
-        from .rbac_service import rbac_service
+        rbac_service = get_service('rbac_service')
         user_permissions = rbac_service.get_user_permissions(user.id)
         product_permission_pattern = f"{permission}.product.{product_id}"
         
@@ -606,4 +644,3 @@ class PolicyEngine:
 
 # Singleton instance
 policy_engine = PolicyEngine()
-

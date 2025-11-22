@@ -31,6 +31,7 @@ import { useApiMetrics } from "@/hooks/use-api-metrics"
 import { Skeleton } from "@/components/ui/skeleton"
 import { AlertCircle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { sanitizeString } from "@/lib/sanitization"
 import type { User } from '@/entities/user';
 
 const chartConfig = {
@@ -192,7 +193,7 @@ export function ChartAreaInteractive() {
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              Failed to load chart data: {error}
+              Failed to load chart data: {sanitizeString(String(error))}
             </AlertDescription>
           </Alert>
         </CardContent>

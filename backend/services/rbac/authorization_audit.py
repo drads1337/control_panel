@@ -170,6 +170,18 @@ class AuthorizationAuditService:
             if len(set(policy_types)) > 3:
                 issues.append("Multiple policy types evaluated (potential complexity)")
             
+            # Check for policy conflicts (RBAC ALLOW vs ABAC potential DENY)
+            # This helps detect cases where RBAC grants access but ABAC should deny
+            policy_decisions = [p for p in evaluated_policies if p.get("type") != "abstain" and p.get("type") != "error"]
+            if len(policy_decisions) > 1:
+                rbac_allowed = any(p.get("type") == "rbac" and p.get("allowed") for p in policy_decisions)
+                abac_checked = any(p.get("type") == "abac" for p in evaluated_policies)
+                if rbac_allowed and abac_checked:
+                    # Check if ABAC might have denied but was overridden
+                    abac_decisions = [p for p in policy_decisions if p.get("type") == "abac"]
+                    if not abac_decisions or not any(p.get("allowed") for p in abac_decisions):
+                        issues.append("RBAC allowed but ABAC did not explicitly allow (potential conflict)")
+            
             # Check for admin/owner bypass on sensitive operations
             if policy_type in ("owner_bypass", "admin_bypass"):
                 sensitive_permissions = [
@@ -184,6 +196,14 @@ class AuthorizationAuditService:
             # Check for ABAC rules that might be too permissive
             if policy_type == "abac":
                 issues.append("Access granted via ABAC (verify rule logic)")
+        
+        # Check for resolved conflicts (DENY overriding ALLOW)
+        if context.get("conflict_resolved"):
+            conflicting_policies = context.get("conflicting_allow_policies", [])
+            if conflicting_policies:
+                issues.append(
+                    f"Policy conflict resolved: DENY from {policy_type} overrode ALLOW from {', '.join(conflicting_policies)}"
+                )
         
         # Check for inconsistent decisions
         if len(evaluated_policies) > 5:

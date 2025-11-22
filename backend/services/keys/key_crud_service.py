@@ -5,7 +5,7 @@ Handles basic CRUD operations for keys: create, read, update, delete
 
 import logging
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from sqlalchemy.orm import joinedload
 
@@ -14,6 +14,13 @@ from ...models.core import User
 from ...models.products import Product
 from ...models.keys import DeviceInfo, Key
 from ...models.agents import Agent
+from ...schemas.responses.service_responses import (
+    KeyListResponse,
+    KeyListItem,
+    KeyDetailsResponse,
+    KeyDetailsData,
+    DeviceInfo as DeviceInfoSchema,
+)
 from .key_generation_service import key_generation_service
 from .key_validation_service import key_validation_service
 from ...utils.data_masking import mask_license_key
@@ -181,7 +188,9 @@ class KeyCRUDService:
         self.logger.info(f"Created key {key.id} for user {user.id}")
         return key, None
 
-    def get_keys(self, user: User, filters: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], int]:
+    def get_keys(
+        self, user: User, filters: Dict[str, Any]
+    ) -> Union[Tuple[KeyListResponse, None], Tuple[None, str]]:
         """
         Get keys with filters and pagination
 
@@ -190,7 +199,10 @@ class KeyCRUDService:
             filters: Filter parameters
 
         Returns:
-            Tuple of (keys_list, total_count)
+            Tuple of (KeyListResponse or None, error message or None)
+            
+        Note: For backward compatibility, this can also return (List[Dict], int).
+        Use KeyListResponse for type safety in new code.
         """
         try:
             self.logger.info(
@@ -280,37 +292,37 @@ class KeyCRUDService:
                         device_count = len(devices_list)
 
                 keys.append(
-                    {
-                        "id": key.unique_id,
-                        "key": mask_license_key(key.key),
-                        "user_id": key.user_id,
-                        "product_id": key.product_id,
-                        "product_name": product_name,
-                        "agent_id": key.agent_id,
-                        "expires_at": key.expires_at.isoformat() if key.expires_at else None,
-                        "max_devices": key.max_devices,
-                        "devices": key.devices,
-                        "device_count": device_count,
-                        "status": key.status,
-                        "is_active": is_active,
-                        "is_expired": is_expired,
-                        "created_at": key.created_at.isoformat(),
-                        "activated_at": key.activated_at.isoformat() if key.activated_at else None,
-                        "duration_hours": key.duration_hours,
-                        "key_metadata": key.key_metadata,
-                    }
+                    KeyListItem(
+                        id=key.unique_id,
+                        key=mask_license_key(key.key),
+                        user_id=key.user_id,
+                        product_id=key.product_id,
+                        product_name=product_name,
+                        agent_id=key.agent_id,
+                        expires_at=key.expires_at.isoformat() if key.expires_at else None,
+                        max_devices=key.max_devices,
+                        devices=key.devices,
+                        device_count=device_count,
+                        status=key.status,
+                        is_active=is_active,
+                        is_expired=is_expired,
+                        created_at=key.created_at.isoformat(),
+                        activated_at=key.activated_at.isoformat() if key.activated_at else None,
+                        duration_hours=key.duration_hours,
+                        key_metadata=key.key_metadata,
+                    )
                 )
 
             self.logger.info(f"✅ Returning {len(keys)} keys out of {total_count} total")
-            return keys, total_count
+            return KeyListResponse(keys=keys, total=total_count), None
 
         except Exception as e:
             self.logger.error(f"Failed to get keys: {str(e)}")
-            return [], 0
+            return None, f"Failed to get keys: {str(e)}"
 
     def get_key_details(
         self, user: User, key_id: int
-    ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    ) -> Tuple[Optional[KeyDetailsResponse], Optional[str]]:
         """
         Get detailed information about a key
 
@@ -319,7 +331,7 @@ class KeyCRUDService:
             key_id: Key ID
 
         Returns:
-            Tuple of (key details dict or None, error message or None)
+            Tuple of (KeyDetailsResponse or None, error message or None)
         """
         try:
             key = Key.query.filter_by(id=key_id, project_id=user.project_id).first()
@@ -334,17 +346,17 @@ class KeyCRUDService:
 
             devices = DeviceInfo.query.filter_by(key_id=key.id).all()
             devices_data = [
-                {
-                    "id": device.id,
-                    "device_id": device.device_id,
-                    "device_model": device.device_model,
-                    "device_brand": device.device_brand,
-                    "serial": device.serial,
-                    "ip_address": device.ip_address,
-                    "user_agent": device.user_agent,
-                    "connected_at": device.connected_at.isoformat() if device.connected_at else None,
-                    "last_seen": device.last_seen.isoformat() if device.last_seen else None,
-                }
+                DeviceInfoSchema(
+                    id=device.id,
+                    device_id=device.device_id,
+                    device_model=device.device_model,
+                    device_brand=device.device_brand,
+                    serial=device.serial,
+                    ip_address=device.ip_address,
+                    user_agent=device.user_agent,
+                    connected_at=device.connected_at.isoformat() if device.connected_at else None,
+                    last_seen=device.last_seen.isoformat() if device.last_seen else None,
+                )
                 for device in devices
             ]
 
@@ -361,31 +373,31 @@ class KeyCRUDService:
 
             key_value = key.key if can_view_full_key else mask_license_key(key.key)
 
-            key_data = {
-                "id": key.id,
-                "key": key_value,
-                "key_masked": not can_view_full_key,
-                "product_id": key.product_id,
-                "product_name": product.name if product else None,
-                "agent_id": key.agent_id,
-                "status": key.status,
-                "is_active": key.status == 1
+            key_data = KeyDetailsData(
+                id=key.id,
+                key=key_value,
+                key_masked=not can_view_full_key,
+                product_id=key.product_id,
+                product_name=product.name if product else None,
+                agent_id=key.agent_id,
+                status=key.status,
+                is_active=key.status == 1
                 and (not key.expires_at or key.expires_at > datetime.utcnow()),
-                "is_expired": key.expires_at and key.expires_at <= datetime.utcnow(),
-                "created_at": key.created_at.isoformat() if key.created_at else None,
-                "expires_at": key.expires_at.isoformat() if key.expires_at else None,
-                "activated_at": key.activated_at.isoformat() if key.activated_at else None,
-                "max_devices": key.max_devices,
-                "device_count": (
+                is_expired=key.expires_at and key.expires_at <= datetime.utcnow(),
+                created_at=key.created_at.isoformat() if key.created_at else None,
+                expires_at=key.expires_at.isoformat() if key.expires_at else None,
+                activated_at=key.activated_at.isoformat() if key.activated_at else None,
+                max_devices=key.max_devices,
+                device_count=(
                     len([d.strip() for d in key.devices.split(",") if d.strip()]) if key.devices else 0
                 ),
-                "duration_hours": key.duration_hours,
-                "project_id": key.project_id,
-                "fingerprint": key.fingerprint,
-                "key_metadata": key.key_metadata,
-            }
+                duration_hours=key.duration_hours,
+                project_id=key.project_id,
+                fingerprint=key.fingerprint,
+                key_metadata=key.key_metadata,
+            )
 
-            return {"key": key_data, "devices": devices_data, "usage_history": []}, None
+            return KeyDetailsResponse(key=key_data, devices=devices_data, usage_history=[]), None
 
         except Exception as e:
             self.logger.error(f"Failed to get key details: {str(e)}")

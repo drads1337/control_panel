@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useEditUserDialog } from '@/hooks/use-edit-user-dialog';
+import { sanitizeString } from '@/lib/sanitization';
 import type { User } from '@/entities/user';
 
 interface EditUserDialogProps {
@@ -244,7 +245,7 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
                           <div className="flex items-center justify-between">
                             <div>
                               <div className="font-medium">{product.name}</div>
-                              <div className="text-xs text-muted-foreground">{product.description || 'No description'}</div>
+                              <div className="text-xs text-muted-foreground">{product.description ? sanitizeString(product.description) : 'No description'}</div>
                             </div>
                             {hasAccess && (
                               <span className="text-xs text-green-600 font-medium ml-2">✓ Access</span>

@@ -31,10 +31,9 @@ from ..schemas.auth import (
     TwoFactorSetupRequestSchema,
     TwoFactorVerifyRequestSchema,
 )
+from ..utils.service_helpers import get_service
 from ..schemas.user import UserProfileUpdateSchema
-from ..services.auth import auth_service
 from ..services.users import invite_service
-from ..services.users import user_management_service, user_profile_service
 from ..utils.rbac_utils import RBACManager
 from ..utils.role_constants import UserRoles
 from ..utils.validators import AuthValidator, InviteValidator, UserValidator
@@ -73,6 +72,7 @@ def _register_test_endpoints():
                 if not username or not password:
                     return jsonify({"error": "Missing username or password"}), 400
 
+                auth_service = get_service('auth_service')
                 user, error = auth_service.validate_simple_login(username, password)
                 if not user:
                     return jsonify({"error": "Authentication failed", "details": error}), 401
@@ -153,6 +153,7 @@ def _handle_simple_login(data: dict, ip: str, user_agent: str):
         username = data["username"]
         password = data["password"]
 
+        auth_service = get_service('auth_service')
         response_data, error_code, error_message = auth_service.process_simple_login(
             username, password, ip, user_agent
         )
@@ -241,6 +242,7 @@ def register(validated_data=None):
         if not validated_data:
             return jsonify({"error": "REGISTRATION_FAILED", "message": "Invalid request data"}), 400
 
+        user_management_service = get_service('user_management_service')
         user, error = user_management_service.create_user(
             validated_data["username"], validated_data["email"], validated_data["password"]
         )
@@ -347,6 +349,7 @@ def register_with_invite():
                 invite.project_id = project_id
                 db.session.commit()
 
+        user_management_service = get_service('user_management_service')
         user, error = user_management_service.create_user(
             username, None, password, project_id, UserRoles.ADMIN.value
         )
@@ -386,6 +389,7 @@ def get_current_user():
         if not user:
             return jsonify({"error": "USER_NOT_FOUND"}), 404
 
+        user_profile_service = get_service('user_profile_service')
         profile_data = user_profile_service.get_user_profile(user)
         return jsonify(profile_data)
 
@@ -409,6 +413,7 @@ def update_profile(validated_data=None):
         if not validated_data:
             validated_data = {}
 
+        user_profile_service = get_service('user_profile_service')
         success, error = user_profile_service.update_user_profile(user, validated_data)
         if not success:
             return jsonify({"error": "UPDATE_FAILED", "message": error}), 400
@@ -435,6 +440,7 @@ def change_password(validated_data=None):
         if not validated_data:
             return jsonify({"error": "PASSWORD_CHANGE_FAILED", "message": "Invalid request data"}), 400
 
+        user_profile_service = get_service('user_profile_service')
         success, error = user_profile_service.change_password(
             user, validated_data["current_password"], validated_data["new_password"]
         )
@@ -468,6 +474,7 @@ def logout():
         if user:
 
             try:
+                auth_service = get_service('auth_service')
                 auth_service.log_login_activity(
                     user,
                     request.remote_addr,

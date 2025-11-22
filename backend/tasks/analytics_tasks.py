@@ -19,7 +19,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from ..config.config import Config
-from ..services.analytics import analytics_buffer_service
+from ..utils.service_helpers import get_service
+from ..services.analytics import AnalyticsBufferService
 from ..services.connect.device_update_buffer import device_update_buffer
 
 logger = logging.getLogger(__name__)
@@ -112,6 +113,13 @@ def flush_analytics_buffer_task(self, activity_batch_size: int = None):
                           (defaults to Config.ANALYTICS_BUFFER_BATCH_SIZE)
     """
     try:
+        # Get service instance - try ServiceContainer first, fallback to direct instantiation
+        try:
+            analytics_buffer_service = get_service('analytics_buffer_service')
+        except (RuntimeError, ValueError):
+            # Fallback for Celery tasks that may run outside Flask context
+            analytics_buffer_service = AnalyticsBufferService()
+        
         if not analytics_buffer_service.enabled:
             logger.debug("Analytics buffer is disabled, skipping flush")
             return {"success": True, "skipped": True, "reason": "buffer_disabled"}
@@ -173,6 +181,13 @@ def get_analytics_buffer_stats_task(self):
     Useful for monitoring buffer health and size.
     """
     try:
+        # Get service instance - try ServiceContainer first, fallback to direct instantiation
+        try:
+            analytics_buffer_service = get_service('analytics_buffer_service')
+        except (RuntimeError, ValueError):
+            # Fallback for Celery tasks that may run outside Flask context
+            analytics_buffer_service = AnalyticsBufferService()
+        
         stats = analytics_buffer_service.get_buffer_stats()
         logger.debug(f"Analytics buffer stats: {stats}")
         return {"success": True, "stats": stats}

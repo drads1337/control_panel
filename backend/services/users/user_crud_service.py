@@ -5,7 +5,7 @@ Handles basic CRUD operations for users: create, read, update, delete
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from sqlalchemy import func as sql_func
 
@@ -116,7 +116,7 @@ class UserCRUDService:
         roles_filter: Optional[List[str]] = None,
         search: Optional[str] = None,
         project_id: Optional[int] = None,
-    ) -> Dict[str, Any]:
+    ) -> Union[Dict[str, Any], Tuple[Dict[str, Any], int]]:
         """
         Get users with optimized key counts (fixes N+1 problem)
 
@@ -130,7 +130,10 @@ class UserCRUDService:
             project_id: Project ID for scoping
 
         Returns:
-            Dictionary with users data and pagination info
+            Dictionary with users data and pagination info, or (error_dict, status_code) on error
+            
+        Note: For backward compatibility, returns Dict. Consider using UserListResponse
+        from schemas.responses.service_responses for type safety in new code.
         """
         try:
             query = User.query

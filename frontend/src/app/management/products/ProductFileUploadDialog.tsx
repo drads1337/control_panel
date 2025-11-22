@@ -85,7 +85,7 @@ const ProductFileUploadDialog: React.FC<ProductFileUploadDialogProps> = ({ open,
         <DialogHeader>
           <DialogTitle className="text-base">Upload Files for Product</DialogTitle>
           <DialogDescription className="mt-1 text-xs">
-            Upload files for the product "{product.name}". Supported formats: PNG, JPG, JPEG, GIF for images.
+            Upload files for the product "{product.name}". Supported formats: PNG, JPG, JPEG, GIF, EXE, APK, SO, DMG, DEB, RPM.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -120,12 +120,26 @@ const ProductFileUploadDialog: React.FC<ProductFileUploadDialogProps> = ({ open,
             </div>
             <div className="space-y-3">
               <Label className="text-sm font-medium">
-                Product File
+                Product Background
+              </Label>
+              <FileUpload
+                onFilesSelect={(files) => handleFilesSelect(files, 'background')}
+                multiple={false}
+                accept="image/*"
+                maxSize={15 * 1024 * 1024}
+                maxFiles={1}
+                showPreview={true}
+                showProgress={false}
+              />
+            </div>
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">
+                Product File (required)
               </Label>
               <FileUpload
                 onFilesSelect={(files) => handleFilesSelect(files, 'file')}
                 multiple={false}
-                accept="*/*"
+                accept=".exe,.apk,.so,.dmg,.deb,.rpm"
                 maxSize={50 * 1024 * 1024}
                 maxFiles={1}
                 showPreview={false}
@@ -145,7 +159,8 @@ const ProductFileUploadDialog: React.FC<ProductFileUploadDialogProps> = ({ open,
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-muted-foreground">
               <div>Logo: PNG, JPG, JPEG, GIF (up to 5MB)</div>
               <div>Banner: PNG, JPG, JPEG, GIF (up to 10MB)</div>
-              <div>File: Any format (up to 50MB)</div>
+              <div>Background: PNG, JPG, JPEG, GIF (up to 15MB)</div>
+              <div>File: EXE, APK, SO, DMG, DEB, RPM (up to 50MB)</div>
             </div>
           </div>
           {loading && (
@@ -168,7 +183,7 @@ const ProductFileUploadDialog: React.FC<ProductFileUploadDialogProps> = ({ open,
             </Button>
             <Button 
               type="submit" 
-              disabled={loading || (!selectedFiles.logo && !selectedFiles.banner && !selectedFiles.file)}
+              disabled={loading || !selectedFiles.file}
               className="min-w-[140px]"
             >
               {loading ? (

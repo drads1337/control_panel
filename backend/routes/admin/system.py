@@ -8,9 +8,9 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ...core.extensions import db
+from ...utils.service_helpers import get_service
 from ...middleware.auth import require_project_isolation, require_project_with_grace_period
 from ...models import SystemSettings, User, UserActivity
-from ...services.rbac import rbac_service
 
 system_bp = Blueprint("system", __name__)
 
@@ -26,6 +26,7 @@ def require_owner_role(f):
         if not user:
             return jsonify({"error": "Access denied"}), 403
 
+        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_all_projects"):
             return (
                 jsonify(

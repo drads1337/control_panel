@@ -12,7 +12,7 @@ from typing import Optional, Tuple
 
 from flask import request
 
-from ...services.security import security_service
+from ...utils.service_helpers import get_service
 from ...utils.ip_utils import get_real_ip
 
 logger = logging.getLogger(__name__)
@@ -158,6 +158,7 @@ class RequestValidationPipeline:
 
         # Check if IP is blocked
         try:
+            security_service = get_service('security_service')
             if security_service.is_ip_blocked(ip, project_id):
                 return False, "IP_BLOCKED"
         except (ConnectionError, TimeoutError) as e:

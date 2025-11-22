@@ -7,6 +7,7 @@ import { getProductChangelog, getAgentChangelog, deleteChangelogEntry } from '@/
 import { usePermissions } from '@/hooks/use-permissions';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
 import { toast } from 'sonner';
+import { sanitizeString } from '@/lib/sanitization';
 import ChangelogFormDialog from './ChangelogFormDialog';
 import type { Product } from '@/entities/product';
 import type { ChangelogEntry } from '@/entities/changelog';
@@ -156,7 +157,7 @@ const ChangelogManagementDialog: React.FC<ChangelogManagementDialogProps> = ({
           {changes.map((change, index) => (
             <li key={index} className="flex items-start gap-2">
               <span className="text-blue-500 mt-1">•</span>
-              <span className="flex-1">{change}</span>
+              <span className="flex-1">{sanitizeString(change)}</span>
             </li>
           ))}
         </ul>
@@ -172,7 +173,7 @@ const ChangelogManagementDialog: React.FC<ChangelogManagementDialogProps> = ({
             Changelog Management
           </DialogTitle>
           <DialogDescription className="mt-1 text-xs">
-            Make necessary changes to the settings of the product "{product.name}"
+            Make necessary changes to the settings of the product "{sanitizeString(product.name)}"
           </DialogDescription>
         </DialogHeader>
 
@@ -218,12 +219,12 @@ const ChangelogManagementDialog: React.FC<ChangelogManagementDialogProps> = ({
                           </div>
 
                           <h4 className="text-sm font-semibold leading-relaxed mb-2 break-words">
-                            {entry.title}
+                            {sanitizeString(entry.title)}
                           </h4>
 
                           {entry.description && (
                             <p className="text-sm text-muted-foreground leading-relaxed mb-2 break-words">
-                              {entry.description}
+                              {sanitizeString(entry.description)}
                             </p>
                           )}
 

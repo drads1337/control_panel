@@ -28,6 +28,7 @@ import { getAgents } from '@/entities/agent'
 import { getProductFiles, createFolder, deleteProductConfig, deleteProductExtraFile, deleteProductFile, downloadProductConfig, downloadProductExtraFile, downloadProductFile } from '@/entities/file';
 import { toast } from 'sonner';
 import { Spinner } from '@/components/ui/spinner';
+import { sanitizeString } from '@/lib/sanitization';
 import { getErrorMessage } from '@/shared/api/enhanced-client';
 import { getErrorMessage as getErrorMessageUtil, isErrorWithMessage } from '@/lib/error-utils';
 import MultiFileUploadDialog from './MultiFileUploadDialog';
@@ -112,7 +113,7 @@ const FileItemComponent = React.memo(function FileItemComponent({
               <>
                 <span className="text-xs text-muted-foreground">•</span>
                 <p className="text-xs text-muted-foreground truncate">
-                  {file.description}
+                  {sanitizeString(file.description)}
                 </p>
               </>
             )}

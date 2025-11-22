@@ -125,7 +125,7 @@ export function RBACExample() {
               <PermissionButton
                 permission="users.create"
                 variant="default"
-                onClick={() => }
+                onClick={() => {}}
               >
                 Create User
               </PermissionButton>
@@ -133,7 +133,7 @@ export function RBACExample() {
               <PermissionButton
                 permission="users.edit"
                 variant="outline"
-                onClick={() => }
+                onClick={() => {}}
               >
                 Edit User
               </PermissionButton>
@@ -141,7 +141,7 @@ export function RBACExample() {
               <PermissionButton
                 permission="users.delete"
                 variant="destructive"
-                onClick={() => }
+                onClick={() => {}}
               >
                 Delete User
               </PermissionButton>
@@ -149,7 +149,7 @@ export function RBACExample() {
               <PermissionButton
                 roles={['admin', 'owner']}
                 variant="secondary"
-                onClick={() => }
+                onClick={() => {}}
               >
                 Admin Action
               </PermissionButton>
@@ -157,7 +157,7 @@ export function RBACExample() {
               <PermissionButton
                 feature="key_management"
                 variant="outline"
-                onClick={() => }
+                onClick={() => {}}
               >
                 Manage Keys
               </PermissionButton>

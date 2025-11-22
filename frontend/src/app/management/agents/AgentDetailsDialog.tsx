@@ -1,6 +1,7 @@
 import React from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { sanitizeString } from '@/lib/sanitization';
 import type { Product } from '@/entities/product';
 import type { Agent } from '@/entities/agent';
 interface AgentDetailsDialogProps {
@@ -31,10 +32,10 @@ const AgentDetailsDialog: React.FC<AgentDetailsDialogProps> = ({ open, onOpenCha
       <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-base">
-            {agent.name}
+            {sanitizeString(agent.name)}
           </DialogTitle>
           <DialogDescription className="mt-1 text-xs">
-            {agent.description || 'No description available'}
+            {agent.description ? sanitizeString(agent.description) : 'No description available'}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -76,7 +77,7 @@ const AgentDetailsDialog: React.FC<AgentDetailsDialogProps> = ({ open, onOpenCha
                       <img src={product.logo} alt={product.name} className="w-6 h-6 rounded" />
                     )}
                     <div className="flex-1">
-                      <div className="text-sm font-medium">{product.name}</div>
+                      <div className="text-sm font-medium">{sanitizeString(product.name)}</div>
                       <div className="text-xs text-muted-foreground">
                         Version: {product.version} | Status: {product.status}
                       </div>
@@ -93,7 +94,7 @@ const AgentDetailsDialog: React.FC<AgentDetailsDialogProps> = ({ open, onOpenCha
                   <span className="text-sm font-medium text-muted-foreground">
                     Changelog
                   </span>
-                  <div className="mt-1 text-xs bg-muted p-2 rounded">{agent.changelog}</div>
+                  <div className="mt-1 text-xs bg-muted p-2 rounded">{sanitizeString(agent.changelog)}</div>
                 </div>
               )}
               {agent.notifications && (
@@ -101,7 +102,7 @@ const AgentDetailsDialog: React.FC<AgentDetailsDialogProps> = ({ open, onOpenCha
                   <span className="text-sm font-medium text-muted-foreground">
                     Notifications
                   </span>
-                  <div className="mt-1 text-xs bg-muted p-2 rounded">{agent.notifications}</div>
+                  <div className="mt-1 text-xs bg-muted p-2 rounded">{sanitizeString(agent.notifications)}</div>
                 </div>
               )}
             </div>

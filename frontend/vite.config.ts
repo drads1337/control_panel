@@ -199,10 +199,8 @@ export default defineConfig(({ mode }) => {
               // Icons - can be large, split by library for better tree-shaking
               if (id.includes('lucide-react')) {
                 // Lucide icons are tree-shakeable, but still split to reduce initial bundle
+                // Named imports ensure tree-shaking works correctly
                 return 'vendor-icons-lucide'
-              }
-              if (id.includes('@tabler/icons') || id.includes('react-feather')) {
-                return 'vendor-icons-other'
               }
               // Utils - small, can be in one chunk
               if (id.includes('clsx') || id.includes('class-variance-authority') || id.includes('tailwind-merge')) {
