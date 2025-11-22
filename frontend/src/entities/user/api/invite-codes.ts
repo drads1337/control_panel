@@ -1,5 +1,6 @@
 import { enhancedApi as api } from '@/shared/api/enhanced-client'
 import { API_ENDPOINTS } from '@/shared/api/config'
+import { getErrorMessage, getErrorStatus, isAxiosError } from '@/lib/error-utils'
 import type { InviteCode, CreateInviteCodeData, ReferralCode, CreateProjectInviteCodeData, ProjectInviteCode } from '@/entities/user';
 import type { Project } from '@/entities/project';
 import type {
@@ -22,10 +23,12 @@ export async function generateInviteCode(data: CreateInviteCodeDataType): Promis
     })
 
     return response.data
-  } catch (error: any) {
-
-    const errorData = error.response?.data || {}
-    throw new Error(errorData.error || error.message || 'Failed to generate referral code')
+  } catch (error: unknown) {
+    if (isAxiosError(error) && error.response?.data && typeof error.response.data === 'object') {
+      const errorData = error.response.data as { error?: string }
+      throw new Error(errorData.error || getErrorMessage(error))
+    }
+    throw new Error(getErrorMessage(error))
   }
 }
 
@@ -67,17 +70,22 @@ export async function generateProjectInviteCode(data: CreateProjectInviteCodeDat
     })
 
     return response.data
-  } catch (error: any) {
-
-    const errorData = error.response?.data || {}
-
-    if (error.response?.status === 403 && (errorData.error === 'CSRF_ERROR' || errorData.error?.includes('CSRF'))) {
-      const { clearCsrfToken } = await import('@/lib/csrf')
-      clearCsrfToken()
-      throw new Error('CSRF token validation failed. Please refresh the page and try again.')
+  } catch (error: unknown) {
+    const status = getErrorStatus(error)
+    
+    if (status === 403 && isAxiosError(error)) {
+      const errorData = error.response?.data
+      if (errorData && typeof errorData === 'object') {
+        const errorCode = (errorData as { error?: string }).error
+        if (errorCode === 'CSRF_ERROR' || (typeof errorCode === 'string' && errorCode.includes('CSRF'))) {
+          const { clearCsrfToken } = await import('@/lib/csrf')
+          clearCsrfToken()
+          throw new Error('CSRF token validation failed. Please refresh the page and try again.')
+        }
+      }
     }
 
-    throw new Error(errorData.error || error.message || 'Failed to generate project invite code')
+    throw new Error(getErrorMessage(error))
   }
 }
 
@@ -86,14 +94,18 @@ export async function getProjectInviteCodes(): Promise<ProjectInviteCodeType[]> 
 
     const response = await api.get(API_ENDPOINTS.PROJECT_CODES)
     return response.data
-  } catch (error: any) {
-    const errorData = error.response?.data || {}
-
-    if (error.response?.status === 400) {
-      throw new Error(errorData.error || 'User must be assigned to a project')
+  } catch (error: unknown) {
+    const status = getErrorStatus(error)
+    
+    if (status === 400 && isAxiosError(error)) {
+      const errorData = error.response?.data
+      if (errorData && typeof errorData === 'object') {
+        const errorMsg = (errorData as { error?: string }).error
+        throw new Error(errorMsg || 'User must be assigned to a project')
+      }
     }
 
-    throw new Error(errorData.error || error.message || 'Failed to fetch project invite codes')
+    throw new Error(getErrorMessage(error))
   }
 }
 
@@ -102,19 +114,22 @@ export async function getLatestProjectInviteCode(): Promise<{ invite_code: Proje
 
     const response = await api.get(API_ENDPOINTS.PROJECT_CODES_LATEST)
     return response.data
-  } catch (error: any) {
-
-    if (error.response?.status === 404) {
+  } catch (error: unknown) {
+    const status = getErrorStatus(error)
+    
+    if (status === 404) {
       return { invite_code: null }
     }
 
-    const errorData = error.response?.data || {}
-
-    if (error.response?.status === 400) {
-      throw new Error(errorData.error || 'User must be assigned to a project')
+    if (status === 400 && isAxiosError(error)) {
+      const errorData = error.response?.data
+      if (errorData && typeof errorData === 'object') {
+        const errorMsg = (errorData as { error?: string }).error
+        throw new Error(errorMsg || 'User must be assigned to a project')
+      }
     }
 
-    throw new Error(errorData.error || error.message || 'Failed to fetch latest project invite code')
+    throw new Error(getErrorMessage(error))
   }
 }
 

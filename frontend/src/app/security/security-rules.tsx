@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
-import { Globe, Monitor, AlertTriangle, Settings, RefreshCw } from 'lucide-react'
 import { ConditionalRender } from '@/components/rbac/conditional-render'
 import { usePermissions } from '@/hooks/use-permissions'
 
@@ -148,11 +147,11 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
 
   const getTypeIcon = useCallback((type: string) => {
     switch (type) {
-      case 'ip': return <Globe className="h-4 w-4 text-primary" />
-      case 'hwid': return <Monitor className="h-4 w-4 text-primary" />
-      case 'behavior': return <AlertTriangle className="h-4 w-4 text-primary" />
-      case 'geo': return <Globe className="h-4 w-4 text-primary" />
-      default: return <AlertTriangle className="h-4 w-4 text-primary" />
+      case 'ip': return <span className="text-xs text-primary">IP</span>
+      case 'hwid': return <span className="text-xs text-primary">HW</span>
+      case 'behavior': return <span className="text-xs text-primary">!</span>
+      case 'geo': return <span className="text-xs text-primary">G</span>
+      default: return <span className="text-xs text-primary">?</span>
     }
   }, []);
 
@@ -229,7 +228,8 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
     getTypeIcon: (type: string) => React.ReactElement;
   }> = ({ rules, onToggle, canManage, getSeverityColor, getTypeIcon }) => {
     const parentRef = useRef<HTMLDivElement>(null);
-    const shouldVirtualize = rules.length > 50;
+    // Lower threshold for better performance - virtualize when more than 30 items
+    const shouldVirtualize = rules.length > 30;
 
     const rowVirtualizer = useVirtualizer({
       count: shouldVirtualize ? rules.length : 0,
@@ -318,11 +318,11 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
                 {onRefresh && (
                   <Button 
                     variant="ghost" 
-                    size="icon"
+                    size="sm"
                     onClick={onRefresh}
                     disabled={loading}
                   >
-                    <RefreshCw className="h-4 w-4" />
+                    Refresh
                   </Button>
                 )}
               </div>
@@ -332,7 +332,6 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
             {rules.length === 0 ? (
               <div className="flex items-center justify-center py-12">
                 <div className="text-center">
-                  <Settings className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
                   <div className="text-sm text-muted-foreground">No security rules configured</div>
                 </div>
               </div>

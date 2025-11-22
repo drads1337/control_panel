@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Spinner } from '@/components/ui/spinner';
 import { type Permission } from '@/hooks/use-rbac';
 
 interface CreateRoleDialogProps {
@@ -33,8 +34,8 @@ const CreateRoleDialog: React.FC<CreateRoleDialogProps> = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create New Role</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-base">Create New Role</DialogTitle>
+          <DialogDescription className="mt-1 text-xs">
             Create a new role with specific permissions for your project.
           </DialogDescription>
         </DialogHeader>
@@ -113,7 +114,7 @@ const CreateRoleDialog: React.FC<CreateRoleDialogProps> = ({
             Cancel
           </Button>
           <Button onClick={onSubmit} disabled={loading}>
-            {loading ? 'Creating...' : 'Create Role'}
+            {loading ? (<><Spinner className="mr-2 h-4 w-4 animate-spin" />Creating...</>) : 'Create Role'}
           </Button>
         </DialogFooter>
       </DialogContent>

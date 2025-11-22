@@ -22,6 +22,77 @@ from ...utils.rbac_utils import RBACManager
 
 management_bp = Blueprint("products_management", __name__)
 
+def find_product_by_id_or_unique_id(product_identifier, project_id):
+    """
+    Helper function to find a product by either id (int) or unique_id (string)
+    
+    Args:
+        product_identifier: Either an integer id or string unique_id
+        project_id: Project ID to filter by
+    
+    Returns:
+        Product object or None if not found
+    """
+    # Try as integer id (primary key) first
+    if isinstance(product_identifier, int) or (isinstance(product_identifier, str) and product_identifier.isdigit()):
+        try:
+            product_id_int = int(product_identifier)
+            product = Product.query.filter_by(id=product_id_int, project_id=project_id).first()
+            if product:
+                return product
+        except (ValueError, TypeError):
+            pass
+    
+    # Try as unique_id (string)
+    product = Product.query.filter_by(unique_id=str(product_identifier), project_id=project_id).first()
+    return product
+
+@management_bp.route("/count", methods=["GET"])
+@jwt_required()
+@require_project_with_grace_period
+@enforce_project_scope
+def get_products_count():
+    """Get count of products (optimized endpoint that doesn't load full product data)"""
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    # Allow users with clients.view permission to access products even if they don't have a project_id
+    has_clients_view = rbac_service.check_permission(user.id, "clients.view")
+    
+    if not user.project_id and not has_clients_view:
+        return jsonify({"error": "User must be assigned to a project"}), 403
+
+    from flask import g
+
+    scoped_project_id = getattr(g, "project_id", user.project_id)
+    if not scoped_project_id:
+        if has_clients_view:
+            return jsonify({"success": True, "count": 0})
+        return jsonify({"error": "No project associated"}), 400
+
+    try:
+        product_type = request.args.get("type", "all")
+        
+        result = product_service.get_products_count(
+            project_id=scoped_project_id, product_type=product_type, user_id=user_id
+        )
+
+        if result.get("success"):
+            return jsonify(result)
+        else:
+            current_app.logger.error(f"Product service error: {result.get('error', 'Unknown error')}")
+            return jsonify(result), 500
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error fetching product count: {str(e)}")
+        import traceback
+        current_app.logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({"error": f"Failed to fetch product count: {str(e)}"}), 500
+
 @management_bp.route("", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -296,12 +367,12 @@ def create_product(validated_data=None):
         current_app.logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": "Failed to create product"}), 500
 
-@management_bp.route("/<int:product_id>/status", methods=["PUT"])
+@management_bp.route("/<product_identifier>/status", methods=["PUT"])
 @jwt_required()
 @require_project_with_grace_period
 @enforce_project_scope
 @validate_request(ProductStatusUpdateSchema)
-def update_product_status(product_id, validated_data=None):
+def update_product_status(product_identifier, validated_data=None):
     """Update product status"""
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
@@ -326,7 +397,7 @@ def update_product_status(product_id, validated_data=None):
             return jsonify({"error": "Invalid request data"}), 400
         new_status = validated_data["status"]
 
-        product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+        product = find_product_by_id_or_unique_id(product_identifier, user.project_id)
         if not product:
             return jsonify({"error": "Product not found"}), 404
 
@@ -334,12 +405,12 @@ def update_product_status(product_id, validated_data=None):
         product.status = new_status
         db.session.commit()
 
-        product_service.invalidate_product_cache(user.project_id, product_id)
+        product_service.invalidate_product_cache(user.project_id, product.id)
 
         activity_service.log_activity(
             user,
             "product_status_updated",
-            details=f"Updated product {product.name} (ID: {product_id}) status from {old_status} to {new_status}",
+            details=f"Updated product {product.name} (ID: {product.id}) status from {old_status} to {new_status}",
             ip=request.remote_addr,
         )
 
@@ -347,7 +418,7 @@ def update_product_status(product_id, validated_data=None):
             {
                 "success": True,
                 "message": "Product status updated successfully",
-                "product_id": product_id,
+                "product_id": product.id,
                 "old_status": old_status,
                 "new_status": new_status,
             }
@@ -364,12 +435,12 @@ def update_product_status(product_id, validated_data=None):
         current_app.logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": f"Failed to update product status: {str(e)}"}), 500
 
-@management_bp.route("/<int:product_id>", methods=["PUT"])
+@management_bp.route("/<product_identifier>", methods=["PUT"])
 @jwt_required()
 @require_project_with_grace_period
 @enforce_project_scope
 @validate_request(ProductUpdateSchema, allow_empty=True)
-def update_product(product_id, validated_data=None):
+def update_product(product_identifier, validated_data=None):
     """Update a product"""
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
@@ -393,7 +464,7 @@ def update_product(product_id, validated_data=None):
         if not validated_data:
             validated_data = {}
 
-        product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+        product = find_product_by_id_or_unique_id(product_identifier, user.project_id)
         if not product:
             return jsonify({"error": "Product not found"}), 404
 
@@ -412,12 +483,12 @@ def update_product(product_id, validated_data=None):
 
         db.session.commit()
 
-        product_service.invalidate_product_cache(user.project_id, product_id)
+        product_service.invalidate_product_cache(user.project_id, product.id)
 
         activity_service.log_activity(
             user,
             "product_updated",
-            details=f"Updated product {product.name} (ID: {product_id})",
+            details=f"Updated product {product.name} (ID: {product.id})",
             ip=request.remote_addr,
         )
 
@@ -448,11 +519,11 @@ def update_product(product_id, validated_data=None):
         current_app.logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": f"Failed to update product: {str(e)}"}), 500
 
-@management_bp.route("/<int:product_id>", methods=["DELETE"])
+@management_bp.route("/<product_identifier>", methods=["DELETE"])
 @jwt_required()
 @require_project_with_grace_period
 @enforce_project_scope
-def delete_product(product_id):
+def delete_product(product_identifier):
     """Delete a product"""
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
@@ -476,11 +547,12 @@ def delete_product(product_id):
 
     try:
 
-        product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+        product = find_product_by_id_or_unique_id(product_identifier, user.project_id)
         if not product:
             return jsonify({"error": "Product not found"}), 404
 
         product_name = product.name
+        product_id = product.id
 
         db.session.delete(product)
         db.session.commit()

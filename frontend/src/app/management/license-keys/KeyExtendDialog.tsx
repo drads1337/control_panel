@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -16,6 +16,7 @@ import { extendLicenseKey } from '@/entities/key';
 import { toast } from 'sonner';
 import { Clock, Plus, X } from 'lucide-react';
 import type { LicenseKey } from '@/entities/key';
+import { durationOptions } from './hooks/use-duration';
 
 interface KeyExtendDialogProps {
   open: boolean;
@@ -33,20 +34,13 @@ const KeyExtendDialog: React.FC<KeyExtendDialogProps> = ({ open, onOpenChange, k
   const [customHours, setCustomHours] = useState('');
   const [selectedDuration, setSelectedDuration] = useState('24');
 
-  const durationOptions = [
-    { value: '1', label: '1 hour' },
-    { value: '6', label: '6 hours' },
-    { value: '12', label: '12 hours' },
-    { value: '24', label: '1 day' },
-    { value: '72', label: '3 days' },
-    { value: '168', label: '1 week' },
-    { value: '336', label: '2 weeks' },
-    { value: '720', label: '1 month' },
-    { value: '1440', label: '2 months' },
-    { value: '2160', label: '3 months' },
-    { value: '4320', label: '6 months' },
-    { value: '8760', label: '1 year' }
-  ];
+  // Convert duration options to format expected by this component (hours as string value)
+  const extendDurationOptions = useMemo(() => {
+    return durationOptions.map(option => ({
+      value: option.hours.toString(),
+      label: option.label
+    }));
+  }, []);
 
   useEffect(() => {
     if (open) {
@@ -86,9 +80,9 @@ const KeyExtendDialog: React.FC<KeyExtendDialogProps> = ({ open, onOpenChange, k
       toast.success(`License key extended by ${hours} hours`);
       onSuccess();
       onOpenChange(false);
-    } catch (error) {
-
-      toast.error('Error extending license key');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Error extending license key';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -171,7 +165,7 @@ const KeyExtendDialog: React.FC<KeyExtendDialogProps> = ({ open, onOpenChange, k
                   <SelectValue placeholder="Select duration" />
                 </SelectTrigger>
                 <SelectContent>
-                  {durationOptions.map((option) => (
+                  {extendDurationOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>

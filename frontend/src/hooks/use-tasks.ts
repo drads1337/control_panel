@@ -2,6 +2,7 @@
 import { useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { enhancedApi as api } from '@/shared/api/enhanced-client'
+import { getErrorMessage, getErrorStatus, isAxiosError } from '@/lib/error-utils'
 import { toast } from 'sonner'
 
 export interface Task {
@@ -50,12 +51,11 @@ export function useTasks(options: UseTasksOptions = {}) {
     gcTime: 1 * 60 * 1000,
     refetchInterval: autoRefresh ? refreshInterval : false,
     refetchIntervalInBackground: true,
-    retry: (failureCount, error: any) => {
-
-      if (error?.response?.status === 401 || error?.response?.status === 403) {
+    retry: (failureCount, error: unknown) => {
+      const status = getErrorStatus(error)
+      if (status === 401 || status === 403) {
         return false
       }
-
       return failureCount < 2
     },
     refetchOnWindowFocus: true,
@@ -107,8 +107,9 @@ export function useTasks(options: UseTasksOptions = {}) {
 
             const response = await api.get(`/api/websocket/task-status/${taskId}`)
             return response.data as Task
-          } catch (err: any) {
-            if (err?.response?.status === 404) {
+          } catch (err: unknown) {
+            const status = getErrorStatus(err)
+            if (status === 404) {
               return null
             }
             throw err
@@ -144,9 +145,7 @@ export function useTasks(options: UseTasksOptions = {}) {
   }
 
   const errorMessage = error
-    ? (error as any)?.response?.data?.message || 
-      (error as any)?.message || 
-      'Failed to load tasks'
+    ? getErrorMessage(error)
     : null
 
   return {
@@ -178,8 +177,9 @@ export function useTask(taskId: string | null, options: { autoRefresh?: boolean;
 
         const response = await api.get(`/api/websocket/task-status/${taskId}`)
         return response.data as Task
-      } catch (err: any) {
-        if (err?.response?.status === 404) {
+      } catch (err: unknown) {
+        const status = getErrorStatus(err)
+        if (status === 404) {
           return null
         }
         throw err
@@ -198,11 +198,9 @@ export function useTask(taskId: string | null, options: { autoRefresh?: boolean;
       return refreshInterval
     },
     refetchIntervalInBackground: true,
-    retry: (failureCount, error: any) => {
-
-      if (error?.response?.status === 404 || 
-          error?.response?.status === 401 || 
-          error?.response?.status === 403) {
+    retry: (failureCount, error: unknown) => {
+      const status = getErrorStatus(error)
+      if (status === 404 || status === 401 || status === 403) {
         return false
       }
       return failureCount < 2
@@ -220,9 +218,7 @@ export function useTask(taskId: string | null, options: { autoRefresh?: boolean;
   }, [error])
 
   const errorMessage = error
-    ? (error as any)?.response?.data?.message || 
-      (error as any)?.message || 
-      'Failed to load task'
+    ? getErrorMessage(error)
     : null
 
   return {

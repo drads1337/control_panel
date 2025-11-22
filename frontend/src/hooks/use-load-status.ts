@@ -57,14 +57,7 @@ export function useLoadStatus(): UseLoadStatusReturn {
       try {
         const response = await api.get('/api/dashboard/load-status')
         return response.data.data as LoadStatusData
-      } catch (err: any) {
-        console.error('[useLoadStatus] Fetch error:', err)
-        console.error('[useLoadStatus] Error details:', {
-          status: err?.response?.status,
-          statusText: err?.response?.statusText,
-          data: err?.response?.data,
-          message: err?.message
-        })
+      } catch (err: unknown) {
         throw err
       }
     },
@@ -88,9 +81,6 @@ export function useLoadStatus(): UseLoadStatusReturn {
       'Failed to load load status'
     : null
 
-  if (errorMessage) {
-    console.error('[useLoadStatus] Error message:', errorMessage)
-  }
 
   return {
     data: data || null,

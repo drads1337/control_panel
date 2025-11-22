@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Spinner } from '@/components/ui/spinner';
 
 interface Role {
   id: number;
@@ -59,8 +60,8 @@ const CreateReferralDialog: React.FC<CreateReferralDialogProps> = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create Referral Code</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-base">Create Referral Code</DialogTitle>
+          <DialogDescription className="mt-1 text-xs">
             Create a referral code. Users will enter their own username and information when they register with this code.
           </DialogDescription>
         </DialogHeader>
@@ -136,7 +137,10 @@ const CreateReferralDialog: React.FC<CreateReferralDialogProps> = ({
           <div className="space-y-2">
             <Label>RBAC Role *</Label>
             {rbacLoading ? (
-              <div className="text-sm text-muted-foreground">Loading roles...</div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Spinner className="h-4 w-4 animate-spin" />
+                Loading roles...
+              </div>
             ) : rbacError ? (
               <div className="text-sm text-red-500">Error loading roles: {rbacError}</div>
             ) : (
@@ -169,7 +173,10 @@ const CreateReferralDialog: React.FC<CreateReferralDialogProps> = ({
           <div className="space-y-2">
             <Label>Product Access</Label>
             {productsLoading ? (
-              <div className="text-sm text-muted-foreground">Loading products...</div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Spinner className="h-4 w-4 animate-spin" />
+                Loading products...
+              </div>
             ) : productsError ? (
               <div className="text-sm text-red-500">Error loading products: {productsError}</div>
             ) : (
@@ -211,7 +218,7 @@ const CreateReferralDialog: React.FC<CreateReferralDialogProps> = ({
             Cancel
           </Button>
           <Button onClick={onCreate} disabled={loading}>
-            {loading ? 'Creating...' : 'Create Referral Code'}
+            {loading ? (<><Spinner className="mr-2 h-4 w-4 animate-spin" />Creating...</>) : 'Create Referral Code'}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,36 +1,12 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { enhancedApi, getErrorMessage } from '@/shared/api/enhanced-client';
-import { updateUser } from '@/entities/user/api/user';
-import { getProducts } from '@/entities/product/api/product';
-import { toast } from 'sonner';
+import { useEditUserDialog } from '@/hooks/use-edit-user-dialog';
 import type { User } from '@/entities/user';
-
-interface Role {
-  id: number;
-  name: string;
-  description: string;
-  permissions: string[];
-  is_system_role: boolean;
-  user_count: number;
-  created_at: string;
-  updated_at?: string;
-}
-
-interface Product {
-  id: number;
-  name: string;
-  description: string | null;
-}
-
-interface Permission {
-  [resource: string]: Array<{ id: number; name: string; description: string; action: string }>;
-}
 
 interface EditUserDialogProps {
   open: boolean;
@@ -45,348 +21,26 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
   user,
   onSuccess
 }) => {
-
-  const [form, setForm] = useState({
-    first_name: '',
-    last_name: '',
-    email: '',
-    token_balance: 0,
-    work_duration_days: 7,
-    selected_products: [] as number[],
-    selected_rbac_role: null as number | null,
-    selected_permissions: [] as string[]
+  const {
+    form,
+    setForm,
+    loading,
+    rbacLoading,
+    productsLoading,
+    permissionsLoading,
+    userLoading,
+    rbacError,
+    productsError,
+    permissionsError,
+    roles,
+    products,
+    availablePermissions,
+    currentUser,
+    handleUpdate,
+  } = useEditUserDialog(user, open, () => {
+    onOpenChange(false);
+    onSuccess();
   });
-
-  const [loading, setLoading] = useState(false);
-  const [rbacLoading, setRbacLoading] = useState(false);
-  const [productsLoading, setProductsLoading] = useState(false);
-  const [permissionsLoading, setPermissionsLoading] = useState(false);
-  const [userLoading, setUserLoading] = useState(false);
-
-  const [rbacError, setRbacError] = useState<string | null>(null);
-  const [productsError, setProductsError] = useState<string | null>(null);
-  const [permissionsError, setPermissionsError] = useState<string | null>(null);
-
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [availablePermissions, setAvailablePermissions] = useState<Permission>({});
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-
-  const lastLoadedUserIdRef = useRef<number | null>(null);
-
-  const loadRoles = useCallback(async (): Promise<Role[]> => {
-    try {
-      setRbacLoading(true);
-      setRbacError(null);
-
-      const response = await enhancedApi.get('/api/rbac/roles');
-      const rolesData = response.data.roles || [];
-      setRoles(rolesData);
-      return rolesData;
-    } catch (error) {
-
-      const errorMessage = getErrorMessage(error);
-      setRbacError(errorMessage);
-      toast.error(`Failed to load roles: ${errorMessage}`);
-      return [];
-    } finally {
-      setRbacLoading(false);
-    }
-  }, []);
-
-  const loadProducts = useCallback(async (): Promise<Product[]> => {
-    try {
-      setProductsLoading(true);
-      setProductsError(null);
-
-      // Use universal API function - it uses /api/products endpoint
-      const response = await getProducts('all');
-      const productsData = response.products || [];
-      setProducts(productsData);
-      return productsData;
-    } catch (error) {
-
-      const errorMessage = getErrorMessage(error);
-      setProductsError(errorMessage);
-      toast.error(`Failed to load products: ${errorMessage}`);
-      return [];
-    } finally {
-      setProductsLoading(false);
-    }
-  }, []);
-
-  const loadPermissions = useCallback(async (): Promise<Permission> => {
-    try {
-      setPermissionsLoading(true);
-      setPermissionsError(null);
-
-      const response = await enhancedApi.get('/api/rbac/permissions');
-      const permissionsData = (response.data.success && response.data.permissions) ? response.data.permissions : {};
-      setAvailablePermissions(permissionsData);
-      return permissionsData;
-    } catch (error) {
-
-      const errorMessage = getErrorMessage(error);
-      setPermissionsError(errorMessage);
-      toast.error(`Failed to load permissions: ${errorMessage}`);
-      return {};
-    } finally {
-      setPermissionsLoading(false);
-    }
-  }, []);
-
-  const loadUserPermissions = useCallback(async (userId: number): Promise<string[]> => {
-    try {
-
-      const response = await enhancedApi.get(`/api/rbac/users/${userId}/permissions`);
-      if (response.data.success && response.data.permissions) {
-        const permissions = response.data.permissions as string[];
-
-        return permissions;
-      }
-      return [];
-    } catch (error: any) {
-
-      const errorMessage = error?.response?.data?.error || error?.message || '';
-      if (errorMessage.includes('Static roles cannot manage RBAC')) {
-
-        return [];
-      }
-
-      return [];
-    }
-  }, []);
-
-  const loadUserProductAccess = useCallback(async (userId: number): Promise<number[]> => {
-    try {
-      // Use universal endpoint - products instead of products
-      const response = await enhancedApi.get(`/api/clients/${userId}/products`);
-      if (Array.isArray(response.data)) {
-
-        return response.data
-          .filter((product: any) => product.has_access === true)
-          .map((product: any) => product.product_id || product.id);
-      }
-      return [];
-    } catch (error: any) {
-
-      return [];
-    }
-  }, []);
-
-  useEffect(() => {
-
-    if (!open || !user) {
-
-      if (!open) {
-        lastLoadedUserIdRef.current = null;
-      }
-      return;
-    }
-
-    if (lastLoadedUserIdRef.current === user.id) {
-      return;
-    }
-
-    lastLoadedUserIdRef.current = user.id;
-    setCurrentUser(user);
-    setUserLoading(true);
-
-    Promise.all([
-      loadRoles(),
-      loadProducts(),
-      loadPermissions(),
-      loadUserPermissions(user.id),
-      loadUserProductAccess(user.id)
-    ]).then(([loadedRoles, , , userPermissions, userProductAccess]) => {
-
-      if (lastLoadedUserIdRef.current !== user.id) {
-        return;
-      }
-
-      let userRoleId: number | null = null;
-      if (user.rbac_roles && user.rbac_roles.length > 0) {
-        userRoleId = user.rbac_roles[0].id;
-      } else if (user.roles && user.roles.length > 0 && loadedRoles.length > 0) {
-
-        const roleName = user.roles[0];
-        const role = loadedRoles.find(r => r.name === roleName);
-        if (role) {
-          userRoleId = role.id;
-        }
-      }
-
-      let workDurationDays = 7;
-      if (user.expires_at) {
-        const expiresDate = new Date(user.expires_at);
-        const now = new Date();
-        const diffMs = expiresDate.getTime() - now.getTime();
-        const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-        workDurationDays = diffDays > 0 ? diffDays : 7;
-      }
-
-      let defaultPermissions: string[] = [];
-      if (userRoleId) {
-        const role = loadedRoles.find(r => r.id === userRoleId);
-        if (role && role.permissions && Array.isArray(role.permissions)) {
-          defaultPermissions = role.permissions;
-        }
-      }
-
-      const initialPermissions = userPermissions.length > 0 ? userPermissions : defaultPermissions;
-
-      setForm({
-        first_name: user.first_name || '',
-        last_name: user.last_name || '',
-        email: user.email || '',
-        token_balance: user.token_balance || 0,
-        work_duration_days: workDurationDays,
-        selected_products: userProductAccess,
-        selected_rbac_role: userRoleId,
-        selected_permissions: initialPermissions
-      });
-      setUserLoading(false);
-    }).catch((error) => {
-
-      if (lastLoadedUserIdRef.current === user.id) {
-        lastLoadedUserIdRef.current = null;
-      }
-      setUserLoading(false);
-    });
-  }, [user?.id, open, loadRoles, loadProducts, loadPermissions, loadUserPermissions, loadUserProductAccess]);
-
-  useEffect(() => {
-    if (!open) {
-      setForm({
-        first_name: '',
-        last_name: '',
-        email: '',
-        token_balance: 0,
-        work_duration_days: 7,
-        selected_products: [],
-        selected_rbac_role: null,
-        selected_permissions: []
-      });
-      setCurrentUser(null);
-      setRbacError(null);
-      setProductsError(null);
-      setPermissionsError(null);
-      lastLoadedUserIdRef.current = null;
-    }
-  }, [open]);
-
-  const handleUpdate = useCallback(async () => {
-    if (!currentUser) return;
-
-    try {
-
-      if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-        toast.error('Please enter a valid email address');
-        return;
-      }
-
-      if (!form.selected_rbac_role) {
-        toast.error('Please select a RBAC role');
-        return;
-      }
-
-      if (!form.selected_permissions || form.selected_permissions.length === 0) {
-        toast.error('At least one permission is required. Please select at least one permission.');
-        return;
-      }
-
-      setLoading(true);
-
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + form.work_duration_days);
-
-      await updateUser(currentUser.id, {
-        first_name: form.first_name || undefined,
-        last_name: form.last_name || undefined,
-        email: form.email || undefined,
-      });
-
-      if (form.token_balance !== (currentUser.token_balance || 0)) {
-        try {
-          await enhancedApi.post('/api/users/topup', {
-            user_id: currentUser.id,
-            amount: form.token_balance - (currentUser.token_balance || 0)
-          });
-        } catch (error) {
-
-          const errorMessage = getErrorMessage(error);
-          toast.error(`Error updating token balance: ${errorMessage}`);
-        }
-      }
-
-      try {
-        await enhancedApi.put(`/api/users/${currentUser.id}`, {
-          rbac_role_ids: [form.selected_rbac_role],
-          expires_at: expiresAt.toISOString()
-        });
-      } catch (error) {
-
-        throw error;
-      }
-
-      try {
-
-        const currentProductAccess = await loadUserProductAccess(currentUser.id);
-        const currentProductSet = new Set(currentProductAccess);
-        const newProductSet = new Set(form.selected_products || []);
-
-        const productsToAdd = form.selected_products.filter(productId => !currentProductSet.has(productId));
-        const productsToRemove = currentProductAccess.filter(productId => !newProductSet.has(productId));
-
-        for (const productId of productsToAdd) {
-          try {
-            // Use universal endpoint - products instead of products
-            await enhancedApi.post(`/api/clients/${currentUser.id}/products/${productId}/toggle`);
-          } catch (error) {
-
-          }
-        }
-
-        for (const productId of productsToRemove) {
-          try {
-            // Use universal endpoint - products instead of products
-            await enhancedApi.post(`/api/clients/${currentUser.id}/products/${productId}/toggle`);
-          } catch (error) {
-
-          }
-        }
-      } catch (error) {
-
-        const errorMessage = getErrorMessage(error);
-        toast.warning(`User updated but failed to update product access: ${errorMessage}`);
-      }
-
-      try {
-        const permissionsToSend = form.selected_permissions || [];
-
-        const response = await enhancedApi.put(`/api/rbac/users/${currentUser.id}/permissions`, {
-          permissions: permissionsToSend
-        });
-
-      } catch (error) {
-
-        const errorMessage = getErrorMessage(error);
-
-        if (!errorMessage.includes('Static roles cannot manage RBAC')) {
-          toast.warning(`User updated but failed to update permissions: ${errorMessage}`);
-        }
-      }
-
-      toast.success('Employee updated successfully');
-      onOpenChange(false);
-      onSuccess();
-    } catch (error) {
-
-      toast.error(`Error updating employee: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setLoading(false);
-    }
-  }, [form, currentUser, availablePermissions, onOpenChange, onSuccess]);
 
   if (userLoading) {
     return (
@@ -500,6 +154,10 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
               <div className="text-sm text-muted-foreground">Loading roles...</div>
             ) : rbacError ? (
               <div className="text-sm text-red-500">Error loading roles: {rbacError}</div>
+            ) : roles.length === 0 ? (
+              <div className="text-sm text-muted-foreground text-center py-2 border rounded-md">
+                No roles available
+              </div>
             ) : (
               <Select 
                 value={form.selected_rbac_role?.toString() || ""} 
@@ -665,7 +323,7 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleUpdate} disabled={loading}>
+          <Button onClick={() => handleUpdate()} disabled={loading}>
             {loading ? 'Updating...' : 'Update Employee'}
           </Button>
         </DialogFooter>

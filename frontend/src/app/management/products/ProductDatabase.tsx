@@ -3,7 +3,7 @@ import { AlertTriangle, CheckCircle, Plus, RefreshCw, Search, Check, X, Package 
 import { useProductQuery, useProductMutations, useProductSelection, useProductDialogs } from '@/hooks/products';
 import { useProductPermissions as useProductPermissions } from '@/hooks/use-product-permissions';
 import { useProductFilters as useProductFilters } from '@/hooks/use-product-filters';
-import { useManagementStore } from '@/stores/management-store';
+import { useProductDialogStore } from '@/stores/product-dialog-store';
 import { Spinner } from '@/components/ui/spinner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -79,7 +79,7 @@ const ProductDatabase: React.FC<ProductDatabaseProps> = ({
   } = useProductDialogs();
 
   // Use store for view dialog
-  const { openViewProductDialog } = useManagementStore();
+  const { openViewProductDialog } = useProductDialogStore();
 
   // Handle bulk actions
   const [bulkAction, setBulkAction] = useState<string>('');

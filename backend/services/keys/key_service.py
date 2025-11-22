@@ -413,6 +413,7 @@ class KeyService:
                         "user_id": key.user_id,
                         "product_id": key.product_id,
                         "product_name": product_name,
+                        "agent_id": key.agent_id,
                         "expires_at": key.expires_at.isoformat() if key.expires_at else None,
                         "max_devices": key.max_devices,
                         "devices": key.devices,
@@ -1565,6 +1566,7 @@ class KeyService:
                 ),
                 "duration_hours": key.duration_hours,
                 "project_id": key.project_id,
+                "agent_id": key.agent_id,
                 "fingerprint": key.fingerprint,
                 "key_metadata": key.key_metadata,
             }

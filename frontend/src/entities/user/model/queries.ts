@@ -1,9 +1,9 @@
 import React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getUsers, createUser, updateUser, deleteUser } from '@/entities/user'
-import type { User, CreateUserData, UpdateUserData, UsersResponse } from '@/entities/user'
-import { usePaginatedResource } from './use-paginated-resource'
-import { useMutationWithCache } from './use-mutation-helpers'
+import type { User, CreateUserData, UpdateUserData, UsersResponse } from '@/entities/user/model/types'
+import { usePaginatedResource } from '@/hooks/use-paginated-resource'
+import { useMutationWithCache } from '@/hooks/use-mutation-helpers'
 
 export const userKeys = {
   all: ['users'] as const,
@@ -55,7 +55,6 @@ interface UseUsersReturn {
 }
 
 export function useUsersQuery(initialParams: UseUsersParams = {}): UseUsersReturn {
-
   const {
     items: users,
     loading,
@@ -84,7 +83,6 @@ export function useUsersQuery(initialParams: UseUsersParams = {}): UseUsersRetur
   } = useQuery({
     queryKey: userKeys.stats(),
     queryFn: async () => {
-
       return {
         total: usersData?.total || 0,
         active: usersData?.users?.filter(u => !u.expires_at || new Date(u.expires_at) > new Date()).length || 0,
@@ -161,3 +159,4 @@ export function useUsersQuery(initialParams: UseUsersParams = {}): UseUsersRetur
     refetchStats,
   }
 }
+

@@ -3,7 +3,7 @@ import { useAuthContext } from '@/contexts/auth-context'
 import { getApiUrl } from '@/shared/api'
 import { enhancedApi as api } from '@/shared/api/enhanced-client'
 import { getLogs } from '@/entities/log'
-import { projectKeys } from './use-projects-query'
+import { projectKeys } from '@/entities/project'
 import { logKeys } from './use-logs-query'
 
 export interface OwnerDashboardStats {

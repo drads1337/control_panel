@@ -4,9 +4,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { FileText, Save, X, Plus, Trash2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { createChangelogEntry, updateChangelogEntry } from '@/entities/changelog';
+import { Spinner } from '@/components/ui/spinner';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { CalendarIcon, Clock } from 'lucide-react';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { createChangelogEntry, createAgentChangelogEntry, updateChangelogEntry } from '@/entities/changelog';
 import { usePermissions } from '@/hooks/use-permissions';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
 import { toast } from 'sonner';
@@ -22,6 +28,7 @@ interface ChangelogFormDialogProps {
   onEntryCreated?: () => void;
   onEntryUpdated?: () => void;
   onSave?: (entry: ChangelogEntry) => void;
+  isAgent?: boolean;
 }
 
 const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
@@ -32,12 +39,17 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
   onEntryCreated,
   onEntryUpdated,
   onSave,
+  isAgent = false,
 }) => {
   const { hasPermission } = usePermissions();
 
   const isEditMode = !!entry;
-  const canCreateChangelog = hasPermission('products.changelog_create');
-  const canEditChangelog = hasPermission('products.changelog_edit');
+  const canCreateChangelog = isAgent
+    ? hasPermission('agents.changelog_create') || hasPermission('products.changelog_create')
+    : hasPermission('products.changelog_create');
+  const canEditChangelog = isAgent
+    ? hasPermission('agents.changelog_edit') || hasPermission('products.changelog_edit')
+    : hasPermission('products.changelog_edit');
 
   const hasPermissionForAction = isEditMode ? canEditChangelog : canCreateChangelog;
 
@@ -55,8 +67,35 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
     is_public: true
   });
   const [useCurrentTime, setUseCurrentTime] = useState(true);
-  const [releaseDate, setReleaseDate] = useState('');
+  const [releaseDate, setReleaseDate] = useState<Date | undefined>(undefined);
   const [releaseTime, setReleaseTime] = useState('');
+  const [releaseHour, setReleaseHour] = useState<string>('');
+  const [releaseMinute, setReleaseMinute] = useState<string>('');
+
+  // Генерируем опции для часов и минут
+  const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
+  const minutes = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
+
+  // Обновляем releaseTime когда меняются час или минута
+  useEffect(() => {
+    if (releaseHour && releaseMinute) {
+      setReleaseTime(`${releaseHour}:${releaseMinute}`);
+    } else if (!releaseHour && !releaseMinute) {
+      setReleaseTime('');
+    }
+  }, [releaseHour, releaseMinute]);
+
+  // Парсим releaseTime в час и минуту при изменении
+  useEffect(() => {
+    if (releaseTime && releaseTime.includes(':')) {
+      const [hour, minute] = releaseTime.split(':');
+      setReleaseHour(hour);
+      setReleaseMinute(minute);
+    } else if (!releaseTime) {
+      setReleaseHour('');
+      setReleaseMinute('');
+    }
+  }, [releaseTime]);
 
   useEffect(() => {
     if (open) {
@@ -78,13 +117,21 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
 
           const parsedDate = parseReleaseDate(validatedEntry.release_date);
           if (parsedDate) {
-            setReleaseDate(parsedDate.toISOString().split('T')[0]);
-            setReleaseTime(parsedDate.toTimeString().slice(0, 5));
+            setReleaseDate(parsedDate);
+            const timeStr = parsedDate.toTimeString().slice(0, 5);
+            setReleaseTime(timeStr);
+            const [hour, minute] = timeStr.split(':');
+            setReleaseHour(hour);
+            setReleaseMinute(minute);
             setUseCurrentTime(false);
           } else {
             const now = new Date();
-            setReleaseDate(now.toISOString().split('T')[0]);
-            setReleaseTime(now.toTimeString().slice(0, 5));
+            setReleaseDate(now);
+            const timeStr = now.toTimeString().slice(0, 5);
+            setReleaseTime(timeStr);
+            const [hour, minute] = timeStr.split(':');
+            setReleaseHour(hour);
+            setReleaseMinute(minute);
             setUseCurrentTime(true);
           }
         } else {
@@ -99,13 +146,21 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
           });
           const parsedDate = parseReleaseDate(entry.release_date);
           if (parsedDate) {
-            setReleaseDate(parsedDate.toISOString().split('T')[0]);
-            setReleaseTime(parsedDate.toTimeString().slice(0, 5));
+            setReleaseDate(parsedDate);
+            const timeStr = parsedDate.toTimeString().slice(0, 5);
+            setReleaseTime(timeStr);
+            const [hour, minute] = timeStr.split(':');
+            setReleaseHour(hour);
+            setReleaseMinute(minute);
             setUseCurrentTime(false);
           } else {
             const now = new Date();
-            setReleaseDate(now.toISOString().split('T')[0]);
-            setReleaseTime(now.toTimeString().slice(0, 5));
+            setReleaseDate(now);
+            const timeStr = now.toTimeString().slice(0, 5);
+            setReleaseTime(timeStr);
+            const [hour, minute] = timeStr.split(':');
+            setReleaseHour(hour);
+            setReleaseMinute(minute);
             setUseCurrentTime(true);
           }
         }
@@ -120,8 +175,12 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
           release_date: now.toISOString(),
           is_public: true
         });
-        setReleaseDate(now.toISOString().split('T')[0]);
-        setReleaseTime(now.toTimeString().slice(0, 5));
+        setReleaseDate(now);
+        const timeStr = now.toTimeString().slice(0, 5);
+        setReleaseTime(timeStr);
+        const [hour, minute] = timeStr.split(':');
+        setReleaseHour(hour);
+        setReleaseMinute(minute);
         setUseCurrentTime(true);
       }
     }
@@ -159,10 +218,12 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
       if (useCurrentTime) {
         releaseDateISO = new Date().toISOString();
       } else if (releaseDate && releaseTime) {
-        const parsedDate = parseReleaseDate(`${releaseDate}T${releaseTime}`);
+        const dateStr = releaseDate.toISOString().split('T')[0];
+        const parsedDate = parseReleaseDate(`${dateStr}T${releaseTime}`);
         releaseDateISO = parsedDate ? parsedDate.toISOString() : new Date().toISOString();
       } else if (releaseDate) {
-        const parsedDate = parseReleaseDate(`${releaseDate}T00:00`);
+        const dateStr = releaseDate.toISOString().split('T')[0];
+        const parsedDate = parseReleaseDate(`${dateStr}T00:00`);
         releaseDateISO = parsedDate ? parsedDate.toISOString() : new Date().toISOString();
       } else {
         releaseDateISO = new Date().toISOString();
@@ -185,7 +246,9 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
         onSave?.(result.entry);
       } else {
 
-        const result = await createChangelogEntry(product.id, data);
+        const result = isAgent
+          ? await createAgentChangelogEntry(product.id, data)
+          : await createChangelogEntry(product.id, data);
         toast.success('Changelog entry created successfully');
         onEntryCreated?.();
         onSave?.(result.entry);
@@ -237,11 +300,10 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] w-[95vw] overflow-hidden">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
+          <DialogTitle className="text-base">
             {isEditMode ? 'Edit Changelog Entry' : 'Create Changelog Entry'}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="mt-1 text-xs">
             {isEditMode ? `Version ${entry?.version}` : product.name}
           </DialogDescription>
         </DialogHeader>
@@ -249,7 +311,7 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
         <form onSubmit={handleSubmit} className="space-y-6 overflow-y-auto max-h-[calc(90vh-140px)] px-1">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="version">Version *</Label>
+              <Label htmlFor="version" className="text-sm">Version *</Label>
               <Input
                 id="version"
                 value={formData.version}
@@ -262,7 +324,7 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="releaseDate">Release Date and Time</Label>
+              <Label htmlFor="releaseDate" className="text-sm">Release Date and Time</Label>
               <div className="space-y-3">
                 <div className="flex items-center space-x-2">
                   <Switch
@@ -272,13 +334,22 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
                       setUseCurrentTime(checked);
                       if (checked) {
                         const now = new Date();
-                        setReleaseDate(now.toISOString().split('T')[0]);
-                        setReleaseTime(now.toTimeString().slice(0, 5));
+                        setReleaseDate(now);
+                        const timeStr = now.toTimeString().slice(0, 5);
+                        setReleaseTime(timeStr);
+                        const [hour, minute] = timeStr.split(':');
+                        setReleaseHour(hour);
+                        setReleaseMinute(minute);
+                      } else {
+                        setReleaseDate(undefined);
+                        setReleaseTime('');
+                        setReleaseHour('');
+                        setReleaseMinute('');
                       }
                     }}
                     disabled={loading}
                   />
-                  <Label htmlFor="useCurrentTime" className="text-sm cursor-pointer">
+                  <Label htmlFor="useCurrentTime" className="text-xs cursor-pointer">
                     Use current time
                   </Label>
                 </div>
@@ -287,32 +358,98 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label htmlFor="releaseDate" className="text-sm text-muted-foreground">Date</Label>
-                      <Input
-                        id="releaseDate"
-                        type="date"
-                        value={releaseDate}
-                        onChange={(e) => setReleaseDate(e.target.value)}
-                        disabled={loading}
-                        className="h-9"
-                      />
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal h-9",
+                              !releaseDate && "text-muted-foreground"
+                            )}
+                            disabled={loading}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {releaseDate ? format(releaseDate, "PPP") : "Pick a date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={releaseDate}
+                            onSelect={setReleaseDate}
+                            disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
                     </div>
                     <div>
                       <Label htmlFor="releaseTime" className="text-sm text-muted-foreground">Time</Label>
-                      <Input
-                        id="releaseTime"
-                        type="time"
-                        value={releaseTime}
-                        onChange={(e) => setReleaseTime(e.target.value)}
-                        disabled={loading}
-                        className="h-9"
-                      />
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal h-9",
+                              !releaseTime && "text-muted-foreground"
+                            )}
+                            disabled={loading}
+                          >
+                            <Clock className="mr-2 h-4 w-4" />
+                            {releaseTime || "Pick a time"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-4" align="start">
+                          <div className="flex items-center gap-2">
+                            <div className="space-y-2">
+                              <Label className="text-xs text-muted-foreground">Hour</Label>
+                              <Select
+                                value={releaseHour}
+                                onValueChange={setReleaseHour}
+                                disabled={loading}
+                              >
+                                <SelectTrigger className="w-20 h-9">
+                                  <SelectValue placeholder="HH" />
+                                </SelectTrigger>
+                                <SelectContent className="max-h-[200px]">
+                                  {hours.map((hour) => (
+                                    <SelectItem key={hour} value={hour}>
+                                      {hour}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <span className="text-lg font-semibold mt-6">:</span>
+                            <div className="space-y-2">
+                              <Label className="text-xs text-muted-foreground">Minute</Label>
+                              <Select
+                                value={releaseMinute}
+                                onValueChange={setReleaseMinute}
+                                disabled={loading}
+                              >
+                                <SelectTrigger className="w-20 h-9">
+                                  <SelectValue placeholder="MM" />
+                                </SelectTrigger>
+                                <SelectContent className="max-h-[200px]">
+                                  {minutes.map((minute) => (
+                                    <SelectItem key={minute} value={minute}>
+                                      {minute}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                   </div>
                 )}
 
                 {useCurrentTime && (
                   <div className="p-2 bg-muted/50 rounded-md">
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       The release will be scheduled for: <span className="font-medium">{new Date().toLocaleString('en-US')}</span>
                     </p>
                   </div>
@@ -322,7 +459,7 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="title">Title *</Label>
+            <Label htmlFor="title" className="text-sm">Title *</Label>
             <Input
               id="title"
               value={formData.title}
@@ -335,7 +472,7 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description" className="text-sm">Description</Label>
             <Textarea
               id="description"
               value={formData.description}
@@ -349,7 +486,7 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label>List of Changes *</Label>
+              <Label className="text-sm">List of Changes *</Label>
               <Button
                 type="button"
                 variant="outline"
@@ -358,7 +495,6 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
                 className="h-8"
                 disabled={loading}
               >
-                <Plus className="h-4 w-4 mr-1" />
                 Add
               </Button>
             </div>
@@ -381,13 +517,13 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
                     className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950 h-8 w-8 p-0 flex-shrink-0"
                     disabled={loading}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    ×
                   </Button>
                 </div>
               ))}
 
               {(formData.changes || []).length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">
+                <p className="text-xs text-muted-foreground text-center py-4">
                   Click "Add" to create a list of changes
                 </p>
               )}
@@ -398,11 +534,13 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
 
         <DialogFooter className="flex-col sm:flex-row gap-2">
           <Button type="button" variant="outline" onClick={handleCancel} className="w-full sm:w-auto" disabled={loading}>
-            <X className="h-4 w-4 mr-2" />
             Cancel
           </Button>
           <ConditionalRender 
-            permission={isEditMode ? 'products.changelog_edit' : 'products.changelog_create'} 
+            permission={isEditMode 
+              ? (isAgent ? 'agents.changelog_edit' : 'products.changelog_edit')
+              : (isAgent ? 'agents.changelog_create' : 'products.changelog_create')
+            } 
             fallback={null}
           >
             <Button 
@@ -413,14 +551,11 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
             >
               {loading ? (
                 <>
-                  <Save className="h-4 w-4 mr-2 animate-pulse" />
+                  <Spinner className="h-4 w-4 mr-2" />
                   {isEditMode ? 'Saving...' : 'Creating...'}
                 </>
               ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  {isEditMode ? 'Save' : 'Create'}
-                </>
+                isEditMode ? 'Save' : 'Create'
               )}
             </Button>
           </ConditionalRender>

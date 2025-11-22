@@ -4,12 +4,14 @@ import { Spinner } from '@/components/ui/spinner'
 import { Plus } from 'lucide-react'
 import { ConditionalRender } from '@/components/rbac/conditional-render'
 import { useManagementData } from '@/hooks/use-management-data'
-import { useManagementStore } from '@/stores/management-store'
+import { useProductDialogStore } from '@/stores/product-dialog-store'
+import { useAgentDialogStore } from '@/stores/agent-dialog-store'
 
 const LicenseKeysMain = React.lazy(() => import('./license-keys/LicenseKeysMain'))
 const ProductDatabase = React.lazy(() => import('./products/ProductDatabase'))
 const FileManager = React.lazy(() => import('./files/FileManager'))
 const AgentManager = React.lazy(() => import('./agents/AgentManager'))
+const NotificationsManager = React.lazy(() => import('./notifications/NotificationsManager'))
 
 interface ManagementTabContentProps {
   tabValue: string
@@ -25,18 +27,13 @@ export const ManagementTabContent: React.FC<ManagementTabContentProps> = ({
     canViewFiles,
     canViewProducts,
     canViewAgents,
+    canViewNotifications,
     activeTab,
     setActiveTab,
   } = useManagementData()
 
-  const {
-    dialogs,
-    setCreateProductDialogRequested,
-    setCreateAgentDialogRequested,
-    openViewProductDialog,
-  } = useManagementStore()
-
-  const { createProductDialogRequested, createAgentDialogRequested } = dialogs
+  const { setCreateProductDialogRequested, createProductDialogRequested } = useProductDialogStore()
+  const { setCreateAgentDialogRequested, createAgentDialogRequested } = useAgentDialogStore()
 
   if (canViewKeys && tabValue === 'license-keys') {
     return (
@@ -116,6 +113,16 @@ export const ManagementTabContent: React.FC<ManagementTabContentProps> = ({
             onCreateAgentRequested={createAgentDialogRequested}
             onCreateAgentRequestHandled={() => setCreateAgentDialogRequested(false)}
           />
+        </Suspense>
+      </div>
+    );
+  }
+
+  if (canViewNotifications && tabValue === 'notifications') {
+    return (
+      <div className="space-y-4">
+        <Suspense fallback={<div className="flex items-center justify-center min-h-[400px]"><Spinner size="lg" message="Loading notifications..." /></div>}>
+          <NotificationsManager />
         </Suspense>
       </div>
     );

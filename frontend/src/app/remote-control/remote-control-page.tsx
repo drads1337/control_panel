@@ -21,6 +21,7 @@ import {
   CategoryStats
 } from '@/lib/remote-control-api'
 import { getProducts } from '@/entities/product/api/product'
+import { getErrorMessage, isAxiosError } from '@/lib/error-utils'
 import type { Product } from '@/entities/product'
 import RemoteControlStatsCards from './remote-control-stats-cards'
 import RemoteControlTabs from './remote-control-tabs'
@@ -68,7 +69,7 @@ export default function RemoteControl() {
       if (response.products && response.products.length > 0 && !selectedProductId) {
         setSelectedProductId(response.products[0].id)
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error('Failed to load products')
     } finally {
       setProductsLoading(false)
@@ -99,10 +100,16 @@ export default function RemoteControl() {
         setActiveTab(categoriesData[0].id)
       }
 
-    } catch (err: any) {
-
-      setError(err.response?.data?.error || 'Failed to load data')
-      toast.error(err.response?.data?.error || 'Failed to load data')
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to load data'
+      if (isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
+        const errorData = err.response.data as { error?: string }
+        errorMessage = errorData.error || errorMessage
+      } else {
+        errorMessage = getErrorMessage(err)
+      }
+      setError(errorMessage)
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -129,9 +136,15 @@ export default function RemoteControl() {
       ))
 
       toast.success(`${updatedFeature.name} ${updatedFeature.enabled ? 'enabled' : 'disabled'} for all clients`)
-    } catch (err: any) {
-
-      toast.error(err.response?.data?.error || 'Failed to toggle feature')
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to toggle feature'
+      if (isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
+        const errorData = err.response.data as { error?: string }
+        errorMessage = errorData.error || errorMessage
+      } else {
+        errorMessage = getErrorMessage(err)
+      }
+      toast.error(errorMessage)
     }
   }
 
@@ -159,9 +172,15 @@ export default function RemoteControl() {
       resetForm()
 
       toast.success(`${formData.name} successfully added`)
-    } catch (err: any) {
-
-      toast.error(err.response?.data?.error || 'Failed to create feature')
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to create feature'
+      if (isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
+        const errorData = err.response.data as { error?: string }
+        errorMessage = errorData.error || errorMessage
+      } else {
+        errorMessage = getErrorMessage(err)
+      }
+      toast.error(errorMessage)
     }
   }
 
@@ -209,9 +228,15 @@ export default function RemoteControl() {
       resetForm()
 
       toast.success(`${formData.name} successfully updated`)
-    } catch (err: any) {
-
-      toast.error(err.response?.data?.error || 'Failed to update feature')
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to update feature'
+      if (isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
+        const errorData = err.response.data as { error?: string }
+        errorMessage = errorData.error || errorMessage
+      } else {
+        errorMessage = getErrorMessage(err)
+      }
+      toast.error(errorMessage)
     }
   }
 
@@ -228,9 +253,15 @@ export default function RemoteControl() {
       setFeatures(prev => prev.filter(f => f.id !== featureId))
 
       toast.success(`${feature?.name} removed from the system`)
-    } catch (err: any) {
-
-      toast.error(err.response?.data?.error || 'Failed to delete feature')
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to delete feature'
+      if (isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
+        const errorData = err.response.data as { error?: string }
+        errorMessage = errorData.error || errorMessage
+      } else {
+        errorMessage = getErrorMessage(err)
+      }
+      toast.error(errorMessage)
     }
   }
 
@@ -272,9 +303,15 @@ export default function RemoteControl() {
       resetCategoryForm()
 
       toast.success(`${categoryFormData.name} successfully added`)
-    } catch (err: any) {
-
-      toast.error(err.response?.data?.error || 'Failed to create category')
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to create category'
+      if (isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
+        const errorData = err.response.data as { error?: string }
+        errorMessage = errorData.error || errorMessage
+      } else {
+        errorMessage = getErrorMessage(err)
+      }
+      toast.error(errorMessage)
     }
   }
 
@@ -322,9 +359,15 @@ export default function RemoteControl() {
       resetCategoryForm()
 
       toast.success(`${categoryFormData.name} successfully updated`)
-    } catch (err: any) {
-
-      toast.error(err.response?.data?.error || 'Failed to update category')
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to update category'
+      if (isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
+        const errorData = err.response.data as { error?: string }
+        errorMessage = errorData.error || errorMessage
+      } else {
+        errorMessage = getErrorMessage(err)
+      }
+      toast.error(errorMessage)
     }
   }
 
@@ -347,9 +390,15 @@ export default function RemoteControl() {
       setCategories(prev => prev.filter(c => c.id !== categoryId))
 
       toast.success(`${category?.name} removed from the system`)
-    } catch (err: any) {
-
-      toast.error(err.response?.data?.error || 'Failed to delete category')
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to delete category'
+      if (isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
+        const errorData = err.response.data as { error?: string }
+        errorMessage = errorData.error || errorMessage
+      } else {
+        errorMessage = getErrorMessage(err)
+      }
+      toast.error(errorMessage)
     }
   }
 

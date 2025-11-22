@@ -13,10 +13,11 @@ export function QueryProvider({ children }: QueryProviderProps) {
     const client = new QueryClient({
       defaultOptions: {
         queries: {
+          // Default stale time: 10 minutes - data is considered fresh for 10 minutes (increased for better performance)
+          staleTime: 10 * 60 * 1000,
 
-          staleTime: 5 * 60 * 1000,
-
-          gcTime: 10 * 60 * 1000,
+          // Default garbage collection time: 30 minutes - unused queries are kept in cache for 30 minutes (increased for better performance)
+          gcTime: 30 * 60 * 1000,
 
           retry: (failureCount, error: any) => {
 
@@ -91,6 +92,32 @@ export function QueryProvider({ children }: QueryProviderProps) {
       gcTime: 60 * 60 * 1000,
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,
+    })
+
+    // Static data that rarely changes - cache for longer
+    client.setQueryDefaults(['products', 'list'], {
+      staleTime: 15 * 60 * 1000,
+      gcTime: 60 * 60 * 1000,
+      refetchOnWindowFocus: false,
+    })
+
+    client.setQueryDefaults(['users', 'list'], {
+      staleTime: 5 * 60 * 1000,
+      gcTime: 30 * 60 * 1000,
+      refetchOnWindowFocus: false,
+    })
+
+    client.setQueryDefaults(['agents', 'list'], {
+      staleTime: 5 * 60 * 1000,
+      gcTime: 30 * 60 * 1000,
+      refetchOnWindowFocus: false,
+    })
+
+    // Settings are relatively static
+    client.setQueryDefaults(['settings'], {
+      staleTime: 10 * 60 * 1000,
+      gcTime: 30 * 60 * 1000,
+      refetchOnWindowFocus: false,
     })
 
     return client

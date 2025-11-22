@@ -1,5 +1,5 @@
 import { useAuthContext } from '@/contexts/auth-context'
-import { useProjectsQuery } from '@/hooks/use-projects-query'
+import { useProjectsQuery } from '@/entities/project'
 import { CreateProjectDialog } from '@/app/projects/create-project-dialog'
 import { ProjectCard } from '@/app/projects/project-card'
 import { ProjectManagementDialog } from '@/app/projects/project-management-dialog'

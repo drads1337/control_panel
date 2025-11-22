@@ -1,5 +1,6 @@
 import { enhancedApi as api } from '@/shared/api/enhanced-client'
 import { API_ENDPOINTS } from '@/shared/api/config'
+import { getErrorMessage } from '@/lib/error-utils'
 import type {
   Agent,
   AgentsResponse,
@@ -24,8 +25,8 @@ export async function createAgent(data: CreateAgentData): Promise<{ agent: any; 
   try {
     const response = await api.post(API_ENDPOINTS.AGENTS, data)
     return response.data
-  } catch (err: any) {
-    throw new Error(err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to create agent')
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err))
   }
 }
 
@@ -33,8 +34,8 @@ export async function updateAgent(agentId: number, data: UpdateAgentData): Promi
   try {
     const response = await api.put(`${API_ENDPOINTS.AGENTS}/${agentId}`, data)
     return response.data
-  } catch (err: any) {
-    throw new Error(err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to update agent')
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err))
   }
 }
 
@@ -42,8 +43,8 @@ export async function deleteAgent(agentId: number): Promise<{ success: boolean; 
   try {
     const response = await api.delete(`${API_ENDPOINTS.AGENTS}/${agentId}`)
     return response.data
-  } catch (err: any) {
-    throw new Error(err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to delete agent')
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err))
   }
 }
 
@@ -51,8 +52,8 @@ export async function assignProductsToAgent(agentId: number, productIds: number[
   try {
     const response = await api.post(`${API_ENDPOINTS.AGENTS}/${agentId}/assign-products`, { product_ids: productIds })
     return response.data
-  } catch (err: any) {
-    throw new Error(err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to assign products to agent')
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err))
   }
 }
 
@@ -75,8 +76,8 @@ export async function updateAgentStatus(agentId: number, status: 'active' | 'ina
   try {
     const response = await api.put(`${API_ENDPOINTS.AGENTS}/${agentId}/status`, { status })
     return response.data
-  } catch (err: any) {
-    throw new Error(err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to update agent status')
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err))
   }
 }
 
@@ -84,8 +85,8 @@ export async function updateAgentConfig(agentId: number, config: AgentConfigData
   try {
     const response = await api.put(`${API_ENDPOINTS.AGENTS}/${agentId}/config`, config)
     return response.data
-  } catch (err: any) {
-    throw new Error(err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to update agent config')
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err))
   }
 }
 
@@ -116,8 +117,8 @@ export async function recordAgentDownload(agentId: number): Promise<{ success: b
   try {
     const response = await api.post(`${API_ENDPOINTS.AGENTS}/${agentId}/download`)
     return response.data
-  } catch (err: any) {
-    throw new Error(err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to record agent download')
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err))
   }
 }
 
@@ -125,8 +126,8 @@ export async function uploadAgentFiles(agentId: number, files: FormData): Promis
   try {
     const response = await api.post(`${API_ENDPOINTS.AGENTS}/${agentId}/files`, files)
     return response.data
-  } catch (err: any) {
-    throw new Error(err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to upload agent files')
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err))
   }
 }
 

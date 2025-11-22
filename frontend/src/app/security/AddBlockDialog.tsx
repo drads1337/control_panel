@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Plus, LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ConditionalRender } from '@/components/rbac/conditional-render'
 import { BlockFormFields } from './components/BlockFormFields'
@@ -30,8 +30,6 @@ export interface AddBlockDialogConfig {
   description: string
   buttonText: string
   submitButtonText: string
-  icon: LucideIcon
-  iconColor?: string
 
   dialogMaxWidth?: string
   fieldLayout?: 'single' | 'grid'
@@ -60,8 +58,6 @@ export default function AddBlockDialog({ config, onAdd, loading = false }: AddBl
     getFormDataForSubmit,
   } = useBlockForm(config)
 
-  const Icon = config.icon
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -79,17 +75,13 @@ export default function AddBlockDialog({ config, onAdd, loading = false }: AddBl
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
           <Button variant="default" size="sm">
-            <Plus className="h-4 w-4 mr-1.5" />
             {config.buttonText}
           </Button>
         </DialogTrigger>
         <DialogContent className={config.dialogMaxWidth || "sm:max-w-[700px]"}>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Icon className={cn("h-5 w-5", config.iconColor || "text-blue-500")} />
-              {config.title}
-            </DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-base">{config.title}</DialogTitle>
+            <DialogDescription className="mt-1 text-xs">
               {config.description}
             </DialogDescription>
           </DialogHeader>
@@ -108,7 +100,7 @@ export default function AddBlockDialog({ config, onAdd, loading = false }: AddBl
                 Cancel
               </Button>
               <Button type="submit" disabled={loading || !isValid}>
-                {loading ? 'Blocking...' : config.submitButtonText}
+                {loading ? (<><Spinner className="mr-2 h-4 w-4 animate-spin" />Blocking...</>) : config.submitButtonText}
               </Button>
             </DialogFooter>
           </form>

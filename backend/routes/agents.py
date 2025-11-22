@@ -21,6 +21,37 @@ ALLOWED_EXTENSIONS = Config.ALLOWED_LOADER_EXTENSIONS
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def find_agent_by_id_or_unique_id(agent_identifier, project_id):
+    """
+    Helper function to find an agent by either id (int) or unique_id (string)
+    
+    Args:
+        agent_identifier: Either an integer id or string unique_id
+        project_id: Project ID to filter by
+    
+    Returns:
+        Agent object or None if not found
+    """
+    # Try as unique_id (string) first, since that's what the frontend sends
+    if isinstance(agent_identifier, str) and len(agent_identifier) == 8 and agent_identifier.isdigit():
+        agent = Agent.query.filter_by(unique_id=agent_identifier, project_id=project_id).first()
+        if agent:
+            return agent
+    
+    # Try as integer id (primary key)
+    if isinstance(agent_identifier, int) or (isinstance(agent_identifier, str) and agent_identifier.isdigit()):
+        try:
+            agent_id_int = int(agent_identifier)
+            agent = Agent.query.filter_by(id=agent_id_int, project_id=project_id).first()
+            if agent:
+                return agent
+        except (ValueError, TypeError):
+            pass
+    
+    # Try as unique_id (string) as fallback
+    agent = Agent.query.filter_by(unique_id=str(agent_identifier), project_id=project_id).first()
+    return agent
+
 @agents_bp.route("", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -282,11 +313,11 @@ def create_loader():
         db.session.rollback()
         return jsonify({"error": "Failed to create agent", "success": False}), 500
 
-@agents_bp.route("/<int:agent_id>", methods=["PUT"])
+@agents_bp.route("/<agent_identifier>", methods=["PUT"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def update_loader(agent_id):
+def update_loader(agent_identifier):
     """Update an existing agent"""
     try:
         user_id = get_jwt_identity()
@@ -303,7 +334,7 @@ def update_loader(agent_id):
         if not user.project_id:
             return jsonify({"error": "No project associated"}), 400
 
-        agent = Agent.query.filter_by(id=agent_id, project_id=user.project_id).first()
+        agent = find_agent_by_id_or_unique_id(agent_identifier, user.project_id)
         if not agent:
             return jsonify({"error": "Agent not found", "success": False}), 404
 
@@ -313,7 +344,7 @@ def update_loader(agent_id):
             existing_agent = Agent.query.filter_by(
                 name=data["name"], project_id=user.project_id
             ).first()
-            if existing_agent and existing_agent.id != agent_id:
+            if existing_agent and existing_agent.id != agent.id:
                 return (
                     jsonify({"error": "Agent with this name already exists", "success": False}),
                     400,
@@ -365,11 +396,11 @@ def update_loader(agent_id):
         db.session.rollback()
         return jsonify({"error": "Failed to update agent", "success": False}), 500
 
-@agents_bp.route("/<int:agent_id>", methods=["DELETE"])
+@agents_bp.route("/<agent_identifier>", methods=["DELETE"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def delete_loader(agent_id):
+def delete_loader(agent_identifier):
     """Delete a agent"""
     try:
         user_id = get_jwt_identity()
@@ -386,14 +417,101 @@ def delete_loader(agent_id):
         if not user.project_id:
             return jsonify({"error": "No project associated"}), 400
 
-        agent = Agent.query.filter_by(id=agent_id, project_id=user.project_id).first()
+        agent = find_agent_by_id_or_unique_id(agent_identifier, user.project_id)
         if not agent:
             return jsonify({"error": "Agent not found", "success": False}), 404
 
-        AgentProductAssignment.query.filter_by(
-            agent_id=agent_id, project_id=user.project_id
-        ).delete()
+        agent_id = agent.id
 
+        # Delete agent-related records that have nullable=False constraints
+        # These must be deleted explicitly before deleting the agent to avoid constraint violations
+        try:
+            from ..models.agents import AgentChangelog, AgentNotification, AgentDownloadLog, AgentConfiguration
+            from sqlalchemy import or_
+            
+            # Delete agent changelog entries (filter by project_id when available)
+            db.session.query(AgentChangelog).filter(
+                AgentChangelog.agent_id == agent_id,
+                or_(AgentChangelog.project_id == user.project_id, AgentChangelog.project_id.is_(None))
+            ).delete(synchronize_session=False)
+            
+            # Delete agent notifications (filter by project_id when available)
+            db.session.query(AgentNotification).filter(
+                AgentNotification.agent_id == agent_id,
+                or_(AgentNotification.project_id == user.project_id, AgentNotification.project_id.is_(None))
+            ).delete(synchronize_session=False)
+            
+            # Delete agent download logs (filter by project_id when available)
+            db.session.query(AgentDownloadLog).filter(
+                AgentDownloadLog.agent_id == agent_id,
+                or_(AgentDownloadLog.project_id == user.project_id, AgentDownloadLog.project_id.is_(None))
+            ).delete(synchronize_session=False)
+            
+            # Delete agent configuration (filter by project_id when available)
+            db.session.query(AgentConfiguration).filter(
+                AgentConfiguration.agent_id == agent_id,
+                or_(AgentConfiguration.project_id == user.project_id, AgentConfiguration.project_id.is_(None))
+            ).delete(synchronize_session=False)
+            
+            db.session.flush()
+        except Exception as e:
+            current_app.logger.warning(f"Error deleting agent-related records: {str(e)}")
+
+        # Delete agent product assignments
+        try:
+            db.session.query(AgentProductAssignment).filter_by(
+                agent_id=agent_id, project_id=user.project_id
+            ).delete(synchronize_session=False)
+            db.session.flush()
+        except Exception as e:
+            current_app.logger.warning(f"Error deleting agent product assignments: {str(e)}")
+
+        # Set agent_id to NULL for keys that reference this agent
+        try:
+            from ..models.keys import Key
+            from sqlalchemy import or_
+            # Handle keys in the same project or with NULL project_id
+            keys_updated = db.session.query(Key).filter(
+                Key.agent_id == agent_id,
+                or_(Key.project_id == user.project_id, Key.project_id.is_(None))
+            ).update({"agent_id": None}, synchronize_session=False)
+            if keys_updated > 0:
+                current_app.logger.info(f"Updated {keys_updated} keys to remove agent reference")
+                db.session.flush()
+        except Exception as e:
+            current_app.logger.warning(f"Error updating keys: {str(e)}")
+            # Try alternative approach: update keys individually
+            try:
+                keys = Key.query.filter_by(agent_id=agent_id).all()
+                for key in keys:
+                    if key.project_id == user.project_id or key.project_id is None:
+                        key.agent_id = None
+                db.session.flush()
+            except Exception as e2:
+                current_app.logger.error(f"Error updating keys individually: {str(e2)}")
+
+        # Set agent_id to NULL for chat messages that reference this agent
+        try:
+            from ..models.chat import ChatMessage
+            # ChatMessage.project_id is NOT NULL, so only filter by project_id
+            messages_updated = db.session.query(ChatMessage).filter_by(
+                agent_id=agent_id, project_id=user.project_id
+            ).update({"agent_id": None}, synchronize_session=False)
+            if messages_updated > 0:
+                current_app.logger.info(f"Updated {messages_updated} chat messages to remove agent reference")
+                db.session.flush()
+        except Exception as e:
+            current_app.logger.warning(f"Error updating chat messages: {str(e)}")
+            # Try alternative approach: update messages individually
+            try:
+                messages = ChatMessage.query.filter_by(agent_id=agent_id, project_id=user.project_id).all()
+                for message in messages:
+                    message.agent_id = None
+                db.session.flush()
+            except Exception as e2:
+                current_app.logger.error(f"Error updating chat messages individually: {str(e2)}")
+
+        # Now delete the agent
         db.session.delete(agent)
         db.session.commit()
 
@@ -406,15 +524,17 @@ def delete_loader(agent_id):
 
         return jsonify({"success": True, "message": "Agent deleted successfully"})
     except Exception as e:
+        import traceback
         current_app.logger.error(f"Error deleting agent: {str(e)}")
+        current_app.logger.error(f"Traceback: {traceback.format_exc()}")
         db.session.rollback()
         return jsonify({"error": "Failed to delete agent", "success": False}), 500
 
-@agents_bp.route("/<int:agent_id>/assign-products", methods=["POST"])
+@agents_bp.route("/<agent_identifier>/assign-products", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def assign_products_to_agent(agent_id):
+def assign_products_to_agent(agent_identifier):
     """Assign products to an agent"""
     try:
         user_id = get_jwt_identity()
@@ -431,7 +551,7 @@ def assign_products_to_agent(agent_id):
         if not user.project_id:
             return jsonify({"error": "No project associated"}), 400
 
-        agent = Agent.query.filter_by(id=agent_id, project_id=user.project_id).first()
+        agent = find_agent_by_id_or_unique_id(agent_identifier, user.project_id)
         if not agent:
             return jsonify({"error": "Agent not found", "success": False}), 404
 
@@ -442,7 +562,7 @@ def assign_products_to_agent(agent_id):
             return jsonify({"error": "product_ids must be a list", "success": False}), 400
 
         current_assignments = AgentProductAssignment.query.filter_by(
-            agent_id=agent_id, project_id=user.project_id
+            agent_id=agent.id, project_id=user.project_id
         ).all()
         current_product_ids = {assignment.product_id for assignment in current_assignments}
 
@@ -455,7 +575,7 @@ def assign_products_to_agent(agent_id):
                 product_id=product_id, project_id=user.project_id
             ).first()
 
-            if existing_assignment and existing_assignment.agent_id != agent_id:
+            if existing_assignment and existing_assignment.agent_id != agent.id:
 
                 other_agent = Agent.query.get(existing_assignment.agent_id)
                 agent_name = (
@@ -474,14 +594,14 @@ def assign_products_to_agent(agent_id):
                 )
 
         AgentProductAssignment.query.filter_by(
-            agent_id=agent_id, project_id=user.project_id
+            agent_id=agent.id, project_id=user.project_id
         ).delete()
 
         for product_id in product_ids:
             product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
             if product:
                 assignment = AgentProductAssignment(
-                    agent_id=agent_id,
+                    agent_id=agent.id,
                     product_id=product_id,
                     assigned_by=user.id,
                     project_id=user.project_id,
@@ -496,11 +616,11 @@ def assign_products_to_agent(agent_id):
         db.session.rollback()
         return jsonify({"error": "Failed to assign products to agent", "success": False}), 500
 
-@agents_bp.route("/<int:agent_id>/files", methods=["POST"])
+@agents_bp.route("/<agent_identifier>/files", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def upload_loader_files(agent_id):
+def upload_loader_files(agent_identifier):
     """Upload files for a agent"""
     try:
         user_id = get_jwt_identity()
@@ -517,7 +637,7 @@ def upload_loader_files(agent_id):
         if not user.project_id:
             return jsonify({"error": "No project associated"}), 400
 
-        agent = Agent.query.filter_by(id=agent_id, project_id=user.project_id).first()
+        agent = find_agent_by_id_or_unique_id(agent_identifier, user.project_id)
         if not agent:
             return jsonify({"error": "Agent not found", "success": False}), 404
 
@@ -543,7 +663,7 @@ def upload_loader_files(agent_id):
                     file.seek(0)
 
                     filename = secure_filename(file.filename)
-                    unique_filename = f"{file_type}_{agent_id}_{uuid.uuid4().hex}_{filename}"
+                    unique_filename = f"{file_type}_{agent.id}_{uuid.uuid4().hex}_{filename}"
 
                     upload_path = os.path.join(current_app.root_path, "uploads", "agents")
                     os.makedirs(upload_path, exist_ok=True)
@@ -614,11 +734,11 @@ def upload_loader_files(agent_id):
         db.session.rollback()
         return jsonify({"error": "Failed to upload files", "success": False}), 500
 
-@agents_bp.route("/<int:agent_id>/status", methods=["PUT"])
+@agents_bp.route("/<agent_identifier>/status", methods=["PUT"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def update_loader_status(agent_id):
+def update_loader_status(agent_identifier):
     """Update agent status"""
     try:
         user_id = get_jwt_identity()
@@ -630,7 +750,7 @@ def update_loader_status(agent_id):
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project", "success": False}), 403
 
-        agent = Agent.query.filter_by(id=agent_id, project_id=user.project_id).first()
+        agent = find_agent_by_id_or_unique_id(agent_identifier, user.project_id)
         if not agent:
             return jsonify({"error": "Agent not found", "success": False}), 404
 
@@ -698,11 +818,11 @@ def refresh_loader_cache():
         current_app.logger.error(f"Error refreshing agent cache: {str(e)}")
         return jsonify({"error": "Failed to refresh cache", "success": False}), 500
 
-@agents_bp.route("/<int:agent_id>/download", methods=["POST"])
+@agents_bp.route("/<agent_identifier>/download", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def download_loader(agent_id):
+def download_loader(agent_identifier):
     """Record agent download and return download info"""
     try:
         user_id = get_jwt_identity()
@@ -711,7 +831,7 @@ def download_loader(agent_id):
         if not user or not user.project_id:
             return jsonify({"error": "User not found or not assigned to project", "success": False}), 403
         
-        agent = Agent.query.filter_by(id=agent_id, project_id=user.project_id).first()
+        agent = find_agent_by_id_or_unique_id(agent_identifier, user.project_id)
         if not agent:
             return jsonify({"error": "Agent not found", "success": False}), 404
 
@@ -787,11 +907,11 @@ def get_loader_stats():
         current_app.logger.error(f"Error getting agent stats: {str(e)}")
         return jsonify({"error": "Failed to get agent stats", "success": False}), 500
 
-@agents_bp.route("/<int:agent_id>/config", methods=["PUT"])
+@agents_bp.route("/<agent_identifier>/config", methods=["PUT"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def update_loader_config(agent_id):
+def update_loader_config(agent_identifier):
     """Update agent configuration (login type, multi-login, invite code requirements, key prefix)"""
     try:
         user_id = get_jwt_identity()
@@ -807,7 +927,7 @@ def update_loader_config(agent_id):
         if not user.project_id:
             return jsonify({"error": "No project associated", "success": False}), 400
 
-        agent = Agent.query.filter_by(id=agent_id, project_id=user.project_id).first()
+        agent = find_agent_by_id_or_unique_id(agent_identifier, user.project_id)
         if not agent:
             return jsonify({"error": "Agent not found", "success": False}), 404
 

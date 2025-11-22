@@ -8,7 +8,7 @@ import {
   revealLicenseKey
 } from '@/entities/key';
 import { useKeyMutations } from '@/hooks/use-key-mutations';
-import { keyKeys } from '@/hooks/use-keys-query';
+import { keyKeys } from '@/entities/key';
 import { usePermissions } from '@/hooks/use-permissions';
 import { isMaskedKey } from '@/lib/key-masking';
 
@@ -106,9 +106,10 @@ export function useKeysUI({
 
         toast.error('You do not have permission to view full keys. Contact your administrator.');
       }
-    } catch (error: any) {
-
-      if (error.response?.status === 403) {
+    } catch (error: unknown) {
+      const { getErrorStatus } = await import('@/lib/error-utils')
+      const status = getErrorStatus(error)
+      if (status === 403) {
         toast.error('You do not have permission to view full keys. Contact your administrator.');
       } else {
         toast.error('Failed to get full key. Please try again.');
@@ -224,9 +225,10 @@ export function useKeysUI({
                       [keyId]: fullKey,
                     }));
                   }
-                } catch (error: any) {
-
-                  if (error.response?.status === 403) {
+                } catch (error: unknown) {
+                  const { getErrorStatus } = await import('@/lib/error-utils')
+                  const status = getErrorStatus(error)
+                  if (status === 403) {
                     toast.error('You do not have permission to copy full keys. Contact your administrator.');
                   } else {
                     toast.error('Failed to get full key. Please try again.');
@@ -256,9 +258,10 @@ export function useKeysUI({
                       [keyId]: fullKey,
                     }));
                   }
-                } catch (error: any) {
-
-                  if (error.response?.status === 403) {
+                } catch (error: unknown) {
+                  const { getErrorStatus } = await import('@/lib/error-utils')
+                  const status = getErrorStatus(error)
+                  if (status === 403) {
                     toast.error('You do not have permission to copy full keys. Contact your administrator.');
                   } else {
                     toast.error('Failed to get full key. Please try again.');

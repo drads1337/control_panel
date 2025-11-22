@@ -49,7 +49,7 @@ interface RBACData {
   roles: Role[]
   permissions: Permission[]
   user_roles: UserRole[]
-  user_permissions: UserPermission[]
+  user_permissions: string[] // API returns array of permission names (strings)
 }
 
 export function useRBACApi() {
@@ -109,7 +109,9 @@ export function useRBACApi() {
 
       const userRolesData = await userRolesResponse.json()
 
-      const userPermissionsResponse = await fetch(getApiUrl(`/api/rbac/users/${user.id}/permissions`), {
+      const userPermissionsUrl = getApiUrl(`/api/rbac/users/${user.id}/permissions`)
+
+      const userPermissionsResponse = await fetch(userPermissionsUrl, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -123,6 +125,7 @@ export function useRBACApi() {
         try {
           const errorData = await userPermissionsResponse.json()
           const errorMessage = errorData?.error || errorData?.message || ''
+
 
           if (errorMessage.includes('Static roles cannot manage RBAC')) {
 

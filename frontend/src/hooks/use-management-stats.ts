@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useAuthContext } from '@/contexts/auth-context'
 import { getKeysStats } from '@/entities/key/api/key'
-import { getProducts } from '@/entities/product/api/product'
+import { getProductsCount } from '@/entities/product/api/product'
 import { getFileStats } from '@/entities/file/api/file'
 import { getAgentStats } from '@/entities/agent/api/agent'
 import { hasManagementAccess } from '@/lib/rbac-utils'
@@ -64,10 +64,10 @@ export function useManagementStats() {
       }
 
       if (canViewProducts) {
-        promises.push(getProducts('all'))
+        promises.push(getProductsCount('all'))
         promiseHandlers.push({
-          handler: (productsResponse) => {
-            statsData.totalProducts = productsResponse.products?.length || 0
+          handler: (productsCountResponse) => {
+            statsData.totalProducts = productsCountResponse.count || 0
           },
           errorHandler: (error) => {
 

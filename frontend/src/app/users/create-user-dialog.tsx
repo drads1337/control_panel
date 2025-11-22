@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Spinner } from '@/components/ui/spinner';
 import { enhancedApi, getErrorMessage } from '@/shared/api/enhanced-client';
 import { createUser } from '@/entities/user/api/user';
 import { getProducts } from '@/entities/product/api/product';
@@ -129,17 +130,6 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
 
   const handleCreate = form.handleSubmit(
     async (data) => {
-      // Force console output
-      window.console.log('=== FORM SUBMISSION ===');
-      window.console.log('Form data:', JSON.stringify(data, null, 2));
-      window.console.log('Selected products:', data.selected_products);
-      window.console.log('Selected products type:', typeof data.selected_products);
-      window.console.log('Is array?', Array.isArray(data.selected_products));
-      window.console.log('RBAC role value:', data.selected_rbac_role);
-      window.console.log('RBAC role type:', typeof data.selected_rbac_role);
-      window.console.log('All form values:', form.getValues());
-      window.console.log('=== END FORM SUBMISSION ===');
-      
       try {
         setLoading(true);
 
@@ -155,10 +145,6 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
           rbac_role_ids: data.selected_rbac_role ? [data.selected_rbac_role] : []
         };
         
-        console.log('UserData being sent:', userData);
-        console.log('Products array:', userData.product_ids);
-        console.log('Products type:', typeof userData.product_ids);
-        console.log('Is products array?', Array.isArray(userData.product_ids));
 
         await measurePerformance(
           'user_creation',
@@ -183,77 +169,36 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
     },
     (errors) => {
       // This callback is called when validation fails
-      // Force console output
-      window.console.log('=== VALIDATION ERRORS ===');
-      window.console.error('VALIDATION FAILED!', errors);
-      console.log('All errors object:', errors);
-      console.log('Errors keys:', Object.keys(errors));
-      console.log('Current form values:', form.getValues());
-      console.log('Form state:', {
-        isValid: form.formState.isValid,
-        isDirty: form.formState.isDirty,
-        errors: form.formState.errors
-      });
-      
-      // Log each error in detail
-      Object.entries(errors).forEach(([key, error]) => {
-        console.log(`Error in field "${key}":`, {
-          type: error?.type,
-          message: error?.message,
-          value: form.getValues(key as any)
-        });
-      });
-      
       // Show specific error messages for each field
       const errorMessages: string[] = [];
       
       if (errors.username) {
-        console.log('Username error:', errors.username);
         errorMessages.push(`Username: ${errors.username.message || 'required'}`);
       }
       if (errors.password) {
-        console.log('Password error:', errors.password);
         errorMessages.push(`Password: ${errors.password.message || 'required'}`);
       }
       if (errors.selected_rbac_role) {
-        console.log('RBAC Role error:', errors.selected_rbac_role);
-        console.log('RBAC Role value:', form.getValues('selected_rbac_role'));
-        console.log('RBAC Role value type:', typeof form.getValues('selected_rbac_role'));
         errorMessages.push(`RBAC Role: ${errors.selected_rbac_role.message || 'required'}`);
       }
       if (errors.token_balance) {
-        console.log('Token Balance error:', errors.token_balance);
         errorMessages.push(`Token Balance: ${errors.token_balance.message || 'invalid'}`);
       }
       if (errors.work_duration_days) {
-        console.log('Work Duration error:', errors.work_duration_days);
         errorMessages.push(`Work Duration: ${errors.work_duration_days.message || 'invalid'}`);
       }
       if (errors.first_name) {
-        console.log('First Name error:', errors.first_name);
         errorMessages.push(`First Name: ${errors.first_name.message || 'invalid'}`);
       }
       if (errors.last_name) {
-        console.log('Last Name error:', errors.last_name);
         errorMessages.push(`Last Name: ${errors.last_name.message || 'invalid'}`);
       }
       if (errors.email) {
-        console.log('Email error:', errors.email);
         errorMessages.push(`Email: ${errors.email.message || 'invalid'}`);
       }
       if (errors.selected_products) {
-        const productsValue = form.getValues('selected_products');
-        window.console.error('Selected Products error:', errors.selected_products);
-        window.console.error('Selected Products value:', productsValue);
-        window.console.error('Selected Products value type:', typeof productsValue);
-        window.console.error('Is array?', Array.isArray(productsValue));
-        window.console.error('Error details:', JSON.stringify(errors.selected_products, null, 2));
-        
         errorMessages.push(`Products: ${errors.selected_products.message || 'invalid'}`);
       }
-      
-      console.log('Error messages array:', errorMessages);
-      console.log('=== END VALIDATION ERRORS ===');
       
       if (errorMessages.length > 0) {
         toast.error(errorMessages.join(', '));
@@ -267,8 +212,8 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create Employee</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-base">Create Employee</DialogTitle>
+          <DialogDescription className="mt-1 text-xs">
             Create a new employee in the system (not for clients)
           </DialogDescription>
         </DialogHeader>
@@ -420,7 +365,10 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
                 <FormItem>
                   <FormLabel>RBAC Role *</FormLabel>
                   {rbacLoading ? (
-                    <div className="text-sm text-muted-foreground">Loading roles...</div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Spinner className="h-4 w-4 animate-spin" />
+                      Loading roles...
+                    </div>
                   ) : rbacError ? (
                     <div className="text-sm text-red-500">Error loading roles: {rbacError}</div>
                   ) : (
@@ -428,31 +376,16 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
                       <Select
                         value={field.value ? field.value.toString() : ""}
                         onValueChange={(value) => {
-                          console.log('=== SELECT VALUE CHANGE ===');
-                          console.log('Selected value (string):', value);
-                          console.log('Current field.value:', field.value);
-                          console.log('Current field.value type:', typeof field.value);
-                          
                           const numValue = parseInt(value, 10);
-                          console.log('Parsed number value:', numValue);
-                          console.log('Is NaN?', isNaN(numValue));
-                          console.log('Is > 0?', numValue > 0);
                           
                           if (!isNaN(numValue) && numValue > 0) {
-                            console.log('Calling field.onChange with:', numValue);
                             field.onChange(numValue);
-                            console.log('Field value after onChange:', form.getValues('selected_rbac_role'));
                             
                             // Trigger validation after value change
                             setTimeout(() => {
                               form.trigger('selected_rbac_role');
-                              console.log('After trigger - field value:', form.getValues('selected_rbac_role'));
-                              console.log('After trigger - errors:', form.formState.errors.selected_rbac_role);
                             }, 0);
-                          } else {
-                            console.log('Value is invalid, not updating field');
                           }
-                          console.log('=== END SELECT VALUE CHANGE ===');
                         }}
                         disabled={loading}
                       >
@@ -483,7 +416,10 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
                 <FormItem>
                   <FormLabel>Product Access</FormLabel>
                   {productsLoading ? (
-                    <div className="text-sm text-muted-foreground">Loading products...</div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Spinner className="h-4 w-4 animate-spin" />
+                      Loading products...
+                    </div>
                   ) : productsError ? (
                     <div className="text-sm text-red-500">Error loading products: {productsError}</div>
                   ) : (
@@ -542,7 +478,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
                 type="submit" 
                 disabled={loading || rbacLoading || productsLoading}
               >
-                {loading ? 'Creating...' : 'Create Employee'}
+                {loading ? (<><Spinner className="mr-2 h-4 w-4 animate-spin" />Creating...</>) : 'Create Employee'}
               </Button>
             </DialogFooter>
           </form>

@@ -169,7 +169,7 @@ def check_session_limit(user_id, project_id):
     The current implementation counts login activities rather than active sessions,
     which causes legitimate logins to be blocked.
 
-    TODO: Implement proper session tracking with JWT token validation
+    Note: Proper session tracking with JWT token validation should be implemented in the future
 
     Args:
         user_id: User ID

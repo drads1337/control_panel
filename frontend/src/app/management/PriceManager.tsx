@@ -1,29 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { toast } from 'sonner';
 import { Spinner } from '@/components/ui/spinner';
 import { useAuth } from '@/hooks/use-auth';
 import { usePermissions } from '@/hooks/use-permissions';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
 import { getProducts } from '@/entities/product';
-import type { Product } from '@/entities/product';
 import { enhancedApi } from '@/shared/api/enhanced-client';
-import { 
-  Coins, 
-  Save, 
-  RefreshCw, 
-  Edit2, 
-  Trash2,
-  X,
-  Plus
-} from 'lucide-react';
+import { getErrorMessage } from '@/lib/error-utils';
 
 interface ProductPrice {
   period: string;
@@ -126,11 +113,10 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, product
         });
         setEditingPrices(editingState);
         setEditingPricesDisplay(editingDisplayState);
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (cancelled) return;
 
-        const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Failed to load prices';
-        toast.warning(`Failed to load prices: ${errorMessage}. Using an empty state.`);
+        toast.warning(`Failed to load prices: ${getErrorMessage(error)}. Using an empty state.`);
         setPrices([]);
         setEditingPrices({});
         setEditingPricesDisplay({});
@@ -238,12 +224,11 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, product
         });
         setEditingPrices(editingState);
         setEditingPricesDisplay(editingDisplayState);
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Silently fail on reload, prices were already saved
       }
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Failed to save prices';
-      toast.error(`Failed to save prices: ${errorMessage}`);
+    } catch (error: unknown) {
+      toast.error(`Failed to save prices: ${getErrorMessage(error)}`);
     } finally {
       setSaving(false);
     }
@@ -285,11 +270,10 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, product
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Coins className="h-5 w-5" />
+          <DialogTitle className="text-base">
             {!canEditProducts ? 'Access Denied' : 'Price Management'}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="mt-1 text-xs">
             {!canEditProducts 
               ? 'You don\'t have permission to manage prices.'
               : (product ? `Configure prices for the product "${product.name}"` : 'Configure prices for the product')
@@ -298,7 +282,7 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, product
         </DialogHeader>
 
         {!canEditProducts ? (
-          <div className="p-4 text-center text-muted-foreground">
+          <div className="p-4 text-center text-xs text-muted-foreground">
             You don't have permission to manage prices.
           </div>
         ) : loading ? (
@@ -306,14 +290,7 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, product
             <Spinner message="Loading..." />
           </div>
         ) : (
-          <Card>
-          <CardHeader>
-            <CardTitle>Prices in Tokens</CardTitle>
-            <CardDescription>
-              Set prices for different access periods.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+          <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {commonDurations.map(duration => (
                 <div key={duration.value} className="flex flex-col gap-3 p-4 border rounded-lg hover:bg-muted/50 transition-colors">
@@ -330,7 +307,7 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, product
                           className="text-destructive hover:text-destructive h-6 w-6 p-0"
                           disabled={saving || !canEditProducts}
                         >
-                          <Trash2 className="h-3 w-3" />
+                          ×
                         </Button>
                       </ConditionalRender>
                     )}
@@ -355,10 +332,9 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, product
                         variant="outline"
                         size="sm"
                         onClick={() => handleAddPeriod(duration.value)}
-                        className="flex items-center gap-1 w-full"
+                        className="w-full"
                         disabled={saving || !canEditProducts}
                       >
-                        <Plus className="h-3 w-3" />
                         Add Price
                       </Button>
                     </ConditionalRender>
@@ -366,33 +342,32 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, product
                 </div>
               ))}
             </div>
-          </CardContent>
-          <CardFooter className="flex justify-between">
-            <Button
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
-              <X className="mr-2 h-4 w-4" />
-              Cancel
-            </Button>
-            <Button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handleSavePrices();
-              }}
-              disabled={saving || !canEditProducts}
-              className="flex items-center gap-2"
-            >
-              {saving ? (
-                <RefreshCw className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-              {saving ? 'Saving...' : 'Save Prices'}
-            </Button>
-          </CardFooter>
-        </Card>
+            <div className="flex justify-between pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleSavePrices();
+                }}
+                disabled={saving || !canEditProducts}
+              >
+                {saving ? (
+                  <>
+                    <Spinner className="mr-2 h-4 w-4" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Prices'
+                )}
+              </Button>
+            </div>
+          </div>
         )}
       </DialogContent>
     </Dialog>

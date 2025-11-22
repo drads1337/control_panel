@@ -2,8 +2,8 @@ import { useMemo, useEffect, useState } from 'react'
 import { useAuthContext } from '@/contexts/auth-context'
 import { hasManagementAccess } from '@/lib/rbac-utils'
 import { useManagementStore } from '@/stores/management-store'
-import { Key, Database, FolderOpen, Zap } from 'lucide-react'
-import { getProducts } from '@/entities/product'
+import { Key, Database, FolderOpen, Zap, Bell } from 'lucide-react'
+import { getProductsCount } from '@/entities/product/api/product'
 import { usePermissions } from '@/hooks/use-permissions'
 
 export interface ManagementTab {
@@ -23,7 +23,7 @@ export function useManagementData() {
     return hasManagementAccess(user)
   }, [user])
 
-  let { canViewKeys, canViewFiles, canViewProducts, canViewAgents, hasAccess } = permissionChecks
+  let { canViewKeys, canViewFiles, canViewProducts, canViewAgents, canViewNotifications, hasAccess } = permissionChecks
 
   useEffect(() => {
     const loadProductsCount = async () => {
@@ -35,9 +35,9 @@ export function useManagementData() {
 
       if (canViewKeys || hasPermission('keys.create')) {
         try {
-          const response = await getProducts('all')
-          if (response.success && response.products) {
-            setProductsCount(response.products.length)
+          const response = await getProductsCount('all')
+          if (response.success) {
+            setProductsCount(response.count)
           } else {
             setProductsCount(0)
           }
@@ -121,8 +121,16 @@ export function useManagementData() {
         icon: Zap,
       })
     }
+    if (canViewNotifications) {
+      tabs.push({
+        value: 'notifications',
+        label: 'Notifications',
+        shortLabel: 'Notifications',
+        icon: Bell,
+      })
+    }
     return tabs
-  }, [canViewKeys, canViewFiles, effectiveCanViewProducts, canViewAgents])
+  }, [canViewKeys, canViewFiles, effectiveCanViewProducts, canViewAgents, canViewNotifications])
 
   useEffect(() => {
     if (availableTabs.length > 0 && !availableTabs.some(tab => tab.value === activeTab)) {
@@ -150,6 +158,7 @@ export function useManagementData() {
     canViewFiles,
     canViewProducts: effectiveCanViewProducts,
     canViewAgents,
+    canViewNotifications,
     availableTabs,
     activeTab,
     setActiveTab,

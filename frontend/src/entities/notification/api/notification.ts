@@ -16,8 +16,6 @@ export async function sendProductNotification(productId: number, data: {
   scheduled_at?: string | null;
 }): Promise<{ message: string; notifications_created: number; product_name: string }> {
   const requestData = {
-    product_id: productId,
-    version: '1.0.0',
     message: `${data.title}: ${data.message}`,
     type: data.type,
     repeat_count: data.repeatCount || 1,
@@ -25,7 +23,7 @@ export async function sendProductNotification(productId: number, data: {
     scheduled_at: data.scheduled_at
   };
 
-  const response = await api.post(API_ENDPOINTS.NOTIFICATIONS_PRODUCT_UPDATE, requestData)
+  const response = await api.post(`/api/notifications/products/${productId}/notifications`, requestData)
 
   return response.data;
 }
@@ -61,4 +59,26 @@ export async function incrementNotificationShowCount(notificationId: number): Pr
 
   const response = await api.post(`/api/notifications/${notificationId}/show`)
   return response.data
+}
+
+export async function getAgentNotifications(agentId: number): Promise<ProductNotificationsResponseType> {
+  const response = await api.get(`/api/notifications/agents/${agentId}/notifications`)
+  return response.data;
+}
+
+export async function sendAgentNotification(agentId: number, data: {
+  message: string;
+  type: 'info' | 'warning' | 'error' | 'success' | string;
+  is_scheduled?: boolean;
+  scheduled_at?: string | null;
+}): Promise<{ message: string; notifications_created: number; agent_name: string }> {
+  const requestData = {
+    message: data.message,
+    type: data.type,
+    is_scheduled: data.is_scheduled || false,
+    scheduled_at: data.scheduled_at
+  };
+
+  const response = await api.post(`/api/notifications/agents/${agentId}/notifications`, requestData)
+  return response.data;
 }

@@ -44,7 +44,8 @@ export const ProductsList: React.FC<ProductsListProps> = ({
   canManageChangelog,
   canManageStatus,
 }) => {
-  const shouldVirtualize = products.length > 50;
+  // Lower threshold for better performance - virtualize when more than 30 items
+  const shouldVirtualize = products.length > 30;
 
   if (shouldVirtualize) {
     return (

@@ -41,7 +41,8 @@ const UsersList: React.FC<UsersListProps> = ({
   const someSelected = users.some(user => selectedUsers.has(user.id));
 
   const parentRef = useRef<HTMLDivElement>(null);
-  const shouldVirtualize = users.length > 50;
+  // Lower threshold for better performance - virtualize when more than 30 items
+  const shouldVirtualize = users.length > 30;
 
   const rowVirtualizer = useVirtualizer({
     count: shouldVirtualize ? users.length : 0,

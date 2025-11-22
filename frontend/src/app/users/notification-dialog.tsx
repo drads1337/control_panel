@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Spinner } from '@/components/ui/spinner';
 import type { User } from '@/entities/user';
 
 interface NotificationDialogProps {
@@ -37,8 +38,8 @@ const NotificationDialog: React.FC<NotificationDialogProps> = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Send Notification</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-base">Send Notification</DialogTitle>
+          <DialogDescription className="mt-1 text-xs">
             Send a notification to your employees
           </DialogDescription>
         </DialogHeader>
@@ -170,7 +171,7 @@ const NotificationDialog: React.FC<NotificationDialogProps> = ({
             Cancel
           </Button>
           <Button onClick={onSend} disabled={loading}>
-            {loading ? 'Sending...' : 'Send Notification'}
+            {loading ? (<><Spinner className="mr-2 h-4 w-4 animate-spin" />Sending...</>) : 'Send Notification'}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -8,8 +8,8 @@ import {
   getRealtimeSessions 
 } from '@/entities/session'
 import type { Session, SessionStats, SessionsResponse } from '@/entities/session'
-import { usePaginatedResource } from './use-paginated-resource'
-import { useMutationWithCache } from './use-mutation-helpers'
+import { usePaginatedResource } from '@/hooks/use-paginated-resource'
+import { useMutationWithCache } from '@/hooks/use-mutation-helpers'
 
 export const sessionKeys = {
   all: ['sessions'] as const,
@@ -89,7 +89,6 @@ export function useSessionsQuery(options: UseSessionsParams = {}): UseSessionsRe
     queryFn: getSessionStats,
     staleTime: 15 * 1000,
     enabled: true,
-
     refetchInterval: autoRefresh ? Math.min(refreshInterval, 15 * 1000) : false,
   })
 
@@ -100,7 +99,6 @@ export function useSessionsQuery(options: UseSessionsParams = {}): UseSessionsRe
     queryFn: getRealtimeSessions,
     staleTime: 0,
     enabled: autoRefresh,
-
     refetchInterval: autoRefresh ? Math.min(refreshInterval, 10 * 1000) : false,
   })
 
@@ -183,3 +181,4 @@ export function useSessionsQuery(options: UseSessionsParams = {}): UseSessionsRe
     clearError,
   }
 }
+

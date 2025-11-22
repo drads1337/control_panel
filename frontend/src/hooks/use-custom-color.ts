@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useSettingsQuery } from './use-settings-query';
+import { useSettingsQuery } from '@/entities/settings';
 
 export interface CustomColor {
   primary: string;

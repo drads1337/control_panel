@@ -58,3 +58,20 @@ export async function deleteChangelogEntry(entryId: number): Promise<{
   const response = await api.delete(`${API_ENDPOINTS.CHANGELOG_CHANGELOG}/${entryId}`)
   return response.data
 }
+
+export async function getAgentChangelog(agentId: number): Promise<ChangelogResponseType> {
+  const response = await api.get(`/api/changelog/agents/${agentId}/changelog`, {
+    params: { t: Date.now() },
+    headers: { 'Cache-Control': 'no-cache' }
+  })
+  return response.data
+}
+
+export async function createAgentChangelogEntry(agentId: number, data: CreateChangelogDataType): Promise<{
+  success: boolean
+  message: string
+  entry: ChangelogEntryType
+}> {
+  const response = await api.post(`/api/changelog/agents/${agentId}/changelog`, data)
+  return response.data
+}

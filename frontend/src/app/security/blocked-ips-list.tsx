@@ -158,7 +158,8 @@ const IPsList: React.FC<IPsListProps> = ({
   getCategoryColor
 }) => {
   const parentRef = useRef<HTMLDivElement>(null);
-  const shouldVirtualize = ips.length > 50;
+  // Lower threshold for better performance - virtualize when more than 30 items
+  const shouldVirtualize = ips.length > 30;
 
   const rowVirtualizer = useVirtualizer({
     count: shouldVirtualize ? ips.length : 0,

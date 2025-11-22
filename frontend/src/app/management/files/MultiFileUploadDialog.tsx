@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,10 +11,8 @@ import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
-  Upload, Settings, Zap, Clock, X, FileText, CheckCircle, AlertCircle, 
-  Download, FolderOpen, FileIcon, BarChart3, Sparkles, Shield, Layers, 
-  Palette, CloudUpload, Package, HardDrive, File, RefreshCw, ChevronDown, 
-  ChevronUp, Network, Repeat, Hash, FolderTree, Tag, Gauge
+  ChevronDown, 
+  ChevronUp
 } from 'lucide-react';
 import MultiFileUpload from '@/components/ui/multi-file-upload';
 import { useMultiFileUpload } from '@/hooks/use-multi-file-upload';
@@ -144,49 +141,35 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
           <Button 
             variant="outline" 
             size="sm"
-            className="gap-2"
             disabled={!canUploadFiles}
           >
-            <Upload className="h-4 w-4" />
             Multi-File Upload
           </Button>
         </DialogTrigger>
       <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <CloudUpload className="w-5 h-5 text-primary" />
+          <DialogTitle className="text-base">
             Multi-File Upload with Advanced Settings
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="mt-1 text-xs">
             Upload multiple files simultaneously with advanced configuration options
           </DialogDescription>
         </DialogHeader>
 
         {}
         {!product ? (
-          <Card className="border-dashed border-2 border-muted-foreground/25">
-            <CardContent className="p-12">
-              <div className="text-center">
-                <div className="w-20 h-20 bg-gradient-to-br from-primary/10 to-primary/5 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <AlertCircle className="h-10 w-10 text-primary" />
-                </div>
-                <h3 className="text-2xl font-semibold mb-3">Product Selection Required</h3>
-                <p className="text-muted-foreground text-lg mb-6 max-w-md mx-auto">
-                  Please select an product first to upload files
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="border-dashed border-2 border-muted-foreground/25 rounded-lg p-8">
+            <div className="text-center">
+              <h3 className="text-base font-semibold mb-2">Product Selection Required</h3>
+              <p className="text-muted-foreground text-sm max-w-md mx-auto">
+                Please select an product first to upload files
+              </p>
+            </div>
+          </div>
         ) : (
-          <div className="space-y-6">
-            {}
-            <Card className="mb-4">
-              <CardContent className="pt-4">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <Settings className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">Basic Settings:</span>
-                  </div>
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 flex-wrap p-3 border rounded-lg">
+              <span className="text-sm font-medium">Basic Settings:</span>
 
                   <div className="flex items-center gap-2">
                     <Label htmlFor="parallel-upload" className="text-xs whitespace-nowrap">Parallel Upload</Label>
@@ -245,79 +228,64 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
                       className="h-8 w-20"
                     />
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+            </div>
 
-            {}
             <Collapsible open={advancedSettingsOpen} onOpenChange={setAdvancedSettingsOpen}>
-              <Card>
+              <div className="border rounded-lg">
                 <CollapsibleTrigger asChild>
-                  <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                  <div className="cursor-pointer hover:bg-muted/50 transition-colors p-4 border-b">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="h-4 w-4 text-primary" />
-                        <CardTitle className="text-base">Advanced Settings</CardTitle>
-                      </div>
+                      <span className="text-base font-semibold">Advanced Settings</span>
                       {advancedSettingsOpen ? (
                         <ChevronUp className="h-4 w-4 text-muted-foreground" />
                       ) : (
                         <ChevronDown className="h-4 w-4 text-muted-foreground" />
                       )}
                     </div>
-                    <CardDescription>
+                    <p className="text-xs text-muted-foreground mt-1">
                       Configure retry attempts, chunking, compression, and more
-                    </CardDescription>
-                  </CardHeader>
+                    </p>
+                  </div>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <CardContent className="space-y-4 pt-0">
+                  <div className="space-y-4 p-4">
                     {}
                     <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Shield className="h-4 w-4 text-muted-foreground" />
-                        <Label className="text-sm font-medium">Reliability & Retry</Label>
-                      </div>
+                      <Label className="text-sm font-medium">Reliability & Retry</Label>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-6">
                         <div className="space-y-2">
                           <Label htmlFor="retry-attempts" className="text-xs">Retry Attempts</Label>
-                          <div className="flex items-center gap-2">
-                            <Input
-                              id="retry-attempts"
-                              type="number"
-                              value={uploadSettings.retryAttempts}
-                              onChange={(e) => 
-                                setUploadSettings(prev => ({ 
-                                  ...prev, 
-                                  retryAttempts: Math.max(0, parseInt(e.target.value) || 3)
-                                }))
-                              }
-                              min="0"
-                              max="10"
-                              className="h-8"
-                            />
-                            <Repeat className="h-4 w-4 text-muted-foreground" />
-                          </div>
+                          <Input
+                            id="retry-attempts"
+                            type="number"
+                            value={uploadSettings.retryAttempts}
+                            onChange={(e) => 
+                              setUploadSettings(prev => ({ 
+                                ...prev, 
+                                retryAttempts: Math.max(0, parseInt(e.target.value) || 3)
+                              }))
+                            }
+                            min="0"
+                            max="10"
+                            className="h-8"
+                          />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="chunk-size" className="text-xs">Chunk Size (MB)</Label>
-                          <div className="flex items-center gap-2">
-                            <Input
-                              id="chunk-size"
-                              type="number"
-                              value={uploadSettings.chunkSize / (1024 * 1024)}
-                              onChange={(e) => 
-                                setUploadSettings(prev => ({ 
-                                  ...prev, 
-                                  chunkSize: (parseInt(e.target.value) || 5) * 1024 * 1024
-                                }))
-                              }
-                              min="1"
-                              max="50"
-                              className="h-8"
-                            />
-                            <Package className="h-4 w-4 text-muted-foreground" />
-                          </div>
+                          <Input
+                            id="chunk-size"
+                            type="number"
+                            value={uploadSettings.chunkSize / (1024 * 1024)}
+                            onChange={(e) => 
+                              setUploadSettings(prev => ({ 
+                                ...prev, 
+                                chunkSize: (parseInt(e.target.value) || 5) * 1024 * 1024
+                              }))
+                            }
+                            min="1"
+                            max="50"
+                            className="h-8"
+                          />
                         </div>
                       </div>
                     </div>
@@ -326,10 +294,7 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
 
                     {}
                     <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Layers className="h-4 w-4 text-muted-foreground" />
-                        <Label className="text-sm font-medium">File Processing</Label>
-                      </div>
+                      <Label className="text-sm font-medium">File Processing</Label>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-6">
                         <div className="flex items-center justify-between">
                           <div className="space-y-0.5">
@@ -390,10 +355,7 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
 
                     {}
                     <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Zap className="h-4 w-4 text-muted-foreground" />
-                        <Label className="text-sm font-medium">Upload Performance</Label>
-                      </div>
+                      <Label className="text-sm font-medium">Upload Performance</Label>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-6">
                         <div className="space-y-2">
                           <Label htmlFor="upload-priority" className="text-xs">Upload Priority</Label>
@@ -415,23 +377,20 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="bandwidth-limit" className="text-xs">Bandwidth Limit (MB/s)</Label>
-                          <div className="flex items-center gap-2">
-                            <Input
-                              id="bandwidth-limit"
-                              type="number"
-                              value={uploadSettings.bandwidthLimit || ''}
-                              onChange={(e) => 
-                                setUploadSettings(prev => ({ 
-                                  ...prev, 
-                                  bandwidthLimit: parseInt(e.target.value) || 0
-                                }))
-                              }
-                              min="0"
-                              placeholder="0 = Unlimited"
-                              className="h-8"
-                            />
-                            <Gauge className="h-4 w-4 text-muted-foreground" />
-                          </div>
+                          <Input
+                            id="bandwidth-limit"
+                            type="number"
+                            value={uploadSettings.bandwidthLimit || ''}
+                            onChange={(e) => 
+                              setUploadSettings(prev => ({ 
+                                ...prev, 
+                                bandwidthLimit: parseInt(e.target.value) || 0
+                              }))
+                            }
+                            min="0"
+                            placeholder="0 = Unlimited"
+                            className="h-8"
+                          />
                         </div>
                       </div>
                     </div>
@@ -440,10 +399,7 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
 
                     {}
                     <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Tag className="h-4 w-4 text-muted-foreground" />
-                        <Label className="text-sm font-medium">File Naming</Label>
-                      </div>
+                      <Label className="text-sm font-medium">File Naming</Label>
                       <div className="space-y-3 pl-6">
                         <div className="space-y-2">
                           <Label htmlFor="naming-pattern" className="text-xs">Custom Naming Pattern</Label>
@@ -490,19 +446,13 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
                         </div>
                       </div>
                     </div>
-                  </CardContent>
+                  </div>
                 </CollapsibleContent>
-              </Card>
+              </div>
             </Collapsible>
 
-            {}
-            <Card className="mb-4">
-              <CardContent className="pt-4">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">File Info:</span>
-                  </div>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 flex-wrap p-3 border rounded-lg">
+              <span className="text-sm font-medium">File Info:</span>
 
                   <div className="flex items-center gap-2">
                     <Label htmlFor="category" className="text-xs whitespace-nowrap">Category</Label>
@@ -547,60 +497,44 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
                       className="h-8 min-w-0"
                     />
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+            </div>
 
-            {}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileIcon className="h-4 w-4 text-muted-foreground" />
-                  File Upload
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <MultiFileUpload
-                  onFilesUpload={handleUpload}
-                  multiple={true}
-                  maxFiles={uploadSettings.maxFiles}
-                  maxSize={uploadSettings.maxSize}
-                  autoUpload={uploadSettings.autoUpload}
-                  className="w-full"
-                />
-              </CardContent>
-            </Card>
+            <div className="border rounded-lg p-4">
+              <div className="mb-3">
+                <span className="text-sm font-medium">File Upload</span>
+              </div>
+              <MultiFileUpload
+                onFilesUpload={handleUpload}
+                multiple={true}
+                maxFiles={uploadSettings.maxFiles}
+                maxSize={uploadSettings.maxSize}
+                autoUpload={uploadSettings.autoUpload}
+                className="w-full"
+              />
+            </div>
 
-            {}
             {uploading && (
-              <Card className="mb-4">
-                <CardContent className="pt-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">Upload Progress:</span>
-                    </div>
-                    <div className="flex items-center gap-4 text-sm">
-                      <div className="flex items-center gap-1">
-                        <span className="text-muted-foreground">Total:</span>
-                        <span className="font-medium">{uploadStats.total}</span>
-                      </div>
-                      <div className="flex items-center gap-1 text-green-600">
-                        <span>✓</span>
-                        <span>{uploadStats.completed}</span>
-                      </div>
-                      <div className="flex items-center gap-1 text-red-600">
-                        <span>✗</span>
-                        <span>{uploadStats.failed}</span>
-                      </div>
-                      <div className="flex items-center gap-1 text-yellow-600">
-                        <span>⏳</span>
-                        <span>{uploadStats.total - uploadStats.completed - uploadStats.failed}</span>
-                      </div>
-                    </div>
+              <div className="flex items-center justify-between p-3 border rounded-lg">
+                <span className="text-sm font-medium">Upload Progress:</span>
+                <div className="flex items-center gap-4 text-xs">
+                  <div className="flex items-center gap-1">
+                    <span className="text-muted-foreground">Total:</span>
+                    <span className="font-medium">{uploadStats.total}</span>
                   </div>
-                </CardContent>
-              </Card>
+                  <div className="flex items-center gap-1 text-green-600">
+                    <span>✓</span>
+                    <span>{uploadStats.completed}</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-red-600">
+                    <span>✗</span>
+                    <span>{uploadStats.failed}</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-yellow-600">
+                    <span>⏳</span>
+                    <span>{uploadStats.total - uploadStats.completed - uploadStats.failed}</span>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         )}

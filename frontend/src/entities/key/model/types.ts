@@ -5,6 +5,7 @@ export interface LicenseKey extends BaseEntity {
   user_id: number | null
   product_id: number | null
   product_name: string | null
+  agent_id: number | null
   status: number
   is_active: boolean
   is_expired: boolean

@@ -98,9 +98,15 @@ export function useSignUpForm() {
       if (response.data.code_type === 'referral' || !response.data.requires_project_name) {
         setFormData(prev => ({ ...prev, projectName: '' }))
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const { getErrorMessage, isAxiosError } = await import('@/lib/error-utils')
       setInviteCodeInfo(null)
-      setError(err?.response?.data?.error || err?.message || 'Network error')
+      if (isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
+        const errorData = err.response.data as { error?: string }
+        setError(errorData.error || getErrorMessage(err))
+      } else {
+        setError(getErrorMessage(err))
+      }
     }
   }, [])
 
@@ -136,9 +142,9 @@ export function useSignUpForm() {
           ? formData.projectName.trim()
           : undefined
       )
-    } catch (err: any) {
-
-      setError(err.message || 'Registration failed')
+    } catch (err: unknown) {
+      const { getErrorMessage } = await import('@/lib/error-utils')
+      setError(getErrorMessage(err))
     } finally {
       isSubmitting.current = false
     }

@@ -472,9 +472,21 @@ requestBatcher = new RequestBatcher(API_CONFIG.BATCHING.delay, enhancedApi)
 
 enhancedApi.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
+    const url = config.url || ''
+    const fullUrl = config.baseURL ? `${config.baseURL}${url}` : url
+    
+    // Log requests to problematic endpoints
+    const isRbacPermissionsEndpoint = url.includes('/api/rbac/users/') && url.includes('/permissions')
+    const isClientsProductsEndpoint = url.includes('/api/clients/') && url.includes('/products')
+    
+    if (isRbacPermissionsEndpoint || isClientsProductsEndpoint) {
+      const userIdMatch = url.match(/\/(\d+)\/(?:permissions|products)/)
+      const userId = userIdMatch ? userIdMatch[1] : 'unknown'
+      
+    }
+    
     // Skip CSRF token for the CSRF token endpoint itself to avoid circular dependency
     // Also skip for login/register endpoints which are CSRF-exempt
-    const url = config.url || ''
     const isAuthEndpoint = url.includes('/api/auth/login') || 
                           url.includes('/api/auth/register') ||
                           url.includes('/api/auth/csrf-token')
@@ -521,8 +533,33 @@ enhancedApi.interceptors.request.use(
 )
 
 enhancedApi.interceptors.response.use(
-  (response) => response,
-  handleError
+  (response) => {
+    const url = response.config?.url || ''
+    const isRbacPermissionsEndpoint = url.includes('/api/rbac/users/') && url.includes('/permissions')
+    const isClientsProductsEndpoint = url.includes('/api/clients/') && url.includes('/products')
+    
+    if (isRbacPermissionsEndpoint || isClientsProductsEndpoint) {
+      const userIdMatch = url.match(/\/(\d+)\/(?:permissions|products)/)
+      const userId = userIdMatch ? userIdMatch[1] : 'unknown'
+      
+    }
+    
+    return response
+  },
+  (error) => {
+    const url = error.config?.url || ''
+    const isRbacPermissionsEndpoint = url.includes('/api/rbac/users/') && url.includes('/permissions')
+    const isClientsProductsEndpoint = url.includes('/api/clients/') && url.includes('/products')
+    
+    if (isRbacPermissionsEndpoint || isClientsProductsEndpoint) {
+      const userIdMatch = url.match(/\/(\d+)\/(?:permissions|products)/)
+      const userId = userIdMatch ? userIdMatch[1] : 'unknown'
+      const fullUrl = error.config?.baseURL ? `${error.config.baseURL}${url}` : url
+      
+    }
+    
+    return handleError(error)
+  }
 )
 
 export function getApiUrl(endpoint: string): string {

@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuthContext } from '@/contexts/auth-context'
 import { enhancedApi as api } from '@/shared/api/enhanced-client'
+import { getErrorStatus, isAxiosError } from '@/lib/error-utils'
 import type { Project } from '@/entities/project';
 
 interface ProjectExpirationStatus {
@@ -34,32 +35,31 @@ export function useProjectExpiration() {
       try {
         const response = await api.get('/api/projects')
         return response.data
-      } catch (err: any) {
-
-        if (err.response?.status === 402) {
-
-          throw { type: 'payment_required', data: err.response.data }
+      } catch (err: unknown) {
+        const status = getErrorStatus(err)
+        if (status === 402 && isAxiosError(err)) {
+          throw { type: 'payment_required', data: err.response?.data }
         }
-        if (err.response?.status === 410) {
-
-          throw { type: 'project_deleted', data: err.response.data }
+        if (status === 410 && isAxiosError(err)) {
+          throw { type: 'project_deleted', data: err.response?.data }
         }
-
         throw err
       }
     },
     enabled: !!user && !user.roles?.includes('owner'),
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
-    retry: (failureCount, error: any) => {
-
-      if (error?.type === 'payment_required' || 
-          error?.type === 'project_deleted' ||
-          error?.response?.status === 401 || 
-          error?.response?.status === 403) {
+    retry: (failureCount, error: unknown) => {
+      if (typeof error === 'object' && error !== null) {
+        const err = error as { type?: string }
+        if (err.type === 'payment_required' || err.type === 'project_deleted') {
+          return false
+        }
+      }
+      const status = getErrorStatus(error)
+      if (status === 401 || status === 403) {
         return false
       }
-
       return failureCount < 1
     },
     refetchOnWindowFocus: false,
@@ -146,8 +146,7 @@ export function useProjectExpiration() {
     try {
       const result = await apiCall()
       return result
-    } catch (error: any) {
-
+    } catch (error: unknown) {
       throw error
     }
   }, [])

@@ -96,6 +96,12 @@ export const KeyRow: React.FC<KeyRowProps> = React.memo(({
       </TableCell>
       
       <TableCell className="text-left">
+        <Badge variant={keyData.agent_id ? "default" : "secondary"} className="text-xs">
+          {keyData.agent_id ? 'Agent' : 'Product'}
+        </Badge>
+      </TableCell>
+      
+      <TableCell className="text-left">
         <Badge
           className={getStatusClasses(getStatusType(keyData.status, keyData.is_expired))}
           variant="secondary"

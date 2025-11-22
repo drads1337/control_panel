@@ -10,9 +10,9 @@ import {
   extendLicenseKey,
   duplicateLicenseKey,
   type LicenseKey,
-  type LicenseKeysResponse
+  type LicenseKeysResponse,
+  keyKeys
 } from '@/entities/key'
-import { keyKeys } from './use-keys-query'
 import { KEY_STATUS } from '@/constants'
 
 function updateAllKeyLists(

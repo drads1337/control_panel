@@ -117,22 +117,20 @@ export class AuthService {
       saveUserToMemoryCache(userData)
       saveUserToLocalStorage(userData)
       return userData
-    } catch (error: any) {
-      if (error.name === 'AbortError' || error.name === 'CanceledError') {
-
+    } catch (error: unknown) {
+      const { isAxiosError, getErrorStatus } = await import('@/lib/error-utils')
+      if (error instanceof Error && (error.name === 'AbortError' || error.name === 'CanceledError')) {
         return null
       }
 
-      if (error.response?.status === 429) {
-
+      const status = getErrorStatus(error)
+      if (status === 429) {
         const cached = getUserFromMemoryCache()
         if (cached) {
-
           return cached
         }
         throw new Error('Rate limited and no cached data available')
       }
-
     }
 
     return null
@@ -176,22 +174,25 @@ export class AuthService {
         signal: abortController?.signal
       })
       return response.data
-    } catch (error: any) {
-
-      if (error.response?.status !== 401 && error.response?.status !== 403) {
+    } catch (error: unknown) {
+      const { getErrorStatus, isAxiosError } = await import('@/lib/error-utils')
+      const status = getErrorStatus(error)
+      if (status !== 401 && status !== 403) {
         throw error
       }
 
       try {
-        const response = await api.post('/api/classic_connect', { username, password }, {
+        const response = await api.post(API_ENDPOINTS.CLASSIC_CONNECT, { username, password }, {
           timeout: 5000,
           signal: abortController?.signal
         })
         return response.data
-      } catch (connectError: any) {
-
-        const errorData = connectError.response?.data || {}
-        throw new Error(errorData.msg || errorData.error || 'Login failed')
+      } catch (connectError: unknown) {
+        if (isAxiosError(connectError) && connectError.response?.data && typeof connectError.response.data === 'object') {
+          const errorData = connectError.response.data as { msg?: string; error?: string }
+          throw new Error(errorData.msg || errorData.error || 'Login failed')
+        }
+        throw new Error('Login failed')
       }
     }
   }
@@ -219,9 +220,9 @@ export class AuthService {
         saveUserToLocalStorage(userData)
         return userData
       }
-    } catch (error: any) {
-      if (error.name !== 'AbortError' && error.name !== 'CanceledError') {
-
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name !== 'AbortError' && error.name !== 'CanceledError') {
+        // Error handling can be added here if needed
       }
     }
 
@@ -290,13 +291,17 @@ export class AuthService {
       })
 
       return response.data
-    } catch (error: any) {
-      if (error.name === 'AbortError' || error.name === 'CanceledError') {
+    } catch (error: unknown) {
+      if (error instanceof Error && (error.name === 'AbortError' || error.name === 'CanceledError')) {
         throw error
       }
 
-      const errorData = error.response?.data || {}
-      throw new Error(errorData.msg || errorData.error || error.message || 'Registration failed')
+      const { isAxiosError, getErrorMessage } = await import('@/lib/error-utils')
+      if (isAxiosError(error) && error.response?.data && typeof error.response.data === 'object') {
+        const errorData = error.response.data as { msg?: string; error?: string }
+        throw new Error(errorData.msg || errorData.error || getErrorMessage(error))
+      }
+      throw new Error(getErrorMessage(error))
     }
   }
 
@@ -324,19 +329,23 @@ export class AuthService {
 
     try {
 
-      const response = await api.post('/api/auth/register-with-invite', registerData, {
+      const response = await api.post(API_ENDPOINTS.REGISTER_WITH_INVITE, registerData, {
         timeout: 5000,
         signal: abortController?.signal
       })
 
       return response.data
-    } catch (error: any) {
-      if (error.name === 'AbortError' || error.name === 'CanceledError') {
+    } catch (error: unknown) {
+      if (error instanceof Error && (error.name === 'AbortError' || error.name === 'CanceledError')) {
         throw error
       }
 
-      const errorData = error.response?.data || {}
-      throw new Error(errorData.error || errorData.msg || error.message || 'Registration failed')
+      const { isAxiosError, getErrorMessage } = await import('@/lib/error-utils')
+      if (isAxiosError(error) && error.response?.data && typeof error.response.data === 'object') {
+        const errorData = error.response.data as { error?: string; msg?: string }
+        throw new Error(errorData.error || errorData.msg || getErrorMessage(error))
+      }
+      throw new Error(getErrorMessage(error))
     }
   }
 }

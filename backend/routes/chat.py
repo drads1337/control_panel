@@ -23,6 +23,31 @@ import os as _os
 
 from ..middleware.auth import enforce_project_scope
 
+def find_product_by_id_or_unique_id(product_identifier, project_id):
+    """
+    Helper function to find a product by either id (int) or unique_id (string)
+    
+    Args:
+        product_identifier: Either an integer id or string unique_id
+        project_id: Project ID to filter by
+    
+    Returns:
+        Product object or None if not found
+    """
+    # Try as integer id (primary key) first
+    if isinstance(product_identifier, int) or (isinstance(product_identifier, str) and product_identifier.isdigit()):
+        try:
+            product_id_int = int(product_identifier)
+            product = Product.query.filter_by(id=product_id_int, project_id=project_id).first()
+            if product:
+                return product
+        except (ValueError, TypeError):
+            pass
+    
+    # Try as unique_id (string)
+    product = Product.query.filter_by(unique_id=str(product_identifier), project_id=project_id).first()
+    return product
+
 class TelegramBotManager:
 
     def __init__(self):
@@ -576,10 +601,10 @@ def send_client_message():
         logger.error(f"Error sending client message: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-@chat_bp.route("/products/<int:product_id>/settings", methods=["GET"])
+@chat_bp.route("/products/<product_identifier>/settings", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
-def get_product_chat_settings(product_id: int):
+def get_product_chat_settings(product_identifier):
     try:
         current_user_id = get_jwt_identity()
         user = User.query.get(current_user_id).first()
@@ -591,10 +616,10 @@ def get_product_chat_settings(product_id: int):
             return jsonify({"error": "User must be assigned to a project"}), 403
             return jsonify({"error": "User not found"}), 404
         project_id = getattr(g, "project_id", user.project_id)
-        product = Product.query.filter_by(id=product_id, project_id=project_id).first()
+        product = find_product_by_id_or_unique_id(product_identifier, project_id)
         if not product:
             return jsonify({"error": "Product not found"}), 404
-        s = ProductChatSettings.query.filter_by(product_id=product_id, project_id=project_id).first()
+        s = ProductChatSettings.query.filter_by(product_id=product.id, project_id=project_id).first()
         if not s:
 
             ps = ProjectSettings.query.filter_by(project_id=project_id).first()
@@ -627,10 +652,10 @@ def get_product_chat_settings(product_id: int):
         logger.error(f"Error getting product chat settings: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-@chat_bp.route("/products/<int:product_id>/settings", methods=["PUT"])
+@chat_bp.route("/products/<product_identifier>/settings", methods=["PUT"])
 @jwt_required()
 @enforce_project_scope
-def update_product_chat_settings(product_id: int):
+def update_product_chat_settings(product_identifier):
     try:
         current_user_id = get_jwt_identity()
         user = User.query.get(current_user_id)
@@ -648,13 +673,13 @@ def update_product_chat_settings(product_id: int):
         ):
             return jsonify({"error": "Admin access required"}), 403
         project_id = getattr(g, "project_id", user.project_id)
-        product = Product.query.filter_by(id=product_id, project_id=project_id).first()
+        product = find_product_by_id_or_unique_id(product_identifier, project_id)
         if not product:
             return jsonify({"error": "Product not found"}), 404
         data = request.get_json()
-        s = ProductChatSettings.query.filter_by(product_id=product_id, project_id=project_id).first()
+        s = ProductChatSettings.query.filter_by(product_id=product.id, project_id=project_id).first()
         if not s:
-            s = ProductChatSettings(product_id=product_id, project_id=project_id)
+            s = ProductChatSettings(product_id=product.id, project_id=project_id)
             db.session.add(s)
         if "telegram_enabled" in data:
             s.telegram_enabled = bool(data.get("telegram_enabled"))

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Upload, Image, Package, Cloud, CheckCircle } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { uploadAgentFiles } from '@/entities/agent';
 import FileUpload from '@/components/ui/file-upload';
@@ -61,19 +60,15 @@ const UploadAgentFilesDialog: React.FC<UploadAgentFilesDialogProps> = ({ open, o
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Cloud className="w-5 h-5 text-primary" />
-            Upload Files for Agent
-          </DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-base">Upload Files for Agent</DialogTitle>
+          <DialogDescription className="mt-1 text-xs">
             Upload files for the agent "{agent.name}". Supported formats: PNG, JPG, JPEG, GIF, EXE, APK, SO, DMG, DEB, RPM.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-3">
-              <Label className="text-sm font-medium flex items-center gap-2">
-                <Image className="w-4 h-4 text-blue-500" />
+              <Label className="text-sm font-medium">
                 Agent Logo
               </Label>
               <FileUpload
@@ -87,8 +82,7 @@ const UploadAgentFilesDialog: React.FC<UploadAgentFilesDialogProps> = ({ open, o
               />
             </div>
             <div className="space-y-3">
-              <Label className="text-sm font-medium flex items-center gap-2">
-                <Image className="w-4 h-4 text-purple-500" />
+              <Label className="text-sm font-medium">
                 Agent Banner
               </Label>
               <FileUpload
@@ -102,8 +96,7 @@ const UploadAgentFilesDialog: React.FC<UploadAgentFilesDialogProps> = ({ open, o
               />
             </div>
             <div className="space-y-3">
-              <Label className="text-sm font-medium flex items-center gap-2">
-                <Image className="w-4 h-4 text-indigo-500" />
+              <Label className="text-sm font-medium">
                 Agent Background
               </Label>
               <FileUpload
@@ -117,8 +110,7 @@ const UploadAgentFilesDialog: React.FC<UploadAgentFilesDialogProps> = ({ open, o
               />
             </div>
             <div className="space-y-3">
-              <Label className="text-sm font-medium flex items-center gap-2">
-                <Package className="w-4 h-4 text-orange-500" />
+              <Label className="text-sm font-medium">
                 Agent File (required)
               </Label>
               <FileUpload
@@ -133,7 +125,7 @@ const UploadAgentFilesDialog: React.FC<UploadAgentFilesDialogProps> = ({ open, o
               />
               {selectedFiles.file && (
                 <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-                  <CheckCircle className="w-4 h-4" />
+                  <span>✓</span>
                   File selected: {selectedFiles.file.name}
                 </div>
               )}
@@ -142,22 +134,10 @@ const UploadAgentFilesDialog: React.FC<UploadAgentFilesDialogProps> = ({ open, o
           <div className="bg-muted/50 rounded-lg p-4 space-y-2">
             <h4 className="text-sm font-medium text-foreground">File Requirements:</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <Image className="w-3 h-3 text-blue-500" />
-                <span>Logo: PNG, JPG, JPEG, GIF (up to 5MB)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Image className="w-3 h-3 text-purple-500" />
-                <span>Banner: PNG, JPG, JPEG, GIF (up to 10MB)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Image className="w-3 h-3 text-indigo-500" />
-                <span>Background: PNG, JPG, JPEG, GIF (up to 15MB)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Package className="w-3 h-3 text-orange-500" />
-                <span>File: EXE, APK, SO, DMG, DEB, RPM (up to 50MB)</span>
-              </div>
+              <div>Logo: PNG, JPG, JPEG, GIF (up to 5MB)</div>
+              <div>Banner: PNG, JPG, JPEG, GIF (up to 10MB)</div>
+              <div>Background: PNG, JPG, JPEG, GIF (up to 15MB)</div>
+              <div>File: EXE, APK, SO, DMG, DEB, RPM (up to 50MB)</div>
             </div>
           </div>
           {loading && (
@@ -184,12 +164,9 @@ const UploadAgentFilesDialog: React.FC<UploadAgentFilesDialogProps> = ({ open, o
               className="min-w-[140px]"
             >
               {loading ? (
-                <Spinner size="sm" message="Uploading..." className="py-0" />
+                <><Spinner className="mr-2 h-4 w-4 animate-spin" />Uploading...</>
               ) : (
-                <>
-                  <Upload className="mr-2 h-4 w-4" />
-                  Upload Files
-                </>
+                'Upload Files'
               )}
             </Button>
           </DialogFooter>

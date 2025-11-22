@@ -2,6 +2,10 @@ import * as React from "react"
 
 const MOBILE_BREAKPOINT = 768
 
+/**
+ * Hook to detect if the current viewport is mobile
+ * @returns true if viewport width is less than MOBILE_BREAKPOINT
+ */
 export function useIsMobile() {
   const [isMobile, setIsMobile] = React.useState<boolean | undefined>(undefined)
 
@@ -17,3 +21,4 @@ export function useIsMobile() {
 
   return !!isMobile
 }
+

@@ -57,7 +57,6 @@ export function useSettingsQuery(): UseSettingsQueryReturn {
       setError(null)
     },
     onSuccess: async (_, variables) => {
-
       queryClient.setQueryData<ProjectSettings>(settingsKeys.project(), (old) => {
         if (!old) return old
 
@@ -88,7 +87,6 @@ export function useSettingsQuery(): UseSettingsQueryReturn {
     },
     onSettled: () => {
       setIsSaving(false)
-
       queryClient.invalidateQueries({ queryKey: settingsKeys.project() })
     },
   })
@@ -100,7 +98,6 @@ export function useSettingsQuery(): UseSettingsQueryReturn {
       setError(null)
     },
     onSuccess: async (newKeys) => {
-
       queryClient.setQueryData<ProjectSettings>(settingsKeys.project(), (old) => {
         if (!old) return old
         return { ...old, encryption_keys: newKeys }
@@ -177,3 +174,4 @@ export function useSettingsQuery(): UseSettingsQueryReturn {
     clearError,
   }
 }
+

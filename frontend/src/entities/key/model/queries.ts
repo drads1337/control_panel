@@ -66,7 +66,6 @@ export function useKeysQuery(initialParams: UseKeysParams = {}): UseKeysReturn {
 
   React.useEffect(() => {
     setParams(prev => {
-
       const updated: UseKeysParams = { ...prev }
       if (initialParams.page !== undefined) updated.page = initialParams.page
       if (initialParams.per_page !== undefined) updated.per_page = initialParams.per_page
@@ -226,3 +225,4 @@ export function useKeysStats() {
     refetch,
   }
 }
+

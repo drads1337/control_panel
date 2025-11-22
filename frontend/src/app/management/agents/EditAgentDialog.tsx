@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
+import { Spinner } from '@/components/ui/spinner';
 import { usePermissions } from '@/hooks/use-permissions';
 import { updateAgent } from '@/entities/agent';
 import { useAuth } from '@/hooks/use-auth';
@@ -46,18 +47,37 @@ const EditAgentDialog: React.FC<EditAgentDialogProps> = ({ open, onOpenChange, o
   }, [agent]);
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token || !agent) return;
+    e.stopPropagation();
+    
+    if (!token || !agent) {
+      toast.error('Missing token or agent data');
+      return;
+    }
+    
     if (!canEditAgents) {
       toast.error('You do not have permission to edit agents');
       return;
     }
+    
+    // Validate required fields
+    if (!formData.name?.trim() || !formData.description?.trim() || !formData.version?.trim()) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    
     try {
       setLoading(true);
-      await updateAgent(agent.id, formData);
-      toast.success('Agent updated successfully!');
-      onSuccess();
-      onOpenChange(false);
+      const result = await updateAgent(agent.id, formData);
+      
+      if (result.success) {
+        toast.success('Agent updated successfully!');
+        onSuccess();
+        onOpenChange(false);
+      } else {
+        toast.error(result.message || 'Failed to update agent');
+      }
     } catch (error) {
+      console.error('Error updating agent:', error);
       toast.error(error instanceof Error ? error.message : 'Error updating agent');
     } finally {
       setLoading(false);
@@ -71,8 +91,8 @@ const EditAgentDialog: React.FC<EditAgentDialogProps> = ({ open, onOpenChange, o
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Edit Agent</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-base">Edit Agent</DialogTitle>
+          <DialogDescription className="mt-1 text-xs">
             Edit the information for the agent "{agent.name}".
           </DialogDescription>
         </DialogHeader>
@@ -153,8 +173,11 @@ const EditAgentDialog: React.FC<EditAgentDialogProps> = ({ open, onOpenChange, o
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading || !formData.name || !formData.description}>
-              {loading ? 'Saving...' : 'Save Changes'}
+            <Button 
+              type="submit" 
+              disabled={loading || !formData.name?.trim() || !formData.description?.trim() || !formData.version?.trim()}
+            >
+              {loading ? (<><Spinner className="mr-2 h-4 w-4 animate-spin" />Saving...</>) : 'Save Changes'}
             </Button>
           </DialogFooter>
         </form>

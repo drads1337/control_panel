@@ -14,6 +14,8 @@ import { WEBHOOK_EVENTS } from './constants';
 import { webhookAPI } from '@/entities/webhook';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
 import { usePermissions } from '@/hooks/use-permissions';
+import { getErrorMessage, isAxiosError } from '@/lib/error-utils';
+import { filterMaskedValues } from '@/lib/webhook-utils';
 
 export default function WebhooksPage() {
   const { isAuthenticated, user } = useAuthContext();
@@ -56,6 +58,9 @@ export default function WebhooksPage() {
   });
 
   const [customHeaders, setCustomHeaders] = useState<Array<{ key: string, value: string }>>([]);
+  
+  // Сохраняем оригинальные значения вебхука для сравнения при редактировании
+  const [originalWebhookData, setOriginalWebhookData] = useState<WebhookData | null>(null);
 
   const loadData = useCallback(async (showLoading = true) => {
     if (showLoading) {
@@ -87,9 +92,14 @@ export default function WebhooksPage() {
           setStats(null);
         }
       }
-    } catch (err: any) {
-
-      const errorMessage = err.response?.data?.error || 'Error loading webhooks data';
+    } catch (err: unknown) {
+      let errorMessage = 'Error loading webhooks data';
+      if (isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
+        const errorData = err.response.data as { error?: string }
+        errorMessage = errorData.error || errorMessage
+      } else {
+        errorMessage = getErrorMessage(err)
+      }
       if (showLoading) {
         setError(errorMessage);
         setWebhooks([]);
@@ -131,9 +141,14 @@ export default function WebhooksPage() {
       setCreateDialogOpen(false);
       resetForm();
       await loadData();
-    } catch (err: any) {
-
-      const errorMessage = err.response?.data?.error || 'Error creating webhook';
+    } catch (err: unknown) {
+      let errorMessage = 'Error creating webhook';
+      if (isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
+        const errorData = err.response.data as { error?: string }
+        errorMessage = errorData.error || errorMessage
+      } else {
+        errorMessage = getErrorMessage(err)
+      }
       toast.error(errorMessage);
       setError(errorMessage);
     }
@@ -148,6 +163,7 @@ export default function WebhooksPage() {
     }
 
     try {
+      // Собираем данные вебхука
       const webhookData = {
         ...formData,
         headers: customHeaders.reduce((acc, header) => {
@@ -158,15 +174,25 @@ export default function WebhooksPage() {
         }, {} as Record<string, string>)
       };
 
-      await webhookAPI.updateWebhook(editingWebhook.id, webhookData);
+      // SECURITY: Фильтруем маскированные значения, чтобы не перезаписать реальные токены
+      // Если пользователь не изменил токен/секрет, мы не отправляем маскированное значение
+      const filteredData = filterMaskedValues(webhookData, originalWebhookData || undefined);
+
+      await webhookAPI.updateWebhook(editingWebhook.id, filteredData);
       toast.success('Webhook updated successfully');
       setEditDialogOpen(false);
       setEditingWebhook(null);
+      setOriginalWebhookData(null);
       resetForm();
       await loadData();
-    } catch (err: any) {
-
-      const errorMessage = err.response?.data?.error || 'Error updating webhook';
+    } catch (err: unknown) {
+      let errorMessage = 'Error updating webhook';
+      if (isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
+        const errorData = err.response.data as { error?: string }
+        errorMessage = errorData.error || errorMessage
+      } else {
+        errorMessage = getErrorMessage(err)
+      }
       toast.error(errorMessage);
       setError(errorMessage);
     }
@@ -182,9 +208,14 @@ export default function WebhooksPage() {
       await webhookAPI.deleteWebhook(webhookId);
       toast.success('Webhook deleted successfully');
       await loadData();
-    } catch (err: any) {
-
-      const errorMessage = err.response?.data?.error || 'Error deleting webhook';
+    } catch (err: unknown) {
+      let errorMessage = 'Error deleting webhook';
+      if (isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
+        const errorData = err.response.data as { error?: string }
+        errorMessage = errorData.error || errorMessage
+      } else {
+        errorMessage = getErrorMessage(err)
+      }
       toast.error(errorMessage);
       setError(errorMessage);
     }
@@ -203,9 +234,14 @@ export default function WebhooksPage() {
       } else {
         toast.error(`Test webhook failed: ${result.error_message}`);
       }
-    } catch (err: any) {
-
-      const errorMessage = err.response?.data?.error || 'Error testing webhook';
+    } catch (err: unknown) {
+      let errorMessage = 'Error testing webhook';
+      if (isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
+        const errorData = err.response.data as { error?: string }
+        errorMessage = errorData.error || errorMessage
+      } else {
+        errorMessage = getErrorMessage(err)
+      }
       toast.error(errorMessage);
     }
   };
@@ -252,9 +288,14 @@ export default function WebhooksPage() {
         .catch(err => {
 
         });
-    } catch (err: any) {
-
-      const errorMessage = err.response?.data?.error || 'Error updating webhook status';
+    } catch (err: unknown) {
+      let errorMessage = 'Error updating webhook status';
+      if (isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
+        const errorData = err.response.data as { error?: string }
+        errorMessage = errorData.error || errorMessage
+      } else {
+        errorMessage = getErrorMessage(err)
+      }
       toast.error(errorMessage);
 
       setWebhooks(prevWebhooks => 
@@ -284,6 +325,8 @@ export default function WebhooksPage() {
       return;
     }
 
+    // Сохраняем оригинальные данные для сравнения при сохранении
+    setOriginalWebhookData(webhook);
     setEditingWebhook(webhook);
     setFormData({
       name: webhook.name,
@@ -340,6 +383,7 @@ export default function WebhooksPage() {
       discord_channel_id: ''
     });
     setCustomHeaders([]);
+    setOriginalWebhookData(null);
     setSecretsVisibility({
       createTelegramToken: false,
       createDiscordToken: false,

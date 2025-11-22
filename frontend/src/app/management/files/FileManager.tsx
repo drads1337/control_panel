@@ -7,25 +7,32 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { 
   FolderOpen, Plus, Upload, Download, Trash2, Eye, FileText, 
   Image, Package, Search, AlertTriangle,
   Folder, File, Video, Music, Zap,
-  CloudUpload,
   RefreshCw, X, Check, ChevronRight, Database, Container
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { usePermissions } from '@/hooks/use-permissions';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
+import {
+  useFileManagerDialogs,
+  useFileManagerSelection,
+  useFileManagerFilters,
+  useFileManagerUpload,
+} from '@/hooks/files';
 import { getProducts } from '@/entities/product'
 import { getAgents } from '@/entities/agent'
-import { getProductFiles, createFolder, uploadProductConfig, uploadProductExtraFile, deleteProductConfig, deleteProductExtraFile, deleteProductFile, downloadProductConfig, downloadProductExtraFile, downloadProductFile } from '@/entities/file';
+import { getProductFiles, createFolder, deleteProductConfig, deleteProductExtraFile, deleteProductFile, downloadProductConfig, downloadProductExtraFile, downloadProductFile } from '@/entities/file';
 import { toast } from 'sonner';
 import { Spinner } from '@/components/ui/spinner';
 import { getErrorMessage } from '@/shared/api/enhanced-client';
+import { getErrorMessage as getErrorMessageUtil, isErrorWithMessage } from '@/lib/error-utils';
 import MultiFileUploadDialog from './MultiFileUploadDialog';
+import FileUploadDialog from './FileUploadDialog';
+import FileDetailsDialog from './FileDetailsDialog';
 import type { Product } from '@/entities/product';
 import type { FileItem } from '@/entities/file';
 import type { Agent } from '@/entities/agent';
@@ -189,7 +196,8 @@ const FilesList: React.FC<FilesListProps> = ({
   formatFileSize
 }) => {
   const parentRef = useRef<HTMLDivElement>(null);
-  const shouldVirtualize = files.length > 50;
+  // Lower threshold for better performance - virtualize when more than 30 items
+  const shouldVirtualize = files.length > 30;
 
   const rowVirtualizer = useVirtualizer({
     count: shouldVirtualize ? files.length : 0,
@@ -310,34 +318,27 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
   const [lastProductsLoad, setLastProductsLoad] = useState<number>(0);
   const PRODUCTS_LOAD_COOLDOWN = 5000;
 
-  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-
-  const FILTERS_STORAGE_KEY = 'fileManager_filters';
-
-  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const [fileDetailsOpen, setFileDetailsOpen] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
-
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [dragOver, setDragOver] = useState(false);
-
-  const [uploadForm, setUploadForm] = useState({
-    name: '',
-    description: '',
-    version: '1.0.0',
-    category: 'resource' as 'config' | 'resource',
-    uploadPath: '/'
+  // Используем специализированные хуки
+  const fileSelection = useFileManagerSelection();
+  const fileDialogs = useFileManagerDialogs();
+  
+  // Фильтры будут инициализированы после загрузки файлов
+  const fileFilters = useFileManagerFilters({
+    files,
+    showConfigsFolder,
+    selectedProductId: selectedProduct?.id,
   });
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Инициализация фильтров из localStorage при монтировании
+  useEffect(() => {
+    if (isAuthenticated && canViewFiles) {
+      fileFilters.loadFiltersFromStorage();
+    }
+  }, [isAuthenticated, canViewFiles, fileFilters]);
 
   useEffect(() => {
     if (isAuthenticated && canViewFiles) {
       loadInitialData();
-      loadFiltersFromStorage();
     }
   }, [isAuthenticated, canViewFiles]);
 
@@ -353,33 +354,6 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
       </div>
     );
   }
-
-  const loadFiltersFromStorage = () => {
-    try {
-      const savedFilters = localStorage.getItem(FILTERS_STORAGE_KEY);
-      if (savedFilters) {
-        const filters = JSON.parse(savedFilters);
-        setCategoryFilter(filters.categoryFilter || 'all');
-      }
-    } catch (error) {
-
-    }
-  };
-
-  const saveFiltersToStorage = () => {
-    try {
-      const filters = {
-        categoryFilter
-      };
-      localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(filters));
-    } catch (error) {
-
-    }
-  };
-
-  useEffect(() => {
-    saveFiltersToStorage();
-  }, [categoryFilter]);
 
   const filteredProductsForSelect = useMemo(() => {
     if (!products || !Array.isArray(products)) {
@@ -426,7 +400,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [searchTerm, categoryFilter]);
+  }, [fileFilters.searchTerm, fileFilters.categoryFilter, selectedProduct, selectedAgent, isAuthenticated]);
 
   useEffect(() => {
     if (!showTargetTypeToggle) {
@@ -468,9 +442,9 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
       }
 
       await ensureConfigsFoldersExist(response.products || []);
-    } catch (error: any) {
-
-      if (error.message?.includes('429') || error.message?.includes('TOO MANY REQUESTS')) {
+    } catch (error: unknown) {
+      const errorMsg = isErrorWithMessage(error) ? error.message : getErrorMessageUtil(error)
+      if (errorMsg.includes('429') || errorMsg.includes('TOO MANY REQUESTS')) {
         const retryDelay = Math.min(1000 * Math.pow(2, retryCount), 10000);
 
         if (retryCount < 3) {
@@ -535,9 +509,9 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
 
       const response = await getProductFiles(
         targetId, 
-        categoryFilter, 
+        fileFilters.categoryFilter, 
         'all', 
-        searchTerm,
+        fileFilters.searchTerm,
         targetTypeForApi as 'product' | 'agent' | 'auto'
       );
 
@@ -585,175 +559,32 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
     await loadInitialData();
   };
 
-  const toggleFileSelection = (fileId: string) => {
-    setSelectedFiles(prev => 
-      prev.includes(fileId) 
-        ? prev.filter(id => id !== fileId) 
-        : [...prev, fileId]
-    );
-  };
+  // Загрузка файлов - инициализируем после определения loadProductFiles
+  const fileUpload = useFileManagerUpload({
+    selectedProduct,
+    selectedAgent,
+    showConfigsFolder,
+    onUploadSuccess: loadProductFiles,
+  });
 
-  const selectAllFiles = () => {
-    setSelectedFiles(filteredFiles.map(f => f.id));
-  };
+  // Используем методы из хука выбора
+  const toggleFileSelection = fileSelection.toggleFileSelection;
+  const selectAllFiles = () => fileSelection.selectAllFiles(fileFilters.filteredFiles);
+  const clearSelection = fileSelection.clearSelection;
 
-  const clearSelection = () => {
-    setSelectedFiles([]);
-  };
+  // Используем методы из хука загрузки
+  const handleFileUpload = fileUpload.handleFileUpload;
+  const resetUploadForm = fileUpload.resetUploadForm;
 
-  const handleFileUpload = async (file: File) => {
-    const targetId = selectedProduct?.id || selectedAgent?.id;
-    if (!targetId) {
-      toast.error('Please select an product or agent first');
-      return false;
-    }
-
-    if (!file) {
-      toast.error('Please select a file to upload');
-      return false;
-    }
-
-    setUploading(true);
-    setUploadProgress(0);
-
-    try {
-
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 90) return prev;
-          return prev + Math.random() * 10;
-        });
-      }, 200);
-
-      let uploadResult;
-
-      const productId = selectedProduct?.id || selectedAgent?.id;
-      if (!productId) {
-        toast.error('No product or agent selected');
-        return false;
-      }
-
-      if (showConfigsFolder || uploadForm.uploadPath === '/configs') {
-        uploadResult = await uploadProductExtraFile(
-          file,
-          productId,
-          uploadForm.name || file.name,
-          uploadForm.description
-        );
-      } else if (uploadForm.category === 'config') {
-        uploadResult = await uploadProductConfig(
-          file,
-          productId,
-          uploadForm.name || file.name,
-          uploadForm.description,
-          uploadForm.version,
-          true
-        );
-      } else {
-        uploadResult = await uploadProductExtraFile(
-          file,
-          productId,
-          uploadForm.name || file.name,
-          uploadForm.description
-        );
-      }
-
-      clearInterval(progressInterval);
-      setUploadProgress(100);
-
-      toast.success(`File "${file.name}" uploaded successfully`);
-      setUploadDialogOpen(false);
-      resetUploadForm();
-
-      await loadProductFiles();
-
-      return true;
-    } catch (error: any) {
-
-      let errorMessage = 'Error uploading file';
-      if (error.message) {
-        if (error.message.includes('File too large')) {
-          errorMessage = 'File size exceeds the limit';
-        } else if (error.message.includes('Insufficient storage')) {
-          errorMessage = 'Insufficient storage space';
-        } else if (error.message.includes('File type not allowed')) {
-          errorMessage = 'File type not allowed';
-        } else if (error.message.includes('Product not found')) {
-          errorMessage = 'Selected product not found';
-        } else {
-          errorMessage = error.message;
-        }
-      }
-
-      toast.error(errorMessage);
-      return false;
-    } finally {
-      setUploading(false);
-      setUploadProgress(0);
-    }
-  };
-
-  const resetUploadForm = () => {
-    setUploadForm({
-      name: '',
-      description: '',
-      version: '1.0.0',
-      category: 'config',
-      uploadPath: showConfigsFolder ? '/configs' : '/'
+  // Используем методы drag & drop из хука загрузки
+  const handleDragOver = fileUpload.handleDragOver;
+  const handleDragLeave = fileUpload.handleDragLeave;
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    fileUpload.handleDrop(e, () => {
+      fileDialogs.openUploadDialog();
     });
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
+  }, [fileUpload, fileDialogs]);
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOver(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-      setDragOver(false);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOver(false);
-
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length === 0) {
-      toast.error('No files found in the drop');
-      return;
-    }
-
-    if (files.length > 1) {
-      toast.error('Please drop only one file at a time');
-      return;
-    }
-
-    const file = files[0];
-
-    const maxSize = 5 * 1024 * 1024 * 1024;
-    if (file.size > maxSize) {
-      toast.error('File size exceeds 5GB limit');
-      return;
-    }
-
-    setUploadForm(prev => ({
-      ...prev,
-      name: file.name,
-      category: file.name.toLowerCase().includes('config') ? 'config' : 'resource'
-    }));
-
-    setUploadDialogOpen(true);
-    toast.success(`File "${file.name}" ready for upload`);
-  };
 
   const handleFileDownload = async (file: FileItem) => {
     try {
@@ -809,18 +640,18 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
       window.URL.revokeObjectURL(url);
 
       toast.success(`File "${filename}" downloaded successfully`);
-    } catch (error: any) {
-
+    } catch (error: unknown) {
       let errorMessage = 'Error downloading file';
-      if (error.message) {
-        if (error.message.includes('File not found')) {
+      const errorMsg = isErrorWithMessage(error) ? error.message : getErrorMessageUtil(error)
+      if (errorMsg) {
+        if (errorMsg.includes('File not found')) {
           errorMessage = 'File not found on server';
-        } else if (error.message.includes('Access denied')) {
+        } else if (errorMsg.includes('Access denied')) {
           errorMessage = 'Access denied to this file';
-        } else if (error.message.includes('Network')) {
+        } else if (errorMsg.includes('Network')) {
           errorMessage = 'Network error during download';
         } else {
-          errorMessage = error.message;
+          errorMessage = errorMsg;
         }
       }
 
@@ -868,23 +699,23 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
 
       toast.success(`File "${file.name}" deleted successfully`);
 
-      setSelectedFiles(prev => prev.filter(id => id !== file.id));
+      fileSelection.setSelectedFiles((prev) => prev.filter((id) => id !== file.id));
 
       await loadProductFiles();
 
       return true;
-    } catch (error: any) {
-
+    } catch (error: unknown) {
       let errorMessage = 'Error deleting file';
-      if (error.message) {
-        if (error.message.includes('File not found')) {
+      const errorMsg = isErrorWithMessage(error) ? error.message : getErrorMessageUtil(error)
+      if (errorMsg) {
+        if (errorMsg.includes('File not found')) {
           errorMessage = 'File not found on server';
-        } else if (error.message.includes('Access denied')) {
+        } else if (errorMsg.includes('Access denied')) {
           errorMessage = 'Access denied to delete this file';
-        } else if (error.message.includes('Permission')) {
+        } else if (errorMsg.includes('Permission')) {
           errorMessage = 'Insufficient permissions to delete this file';
         } else {
-          errorMessage = error.message;
+          errorMessage = errorMsg;
         }
       }
 
@@ -894,14 +725,9 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
   };
 
   const handleBulkDownload = async () => {
-    if (selectedFiles.length === 0) {
-      toast.error('No files selected for download');
-      return;
-    }
-
-    const selectedFileObjects = files.filter(f => selectedFiles.includes(f.id));
+    const selectedFileObjects = fileSelection.getSelectedFileObjects(files);
     if (selectedFileObjects.length === 0) {
-      toast.error('Selected files not found');
+      toast.error('No files selected for download');
       return;
     }
 
@@ -915,10 +741,8 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
         try {
           await handleFileDownload(file);
           successCount++;
-
           await new Promise(resolve => setTimeout(resolve, 300));
         } catch (error) {
-
           errorCount++;
         }
       }
@@ -930,20 +754,14 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
         toast.error(`Failed to download ${errorCount} files`);
       }
     } catch (error) {
-
       toast.error('Bulk download failed');
     }
   };
 
   const handleBulkDelete = async () => {
-    if (selectedFiles.length === 0) {
-      toast.error('No files selected for deletion');
-      return;
-    }
-
-    const selectedFileObjects = files.filter(f => selectedFiles.includes(f.id));
+    const selectedFileObjects = fileSelection.getSelectedFileObjects(files);
     if (selectedFileObjects.length === 0) {
-      toast.error('Selected files not found');
+      toast.error('No files selected for deletion');
       return;
     }
 
@@ -967,12 +785,11 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
             errorCount++;
           }
         } catch (error) {
-
           errorCount++;
         }
       }
 
-      setSelectedFiles([]);
+      fileSelection.clearSelection();
 
       if (successCount > 0) {
         toast.success(`Successfully deleted ${successCount} files`);
@@ -981,15 +798,12 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
         toast.error(`Failed to delete ${errorCount} files`);
       }
     } catch (error) {
-
       toast.error('Bulk deletion failed');
     }
   };
 
-  const handleViewFile = (file: FileItem) => {
-    setSelectedFile(file);
-    setFileDetailsOpen(true);
-  };
+  // Используем метод из хука диалогов
+  const handleViewFile = fileDialogs.openFileDetails;
 
   const handleFolderClick = (folderName: string) => {
     if (folderName === 'configs') {
@@ -1003,7 +817,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
     setCurrentPath('/');
   };
 
-  const hasActiveFilters = searchTerm !== '' || categoryFilter !== 'all';
+  const hasActiveFilters = fileFilters.hasActiveFilters;
 
   const getFileIcon = (fileName: string, fileType?: string) => {
 
@@ -1070,70 +884,8 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const filteredFiles = useMemo(() => {
-    if (!files || files.length === 0) {
-      return [];
-    }
-
-    if (showConfigsFolder) {
-
-      return files.filter(file => {
-        const searchMatch = searchTerm === '' || 
-          file.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (file.description && file.description.toLowerCase().includes(searchTerm.toLowerCase()));
-
-        const categoryMatch = categoryFilter === 'all' || file.category === categoryFilter;
-        const pathMatch = file.path && file.path.includes('/configs/');
-
-        return searchMatch && categoryMatch && pathMatch;
-      }).sort((a, b) => {
-
-        if (a.type === 'folder' && b.type !== 'folder') return -1;
-        if (a.type !== 'folder' && b.type === 'folder') return 1;
-        return a.name.localeCompare(b.name);
-      });
-    } else {
-
-      const regularFiles = files.filter(file => {
-        const searchMatch = searchTerm === '' || 
-          file.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (file.description && file.description.toLowerCase().includes(searchTerm.toLowerCase()));
-
-        const categoryMatch = categoryFilter === 'all' || file.category === categoryFilter;
-        const notInConfigs = !file.path || !file.path.includes('/configs/');
-
-        return searchMatch && categoryMatch && notInConfigs;
-      }).sort((a, b) => {
-
-        if (a.type === 'folder' && b.type !== 'folder') return -1;
-        if (a.type !== 'folder' && b.type === 'folder') return 1;
-        return a.name.localeCompare(b.name);
-      });
-
-      const configsFolderMatches = searchTerm === '' || 
-        'configs'.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        'user settings'.toLowerCase().includes(searchTerm.toLowerCase());
-
-      if (configsFolderMatches && (categoryFilter === 'all' || categoryFilter === 'folder')) {
-        const configsFolder: FileItem = {
-          id: 'configs_folder',
-          name: 'configs',
-          type: 'folder',
-          category: 'folder',
-          size: 0,
-          modified: new Date().toISOString(),
-          status: 'active',
-          path: '/configs',
-          description: 'Folder for user settings',
-          productId: selectedProduct?.id
-        };
-
-        return [configsFolder, ...regularFiles];
-      }
-
-      return regularFiles;
-    }
-  }, [files, searchTerm, categoryFilter, showConfigsFolder, selectedProduct]);
+  // Используем отфильтрованные файлы из хука фильтров
+  const filteredFiles = fileFilters.filteredFiles;
 
   const stats = useMemo(() => ({
     total: files.length,
@@ -1287,7 +1039,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
                         setSelectedProduct(item as Product);
                         setSelectedAgent(null);
                       }
-                      setSelectedFiles([]);
+                      fileSelection.clearSelection();
                     }}
                   >
                     <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -1321,13 +1073,13 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
       )}
 
       {}
-      {selectedFiles.length > 0 && (
+      {fileSelection.selectedFiles.length > 0 && (
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">
-                  Selected: {selectedFiles.length} {selectedFiles.length === 1 ? 'file' : 'files'}
+                  Selected: {fileSelection.selectedFiles.length} {fileSelection.selectedFiles.length === 1 ? 'file' : 'files'}
                 </span>
                 <Button variant="outline" size="sm" onClick={clearSelection}>
                   <X className="h-4 w-4 mr-1" />
@@ -1389,9 +1141,9 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
         </Card>
       ) : hasItems && (selectedProduct || selectedAgent) ? (
         <Card 
-          className={`transition-colors ${dragOver ? 'border-primary bg-primary/5' : ''}`}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
+          className={`transition-colors ${fileUpload.dragOver ? 'border-primary bg-primary/5' : ''}`}
+          onDragOver={fileUpload.handleDragOver}
+          onDragLeave={fileUpload.handleDragLeave}
           onDrop={handleDrop}
         >
           <CardHeader className="pb-0">
@@ -1416,7 +1168,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
                 </div>
                 <CardDescription className="mt-1 text-xs">
                   {filteredFiles.length} {filteredFiles.length === 1 ? 'file' : 'files'}
-                  {dragOver && (
+                  {fileUpload.dragOver && (
                     <span className="text-primary ml-2">• Drag files here to upload</span>
                   )}
                 </CardDescription>
@@ -1443,7 +1195,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
                   <Button 
                     variant="default" 
                     size="sm"
-                    onClick={() => setUploadDialogOpen(true)}
+                    onClick={fileDialogs.openUploadDialog}
                     disabled={!canUploadFiles}
                   >
                     <Upload className="h-4 w-4 mr-1.5" />
@@ -1463,12 +1215,12 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
                 <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search files..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  value={fileFilters.searchTerm}
+                  onChange={(e) => fileFilters.setSearchTerm(e.target.value)}
                   className="pl-8"
                 />
               </div>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <Select value={fileFilters.categoryFilter} onValueChange={fileFilters.setCategoryFilter}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
@@ -1494,7 +1246,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
             ) : (
               <FilesList
                 files={filteredFiles}
-                selectedFiles={selectedFiles}
+                selectedFiles={fileSelection.selectedFiles}
                 canDownload={canDownloadFiles}
                 canDelete={canDeleteFiles}
                 onToggleSelection={toggleFileSelection}
@@ -1511,272 +1263,43 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
       ) : null}
 
       {}
-      <Dialog open={fileDetailsOpen} onOpenChange={setFileDetailsOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Eye className="w-5 h-5 text-primary" />
-              File Information
-            </DialogTitle>
-            <DialogDescription>
-              Detailed information about the selected file
-            </DialogDescription>
-          </DialogHeader>
-          {selectedFile && (
-            <div className="grid gap-6 py-4">
-              <div className="flex items-center gap-3">
-                {getFileIcon(selectedFile.name)}
-                <div>
-                  <div className="font-medium text-lg">{selectedFile.name}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {selectedFile.category === 'config' && 'Configuration file'}
-                    {selectedFile.category === 'resource' && 'Extra file'}
-                    {selectedFile.category === 'logo' && 'Logo'}
-                    {selectedFile.category === 'banner' && 'Banner'}
-                    {selectedFile.category === 'agent' && 'Agent'}
-                  </div>
-                </div>
-              </div>
 
-              {selectedFile.description && (
-                <div>
-                  <Label className="text-sm font-medium">Description</Label>
-                  <div className="text-sm text-muted-foreground mt-1">
-                    {selectedFile.description}
-                  </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium">File ID</Label>
-                  <div className="text-sm text-muted-foreground font-mono">
-                    {selectedFile.id}
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Size</Label>
-                  <div className="text-sm text-muted-foreground">
-                    {formatFileSize(selectedFile.size)}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium">Status</Label>
-                  <div className="text-sm">
-                    <Badge variant={selectedFile.status === 'active' ? 'default' : 'secondary'}>
-                      {selectedFile.status === 'active' ? 'Active' : 'Inactive'}
-                    </Badge>
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Modified</Label>
-                  <div className="text-sm text-muted-foreground">
-                    {new Date(selectedFile.modified).toLocaleString()}
-                  </div>
-                </div>
-              </div>
-
-              {selectedFile.version && (
-                <div>
-                  <Label className="text-sm font-medium">Version</Label>
-                  <div className="text-sm text-muted-foreground">
-                    v{selectedFile.version}
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <Label className="text-sm font-medium">Last Modified</Label>
-                <div className="text-sm text-muted-foreground">
-                  {new Date(selectedFile.modified).toLocaleString('en-US')}
-                </div>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setFileDetailsOpen(false)}>
-              Close
-            </Button>
-            {selectedFile && (
-              <ConditionalRender permission="products.files_download" fallback={null}>
-                <Button onClick={() => {
-                  setFileDetailsOpen(false);
-                  handleFileDownload(selectedFile);
-                }} disabled={!canDownloadFiles}>
-                  <Download className="mr-2 h-4 w-4" />
-                  Download
-                </Button>
-              </ConditionalRender>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <FileDetailsDialog
+        open={fileDialogs.fileDetailsOpen}
+        onOpenChange={fileDialogs.setFileDetailsOpen}
+        selectedFile={fileDialogs.selectedFile}
+        canDownloadFiles={canDownloadFiles}
+        getFileIcon={getFileIcon}
+        formatFileSize={formatFileSize}
+        onDownload={handleFileDownload}
+        onClose={fileDialogs.closeFileDetails}
+      />
 
       {}
-      <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CloudUpload className="w-5 h-5 text-primary" />
-              Upload File
-            </DialogTitle>
-            <DialogDescription>
-              {selectedProduct || selectedAgent
-                ? `Upload a file for ${selectedProduct?.name || selectedAgent?.name || 'the selected item'}${showConfigsFolder ? ' to the configs folder' : ''}`
-                : 'Select an product or agent to upload a file'
-              }
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-6 py-4">
-            <div className="space-y-3">
-              <Label className="text-sm font-medium">File to upload</Label>
-              <div 
-                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                  dragOver ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'
-                }`}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-              >
-                <CloudUpload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground mb-2">
-                  Drag and drop a file here or click to select
-                </p>
-                <Button 
-                  variant="outline" 
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  Select file
-                </Button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      setUploadForm(prev => ({ ...prev, name: file.name }));
-                    }
-                  }}
-                />
-              </div>
-            </div>
-
-            {!showConfigsFolder && (
-              <div className="grid gap-2">
-                <Label htmlFor="upload-category">File type</Label>
-                <Select 
-                  value={uploadForm.category} 
-                  onValueChange={(value: 'config' | 'resource') => 
-                    setUploadForm(prev => ({ ...prev, category: value }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <ConditionalRender permission="products.files_manage_configs" fallback={null}>
-                      <SelectItem value="config">Configuration</SelectItem>
-                    </ConditionalRender>
-                    <ConditionalRender permission="products.files_manage_resources" fallback={null}>
-                      <SelectItem value="resource">Resource</SelectItem>
-                    </ConditionalRender>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {showConfigsFolder && (
-              <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
-                <p className="text-sm text-blue-700 dark:text-blue-300">
-                  Files will be uploaded to the <strong>configs</strong> folder for user settings
-                </p>
-              </div>
-            )}
-
-            <div className="grid gap-2">
-              <Label htmlFor="upload-name">Name (optional)</Label>
-              <Input
-                id="upload-name"
-                placeholder="Leave empty to use the original file name"
-                value={uploadForm.name}
-                onChange={(e) => setUploadForm(prev => ({ ...prev, name: e.target.value }))}
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="upload-description">Description</Label>
-              <Textarea
-                id="upload-description"
-                placeholder="File description"
-                value={uploadForm.description}
-                onChange={(e) => setUploadForm(prev => ({ ...prev, description: e.target.value }))}
-              />
-            </div>
-
-            {!showConfigsFolder && uploadForm.category === 'config' && (
-              <ConditionalRender permission="products.files_manage_configs" fallback={null}>
-                <div className="grid gap-2">
-                  <Label htmlFor="upload-version">Version</Label>
-                  <Input
-                    id="upload-version"
-                    placeholder="1.0.0"
-                    value={uploadForm.version}
-                    onChange={(e) => setUploadForm(prev => ({ ...prev, version: e.target.value }))}
-                  />
-                </div>
-              </ConditionalRender>
-            )}
-
-            {}
-            {uploading && (
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Uploading...</span>
-                  <span>{Math.round(uploadProgress)}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-2xl h-2">
-                  <div 
-                    className="bg-primary h-2 rounded-2xl transition-all duration-300"
-                    style={{ width: `${uploadProgress}%` }}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => {
-              setUploadDialogOpen(false);
-              resetUploadForm();
-            }} disabled={uploading}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={() => {
-                const file = fileInputRef.current?.files?.[0];
-                if (file) {
-                  handleFileUpload(file);
-                } else {
-                  toast.error('Select a file to upload');
-                }
-              }}
-              disabled={uploading || (!selectedProduct && !selectedAgent)}
-            >
-              {uploading ? (
-                <div className="flex items-center gap-2">
-                  <Spinner className="h-4 w-4" />
-                  Uploading...
-                </div>
-              ) : (
-                'Upload'
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <FileUploadDialog
+        open={fileDialogs.uploadDialogOpen}
+        onOpenChange={fileDialogs.setUploadDialogOpen}
+        selectedProduct={selectedProduct}
+        selectedAgent={selectedAgent}
+        showConfigsFolder={showConfigsFolder}
+        canUploadFiles={canUploadFiles}
+        uploadForm={fileUpload.uploadForm}
+        uploading={fileUpload.uploading}
+        uploadProgress={fileUpload.uploadProgress}
+        dragOver={fileUpload.dragOver}
+        fileInputRef={fileUpload.fileInputRef}
+        onUploadFormChange={fileUpload.setUploadForm}
+        onDragOver={fileUpload.handleDragOver}
+        onDragLeave={fileUpload.handleDragLeave}
+        onDrop={(e) => fileUpload.handleDrop(e, (file) => {
+          // File is already set in uploadForm by handleDrop
+        })}
+        onFileSelect={(file) => {
+          fileUpload.setUploadForm(prev => ({ ...prev, name: file.name }));
+        }}
+        onUpload={handleFileUpload}
+        onResetForm={resetUploadForm}
+      />
     </div>
   );
 };

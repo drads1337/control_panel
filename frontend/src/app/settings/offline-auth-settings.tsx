@@ -4,7 +4,7 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { WifiOff, Clock } from 'lucide-react'
-import { useSettingsQuery } from '@/hooks/use-settings-query'
+import { useSettingsQuery } from '@/entities/settings'
 
 export default function OfflineAuthSettings() {
   const { settings, saveSettings, isSaving } = useSettingsQuery()

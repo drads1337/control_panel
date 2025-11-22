@@ -30,6 +30,59 @@ from ..utils.role_constants import RolePermissions
 
 clients_bp = Blueprint("clients", __name__)
 
+def find_user_by_id_or_unique_id(user_identifier, project_id=None):
+    """
+    Helper function to find a user by either id (int) or unique_id (string)
+    
+    Args:
+        user_identifier: Either an integer id or string unique_id
+        project_id: Optional project_id for additional filtering
+    
+    Returns:
+        User object or None if not found
+    """
+    # Try as integer id (primary key) first
+    if isinstance(user_identifier, int) or (isinstance(user_identifier, str) and user_identifier.isdigit()):
+        user = User.query.get(int(user_identifier))
+        if user:
+            if project_id is None or user.project_id == project_id:
+                return user
+    
+    # Try as unique_id (string)
+    user = User.query.filter_by(unique_id=str(user_identifier)).first()
+    if user:
+        if project_id is None or user.project_id == project_id:
+            return user
+    
+    return None
+
+def find_product_by_id_or_unique_id(product_identifier, project_id):
+    """
+    Helper function to find a product by either id (int) or unique_id (string)
+    
+    Args:
+        product_identifier: Either an integer id or string unique_id
+        project_id: Project ID to filter by
+    
+    Returns:
+        Product object or None if not found
+    """
+    from ..models.products import Product
+    
+    # Try as integer id (primary key) first
+    if isinstance(product_identifier, int) or (isinstance(product_identifier, str) and product_identifier.isdigit()):
+        try:
+            product_id_int = int(product_identifier)
+            product = Product.query.filter_by(id=product_id_int, project_id=project_id).first()
+            if product:
+                return product
+        except (ValueError, TypeError):
+            pass
+    
+    # Try as unique_id (string)
+    product = Product.query.filter_by(unique_id=str(product_identifier), project_id=project_id).first()
+    return product
+
 @clients_bp.route("", methods=["GET"])
 @jwt_required()
 @require_user
@@ -219,12 +272,12 @@ def bulk_delete_clients(current_user=None, project_id=None):
         db.session.rollback()
         return jsonify({"error": f"Failed to delete clients: {str(e)}"}), 500
 
-@clients_bp.route("/<int:product_id>/classic-users", methods=["GET"])
+@clients_bp.route("/<product_identifier>/classic-users", methods=["GET"])
 @jwt_required()
 @require_user
 @require_role(RolePermissions.PRODUCT_MANAGEMENT_ROLES)
 @require_project_isolation
-def get_classic_users_for_product(product_id, current_user=None):
+def get_classic_users_for_product(product_identifier, current_user=None):
     """Get users who have permissions for a specific product"""
 
     if current_user is None:
@@ -233,7 +286,7 @@ def get_classic_users_for_product(product_id, current_user=None):
 
     from ..models.products import Product
 
-    product = Product.query.filter_by(id=product_id, project_id=current_user.project_id).first()
+    product = find_product_by_id_or_unique_id(product_identifier, current_user.project_id)
     if not product:
         return jsonify({"error": "Product not found"}), 404
 
@@ -245,7 +298,7 @@ def get_classic_users_for_product(product_id, current_user=None):
         return jsonify({"error": "Access denied"}), 403
 
     user_permissions = (
-        UserProductPermission.query.filter_by(product_id=product_id, project_id=product.project_id)
+        UserProductPermission.query.filter_by(product_id=product.id, project_id=product.project_id)
         .options(joinedload(UserProductPermission.user))
         .all()
     )
@@ -266,10 +319,9 @@ def get_classic_users_for_product(product_id, current_user=None):
             }
         )
 
-    return jsonify({"users": users, "product_id": product_id, "product_name": product.name})
+    return jsonify({"users": users, "product_id": product.id, "product_name": product.name})
 
-@clients_bp.route("/<int:user_id>/products", methods=["GET"])
-@clients_bp.route("/<int:user_id>/products", methods=["GET"])
+@clients_bp.route("/<user_id>/products", methods=["GET"])
 @jwt_required()
 @require_user
 @require_permission("clients.view")
@@ -280,17 +332,67 @@ def get_user_products(user_id, current_user=None):
     if current_user is None:
         from flask import g
         current_user = g.current_user
-    target_user = User.query.get(user_id)
 
+    logging.info(
+        f"CLIENTS_PRODUCTS_GET: Request for user_id={user_id} (type={type(user_id).__name__}) by current_user_id={current_user.id} "
+        f"(username={current_user.username}, project_id={current_user.project_id})"
+    )
+
+    # Check if user exists in database - try by id or unique_id
+    target_user = find_user_by_id_or_unique_id(user_id, current_user.project_id)
+    
     if not target_user:
+        # Additional debugging: check if any user with this ID exists (shouldn't be needed, but for debugging)
+        from sqlalchemy import text
+        try:
+            result = db.session.execute(
+                text("SELECT id, username, project_id FROM \"user\" WHERE id = :user_id"),
+                {"user_id": user_id}
+            ).fetchone()
+            
+            if result:
+                logging.error(
+                    f"CLIENTS_PRODUCTS_GET: User {user_id} exists in DB (username={result[1]}, project_id={result[2]}) "
+                    f"but User.query.get() returned None. This is unexpected! "
+                    f"Requested by current_user_id={current_user.id} (project_id={current_user.project_id})"
+                )
+            else:
+                logging.error(
+                    f"CLIENTS_PRODUCTS_GET: User not found - user_id={user_id} does not exist in database at all. "
+                    f"Requested by current_user_id={current_user.id} (username={current_user.username}, "
+                    f"project_id={current_user.project_id})"
+                )
+        except Exception as db_error:
+            logging.error(
+                f"CLIENTS_PRODUCTS_GET: Error checking user existence: {db_error}. "
+                f"User {user_id} not found. Requested by current_user_id={current_user.id}"
+            )
+        
         return jsonify({"error": "User not found"}), 404
 
-    from ..services.rbac import rbac_service
-    from ..utils.rbac_utils import RBACManager
+    logging.info(
+        f"CLIENTS_PRODUCTS_GET: Target user found - user_id={user_id}, username={target_user.username}, "
+        f"project_id={target_user.project_id}, current_user_project_id={current_user.project_id}"
+    )
 
-    if not rbac_service.check_permission(current_user.id, "clients.view"):
-        if current_user.project_id != target_user.project_id:
-            return jsonify({"error": "Access denied"}), 403
+    # Handle users without project_id
+    if not target_user.project_id:
+        logging.warning(
+            f"CLIENTS_PRODUCTS_GET: User {user_id} (username={target_user.username}) has no project_id. "
+            f"Returning empty products list."
+        )
+        return jsonify([])
+
+    # Enforce project isolation - users can only access products for users in their own project
+    if target_user.project_id != current_user.project_id:
+        logging.error(
+            f"CLIENTS_PRODUCTS_GET: Project isolation violation - user_id={user_id} "
+            f"(username={target_user.username}, project_id={target_user.project_id}) "
+            f"belongs to different project than current_user_id={current_user.id} "
+            f"(username={current_user.username}, project_id={current_user.project_id}). "
+            f"Returning 404 to prevent information leakage."
+        )
+        return jsonify({"error": "User not found"}), 404
 
     try:
         from ..models.products import Product
@@ -300,7 +402,9 @@ def get_user_products(user_id, current_user=None):
         if not project_products:
             return jsonify([])
 
-        user_permissions = UserProductPermission.query.filter_by(user_id=user_id).all()
+        # Use the actual database id
+        actual_user_id = target_user.id
+        user_permissions = UserProductPermission.query.filter_by(user_id=actual_user_id).all()
         permission_map = {up.product_id: up.has_access for up in user_permissions}
 
         product_list = []
@@ -316,6 +420,10 @@ def get_user_products(user_id, current_user=None):
                 }
             )
 
+        logging.info(
+            f"CLIENTS_PRODUCTS_GET: Successfully retrieved {len(product_list)} products "
+            f"for user_id={user_id} (username={target_user.username}, project_id={target_user.project_id})"
+        )
         return jsonify(product_list)
 
     except Exception as e:
@@ -323,8 +431,7 @@ def get_user_products(user_id, current_user=None):
         logging.error(f"Error in get_user_products: {e}")
         return jsonify([])
 
-@clients_bp.route("/<int:user_id>/products/<int:product_id>/toggle", methods=["POST"])
-@clients_bp.route("/<int:user_id>/products/<int:product_id>/toggle", methods=["POST"])
+@clients_bp.route("/<user_id>/products/<product_id>/toggle", methods=["POST"])
 @jwt_required()
 @require_user
 @require_role(RolePermissions.PRODUCT_MANAGEMENT_ROLES)
@@ -335,14 +442,14 @@ def toggle_user_product_access(user_id, product_id, current_user=None):
     if current_user is None:
         from flask import g
         current_user = g.current_user
-    target_user = User.query.get(user_id)
+    
+    target_user = find_user_by_id_or_unique_id(user_id, current_user.project_id)
 
     if not target_user:
         return jsonify({"error": "User not found"}), 404
 
-    from ..models.products import Product
-
-    product = Product.query.filter_by(id=product_id, project_id=target_user.project_id).first()
+    # Find product by id or unique_id
+    product = find_product_by_id_or_unique_id(product_id, target_user.project_id)
     if not product:
         return jsonify({"error": "Product not found"}), 404
 
@@ -357,14 +464,17 @@ def toggle_user_product_access(user_id, product_id, current_user=None):
             return jsonify({"error": "Access denied"}), 403
 
     try:
-        user_product = UserProductPermission.query.filter_by(user_id=user_id, product_id=product_id).first()
+        # Use the actual database ids
+        actual_user_id = target_user.id
+        actual_product_id = product.id
+        user_product = UserProductPermission.query.filter_by(user_id=actual_user_id, product_id=actual_product_id).first()
 
         if user_product:
             user_product.has_access = not user_product.has_access
             new_status = user_product.has_access
         else:
             user_product = UserProductPermission(
-                user_id=user_id, product_id=product_id, has_access=True, project_id=target_user.project_id
+                user_id=actual_user_id, product_id=actual_product_id, has_access=True, project_id=target_user.project_id
             )
             db.session.add(user_product)
             new_status = True
@@ -375,9 +485,9 @@ def toggle_user_product_access(user_id, product_id, current_user=None):
             from ..services.cache import cache_service
             from ..services.products import product_service
 
-            product_service.invalidate_product_cache(target_user.project_id, product_id)
+            product_service.invalidate_product_cache(target_user.project_id, actual_product_id)
 
-            cache_service.invalidate_product_instantly(target_user.project_id, product_id)
+            cache_service.invalidate_product_instantly(target_user.project_id, actual_product_id)
 
             all_user_product_cache_patterns = [
                 f"products:project_id={target_user.project_id}:user_id=*:*",
@@ -394,7 +504,7 @@ def toggle_user_product_access(user_id, product_id, current_user=None):
                     logging.warning(f"Failed to invalidate pattern {pattern}: {pattern_error}")
 
             logging.info(
-                f"Invalidated product cache for project {target_user.project_id}, product {product_id} and ALL users after access change for user {user_id}"
+                f"Invalidated product cache for project {target_user.project_id}, product {actual_product_id} and ALL users after access change for user {actual_user_id}"
             )
         except Exception as cache_error:
             logging.warning(f"Failed to invalidate product cache: {cache_error}")
@@ -410,8 +520,8 @@ def toggle_user_product_access(user_id, product_id, current_user=None):
         return jsonify(
             {
                 "message": f"Product access {action} successfully",
-                "user_id": user_id,
-                "product_id": product_id,
+                "user_id": actual_user_id,
+                "product_id": actual_product_id,
                 "product_name": product.name,
                 "has_access": new_status,
             }

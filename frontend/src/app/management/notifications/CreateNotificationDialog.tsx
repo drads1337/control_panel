@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,11 +6,14 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Bell, Send, Loader2, Clock, EyeOff } from 'lucide-react';
-import { sendProductNotification } from '@/entities/notification';
-import { useAuth } from '@/hooks/use-auth';
+import { Spinner } from '@/components/ui/spinner';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { CalendarIcon, Clock } from 'lucide-react';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { sendProductNotification, sendAgentNotification } from '@/entities/notification';
 import { usePermissions } from '@/hooks/use-permissions';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
 import { toast } from 'sonner';
@@ -21,6 +24,7 @@ interface CreateNotificationDialogProps {
   onOpenChange: (open: boolean) => void;
   product: Product;
   onNotificationCreated?: () => void;
+  isAgent?: boolean;
 }
 
 const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
@@ -28,10 +32,13 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
   onOpenChange,
   product,
   onNotificationCreated,
+  isAgent = false,
 }) => {
   const { hasPermission } = usePermissions();
 
-  const canCreateNotifications = hasPermission('products.notifications_create');
+  const canCreateNotifications = isAgent
+    ? hasPermission('agents.notifications_create') || hasPermission('products.notifications_create')
+    : hasPermission('products.notifications_create');
 
   if (!canCreateNotifications) {
     return null;
@@ -43,9 +50,36 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
   const [customType, setCustomType] = useState('');
   const [repeatCount, setRepeatCount] = useState(1);
   const [useCurrentTime, setUseCurrentTime] = useState(true);
-  const [scheduledDate, setScheduledDate] = useState('');
+  const [scheduledDate, setScheduledDate] = useState<Date | undefined>(undefined);
   const [scheduledTime, setScheduledTime] = useState('');
+  const [scheduledHour, setScheduledHour] = useState<string>('');
+  const [scheduledMinute, setScheduledMinute] = useState<string>('');
   const [sending, setSending] = useState(false);
+
+  // Генерируем опции для часов и минут
+  const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
+  const minutes = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
+
+  // Обновляем scheduledTime когда меняются час или минута
+  useEffect(() => {
+    if (scheduledHour && scheduledMinute) {
+      setScheduledTime(`${scheduledHour}:${scheduledMinute}`);
+    } else if (!scheduledHour && !scheduledMinute) {
+      setScheduledTime('');
+    }
+  }, [scheduledHour, scheduledMinute]);
+
+  // Парсим scheduledTime в час и минуту при изменении
+  useEffect(() => {
+    if (scheduledTime && scheduledTime.includes(':')) {
+      const [hour, minute] = scheduledTime.split(':');
+      setScheduledHour(hour);
+      setScheduledMinute(minute);
+    } else if (!scheduledTime) {
+      setScheduledHour('');
+      setScheduledMinute('');
+    }
+  }, [scheduledTime]);
 
   const handleSendClick = async () => {
     if (!title.trim() || !message.trim()) {
@@ -68,19 +102,30 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
 
       let scheduledAt = null;
       if (!useCurrentTime && scheduledDate && scheduledTime) {
-        scheduledAt = new Date(`${scheduledDate}T${scheduledTime}`).toISOString();
+        const dateStr = scheduledDate.toISOString().split('T')[0];
+        scheduledAt = new Date(`${dateStr}T${scheduledTime}`).toISOString();
       }
 
-      const result = await sendProductNotification(product.id, {
-        title: title.trim(),
-        message: message.trim(),
-        type: type === 'custom' ? customType.trim() : type,
-        repeatCount,
-        is_scheduled: !useCurrentTime,
-        scheduled_at: scheduledAt
-      });
-
-      toast.success(`Notification "${title}" sent successfully! Received by ${result.notifications_created} users.`);
+      let result;
+      if (isAgent) {
+        result = await sendAgentNotification(product.id, {
+          message: `${title.trim()}: ${message.trim()}`,
+          type: type === 'custom' ? customType.trim() : type,
+          is_scheduled: !useCurrentTime,
+          scheduled_at: scheduledAt
+        });
+        toast.success(`Notification "${title}" sent successfully! Received by ${result.notifications_created} users.`);
+      } else {
+        result = await sendProductNotification(product.id, {
+          title: title.trim(),
+          message: message.trim(),
+          type: type === 'custom' ? customType.trim() : type,
+          repeatCount,
+          is_scheduled: !useCurrentTime,
+          scheduled_at: scheduledAt
+        });
+        toast.success(`Notification "${title}" sent successfully! Received by ${result.notifications_created} users.`);
+      }
 
       setTitle('');
       setMessage('');
@@ -88,8 +133,10 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
       setCustomType('');
       setRepeatCount(1);
       setUseCurrentTime(true);
-      setScheduledDate('');
+      setScheduledDate(undefined);
       setScheduledTime('');
+      setScheduledHour('');
+      setScheduledMinute('');
 
       onOpenChange(false);
 
@@ -111,8 +158,10 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
     setCustomType('');
     setRepeatCount(1);
     setUseCurrentTime(true);
-    setScheduledDate('');
+    setScheduledDate(undefined);
     setScheduledTime('');
+    setScheduledHour('');
+    setScheduledMinute('');
     onOpenChange(false);
   };
 
@@ -149,22 +198,20 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] w-[90vw] overflow-hidden">
         <DialogHeader className="pb-4">
-          <DialogTitle className="flex items-center gap-2 text-xl">
-            <Bell className="h-6 w-6" />
+          <DialogTitle className="text-base">
             Create New Notification
           </DialogTitle>
-          <DialogDescription className="text-base">
+          <DialogDescription className="mt-1 text-xs">
             Create a new notification for the product "{product.name}"
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 overflow-y-auto max-h-[calc(90vh-120px)] pr-2">
-          <Card className="border-2">
-            <CardContent className="p-4">
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="notificationTitle" className="text-sm font-medium">Notification Title</Label>
+          <div className="border rounded-lg p-4">
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="notificationTitle" className="text-sm">Notification Title</Label>
                     <Input
                       id="notificationTitle"
                       placeholder="Enter notification title"
@@ -176,7 +223,7 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="notificationType" className="text-sm font-medium">Notification Type</Label>
+                    <Label htmlFor="notificationType" className="text-sm">Notification Type</Label>
                     <Select 
                       value={type} 
                       onValueChange={(value: 'info' | 'warning' | 'error' | 'success' | 'custom') => setType(value)}
@@ -198,7 +245,7 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
 
                 {type === 'custom' && (
                   <div className="space-y-2">
-                    <Label htmlFor="customType" className="text-sm font-medium">Custom Type Name</Label>
+                    <Label htmlFor="customType" className="text-sm">Custom Type Name</Label>
                     <Input
                       id="customType"
                       placeholder="Enter type name (e.g., Update, News, Important)"
@@ -211,7 +258,7 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
                 )}
 
                 <div className="space-y-2">
-                  <Label htmlFor="notificationMessage" className="text-sm font-medium">Notification Text</Label>
+                  <Label htmlFor="notificationMessage" className="text-sm">Notification Text</Label>
                   <Textarea
                     id="notificationMessage"
                     placeholder="Enter notification text"
@@ -237,14 +284,14 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
                       disabled={sending}
                       className="h-9 w-20"
                     />
-                    <span className="text-sm text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       times (from 1 to 10)
                     </span>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">Send Time</Label>
+                  <Label className="text-sm">Send Time</Label>
                   <div className="space-y-3">
                     <div className="flex items-center space-x-2">
                       <Switch
@@ -254,8 +301,17 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
                           setUseCurrentTime(checked);
                           if (checked) {
                             const now = new Date();
-                            setScheduledDate(now.toISOString().split('T')[0]);
-                            setScheduledTime(now.toTimeString().slice(0, 5));
+                            setScheduledDate(now);
+                            const timeStr = now.toTimeString().slice(0, 5);
+                            setScheduledTime(timeStr);
+                            const [hour, minute] = timeStr.split(':');
+                            setScheduledHour(hour);
+                            setScheduledMinute(minute);
+                          } else {
+                            setScheduledDate(undefined);
+                            setScheduledTime('');
+                            setScheduledHour('');
+                            setScheduledMinute('');
                           }
                         }}
                         disabled={sending}
@@ -269,33 +325,98 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <Label htmlFor="scheduledDate" className="text-sm text-muted-foreground">Date</Label>
-                          <Input
-                            id="scheduledDate"
-                            type="date"
-                            value={scheduledDate}
-                            onChange={(e) => setScheduledDate(e.target.value)}
-                            disabled={sending}
-                            className="h-9"
-                            min={new Date().toISOString().split('T')[0]}
-                          />
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  "w-full justify-start text-left font-normal h-9",
+                                  !scheduledDate && "text-muted-foreground"
+                                )}
+                                disabled={sending}
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {scheduledDate ? format(scheduledDate, "PPP") : "Pick a date"}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={scheduledDate}
+                                onSelect={setScheduledDate}
+                                disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
                         </div>
                         <div>
                           <Label htmlFor="scheduledTime" className="text-sm text-muted-foreground">Time</Label>
-                          <Input
-                            id="scheduledTime"
-                            type="time"
-                            value={scheduledTime}
-                            onChange={(e) => setScheduledTime(e.target.value)}
-                            disabled={sending}
-                            className="h-9"
-                          />
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  "w-full justify-start text-left font-normal h-9",
+                                  !scheduledTime && "text-muted-foreground"
+                                )}
+                                disabled={sending}
+                              >
+                                <Clock className="mr-2 h-4 w-4" />
+                                {scheduledTime || "Pick a time"}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-4" align="start">
+                              <div className="flex items-center gap-2">
+                                <div className="space-y-2">
+                                  <Label className="text-xs text-muted-foreground">Hour</Label>
+                                  <Select
+                                    value={scheduledHour}
+                                    onValueChange={setScheduledHour}
+                                    disabled={sending}
+                                  >
+                                    <SelectTrigger className="w-20 h-9">
+                                      <SelectValue placeholder="HH" />
+                                    </SelectTrigger>
+                                    <SelectContent className="max-h-[200px]">
+                                      {hours.map((hour) => (
+                                        <SelectItem key={hour} value={hour}>
+                                          {hour}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <span className="text-lg font-semibold mt-6">:</span>
+                                <div className="space-y-2">
+                                  <Label className="text-xs text-muted-foreground">Minute</Label>
+                                  <Select
+                                    value={scheduledMinute}
+                                    onValueChange={setScheduledMinute}
+                                    disabled={sending}
+                                  >
+                                    <SelectTrigger className="w-20 h-9">
+                                      <SelectValue placeholder="MM" />
+                                    </SelectTrigger>
+                                    <SelectContent className="max-h-[200px]">
+                                      {minutes.map((minute) => (
+                                        <SelectItem key={minute} value={minute}>
+                                          {minute}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
                         </div>
                       </div>
                     )}
 
                     {useCurrentTime && (
                       <div className="p-2 bg-muted/50 rounded-md">
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           The notification will be sent at: <span className="font-medium">{new Date().toLocaleString('en-US')}</span>
                         </p>
                       </div>
@@ -303,16 +424,14 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
                   </div>
                 </div>
 
-                {}
                 {(title.trim() || message.trim()) && (
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium">Preview</Label>
+                    <Label className="text-sm">Preview</Label>
                     <div className="p-3 rounded-lg border bg-muted/30">
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
                           {getTypeBadge(type === 'custom' ? customType : type)}
                           <Badge variant="outline" className="text-xs">
-                            <EyeOff className="h-3 w-3 mr-1" />
                             Unread
                           </Badge>
                         </div>
@@ -320,10 +439,7 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
                           {title.trim() ? `${title.trim()}: ${message.trim()}` : message.trim()}
                         </p>
                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {useCurrentTime ? 'Now' : (scheduledDate && scheduledTime ? new Date(`${scheduledDate}T${scheduledTime}`).toLocaleString('en-US') : 'Not specified')}
-                          </div>
+                          <span>{useCurrentTime ? 'Now' : (scheduledDate && scheduledTime ? new Date(`${scheduledDate.toISOString().split('T')[0]}T${scheduledTime}`).toLocaleString('en-US') : 'Not specified')}</span>
                           <span>Views: 0/{repeatCount}</span>
                         </div>
                       </div>
@@ -331,8 +447,7 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
                   </div>
                 )}
               </div>
-            </CardContent>
-          </Card>
+          </div>
         </div>
 
         <DialogFooter className="pt-4 border-t">
@@ -344,7 +459,10 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
           >
             Cancel
           </Button>
-          <ConditionalRender permission="products.notifications_create" fallback={null}>
+          <ConditionalRender 
+            permission={isAgent ? "agents.notifications_create" : "products.notifications_create"} 
+            fallback={null}
+          >
             <Button 
               onClick={handleSendClick} 
               disabled={sending || !title.trim() || !message.trim() || (type === 'custom' && !customType.trim())}
@@ -352,14 +470,11 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
             >
               {sending ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Spinner className="mr-2 h-4 w-4" />
                   Sending...
                 </>
               ) : (
-                <>
-                  <Send className="mr-2 h-4 w-4" />
-                  Send
-                </>
+                'Send'
               )}
             </Button>
           </ConditionalRender>

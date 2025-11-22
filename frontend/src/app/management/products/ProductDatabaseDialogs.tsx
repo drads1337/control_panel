@@ -73,16 +73,14 @@ export function ProductDatabaseDialogs({
       )}
 
       {}
-      <NotificationsDialog
-        key="notifications-dialog"
-        open={showNotificationsDialog && canManageNotifications}
-        onOpenChange={(open) => {
-          if (canManageNotifications) {
-            setShowNotificationsDialog(open)
-          }
-        }}
-        product={canManageNotifications ? selectedProduct : null}
-      />
+      {canManageNotifications && (
+        <NotificationsDialog
+          key="notifications-dialog"
+          open={showNotificationsDialog && !!selectedProduct}
+          onOpenChange={setShowNotificationsDialog}
+          product={selectedProduct}
+        />
+      )}
 
       {}
       {canUploadFiles && (
@@ -90,7 +88,7 @@ export function ProductDatabaseDialogs({
           open={showUploadDialog}
           onOpenChange={setShowUploadDialog}
           product={selectedProduct}
-          onUploadComplete={onUploadComplete}
+          onSuccess={onUploadComplete}
         />
       )}
 

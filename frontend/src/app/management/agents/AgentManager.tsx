@@ -13,7 +13,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { usePermissions } from '@/hooks/use-permissions';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
 import { recordAgentDownload } from '@/entities/agent';
-import { useAgentsQuery } from '@/hooks/use-agents-query';
+import { useAgentsQuery } from '@/entities/agent';
 import CreateAgentDialog from './CreateAgentDialog';
 import EditAgentDialog from './EditAgentDialog';
 import UploadAgentFilesDialog from './UploadAgentFilesDialog';
@@ -21,6 +21,8 @@ import AgentDetailsDialog from './AgentDetailsDialog';
 import AgentConfigDialog from './AgentConfigDialog';
 import AssignProductsDialog from './AssignProductsDialog';
 import CreateProductDialog from '../products/CreateProductDialog';
+import NotificationsDialog from '../notifications/NotificationsDialog';
+import ChangelogManagementDialog from '../changelog/ChangelogManagementDialog';
 import { toast } from 'sonner';
 import { getStatusClasses, getStatusText, type StatusType } from '@/lib/status-utils';
 import { Spinner } from '@/components/ui/spinner';
@@ -312,7 +314,8 @@ const AgentsList: React.FC<AgentsListProps> = ({
   canConfigurationSettings,
 }) => {
   const parentRef = useRef<HTMLDivElement>(null);
-  const shouldVirtualize = agents.length > 50;
+  // Lower threshold for better performance - virtualize when more than 30 items
+  const shouldVirtualize = agents.length > 30;
 
   const rowVirtualizer = useVirtualizer({
     count: shouldVirtualize ? agents.length : 0,
@@ -478,6 +481,8 @@ const AgentManager: React.FC<AgentManagerProps> = ({ onCreateAgentRequested, onC
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
   const [assignProductsDialogOpen, setAssignProductsDialogOpen] = useState(false);
   const [createProductDialogOpen, setCreateProductDialogOpen] = useState(false);
+  const [notificationsDialogOpen, setNotificationsDialogOpen] = useState(false);
+  const [changelogDialogOpen, setChangelogDialogOpen] = useState(false);
 
   if (!canViewAgents) {
     return (
@@ -600,10 +605,12 @@ const AgentManager: React.FC<AgentManagerProps> = ({ onCreateAgentRequested, onC
 
   const handleNotificationsProduct = (agent: Agent) => {
     setSelectedAgent(agent);
+    setNotificationsDialogOpen(true);
   };
 
   const handleChangelogProduct = (agent: Agent) => {
     setSelectedAgent(agent);
+    setChangelogDialogOpen(true);
   };
 
   const filteredAgents = useMemo(() => {
@@ -931,6 +938,34 @@ const AgentManager: React.FC<AgentManagerProps> = ({ onCreateAgentRequested, onC
           refetchStats();
         }}
       />
+
+      {(canViewNotifications || canCreateNotifications) && selectedAgent && (
+        <NotificationsDialog
+          key="agent-notifications-dialog"
+          open={notificationsDialogOpen}
+          onOpenChange={setNotificationsDialogOpen}
+          product={{
+            id: selectedAgent.id,
+            name: selectedAgent.name,
+            is_multi_app: false,
+          } as Product}
+          isAgent={true}
+        />
+      )}
+
+      {canViewChangelog && selectedAgent && (
+        <ChangelogManagementDialog
+          key="agent-changelog-dialog"
+          open={changelogDialogOpen}
+          onOpenChange={setChangelogDialogOpen}
+          product={{
+            id: selectedAgent.id,
+            name: selectedAgent.name,
+            is_multi_app: false,
+          } as Product}
+          isAgent={true}
+        />
+      )}
     </div>
   );
 };

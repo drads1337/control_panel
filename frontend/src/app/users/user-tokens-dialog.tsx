@@ -54,10 +54,9 @@ const UserTokensDialog: React.FC<UserTokensDialogProps> = ({
 
       const response = await api.get(`/api/users/${userId}/tokens`);
       setTokens(response.data.tokens || []);
-    } catch (error: any) {
-
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to load tokens';
-      toast.error(errorMessage);
+    } catch (error: unknown) {
+      const { getErrorMessage } = await import('@/lib/error-utils')
+      toast.error(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -82,10 +81,9 @@ const UserTokensDialog: React.FC<UserTokensDialogProps> = ({
       setShowCreateForm(false);
       toast.success('Token created successfully');
       await fetchTokens();
-    } catch (error: any) {
-
-      const errorMessage = error?.response?.data?.error || error?.response?.data?.message || error?.message || 'Failed to create token';
-      toast.error(errorMessage);
+    } catch (error: unknown) {
+      const { getErrorMessage } = await import('@/lib/error-utils')
+      toast.error(getErrorMessage(error));
     } finally {
       setCreating(false);
     }
@@ -100,10 +98,9 @@ const UserTokensDialog: React.FC<UserTokensDialogProps> = ({
 
       toast.success(`Token ${!currentStatus ? 'activated' : 'deactivated'}`);
       await fetchTokens();
-    } catch (error: any) {
-
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to update token';
-      toast.error(errorMessage);
+    } catch (error: unknown) {
+      const { getErrorMessage } = await import('@/lib/error-utils')
+      toast.error(getErrorMessage(error));
     }
   };
 
@@ -119,10 +116,9 @@ const UserTokensDialog: React.FC<UserTokensDialogProps> = ({
       toast.success('Token deleted successfully');
       await fetchTokens();
       setNewTokenKey(null);
-    } catch (error: any) {
-
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to delete token';
-      toast.error(errorMessage);
+    } catch (error: unknown) {
+      const { getErrorMessage } = await import('@/lib/error-utils')
+      toast.error(getErrorMessage(error));
     }
   };
 

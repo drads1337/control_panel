@@ -2,7 +2,7 @@ import React from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuthContext } from '@/contexts/auth-context'
 import { Spinner } from '@/components/ui/spinner'
-import { useNavigationQuery } from '@/hooks/use-navigation-query'
+import { useNavigationQuery } from '@/entities/navigation'
 import { getFirstAvailablePageFromNavigation } from '@/entities/navigation'
 
 export function SmartDashboardRouter() {

@@ -1,6 +1,6 @@
 import { useMemo, useEffect, useState } from 'react';
 import { usePermissions } from './use-permissions';
-import { getProducts } from '@/entities/product';
+import { getProductsCount } from '@/entities/product/api/product';
 
 export function useProductPermissions() {
   const { hasPermission } = usePermissions();
@@ -18,9 +18,9 @@ export function useProductPermissions() {
 
       if (hasKeysPermission) {
         try {
-          const response = await getProducts('all');
-          if (response.success && response.products) {
-            setProductsCount(response.products.length);
+          const response = await getProductsCount('all');
+          if (response.success) {
+            setProductsCount(response.count);
           } else {
             setProductsCount(0);
           }
@@ -51,7 +51,9 @@ export function useProductPermissions() {
       canUploadFiles: hasPermission('products.upload_files'),
       canManagePrices: hasPermission('products.manage_prices'),
       canManageChangelog: hasPermission('products.changelog_view'),
-      canManageNotifications: hasPermission('products.notifications_view'),
+      canManageNotifications: hasPermission('products.notifications_view') || 
+                               hasPermission('products.notifications_create') || 
+                               hasPermission('products.notifications_edit'),
       canManageStatus: hasPermission('products.status'),
     }),
     [effectiveCanViewProducts, hasPermission]

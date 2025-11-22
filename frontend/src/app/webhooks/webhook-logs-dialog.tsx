@@ -52,7 +52,7 @@ export function WebhookLogsDialog({
     try {
       const logs = await webhookAPI.getWebhookLogs(webhook.id);
       setWebhookLogs(logs);
-    } catch (err: any) {
+    } catch (err: unknown) {
       await handleError(err, {
         category: 'client',
         userMessage: 'Failed to load webhook logs',

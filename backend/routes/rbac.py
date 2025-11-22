@@ -28,6 +28,59 @@ from ..services.rbac import rbac_service
 
 rbac_bp = Blueprint("rbac", __name__)
 
+def find_product_by_id_or_unique_id(product_identifier, project_id):
+    """
+    Helper function to find a product by either id (int) or unique_id (string)
+    
+    Args:
+        product_identifier: Either an integer id or string unique_id
+        project_id: Project ID to filter by
+    
+    Returns:
+        Product object or None if not found
+    """
+    from ..models.products import Product
+    
+    # Try as integer id (primary key) first
+    if isinstance(product_identifier, int) or (isinstance(product_identifier, str) and product_identifier.isdigit()):
+        try:
+            product_id_int = int(product_identifier)
+            product = Product.query.filter_by(id=product_id_int, project_id=project_id).first()
+            if product:
+                return product
+        except (ValueError, TypeError):
+            pass
+    
+    # Try as unique_id (string)
+    product = Product.query.filter_by(unique_id=str(product_identifier), project_id=project_id).first()
+    return product
+
+def find_user_by_id_or_unique_id(user_identifier, project_id=None):
+    """
+    Helper function to find a user by either id (int) or unique_id (string)
+    
+    Args:
+        user_identifier: Either an integer id or string unique_id
+        project_id: Optional project_id for additional filtering
+    
+    Returns:
+        User object or None if not found
+    """
+    # Try as integer id (primary key) first
+    if isinstance(user_identifier, int) or (isinstance(user_identifier, str) and user_identifier.isdigit()):
+        user = User.query.get(int(user_identifier))
+        if user:
+            if project_id is None or user.project_id == project_id:
+                return user
+    
+    # Try as unique_id (string)
+    user = User.query.filter_by(unique_id=str(user_identifier)).first()
+    if user:
+        if project_id is None or user.project_id == project_id:
+            return user
+    
+    return None
+
 def get_current_user():
     """Get current user from JWT token"""
     user_id = get_jwt_identity()
@@ -413,7 +466,7 @@ def delete_permission(permission_id):
         )
         return jsonify({"error": "Failed to delete permission"}), 500
 
-@rbac_bp.route("/users/<int:user_id>/roles", methods=["GET"])
+@rbac_bp.route("/users/<user_id>/roles", methods=["GET"])
 @jwt_required()
 @token_required
 @admin_required
@@ -428,16 +481,16 @@ def get_user_roles(user_id, current_user=None):
 
     try:
 
-        target_user = User.query.get(user_id)
+        target_user = find_user_by_id_or_unique_id(user_id, current_user.project_id)
 
         if not target_user or not target_user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
         if target_user.project_id != current_user.project_id:
             return jsonify({"error": "User not found"}), 404
 
-        roles = rbac_service.get_user_roles(user_id)
+        roles = rbac_service.get_user_roles(target_user.id)
 
-        return jsonify({"success": True, "user_id": user_id, "roles": roles})
+        return jsonify({"success": True, "user_id": target_user.id, "roles": roles})
 
     except Exception as e:
         logging.error(
@@ -445,7 +498,7 @@ def get_user_roles(user_id, current_user=None):
         )
         return jsonify({"error": "Failed to get user roles"}), 500
 
-@rbac_bp.route("/users/<int:user_id>/roles", methods=["POST"])
+@rbac_bp.route("/users/<user_id>/roles", methods=["POST"])
 @jwt_required()
 @token_required
 @admin_required
@@ -467,7 +520,7 @@ def assign_role_to_user(user_id, current_user=None):
         if not role_id:
             return jsonify({"error": "Role ID is required"}), 400
 
-        target_user = User.query.get(user_id)
+        target_user = find_user_by_id_or_unique_id(user_id, current_user.project_id)
 
         if not target_user or not target_user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
@@ -478,7 +531,7 @@ def assign_role_to_user(user_id, current_user=None):
         if not role or role.project_id != current_user.project_id:
             return jsonify({"error": "Role not found"}), 404
 
-        success = rbac_service.assign_role_to_user(user_id, role_id)
+        success = rbac_service.assign_role_to_user(target_user.id, role_id)
 
         if success:
             logging.info(
@@ -496,7 +549,7 @@ def assign_role_to_user(user_id, current_user=None):
         )
         return jsonify({"error": "Failed to assign role"}), 500
 
-@rbac_bp.route("/users/<int:user_id>/roles/<int:role_id>", methods=["DELETE"])
+@rbac_bp.route("/users/<user_id>/roles/<int:role_id>", methods=["DELETE"])
 @jwt_required()
 @token_required
 @admin_required
@@ -511,7 +564,7 @@ def remove_role_from_user(user_id, role_id, current_user=None):
 
     try:
 
-        target_user = User.query.get(user_id)
+        target_user = find_user_by_id_or_unique_id(user_id, current_user.project_id)
 
         if not target_user or not target_user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
@@ -522,7 +575,7 @@ def remove_role_from_user(user_id, role_id, current_user=None):
         if not role or role.project_id != current_user.project_id:
             return jsonify({"error": "Role not found"}), 404
 
-        success = rbac_service.remove_role_from_user(user_id, role_id)
+        success = rbac_service.remove_role_from_user(target_user.id, role_id)
 
         if success:
             logging.info(
@@ -538,7 +591,7 @@ def remove_role_from_user(user_id, role_id, current_user=None):
         )
         return jsonify({"error": "Failed to remove role"}), 500
 
-@rbac_bp.route("/users/<int:user_id>/permissions", methods=["GET"])
+@rbac_bp.route("/users/<user_id>/permissions", methods=["GET"])
 @jwt_required()
 @token_required
 @require_project_isolation
@@ -548,7 +601,13 @@ def get_user_permissions(user_id, current_user=None):
     if current_user is None:
         current_user = get_current_user()
         if not current_user:
+            logging.error(f"RBAC_PERMISSIONS_GET: Authentication required for user_id={user_id}")
             return jsonify({"error": "Authentication required"}), 401
+
+    logging.info(
+        f"RBAC_PERMISSIONS_GET: Request for user_id={user_id} (type={type(user_id).__name__}) by current_user_id={current_user.id} "
+        f"(username={current_user.username}, project_id={current_user.project_id})"
+    )
 
     try:
 
@@ -558,34 +617,86 @@ def get_user_permissions(user_id, current_user=None):
         has_view_permission = rbac_service.check_permission(current_user.id, "employees.view")
         has_rbac_permission = rbac_service.check_permission(current_user.id, "rbac.view")
 
+        logging.debug(
+            f"RBAC_PERMISSIONS_GET: current_user permissions - employees.view={has_view_permission}, "
+            f"rbac.view={has_rbac_permission}, is_owner={RBACManager.is_owner(current_user)}, "
+            f"is_admin={RBACManager.is_admin(current_user)}"
+        )
+
         if not has_view_permission and not has_rbac_permission:
 
             if not (RBACManager.is_owner(current_user) or RBACManager.is_admin(current_user)):
+                logging.warning(
+                    f"RBAC_PERMISSIONS_GET: Insufficient permissions - current_user_id={current_user.id} "
+                    f"trying to access user_id={user_id}"
+                )
                 return jsonify({"error": "Insufficient permissions"}), 403
 
-        target_user = User.query.get(user_id)
-
+        # Check if user exists in database - try by id or unique_id
+        target_user = find_user_by_id_or_unique_id(user_id, current_user.project_id)
+        
         if not target_user:
-            logging.warning(f"User {user_id} not found")
+            # Additional debugging: check if any user with this ID exists (shouldn't be needed, but for debugging)
+            from sqlalchemy import text
+            try:
+                result = db.session.execute(
+                    text("SELECT id, username, project_id FROM \"user\" WHERE id = :user_id"),
+                    {"user_id": user_id}
+                ).fetchone()
+                
+                if result:
+                    logging.error(
+                        f"RBAC_PERMISSIONS_GET: User {user_id} exists in DB (username={result[1]}, project_id={result[2]}) "
+                        f"but User.query.get() returned None. This is unexpected! "
+                        f"Requested by current_user_id={current_user.id} (project_id={current_user.project_id})"
+                    )
+                else:
+                    logging.error(
+                        f"RBAC_PERMISSIONS_GET: User not found - user_id={user_id} does not exist in database at all. "
+                        f"Requested by current_user_id={current_user.id} (username={current_user.username}, project_id={current_user.project_id})"
+                    )
+            except Exception as db_error:
+                logging.error(
+                    f"RBAC_PERMISSIONS_GET: Error checking user existence: {db_error}. "
+                    f"User {user_id} not found. Requested by current_user_id={current_user.id}"
+                )
+            
             return jsonify({"error": "User not found"}), 404
 
+        logging.info(
+            f"RBAC_PERMISSIONS_GET: Target user found - user_id={user_id}, username={target_user.username}, "
+            f"project_id={target_user.project_id}, current_user_project_id={current_user.project_id}"
+        )
+
         if not target_user.project_id:
-            logging.warning(f"User {user_id} has no project_id")
+            logging.warning(
+                f"RBAC_PERMISSIONS_GET: User {user_id} (username={target_user.username}) has no project_id. "
+                f"Returning empty permissions list."
+            )
 
             return jsonify({"success": True, "user_id": user_id, "permissions": []})
 
         if target_user.project_id != current_user.project_id:
-            logging.warning(
-                f"User {user_id} belongs to different project ({target_user.project_id} != {current_user.project_id})"
+            logging.error(
+                f"RBAC_PERMISSIONS_GET: Project isolation violation - user_id={user_id} "
+                f"(username={target_user.username}, project_id={target_user.project_id}) "
+                f"belongs to different project than current_user_id={current_user.id} "
+                f"(username={current_user.username}, project_id={current_user.project_id}). "
+                f"Returning 404 to prevent information leakage."
             )
             return jsonify({"error": "User not found"}), 404
 
         try:
-            permissions = rbac_service.get_user_permissions(user_id)
+            # Use the actual database id for the service call
+            permissions = rbac_service.get_user_permissions(target_user.id)
+            logging.info(
+                f"RBAC_PERMISSIONS_GET: Successfully retrieved {len(permissions) if permissions else 0} "
+                f"permissions for user_id={user_id} (username={target_user.username})"
+            )
             return jsonify(
                 {
                     "success": True,
-                    "user_id": user_id,
+                    "user_id": target_user.id,
                     "permissions": list(permissions) if permissions else [],
                 }
             )
@@ -607,7 +718,7 @@ def get_user_permissions(user_id, current_user=None):
 
         return jsonify({"success": True, "user_id": user_id, "permissions": [], "error": str(e)})
 
-@rbac_bp.route("/users/<int:user_id>/permissions", methods=["PUT"])
+@rbac_bp.route("/users/<user_id>/permissions", methods=["PUT"])
 @jwt_required()
 @token_required
 @require_project_isolation
@@ -632,7 +743,7 @@ def update_user_permissions(user_id, current_user=None):
             if not (RBACManager.is_owner(current_user) or RBACManager.is_admin(current_user)):
                 return jsonify({"error": "Insufficient permissions"}), 403
 
-        target_user = User.query.get(user_id)
+        target_user = find_user_by_id_or_unique_id(user_id, current_user.project_id)
 
         if not target_user:
             return jsonify({"error": "User not found"}), 404
@@ -680,16 +791,18 @@ def update_user_permissions(user_id, current_user=None):
             return jsonify({"error": f"Invalid permissions: {', '.join(invalid_permissions)}"}), 400
 
         from ..models.rbac import UserPermission
-        deleted_count = UserPermission.query.filter_by(user_id=user_id).delete()
+        # Use the actual database id
+        actual_user_id = target_user.id
+        deleted_count = UserPermission.query.filter_by(user_id=actual_user_id).delete()
         logging.debug(
-            f"RBAC_USER_PERMISSIONS_DELETE_EXISTING user_id={user_id} deleted_count={deleted_count}"
+            f"RBAC_USER_PERMISSIONS_DELETE_EXISTING user_id={actual_user_id} deleted_count={deleted_count}"
         )
 
         added_count = 0
         for permission_name in permissions:
             permission = permission_map[permission_name]
             user_permission = UserPermission(
-                user_id=user_id,
+                user_id=actual_user_id,
                 permission_id=permission.id,
                 permission_type="allow"
             )
@@ -698,17 +811,17 @@ def update_user_permissions(user_id, current_user=None):
 
         db.session.commit()
         logging.debug(
-            f"RBAC_USER_PERMISSIONS_ADDED user_id={user_id} added_count={added_count}"
+            f"RBAC_USER_PERMISSIONS_ADDED user_id={actual_user_id} added_count={added_count}"
         )
 
         from ..services.cache import cache_service
-        cache_service.delete("rbac:user_permissions", user_id=user_id)
+        cache_service.delete("rbac:user_permissions", user_id=actual_user_id)
 
         logging.info(
-            f"RBAC_USER_PERMISSIONS_UPDATED user_id={current_user.id} target_user_id={user_id} permissions_count={len(permissions)}"
+            f"RBAC_USER_PERMISSIONS_UPDATED user_id={current_user.id} target_user_id={actual_user_id} permissions_count={len(permissions)}"
         )
 
-        return jsonify({"success": True, "user_id": user_id, "permissions_count": len(permissions)})
+        return jsonify({"success": True, "user_id": actual_user_id, "permissions_count": len(permissions)})
 
     except Exception as e:
         db.session.rollback()
@@ -835,20 +948,20 @@ def get_products_for_rbac(current_user):
         logging.error(f"RBAC_PRODUCTS_GET_ERROR user_id={current_user.id} error={e}")
         return jsonify({"error": "Failed to get products"}), 500
 
-@rbac_bp.route("/products/<int:product_id>/permissions", methods=["GET"])
+@rbac_bp.route("/products/<product_identifier>/permissions", methods=["GET"])
 @jwt_required()
 @token_required
 @require_project_isolation
-def get_product_permissions(current_user, product_id):
+def get_product_permissions(current_user, product_identifier):
     """Get permissions for a specific product"""
     try:
 
-        product = Product.query.filter_by(id=product_id, project_id=current_user.project_id).first()
+        product = find_product_by_id_or_unique_id(product_identifier, current_user.project_id)
         if not product:
             return jsonify({"error": "Product not found"}), 404
 
         permissions = Permission.query.filter_by(
-            project_id=current_user.project_id, product_id=product_id
+            project_id=current_user.project_id, product_id=product.id
         ).all()
 
         permissions_data = []
@@ -874,14 +987,14 @@ def get_product_permissions(current_user, product_id):
 
     except Exception as e:
         logging.error(
-            f"RBAC_PRODUCT_PERMISSIONS_GET_ERROR user_id={current_user.id} product_id={product_id} error={e}"
+            f"RBAC_PRODUCT_PERMISSIONS_GET_ERROR user_id={current_user.id} product_identifier={product_identifier} error={e}"
         )
         return jsonify({"error": "Failed to get product permissions"}), 500
 
-@rbac_bp.route("/products/<int:product_id>/permissions", methods=["POST"])
+@rbac_bp.route("/products/<product_identifier>/permissions", methods=["POST"])
 @jwt_required()
 @require_project_isolation
-def create_product_permission(product_id):
+def create_product_permission(product_identifier):
     """Create a new permission for a specific product"""
     try:
         current_user = get_current_user()
@@ -894,7 +1007,7 @@ def create_product_permission(product_id):
         if not rbac_service.check_permission(current_user.id, "rbac.view"):
             return jsonify({"error": "Admin access required"}), 403
 
-        product = Product.query.filter_by(id=product_id, project_id=current_user.project_id).first()
+        product = find_product_by_id_or_unique_id(product_identifier, current_user.project_id)
         if not product:
             return jsonify({"error": "Product not found"}), 404
 
@@ -915,7 +1028,7 @@ def create_product_permission(product_id):
             description=description,
             resource=resource,
             action=action,
-            product_id=product_id,
+            product_id=product.id,
             project_id=current_user.project_id,
             created_at=datetime.utcnow(),
         )
@@ -924,7 +1037,7 @@ def create_product_permission(product_id):
         db.session.commit()
 
         logging.info(
-            f"RBAC_PRODUCT_PERMISSION_CREATED user_id={current_user.id} product_id={product_id} permission_id={permission.id}"
+            f"RBAC_PRODUCT_PERMISSION_CREATED user_id={current_user.id} product_id={product.id} permission_id={permission.id}"
         )
 
         return (
@@ -947,14 +1060,14 @@ def create_product_permission(product_id):
     except Exception as e:
         db.session.rollback()
         logging.error(
-            f"RBAC_PRODUCT_PERMISSION_CREATION_ERROR user_id={current_user.id} product_id={product_id} error={e}"
+            f"RBAC_PRODUCT_PERMISSION_CREATION_ERROR user_id={current_user.id} product_identifier={product_identifier} error={e}"
         )
         return jsonify({"error": "Failed to create product permission"}), 500
 
-@rbac_bp.route("/roles/<int:role_id>/products/<int:product_id>/permissions", methods=["POST"])
+@rbac_bp.route("/roles/<int:role_id>/products/<product_identifier>/permissions", methods=["POST"])
 @jwt_required()
 @require_project_isolation
-def assign_product_permissions_to_role(role_id, product_id):
+def assign_product_permissions_to_role(role_id, product_identifier):
     """Assign product-specific permissions to a role"""
     try:
         current_user = get_current_user()
@@ -987,7 +1100,7 @@ def assign_product_permissions_to_role(role_id, product_id):
         for permission_name in permissions:
 
             permission = Permission.query.filter_by(
-                name=permission_name, project_id=current_user.project_id, product_id=product_id
+                name=permission_name, project_id=current_user.project_id, product_id=product.id
             ).first()
 
             if not permission:
@@ -1002,7 +1115,7 @@ def assign_product_permissions_to_role(role_id, product_id):
                     description=f"Product-specific permission for {product.name}",
                     resource=resource,
                     action=action,
-                    product_id=product_id,
+                    product_id=product.id,
                     project_id=current_user.project_id,
                     created_at=datetime.utcnow(),
                 )

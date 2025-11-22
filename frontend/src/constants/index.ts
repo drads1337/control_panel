@@ -70,40 +70,6 @@ export const LANGUAGES = {
   RU: 'ru'
 } as const;
 
-export const API_ENDPOINTS = {
-  AUTH: {
-    LOGIN: '/api/login',
-    REGISTER: '/api/register',
-    ME: '/api/me',
-    LOGOUT: '/api/logout'
-  },
-  USERS: {
-    LIST: '/api/users',
-    CREATE: '/api/users',
-    UPDATE: '/api/users/:id',
-    DELETE: '/api/users/:id',
-    PROFILE: '/api/users/profile'
-  },
-  KEYS: {
-    LIST: '/api/keys',
-    CREATE: '/api/keys',
-    UPDATE: '/api/keys/:id',
-    DELETE: '/api/keys/:id',
-    REGENERATE: '/api/keys/:id/regenerate'
-  },
-  LOGS: {
-    LIST: '/api/logs',
-    DOWNLOAD: '/api/logs/download',
-    CLEAR: '/api/logs/clear'
-  },
-  DEVICES: {
-    LIST: '/api/devices',
-    CREATE: '/api/devices',
-    UPDATE: '/api/devices/:id',
-    DELETE: '/api/devices/:id'
-  }
-} as const;
-
 export const API_BASE_URL = '';
 
 export const MESSAGES = {

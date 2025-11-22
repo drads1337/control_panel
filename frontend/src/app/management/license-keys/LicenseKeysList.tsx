@@ -84,7 +84,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
 
   const parentRef = useRef<HTMLDivElement>(null);
   const scrollPositionRef = useRef<number>(0);
-  const shouldVirtualize = keys.length > 50;
+  const shouldVirtualize = keys.length > 30;
 
   const rowVirtualizer = useVirtualizer({
     count: shouldVirtualize ? keys.length : 0,
@@ -186,13 +186,14 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
         <Table style={{ tableLayout: 'fixed' }}>
           <colgroup>
             <col style={{ width: '5%' }} />
-            <col style={{ width: '20%' }} />
-            <col style={{ width: '12%' }} />
-            <col style={{ width: '10%' }} />
-            <col style={{ width: '12%' }} />
-            <col style={{ width: '10%' }} />
+            <col style={{ width: '18%' }} />
             <col style={{ width: '11%' }} />
-            <col style={{ width: '20%' }} />
+            <col style={{ width: '9%' }} />
+            <col style={{ width: '9%' }} />
+            <col style={{ width: '11%' }} />
+            <col style={{ width: '9%' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '18%' }} />
           </colgroup>
           <TableHeader>
             <TableRow>
@@ -207,6 +208,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
               </TableHead>
               <TableHead className="text-left">Licenses</TableHead>
               <TableHead className="text-left">Product</TableHead>
+              <TableHead className="text-left">Target Type</TableHead>
               <TableHead className="text-left">Status</TableHead>
               <TableHead className="text-left">Time</TableHead>
               <TableHead className="text-left">Devices</TableHead>
@@ -232,13 +234,14 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
               <Table style={{ tableLayout: 'fixed' }}>
                 <colgroup>
                   <col style={{ width: '5%' }} />
-                  <col style={{ width: '20%' }} />
-                  <col style={{ width: '12%' }} />
-                  <col style={{ width: '10%' }} />
-                  <col style={{ width: '12%' }} />
-                  <col style={{ width: '10%' }} />
+                  <col style={{ width: '18%' }} />
                   <col style={{ width: '11%' }} />
-                  <col style={{ width: '20%' }} />
+                  <col style={{ width: '9%' }} />
+                  <col style={{ width: '9%' }} />
+                  <col style={{ width: '11%' }} />
+                  <col style={{ width: '9%' }} />
+                  <col style={{ width: '10%' }} />
+                  <col style={{ width: '18%' }} />
                 </colgroup>
                 <TableBody>
                   {rowVirtualizer.getVirtualItems().map((virtualRow) => {
@@ -282,13 +285,14 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
           <Table style={{ tableLayout: 'fixed' }}>
             <colgroup>
               <col style={{ width: '5%' }} />
-              <col style={{ width: '20%' }} />
-              <col style={{ width: '12%' }} />
-              <col style={{ width: '10%' }} />
-              <col style={{ width: '12%' }} />
-              <col style={{ width: '10%' }} />
+              <col style={{ width: '18%' }} />
               <col style={{ width: '11%' }} />
-              <col style={{ width: '20%' }} />
+              <col style={{ width: '9%' }} />
+              <col style={{ width: '9%' }} />
+              <col style={{ width: '11%' }} />
+              <col style={{ width: '9%' }} />
+              <col style={{ width: '10%' }} />
+              <col style={{ width: '18%' }} />
             </colgroup>
             <TableBody>
               {keys.map((key) => (

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useNavigationQuery } from '@/hooks/use-navigation-query'
+import { useNavigationQuery } from '@/entities/navigation'
 import { getFirstAvailablePageFromNavigation } from '@/entities/navigation'
 import type { User } from '@/entities/user'
 

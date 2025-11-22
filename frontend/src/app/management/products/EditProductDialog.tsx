@@ -13,15 +13,7 @@ import { useCustomNotifications } from '@/hooks/use-custom-notifications';
 import { useProductPermissions } from '@/hooks/use-product-permissions';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
 import { Checkbox } from '@/components/ui/checkbox';
-import type { User } from '@/entities/user';
 import type { Product, UpdateProductData } from '@/entities/product';
-import { 
-  Database, 
-  Settings, 
-  Save, 
-  X,
-  Users
-} from 'lucide-react';
 
 interface EditProductDialogProps {
   open: boolean;
@@ -67,8 +59,7 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChang
       const response = await getProductClassicUsers(product.id);
 
       setUsers(response.users || []);
-    } catch (error: any) {
-
+    } catch (error: unknown) {
       setUsers([]);
     } finally {
       setUsersLoading(false);
@@ -107,8 +98,7 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChang
         user.id === userId ? { ...user, has_access: response.has_access } : user
       ));
       showProductUpdateNotification('User access updated');
-    } catch (error: any) {
-
+    } catch (error: unknown) {
       showErrorNotification('Error updating access');
     }
   };
@@ -169,46 +159,42 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChang
     <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-hidden">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Database className="h-5 w-5" />
+          <DialogTitle className="text-base">
             Edit Product
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="mt-1 text-xs">
             {product.name}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TabsList className={`grid w-full h-14 bg-muted border border-border rounded-lg ${!formData.is_multi_app && formData.login_type === 'classic_login' ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            <TabsList className={`grid w-full h-10 bg-muted border border-border rounded-lg ${!formData.is_multi_app && formData.login_type === 'classic_login' ? 'grid-cols-3' : 'grid-cols-2'}`}>
               <TabsTrigger 
                 value="basic" 
-                className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:bg-primary dark:data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm rounded-lg transition-all duration-200"
+                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:bg-primary dark:data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm rounded-lg transition-all duration-200 text-sm"
               >
-                <Database className="h-4 w-4" />
-                <span>Basic</span>
+                Basic
               </TabsTrigger>
               <TabsTrigger 
                 value="settings" 
-                className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:bg-primary dark:data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm rounded-lg transition-all duration-200"
+                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:bg-primary dark:data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm rounded-lg transition-all duration-200 text-sm"
               >
-                <Settings className="h-4 w-4" />
-                <span>Settings</span>
+                Settings
               </TabsTrigger>
               {!formData.is_multi_app && formData.login_type === 'classic_login' && (
                 <TabsTrigger 
                   value="users" 
-                  className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:bg-primary dark:data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm rounded-lg transition-all duration-200"
+                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:bg-primary dark:data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm rounded-lg transition-all duration-200 text-sm"
                 >
-                  <Users className="h-4 w-4" />
-                  <span>Users</span>
+                  Users
                 </TabsTrigger>
               )}
             </TabsList>
             <TabsContent value="basic" className="space-y-4 mt-0">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Product Name</Label>
+                  <Label htmlFor="name" className="text-sm">Product Name</Label>
                   <Input
                     id="name"
                     value={formData.name}
@@ -219,7 +205,7 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChang
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="version">Version</Label>
+                  <Label htmlFor="version" className="text-sm">Version</Label>
                   <Input
                     id="version"
                     value={formData.version}
@@ -230,7 +216,7 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChang
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
+                <Label htmlFor="description" className="text-sm">Description</Label>
                 <Textarea
                   id="description"
                   value={formData.description}
@@ -245,8 +231,8 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChang
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
-                    <Label htmlFor="is_multi_app">Multi App Product</Label>
-                    <p className="text-sm text-muted-foreground">
+                    <Label htmlFor="is_multi_app" className="text-sm">Multi App Product</Label>
+                    <p className="text-xs text-muted-foreground">
                       Access to multiple products through one account
                     </p>
                   </div>
@@ -260,7 +246,7 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChang
                 {!formData.is_multi_app && (
                   <>
                     <div className="space-y-2">
-                      <Label htmlFor="login_type">Login Type</Label>
+                      <Label htmlFor="login_type" className="text-sm">Login Type</Label>
                       <Select 
                         value={formData.login_type} 
                         onValueChange={(value: 'license_generation' | 'classic_login') => {
@@ -284,8 +270,8 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChang
                     {formData.login_type === 'classic_login' && (
                       <div className="flex items-center justify-between">
                         <div className="space-y-1">
-                          <Label htmlFor="invite_code_required">Require Invite Code</Label>
-                          <p className="text-sm text-muted-foreground">
+                          <Label htmlFor="invite_code_required" className="text-sm">Require Invite Code</Label>
+                          <p className="text-xs text-muted-foreground">
                             Users must provide an invite code to register
                           </p>
                         </div>
@@ -299,7 +285,7 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChang
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="custom_key_prefix">Key Prefix</Label>
+                        <Label htmlFor="custom_key_prefix" className="text-sm">Key Prefix</Label>
                         <Input
                           id="custom_key_prefix"
                           value={formData.custom_key_prefix}
@@ -309,7 +295,7 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChang
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="key_prefix_format">Prefix Format</Label>
+                        <Label htmlFor="key_prefix_format" className="text-sm">Prefix Format</Label>
                         <Input
                           id="key_prefix_format"
                           value={formData.key_prefix_format}
@@ -322,18 +308,11 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChang
                 )}
 
                 {formData.is_multi_app && (
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg dark:bg-blue-900/30 dark:border-blue-800">
-                    <div className="flex items-start space-x-3">
-                      <div className="flex-shrink-0">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 dark:bg-blue-400"></div>
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100">Multi App Product</h4>
-                        <p className="text-sm text-blue-700 mt-1 dark:text-blue-200">
-                          For Multi App products, login type, prefix and key format settings are managed in the agent.
-                        </p>
-                      </div>
-                    </div>
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg dark:bg-blue-900/30 dark:border-blue-800">
+                    <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100">Multi App Product</h4>
+                    <p className="text-xs text-blue-700 mt-1 dark:text-blue-200">
+                      For Multi App products, login type, prefix and key format settings are managed in the agent.
+                    </p>
                   </div>
                 )}
               </div>
@@ -344,8 +323,8 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChang
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-lg font-medium">User Access Management</h3>
-                      <p className="text-sm text-muted-foreground">
+                      <h3 className="text-sm font-medium">User Access Management</h3>
+                      <p className="text-xs text-muted-foreground">
                         Select users who will have access to this product
                       </p>
                     </div>
@@ -362,16 +341,16 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChang
 
                   {usersLoading ? (
                     <div className="flex items-center justify-center py-8">
-                      <div className="text-sm text-muted-foreground">Loading users...</div>
+                      <div className="text-xs text-muted-foreground">Loading users...</div>
                     </div>
                   ) : users.length === 0 ? (
                     <div className="flex items-center justify-center py-8">
-                      <div className="text-sm text-muted-foreground">No users found</div>
+                      <div className="text-xs text-muted-foreground">No users found</div>
                     </div>
                   ) : (
                     <div className="space-y-2 max-h-60 overflow-y-auto">
                       {users.map((user) => (
-                        <div key={user.id} className="flex items-center space-x-3 p-3 border rounded-lg">
+                        <div key={user.id} className="flex items-center space-x-3 p-2 border rounded-lg">
                           <Checkbox
                             id={`user-${user.id}`}
                             checked={user.has_access}
@@ -379,7 +358,7 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChang
                           />
                           <Label htmlFor={`user-${user.id}`} className="flex-1 cursor-pointer">
                             <div className="flex items-center justify-between">
-                              <span className="font-medium">{user.username}</span>
+                              <span className="text-sm font-medium">{user.username}</span>
                               <span className={`text-xs px-2 py-1 rounded-full ${
                                 user.has_access 
                                   ? 'bg-green-100 text-green-800' 
@@ -400,7 +379,6 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChang
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={handleCancel}>
-              <X className="h-4 w-4 mr-2" />
               Cancel
             </Button>
             <ConditionalRender permission="products.edit" fallback={null}>
@@ -412,17 +390,7 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChang
                   await handleSubmit(e as any);
                 }}
               >
-                {loading ? (
-                  <>
-                    <Save className="h-4 w-4 mr-2 animate-pulse" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4 mr-2" />
-                    Save
-                  </>
-                )}
+                {loading ? 'Saving...' : 'Save'}
               </Button>
             </ConditionalRender>
           </DialogFooter>

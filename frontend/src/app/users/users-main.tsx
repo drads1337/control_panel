@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Tabs, TabsContent, TabsContents, TabsList, TabsTrigger } from '@/components/animate-ui/components/radix/tabs';
 import { useAuthContext } from '@/contexts/auth-context';
-import { useUsersQuery } from '@/hooks/use-users-query';
+import { useUsersQuery } from '@/entities/user';
 import { usePermissions } from '@/hooks/use-permissions';
 import UsersStats from './users-stats';
 import EmployeesTab from './employees-tab';

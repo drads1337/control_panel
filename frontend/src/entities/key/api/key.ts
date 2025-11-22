@@ -1,6 +1,7 @@
 import { enhancedApi as api } from '@/shared/api/enhanced-client'
 import { API_ENDPOINTS } from '@/shared/api/config'
 import { preventDuplicateRequest } from '@/lib/request-manager'
+import { getErrorMessage, getErrorStatus, isAxiosError, isErrorWithMessage } from '@/lib/error-utils'
 import type { LicenseKeysResponse, CreateKeyData, BulkCreateKeysData, CreateAgentKeyData, BulkCreateAgentKeysData, LicenseKey, KeysStats } from '@/entities/key';
 import type {
   LicenseKeysResponse as LicenseKeysResponseType,
@@ -45,12 +46,12 @@ export async function createLicenseKey(data: CreateKeyDataType): Promise<{ messa
   try {
 
     await api.get('/api/users/me')
-  } catch (error: any) {
-    if (error.response?.status === 401) {
+  } catch (error: unknown) {
+    const status = getErrorStatus(error)
+    if (status === 401) {
       const errorMsg = 'Authentication error. Please log in again. Cookies may not be set properly.'
       throw new Error(errorMsg)
     }
-
   }
 
   try {
@@ -60,9 +61,10 @@ export async function createLicenseKey(data: CreateKeyDataType): Promise<{ messa
     })
 
     return response.data
-  } catch (error: any) {
-
-    if (error.response?.status === 401) {
+  } catch (error: unknown) {
+    const status = getErrorStatus(error)
+    
+    if (status === 401) {
       let errorMsg = 'Authentication error. Please log in again. Cookies may not be set properly.'
 
       if (currentOrigin.includes('localhost') || currentOrigin.includes('127.0.0.1')) {
@@ -78,43 +80,51 @@ export async function createLicenseKey(data: CreateKeyDataType): Promise<{ messa
       throw new Error(errorMsg)
     }
 
-    if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-      throw new Error('Request timeout. The server may be processing your request. Please refresh the page and check if the key was created.')
-    }
-
-    if (error.response?.data?.error === 'VALIDATION_ERROR' && error.response?.data?.details) {
-      const validationErrors = error.response.data.details
-      const errorMessages = validationErrors.map((err: any) => {
-        const field = err.loc?.join('.') || 'field'
-        return `${field}: ${err.msg}`
-      }).join(', ')
-      throw new Error(`Validation failed: ${errorMessages}`)
-    }
-
-    if (error.response?.data?.error === 'INTERNAL_ERROR') {
-      const serverMessage = error.response?.data?.message || 'Internal server error'
-      const details = error.response?.data?.details
-      const traceback = error.response?.data?.traceback
-
-      let errorMsg = 'Internal server error occurred while creating the license key.'
-
-      if (serverMessage && serverMessage !== 'Internal server error') {
-        errorMsg += ` ${serverMessage}`
+    if (isAxiosError(error)) {
+      if (error.code === 'ECONNABORTED' || (isErrorWithMessage(error) && error.message.includes('timeout'))) {
+        throw new Error('Request timeout. The server may be processing your request. Please refresh the page and check if the key was created.')
       }
 
-      if (details) {
-        errorMsg += ` Details: ${details}`
+      const errorData = error.response?.data
+      if (errorData && typeof errorData === 'object') {
+        if (errorData.error === 'VALIDATION_ERROR' && Array.isArray(errorData.details)) {
+          const validationErrors = errorData.details
+          const errorMessages = validationErrors.map((err: unknown) => {
+            if (typeof err === 'object' && err !== null) {
+              const errObj = err as { loc?: unknown[]; msg?: string }
+              const field = Array.isArray(errObj.loc) ? errObj.loc.join('.') : 'field'
+              return `${field}: ${errObj.msg || 'validation error'}`
+            }
+            return 'validation error'
+          }).join(', ')
+          throw new Error(`Validation failed: ${errorMessages}`)
+        }
+
+        if (errorData.error === 'INTERNAL_ERROR') {
+          const serverMessage = (typeof errorData.message === 'string' ? errorData.message : 'Internal server error')
+          const details = errorData.details
+          const traceback = errorData.traceback
+
+          let errorMsg = 'Internal server error occurred while creating the license key.'
+
+          if (serverMessage && serverMessage !== 'Internal server error') {
+            errorMsg += ` ${serverMessage}`
+          }
+
+          if (details) {
+            errorMsg += ` Details: ${details}`
+          }
+
+          if (import.meta.env.DEV && traceback) {
+            // Traceback logging can be added here if needed
+          }
+
+          throw new Error(errorMsg)
+        }
       }
-
-      if (import.meta.env.DEV && traceback) {
-
-      }
-
-      throw new Error(errorMsg)
     }
 
-    const errorMessage = error.response?.data?.error || error.response?.data?.msg || error.message || 'Failed to create license key'
-    throw new Error(errorMessage)
+    throw new Error(getErrorMessage(error))
   }
 }
 
@@ -123,8 +133,8 @@ export async function createCustomLicenseKey(data: CreateKeyDataType & { custom_
 
     const response = await api.post(API_ENDPOINTS.KEYS_CUSTOM, data)
     return response.data
-  } catch (err: any) {
-    throw new Error(err.response?.data?.error || err.response?.data?.msg || err.message || 'Failed to create custom license key')
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err))
   }
 }
 
@@ -133,19 +143,26 @@ export async function bulkCreateLicenseKeys(data: BulkCreateKeysDataType): Promi
     const response = await api.post(API_ENDPOINTS.KEYS_BULK, data)
 
     return response.data
-  } catch (err: any) {
-
-    if (err.response?.status === 401) {
+  } catch (err: unknown) {
+    const status = getErrorStatus(err)
+    
+    if (status === 401) {
       throw new Error('Authentication required. Please log in again. Cookies may not be set properly.')
     }
 
-    if (err.response?.status === 403 && (err.response?.data?.error === 'CSRF_ERROR' || err.response?.data?.error?.includes('CSRF'))) {
-      const { clearCsrfToken } = await import('@/lib/csrf')
-      clearCsrfToken()
-      throw new Error('CSRF token validation failed. Please refresh the page and try again.')
+    if (status === 403 && isAxiosError(err)) {
+      const errorData = err.response?.data
+      if (errorData && typeof errorData === 'object') {
+        const errorCode = errorData.error
+        if (errorCode === 'CSRF_ERROR' || (typeof errorCode === 'string' && errorCode.includes('CSRF'))) {
+          const { clearCsrfToken } = await import('@/lib/csrf')
+          clearCsrfToken()
+          throw new Error('CSRF token validation failed. Please refresh the page and try again.')
+        }
+      }
     }
 
-    throw new Error(err.response?.data?.error || err.response?.data?.msg || err.message || 'Failed to create bulk license keys')
+    throw new Error(getErrorMessage(err))
   }
 }
 
@@ -154,8 +171,8 @@ export async function createAgentKey(data: CreateAgentKeyDataType): Promise<{ me
 
     const response = await api.post(API_ENDPOINTS.KEYS_AGENT, data)
     return response.data
-  } catch (err: any) {
-    throw new Error(err.response?.data?.error || err.message || 'Failed to create agent key')
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err))
   }
 }
 
@@ -164,8 +181,8 @@ export async function createCustomAgentKey(data: CreateAgentKeyData & { custom_k
 
     const response = await api.post(API_ENDPOINTS.KEYS_AGENT_CUSTOM, data)
     return response.data
-  } catch (err: any) {
-    throw new Error(err.response?.data?.error || err.message || 'Failed to create custom agent key')
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err))
   }
 }
 
@@ -174,8 +191,8 @@ export async function bulkCreateAgentKeys(data: BulkCreateAgentKeysDataType): Pr
 
     const response = await api.post(API_ENDPOINTS.KEYS_BULK_AGENT, data)
     return response.data
-  } catch (err: any) {
-    throw new Error(err.response?.data?.error || err.message || 'Failed to create bulk agent keys')
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err))
   }
 }
 
@@ -184,7 +201,7 @@ export async function getKeysStats(): Promise<KeysStatsType> {
 
     const response = await api.get(API_ENDPOINTS.KEYS_STATS)
     return response.data.stats || response.data
-  } catch (err: any) {
-    throw new Error(err.response?.data?.message || err.message || 'Failed to fetch keys stats')
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err))
   }
 }

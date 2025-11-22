@@ -4,4 +4,4 @@ export {
   useLogActions,
   type LogFilters,
   type UseLogsOptions
-} from './use-logs-query' 
+} from '@/entities/log'

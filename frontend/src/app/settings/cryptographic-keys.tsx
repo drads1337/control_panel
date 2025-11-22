@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Key, Copy, RotateCcw } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import { useSettingsQuery } from '@/hooks/use-settings-query'
+import { useSettingsQuery } from '@/entities/settings'
 import type { ProjectSettings } from '@/entities/settings'
 
 interface CryptographicKeysProps {

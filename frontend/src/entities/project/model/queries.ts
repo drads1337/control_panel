@@ -1,8 +1,8 @@
 import React from 'react'
 import { getProjects, createProject, updateProject, deleteProject } from '@/entities/project'
-import type { Project, CreateProjectData, ProjectsResponse } from '@/entities/project'
-import { usePaginatedResource } from './use-paginated-resource'
-import { useMutationWithCache } from './use-mutation-helpers'
+import type { Project, CreateProjectData, ProjectsResponse } from '@/entities/project/model/types'
+import { usePaginatedResource } from '@/hooks/use-paginated-resource'
+import { useMutationWithCache } from '@/hooks/use-mutation-helpers'
 
 export const projectKeys = {
   all: ['projects'] as const,
@@ -45,7 +45,6 @@ interface UseProjectsReturn {
 }
 
 export function useProjectsQuery(initialParams: UseProjectsParams = {}): UseProjectsReturn {
-
   const {
     items: projects,
     loading,
@@ -113,3 +112,4 @@ export function useProjectsQuery(initialParams: UseProjectsParams = {}): UseProj
     refetch,
   }
 }
+

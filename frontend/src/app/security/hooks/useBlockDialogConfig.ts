@@ -1,4 +1,3 @@
-import { AlertTriangle, Monitor, LucideIcon } from 'lucide-react'
 import type { AddBlockDialogConfig } from '../AddBlockDialog'
 
 export type BlockType = 'ip' | 'hwid'
@@ -11,8 +10,6 @@ interface BlockTypeConfig {
   description: string
   buttonText: string
   submitButtonText: string
-  icon: LucideIcon
-  iconColor: string
   dialogMaxWidth: string
   fieldLayout: 'single' | 'grid'
   permission: string
@@ -29,8 +26,6 @@ const BLOCK_CONFIGS: Record<BlockType, BlockTypeConfig> = {
     description: 'Add a new IP address to the block list. This will prevent the IP from accessing your system.',
     buttonText: 'Block IP Address',
     submitButtonText: 'Block IP Address',
-    icon: AlertTriangle,
-    iconColor: 'text-orange-500',
     dialogMaxWidth: 'sm:max-w-[600px]',
     fieldLayout: 'grid',
     permission: 'security.block_ips',
@@ -61,8 +56,6 @@ const BLOCK_CONFIGS: Record<BlockType, BlockTypeConfig> = {
     description: 'Add a new hardware ID to the block list. This will prevent the device from accessing your system.',
     buttonText: 'Block HWID',
     submitButtonText: 'Block HWID',
-    icon: Monitor,
-    iconColor: 'text-blue-500',
     dialogMaxWidth: 'sm:max-w-[700px]',
     fieldLayout: 'single',
     permission: 'security.block_hwids',

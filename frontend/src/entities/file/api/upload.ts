@@ -1,6 +1,7 @@
 import { enhancedApi as api } from '@/shared/api/enhanced-client'
 import { API_ENDPOINTS } from '@/shared/api/config'
 import { getProducts } from '@/entities/product'
+import { getErrorMessage, isAxiosError } from '@/lib/error-utils'
 
 export async function uploadProductConfig(
   file: File, 
@@ -29,9 +30,12 @@ export async function uploadProductConfig(
 
     const response = await api.post(`${API_ENDPOINTS.FILES}/product-files/config`, formData)
     return response.data
-  } catch (error: any) {
-    const errorData = error.response?.data || {}
-    throw new Error(errorData.error || error.message || 'Failed to upload product config')
+  } catch (error: unknown) {
+    if (isAxiosError(error) && error.response?.data && typeof error.response.data === 'object') {
+      const errorData = error.response.data as { error?: string }
+      throw new Error(errorData.error || getErrorMessage(error))
+    }
+    throw new Error(getErrorMessage(error))
   }
 }
 
@@ -68,16 +72,18 @@ export async function uploadProductExtraFile(
 
     const response = await api.post(`${API_ENDPOINTS.FILES}/product-files/extra`, formData)
     return response.data
-  } catch (err: any) {
-
-    const errorData = err.response?.data || {}
-    throw new Error(errorData.error || err.message || 'Failed to upload product extra file')
+  } catch (err: unknown) {
+    if (isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
+      const errorData = err.response.data as { error?: string }
+      throw new Error(errorData.error || getErrorMessage(err))
+    }
+    throw new Error(getErrorMessage(err))
   }
 }
 
 export async function uploadProductFiles(
   productId: number,
-  files: { file: File; type: 'logo' | 'banner' | 'file' }[],
+  files: { file: File; type: 'logo' | 'banner' | 'background' | 'file' }[],
   onProgress?: (fileIndex: number, progress: number) => void
 ): Promise<any> {
   const formData = new FormData()

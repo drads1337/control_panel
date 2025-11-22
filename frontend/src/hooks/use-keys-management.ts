@@ -1,7 +1,5 @@
-import { useState, useCallback } from 'react';
 import { useKeysData } from './use-keys-data';
 import { useKeysUI } from './use-keys-ui';
-import { getProducts } from '@/entities/product';
 import type { LicenseKey } from '@/entities/key';
 
 interface UseKeysManagementParams {
@@ -16,7 +14,6 @@ interface UseKeysManagementParams {
 }
 
 interface UseKeysManagementReturn {
-
   keys: LicenseKey[];
   loading: boolean;
   products: Array<{ id: number; name: string; is_multi_app: boolean }>;
@@ -26,7 +23,6 @@ interface UseKeysManagementReturn {
     total: number;
     pages: number;
   };
-
   showKey: Record<number, boolean>;
   fullKeys: Record<number, string>;
   selectedKeys: Set<number>;
@@ -35,7 +31,6 @@ interface UseKeysManagementReturn {
   detailsDialogOpen: boolean;
   editDialogOpen: boolean;
   extendDialogOpen: boolean;
-
   handleToggleKeyVisibility: (keyId: number) => void;
   handleSelectKey: (keyId: number, selected: boolean) => void;
   handleSelectAll: (selected: boolean) => void;
@@ -50,14 +45,20 @@ interface UseKeysManagementReturn {
   setSelectedKey: (key: LicenseKey | null) => void;
 }
 
+/**
+ * Композиционный хук для управления ключами лицензий.
+ * Объединяет данные (useKeysData) и UI состояние (useKeysUI).
+ * 
+ * Это правильный пример композиции хуков - каждый хук отвечает за свою область:
+ * - useKeysData: запросы данных и продуктов
+ * - useKeysUI: состояние UI (диалоги, выбор, видимость)
+ */
 export function useKeysManagement({
   viewMode,
   filters,
   currentPage,
   canViewKeys,
 }: UseKeysManagementParams): UseKeysManagementReturn {
-  const [products, setProducts] = useState<Array<{ id: number; name: string; is_multi_app: boolean }>>([]);
-
   const keysData = useKeysData({
     viewMode,
     filters,
@@ -65,36 +66,18 @@ export function useKeysManagement({
     canViewKeys,
   });
 
-  const loadProducts = useCallback(async () => {
-    try {
-      const response = await getProducts('all');
-      setProducts(
-        response.products.map((product) => ({
-          id: product.id,
-          name: product.name,
-          is_multi_app: product.is_multi_app,
-        }))
-      );
-    } catch (error) {
-
-    }
-  }, []);
-
   const keysUI = useKeysUI({
     keys: keysData.keys as LicenseKey[],
-    loadProducts,
+    loadProducts: keysData.loadProducts,
     invalidateQueries: keysData.invalidateQueries,
   });
 
   return {
-
     keys: keysData.keys as LicenseKey[],
     loading: keysData.loading,
-    products,
+    products: keysData.products,
     pagination: keysData.pagination,
-
     ...keysUI,
-
-    loadProducts,
+    loadProducts: keysData.loadProducts,
   };
 }

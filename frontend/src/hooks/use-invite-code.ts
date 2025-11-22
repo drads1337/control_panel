@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { enhancedApi as api } from '@/shared/api/enhanced-client'
+import { getErrorMessage, isAxiosError } from '@/lib/error-utils'
 export interface InviteCodeInfo {
   code_type: 'referral' | 'project_invite'
   role?: string
@@ -28,9 +29,14 @@ export function useInviteCode() {
       })
       setCodeInfo(response.data)
       return response.data
-    } catch (err: any) {
-      const errorMessage = err?.response?.data?.error || err?.message || 'Failed to validate invite code'
-      setError(errorMessage)
+    } catch (err: unknown) {
+      if (isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
+        const errorData = err.response.data as { error?: string }
+        const errorMessage = errorData.error || getErrorMessage(err)
+        setError(errorMessage)
+      } else {
+        setError(getErrorMessage(err))
+      }
       return null
     } finally {
       setIsValidating(false)

@@ -6,7 +6,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
-import { CalendarIcon } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import type { BlockFormData } from '../AddBlockDialog'
@@ -41,7 +40,6 @@ export function BlockFormFields({
 
   return (
     <>
-      {}
       <div className={cn(isGridLayout ? "grid grid-cols-2 gap-4" : "space-y-4")}>
         <div className="space-y-2">
           <Label htmlFor={config.fieldName}>{config.fieldLabel} *</Label>
@@ -73,7 +71,6 @@ export function BlockFormFields({
         )}
       </div>
 
-      {}
       <div className="space-y-2">
         <Label htmlFor="reason">Reason *</Label>
         <Textarea
@@ -86,7 +83,6 @@ export function BlockFormFields({
         />
       </div>
 
-      {}
       {!isGridLayout && (
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
@@ -123,7 +119,6 @@ export function BlockFormFields({
         </div>
       )}
 
-      {}
       <div className="grid grid-cols-2 gap-4">
         {isGridLayout && (
           <div className="space-y-2">
@@ -160,7 +155,6 @@ export function BlockFormFields({
         </div>
       </div>
 
-      {}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="threat_score">Threat Score (0-100)</Label>
@@ -186,7 +180,6 @@ export function BlockFormFields({
                     !expiresDate && "text-muted-foreground"
                   )}
                 >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
                   {expiresDate ? format(expiresDate, "PPP") : "No expiration"}
                 </Button>
               </PopoverTrigger>
@@ -203,7 +196,6 @@ export function BlockFormFields({
         )}
       </div>
 
-      {}
       {!isGridLayout && (
         <div className="space-y-2">
           <Label>Expiration Date (Optional)</Label>
@@ -216,7 +208,6 @@ export function BlockFormFields({
                   !expiresDate && "text-muted-foreground"
                 )}
               >
-                <CalendarIcon className="mr-2 h-4 w-4" />
                 {expiresDate ? format(expiresDate, "PPP") : "No expiration"}
               </Button>
             </PopoverTrigger>

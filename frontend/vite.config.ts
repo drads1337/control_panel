@@ -229,6 +229,8 @@ export default defineConfig(({ mode }) => {
           assetFileNames: 'assets/[ext]/[name]-[hash].[ext]',
           // Optimize chunk size - split large chunks
           maxParallelFileOps: 2,
+          // Limit chunk size to improve loading performance
+          chunkSizeWarningLimit: 500, // Warn about chunks larger than 500KB
           // Better tree-shaking and dead code elimination
           generatedCode: {
             constBindings: true, // Use const instead of var for better tree-shaking
@@ -251,8 +253,8 @@ export default defineConfig(({ mode }) => {
       modulePreload: {
         polyfill: false, // Disable module preload polyfill to reduce bundle size
       },
-      // Improve chunk size limits
-      chunkSizeWarningLimit: 1000, // Warn about chunks larger than 1MB
+      // Improve chunk size limits - reduced for better performance
+      chunkSizeWarningLimit: 500, // Warn about chunks larger than 500KB
     },
       optimizeDeps: {
       include: [

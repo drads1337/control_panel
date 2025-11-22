@@ -286,6 +286,7 @@ class KeyCRUDService:
                         "user_id": key.user_id,
                         "product_id": key.product_id,
                         "product_name": product_name,
+                        "agent_id": key.agent_id,
                         "expires_at": key.expires_at.isoformat() if key.expires_at else None,
                         "max_devices": key.max_devices,
                         "devices": key.devices,
@@ -366,6 +367,7 @@ class KeyCRUDService:
                 "key_masked": not can_view_full_key,
                 "product_id": key.product_id,
                 "product_name": product.name if product else None,
+                "agent_id": key.agent_id,
                 "status": key.status,
                 "is_active": key.status == 1
                 and (not key.expires_at or key.expires_at > datetime.utcnow()),

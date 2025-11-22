@@ -65,10 +65,20 @@ def register_blueprints(app: Flask) -> None:
 
     app.register_blueprint(servers_bp, url_prefix="/api/servers")
     app.register_blueprint(files_bp, url_prefix="/api/files")
+    
     # Universal terminology endpoints (new)
+    # These are the primary endpoints using consistent terminology:
+    # - "products" instead of "clients"
+    # - "agents" instead of "loaders"
     app.register_blueprint(products_bp, url_prefix="/api/products", name="products")
     app.register_blueprint(agents_bp, url_prefix="/api/agents", name="agents")
-    # Backward compatibility endpoints (deprecated but still supported)
+    
+    # DEPRECATED: Backward compatibility endpoints
+    # These duplicate registrations are for legacy support only.
+    # Migration plan: See backend/docs/API_MIGRATION_PLAN.md
+    # TODO: Remove these after migration period (target: 12 months from now)
+    # Note: The actual legacy endpoint is /api/clients (handled in clients.py)
+    # These duplicate names are kept for reference but may not be actively used
     app.register_blueprint(products_bp, url_prefix="/api/products", name="products_deprecated")
     app.register_blueprint(agents_bp, url_prefix="/api/agents", name="loaders_deprecated")
 

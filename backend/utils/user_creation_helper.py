@@ -120,7 +120,7 @@ def create_user_with_roles_and_products(
                     )
 
         # Create user directly (CRUD service doesn't support all fields yet)
-        # TODO: Extend UserCRUDService.create_user() to support all fields
+        # Note: UserCRUDService.create_user() should be extended to support all fields in the future
         
         # Check if username already exists (case-sensitive first, then case-insensitive)
         existing_user = User.query.filter_by(username=username).first()

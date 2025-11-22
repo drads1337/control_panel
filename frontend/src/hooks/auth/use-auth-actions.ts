@@ -2,6 +2,7 @@ import { useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authService } from '@/services/auth-service'
 import { clearCsrfToken, prefetchCsrfToken } from '@/lib/csrf'
+import { clearAllAvatarBlobs } from '@/lib/avatar-cache'
 import type { User } from '@/entities/user'
 
 interface UseAuthActionsParams {
@@ -125,7 +126,7 @@ export function useAuthActions(
           // Clear auth state since we couldn't verify user
           await authService.logout()
         }
-      } catch (error) {
+      } catch (error: unknown) {
         // SECURITY: Do not create fallback user - handle error properly instead
         // Creating fallback users can grant access based on stale data when backend
         // may have already revoked permissions
@@ -143,11 +144,11 @@ export function useAuthActions(
         // Clear auth state since we couldn't verify user
         try {
           await authService.logout()
-        } catch (logoutError) {
+        } catch (logoutError: unknown) {
           // Ignore logout errors - we're already handling an error state
         }
       }
-    } catch (error) {
+    } catch (error: unknown) {
       if (error instanceof Error && error.name === 'AbortError') {
         return
       }
@@ -197,7 +198,7 @@ export function useAuthActions(
     try {
       await authService.register(username, email, password, referralCode, controller)
       await login(username, password)
-    } catch (error) {
+    } catch (error: unknown) {
       if (error instanceof Error && error.name === 'AbortError') {
         return
       }
@@ -248,7 +249,7 @@ export function useAuthActions(
     try {
       await authService.registerWithInvite(username, password, inviteCode, projectName, controller)
       await login(username, password)
-    } catch (error) {
+    } catch (error: unknown) {
       if (error instanceof Error && error.name === 'AbortError') {
         return
       }
@@ -289,6 +290,7 @@ export function useAuthActions(
       reset()
       authService.clearCache()
       clearCsrfToken()
+      clearAllAvatarBlobs() 
       loginAttempts.current = 0
 
       await authService.logout()

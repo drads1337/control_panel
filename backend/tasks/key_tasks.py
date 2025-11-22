@@ -454,6 +454,7 @@ def bulk_create_loader_keys_task(
                         key=key_string,
                         user_id=None,
                         product_id=product.id,
+                        agent_id=agent_id,
                         status=1,
                         max_devices=max_devices,
                         duration_hours=duration_hours,

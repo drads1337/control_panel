@@ -5,8 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Spinner } from '@/components/ui/spinner';
+import { DialogDescription } from '@/components/ui/dialog';
 import { updateAgentConfig } from '@/entities/agent';
-import { Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Agent, AgentConfigData } from '@/entities/agent';
 
@@ -60,10 +61,10 @@ const AgentConfigDialog: React.FC<AgentConfigDialogProps> = ({ open, onOpenChang
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
-            {agent.name}
-          </DialogTitle>
+          <DialogTitle className="text-base">{agent.name}</DialogTitle>
+          <DialogDescription className="mt-1 text-xs">
+            Configure authentication and key generation settings
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -130,7 +131,7 @@ const AgentConfigDialog: React.FC<AgentConfigDialogProps> = ({ open, onOpenChang
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? 'Saving...' : 'Save'}
+              {loading ? (<><Spinner className="mr-2 h-4 w-4 animate-spin" />Saving...</>) : 'Save'}
             </Button>
           </DialogFooter>
         </form>

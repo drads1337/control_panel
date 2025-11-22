@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Mail, Camera, Loader2 } from 'lucide-react'
 import { getPrimaryRole } from '@/lib/rbac-utils'
 import { getApiUrl, getApiBaseUrl } from '@/lib/utils'
+import { loadAvatarAsBlob, clearAvatarBlob, getCachedAvatarBlob } from '@/lib/avatar-cache'
 import type { User } from '@/entities/user'
 
 interface ProfileCardProps {
@@ -30,103 +31,85 @@ export function ProfileCard({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [avatarKey, setAvatarKey] = useState(() => Date.now())
   const [avatarBlobUrl, setAvatarBlobUrl] = useState<string | null>(null)
+  const previousAvatarRef = useRef<string | null>(null)
 
-  // Загружаем аватар через fetch и создаем blob URL
+  // Оптимизированная загрузка аватара с кешированием blob URLs
   useEffect(() => {
     if (user?.avatar) {
-      // Очищаем предыдущий blob URL
-      if (avatarBlobUrl) {
-        URL.revokeObjectURL(avatarBlobUrl)
-        setAvatarBlobUrl(null)
-      }
-    
-      const newKey = Date.now()
-      setAvatarKey(newKey)
+      const avatarFilename = user.avatar
       
-      const baseUrl = getApiBaseUrl() || window.location.origin
-      const avatarUrl = `${baseUrl}/uploads/avatars/${user.avatar}?t=${newKey}`
+      // Проверяем, изменился ли аватар
+      const avatarChanged = previousAvatarRef.current !== avatarFilename
       
-      const fetchStartTime = Date.now()
-      fetch(avatarUrl, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Accept': 'image/*'
+      if (avatarChanged) {
+        // Очищаем предыдущий blob URL из кеша, если он был
+        if (previousAvatarRef.current) {
+          clearAvatarBlob(previousAvatarRef.current)
         }
-      })
-        .then(async response => {
-          const fetchDuration = Date.now() - fetchStartTime
-          const responseHeaders: Record<string, string> = {}
-          response.headers.forEach((value, key) => {
-            responseHeaders[key] = value
-          })
+        
+        // Обновляем ref
+        previousAvatarRef.current = avatarFilename
+        
+        // Проверяем кеш перед загрузкой
+        const cachedBlob = getCachedAvatarBlob(avatarFilename)
+        if (cachedBlob) {
+          // Используем закешированный blob URL
+          setAvatarBlobUrl(cachedBlob)
+          setAvatarKey(Date.now()) // Обновляем key для перерисовки
+        } else {
+          // Загружаем аватар через кеш-менеджер
+          const baseUrl = getApiBaseUrl() || window.location.origin
+          const avatarUrl = `${baseUrl}/uploads/avatars/${avatarFilename}`
           
-          if (!response.ok) {
-            // Try to get error message from response
-            let errorMessage = response.statusText
-            let errorBody = null
-            
-            try {
-              const clonedResponse = response.clone()
-              const contentType = clonedResponse.headers.get('content-type')
-              
-              if (contentType && contentType.includes('product/json')) {
-                errorBody = await clonedResponse.json()
-                errorMessage = errorBody.error || errorBody.message || errorMessage
+          loadAvatarAsBlob(avatarUrl, avatarFilename)
+            .then(blobUrl => {
+              if (blobUrl) {
+                setAvatarBlobUrl(blobUrl)
+                setAvatarKey(Date.now())
               } else {
-                errorBody = await clonedResponse.text()
+                setAvatarBlobUrl(null)
               }
-            } catch (e) {
-              // Failed to parse error response
-            }
-            
-            // Handle 404 gracefully - avatar file doesn't exist
-            if (response.status === 404) {
+            })
+            .catch(() => {
               setAvatarBlobUrl(null)
-              return null
-            }
-            // For other errors, still log but don't throw
-            setAvatarBlobUrl(null)
-            return null
-          }
-          
-          return response.blob()
-        })
-        .then(blob => {
-          if (!blob) {
-            // 404 or other error was handled above
-            return
-          }
-          
-          const blobUrl = URL.createObjectURL(blob)
-          setAvatarBlobUrl(blobUrl)
-        })
-        .catch(error => {
-          setAvatarBlobUrl(null)
-        })
+            })
+        }
+      } else {
+        // Аватар не изменился, используем кеш
+        const cachedBlob = getCachedAvatarBlob(avatarFilename)
+        if (cachedBlob) {
+          setAvatarBlobUrl(cachedBlob)
+        }
+      }
     } else {
       // Очищаем blob URL если аватара нет
-      if (avatarBlobUrl) {
-        URL.revokeObjectURL(avatarBlobUrl)
-        setAvatarBlobUrl(null)
+      if (previousAvatarRef.current) {
+        clearAvatarBlob(previousAvatarRef.current)
+        previousAvatarRef.current = null
       }
+      setAvatarBlobUrl(null)
     }
     
-    // Cleanup при размонтировании или изменении аватара
+    // Cleanup при размонтировании
     return () => {
-      // Cleanup будет выполнен в следующем эффекте
+      // Не очищаем blob URL здесь - он будет очищен при следующем изменении аватара
+      // или при размонтировании компонента через следующий эффект
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.avatar])
   
-  // Cleanup blob URL при размонтировании
+  // Cleanup при размонтировании компонента
   useEffect(() => {
     return () => {
-      if (avatarBlobUrl) {
-        URL.revokeObjectURL(avatarBlobUrl)
+      // При размонтировании компонента очищаем текущий blob URL из кеша
+      // Но не отзываем его, так как он может использоваться другими компонентами
+      // Кеш будет очищен автоматически при следующей загрузке или при logout
+      if (user?.avatar) {
+        // Не очищаем здесь - оставляем в кеше для других компонентов
+        // Очистка произойдет при logout через clearAllAvatarBlobs()
       }
     }
-  }, [avatarBlobUrl])
+  }, [user?.avatar])
 
   // Используем blob URL если он доступен, иначе формируем обычный URL
   const avatarUrl = useMemo(() => {

@@ -5,7 +5,7 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { useAuthContext } from '@/contexts/auth-context';
 import { enhancedApi } from '@/shared/api/enhanced-client';
 import { toast } from 'sonner';
-import { createLicenseKey, createCustomLicenseKey, bulkCreateLicenseKeys } from '@/entities/key';
+import { createLicenseKey, createCustomLicenseKey, bulkCreateLicenseKeys, createAgentKey, createCustomAgentKey, bulkCreateAgentKeys } from '@/entities/key';
 import { getAgents } from '@/entities/agent';
 import { SingleKeyForm } from './components/SingleKeyForm';
 import { CustomKeyForm } from './components/CustomKeyForm';
@@ -38,19 +38,23 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ product
   const loadUserProductAccess = async () => {
     if (!user?.id) return;
 
+    const url = `/api/clients/${user.id}/products`
+
     try {
       setProductAccessLoading(true);
       // Use universal endpoint - products instead of products
-      const response = await enhancedApi.get(`/api/clients/${user.id}/products`);
-      if (Array.isArray(response.data)) {
+      const response = await enhancedApi.get(url);
 
+      if (Array.isArray(response.data)) {
         const accessibleProducts = response.data
           .filter((product: any) => product.has_access === true)
           .map((product: any) => product.product_id || product.id);
+        
+
         setUserProductAccess(accessibleProducts);
       }
-    } catch (error: any) {
-
+    } catch (error: unknown) {
+      // Silently handle errors - user may not have product access configured
       setUserProductAccess([]);
     } finally {
       setProductAccessLoading(false);
@@ -58,10 +62,9 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ product
   };
 
   const productLibraryProducts = products.filter(product => !product.is_multi_app);
-  const canViewProducts = productLibraryProducts.length > 0;
+  const canViewProducts = hasPermission('products.view') || productLibraryProducts.length > 0;
 
-  const multiAppProducts = products.filter(product => product.is_multi_app);
-  const canViewAgents = multiAppProducts.length > 0;
+  const canViewAgents = hasPermission('agents.view');
 
   useEffect(() => {
     loadAgents();
@@ -108,19 +111,15 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ product
           throw new Error('Please select a agent and at least one product');
         }
 
-        const promises = data.selectedProducts.map(productId =>
-          createLicenseKey({
-            product_id: productId,
-            duration_hours: data.duration_hours,
-            max_devices: data.max_devices
-          })
-        );
+        const result = await createAgentKey({
+          agent_id: data.agentId,
+          product_ids: data.selectedProducts,
+          duration_hours: data.duration_hours,
+          max_devices: data.max_devices
+        });
 
-        const results = await Promise.all(promises);
-        toast.success(`${data.selectedProducts.length} license keys created successfully!`);
-
-        const firstKeyId = results[0]?.key?.id;
-        onKeyCreated(firstKeyId);
+        toast.success(result.message || `${data.selectedProducts.length} license keys created successfully!`);
+        onKeyCreated();
       } else {
         if (!data.productId) {
           throw new Error('Please select a product');
@@ -165,17 +164,15 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ product
           throw new Error('Please select a agent and at least one product');
         }
 
-        const promises = data.selectedProducts.map(productId =>
-          createCustomLicenseKey({
-            product_id: productId,
-            duration_hours: data.duration_hours,
-            max_devices: data.max_devices,
-            custom_key: `${data.keyName}-${Date.now()}-${productId}`
-          })
-        );
+        const result = await createCustomAgentKey({
+          agent_id: data.agentId,
+          product_ids: data.selectedProducts,
+          duration_hours: data.duration_hours,
+          max_devices: data.max_devices,
+          custom_key: data.keyName || `CUSTOM-${Date.now()}`
+        });
 
-        await Promise.all(promises);
-        toast.success(`${data.selectedProducts.length} custom license keys created successfully!`);
+        toast.success(result.message || `${data.selectedProducts.length} custom license keys created successfully!`);
       } else {
         if (!data.productId) {
           throw new Error('Please select a product');
@@ -222,17 +219,15 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ product
           throw new Error('Please select a agent and at least one product');
         }
 
-        const promises = data.selectedProducts.map(productId =>
-          bulkCreateLicenseKeys({
-            product_id: productId,
-            count: data.quantity,
-            duration_hours: data.duration_hours,
-            max_devices: data.max_devices
-          })
-        );
+        const result = await bulkCreateAgentKeys({
+          agent_id: data.agentId,
+          product_ids: data.selectedProducts,
+          count: data.quantity,
+          duration_hours: data.duration_hours,
+          max_devices: data.max_devices
+        });
 
-        await Promise.all(promises);
-        toast.success(`${data.quantity * data.selectedProducts.length} keys created successfully!`);
+        toast.success(result.message || `${data.quantity * data.selectedProducts.length} keys created successfully!`);
         onKeyCreated();
       } else {
         if (!data.productId) {

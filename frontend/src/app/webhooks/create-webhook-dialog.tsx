@@ -49,8 +49,8 @@ export function CreateWebhookDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Create Webhook</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-base">Create Webhook</DialogTitle>
+          <DialogDescription className="mt-1 text-xs">
             Configure a new webhook to receive real-time notifications
           </DialogDescription>
         </DialogHeader>
@@ -70,8 +70,7 @@ export function CreateWebhookDialog({
             Cancel
           </Button>
           <Button onClick={onCreateWebhook} disabled={saving}>
-            {saving && <Spinner className="h-4 w-4 mr-2" />}
-            Create Webhook
+            {saving ? (<><Spinner className="mr-2 h-4 w-4 animate-spin" />Creating...</>) : 'Create Webhook'}
           </Button>
         </DialogFooter>
       </DialogContent>

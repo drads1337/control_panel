@@ -26,6 +26,7 @@ from ...models.core import Project, User
 from ...models.products import Product
 from ...models.keys import Key
 from ...models.webhooks import Webhook, WebhookLog
+from ...utils.data_masking import mask_key
 
 class WebhookService:
     """Service for managing webhook notifications"""
@@ -234,7 +235,13 @@ class WebhookService:
             return False
 
     def get_webhooks(self, project_id: Optional[int] = None) -> List[Dict]:
-        """Get webhooks for a project"""
+        """
+        Get webhooks for a project
+        
+        SECURITY: Sensitive data (tokens, secrets) are masked in GET responses
+        to prevent XSS attacks from exposing credentials. Full values are only
+        returned when explicitly needed (e.g., during webhook execution).
+        """
         try:
             # Get webhooks
             if project_id:
@@ -251,15 +258,18 @@ class WebhookService:
                     "webhook_type": webhook.webhook_type,
                     "url": webhook.url,
                     "events": json.loads(webhook.events),
-                    "secret": webhook.secret,
+                    # SECURITY: Mask secret to prevent XSS exposure
+                    "secret": mask_key(webhook.secret) if webhook.secret else None,
                     "is_active": webhook.is_active,
                     "headers": json.loads(webhook.headers or "{}"),
 
-                    "telegram_bot_token": webhook.telegram_bot_token,
+                    # SECURITY: Mask tokens to prevent XSS exposure
+                    "telegram_bot_token": mask_key(webhook.telegram_bot_token) if webhook.telegram_bot_token else None,
                     "telegram_chat_id": webhook.telegram_chat_id,
 
                     "discord_webhook_url": webhook.discord_webhook_url,
-                    "discord_bot_token": webhook.discord_bot_token,
+                    # SECURITY: Mask bot token to prevent XSS exposure
+                    "discord_bot_token": mask_key(webhook.discord_bot_token) if webhook.discord_bot_token else None,
                     "discord_channel_id": webhook.discord_channel_id,
                     "created_at": webhook.created_at.isoformat(),
                     "updated_at": webhook.updated_at.isoformat() if webhook.updated_at else None,

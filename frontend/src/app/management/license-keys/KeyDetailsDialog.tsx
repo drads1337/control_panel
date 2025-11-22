@@ -109,9 +109,10 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
           toast.error('You do not have permission to copy full keys. Contact your administrator.');
           return;
         }
-      } catch (error: any) {
-
-        if (error.response?.status === 403) {
+      } catch (error: unknown) {
+        const { getErrorStatus } = await import('@/lib/error-utils')
+        const status = getErrorStatus(error)
+        if (status === 403) {
           toast.error('You do not have permission to copy full keys. Contact your administrator.');
         } else {
           toast.error('Failed to get full key. Please try again.');
@@ -265,8 +266,10 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
                               } else {
                                 toast.error('You do not have permission to view full keys. Contact your administrator.');
                               }
-                            } catch (error: any) {
-                              if (error.response?.status === 403) {
+                            } catch (error: unknown) {
+                              const { getErrorStatus } = await import('@/lib/error-utils')
+                              const status = getErrorStatus(error)
+                              if (status === 403) {
                                 toast.error('You do not have permission to view full keys. Contact your administrator.');
                               } else {
                                 toast.error('Failed to reveal key. Please try again.');
@@ -307,6 +310,14 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
                   <div>
                     <Label className="text-sm font-medium">Product</Label>
                     <p className="mt-1">{(keyDetails?.key || keyData)?.product_name || 'Not specified'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Target Type</Label>
+                    <div className="mt-1">
+                      <Badge variant={(keyDetails?.key || keyData)?.agent_id ? "default" : "secondary"} className="text-xs">
+                        {(keyDetails?.key || keyData)?.agent_id ? 'Agent' : 'Product'}
+                      </Badge>
+                    </div>
                   </div>
                   <div>
                     <Label className="text-sm font-medium">Project</Label>

@@ -3,11 +3,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Bell, Plus, Trash2, Clock, Eye, EyeOff } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
-import { getProductNotifications, deleteNotification } from '@/entities/notification';
+import { Eye, EyeOff, Trash2, Clock } from 'lucide-react';
+import { getProductNotifications, getAgentNotifications, deleteNotification } from '@/entities/notification';
 import { usePermissions } from '@/hooks/use-permissions';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
 import { toast } from 'sonner';
@@ -19,6 +18,7 @@ interface NotificationsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   product: Product | null;
+  isAgent?: boolean;
 }
 
 const notificationKeys = {
@@ -30,15 +30,34 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
   open,
   onOpenChange,
   product,
+  isAgent = false,
 }) => {
   const queryClient = useQueryClient();
   const { hasPermission } = usePermissions();
 
-  const canViewNotifications = hasPermission('products.notifications_view');
-  const canCreateNotifications = hasPermission('products.notifications_create');
-  const canDeleteNotifications = hasPermission('products.notifications_delete');
+  const canViewNotifications = isAgent 
+    ? hasPermission('agents.notifications_view') || hasPermission('products.notifications_view')
+    : hasPermission('products.notifications_view');
+  const canCreateNotifications = isAgent
+    ? hasPermission('agents.notifications_create') || hasPermission('products.notifications_create')
+    : hasPermission('products.notifications_create');
+  const canDeleteNotifications = isAgent
+    ? hasPermission('agents.notifications_delete') || hasPermission('products.notifications_delete')
+    : hasPermission('products.notifications_delete');
 
-  if (!canViewNotifications) {
+  // Allow dialog to open if user has at least one notification permission (view, create, or edit)
+  const canManageNotifications = isAgent
+    ? hasPermission('agents.notifications_view') || 
+      hasPermission('agents.notifications_create') || 
+      hasPermission('agents.notifications_edit') ||
+      hasPermission('products.notifications_view') || 
+      hasPermission('products.notifications_create') || 
+      hasPermission('products.notifications_edit')
+    : hasPermission('products.notifications_view') || 
+      hasPermission('products.notifications_create') || 
+      hasPermission('products.notifications_edit');
+
+  if (!canManageNotifications) {
     return null;
   }
 
@@ -48,9 +67,11 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
     queryKey: notificationKeys.product(product?.id || 0),
     queryFn: async () => {
       if (!product) throw new Error('Product is required');
-      return await getProductNotifications(product.id);
+      return isAgent 
+        ? await getAgentNotifications(product.id)
+        : await getProductNotifications(product.id);
     },
-    enabled: open && !!product && canViewNotifications,
+    enabled: open && !!product && canManageNotifications,
     staleTime: 30 * 1000,
     gcTime: 2 * 60 * 1000,
     retry: (failureCount, error: any) => {
@@ -110,7 +131,8 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
     return null;
   }
 
-  if (!canViewNotifications) {
+  // Allow dialog to open if user has at least one notification permission (view, create, or edit)
+  if (!canManageNotifications) {
     return null;
   }
 
@@ -170,45 +192,42 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-4xl max-h-[80vh] w-[90vw] overflow-hidden">
         <DialogHeader className="pb-4">
-          <DialogTitle className="flex items-center gap-2 text-lg">
-            <Bell className="h-5 w-5" />
+          <DialogTitle className="text-base">
             Manage Notifications
           </DialogTitle>
-          <DialogDescription className="text-sm">
+          <DialogDescription className="mt-1 text-xs">
             Make necessary changes to the settings for the product "{product.name}".
           </DialogDescription>
         </DialogHeader>
 
         {}
         <div className="flex items-center justify-between mb-1 px-1">
-          <h3 className="text-base font-semibold">Notifications ({notifications.length})</h3>
-          <ConditionalRender permission="products.notifications_create" fallback={null}>
+          <h3 className="text-sm font-semibold">Notifications ({notifications.length})</h3>
+          <ConditionalRender 
+            permission={isAgent ? "agents.notifications_create" : "products.notifications_create"} 
+            fallback={null}
+          >
           <Button 
             onClick={() => setShowCreateDialog(true)} 
             size="sm"
             className="h-8"
             disabled={!canCreateNotifications}
           >
-            <Plus className="mr-2 h-4 w-4" />
             Create
           </Button>
           </ConditionalRender>
         </div>
 
         <div className="space-y-4 overflow-y-auto max-h-[calc(80vh-120px)] pr-2">
-          {}
-          <Card className="border">
-            <CardContent className="p-4">
-
-              {loading ? (
-                <Spinner message="Loading notifications..." />
-              ) : notifications.length === 0 ? (
-                <div className="text-center py-6 text-muted-foreground">
-                  <Bell className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">No notifications found</p>
-                  <p className="text-xs">Create the first notification for this product.</p>
-                </div>
-              ) : (
+          <div className="border rounded-lg p-4">
+            {loading ? (
+              <Spinner message="Loading notifications..." />
+            ) : notifications.length === 0 ? (
+              <div className="text-center py-6 text-muted-foreground">
+                <p className="text-xs">No notifications found</p>
+                <p className="text-xs">Create the first notification for this product.</p>
+              </div>
+            ) : (
                 <div 
                   ref={parentRef}
                   className="max-h-80 overflow-y-auto pr-2"
@@ -241,27 +260,21 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2 mb-2 flex-wrap">
                                     {getTypeBadge(notification.type)}
-                                    <Badge 
-                                      variant="outline" 
-                                      className={`text-xs ${
-                                        notification.is_read 
-                                          ? 'text-green-600 border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800' 
-                                          : 'text-orange-600 border-orange-200 bg-orange-50 dark:bg-orange-950 dark:border-orange-800'
-                                      }`}
-                                    >
-                                      {notification.is_read ? (
-                                        <>
-                                          <Eye className="h-3 w-3 mr-1" />
-                                          Read
-                                        </>
-                                      ) : (
-                                        <>
-                                          <EyeOff className="h-3 w-3 mr-1" />
-                                          Unread
-                                        </>
-                                      )}
-                                    </Badge>
-                                    {notification.show_count >= notification.repeat_count && (
+                                    {typeof notification.is_read !== 'undefined' && (
+                                      <Badge 
+                                        variant="outline" 
+                                        className={`text-xs ${
+                                          notification.is_read 
+                                            ? 'text-green-600 border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800' 
+                                            : 'text-orange-600 border-orange-200 bg-orange-50 dark:bg-orange-950 dark:border-orange-800'
+                                        }`}
+                                      >
+                                        {notification.is_read ? 'Read' : 'Unread'}
+                                      </Badge>
+                                    )}
+                                    {typeof notification.show_count !== 'undefined' && 
+                                     typeof notification.repeat_count !== 'undefined' &&
+                                     notification.show_count >= notification.repeat_count && (
                                       <Badge variant="secondary" className="text-xs">
                                         Completed
                                       </Badge>
@@ -271,20 +284,20 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
                                     {notification.message}
                                   </p>
                                   <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
-                                    <div className="flex items-center gap-1">
-                                      <Clock className="h-3 w-3" />
-                                      {formatDate(notification.created_at)}
-                                    </div>
-                                    <span className="flex items-center gap-1">
-                                      <span>Views:</span>
-                                      <span className={`font-medium ${
-                                        notification.show_count >= notification.repeat_count 
-                                          ? 'text-green-600' 
-                                          : 'text-orange-600'
-                                      }`}>
-                                        {notification.show_count}/{notification.repeat_count}
+                                    <span>{formatDate(notification.created_at)}</span>
+                                    {typeof notification.show_count !== 'undefined' && 
+                                     typeof notification.repeat_count !== 'undefined' && (
+                                      <span className="flex items-center gap-1">
+                                        <span>Views:</span>
+                                        <span className={`font-medium ${
+                                          notification.show_count >= notification.repeat_count 
+                                            ? 'text-green-600' 
+                                            : 'text-orange-600'
+                                        }`}>
+                                          {notification.show_count}/{notification.repeat_count}
+                                        </span>
                                       </span>
-                                    </span>
+                                    )}
                                     {notification.user_count && notification.user_count > 1 && (
                                       <span className="flex items-center gap-1">
                                         <span>Users:</span>
@@ -293,9 +306,20 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
                                         </span>
                                       </span>
                                     )}
+                                    {isAgent && notification.sent_at && (
+                                      <span className="flex items-center gap-1">
+                                        <span>Sent:</span>
+                                        <span className="font-medium">
+                                          {formatDate(notification.sent_at)}
+                                        </span>
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
-                                <ConditionalRender permission="products.notifications_delete" fallback={null}>
+                                <ConditionalRender 
+                              permission={isAgent ? "agents.notifications_delete" : "products.notifications_delete"} 
+                              fallback={null}
+                            >
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -303,7 +327,7 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
                                   disabled={deleteNotificationMutation.isPending || !canDeleteNotifications}
                                   className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950 h-7 w-7 p-0 disabled:opacity-50"
                                 >
-                                  <Trash2 className="h-3 w-3" />
+                                  ×
                                 </Button>
                                 </ConditionalRender>
                               </div>
@@ -322,27 +346,31 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-2 flex-wrap">
                                 {getTypeBadge(notification.type)}
-                                <Badge 
-                                  variant="outline" 
-                                  className={`text-xs ${
-                                    notification.is_read 
-                                      ? 'text-green-600 border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800' 
-                                      : 'text-orange-600 border-orange-200 bg-orange-50 dark:bg-orange-950 dark:border-orange-800'
-                                  }`}
-                                >
-                                  {notification.is_read ? (
-                                    <>
-                                      <Eye className="h-3 w-3 mr-1" />
-                                      Read
-                                    </>
-                                  ) : (
-                                    <>
-                                      <EyeOff className="h-3 w-3 mr-1" />
-                                      Unread
-                                    </>
-                                  )}
-                                </Badge>
-                                {notification.show_count >= notification.repeat_count && (
+                                {typeof notification.is_read !== 'undefined' && (
+                                  <Badge 
+                                    variant="outline" 
+                                    className={`text-xs ${
+                                      notification.is_read 
+                                        ? 'text-green-600 border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800' 
+                                        : 'text-orange-600 border-orange-200 bg-orange-50 dark:bg-orange-950 dark:border-orange-800'
+                                    }`}
+                                  >
+                                    {notification.is_read ? (
+                                      <>
+                                        <Eye className="h-3 w-3 mr-1" />
+                                        Read
+                                      </>
+                                    ) : (
+                                      <>
+                                        <EyeOff className="h-3 w-3 mr-1" />
+                                        Unread
+                                      </>
+                                    )}
+                                  </Badge>
+                                )}
+                                {typeof notification.show_count !== 'undefined' && 
+                                 typeof notification.repeat_count !== 'undefined' &&
+                                 notification.show_count >= notification.repeat_count && (
                                   <Badge variant="secondary" className="text-xs">
                                     Completed
                                   </Badge>
@@ -356,16 +384,19 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
                                   <Clock className="h-3 w-3" />
                                   {formatDate(notification.created_at)}
                                 </div>
-                                <span className="flex items-center gap-1">
-                                  <span>Views:</span>
-                                  <span className={`font-medium ${
-                                    notification.show_count >= notification.repeat_count 
-                                      ? 'text-green-600' 
-                                      : 'text-orange-600'
-                                  }`}>
-                                    {notification.show_count}/{notification.repeat_count}
+                                {typeof notification.show_count !== 'undefined' && 
+                                 typeof notification.repeat_count !== 'undefined' && (
+                                  <span className="flex items-center gap-1">
+                                    <span>Views:</span>
+                                    <span className={`font-medium ${
+                                      notification.show_count >= notification.repeat_count 
+                                        ? 'text-green-600' 
+                                        : 'text-orange-600'
+                                    }`}>
+                                      {notification.show_count}/{notification.repeat_count}
+                                    </span>
                                   </span>
-                                </span>
+                                )}
                                 {notification.user_count && notification.user_count > 1 && (
                                   <span className="flex items-center gap-1">
                                     <span>Users:</span>
@@ -374,9 +405,20 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
                                     </span>
                                   </span>
                                 )}
+                                {isAgent && notification.sent_at && (
+                                  <span className="flex items-center gap-1">
+                                    <span>Sent:</span>
+                                    <span className="font-medium">
+                                      {formatDate(notification.sent_at)}
+                                    </span>
+                                  </span>
+                                )}
                               </div>
                             </div>
-                            <ConditionalRender permission="products.notifications_delete" fallback={null}>
+                            <ConditionalRender 
+                              permission={isAgent ? "agents.notifications_delete" : "products.notifications_delete"} 
+                              fallback={null}
+                            >
                             <Button
                               variant="ghost"
                               size="sm"
@@ -394,8 +436,7 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
                   )}
                 </div>
               )}
-            </CardContent>
-          </Card>
+          </div>
         </div>
 
         <DialogFooter className="pt-3 border-t">
@@ -416,6 +457,7 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
         onOpenChange={setShowCreateDialog}
         product={product}
         onNotificationCreated={handleNotificationCreated}
+        isAgent={isAgent}
       />
     </Dialog>
   );

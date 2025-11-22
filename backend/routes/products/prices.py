@@ -17,11 +17,36 @@ from ...utils.rbac_utils import RBACManager
 
 prices_bp = Blueprint("products_prices", __name__)
 
-@prices_bp.route("/<int:product_id>/prices", methods=["GET"])
+def find_product_by_id_or_unique_id(product_identifier, project_id):
+    """
+    Helper function to find a product by either id (int) or unique_id (string)
+    
+    Args:
+        product_identifier: Either an integer id or string unique_id
+        project_id: Project ID to filter by
+    
+    Returns:
+        Product object or None if not found
+    """
+    # Try as integer id (primary key) first
+    if isinstance(product_identifier, int) or (isinstance(product_identifier, str) and product_identifier.isdigit()):
+        try:
+            product_id_int = int(product_identifier)
+            product = Product.query.filter_by(id=product_id_int, project_id=project_id).first()
+            if product:
+                return product
+        except (ValueError, TypeError):
+            pass
+    
+    # Try as unique_id (string)
+    product = Product.query.filter_by(unique_id=str(product_identifier), project_id=project_id).first()
+    return product
+
+@prices_bp.route("/<product_identifier>/prices", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def get_product_prices(product_id):
+def get_product_prices(product_identifier):
     """Get prices for a product"""
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
@@ -34,11 +59,11 @@ def get_product_prices(product_id):
 
     try:
 
-        product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+        product = find_product_by_id_or_unique_id(product_identifier, user.project_id)
         if not product:
             return jsonify({"error": "Product not found"}), 404
 
-        prices = ProductKeyPrice.query.filter_by(product_id=product_id, project_id=user.project_id).all()
+        prices = ProductKeyPrice.query.filter_by(product_id=product.id, project_id=user.project_id).all()
 
         price_dict = {}
         for price in prices:
@@ -49,7 +74,7 @@ def get_product_prices(product_id):
         return jsonify(
             {
                 "success": True,
-                "product_id": product_id,
+                "product_id": product.id,
                 "prices": price_dict,
             }
         )
@@ -58,11 +83,11 @@ def get_product_prices(product_id):
         current_app.logger.error(f"Error fetching product prices: {str(e)}")
         return jsonify({"error": f"Failed to fetch prices: {str(e)}"}), 500
 
-@prices_bp.route("/<int:product_id>/prices", methods=["PUT"])
+@prices_bp.route("/<product_identifier>/prices", methods=["PUT"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def update_product_prices(product_id):
+def update_product_prices(product_identifier):
     """Update prices for a product"""
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
@@ -89,7 +114,7 @@ def update_product_prices(product_id):
 
     try:
 
-        product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+        product = find_product_by_id_or_unique_id(product_identifier, user.project_id)
         if not product:
             return jsonify({"error": "Product not found"}), 404
 
@@ -127,14 +152,14 @@ def update_product_prices(product_id):
                 continue
 
             existing_price = ProductKeyPrice.query.filter_by(
-                product_id=product_id, period=period, project_id=user.project_id
+                product_id=product.id, period=period, project_id=user.project_id
             ).first()
 
             if existing_price:
                 existing_price.price = price_float
             else:
                 new_price = ProductKeyPrice(
-                    product_id=product_id,
+                    product_id=product.id,
                     period=period,
                     price=price_float,
                     project_id=user.project_id,
@@ -143,12 +168,12 @@ def update_product_prices(product_id):
 
         db.session.commit()
 
-        product_service.invalidate_product_cache(user.project_id, product_id)
+        product_service.invalidate_product_cache(user.project_id, product.id)
 
         activity_service.log_activity(
             user,
             "product_prices_updated",
-            details=f"Updated prices for product: {product_id}",
+            details=f"Updated prices for product: {product.id}",
             ip=request.remote_addr,
         )
 
@@ -156,7 +181,7 @@ def update_product_prices(product_id):
             {
                 "success": True,
                 "message": "Prices updated successfully",
-                "product_id": product_id,
+                "product_id": product.id,
             }
         )
 
@@ -168,11 +193,11 @@ def update_product_prices(product_id):
         current_app.logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": f"Failed to update prices: {str(e)}"}), 500
 
-@prices_bp.route("/<int:product_id>/custom-periods", methods=["GET"])
+@prices_bp.route("/<product_identifier>/custom-periods", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def get_custom_periods(product_id):
+def get_custom_periods(product_identifier):
     """Get custom periods for a product"""
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
@@ -185,12 +210,12 @@ def get_custom_periods(product_id):
 
     try:
 
-        product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+        product = find_product_by_id_or_unique_id(product_identifier, user.project_id)
         if not product:
             return jsonify({"error": "Product not found"}), 404
 
         custom_prices = ProductKeyPrice.query.filter_by(
-            product_id=product_id, project_id=user.project_id
+            product_id=product.id, project_id=user.project_id
         ).filter(ProductKeyPrice.period.like("custom_%")).all()
 
         custom_periods = []
@@ -207,7 +232,7 @@ def get_custom_periods(product_id):
         return jsonify(
             {
                 "success": True,
-                "product_id": product_id,
+                "product_id": product.id,
                 "custom_periods": custom_periods,
             }
         )
@@ -216,11 +241,11 @@ def get_custom_periods(product_id):
         current_app.logger.error(f"Error fetching custom periods: {str(e)}")
         return jsonify({"error": f"Failed to fetch custom periods: {str(e)}"}), 500
 
-@prices_bp.route("/<int:product_id>/custom-periods", methods=["POST"])
+@prices_bp.route("/<product_identifier>/custom-periods", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def add_custom_period(product_id):
+def add_custom_period(product_identifier):
     """Add custom period for a product"""
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
@@ -247,7 +272,7 @@ def add_custom_period(product_id):
 
     try:
 
-        product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+        product = find_product_by_id_or_unique_id(product_identifier, user.project_id)
         if not product:
             return jsonify({"error": "Product not found"}), 404
 
@@ -269,7 +294,7 @@ def add_custom_period(product_id):
             period_name = f"custom_{period_name}"
 
         existing_price = ProductKeyPrice.query.filter_by(
-            product_id=product_id, period=period_name, project_id=user.project_id
+            product_id=product.id, period=period_name, project_id=user.project_id
         ).first()
 
         if existing_price:
@@ -283,7 +308,7 @@ def add_custom_period(product_id):
             return jsonify({"error": "Invalid price value"}), 400
 
         new_price = ProductKeyPrice(
-            product_id=product_id,
+            product_id=product.id,
             period=period_name,
             price=price_float,
             meta_data=json.dumps(meta_data) if meta_data else None,
@@ -293,12 +318,12 @@ def add_custom_period(product_id):
         db.session.add(new_price)
         db.session.commit()
 
-        product_service.invalidate_product_cache(user.project_id, product_id)
+        product_service.invalidate_product_cache(user.project_id, product.id)
 
         activity_service.log_activity(
             user,
             "product_custom_period_added",
-            details=f"Added custom period {period_name} for product: {product_id}",
+            details=f"Added custom period {period_name} for product: {product.id}",
             ip=request.remote_addr,
         )
 
@@ -326,11 +351,11 @@ def add_custom_period(product_id):
         current_app.logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": f"Failed to add custom period: {str(e)}"}), 500
 
-@prices_bp.route("/<int:product_id>/custom-periods/<custom_period_id>", methods=["DELETE"])
+@prices_bp.route("/<product_identifier>/custom-periods/<custom_period_id>", methods=["DELETE"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def remove_custom_period(product_id, custom_period_id):
+def remove_custom_period(product_identifier, custom_period_id):
     """Remove custom period for a product"""
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
@@ -357,12 +382,12 @@ def remove_custom_period(product_id, custom_period_id):
 
     try:
 
-        product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+        product = find_product_by_id_or_unique_id(product_identifier, user.project_id)
         if not product:
             return jsonify({"error": "Product not found"}), 404
 
         custom_price = ProductKeyPrice.query.filter_by(
-            id=custom_period_id, product_id=product_id, project_id=user.project_id
+            id=custom_period_id, product_id=product.id, project_id=user.project_id
         ).first()
 
         if not custom_price:
@@ -376,12 +401,12 @@ def remove_custom_period(product_id, custom_period_id):
         db.session.delete(custom_price)
         db.session.commit()
 
-        product_service.invalidate_product_cache(user.project_id, product_id)
+        product_service.invalidate_product_cache(user.project_id, product.id)
 
         activity_service.log_activity(
             user,
             "product_custom_period_removed",
-            details=f"Removed custom period {period_name} for product: {product_id}",
+            details=f"Removed custom period {period_name} for product: {product.id}",
             ip=request.remote_addr,
         )
 

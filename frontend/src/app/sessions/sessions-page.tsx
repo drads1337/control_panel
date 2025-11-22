@@ -1,6 +1,6 @@
 import { useAuthContext } from '@/contexts/auth-context'
-import { useSessionsQuery } from '@/hooks/use-sessions-query'
-import { useDebounce } from '@/hooks/use-debounce'
+import { useSessionsQuery } from '@/entities/session'
+import { useDebounce } from '@/shared/hooks/use-debounce'
 import { Button } from '@/components/ui/button'
 import { AlertCircle } from 'lucide-react'
 import { useState, useEffect, useCallback, useMemo } from 'react'

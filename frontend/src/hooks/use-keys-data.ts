@@ -1,7 +1,9 @@
-import { useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useKeysQuery, keyKeys } from '@/hooks/use-keys-query';
+import { useQuery } from '@tanstack/react-query';
+import { useKeysQuery, keyKeys } from '@/entities/key';
 import { getProducts } from '@/entities/product';
+import { productKeys } from '@/hooks/products/product-keys';
 
 interface UseKeysDataParams {
   viewMode: 'my' | 'all';
@@ -15,7 +17,6 @@ interface UseKeysDataParams {
 }
 
 interface UseKeysDataReturn {
-
   keys: any[];
   loading: boolean;
   products: Array<{ id: number; name: string; is_multi_app: boolean }>;
@@ -25,7 +26,6 @@ interface UseKeysDataReturn {
     total: number;
     pages: number;
   };
-
   loadProducts: () => Promise<void>;
   invalidateQueries: () => void;
 }
@@ -57,15 +57,27 @@ export function useKeysData({
     pages: keysQuery.pages,
   };
 
+  // Используем TanStack Query для продуктов с кешированием
+  const { data: productsData, refetch: refetchProducts } = useQuery({
+    queryKey: productKeys.list('all'),
+    queryFn: async () => {
+      const response = await getProducts('all');
+      return response.products || [];
+    },
+    enabled: false, // Загружаем только по требованию
+    staleTime: 5 * 60 * 1000, // 5 минут
+    gcTime: 10 * 60 * 1000, // 10 минут
+  });
+
+  const products = productsData?.map((product) => ({
+    id: product.id,
+    name: product.name,
+    is_multi_app: product.is_multi_app,
+  })) || [];
+
   const loadProducts = useCallback(async (): Promise<void> => {
-    try {
-      await getProducts('all');
-
-    } catch (error) {
-
-      throw error;
-    }
-  }, []);
+    await refetchProducts();
+  }, [refetchProducts]);
 
   const invalidateQueries = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: keyKeys.lists() });
@@ -73,12 +85,10 @@ export function useKeysData({
   }, [queryClient]);
 
   return {
-
     keys,
     loading,
-    products: [],
+    products,
     pagination,
-
     loadProducts,
     invalidateQueries,
   };

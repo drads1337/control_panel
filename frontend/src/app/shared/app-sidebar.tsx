@@ -26,10 +26,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useIsMobile } from '@/hooks/use-mobile'
+import { useIsMobile } from '@/shared/hooks/use-mobile'
 import { getProject } from '@/entities/project'
-import { projectKeys } from '@/hooks/use-projects-query'
-import { useNavigationQuery } from '@/hooks/use-navigation-query'
+import { projectKeys } from '@/entities/project'
+import { useNavigationQuery } from '@/entities/navigation'
 import { canAccessNavigationItem, type NavigationItem } from '@/entities/navigation'
 import { getAvatarUrl } from '@/lib/utils'
 import {

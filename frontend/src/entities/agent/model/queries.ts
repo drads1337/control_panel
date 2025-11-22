@@ -17,9 +17,9 @@ import type {
   AgentStats,
   CreateAgentData,
   UpdateAgentData,
-} from '@/entities/agent'
+} from '@/entities/agent/model/types'
 import type { Product } from '@/entities/product'
-import { useMutationWithCache } from './use-mutation-helpers'
+import { useMutationWithCache } from '@/hooks/use-mutation-helpers'
 
 // Universal terminology query keys
 export const agentKeys = {
@@ -65,7 +65,7 @@ export function useAgentsQuery(): UseAgentsQueryReturn {
   } = useQuery({
     queryKey: agentKeys.list(),
     queryFn: async () => {
-      const response = await getAgents()  // Use new universal function
+      const response = await getAgents()
       return response
     },
     staleTime: 2 * 60 * 1000,
@@ -82,8 +82,7 @@ export function useAgentsQuery(): UseAgentsQueryReturn {
   } = useQuery({
     queryKey: agentKeys.stats(),
     queryFn: async () => {
-      const response = await getAgentStats()  // Use new universal function
-
+      const response = await getAgentStats()
       return response.stats || null
     },
     staleTime: 1 * 60 * 1000,
@@ -100,7 +99,7 @@ export function useAgentsQuery(): UseAgentsQueryReturn {
   } = useQuery({
     queryKey: agentKeys.availableProducts(),
     queryFn: async () => {
-      const response = await getAvailableProducts()  // Use new universal function
+      const response = await getAvailableProducts()
       return response
     },
     staleTime: 2 * 60 * 1000,
@@ -111,7 +110,7 @@ export function useAgentsQuery(): UseAgentsQueryReturn {
   })
 
   const createAgentMutation = useMutationWithCache({
-    mutationFn: createAgent,  // Use new universal function
+    mutationFn: createAgent,
     invalidateQueries: [agentKeys.list(), agentKeys.stats()],
     successMessage: 'Agent created successfully',
     errorMessage: 'Failed to create agent',
@@ -142,7 +141,7 @@ export function useAgentsQuery(): UseAgentsQueryReturn {
 
   const assignProductsMutation = useMutationWithCache({
     mutationFn: ({ agentId, productIds }: { agentId: number; productIds: number[] }) =>
-      assignProductsToAgent(agentId, productIds),  // Use new universal function
+      assignProductsToAgent(agentId, productIds),
     invalidateQueries: [agentKeys.list(), agentKeys.details()],
     successMessage: 'Products assigned successfully',
     errorMessage: 'Failed to assign products',
@@ -150,7 +149,7 @@ export function useAgentsQuery(): UseAgentsQueryReturn {
 
   const unassignProductsMutation = useMutationWithCache({
     mutationFn: ({ agentId, productIds }: { agentId: number; productIds: number[] }) =>
-      unassignProductsFromAgent(agentId, productIds),  // Use new universal function
+      unassignProductsFromAgent(agentId, productIds),
     invalidateQueries: [agentKeys.list(), agentKeys.details()],
     successMessage: 'Products unassigned successfully',
     errorMessage: 'Failed to unassign products',
@@ -193,3 +192,4 @@ export function useAgentsQuery(): UseAgentsQueryReturn {
     refetchProducts,
   }
 }
+

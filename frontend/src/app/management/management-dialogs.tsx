@@ -1,5 +1,5 @@
 import React, { Suspense } from 'react'
-import { useManagementStore } from '@/stores/management-store'
+import { useProductDialogStore } from '@/stores/product-dialog-store'
 import { useProductDialogs } from '@/hooks/products'
 
 const ViewProductDialog = React.lazy(() =>
@@ -8,13 +8,12 @@ const ViewProductDialog = React.lazy(() =>
 
 export function ManagementDialogs() {
   const {
-    dialogs,
+    viewProductDialogOpen,
+    selectedProduct,
     setViewProductDialogOpen,
     openEditProductDialog,
     openUploadProductDialog,
-  } = useManagementStore()
-
-  const { viewProductDialogOpen, selectedProduct } = dialogs
+  } = useProductDialogStore()
 
   const handleEdit = (product: typeof selectedProduct) => {
     if (product) {

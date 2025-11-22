@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Spinner } from '@/components/ui/spinner';
 import { Label } from '@/components/ui/label';
 import { type Agent } from '@/entities/agent';
 import { getProducts, getProductsAvailableForAssignment, type Product } from '@/entities/product';
@@ -207,14 +208,13 @@ const AssignProductsDialog: React.FC<AssignProductsDialogProps> = ({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Assign Products to Agent</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-base">Assign Products to Agent</DialogTitle>
+          <DialogDescription className="mt-1 text-xs">
             Select products to assign to this agent. Products already assigned to other agents are not available for assignment.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          {}
           {assignedProducts.length > 0 && (
             <div className="space-y-3">
               <SectionHeader
@@ -244,7 +244,6 @@ const AssignProductsDialog: React.FC<AssignProductsDialogProps> = ({
             </div>
           )}
 
-          {}
           <div className="space-y-3">
             <SectionHeader
               title="Assign Available"
@@ -259,7 +258,7 @@ const AssignProductsDialog: React.FC<AssignProductsDialogProps> = ({
             <ScrollArea className="h-32 border rounded-md p-3">
               {loading ? (
                 <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
+                  <Spinner className="h-6 w-6 mx-auto" />
                   <p className="mt-2 text-sm text-muted-foreground">Loading products...</p>
                 </div>
               ) : availableProducts.length === 0 ? (
@@ -293,7 +292,7 @@ const AssignProductsDialog: React.FC<AssignProductsDialogProps> = ({
                 onClick={handleUnassign}
                 disabled={unassigning}
               >
-                {unassigning ? 'Removing...' : `Remove ${selectedAssignedProducts.length} Products`}
+                {unassigning ? (<><Spinner className="mr-2 h-4 w-4 animate-spin" />Removing...</>) : `Remove ${selectedAssignedProducts.length} Products`}
               </Button>
             )}
             {selectedProducts.length > 0 && (
@@ -301,7 +300,7 @@ const AssignProductsDialog: React.FC<AssignProductsDialogProps> = ({
                 onClick={handleAssign}
                 disabled={assigning}
               >
-                {assigning ? 'Assigning...' : `Assign ${selectedProducts.length} Products`}
+                {assigning ? (<><Spinner className="mr-2 h-4 w-4 animate-spin" />Assigning...</>) : `Assign ${selectedProducts.length} Products`}
               </Button>
             )}
           </div>

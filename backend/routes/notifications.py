@@ -27,6 +27,62 @@ from ..utils.rbac_utils import RBACManager
 
 notifications_bp = Blueprint("notifications", __name__)
 
+def find_product_by_id_or_unique_id(product_identifier, project_id):
+    """
+    Helper function to find a product by either id (int) or unique_id (string)
+    
+    Args:
+        product_identifier: Either an integer id or string unique_id
+        project_id: Project ID to filter by
+    
+    Returns:
+        Product object or None if not found
+    """
+    # Try as integer id (primary key) first
+    if isinstance(product_identifier, int) or (isinstance(product_identifier, str) and product_identifier.isdigit()):
+        try:
+            product_id_int = int(product_identifier)
+            product = Product.query.filter_by(id=product_id_int, project_id=project_id).first()
+            if product:
+                return product
+        except (ValueError, TypeError):
+            pass
+    
+    # Try as unique_id (string)
+    product = Product.query.filter_by(unique_id=str(product_identifier), project_id=project_id).first()
+    return product
+
+def find_agent_by_id_or_unique_id(agent_identifier, project_id):
+    """
+    Helper function to find an agent by either id (int) or unique_id (string)
+    
+    Args:
+        agent_identifier: Either an integer id or string unique_id
+        project_id: Project ID to filter by
+    
+    Returns:
+        Agent object or None if not found
+    """
+    # Try as unique_id (string) first, since that's what the frontend sends
+    if isinstance(agent_identifier, str) and len(agent_identifier) == 8 and agent_identifier.isdigit():
+        agent = Agent.query.filter_by(unique_id=agent_identifier, project_id=project_id).first()
+        if agent:
+            return agent
+    
+    # Try as integer id (primary key)
+    if isinstance(agent_identifier, int) or (isinstance(agent_identifier, str) and agent_identifier.isdigit()):
+        try:
+            agent_id_int = int(agent_identifier)
+            agent = Agent.query.filter_by(id=agent_id_int, project_id=project_id).first()
+            if agent:
+                return agent
+        except (ValueError, TypeError):
+            pass
+    
+    # Try as unique_id (string) as fallback
+    agent = Agent.query.filter_by(unique_id=str(agent_identifier), project_id=project_id).first()
+    return agent
+
 @notifications_bp.route("", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -672,7 +728,7 @@ def create_bulk_notifications():
         return jsonify({"error": "Message is required"}), 400
 
     try:
-        from ...services.projects import project_relationships_service
+        from ..services.projects import project_relationships_service
         
         # Get users for the project using service
         project_users = project_relationships_service.get_users(user.project_id)
@@ -781,7 +837,7 @@ def create_product_update_notification():
         if not product:
             return jsonify({"error": "Product not found"}), 404
 
-        from ...services.projects import project_relationships_service
+        from ..services.projects import project_relationships_service
         project_users = project_relationships_service.get_users(user.project_id)
 
         from ..utils.rbac_utils import RBACManager
@@ -944,7 +1000,7 @@ def create_loader_update_notification():
 
         db.session.add(loader_notification)
 
-        from ...services.projects import project_relationships_service
+        from ..services.projects import project_relationships_service
         project_users = project_relationships_service.get_users(user.project_id)
 
         from ..utils.rbac_utils import RBACManager
@@ -988,11 +1044,11 @@ def create_loader_update_notification():
         db.session.rollback()
         return jsonify({"error": f"Failed to create agent update notification: {str(e)}"}), 500
 
-@notifications_bp.route("/agents/<int:agent_id>/notifications", methods=["GET"])
+@notifications_bp.route("/agents/<agent_identifier>/notifications", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def get_loader_notifications(agent_id):
+def get_loader_notifications(agent_identifier):
     """Get notifications for a specific agent"""
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
@@ -1009,12 +1065,12 @@ def get_loader_notifications(agent_id):
         return jsonify({"error": "No project associated"}), 400
 
     try:
-        agent = Agent.query.filter_by(id=agent_id, project_id=user.project_id).first()
+        agent = find_agent_by_id_or_unique_id(agent_identifier, user.project_id)
         if not agent:
             return jsonify({"error": "Agent not found"}), 404
 
         notifications = (
-            AgentNotification.query.filter_by(agent_id=agent_id, project_id=user.project_id)
+            AgentNotification.query.filter_by(agent_id=agent.id, project_id=user.project_id)
             .order_by(AgentNotification.created_at.desc())
             .all()
         )
@@ -1041,7 +1097,7 @@ def get_loader_notifications(agent_id):
         return jsonify(
             {
                 "success": True,
-                "agent_id": agent_id,
+                "agent_id": agent.id,
                 "agent_name": agent.name,
                 "notifications": notifications_data,
             }
@@ -1050,11 +1106,11 @@ def get_loader_notifications(agent_id):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch agent notifications: {str(e)}"}), 500
 
-@notifications_bp.route("/products/<int:product_id>/notifications", methods=["GET"])
+@notifications_bp.route("/products/<product_identifier>/notifications", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def get_product_notifications(product_id):
+def get_product_notifications(product_identifier):
     """Get notifications for a specific product"""
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
@@ -1079,7 +1135,7 @@ def get_product_notifications(product_id):
         return jsonify({"error": "Insufficient permissions"}), 403
 
     try:
-        product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+        product = find_product_by_id_or_unique_id(product_identifier, user.project_id)
         if not product:
             return jsonify({"error": "Product not found"}), 404
 
@@ -1178,7 +1234,7 @@ def get_product_notifications(product_id):
         return jsonify(
             {
                 "success": True,
-                "product_id": product_id,
+                "product_id": product.id,
                 "product_name": product.name,
                 "notifications": notifications_data,
             }
@@ -1187,11 +1243,124 @@ def get_product_notifications(product_id):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch product notifications: {str(e)}"}), 500
 
-@notifications_bp.route("/agents/<int:agent_id>/notifications", methods=["POST"])
+@notifications_bp.route("/products/<product_identifier>/notifications", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def create_loader_notification(agent_id):
+def create_product_notification(product_identifier):
+    """Create a notification for a specific product"""
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+
+    if not user:
+
+        return jsonify({"error": "User not found"}), 404
+
+    if not user.project_id:
+
+        return jsonify({"error": "User must be assigned to a project"}), 403
+
+    if not user.project_id:
+        return jsonify({"error": "No project associated"}), 400
+
+    from ..services.rbac import rbac_service
+
+    can_send = rbac_service.check_permission(
+        user.id, "employees.send_notification"
+    ) or rbac_service.check_permission(user.id, "clients.send_notification")
+    if not can_send:
+        return jsonify({"error": "Insufficient permissions"}), 403
+
+    try:
+        product = find_product_by_id_or_unique_id(product_identifier, user.project_id)
+        if not product:
+            return jsonify({"error": "Product not found"}), 404
+
+        data = request.get_json()
+
+        message = data.get("message")
+        notification_type = data.get("type", "info")
+        repeat_count = data.get("repeat_count", 1)
+        is_scheduled = data.get("is_scheduled", False)
+        scheduled_at = data.get("scheduled_at")
+
+        if not message:
+            return jsonify({"error": "Message is required"}), 400
+
+        if not isinstance(repeat_count, int) or repeat_count < 1 or repeat_count > 10:
+            return jsonify({"error": "Repeat count must be between 1 and 10"}), 400
+
+        from ..services.projects import project_relationships_service
+        project_users = project_relationships_service.get_users(user.project_id)
+
+        from ..utils.rbac_utils import RBACManager
+
+        workers_only = [
+            project_user
+            for project_user in project_users
+            if not (RBACManager.is_admin(project_user) or RBACManager.is_owner(project_user))
+        ]
+
+        notifications_created = 0
+        created_time = datetime.utcnow()
+        scheduled_time = None
+        sent_time = None
+
+        if is_scheduled and scheduled_at:
+            scheduled_time = datetime.fromisoformat(scheduled_at.replace("Z", "+00:00"))
+            if scheduled_time > created_time:
+                sent_time = None
+            else:
+                sent_time = created_time
+        else:
+            sent_time = created_time
+
+        for project_user in workers_only:
+            notification = Notification(
+                user_id=project_user.id,
+                message=f"[{product.name}] {message}",
+                type=notification_type,
+                project_id=user.project_id,
+                is_read=False,
+                repeat_count=repeat_count,
+                show_count=0,
+                is_deleted=False,
+                created_at=created_time,
+                is_scheduled=is_scheduled,
+                scheduled_at=scheduled_time,
+                sent_at=sent_time,
+            )
+            db.session.add(notification)
+            notifications_created += 1
+
+        db.session.commit()
+
+        activity_service.log_activity(
+            user,
+            "create_product_notification",
+            details=f"Created product notification for {product.name}: {message[:50]}...",
+            ip=request.remote_addr,
+        )
+
+        return jsonify(
+            {
+                "success": True,
+                "message": "Product notification sent successfully",
+                "notifications_created": notifications_created,
+                "product_name": product.name,
+            }
+        )
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error creating product notification: {str(e)}")
+        return jsonify({"error": f"Failed to create product notification: {str(e)}"}), 500
+
+@notifications_bp.route("/agents/<agent_identifier>/notifications", methods=["POST"])
+@jwt_required()
+@require_project_with_grace_period
+@require_project_isolation
+def create_loader_notification(agent_identifier):
     """Create a notification for a specific agent"""
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
@@ -1216,7 +1385,7 @@ def create_loader_notification(agent_id):
         return jsonify({"error": "Insufficient permissions"}), 403
 
     try:
-        agent = Agent.query.filter_by(id=agent_id, project_id=user.project_id).first()
+        agent = find_agent_by_id_or_unique_id(agent_identifier, user.project_id)
         if not agent:
             return jsonify({"error": "Agent not found"}), 404
 
@@ -1231,12 +1400,12 @@ def create_loader_notification(agent_id):
             return jsonify({"error": "Message is required"}), 400
 
         loader_notification = AgentNotification(
-            agent_id=agent_id,
+            agent_id=agent.id,
             message=message,
             type=notification_type,
             is_scheduled=is_scheduled,
             scheduled_at=(
-                datetime.fromisoformat(scheduled_at) if scheduled_at and is_scheduled else None
+                datetime.fromisoformat(scheduled_at.replace("Z", "+00:00")) if scheduled_at and is_scheduled else None
             ),
             created_by=user.id,
             project_id=user.project_id,
@@ -1245,7 +1414,7 @@ def create_loader_notification(agent_id):
         db.session.add(loader_notification)
 
         if not is_scheduled:
-            from ...services.projects import project_relationships_service
+            from ..services.projects import project_relationships_service
             project_users = project_relationships_service.get_users(user.project_id)
 
             from ..utils.rbac_utils import RBACManager

@@ -17,6 +17,31 @@ from ..middleware.auth import enforce_project_scope, require_project_isolation
 
 files_bp = Blueprint("files", __name__)
 
+def find_product_by_id_or_unique_id(product_identifier, project_id):
+    """
+    Helper function to find a product by either id (int) or unique_id (string)
+    
+    Args:
+        product_identifier: Either an integer id or string unique_id
+        project_id: Project ID to filter by
+    
+    Returns:
+        Product object or None if not found
+    """
+    # Try as integer id (primary key) first
+    if isinstance(product_identifier, int) or (isinstance(product_identifier, str) and product_identifier.isdigit()):
+        try:
+            product_id_int = int(product_identifier)
+            product = Product.query.filter_by(id=product_id_int, project_id=project_id).first()
+            if product:
+                return product
+        except (ValueError, TypeError):
+            pass
+    
+    # Try as unique_id (string)
+    product = Product.query.filter_by(unique_id=str(product_identifier), project_id=project_id).first()
+    return product
+
 @files_bp.route("", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
@@ -382,10 +407,10 @@ def get_product_configs_by_name(product_name):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch configs: {str(e)}"}), 500
 
-@files_bp.route("/products/<int:product_id>/configs", methods=["GET"])
+@files_bp.route("/products/<product_identifier>/configs", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
-def get_product_configs(product_id):
+def get_product_configs(product_identifier):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -397,11 +422,11 @@ def get_product_configs(product_id):
         return jsonify({"error": "User must be assigned to a project"}), 403
 
     try:
-        product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+        product = find_product_by_id_or_unique_id(product_identifier, user.project_id)
         if not product or product.project_id != user.project_id:
             return jsonify({"error": "Product not found"}), 404
 
-        configs = ProductFileConfig.query.filter_by(product_id=product_id, is_active=True).all()
+        configs = ProductFileConfig.query.filter_by(product_id=product.id, is_active=True).all()
 
         configs_data = []
         for config in configs:
@@ -431,10 +456,10 @@ def get_product_configs(product_id):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch configs: {str(e)}"}), 500
 
-@files_bp.route("/products/<int:product_id>/extra-files", methods=["GET"])
+@files_bp.route("/products/<product_identifier>/extra-files", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
-def get_product_extra_files(product_id):
+def get_product_extra_files(product_identifier):
     user_id = get_jwt_identity()
     user = file_service.get_user_by_id(user_id)
 
@@ -442,7 +467,11 @@ def get_product_extra_files(product_id):
     if not is_valid:
         return jsonify({"error": error}), 404 if error == "User not found" else 403
 
-    files_data, error = file_service.get_product_extra_files(user, product_id)
+    product = find_product_by_id_or_unique_id(product_identifier, user.project_id)
+    if not product:
+        return jsonify({"error": "Product not found"}), 404
+
+    files_data, error = file_service.get_product_extra_files(user, product.id)
     if error:
         return jsonify({"error": error}), 404 if error == "Product not found" else 500
 
@@ -645,10 +674,10 @@ def update_file_status(file_id):
     except Exception as e:
         return jsonify({"error": f"Failed to update status: {str(e)}"}), 500
 
-@files_bp.route("/products/<int:product_id>/storage-info", methods=["GET"])
+@files_bp.route("/products/<product_identifier>/storage-info", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
-def get_product_storage_info(product_id):
+def get_product_storage_info(product_identifier):
     user_id = get_jwt_identity()
     user = file_service.get_user_by_id(user_id)
 
@@ -656,16 +685,20 @@ def get_product_storage_info(product_id):
     if not is_valid:
         return jsonify({"error": error}), 404 if error == "User not found" else 403
 
-    storage_info, error = file_service.get_product_storage_info(user, product_id)
+    product = find_product_by_id_or_unique_id(product_identifier, user.project_id)
+    if not product:
+        return jsonify({"error": "Product not found"}), 404
+
+    storage_info, error = file_service.get_product_storage_info(user, product.id)
     if error:
         return jsonify({"error": error}), 404 if error == "Product not found" else 500
 
     return jsonify(storage_info)
 
-@files_bp.route("/products/<int:product_id>/configs/my", methods=["GET"])
+@files_bp.route("/products/<product_identifier>/configs/my", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
-def get_my_product_configs(product_id):
+def get_my_product_configs(product_identifier):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -677,12 +710,12 @@ def get_my_product_configs(product_id):
         return jsonify({"error": "User must be assigned to a project"}), 403
 
     try:
-        product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+        product = find_product_by_id_or_unique_id(product_identifier, user.project_id)
         if not product or product.project_id != user.project_id:
             return jsonify({"error": "Product not found"}), 404
 
         configs = ProductFileConfig.query.filter_by(
-            product_id=product_id, uploaded_by=user.id, is_active=True
+            product_id=product.id, uploaded_by=user.id, is_active=True
         ).all()
 
         configs_data = []
@@ -709,10 +742,10 @@ def get_my_product_configs(product_id):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch user configs: {str(e)}"}), 500
 
-@files_bp.route("/products/<int:product_id>/configs/public", methods=["GET"])
+@files_bp.route("/products/<product_identifier>/configs/public", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
-def get_public_product_configs(product_id):
+def get_public_product_configs(product_identifier):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -724,12 +757,12 @@ def get_public_product_configs(product_id):
         return jsonify({"error": "User must be assigned to a project"}), 403
 
     try:
-        product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+        product = find_product_by_id_or_unique_id(product_identifier, user.project_id)
         if not product or product.project_id != user.project_id:
             return jsonify({"error": "Product not found"}), 404
 
         configs = (
-            ProductFileConfig.query.filter_by(product_id=product_id, is_public=True, is_active=True)
+            ProductFileConfig.query.filter_by(product_id=product.id, is_public=True, is_active=True)
             .order_by(ProductFileConfig.rating.desc())
             .all()
         )
@@ -953,22 +986,41 @@ def get_product_files():
             # Try as unique_id (string)
             return Product.query.filter_by(unique_id=str(product_identifier), project_id=project_id).first()
 
+        # Helper function to resolve agent by id or unique_id
+        def resolve_agent(agent_identifier, project_id):
+            """Resolve agent by integer id or string unique_id"""
+            # Try as integer ID first
+            if isinstance(agent_identifier, int) or (isinstance(agent_identifier, str) and agent_identifier.isdigit()):
+                try:
+                    agent_id_int = int(agent_identifier)
+                    agent = Agent.query.filter_by(id=agent_id_int, project_id=project_id).first()
+                    if agent:
+                        return agent
+                except (ValueError, TypeError):
+                    pass
+            
+            # Try as unique_id (string)
+            return Agent.query.filter_by(unique_id=str(agent_identifier), project_id=project_id).first()
+
         if target_type == "agent":
-            # For agents, we still use integer ID
-            try:
-                agent_id = int(product_id_param)
-                agent = Agent.query.filter_by(id=agent_id, project_id=user.project_id).first()
-            except (ValueError, TypeError):
-                agent = None
-                
+            agent = resolve_agent(product_id_param, user.project_id)
             if not agent:
                 logging.debug(
                     f"[DEBUG] get_product_files: Agent {product_id_param} not found for project_id={user.project_id}"
                 )
-                loader_exists = Agent.query.filter_by(id=product_id_param).first() if isinstance(product_id_param, int) or (isinstance(product_id_param, str) and product_id_param.isdigit()) else None
-                if loader_exists:
+                # Check if agent exists in different project
+                agent_exists = None
+                if isinstance(product_id_param, int) or (isinstance(product_id_param, str) and product_id_param.isdigit()):
+                    try:
+                        agent_exists = Agent.query.filter_by(id=int(product_id_param)).first()
+                    except (ValueError, TypeError):
+                        pass
+                if not agent_exists:
+                    agent_exists = Agent.query.filter_by(unique_id=str(product_id_param)).first()
+                    
+                if agent_exists:
                     logging.debug(
-                        f"[DEBUG] get_product_files: Agent {product_id_param} exists but belongs to project_id={loader_exists.project_id}, not {user.project_id}"
+                        f"[DEBUG] get_product_files: Agent {product_id_param} exists but belongs to project_id={agent_exists.project_id}, not {user.project_id}"
                     )
                 else:
                     logging.debug(f"[DEBUG] get_product_files: Agent {product_id_param} does not exist at all")
@@ -1001,11 +1053,7 @@ def get_product_files():
             product = resolve_product(product_id_param, user.project_id)
             if not product:
                 logging.debug(f"[DEBUG] get_product_files: Product {product_id_param} not found, trying agent...")
-                try:
-                    agent_id = int(product_id_param)
-                    agent = Agent.query.filter_by(id=agent_id, project_id=user.project_id).first()
-                except (ValueError, TypeError):
-                    agent = None
+                agent = resolve_agent(product_id_param, user.project_id)
                     
                 if agent:
                     logging.debug(f"[DEBUG] get_product_files: Found Agent {product_id_param} instead of Product")
@@ -1024,9 +1072,17 @@ def get_product_files():
                             pass
                     if not product_exists:
                         product_exists = Product.query.filter_by(unique_id=str(product_id_param)).first()
-                    loader_exists = Agent.query.filter_by(id=product_id_param).first() if isinstance(product_id_param, int) or (isinstance(product_id_param, str) and product_id_param.isdigit()) else None
                     
-                    if product_exists or loader_exists:
+                    agent_exists = None
+                    if isinstance(product_id_param, int) or (isinstance(product_id_param, str) and product_id_param.isdigit()):
+                        try:
+                            agent_exists = Agent.query.filter_by(id=int(product_id_param)).first()
+                        except (ValueError, TypeError):
+                            pass
+                    if not agent_exists:
+                        agent_exists = Agent.query.filter_by(unique_id=str(product_id_param)).first()
+                    
+                    if product_exists or agent_exists:
                         logging.debug(
                             f"[DEBUG] get_product_files: {product_id_param} exists but belongs to different project"
                         )
@@ -1035,6 +1091,12 @@ def get_product_files():
                     return jsonify({"error": "Product or Agent not found"}), 404
             else:
                 logging.debug(f"[DEBUG] get_product_files: Found Product {product_id_param}")
+
+        # Define product_id based on whether we're dealing with an agent or product
+        if is_loader:
+            product_id = agent.id
+        else:
+            product_id = product.id
 
         files_list = []
 
@@ -1275,10 +1337,10 @@ def get_product_files():
         logging.error(f"[ERROR] get_product_files: Traceback: {traceback.format_exc()}")
         return jsonify({"error": f"Failed to fetch product files: {str(e)}"}), 500
 
-@files_bp.route("/product-files/<int:product_id>/download/<file_type>", methods=["GET"])
+@files_bp.route("/product-files/<product_identifier>/download/<file_type>", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
-def download_product_file(product_id, file_type):
+def download_product_file(product_identifier, file_type):
     user_id = get_jwt_identity()
     user = file_service.get_user_by_id(user_id)
 
@@ -1289,7 +1351,7 @@ def download_product_file(product_id, file_type):
     try:
         from ..models.products import Product
 
-        product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+        product = find_product_by_id_or_unique_id(product_identifier, user.project_id)
         if not product or product.project_id != user.project_id:
             return jsonify({"error": "Product not found"}), 404
 
@@ -1302,10 +1364,10 @@ def download_product_file(product_id, file_type):
     except Exception as e:
         return jsonify({"error": f"Failed to download file: {str(e)}"}), 500
 
-@files_bp.route("/product-files/<int:product_id>/<file_type>", methods=["DELETE"])
+@files_bp.route("/product-files/<product_identifier>/<file_type>", methods=["DELETE"])
 @jwt_required()
 @enforce_project_scope
-def delete_product_file(product_id, file_type):
+def delete_product_file(product_identifier, file_type):
     user_id = get_jwt_identity()
     user = file_service.get_user_by_id(user_id)
 
@@ -1321,7 +1383,7 @@ def delete_product_file(product_id, file_type):
     try:
         from ..models.products import Product
 
-        product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+        product = find_product_by_id_or_unique_id(product_identifier, user.project_id)
         if not product or product.project_id != user.project_id:
             return jsonify({"error": "Product not found"}), 404
 
@@ -1668,10 +1730,10 @@ def delete_product_extra_file(file_id):
     except Exception as e:
         return jsonify({"error": f"Failed to delete product extra file: {str(e)}"}), 500
 
-@files_bp.route("/stats/product/<int:product_id>", methods=["GET"])
+@files_bp.route("/stats/product/<product_identifier>", methods=["GET"])
 @jwt_required()
 @require_project_isolation
-def get_product_file_stats(product_id):
+def get_product_file_stats(product_identifier):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -1682,8 +1744,12 @@ def get_product_file_stats(product_id):
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    configs = ProductFileConfig.query.filter_by(product_id=product_id).all()
-    extra_files = ProductExtraFile.query.filter_by(product_id=product_id).all()
+    product = find_product_by_id_or_unique_id(product_identifier, user.project_id)
+    if not product:
+        return jsonify({"error": "Product not found"}), 404
+
+    configs = ProductFileConfig.query.filter_by(product_id=product.id).all()
+    extra_files = ProductExtraFile.query.filter_by(product_id=product.id).all()
 
     total_configs = len(configs)
     total_extra_files = len(extra_files)

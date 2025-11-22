@@ -336,9 +336,11 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}): P
     })
 
     return response.data
-  } catch (error: any) {
-
-    if (error.response?.status === 401 || error.response?.status === 403) {
+  } catch (error: unknown) {
+    const { getErrorStatus } = await import('@/lib/error-utils')
+    const status = getErrorStatus(error)
+    
+    if (status === 401 || status === 403) {
       return { unauthorized: true }
     }
 

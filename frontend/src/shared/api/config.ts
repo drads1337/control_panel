@@ -9,6 +9,8 @@ export const API_ENDPOINTS = {
 
   LOGIN: '/api/auth/login',
   REGISTER: '/api/auth/register',
+  REGISTER_WITH_INVITE: '/api/auth/register-with-invite',
+  CLASSIC_CONNECT: '/api/classic_connect',
   LOGOUT: '/api/auth/logout',
 
   ME: '/api/users/me',
@@ -37,13 +39,17 @@ export const API_ENDPOINTS = {
   PRODUCT_FILE_STATS: '/api/files/stats/product',
 
   // Universal terminology endpoints (new)
+  // These are the primary endpoints using consistent terminology
   PRODUCTS: '/api/products',
+  PRODUCTS_COUNT: '/api/products/count',
   PRODUCTS_AVAILABLE_FOR_ASSIGNMENT: '/api/products/available-for-assignment',
   AGENTS: '/api/agents',
   AGENTS_AVAILABLE_PRODUCTS: '/api/agents/available-products',
   AGENTS_STATS: '/api/agents/stats',
   
-  // Backward compatibility endpoints (deprecated but still supported)
+  // DEPRECATED: Backward compatibility endpoint
+  // Migration plan: See backend/docs/API_MIGRATION_PLAN.md
+  // TODO: Remove after migration period
   PRODUCTS_CLASSIC_USERS: '/api/clients',
 
   KEYS: '/api/keys',

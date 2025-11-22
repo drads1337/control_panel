@@ -443,4 +443,131 @@ class ProductService:
             self.logger.error(f"Error getting product {product_id}: {str(e)}")
             return None, f"Failed to get product: {str(e)}"
 
+    def get_products_count(
+        self, project_id: int, product_type: str = "all", user_id: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """
+        Get count of products with caching support (optimized version that doesn't load full product data)
+        This is much more efficient than get_products_cached when you only need the count.
+        """
+        def fetch_count():
+            """Fetch product count from database"""
+            try:
+                from ...models.core import UserProductPermission
+                from ...models.rbac import UserRole, Role
+                from ...services.rbac import rbac_service
+                from ...utils.rbac_utils import RBACManager
+
+                self.logger.info(
+                    f"Fetching product count from database for project {project_id}, type: {product_type}"
+                )
+
+                # Base query for products
+                query = Product.query.filter_by(project_id=project_id)
+
+                if product_type == "multi_app":
+                    query = query.filter_by(is_multi_app=True)
+                elif product_type == "product_library":
+                    query = query.filter_by(is_multi_app=False)
+
+                # Get all product IDs first (lightweight query)
+                product_ids = [p.id for p in query.with_entities(Product.id).all()]
+
+                if not product_ids:
+                    return {
+                        "success": True,
+                        "count": 0,
+                    }
+
+                # Get user permissions if user_id is provided
+                user_product_permissions = {}
+                has_view_permission = False
+                is_seller = False
+
+                if user_id:
+                    try:
+                        user_product_permissions = {
+                            perm.product_id: perm.has_access
+                            for perm in UserProductPermission.query.filter_by(user_id=user_id).all()
+                        }
+                    except Exception as perm_error:
+                        db.session.rollback()
+                        self.logger.warning(f"Transaction aborted, rolling back and retrying UserProductPermission query: {str(perm_error)}")
+                        user_product_permissions = {
+                            perm.product_id: perm.has_access
+                            for perm in UserProductPermission.query.filter_by(user_id=user_id).all()
+                        }
+
+                    # Check global view permission
+                    has_view_permission = rbac_service.check_permission(user_id, "products.view")
+
+                    # Check if user is seller
+                    try:
+                        user_roles = db.session.query(Role.name).join(
+                            UserRole, Role.id == UserRole.role_id
+                        ).filter(UserRole.user_id == user_id).all()
+                        user_role_names = [role[0] for role in user_roles]
+                        is_seller = 'seller' in user_role_names or any('seller' in str(role).lower() for role in user_role_names)
+                    except Exception as role_error:
+                        db.session.rollback()
+                        self.logger.warning(f"Transaction aborted, rolling back and retrying user roles query: {str(role_error)}")
+                        user_roles = db.session.query(Role.name).join(
+                            UserRole, Role.id == UserRole.role_id
+                        ).filter(UserRole.user_id == user_id).all()
+                        user_role_names = [role[0] for role in user_roles]
+                        is_seller = 'seller' in user_role_names or any('seller' in str(role).lower() for role in user_role_names)
+
+                # Count products based on permissions
+                # If user has global view permission and is not a seller, count all
+                if user_id and has_view_permission and not is_seller:
+                    count = len(product_ids)
+                else:
+                    # Need to check each product's permission
+                    count = 0
+                    for product_id in product_ids:
+                        should_include = False
+
+                        if product_id in user_product_permissions:
+                            should_include = user_product_permissions[product_id]
+                        else:
+                            if is_seller:
+                                should_include = False
+                            elif not has_view_permission:
+                                # Check per-product permission
+                                should_include = rbac_service.check_permission(user_id, "products.view", product_id=product_id)
+                            else:
+                                should_include = True
+
+                        if should_include:
+                            count += 1
+
+                self.logger.info(f"Found {count} products for project {project_id} (type: {product_type})")
+                return {
+                    "success": True,
+                    "count": count,
+                }
+
+            except Exception as e:
+                self.logger.error(f"Error fetching product count: {str(e)}")
+                return {
+                    "success": False,
+                    "error": f"Failed to fetch product count: {str(e)}",
+                    "count": 0,
+                }
+
+        cache_key_params = {"project_id": project_id, "type": product_type, "count": True}
+
+        if user_id:
+            cache_key_params["user_id"] = user_id
+
+        cached_result = self._cache_service.get_or_set(
+            cache_type="products", fetch_func=fetch_count, **cache_key_params
+        )
+
+        return cached_result or {
+            "success": False,
+            "error": "Failed to fetch product count",
+            "count": 0,
+        }
+
 product_service = ProductService()

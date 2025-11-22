@@ -1,7 +1,6 @@
 import React from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Zap, Calendar, Download, Users, Database, FileText, Bell } from 'lucide-react';
 import type { Product } from '@/entities/product';
 import type { Agent } from '@/entities/agent';
 interface AgentDetailsDialogProps {
@@ -18,11 +17,11 @@ const AgentDetailsDialog: React.FC<AgentDetailsDialogProps> = ({ open, onOpenCha
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
-        return <Badge variant="default" className="bg-green-100 text-green-800">Active</Badge>;
+        return <Badge variant="default" className="bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400">Active</Badge>;
       case 'inactive':
         return <Badge variant="secondary">Inactive</Badge>;
       case 'maintenance':
-        return <Badge variant="outline" className="bg-yellow-100 text-yellow-800">Maintenance</Badge>;
+        return <Badge variant="outline" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400">Maintenance</Badge>;
       default:
         return <Badge variant="outline">Unknown</Badge>;
     }
@@ -31,17 +30,15 @@ const AgentDetailsDialog: React.FC<AgentDetailsDialogProps> = ({ open, onOpenCha
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-3">
-            <Zap className="h-5 w-5 text-primary" />
+          <DialogTitle className="text-base">
             {agent.name}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="mt-1 text-xs">
             {agent.description || 'No description available'}
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-6">
-          {}
-          <div className="space-y-3">
+        <div className="space-y-4">
+          <div className="space-y-2">
             <div className="flex items-center justify-between py-2 border-b">
               <span className="text-sm font-medium text-muted-foreground">Status</span>
               {getStatusBadge(agent.status)}
@@ -69,23 +66,18 @@ const AgentDetailsDialog: React.FC<AgentDetailsDialogProps> = ({ open, onOpenCha
               </span>
             </div>
           </div>
-          {}
           {assignedProducts.length > 0 && (
             <div className="space-y-3">
               <h3 className="text-sm font-medium text-muted-foreground">Assigned Products</h3>
               <div className="space-y-2">
                 {assignedProducts.map((product) => (
-                  <div key={product.id} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
-                    <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center">
-                      {product.logo ? (
-                        <img src={product.logo} alt={product.name} className="w-6 h-6 rounded" />
-                      ) : (
-                        <Database className="h-4 w-4 text-primary" />
-                      )}
-                    </div>
+                  <div key={product.id} className="flex items-center gap-3 p-2 border rounded-lg">
+                    {product.logo && (
+                      <img src={product.logo} alt={product.name} className="w-6 h-6 rounded" />
+                    )}
                     <div className="flex-1">
-                      <div className="font-medium">{product.name}</div>
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-sm font-medium">{product.name}</div>
+                      <div className="text-xs text-muted-foreground">
                         Version: {product.version} | Status: {product.status}
                       </div>
                     </div>
@@ -94,40 +86,33 @@ const AgentDetailsDialog: React.FC<AgentDetailsDialogProps> = ({ open, onOpenCha
               </div>
             </div>
           )}
-          {}
           {(agent.changelog || agent.notifications) && (
             <div className="space-y-3">
               {agent.changelog && (
                 <div>
-                  <span className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
+                  <span className="text-sm font-medium text-muted-foreground">
                     Changelog
                   </span>
-                  <div className="mt-1 text-sm bg-muted p-3 rounded">{agent.changelog}</div>
+                  <div className="mt-1 text-xs bg-muted p-2 rounded">{agent.changelog}</div>
                 </div>
               )}
               {agent.notifications && (
                 <div>
-                  <span className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                    <Bell className="h-4 w-4" />
+                  <span className="text-sm font-medium text-muted-foreground">
                     Notifications
                   </span>
-                  <div className="mt-1 text-sm bg-muted p-3 rounded">{agent.notifications}</div>
+                  <div className="mt-1 text-xs bg-muted p-2 rounded">{agent.notifications}</div>
                 </div>
               )}
             </div>
           )}
-          {}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between py-2 border-b">
-              <span className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                Last Updated
-              </span>
-              <span className="text-sm">
-                {agent.updated_at ? new Date(agent.updated_at).toLocaleDateString() : 'N/A'}
-              </span>
-            </div>
+          <div className="flex items-center justify-between py-2 border-b">
+            <span className="text-sm font-medium text-muted-foreground">
+              Last Updated
+            </span>
+            <span className="text-sm">
+              {agent.updated_at ? new Date(agent.updated_at).toLocaleDateString() : 'N/A'}
+            </span>
           </div>
         </div>
       </DialogContent>

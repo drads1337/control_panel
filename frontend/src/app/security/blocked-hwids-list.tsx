@@ -5,14 +5,6 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
-import { 
-  Search, 
-  Monitor, 
-  Unlock,
-  Eye,
-  RefreshCw,
-  Loader2
-} from 'lucide-react'
 import { ConditionalRender } from '@/components/rbac/conditional-render'
 import { useSecurityPermissions } from '@/contexts/security-permissions-context'
 import AddHWIDBlock from './add-hwid-block'
@@ -78,7 +70,7 @@ const HWIDItem = React.memo(({
     <div className="flex items-center justify-between p-2.5 border-b hover:bg-accent/50 transition-colors">
       <div className="flex items-center gap-3 flex-1 min-w-0">
         <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
-          <Monitor className="h-4 w-4 text-primary" />
+          <span className="text-xs text-primary">HW</span>
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -108,22 +100,22 @@ const HWIDItem = React.memo(({
       <div className="flex items-center gap-1">
         <Button 
           variant="ghost" 
-          size="icon"
-          className="h-8 w-8"
+          size="sm"
+          className="h-8"
           onClick={() => onViewDetails(hwid)}
           disabled={loading}
         >
-          <Eye className="h-4 w-4" />
+          View
         </Button>
         {hwid.is_active && canUnblock && (
           <Button 
             variant="ghost" 
-            size="icon"
-            className="h-8 w-8 text-destructive hover:text-destructive"
+            size="sm"
+            className="h-8 text-destructive hover:text-destructive"
             onClick={() => onUnblock(hwid.id)}
             disabled={loading}
           >
-            <Unlock className="h-4 w-4" />
+            ×
           </Button>
         )}
       </div>
@@ -153,7 +145,8 @@ const HWIDsList: React.FC<HWIDsListProps> = ({
   getCategoryColor
 }) => {
   const parentRef = useRef<HTMLDivElement>(null);
-  const shouldVirtualize = hwids.length > 50;
+  // Lower threshold for better performance - virtualize when more than 30 items
+  const shouldVirtualize = hwids.length > 30;
 
   const rowVirtualizer = useVirtualizer({
     count: shouldVirtualize ? hwids.length : 0,
@@ -292,26 +285,23 @@ export default function BlockedHWIDsList({
               {onRefresh && (
                 <Button 
                   variant="ghost" 
-                  size="icon"
+                  size="sm"
                   onClick={onRefresh}
                   disabled={loading}
                 >
                   {loading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Spinner className="h-4 w-4 animate-spin" />
                   ) : (
-                    <RefreshCw className="h-4 w-4" />
+                    'Refresh'
                   )}
                 </Button>
               )}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search HWIDs, reasons, categories..."
-                  className="pl-10 w-64"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
+              <Input
+                placeholder="Search HWIDs, reasons, categories..."
+                className="w-64"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
               <ConditionalRender permission="security.block_hwids" fallback={null}>
                 <AddHWIDBlock onAdd={onBlockHWID} loading={loading} />
               </ConditionalRender>
@@ -324,7 +314,6 @@ export default function BlockedHWIDsList({
           ) : filteredHWIDs.length === 0 ? (
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
-                <Monitor className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
                 <div className="text-sm text-muted-foreground">
                   {searchTerm ? 'No HWIDs match your search criteria' : 'No hardware IDs are currently blocked'}
                 </div>

@@ -1,6 +1,6 @@
 import React from 'react'
 import { useAuthContext } from '@/contexts/auth-context'
-import { useSettingsQuery } from '@/hooks/use-settings-query'
+import { useSettingsQuery } from '@/entities/settings'
 import { useToast } from '@/hooks/use-toast'
 import type { Project } from '@/entities/project'
 import { enhancedApi as api } from '@/shared/api/enhanced-client'
