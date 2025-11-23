@@ -859,27 +859,20 @@ class SecurityService:
             db.session.rollback()
             self.logger.error(f"Error checking login attempts for IP blocking: {e}")
 
-    def _get_or_create_project_settings(self, project_id: int) -> ProjectSettings:
+    def _get_or_create_project_settings(self, project_id: int):
         """
-        Get or create project settings
+        Get or create project settings (returns aggregated settings for backward compatibility)
 
         Args:
             project_id: Project ID
 
         Returns:
-            ProjectSettings instance
+            Aggregated settings object
         """
-        import secrets
-
-        settings = ProjectSettings.query.filter_by(project_id=project_id).first()
-        if not settings:
-            settings = ProjectSettings(project_id=project_id)
-            settings.project_master_key = secrets.token_hex(32)
-            db.session.add(settings)
-            db.session.commit()
-        elif not settings.project_master_key:
-            settings.project_master_key = secrets.token_hex(32)
-            db.session.commit()
-        return settings
+        from ...utils.project_settings_migration import ProjectSettingsHelper
+        from ...services.settings.settings_repository import SettingsRepository
+        
+        repo = SettingsRepository()
+        return repo.get_all_project_settings(project_id)
 
 security_service = SecurityService()

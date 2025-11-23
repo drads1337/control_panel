@@ -417,22 +417,22 @@ export default function RemoteControl() {
 
   if (!hasPermission('remote_control.view')) {
     return (
-      <div className="p-1 sm:p-0">
-        <div className="mb-4">
-          <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
+      <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 px-2 xs:px-3 sm:px-4 md:px-0">
+        <div className="mb-3 xs:mb-4 sm:mb-5 md:mb-6">
+          <h1 className="text-xl xs:text-2xl sm:text-2xl md:text-3xl font-bold tracking-tight text-foreground leading-tight">
             Remote Control
-          </h2>
-          <p className="text-sm sm:text-base text-muted-foreground">
-            Manage online features for mods and cheats for clients
+          </h1>
+          <p className="text-xs xs:text-sm sm:text-sm md:text-base text-muted-foreground mt-1 xs:mt-1.5 sm:mt-2 leading-snug">
+            Manage remote control features for clients
           </p>
         </div>
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-4 xs:p-5 sm:p-6">
             <div className="flex items-center justify-center py-6">
               <div className="text-center">
-                <Settings className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                <div className="text-sm text-muted-foreground">Access Denied</div>
-                <p className="text-xs text-muted-foreground mt-1">
+                <Settings className="h-10 w-10 xs:h-12 xs:w-12 text-muted-foreground mx-auto mb-3 xs:mb-4" />
+                <div className="text-sm xs:text-base font-semibold text-muted-foreground mb-2">Access Denied</div>
+                <p className="text-xs xs:text-sm text-muted-foreground mt-1">
                   You don't have permission to access remote control features.
                 </p>
               </div>
@@ -445,25 +445,25 @@ export default function RemoteControl() {
 
   if (error) {
     return (
-      <div className="p-1 sm:p-0">
-        <div className="mb-4">
-          <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
+      <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 px-2 xs:px-3 sm:px-4 md:px-0">
+        <div className="mb-3 xs:mb-4 sm:mb-5 md:mb-6">
+          <h1 className="text-xl xs:text-2xl sm:text-2xl md:text-3xl font-bold tracking-tight text-foreground leading-tight">
             Remote Control
-          </h2>
-          <p className="text-sm sm:text-base text-muted-foreground">
-            Manage online features for mods and cheats for clients
+          </h1>
+          <p className="text-xs xs:text-sm sm:text-sm md:text-base text-muted-foreground mt-1 xs:mt-1.5 sm:mt-2 leading-snug">
+            Manage remote control features for clients
           </p>
         </div>
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-4 xs:p-5 sm:p-6">
             <div className="flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
-              <span className="text-sm text-destructive">{error}</span>
+              <AlertCircle className="h-4 w-4 xs:h-5 xs:w-5 text-destructive shrink-0" />
+              <span className="text-xs xs:text-sm text-destructive">{error}</span>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={loadData}
-                className="ml-auto h-8 w-8"
+                className="ml-auto h-8 w-8 xs:h-9 xs:w-9"
               >
                 <RefreshCw className="h-4 w-4" />
               </Button>
@@ -475,23 +475,23 @@ export default function RemoteControl() {
   }
 
   return (
-    <div className="p-1 sm:p-0">
-      <div className="mb-4">
-        <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
+    <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 px-2 xs:px-3 sm:px-4 md:px-0">
+      <div className="mb-3 xs:mb-4 sm:mb-5 md:mb-6">
+        <h1 className="text-xl xs:text-2xl sm:text-2xl md:text-3xl font-bold tracking-tight text-foreground leading-tight">
           Remote Control
-        </h2>
-        <p className="text-sm sm:text-base text-muted-foreground">
-          Manage online features for mods and cheats for clients
+        </h1>
+        <p className="text-xs xs:text-sm sm:text-sm md:text-base text-muted-foreground mt-1 xs:mt-1.5 sm:mt-2 leading-snug">
+          Manage remote control features for clients
         </p>
       </div>
       <Card>
         {/* АДАПТАЦИЯ: p-4 для мобильных, desktop стили с -mb-4 для "вдавленного" вида табов */}
-        <CardHeader className="border-b bg-muted/30 pt-3 px-4 pb-3 sm:pb-0 sm:px-6">
+        <CardHeader className="border-b bg-muted/30 pt-3 px-3 xs:px-4 pb-3 sm:pb-0 sm:px-6">
           <div className="flex items-center justify-between gap-2 sm:gap-4">
             
             {/* Группа Select и Иконки: flex-1 позволяет растягиваться */}
             <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-              <div className="flex items-center gap-2.5 flex-1 min-w-0">
+              <div className="flex items-center gap-2 xs:gap-2.5 flex-1 min-w-0">
                 {/* Иконка */}
                 <div className="p-1.5 rounded-md bg-primary/10 text-primary shrink-0 sm:pt-1 sm:-mb-4">
                   <Database className="h-4 w-4" />
@@ -540,12 +540,12 @@ export default function RemoteControl() {
         </CardHeader>
         
         {/* АДАПТАЦИЯ: p-4 для мобильных чтобы был отступ, sm:pt-0 чтобы табы прилегали к хедеру */}
-        <CardContent className="p-4 sm:pt-0 sm:pb-4">
+        <CardContent className="p-3 xs:p-4 sm:pt-0 sm:pb-4">
           {!selectedProductId ? (
             <div className="flex items-center justify-center py-6">
               <div className="text-center">
-                <Settings className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                <div className="text-sm text-muted-foreground">Please select a product to manage remote control features</div>
+                <Settings className="h-10 w-10 xs:h-12 xs:w-12 text-muted-foreground mx-auto mb-3 xs:mb-4" />
+                <div className="text-sm xs:text-base text-muted-foreground">Please select a product to manage remote control features</div>
               </div>
             </div>
           ) : loading ? (
@@ -586,7 +586,7 @@ export default function RemoteControl() {
       </Card>
 
       {selectedProductId && !loading && categories.length > 0 && (
-        <div className="mt-6">
+        <div className="mt-3 xs:mt-4 sm:mt-5 md:mt-6">
            {/* Обертка для статистики, если компонент сам не поддерживает адаптивность */}
            <RemoteControlStatsCards categories={categories} stats={stats} />
         </div>

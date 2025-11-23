@@ -8,7 +8,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ..middleware.auth import require_project_isolation
 from ..models.core import User
-from ..services.cache import cache_service
+from ..utils.service_helpers import get_service
 from ..utils.rbac_utils import RBACManager
 
 cache_bp = Blueprint("cache", __name__, url_prefix="/api/cache")
@@ -30,6 +30,7 @@ def get_cache_stats():
         return jsonify({"error": "Access denied"}), 403
 
     try:
+        cache_service = get_service('cache_service')
         stats = cache_service.get_cache_stats()
         return jsonify({"success": True, "stats": stats})
     except Exception as e:
@@ -50,6 +51,7 @@ def clear_cache():
         return jsonify({"error": "Access denied"}), 403
 
     try:
+        cache_service = get_service('cache_service')
         deleted_count = cache_service.clear_all_cache()
         return jsonify(
             {
@@ -76,6 +78,7 @@ def cleanup_cache():
         return jsonify({"error": "Access denied"}), 403
 
     try:
+        cache_service = get_service('cache_service')
         cleaned_count = cache_service.cleanup_expired_cache()
         return jsonify(
             {"success": True, "message": f"Cache cleanup completed", "cleaned_keys": cleaned_count}
@@ -112,6 +115,7 @@ def invalidate_cache_type(cache_type):
             pattern = f"{cache_type}:*"
             if project_id:
                 pattern = f"{cache_type}:project_id={project_id}:*"
+            cache_service = get_service('cache_service')
             deleted_count = cache_service.invalidate_pattern(pattern)
 
         return jsonify(

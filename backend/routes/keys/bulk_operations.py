@@ -49,9 +49,8 @@ def bulk_create_keys(current_user, project_id=None):
         return jsonify({"error": "Duration must be greater than 0"}), 400
 
     from ...services.products import product_service
-    product, error = product_service.get_product(current_user, product_id)
-    if error or not product:
-        return jsonify({"error": "Product not found or access denied"}), 404
+    # Exceptions are handled by global handler
+    product = product_service.get_product(current_user, product_id)
 
     is_access_code = product.login_type == "classic_login"
     item_type = "access codes" if is_access_code else "license keys"

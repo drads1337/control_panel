@@ -719,11 +719,11 @@ def encrypt_data_with_project_key(data: dict, project_id: int, use_gcm: bool = T
     Encrypt data with project-specific key using project ID.
     Always uses AES-256-GCM (use_gcm parameter is kept for backward compatibility but ignored).
     First tries AES Key from ProjectEncryptionKeys (what clients use),
-    then falls back to project_master_key from ProjectSettings.
+    then falls back to project_master_key from ProjectEncryptionSettings.
     """
     import logging
 
-    from ..models.core import ProjectEncryptionKeys, ProjectSettings
+    from ..models.core import ProjectEncryptionKeys
 
     try:
         encryption_keys = ProjectEncryptionKeys.query.filter_by(project_id=project_id).first()
@@ -740,16 +740,19 @@ def encrypt_data_with_project_key(data: dict, project_id: int, use_gcm: bool = T
             f"[ENCRYPT_PROJECT] AES Key from ProjectEncryptionKeys failed: {type(aes_key_error).__name__}: {str(aes_key_error)[:100]}..."
         )
 
-    settings = ProjectSettings.query.filter_by(project_id=project_id).first()
-    if not settings or not settings.project_master_key:
+    from ..utils.project_settings_migration import ProjectSettingsHelper
+    
+    helper = ProjectSettingsHelper(project_id)
+    encryption_settings = helper.get_encryption_settings()
+    if not encryption_settings.project_master_key:
         raise ValueError(f"No encryption key found for project {project_id}")
 
     logging.info(
-        f"[ENCRYPT_PROJECT] Using project_master_key from ProjectSettings for project {project_id}"
+        f"[ENCRYPT_PROJECT] Using project_master_key from ProjectEncryptionSettings for project {project_id}"
     )
 
     return MasterKeyManager.encrypt_with_master_key_legacy(
-        json.dumps(data), settings.project_master_key
+        json.dumps(data), encryption_settings.project_master_key
     )
 
 def decrypt_data_with_project_key(
@@ -764,7 +767,7 @@ def decrypt_data_with_project_key(
     
     Strategy:
     - Prefer AES Key from ProjectEncryptionKeys (primary key for clients)
-    - If not available, use project_master_key from ProjectSettings
+    - If not available, use project_master_key from ProjectEncryptionSettings
     - Use only the standard decryption method (no legacy fallbacks)
     - Fail immediately if decryption fails (no multiple attempts)
     
@@ -781,7 +784,7 @@ def decrypt_data_with_project_key(
     """
     import logging
 
-    from ..models.core import ProjectEncryptionKeys, ProjectSettings
+    from ..models.core import ProjectEncryptionKeys
 
     # SECURITY: Use only ONE key source to prevent timing attacks
     # Prefer AES Key from ProjectEncryptionKeys (what clients should use)
@@ -815,15 +818,18 @@ def decrypt_data_with_project_key(
         project_key = aes_key
         key_source = "ProjectEncryptionKeys.aes_key"
     else:
-        # Fallback to project_master_key from ProjectSettings
-        settings = ProjectSettings.query.filter_by(project_id=project_id).first()
-        if not settings or not settings.project_master_key:
+        # Fallback to project_master_key from ProjectEncryptionSettings
+        from ..utils.project_settings_migration import ProjectSettingsHelper
+        
+        helper = ProjectSettingsHelper(project_id)
+        encryption_settings = helper.get_encryption_settings()
+        if not encryption_settings.project_master_key:
             raise ValueError(
                 f"No encryption key found for project {project_id}. "
                 f"Please configure Cryptographic Keys (AES Key) in project settings."
             )
         
-        project_master_key = settings.project_master_key.strip()
+        project_master_key = encryption_settings.project_master_key.strip()
         
         # Validate project_master_key format
         if len(project_master_key) != 64:

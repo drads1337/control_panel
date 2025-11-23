@@ -331,11 +331,8 @@ def create_product(validated_data=None):
         if not validated_data:
             return jsonify({"error": "Invalid request data"}), 400
 
-        new_product, error_msg = product_service.create_product(user, validated_data)
-
-        if not new_product:
-            status_code = 409 if error_msg == "Product already exists" else 500
-            return jsonify({"error": error_msg or "Failed to create product"}), status_code
+        # Exceptions are handled by global handler
+        new_product = product_service.create_product(user, validated_data)
 
         activity_service.log_activity(user, "product_created", details=f"Created product: {new_product.id}")
 

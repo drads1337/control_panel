@@ -82,6 +82,22 @@ class CacheService:
     def _generate_tag_key(self, tag_type: str, tag_value: str) -> str:
         """Generate a tag key for smart invalidation"""
         return f"{self.cache_prefix}:tag:{tag_type}:{tag_value}"
+    
+    def _generate_pattern_set_key(self, pattern: str) -> str:
+        """
+        Generate a Redis Set key for storing cache keys matching a pattern.
+        
+        This allows O(1) lookup and deletion instead of O(N) SCAN operations.
+        Pattern sets are used for efficient invalidation by pattern.
+        """
+        # Normalize pattern: remove wildcards and use as set key identifier
+        normalized = pattern.replace("*", "").replace("?", "")
+        # Use hash for long patterns to keep key names reasonable
+        if len(normalized) > 100:
+            import hashlib
+            pattern_hash = hashlib.md5(normalized.encode()).hexdigest()
+            return f"{self.cache_prefix}:pattern_set:{pattern_hash}"
+        return f"{self.cache_prefix}:pattern_set:{normalized}"
 
     def _add_cache_tags(self, cache_key: str, cache_type: str, **kwargs) -> bool:
         """Add cache tags for smart invalidation (only if use_tags=True)"""
@@ -200,7 +216,7 @@ class CacheService:
     def set(
         self, cache_type: str, data: Dict[str, Any], ttl: Optional[int] = None, **kwargs
     ) -> bool:
-        """Set cached data with smart tagging"""
+        """Set cached data with smart tagging and pattern set tracking"""
         try:
             cache_key = self._generate_cache_key(cache_type, **kwargs)
 
@@ -218,8 +234,40 @@ class CacheService:
             success = cache_wrapper.set_json(cache_key, cache_data, ex=ttl)
 
             if success:
-
+                # Add to cache tags (if enabled)
                 self._add_cache_tags(cache_key, cache_type, **kwargs)
+                
+                # Add to pattern sets for efficient invalidation
+                # Track by cache_type and common patterns (project_id, user_id, etc.)
+                pattern_sets = []
+                
+                # Pattern: cache_type:*
+                pattern_sets.append(f"{cache_type}:*")
+                
+                # Pattern: cache_type:project_id=X:*
+                if "project_id" in kwargs:
+                    pattern_sets.append(f"{cache_type}:project_id={kwargs['project_id']}:*")
+                    pattern_sets.append(f"*:project_id={kwargs['project_id']}:*")
+                
+                # Pattern: cache_type:user_id=X:*
+                if "user_id" in kwargs:
+                    pattern_sets.append(f"{cache_type}:user_id={kwargs['user_id']}:*")
+                
+                # Pattern: cache_type:product_id=X:*
+                if "product_id" in kwargs:
+                    pattern_sets.append(f"{cache_type}:product_id={kwargs['product_id']}:*")
+                    pattern_sets.append(f"{cache_type}:project_id={kwargs.get('project_id', '*')}:product_id={kwargs['product_id']}:*")
+                
+                # Add cache key to all relevant pattern sets
+                for pattern in pattern_sets:
+                    pattern_set_key = self._generate_pattern_set_key(pattern)
+                    try:
+                        cache_wrapper.client.sadd(pattern_set_key, cache_key)
+                        # Set TTL on pattern set (slightly longer than cache TTL to allow cleanup)
+                        cache_wrapper.client.expire(pattern_set_key, ttl + 60)
+                    except Exception as e:
+                        logging.debug(f"Failed to add key to pattern set {pattern_set_key}: {e}")
+                
                 logging.debug(f"Cache SET for key: {cache_key} (TTL: {ttl}s)")
             else:
                 logging.warning(f"Cache SET failed for key: {cache_key}")
@@ -231,13 +279,16 @@ class CacheService:
             return False
 
     def delete(self, cache_type: str, **kwargs) -> bool:
-        """Delete cached data"""
+        """Delete cached data and remove from pattern sets"""
         try:
             cache_key = self._generate_cache_key(cache_type, **kwargs)
             cache_wrapper = self._get_cache_client()
             success = cache_wrapper.delete(cache_key)
 
             if success:
+                # Remove from pattern sets (cleanup)
+                # Note: We don't know which pattern sets contain this key, so we skip cleanup
+                # Pattern sets will auto-expire with TTL, and invalidate_pattern handles cleanup
                 logging.debug(f"Cache DELETE for key: {cache_key}")
             else:
                 logging.debug(f"Cache DELETE failed for key: {cache_key}")
@@ -249,34 +300,80 @@ class CacheService:
             return False
 
     def invalidate_pattern(self, pattern: str) -> int:
-        """Invalidate all cache keys matching a pattern (упрощено: убран сложный fallback)"""
+        """
+        Invalidate all cache keys matching a pattern using Redis Sets for O(1) performance.
+        
+        OPTIMIZATION: Instead of SCAN (O(N) where N is total keys), we use Redis Sets
+        to track keys by pattern. This provides:
+        - O(1) lookup via SMEMBERS
+        - O(M) deletion where M is keys matching pattern (not all keys)
+        - No blocking of Redis during SCAN
+        
+        Falls back to SCAN if pattern set doesn't exist (backward compatibility).
+        """
         try:
-            # Убедимся, что паттерн начинается с префикса
+            # Normalize pattern
             if not pattern.startswith(self.cache_prefix):
                 full_pattern = f"{self.cache_prefix}:{pattern}"
             else:
                 full_pattern = pattern
             
-            # Добавляем * в конец, если его нет
+            # Add * at end if not present
             if not full_pattern.endswith("*"):
                 full_pattern = f"{full_pattern}*"
 
-            deleted_count = 0
-            cursor = 0
             cache_wrapper = self._get_cache_client()
-        
+            deleted_count = 0
+            
+            # Try fast path: use pattern set if available
+            pattern_set_key = self._generate_pattern_set_key(full_pattern)
+            try:
+                # Get all keys from pattern set (O(1) operation)
+                keys = cache_wrapper.client.smembers(pattern_set_key)
+                
+                if keys:
+                    # Convert from bytes to strings if needed
+                    keys_list = [k.decode() if isinstance(k, bytes) else k for k in keys]
+                    
+                    # Delete all keys at once (O(M) where M is keys in set)
+                    deleted_count = cache_wrapper.delete(*keys_list)
+                    
+                    # Delete the pattern set itself
+                    cache_wrapper.client.delete(pattern_set_key)
+                    
+                    logging.info(
+                        f"Cache invalidation (fast path) completed for pattern: {full_pattern} "
+                        f"({deleted_count} keys deleted from pattern set)"
+                    )
+                    return deleted_count
+            except Exception as e:
+                logging.debug(f"Pattern set not found or error for {pattern_set_key}: {e}, falling back to SCAN")
+            
+            # Fallback: use SCAN for backward compatibility (if pattern set doesn't exist)
+            # This handles cases where keys were created before pattern set tracking was added
+            cursor = 0
+            scanned_keys = set()  # Use set to avoid duplicates
+            
             while True:
                 result = cache_wrapper.scan(cursor, match=full_pattern, count=100)
                 cursor, keys = result
 
                 if keys:
-                    deleted_count += cache_wrapper.delete(*keys)
-                    logging.debug(f"Deleted {len(keys)} cache keys matching pattern: {full_pattern}")
+                    scanned_keys.update(keys)
 
                 if cursor == 0:
                     break
+            
+            if scanned_keys:
+                keys_list = [k.decode() if isinstance(k, bytes) else k for k in scanned_keys]
+                deleted_count = cache_wrapper.delete(*keys_list)
+                logging.info(
+                    f"Cache invalidation (SCAN fallback) completed for pattern: {full_pattern} "
+                    f"({deleted_count} keys deleted)"
+                )
+            else:
+                logging.debug(f"No keys found matching pattern: {full_pattern}")
 
-            logging.info(f"Cache invalidation completed for pattern: {full_pattern} ({deleted_count} keys deleted)")
             return deleted_count
 
         except Exception as e:
@@ -744,4 +841,8 @@ class CacheService:
             logging.error(f"Cache stats error: {e}")
             return {}
 
+# Singleton instance for backward compatibility
+# Service instance should be obtained via ServiceContainer:
+#   from ...utils.service_helpers import get_service
+#   service = get_service('cache_service')
 cache_service = CacheService()

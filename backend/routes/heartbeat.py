@@ -30,7 +30,6 @@ from ..models.products import Product
 from ..models.keys import DeviceInfo, Key, KeyAnalytics
 from ..models.security import BlockedFingerprint
 from ..middleware import require_mtls
-from ..middleware.load_monitoring import monitor_load
 from ..services.auth import challenge_service
 from ..services.heartbeat import heartbeat_service
 from ..utils.redis_client import get_redis_client
@@ -126,7 +125,6 @@ def rate_limited(func):
 @heartbeat_bp.route("/heartbeat", methods=["POST"])
 @require_mtls
 @rate_limited
-@monitor_load("heartbeat")
 def api_heartbeat():
     """
     Heartbeat endpoint for maintaining active sessions

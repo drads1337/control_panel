@@ -21,6 +21,7 @@ from ...schemas.responses.service_responses import (
     KeyDetailsData,
     DeviceInfo as DeviceInfoSchema,
 )
+from ...utils.service_exceptions import ValidationError, NotFoundError, PermissionDeniedError, ServiceError
 from .key_generation_service import key_generation_service
 from .key_validation_service import key_validation_service
 from ...utils.data_masking import mask_license_key
@@ -66,7 +67,7 @@ class KeyCRUDService:
 
     def create_key(
         self, user: User, key_data: Dict[str, Any]
-    ) -> Tuple[Optional[Key], Optional[str]]:
+    ) -> Key:
         """
         Create a single key
 
@@ -75,51 +76,54 @@ class KeyCRUDService:
             key_data: Key data dictionary
 
         Returns:
-            Tuple of (Key object or None, error message or None)
+            Key object
+
+        Raises:
+            ValidationError: If validation fails
+            NotFoundError: If product or agent not found
+            PermissionDeniedError: If access denied
+            ServiceError: If database operation fails
         """
         try:
-            key, error = self._create_key_within_transaction(user, key_data)
-            if key:
-                db.session.flush()
-                key_id = key.id
+            key = self._create_key_within_transaction(user, key_data)
+            db.session.flush()
+            key_id = key.id
 
+            try:
+                db.session.refresh(key)
+                self.logger.debug(f"Successfully refreshed key {key_id} after commit")
+                db.session.commit()
+                return key
+            except Exception as refresh_error:
+                self.logger.debug(
+                    f"Refresh failed for key {key_id}, trying session.get(): {str(refresh_error)}"
+                )
                 try:
-                    db.session.refresh(key)
-                    self.logger.debug(f"Successfully refreshed key {key_id} after commit")
-                    db.session.commit()
-                    return key, None
-                except Exception as refresh_error:
-                    self.logger.debug(
-                        f"Refresh failed for key {key_id}, trying session.get(): {str(refresh_error)}"
-                    )
-                    try:
-                        reloaded_key = db.session.get(Key, key_id)
-                        if reloaded_key:
-                            self.logger.debug(f"Successfully got key {key_id} using session.get()")
-                            return reloaded_key, None
-                        else:
-                            self.logger.warning(
-                                f"session.get() returned None for key {key_id}, but key exists. Returning key object anyway."
-                            )
-                            return key, None
-                    except Exception as get_error:
+                    reloaded_key = db.session.get(Key, key_id)
+                    if reloaded_key:
+                        self.logger.debug(f"Successfully got key {key_id} using session.get()")
+                        return reloaded_key
+                    else:
                         self.logger.warning(
-                            f"All reload attempts failed for key {key_id}, but key exists. Returning key object: {str(get_error)}"
+                            f"session.get() returned None for key {key_id}, but key exists. Returning key object anyway."
                         )
-                        return key, None
-            else:
-                db.session.rollback()
-                return None, error
+                        return key
+                except Exception as get_error:
+                    self.logger.warning(
+                        f"All reload attempts failed for key {key_id}, but key exists. Returning key object: {str(get_error)}"
+                    )
+                    return key
+        except (ValidationError, NotFoundError, PermissionDeniedError):
+            db.session.rollback()
+            raise
         except Exception as e:
             db.session.rollback()
-            self.logger.error(f"Failed to create key individually: {str(e)}")
-            import traceback
-            self.logger.error(f"Traceback: {traceback.format_exc()}")
-            return None, f"Failed to create key: {str(e)}"
+            self.logger.error(f"Failed to create key individually: {str(e)}", exc_info=True)
+            raise ServiceError(f"Failed to create key: {str(e)}", status_code=500) from e
 
     def _create_key_within_transaction(
         self, user: User, key_data: Dict[str, Any]
-    ) -> Tuple[Optional[Key], Optional[str]]:
+    ) -> Key:
         """
         Create a single key within an existing transaction (used by bulk operations)
         Does NOT commit or rollback - expects caller to handle transaction
@@ -129,27 +133,30 @@ class KeyCRUDService:
             key_data: Key data dictionary
 
         Returns:
-            Tuple of (Key object or None, error message or None)
+            Key object
+
+        Raises:
+            ValidationError: If validation fails
+            NotFoundError: If product or agent not found
+            PermissionDeniedError: If access denied
         """
-        is_valid, error_msg = self.validation_service.validate_key_data(user, key_data)
-        if not is_valid:
-            return None, error_msg
+        # validation_service now raises exceptions
+        self.validation_service.validate_key_data(user, key_data)
 
         product = None
         agent = None
 
         if key_data.get("product_id"):
             from ...services.products import product_service
-            product, error = product_service.get_product(user, key_data["product_id"])
-            if error or not product:
-                return None, error or "Product not found or access denied"
+            # get_product now raises exceptions
+            product = product_service.get_product(user, key_data["product_id"])
 
         if key_data.get("agent_id"):
             agent = Agent.query.filter_by(
                 id=key_data["agent_id"], project_id=user.project_id
             ).first()
             if not agent:
-                return None, "Agent not found or access denied"
+                raise NotFoundError("Agent", resource_id=str(key_data["agent_id"]))
 
         duration_hours = key_data.get("duration_hours", 24)
         max_devices = key_data.get("max_devices", 1)
@@ -186,7 +193,7 @@ class KeyCRUDService:
         increment_user_key_counters(user.id, is_active=True)
 
         try:
-            from .webhook_service import get_webhook_service
+            from ...services.webhooks import get_webhook_service
 
             webhook_service = get_webhook_service()
 
@@ -213,7 +220,7 @@ class KeyCRUDService:
             self.logger.warning(f"Webhook system error (non-critical): {str(e)}")
 
         self.logger.info(f"Created key {key.id} for user {user.id}")
-        return key, None
+        return key
 
     def get_keys(
         self, user: User, filters: Dict[str, Any]
@@ -504,12 +511,13 @@ class KeyCRUDService:
 
             db.session.delete(key)
 
-            from ...utils.key_counters import decrement_user_key_counters
-            decrement_user_key_counters(user_id, was_active=was_active)
-
+            # Invalidate statistics cache instead of using deprecated counters
+            from ...utils.service_helpers import get_service
+            cache_service = get_service('cache_service')
+            if user_id:
+                cache_service.invalidate_pattern(f"stats:user_id={user_id}:*")
             if project_id:
-                from ...utils.project_counters import decrement_project_key_counters
-                decrement_project_key_counters(project_id, was_active=was_active)
+                cache_service.invalidate_pattern(f"stats:project_id={project_id}:*")
 
             db.session.commit()
             return True, None

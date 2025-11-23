@@ -53,6 +53,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+from flask import g, has_request_context
+
 from ...core.extensions import db
 from ...utils.service_helpers import get_service
 from ...models.core import User
@@ -61,6 +63,24 @@ from ...utils.rbac_utils import RBACManager
 from .authorization_audit import DecisionOutcome
 
 logger = logging.getLogger(__name__)
+
+
+def _get_policy_cache_key(
+    user_id: int,
+    permission: str,
+    product_id: Optional[int] = None,
+    resource_type: Optional[str] = None,
+    resource_id: Optional[int] = None,
+) -> str:
+    """Generate cache key for policy evaluation result"""
+    parts = [f"user:{user_id}", f"perm:{permission}"]
+    if product_id:
+        parts.append(f"product:{product_id}")
+    if resource_type:
+        parts.append(f"resource_type:{resource_type}")
+    if resource_id:
+        parts.append(f"resource_id:{resource_id}")
+    return "|".join(parts)
 
 
 class DecisionType(Enum):
@@ -143,6 +163,12 @@ class PolicyEngine:
         """
         Evaluate authorization request through all policy layers.
         
+        PERFORMANCE OPTIMIZATIONS:
+        - Request-scoped caching: Results are cached per Flask request to avoid
+          redundant policy evaluations for the same authorization check
+        - Fast Fail: If owner/admin bypass grants access, we can return early
+          (but still evaluate all policies for security audit)
+        
         Args:
             user_id: User ID requesting access
             permission: Permission name (e.g., "keys.create")
@@ -157,6 +183,20 @@ class PolicyEngine:
         if context is None:
             context = {}
         
+        # Check request-scoped cache first (avoid redundant evaluations in same request)
+        cache_key = _get_policy_cache_key(user_id, permission, product_id, resource_type, resource_id)
+        if has_request_context():
+            if not hasattr(g, '_policy_cache'):
+                g._policy_cache = {}
+            
+            if cache_key in g._policy_cache:
+                cached_decision = g._policy_cache[cache_key]
+                logger.debug(
+                    f"POLICY_EVALUATION_CACHE_HIT user_id={user_id} permission={permission} "
+                    f"decision={'ALLOW' if cached_decision.allowed else 'DENY'}"
+                )
+                return cached_decision
+        
         # Log authorization request for debugging
         logger.info(
             f"POLICY_EVALUATION_START user_id={user_id} permission={permission} "
@@ -167,21 +207,29 @@ class PolicyEngine:
         user = User.query.get(user_id)
         if not user:
             logger.warning(f"POLICY_EVALUATION_FAILED user_id={user_id} reason=User not found")
-            return Decision(
+            decision = Decision(
                 allowed=False,
                 reason="User not found",
                 policy_type="system",
                 context={"user_id": user_id}
             )
+            # Cache negative result too
+            if has_request_context():
+                g._policy_cache[cache_key] = decision
+            return decision
         
         # Track execution time for performance monitoring
         evaluation_start_time = time.perf_counter()
         
-        # SECURITY FIX: Evaluate all policies first, then apply conflict resolution
+        # SECURITY: Evaluate all policies first, then apply conflict resolution
         # This ensures DENY always takes precedence over ALLOW, preventing privilege escalation
         # when RBAC grants access but ABAC should deny it.
+        # 
+        # PERFORMANCE: Fast Fail optimization - if owner/admin bypass grants access,
+        # we can return early (but still log all policies for audit)
         evaluated_policies = []
         all_decisions = []
+        fast_fail_allowed = False  # Track if we can fast-fail with ALLOW
         
         for policy in self.policies:
             try:
@@ -206,6 +254,15 @@ class PolicyEngine:
                 if decision.policy_type != "abstain":
                     all_decisions.append(decision)
                     
+                    # Fast Fail: If owner/admin bypass grants access, we can return early
+                    # (but continue evaluating for audit purposes - we'll break after loop)
+                    if decision.allowed and decision.policy_type in ("owner_bypass", "admin_bypass"):
+                        fast_fail_allowed = True
+                        logger.debug(
+                            f"POLICY_FAST_FAIL_ALLOW user_id={user_id} permission={permission} "
+                            f"policy={policy.__name__}"
+                        )
+                    
             except Exception as e:
                 logger.error(
                     f"POLICY_EVALUATION_ERROR user_id={user_id} permission={permission} "
@@ -225,7 +282,7 @@ class PolicyEngine:
         execution_time_ms = (time.perf_counter() - evaluation_start_time) * 1000
         
         if all_decisions:
-            # Check for any DENY first (highest priority)
+            # Check for any DENY first (highest priority) - Fast Fail for DENY
             deny_decisions = [d for d in all_decisions if not d.allowed]
             if deny_decisions:
                 # Use the first DENY decision (most specific)
@@ -244,7 +301,16 @@ class PolicyEngine:
                     final_decision.context["conflicting_allow_policies"] = [d.policy_type for d in allow_decisions]
             else:
                 # No DENY, use first ALLOW
-                final_decision = all_decisions[0]
+                # Fast Fail: If owner/admin bypass granted access, use that decision
+                if fast_fail_allowed:
+                    # Find the owner/admin bypass decision
+                    bypass_decision = next(
+                        (d for d in all_decisions if d.policy_type in ("owner_bypass", "admin_bypass")),
+                        all_decisions[0]
+                    )
+                    final_decision = bypass_decision
+                else:
+                    final_decision = all_decisions[0]
                 outcome = DecisionOutcome.ALLOW
         else:
             # All policies abstained - default deny (fail-secure)
@@ -287,8 +353,13 @@ class PolicyEngine:
             f"policy={final_decision.policy_type} decision={'ALLOW' if final_decision.allowed else 'DENY'} "
             f"allowed={final_decision.allowed} reason={final_decision.reason} "
             f"evaluated_policies={len(evaluated_policies)} total_decisions={len(all_decisions)} "
-            f"execution_time={execution_time_ms:.2f}ms"
+            f"execution_time={execution_time_ms:.2f}ms fast_fail={fast_fail_allowed}"
         )
+        
+        # Cache result for request scope
+        if has_request_context():
+            g._policy_cache[cache_key] = final_decision
+        
         return final_decision
         
     

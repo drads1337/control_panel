@@ -14,7 +14,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ..core.extensions import db
 from ..middleware.auth import require_project_isolation, require_project_with_grace_period
-from ..models.core import Project, ProjectEncryptionKeys, ProjectSettings, User
+from ..models.core import Project, ProjectEncryptionKeys, User
 from ..utils.project_settings_migration import ProjectSettingsHelper
 from ..models.security import BlockedFingerprint, LoginAttempt
 from ..services.security import security_service
@@ -27,13 +27,20 @@ logger = get_logger(__name__)
 
 def encrypt_data_with_project_key(data: dict, project_id: int) -> str:
     try:
-        settings = get_or_create_project_settings(project_id)
-        if not settings.project_master_key:
-            raise ValueError("Project master key not found")
+        helper = ProjectSettingsHelper(project_id)
+        encryption_settings = helper.get_encryption_settings()
+        project_master_key = encryption_settings.project_master_key
+        
+        if not project_master_key:
+            # Generate master key if not exists
+            project_master_key = secrets.token_hex(32)
+            encryption_settings.project_master_key = project_master_key
+            db.session.commit()
+            logger.info(f"Generated new project master key for project {project_id}")
 
         raw = json.dumps(data)
 
-        return MasterKeyManager.encrypt_with_master_key(raw, settings.project_master_key)
+        return MasterKeyManager.encrypt_with_master_key(raw, project_master_key)
     except Exception as e:
         raise ValueError(f"Project encryption error: {str(e)}")
 
@@ -96,33 +103,34 @@ def get_user_project_id(user_id):
     return user.project_id, None
 
 def get_or_create_project_settings(project_id):
-    settings = ProjectSettings.query.filter_by(project_id=project_id).first()
-    if not settings:
-        settings = ProjectSettings(project_id=project_id)
-        settings.project_master_key = secrets.token_hex(32)
-        db.session.add(settings)
-        db.session.commit()
-    elif not settings.project_master_key:
-        settings.project_master_key = secrets.token_hex(32)
-        db.session.commit()
-    return settings
+    """
+    DEPRECATED: Use ProjectSettingsHelper directly instead.
+    This function is kept for backward compatibility.
+    """
+    helper = ProjectSettingsHelper(project_id)
+    # Return aggregated settings for backward compatibility
+    from ..services.settings.settings_repository import SettingsRepository
+    repo = SettingsRepository()
+    return repo.get_all_project_settings(project_id)
 
 def get_project_security_settings(project_id):
-    settings = get_or_create_project_settings(project_id)
+    helper = ProjectSettingsHelper(project_id)
+    security = helper.get_security_settings()
     return {
-        "min_password_length": settings.min_password_length,
-        "max_login_attempts": settings.max_login_attempts,
-        "max_sessions_per_user": settings.max_sessions_per_user,
-        "log_retention_days": settings.log_retention_days,
-        "security_log_level": settings.security_log_level,
+        "min_password_length": security.min_password_length,
+        "max_login_attempts": security.max_login_attempts,
+        "max_sessions_per_user": security.max_sessions_per_user,
+        "log_retention_days": security.log_retention_days,
+        "security_log_level": security.security_log_level,
     }
 
 def check_login_attempts(ip_address, project_id):
     from datetime import datetime, timedelta, timezone
 
-    settings = get_or_create_project_settings(project_id)
-    max_attempts = settings.max_login_attempts
-    block_duration = settings.ip_block_duration_minutes
+    helper = ProjectSettingsHelper(project_id)
+    security = helper.get_security_settings()
+    max_attempts = security.max_login_attempts
+    block_duration = security.ip_block_duration_minutes
 
     cutoff_time = datetime.utcnow() - timedelta(minutes=block_duration)
 
@@ -229,7 +237,8 @@ def get_settings(current_user=None, project_id=None):
     # Get project_id from parameter (passed by middleware)
     logger.info("Getting settings", user_id=user_id, project_id=project_id)
 
-    from ..services.settings import settings_service
+    from ..utils.service_helpers import get_service
+    settings_service = get_service('settings_service')
 
     result = settings_service.get_settings_cached(user_id=user_id, project_id=project_id)
 
@@ -345,23 +354,17 @@ def update_settings():
 
     logger.debug("Received settings data", user_id=user_id, project_id=project_id, data_keys=list(data.keys()))
 
-    settings = get_or_create_project_settings(project_id)
-    logger.debug(
-        "Current settings before update",
-        user_id=user_id,
-        project_id=project_id,
-        min_password_length=settings.min_password_length,
-        max_login_attempts=settings.max_login_attempts,
-    )
-
+    helper = ProjectSettingsHelper(project_id)
+    
     if "security" in data:
+        security_settings = helper.get_security_settings()
         security = data["security"]
         if "min_password_length" in security and security["min_password_length"] is not None:
             try:
                 value = int(security["min_password_length"])
                 if not (isinstance(value, int) and 6 <= value <= 32):
                     raise ValueError("Invalid value")
-                settings.min_password_length = value
+                security_settings.min_password_length = value
             except (ValueError, TypeError):
                     logger.debug(
                         "Invalid min_password_length value",
@@ -375,7 +378,7 @@ def update_settings():
                     value = int(security["max_login_attempts"])
                     if not (isinstance(value, int) and 3 <= value <= 10):
                         raise ValueError("Invalid value")
-                    settings.max_login_attempts = value
+                    security_settings.max_login_attempts = value
                 except (ValueError, TypeError):
                     logger.debug(
                         "Invalid max_login_attempts value",
@@ -392,7 +395,7 @@ def update_settings():
                     value = int(security["max_sessions_per_user"])
                     if not (isinstance(value, int) and 1 <= value <= 10):
                         raise ValueError("Invalid value")
-                    settings.max_sessions_per_user = value
+                    security_settings.max_sessions_per_user = value
                 except (ValueError, TypeError):
                     logger.debug(
                         "Invalid max_sessions_per_user value",
@@ -406,8 +409,8 @@ def update_settings():
                     value = int(security["log_retention_days"])
                     if not (isinstance(value, int) and 7 <= value <= 365):
                         raise ValueError("Invalid value")
-                    old_value = settings.log_retention_days
-                    settings.log_retention_days = value
+                    old_value = security_settings.log_retention_days
+                    security_settings.log_retention_days = value
                     logger.debug(
                         "Updated log_retention_days",
                         user_id=user_id,
@@ -431,21 +434,23 @@ def update_settings():
                     "error",
                     "critical",
                 ]:
-                    settings.security_log_level = security["security_log_level"]
+                    security_settings.security_log_level = security["security_log_level"]
 
     if "registration" in data:
+        invite_settings = helper.get_invite_settings()
         registration = data["registration"]
         if "invite_code_required" in registration:
-            settings.invite_code_required = bool(registration["invite_code_required"])
+            invite_settings.invite_code_required = bool(registration["invite_code_required"])
 
     if "system" in data:
+        system_settings = helper.get_system_settings()
         system = data["system"]
         if "max_connections" in system and system["max_connections"] is not None:
                 try:
                     value = int(system["max_connections"])
                     if not (isinstance(value, int) and 1 <= value <= 1000):
                         raise ValueError("Invalid value")
-                    settings.max_connections = value
+                    system_settings.max_connections = value
                 except (ValueError, TypeError):
                     logger.debug(
                         "Invalid max_connections value",
@@ -462,7 +467,7 @@ def update_settings():
                     value = int(system["session_timeout_minutes"])
                     if not (isinstance(value, int) and 5 <= value <= 1440):
                         raise ValueError("Invalid value")
-                    settings.session_timeout_minutes = value
+                    system_settings.session_timeout_minutes = value
                 except (ValueError, TypeError):
                     logger.debug(
                         "Invalid session_timeout_minutes value",
@@ -476,7 +481,7 @@ def update_settings():
                     value = int(system["log_file_size_mb"])
                     if not (isinstance(value, int) and 10 <= value <= 1000):
                         raise ValueError("Invalid value")
-                    settings.log_file_size_mb = value
+                    system_settings.log_file_size_mb = value
                 except (ValueError, TypeError):
                     logger.debug(
                         "Invalid log_file_size_mb value",
@@ -487,56 +492,58 @@ def update_settings():
 
         if "system_log_level" in system:
             if system["system_log_level"] in ["debug", "info", "warning", "error"]:
-                settings.system_log_level = system["system_log_level"]
+                system_settings.system_log_level = system["system_log_level"]
         if "auto_save_enabled" in system:
-            settings.auto_save_enabled = bool(system["auto_save_enabled"])
+            system_settings.auto_save_enabled = bool(system["auto_save_enabled"])
         if "analytics_enabled" in system:
-            settings.analytics_enabled = bool(system["analytics_enabled"])
+            system_settings.analytics_enabled = bool(system["analytics_enabled"])
         if "system_notifications_enabled" in system:
-            settings.system_notifications_enabled = bool(system["system_notifications_enabled"])
+            system_settings.system_notifications_enabled = bool(system["system_notifications_enabled"])
 
     if "security_features" in data:
+        security_settings = helper.get_security_settings()
         features = data["security_features"]
         if "two_factor_auth_required" in features:
-            settings.two_factor_auth_required = bool(features["two_factor_auth_required"])
+            security_settings.two_factor_auth_required = bool(features["two_factor_auth_required"])
         if "vpn_blocking_enabled" in features:
-            settings.vpn_blocking_enabled = bool(features["vpn_blocking_enabled"])
+            security_settings.vpn_blocking_enabled = bool(features["vpn_blocking_enabled"])
         if "security_logging_enabled" in features:
-            settings.security_logging_enabled = bool(features["security_logging_enabled"])
+            security_settings.security_logging_enabled = bool(features["security_logging_enabled"])
         if "suspicious_activity_check_enabled" in features:
-            settings.suspicious_activity_check_enabled = bool(
+            security_settings.suspicious_activity_check_enabled = bool(
                 features["suspicious_activity_check_enabled"]
             )
         if "session_limiting_enabled" in features:
-            settings.session_limiting_enabled = bool(features["session_limiting_enabled"])
+            security_settings.session_limiting_enabled = bool(features["session_limiting_enabled"])
         if "auto_log_cleanup_enabled" in features:
-            settings.auto_log_cleanup_enabled = bool(features["auto_log_cleanup_enabled"])
+            security_settings.auto_log_cleanup_enabled = bool(features["auto_log_cleanup_enabled"])
 
     if "offline_auth" in data:
+        offline_auth_settings = helper.get_offline_auth_settings()
         offline_auth = data["offline_auth"]
         if "offline_auth_enabled" in offline_auth:
-            settings.offline_auth_enabled = bool(offline_auth["offline_auth_enabled"])
+            offline_auth_settings.offline_auth_enabled = bool(offline_auth["offline_auth_enabled"])
         if "offline_ticket_expiration_hours" in offline_auth:
             expiration_hours = int(offline_auth["offline_ticket_expiration_hours"])
 
             expiration_hours = max(1, min(168, expiration_hours))
-            settings.offline_ticket_expiration_hours = expiration_hours
+            offline_auth_settings.offline_ticket_expiration_hours = expiration_hours
 
     if "appearance" in data:
-        settings.appearance_settings = json.dumps(data["appearance"])
+        appearance_settings = helper.get_appearance_settings()
+        appearance_settings.appearance_settings = json.dumps(data["appearance"])
 
     logger.debug(
         "Settings after update",
         user_id=user_id,
         project_id=project_id,
-        min_password_length=settings.min_password_length,
-        max_login_attempts=settings.max_login_attempts,
     )
 
     db.session.commit()
 
     try:
-        from ..services.settings import settings_service
+        from ..utils.service_helpers import get_service
+        settings_service = get_service('settings_service')
 
         settings_service.invalidate_settings_cache(user_id)
     except ImportError:
@@ -576,13 +583,15 @@ def regenerate_master_key():
     if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
         return jsonify({"error": "Insufficient permissions"}), 403
 
-    settings = get_or_create_project_settings(project_id)
-    old_key = settings.project_master_key
-    settings.project_master_key = secrets.token_hex(32)
+    helper = ProjectSettingsHelper(project_id)
+    encryption_settings = helper.get_encryption_settings()
+    old_key = encryption_settings.project_master_key
+    encryption_settings.project_master_key = secrets.token_hex(32)
 
     db.session.commit()
 
-    from ..services.cache import cache_service
+    from ..utils.service_helpers import get_service
+    cache_service = get_service('cache_service')
 
     cache_service.invalidate_user_cache(user_id)
 
@@ -590,7 +599,7 @@ def regenerate_master_key():
         {
             "message": "Master key regenerated successfully",
             "old_key": old_key,
-            "new_key": settings.project_master_key,
+            "new_key": encryption_settings.project_master_key,
             "warning": "All existing encrypted data will need to be re-encrypted with the new key",
         }
     )
@@ -654,7 +663,8 @@ def regenerate_keys():
 
     db.session.commit()
 
-    from ..services.cache import cache_service
+    from ..utils.service_helpers import get_service
+    cache_service = get_service('cache_service')
 
     cache_service.invalidate_user_cache(user_id)
 

@@ -204,7 +204,29 @@ def register_system_routes(app: Flask) -> None:
             if not is_authorized:
                 return jsonify({"error": error_msg}), 403
 
-            return send_from_directory(avatar_dir, filename)
+            # SECURITY & PERFORMANCE: Use X-Accel-Redirect for Nginx to serve files
+            # This offloads file serving from Python workers to Nginx, improving
+            # performance and scalability. Nginx handles file I/O efficiently.
+            # 
+            # In production, Nginx should be configured with:
+            #   location /internal/uploads/ {
+            #       internal;
+            #       alias /app/uploads/;
+            #   }
+            #
+            # The X-Accel-Redirect header tells Nginx to serve the file from
+            # the internal location, which is not directly accessible from outside.
+            if Config.FLASK_ENV == "production":
+                # Use X-Accel-Redirect for production (Nginx handles file serving)
+                internal_path = f"/internal/uploads/avatars/{filename}"
+                response = jsonify({})  # Empty response body
+                response.headers["X-Accel-Redirect"] = internal_path
+                response.headers["Content-Type"] = "application/octet-stream"
+                # Let Nginx determine content type from file extension
+                return response
+            else:
+                # Development mode: serve directly from Flask
+                return send_from_directory(avatar_dir, filename)
 
     # General uploads route - only enabled in development
     # In production, use Nginx/CDN for non-sensitive files or /api/files/ for authorized access
@@ -237,7 +259,19 @@ def register_system_routes(app: Flask) -> None:
             if not is_authorized:
                 return jsonify({"error": error_msg}), 403
 
-            return send_from_directory(upload_dir, filename)
+            # SECURITY & PERFORMANCE: Use X-Accel-Redirect for Nginx to serve files
+            # This offloads file serving from Python workers to Nginx, improving
+            # performance and scalability. Nginx handles file I/O efficiently.
+            if Config.FLASK_ENV == "production":
+                # Use X-Accel-Redirect for production (Nginx handles file serving)
+                internal_path = f"/internal/uploads/{filename}"
+                response = jsonify({})  # Empty response body
+                response.headers["X-Accel-Redirect"] = internal_path
+                response.headers["Content-Type"] = "application/octet-stream"
+                return response
+            else:
+                # Development mode: serve directly from Flask
+                return send_from_directory(upload_dir, filename)
     else:
         logging.info(
             "General file serving route (/uploads/) is disabled in production mode. "

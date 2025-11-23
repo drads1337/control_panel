@@ -16,6 +16,7 @@ from ...models.products import Product, ProductExtraFile, ProductFileConfig, Pro
 from ...models.keys import Key
 from ...models.agents import Agent, AgentProductAssignment, AgentDownloadLog
 from ...services.cache import cache_service
+from ...utils.service_exceptions import NotFoundError, PermissionDeniedError, ConflictError, ServiceError
 
 class ProductService:
     """Service for managing product data with caching"""
@@ -317,7 +318,7 @@ class ProductService:
 
     def create_product(
         self, user: User, product_data: Dict[str, Any]
-    ) -> Tuple[Optional[Product], Optional[str]]:
+    ) -> Product:
         """
         Create a new product with prices
 
@@ -326,7 +327,11 @@ class ProductService:
             product_data: Product data dictionary from validated schema
 
         Returns:
-            Tuple of (Product object or None, error message or None)
+            Product object
+
+        Raises:
+            ConflictError: If product with this name already exists
+            ServiceError: If database operation fails
         """
         try:
 
@@ -335,7 +340,7 @@ class ProductService:
             ).first()
 
             if existing_product:
-                return None, "Product already exists"
+                raise ConflictError("Product already exists", resource_type="product")
 
             new_product = Product(
                 name=product_data["name"],
@@ -376,19 +381,19 @@ class ProductService:
             self.invalidate_product_cache(user.project_id, new_product.id)
 
             self.logger.info(f"Product created successfully: {new_product.id} by user {user.id}")
-            return new_product, None
+            return new_product
 
+        except ConflictError:
+            db.session.rollback()
+            raise
         except Exception as e:
             db.session.rollback()
-            self.logger.error(f"Error creating product: {str(e)}")
-            import traceback
-
-            self.logger.error(f"Traceback: {traceback.format_exc()}")
-            return None, f"Failed to create product: {str(e)}"
+            self.logger.error(f"Error creating product: {str(e)}", exc_info=True)
+            raise ServiceError(f"Failed to create product: {str(e)}", status_code=500) from e
 
     def get_product(
         self, user: User, product_id
-    ) -> Tuple[Optional[Product], Optional[str]]:
+    ) -> Product:
         """
         Get a single product by ID or unique_id with access control
 
@@ -397,7 +402,12 @@ class ProductService:
             product_id: ID (int) or unique_id (str) of the product to retrieve
 
         Returns:
-            Tuple of (Product object or None, error message or None)
+            Product object
+
+        Raises:
+            NotFoundError: If product not found
+            PermissionDeniedError: If user doesn't have access
+            ServiceError: If database operation fails
         """
         try:
             from ...utils.rbac_utils import RBACManager
@@ -418,7 +428,7 @@ class ProductService:
                     else:
                         # Non-owners must have project_id and product must belong to their project
                         if not user.project_id:
-                            return None, "User must be assigned to a project"
+                            raise PermissionDeniedError("User must be assigned to a project")
                         product = Product.query.filter_by(id=product_id_int, project_id=user.project_id).first()
                 except (ValueError, TypeError):
                     pass
@@ -431,17 +441,19 @@ class ProductService:
                 else:
                     # Non-owners must have project_id and product must belong to their project
                     if not user.project_id:
-                        return None, "User must be assigned to a project"
+                        raise PermissionDeniedError("User must be assigned to a project")
                     product = Product.query.filter_by(unique_id=str(product_id), project_id=user.project_id).first()
 
             if not product:
-                return None, "Product not found or access denied"
+                raise NotFoundError("Product", resource_id=str(product_id))
 
-            return product, None
+            return product
 
+        except (NotFoundError, PermissionDeniedError):
+            raise
         except Exception as e:
-            self.logger.error(f"Error getting product {product_id}: {str(e)}")
-            return None, f"Failed to get product: {str(e)}"
+            self.logger.error(f"Error getting product {product_id}: {str(e)}", exc_info=True)
+            raise ServiceError(f"Failed to get product: {str(e)}", status_code=500) from e
 
     def get_products_count(
         self, project_id: int, product_type: str = "all", user_id: Optional[int] = None

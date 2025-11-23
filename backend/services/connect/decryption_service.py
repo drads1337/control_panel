@@ -200,12 +200,15 @@ class DecryptionService:
         # regardless of success/failure to prevent timing differences
         
         # Always check for keys (even if we won't use them) to normalize DB query time
-        from ...models.core import ProjectSettings, ProjectEncryptionKeys
-        settings = ProjectSettings.query.filter_by(project_id=project_id_int).first()
+        from ...models.core import ProjectEncryptionKeys
+        from ...utils.project_settings_migration import ProjectSettingsHelper
+        
+        helper = ProjectSettingsHelper(project_id_int)
+        encryption_settings = helper.get_encryption_settings()
         encryption_keys = ProjectEncryptionKeys.query.filter_by(project_id=project_id_int).first()
         
         # Normalize key existence checks (constant-time operations)
-        has_project_master_key = bool(settings and settings.project_master_key)
+        has_project_master_key = bool(encryption_settings and encryption_settings.project_master_key)
         has_aes_key = bool(encryption_keys and encryption_keys.aes_key)
         
         # Log before operation (constant time)

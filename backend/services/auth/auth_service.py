@@ -6,7 +6,7 @@ Handles all authentication-related business logic including login, registration,
 import logging
 import uuid
 from datetime import datetime
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
 
 from flask import current_app, make_response
 from flask_jwt_extended import create_access_token, set_access_cookies
@@ -21,6 +21,7 @@ from ...models.keys import ReferralCode
 from ...utils.ip_utils import get_location_from_ip, get_real_ip
 from ...utils.rbac_utils import RBACManager
 from ...utils.service_helpers import get_service
+from ...utils.service_exceptions import AuthenticationError, SecurityError, NotFoundError, ServiceError
 from ...services.activity import activity_service
 from ...services.validation import request_validation_pipeline
 
@@ -32,7 +33,7 @@ class AuthService:
 
     def validate_simple_login(
         self, username: str, password: str
-    ) -> Tuple[Optional[User], Optional[str]]:
+    ) -> User:
         """
         Validate simple username/password login
 
@@ -41,7 +42,11 @@ class AuthService:
             password: Plain text password
 
         Returns:
-            Tuple of (User object or None, error message or None)
+            User object
+
+        Raises:
+            AuthenticationError: If credentials are invalid
+            ServiceError: If database operation fails
         """
         try:
             # Clean and normalize identifier
@@ -139,13 +144,13 @@ class AuthService:
                     )
                 
                 self.logger.warning(warning_msg)
-                return None, "Invalid credentials"
+                raise AuthenticationError("Invalid credentials")
 
             if not user.password:
                 self.logger.warning(
                     f"Login failed: User {user.id} ({user.username}) has no password hash"
                 )
-                return None, "Invalid credentials"
+                raise AuthenticationError("Invalid credentials")
 
             password_valid = check_password_hash(user.password, password)
             self.logger.debug(
@@ -156,11 +161,18 @@ class AuthService:
                 self.logger.warning(
                     f"Login failed: Invalid password for user {user.id} ({user.username})"
                 )
-                return None, "Invalid credentials"
+                raise AuthenticationError("Invalid credentials")
 
             self.logger.info(f"Login successful for user {user.id} ({user.username})")
-            return user, None
+            return user
 
+        except AuthenticationError:
+            # Ensure session is rolled back on authentication error
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            raise
         except Exception as e:
             self.logger.error(f"Error in validate_simple_login: {str(e)}", exc_info=True)
             # Ensure session is rolled back on any error
@@ -168,7 +180,7 @@ class AuthService:
                 db.session.rollback()
             except Exception:
                 pass
-            return None, "Authentication failed"
+            raise ServiceError("Authentication failed", status_code=500) from e
 
     def create_login_response(self, user: User) -> Dict[str, Any]:
         """
@@ -253,7 +265,7 @@ class AuthService:
 
     def check_project_security(
         self, user: User, ip: str, user_agent: str
-    ) -> Tuple[bool, Optional[str]]:
+    ) -> None:
         """
         Check project-specific security constraints
         
@@ -264,11 +276,13 @@ class AuthService:
             ip: Client IP address
             user_agent: Client user agent
 
-        Returns:
-            Tuple of (is_allowed, error_message)
+        Raises:
+            SecurityError: If security constraints are violated
+            NotFoundError: If project not found
+            ServiceError: If security check fails
         """
         if not user.project_id:
-            return True, None
+            return  # No project, no security checks needed
 
         try:
             # Handle potential session rollback issues
@@ -284,13 +298,13 @@ class AuthService:
                 self.logger.warning(
                     f"SECURITY_VIOLATION: User {user.username} has invalid project_id: {user.project_id}"
                 )
-                return False, "PROJECT_NOT_FOUND"
+                raise SecurityError("Project not found", error_code="PROJECT_NOT_FOUND")
 
             if not project.is_active:
                 self.logger.warning(
                     f"SECURITY_VIOLATION: User {user.username} accessing inactive project: {project.id}"
                 )
-                return False, "PROJECT_INACTIVE"
+                raise SecurityError("Project is inactive", error_code="PROJECT_INACTIVE")
 
             # Use unified validation pipeline for IP and User-Agent
             validation_result = request_validation_pipeline.validate_request(
@@ -299,17 +313,20 @@ class AuthService:
                 project_id=user.project_id,
             )
             if not validation_result.is_valid:
-                return False, validation_result.reason
+                raise SecurityError(
+                    "Access denied due to security constraints",
+                    error_code=validation_result.reason or "VALIDATION_FAILED"
+                )
 
             security_service = get_service('security_service')
             if security_service.check_session_limit(user.id, user.project_id):
-                return False, "SESSION_LIMIT_EXCEEDED"
+                raise SecurityError("Session limit exceeded", error_code="SESSION_LIMIT_EXCEEDED")
 
-            return True, None
-
+        except (SecurityError, NotFoundError):
+            raise
         except Exception as e:
-            self.logger.error(f"Error checking project security: {str(e)}")
-            return False, "Security check failed"
+            self.logger.error(f"Error checking project security: {str(e)}", exc_info=True)
+            raise ServiceError("Security check failed", status_code=500) from e
 
     def record_login_attempt(self, user: User, ip: str, user_agent: str, success: bool) -> None:
         """
@@ -376,7 +393,7 @@ class AuthService:
 
     def process_simple_login(
         self, username: str, password: str, ip: str, user_agent: str
-    ) -> Tuple[Optional[Dict[str, Any]], Optional[str], Optional[str]]:
+    ) -> Dict[str, Any]:
         """
         Process complete simple login flow with all business logic
 
@@ -396,24 +413,21 @@ class AuthService:
             user_agent: Client user agent
 
         Returns:
-            Tuple of (response_data with access_token, error_code, error_message)
-            On success: (response_data, None, None)
-            On failure: (None, error_code, error_message)
+            Dictionary with login response data including access_token
+
+        Raises:
+            AuthenticationError: If credentials are invalid
+            SecurityError: If security constraints are violated
+            ServiceError: If login process fails
         """
         try:
-
             self.logger.debug(f"Login attempt: username={username}, ip={ip}")
-            user, error = self.validate_simple_login(username, password)
-            if not user:
-                self.logger.warning(f"Login failed: username={username}, error={error}, ip={ip}")
-                return None, "INVALID_CREDENTIALS", "Invalid username or password"
-
-            is_allowed, security_error = self.check_project_security(user, ip, user_agent)
-            if not is_allowed:
-                self.logger.warning(
-                    f"Security violation: {security_error} for user {user.username}, ip={ip}"
-                )
-                return None, security_error, "Access denied due to security constraints"
+            
+            # validate_simple_login now raises AuthenticationError on failure
+            user = self.validate_simple_login(username, password)
+            
+            # check_project_security now raises SecurityError on failure
+            self.check_project_security(user, ip, user_agent)
 
             self.update_user_login_info(user, ip, user_agent)
 
@@ -429,10 +443,12 @@ class AuthService:
 
             self._trigger_login_webhook(user, ip, user_agent, "simple", session_id)
 
-            return response_data, None, None
+            return response_data
 
+        except (AuthenticationError, SecurityError):
+            raise
         except Exception as e:
             self.logger.error(f"Error in process_simple_login: {str(e)}", exc_info=True)
-            return None, "LOGIN_FAILED", "Authentication failed"
+            raise ServiceError("Authentication failed", status_code=500) from e
 
 auth_service = AuthService()

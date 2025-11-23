@@ -3,12 +3,13 @@ Key Validation Service
 Handles key validation logic
 """
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
 
 from ...models.core import User
 from ...models.products import Product
 from ...models.keys import Key
 from ...models.agents import Agent
+from ...utils.service_exceptions import ValidationError, NotFoundError, PermissionDeniedError
 from ...utils.structured_logging import get_logger
 
 class KeyValidationService:
@@ -19,7 +20,7 @@ class KeyValidationService:
 
     def validate_key_data(
         self, user: User, key_data: Dict[str, Any]
-    ) -> Tuple[bool, Optional[str]]:
+    ) -> None:
         """
         Validate key creation data
 
@@ -27,40 +28,44 @@ class KeyValidationService:
             user: User creating the key
             key_data: Key data dictionary
 
-        Returns:
-            Tuple of (is_valid, error_message)
+        Raises:
+            ValidationError: If validation fails
+            NotFoundError: If product or agent not found
+            PermissionDeniedError: If access denied
         """
 
         if not key_data.get("product_id") and not key_data.get("agent_id"):
-            return False, "Either product_id or agent_id is required"
+            raise ValidationError("Either product_id or agent_id is required", field="product_id")
 
         product = None
         agent = None
 
         if key_data.get("product_id"):
             from ...services.products import product_service
-            product, error = product_service.get_product(user, key_data["product_id"])
-            if error or not product:
-                return False, error or "Product not found or access denied"
+            # get_product now raises exceptions instead of returning tuples
+            try:
+                product = product_service.get_product(user, key_data["product_id"])
+            except NotFoundError:
+                raise NotFoundError("Product", resource_id=str(key_data["product_id"]))
+            except PermissionDeniedError:
+                raise PermissionDeniedError("Access denied to product")
 
         if key_data.get("agent_id"):
             agent = Agent.query.filter_by(
                 id=key_data["agent_id"], project_id=user.project_id
             ).first()
             if not agent:
-                return False, "Agent not found or access denied"
+                raise NotFoundError("Agent", resource_id=str(key_data["agent_id"]))
 
         duration_hours = key_data.get("duration_hours", 24)
         if duration_hours <= 0 or duration_hours > 8760:
-            return False, "Invalid duration_hours"
+            raise ValidationError("Invalid duration_hours. Must be between 1 and 8760", field="duration_hours")
 
         max_devices = key_data.get("max_devices", 1)
         if max_devices <= 0 or max_devices > 1000:
-            return False, "Invalid max_devices"
+            raise ValidationError("Invalid max_devices. Must be between 1 and 1000", field="max_devices")
 
-        return True, None
-
-    def validate_bulk_operation(self, count: int, max_count: int = 1000) -> Tuple[bool, Optional[str]]:
+    def validate_bulk_operation(self, count: int, max_count: int = 1000) -> None:
         """
         Validate bulk operation count
 
@@ -68,14 +73,13 @@ class KeyValidationService:
             count: Number of items in bulk operation
             max_count: Maximum allowed count
 
-        Returns:
-            Tuple of (is_valid, error_message)
+        Raises:
+            ValidationError: If validation fails
         """
         if count > max_count:
-            return False, f"Too many items in one request. Maximum: {max_count}"
+            raise ValidationError(f"Too many items in one request. Maximum: {max_count}", field="count")
         if count <= 0:
-            return False, "Count must be greater than 0"
-        return True, None
+            raise ValidationError("Count must be greater than 0", field="count")
 
 key_validation_service = KeyValidationService()
 

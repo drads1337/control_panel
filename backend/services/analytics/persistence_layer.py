@@ -3,36 +3,41 @@ Analytics Buffer Persistence Layer
 Provides fallback persistence mechanisms for analytics data when Redis is unavailable.
 
 This layer implements multiple persistence strategies:
-1. Redis AOF (Append-Only File) - if Redis is configured with AOF
-2. Local disk backup - saves buffer to disk when Redis fails
-3. Database fallback - writes directly to DB when Redis is unavailable
+1. Redis (primary, fast, in-memory)
+2. In-memory queue with backpressure (secondary, survives Redis restarts within process)
+3. Structured logging for Filebeat/Vector collection (tertiary, survives process restarts)
+4. Direct DB write (final fallback, guaranteed)
 
 Architecture:
 - Primary: Redis (fast, in-memory)
-- Secondary: Local disk backup (persistent, survives Redis restarts)
-- Tertiary: Direct DB write (slow but guaranteed)
+- Secondary: In-memory queue with size limits and backpressure (container-safe)
+- Tertiary: Structured JSON logging (collected by Filebeat/Vector, survives container restarts)
+- Final: Direct DB write (slow but guaranteed)
+
+This design is container-friendly and avoids ephemeral disk storage that would be lost
+on container restarts in Kubernetes/Docker environments.
 
 Usage:
     from backend.services.analytics.persistence_layer import PersistenceLayer
     
     persistence = PersistenceLayer()
     
-    # Try to buffer in Redis, fallback to disk if Redis fails
+    # Try to buffer in Redis, fallback to in-memory queue if Redis fails
     success = persistence.buffer_with_fallback(activity_data)
 """
 
 import json
 import logging
-import os
-import pickle
 import threading
+from collections import deque
 from datetime import datetime
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from ...config.config import Config
 from ...utils.redis_client import redis_client
 
+# Lazy import to avoid circular dependencies and Flask context issues
+# get_service is imported inside methods when needed
 logger = logging.getLogger(__name__)
 
 
@@ -42,16 +47,25 @@ class PersistenceLayer:
     
     Provides multiple levels of persistence to prevent data loss:
     1. Redis (primary, fast)
-    2. Local disk backup (secondary, persistent)
-    3. Direct DB write (tertiary, guaranteed)
+    2. In-memory queue with backpressure (secondary, container-safe)
+    3. Structured logging for log aggregation (tertiary, survives restarts)
+    4. Direct DB write (final fallback, guaranteed)
+    
+    This implementation is designed for containerized environments where
+    local disk storage is ephemeral and should not be relied upon.
     """
     
     def __init__(self):
-        self.backup_dir = Path(Config.ANALYTICS_BUFFER_BACKUP_DIR) if hasattr(Config, 'ANALYTICS_BUFFER_BACKUP_DIR') else Path("/tmp/analytics_backup")
-        self.backup_dir.mkdir(parents=True, exist_ok=True)
+        # In-memory queue configuration
+        self._max_queue_size = int(
+            getattr(Config, 'ANALYTICS_MEMORY_QUEUE_SIZE', 10000)
+        )  # Max items in memory queue
+        self._queue_drop_oldest = True  # Drop oldest items when queue is full
         
-        # Lock for thread-safe file operations
-        self._file_lock = threading.Lock()
+        # Thread-safe in-memory queues
+        self._activity_queue: deque = deque(maxlen=self._max_queue_size)
+        self._key_analytics_queue: deque = deque(maxlen=self._max_queue_size)
+        self._queue_lock = threading.Lock()
         
         # Track last successful Redis operation
         self._redis_available = True
@@ -61,9 +75,11 @@ class PersistenceLayer:
         # Statistics
         self.stats = {
             "redis_writes": 0,
-            "disk_backups": 0,
+            "memory_queue_writes": 0,
+            "log_writes": 0,
             "db_fallbacks": 0,
             "redis_failures": 0,
+            "queue_drops": 0,  # Items dropped due to queue being full
         }
     
     def buffer_user_activity_with_fallback(
@@ -141,15 +157,40 @@ class PersistenceLayer:
                         "Using disk backup and DB fallback."
                     )
         
-        # Fallback to disk backup
+        # Fallback to in-memory queue
         try:
-            success = self._backup_to_disk("user_activity", activity_data)
+            success = self._buffer_to_memory_queue("user_activity", activity_data)
             if success:
-                self.stats["disk_backups"] += 1
-                logger.debug(f"Backed up user activity to disk: user_id={user_id}, action={action}")
+                self.stats["memory_queue_writes"] += 1
+                logger.debug(
+                    f"Buffered user activity to memory queue: user_id={user_id}, action={action}",
+                    extra={
+                        "analytics_type": "user_activity",
+                        "user_id": user_id,
+                        "action": action,
+                        "fallback_reason": "redis_unavailable"
+                    }
+                )
                 return True
         except Exception as e:
-            logger.error(f"Disk backup failed: {e}")
+            logger.error(f"Memory queue buffer failed: {e}")
+        
+        # Fallback to structured logging (for Filebeat/Vector collection)
+        try:
+            success = self._log_to_structured_log("user_activity", activity_data)
+            if success:
+                self.stats["log_writes"] += 1
+                logger.info(
+                    "Analytics data logged for collection",
+                    extra={
+                        "analytics_type": "user_activity",
+                        "data": activity_data,
+                        "fallback_reason": "redis_and_memory_unavailable"
+                    }
+                )
+                return True
+        except Exception as e:
+            logger.error(f"Structured logging failed: {e}")
         
         # Final fallback: write directly to database
         try:
@@ -226,15 +267,40 @@ class PersistenceLayer:
                         "Using disk backup and DB fallback."
                     )
         
-        # Fallback to disk backup
+        # Fallback to in-memory queue
         try:
-            success = self._backup_to_disk("key_analytics", analytics_data)
+            success = self._buffer_to_memory_queue("key_analytics", analytics_data)
             if success:
-                self.stats["disk_backups"] += 1
-                logger.debug(f"Backed up key analytics to disk: key_id={key_id}, product={product}")
+                self.stats["memory_queue_writes"] += 1
+                logger.debug(
+                    f"Buffered key analytics to memory queue: key_id={key_id}, product={product}",
+                    extra={
+                        "analytics_type": "key_analytics",
+                        "key_id": key_id,
+                        "product": product,
+                        "fallback_reason": "redis_unavailable"
+                    }
+                )
                 return True
         except Exception as e:
-            logger.error(f"Disk backup failed: {e}")
+            logger.error(f"Memory queue buffer failed: {e}")
+        
+        # Fallback to structured logging (for Filebeat/Vector collection)
+        try:
+            success = self._log_to_structured_log("key_analytics", analytics_data)
+            if success:
+                self.stats["log_writes"] += 1
+                logger.info(
+                    "Analytics data logged for collection",
+                    extra={
+                        "analytics_type": "key_analytics",
+                        "data": analytics_data,
+                        "fallback_reason": "redis_and_memory_unavailable"
+                    }
+                )
+                return True
+        except Exception as e:
+            logger.error(f"Structured logging failed: {e}")
         
         # Final fallback: write directly to database
         try:
@@ -251,31 +317,79 @@ class PersistenceLayer:
         
         return False
     
-    def _backup_to_disk(self, data_type: str, data: Dict[str, Any]) -> bool:
+    def _buffer_to_memory_queue(self, data_type: str, data: Dict[str, Any]) -> bool:
         """
-        Backup analytics data to disk.
+        Buffer analytics data to in-memory queue with backpressure.
+        
+        This is container-safe and avoids ephemeral disk storage.
+        When queue is full, oldest items are dropped (FIFO).
         
         Args:
             data_type: Type of data ("user_activity" or "key_analytics")
-            data: Data dictionary to backup
+            data: Data dictionary to buffer
             
         Returns:
-            True if successfully backed up, False otherwise
+            True if successfully buffered, False otherwise
         """
         try:
-            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S_%f")
-            filename = f"{data_type}_{timestamp}.json"
-            filepath = self.backup_dir / filename
+            with self._queue_lock:
+                queue = self._activity_queue if data_type == "user_activity" else self._key_analytics_queue
+                
+                # Check if queue is full (deque with maxlen automatically drops oldest)
+                was_full = len(queue) >= self._max_queue_size
+                
+                queue.append({
+                    "type": data_type,
+                    "data": data,
+                    "timestamp": datetime.utcnow().isoformat(),
+                })
+                
+                if was_full:
+                    self.stats["queue_drops"] += 1
+                    logger.warning(
+                        f"Memory queue full, oldest item dropped: {data_type}",
+                        extra={
+                            "analytics_type": data_type,
+                            "queue_size": len(queue),
+                            "max_queue_size": self._max_queue_size
+                        }
+                    )
+                
+                return True
+                
+        except Exception as e:
+            logger.error(f"Failed to buffer {data_type} to memory queue: {e}")
+            return False
+    
+    def _log_to_structured_log(self, data_type: str, data: Dict[str, Any]) -> bool:
+        """
+        Log analytics data as structured JSON for log aggregation systems.
+        
+        This allows Filebeat/Vector to collect and forward analytics data
+        even when Redis and in-memory queue are unavailable.
+        
+        Args:
+            data_type: Type of data ("user_activity" or "key_analytics")
+            data: Data dictionary to log
             
-            with self._file_lock:
-                with open(filepath, 'w') as f:
-                    json.dump(data, f, indent=2)
-            
-            logger.debug(f"Backed up {data_type} to {filepath}")
+        Returns:
+            True if successfully logged, False otherwise
+        """
+        try:
+            # Use structured logging with special marker for analytics data
+            logger.info(
+                f"Analytics fallback: {data_type}",
+                extra={
+                    "event_type": "analytics_fallback",
+                    "analytics_type": data_type,
+                    "analytics_data": data,
+                    "timestamp": datetime.utcnow().isoformat(),
+                }
+            )
             return True
             
         except Exception as e:
-            logger.error(f"Failed to backup {data_type} to disk: {e}")
+            logger.error(f"Failed to log {data_type} to structured log: {e}")
             return False
     
     def _write_direct_to_db(self, data_type: str, data: Dict[str, Any]) -> bool:
@@ -332,12 +446,12 @@ class PersistenceLayer:
             logger.error(f"Failed to write {data_type} directly to DB: {e}")
             return False
     
-    def recover_from_disk(self) -> Dict[str, int]:
+    def recover_from_memory_queue(self) -> Dict[str, int]:
         """
-        Recover buffered analytics from disk backups and flush to database.
+        Recover buffered analytics from in-memory queue and flush to Redis/database.
         
         This should be called when Redis becomes available again to process
-        any data that was backed up to disk during Redis downtime.
+        any data that was buffered in memory during Redis downtime.
         
         Returns:
             Dictionary with recovery statistics
@@ -349,49 +463,90 @@ class PersistenceLayer:
         }
         
         try:
-            # Find all backup files
-            backup_files = list(self.backup_dir.glob("*.json"))
-            
-            if not backup_files:
-                logger.debug("No backup files to recover")
-                return recovered
-            
-            logger.info(f"Recovering {len(backup_files)} backup files from disk")
-            
-            for filepath in backup_files:
-                try:
-                    with self._file_lock:
-                        with open(filepath, 'r') as f:
-                            data = json.load(f)
-                    
-                    # Determine data type from filename
-                    if "user_activity" in filepath.name:
-                        # Write to database
-                        if self._write_direct_to_db("user_activity", data):
-                            recovered["user_activities"] += 1
-                            # Delete backup file after successful recovery
-                            filepath.unlink()
-                        else:
-                            recovered["errors"] += 1
-                            
-                    elif "key_analytics" in filepath.name:
-                        # Key analytics are aggregated, skip for now
-                        # (would need to aggregate before writing)
-                        logger.debug(f"Skipping key_analytics backup (aggregated): {filepath.name}")
-                        recovered["key_analytics"] += 1
-                        filepath.unlink()  # Remove file anyway
+            with self._queue_lock:
+                # Process activity queue
+                while self._activity_queue:
+                    try:
+                        item = self._activity_queue.popleft()
+                        data = item.get("data", {})
                         
-                except Exception as e:
-                    logger.error(f"Failed to recover backup file {filepath}: {e}")
-                    recovered["errors"] += 1
+                        # Try to write to Redis first
+                        from ...utils.service_helpers import get_service
+                        try:
+                            analytics_buffer_service = get_service('analytics_buffer_service')
+                            success = analytics_buffer_service.buffer_user_activity(
+                                user_id=data.get("user_id"),
+                                action=data.get("action"),
+                                ip=data.get("ip_address"),
+                                details=data.get("details"),
+                                user_agent=data.get("user_agent"),
+                                session_id=data.get("session_id"),
+                                country=data.get("country"),
+                                city=data.get("city"),
+                                project_id=data.get("project_id"),
+                            )
+                            if success:
+                                recovered["user_activities"] += 1
+                            else:
+                                # Fallback to direct DB write
+                                if self._write_direct_to_db("user_activity", data):
+                                    recovered["user_activities"] += 1
+                                else:
+                                    recovered["errors"] += 1
+                        except Exception:
+                            # Fallback to direct DB write
+                            if self._write_direct_to_db("user_activity", data):
+                                recovered["user_activities"] += 1
+                            else:
+                                recovered["errors"] += 1
+                                
+                    except Exception as e:
+                        logger.error(f"Failed to recover activity from memory queue: {e}")
+                        recovered["errors"] += 1
+                
+                # Process key analytics queue
+                while self._key_analytics_queue:
+                    try:
+                        item = self._key_analytics_queue.popleft()
+                        data = item.get("data", {})
+                        
+                        # Try to write to Redis first
+                        from ...utils.service_helpers import get_service
+                        try:
+                            analytics_buffer_service = get_service('analytics_buffer_service')
+                            success = analytics_buffer_service.buffer_key_analytics_update(
+                                key_id=data.get("key_id"),
+                                product=data.get("product"),
+                                ip_address=data.get("ip_address"),
+                                serial=data.get("serial"),
+                                increment_connections=data.get("increment_connections", True),
+                            )
+                            if success:
+                                recovered["key_analytics"] += 1
+                            else:
+                                # Key analytics are aggregated, log for processing
+                                logger.warning(
+                                    f"Cannot recover key analytics directly (aggregated): {data}"
+                                )
+                                recovered["key_analytics"] += 1
+                        except Exception:
+                            # Key analytics are aggregated, log for processing
+                            logger.warning(
+                                f"Cannot recover key analytics directly (aggregated): {data}"
+                            )
+                            recovered["key_analytics"] += 1
+                            
+                    except Exception as e:
+                        logger.error(f"Failed to recover key analytics from memory queue: {e}")
+                        recovered["errors"] += 1
             
             logger.info(
-                f"Recovery complete: {recovered['user_activities']} activities, "
+                f"Memory queue recovery complete: {recovered['user_activities']} activities, "
                 f"{recovered['key_analytics']} analytics, {recovered['errors']} errors"
             )
             
         except Exception as e:
-            logger.error(f"Error during recovery from disk: {e}")
+            logger.error(f"Error during recovery from memory queue: {e}")
             recovered["errors"] += 1
         
         return recovered
@@ -422,15 +577,31 @@ class PersistenceLayer:
         Returns:
             Dictionary with statistics
         """
-        return {
-            **self.stats,
-            "redis_available": self._redis_available,
-            "redis_failures": self._redis_failures,
-            "backup_dir": str(self.backup_dir),
-            "backup_files_count": len(list(self.backup_dir.glob("*.json"))) if self.backup_dir.exists() else 0,
-        }
+        with self._queue_lock:
+            return {
+                **self.stats,
+                "redis_available": self._redis_available,
+                "redis_failures": self._redis_failures,
+                "memory_queue_size": len(self._activity_queue) + len(self._key_analytics_queue),
+                "activity_queue_size": len(self._activity_queue),
+                "key_analytics_queue_size": len(self._key_analytics_queue),
+                "max_queue_size": self._max_queue_size,
+            }
+    
+    def get_queue_sizes(self) -> Dict[str, int]:
+        """
+        Get current queue sizes (for monitoring).
+        
+        Returns:
+            Dictionary with queue sizes
+        """
+        with self._queue_lock:
+            return {
+                "activity_queue_size": len(self._activity_queue),
+                "key_analytics_queue_size": len(self._key_analytics_queue),
+                "total_queue_size": len(self._activity_queue) + len(self._key_analytics_queue),
+            }
 
 
 # Singleton instance
 persistence_layer = PersistenceLayer()
-

@@ -13,7 +13,7 @@ import jwt
 
 from ...config.config import Config
 from ...core.extensions import db
-from ...models.core import Project, ProjectSettings, User
+from ...models.core import Project, User
 from ...models.keys import Key
 from ...services.auth import challenge_service
 from ...services.keys import KeyValidator
@@ -65,12 +65,16 @@ class ConnectService:
         """
         try:
 
-            project_settings = ProjectSettings.query.filter_by(project_id=project_id).first()
-            if not project_settings or not project_settings.offline_auth_enabled:
+            from ...utils.project_settings_migration import ProjectSettingsHelper
+            
+            helper = ProjectSettingsHelper(project_id)
+            offline_auth_settings = helper.get_offline_auth_settings()
+            
+            if not offline_auth_settings.offline_auth_enabled:
                 logger.debug(f"OFFLINE_AUTH_DISABLED project_id={project_id}")
                 return None
 
-            expiration_hours = project_settings.offline_ticket_expiration_hours or 12
+            expiration_hours = offline_auth_settings.offline_ticket_expiration_hours or 12
 
             expiration_hours = max(1, min(168, expiration_hours))
 

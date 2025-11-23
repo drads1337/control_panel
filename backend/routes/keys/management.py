@@ -161,9 +161,8 @@ def create_key(current_user, project_id=None, validated_data=None):
     product = None
     if data.get("product_id"):
         from ...services.products import product_service
-        product, error = product_service.get_product(current_user, data["product_id"])
-        if error or not product:
-            return jsonify({"error": error or "Product not found or access denied"}), 404
+        # Exceptions are handled by global handler
+        product = product_service.get_product(current_user, data["product_id"])
 
         is_access_code = product.login_type == "classic_login"
         generation_type = "access_code" if is_access_code else "license_key"
@@ -183,13 +182,8 @@ def create_key(current_user, project_id=None, validated_data=None):
     if not product:
         return jsonify({"error": "Product ID is required"}), 400
 
-    key, error = key_crud_service.create_key(current_user, key_data)
-    if error:
-        logger.error(f"🔑 Failed to create key: {error}")
-        return jsonify({"error": error}), 500
-
-    if not key:
-        return jsonify({"error": "Failed to create key"}), 500
+    # Exceptions are handled by global handler
+    key = key_crud_service.create_key(current_user, key_data)
 
     logger.info(f"🔑 Key {key.id} created and committed")
 
@@ -274,11 +268,9 @@ def create_custom_key(current_user, project_id=None, validated_data=None):
     if existing_key:
         return jsonify({"error": "Key already exists"}), 400
 
-    # Get product
+    # Get product - exceptions are handled by global handler
     from ...services.products import product_service
-    product, error = product_service.get_product(current_user, product_id)
-    if error or not product:
-        return jsonify({"error": error or "Product not found or access denied"}), 404
+    product = product_service.get_product(current_user, product_id)
 
     is_access_code = product.login_type == "classic_login"
     generation_type = "access_code" if is_access_code else "license_key"

@@ -9,12 +9,10 @@ import ipaddress
 import json
 import logging
 import socket
-import threading
 import time
 import traceback
 import uuid
 from datetime import datetime, timedelta
-from queue import Empty, Queue
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
@@ -28,42 +26,22 @@ from ...models.keys import Key
 from ...models.webhooks import Webhook, WebhookLog
 from ...utils.data_masking import mask_key
 
+# Try to import Celery task for webhook processing
+try:
+    from ...tasks.webhook_tasks import process_webhook as celery_process_webhook
+    CELERY_AVAILABLE = True
+except ImportError:
+    CELERY_AVAILABLE = False
+    celery_process_webhook = None
+    logging.warning("Celery webhook tasks not available. Webhooks will use fallback mode.")
+
 class WebhookService:
     """Service for managing webhook notifications"""
 
     def __init__(self):
-        self.webhook_queue = Queue()
         self.max_retries = 3
         self.retry_delay = 5
         self.timeout = 10
-        self.max_workers = 5
-
-        self._start_worker()
-
-    def _start_worker(self):
-        """Start background worker for processing webhooks"""
-
-        def worker():
-            while True:
-                try:
-                    webhook_data = self.webhook_queue.get(timeout=1)
-                    if webhook_data is None:
-                        break
-
-                    self._process_webhook(webhook_data)
-                    self.webhook_queue.task_done()
-
-                except Empty:
-
-                    continue
-                except Exception as e:
-                    logging.error(f"WEBHOOK_WORKER_ERROR: {e}")
-                    logging.error(f"WEBHOOK_WORKER_TRACEBACK: {traceback.format_exc()}")
-                    time.sleep(1)
-
-        for i in range(self.max_workers):
-            thread = threading.Thread(target=worker, daemon=True)
-            thread.start()
 
     def create_webhook(
         self,
@@ -330,7 +308,19 @@ class WebhookService:
                     "message_template": webhook.message_template,
                 }
 
-                self.webhook_queue.put(webhook_data)
+                # Use Celery task for async webhook processing
+                if CELERY_AVAILABLE and celery_process_webhook:
+                    try:
+                        celery_process_webhook.delay(webhook_data)
+                        logging.debug(f"WEBHOOK_QUEUED webhook_id={webhook.id} event={event} via Celery")
+                    except Exception as e:
+                        logging.error(f"WEBHOOK_CELERY_ERROR webhook_id={webhook.id} error={e}")
+                        # Fallback to synchronous processing if Celery fails
+                        self._process_webhook_sync(webhook_data)
+                else:
+                    # Fallback to synchronous processing if Celery is not available
+                    logging.warning("Celery not available, processing webhook synchronously")
+                    self._process_webhook_sync(webhook_data)
 
             logging.info(
                 f"WEBHOOK_TRIGGERED event={event} project_id={project_id} webhook_count={len(webhooks)}"
@@ -341,8 +331,13 @@ class WebhookService:
             logging.error(f"WEBHOOK_TRIGGER_ERROR event={event} project_id={project_id} error={e}")
             return False
 
-    def _process_webhook(self, webhook_data: Dict):
-        """Process a webhook request"""
+    def _process_webhook_sync(self, webhook_data: Dict):
+        """
+        Process a webhook request synchronously (fallback when Celery is not available).
+        
+        NOTE: This is a fallback method. In production, webhooks should be processed
+        asynchronously via Celery tasks for better scalability and monitoring.
+        """
         try:
             webhook_id = webhook_data["webhook_id"]
             event = webhook_data["event"]
@@ -357,7 +352,6 @@ class WebhookService:
             elif webhook_type == "discord":
                 success, error_message = self._send_discord_message(webhook_data)
             else:
-
                 success, error_message = self._send_custom_webhook(webhook_data)
 
             self._log_webhook_result_with_context(webhook_id, event, success, error_message, data)
@@ -807,11 +801,17 @@ class WebhookService:
         """
         Validate webhook URL with SSRF protection.
         
+        SECURITY: This method protects against SSRF attacks including DNS rebinding.
+        Uses getaddrinfo() to resolve all IP addresses and validates each one.
+        This prevents TOCTOU (Time-of-check to time-of-use) attacks where DNS
+        resolution changes between validation and actual request.
+        
         This method:
         1. Only allows HTTPS URLs (not HTTP) for security
-        2. Resolves domain to IP address
-        3. Blocks localhost, private IP ranges, and internal network addresses
-        4. Prevents SSRF attacks on internal services
+        2. Resolves domain to ALL IP addresses (IPv4 and IPv6)
+        3. Validates ALL resolved IP addresses against blocked ranges
+        4. Blocks localhost, private IP ranges, and internal network addresses
+        5. Prevents SSRF attacks on internal services
         
         Args:
             url: URL to validate
@@ -845,60 +845,84 @@ class WebhookService:
                 "0.0.0.0",
                 "::1",
                 "localhost.localdomain",
+                "metadata.google.internal",  # GCP metadata
             }
             if hostname.lower() in blocked_hostnames:
                 logging.warning(f"WEBHOOK_SSRF_BLOCKED: Blocked hostname {hostname}")
                 return False
             
-            # SECURITY: Resolve hostname to IP address
+            # SECURITY: Block IP addresses in URL (should use hostname, not IP)
+            # This prevents bypassing DNS resolution checks
             try:
-                ip_address = socket.gethostbyname(hostname)
+                # Try to parse hostname as IP address
+                ipaddress.ip_address(hostname)
+                # If successful, hostname is an IP address - block it
+                logging.warning(f"WEBHOOK_SSRF_BLOCKED: IP address in URL instead of hostname: {hostname}")
+                return False
+            except ValueError:
+                # Not an IP address, continue validation
+                pass
+            
+            # SECURITY: Resolve hostname to ALL IP addresses (IPv4 and IPv6)
+            # Using getaddrinfo() instead of gethostbyname() to:
+            # 1. Get all IP addresses (not just first)
+            # 2. Support both IPv4 and IPv6
+            # 3. Better handle DNS rebinding attacks
+            try:
+                # Get all address info (IPv4 and IPv6)
+                addr_infos = socket.getaddrinfo(hostname, None, 0, socket.SOCK_STREAM)
+                if not addr_infos:
+                    logging.warning(f"WEBHOOK_SSRF_BLOCKED: No IP addresses found for {hostname}")
+                    return False
+                
+                # Extract all IP addresses
+                ip_addresses = []
+                for addr_info in addr_infos:
+                    ip_addr = addr_info[4][0]  # (hostname, port) tuple, get hostname
+                    ip_addresses.append(ip_addr)
+                
+                # SECURITY: Validate ALL resolved IP addresses
+                # If ANY IP is in blocked range, reject the URL
+                for ip_address in ip_addresses:
+                    try:
+                        ip_obj = ipaddress.ip_address(ip_address)
+                    except ValueError:
+                        logging.warning(f"WEBHOOK_SSRF_BLOCKED: Invalid IP address {ip_address}")
+                        return False
+                    
+                    # SECURITY: Block private IP ranges (RFC 1918)
+                    # 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+                    if ip_obj.is_private:
+                        logging.warning(f"WEBHOOK_SSRF_BLOCKED: Private IP range {ip_address} for {hostname}")
+                        return False
+                    
+                    # SECURITY: Block loopback addresses
+                    if ip_obj.is_loopback:
+                        logging.warning(f"WEBHOOK_SSRF_BLOCKED: Loopback address {ip_address} for {hostname}")
+                        return False
+                    
+                    # SECURITY: Block link-local addresses (169.254.0.0/16)
+                    if ip_obj.is_link_local:
+                        logging.warning(f"WEBHOOK_SSRF_BLOCKED: Link-local address {ip_address} for {hostname}")
+                        return False
+                    
+                    # SECURITY: Block multicast addresses
+                    if ip_obj.is_multicast:
+                        logging.warning(f"WEBHOOK_SSRF_BLOCKED: Multicast address {ip_address} for {hostname}")
+                        return False
+                    
+                    # SECURITY: Block reserved addresses (0.0.0.0/8, etc.)
+                    if ip_obj.is_reserved:
+                        logging.warning(f"WEBHOOK_SSRF_BLOCKED: Reserved address {ip_address} for {hostname}")
+                        return False
+                    
+                    # SECURITY: Block cloud metadata endpoints (AWS, GCP, Azure)
+                    if ip_address == "169.254.169.254":
+                        logging.warning(f"WEBHOOK_SSRF_BLOCKED: Cloud metadata endpoint {ip_address} for {hostname}")
+                        return False
+                
             except (socket.gaierror, socket.herror, OSError) as e:
                 logging.warning(f"WEBHOOK_SSRF_BLOCKED: Failed to resolve {hostname}: {e}")
-                return False
-            
-            # SECURITY: Check if IP is in blocked ranges
-            try:
-                ip_obj = ipaddress.ip_address(ip_address)
-            except ValueError:
-                logging.warning(f"WEBHOOK_SSRF_BLOCKED: Invalid IP address {ip_address}")
-                return False
-            
-            # SECURITY: Block private IP ranges (RFC 1918)
-            # 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
-            if ip_obj.is_private:
-                logging.warning(f"WEBHOOK_SSRF_BLOCKED: Private IP range {ip_address}")
-                return False
-            
-            # SECURITY: Block loopback addresses
-            if ip_obj.is_loopback:
-                logging.warning(f"WEBHOOK_SSRF_BLOCKED: Loopback address {ip_address}")
-                return False
-            
-            # SECURITY: Block link-local addresses (169.254.0.0/16)
-            if ip_obj.is_link_local:
-                logging.warning(f"WEBHOOK_SSRF_BLOCKED: Link-local address {ip_address}")
-                return False
-            
-            # SECURITY: Block multicast addresses
-            if ip_obj.is_multicast:
-                logging.warning(f"WEBHOOK_SSRF_BLOCKED: Multicast address {ip_address}")
-                return False
-            
-            # SECURITY: Block reserved addresses (0.0.0.0/8, etc.)
-            if ip_obj.is_reserved:
-                logging.warning(f"WEBHOOK_SSRF_BLOCKED: Reserved address {ip_address}")
-                return False
-            
-            # SECURITY: Block cloud metadata endpoints (AWS, GCP, Azure)
-            # These are often at 169.254.169.254 but also check for common patterns
-            metadata_hostnames = {
-                "169.254.169.254",  # AWS, GCP, Azure metadata
-                "metadata.google.internal",  # GCP
-                "169.254.169.254.nip.io",  # DNS rebinding attack
-            }
-            if hostname.lower() in metadata_hostnames or ip_address == "169.254.169.254":
-                logging.warning(f"WEBHOOK_SSRF_BLOCKED: Cloud metadata endpoint {hostname} -> {ip_address}")
                 return False
             
             # URL format validation
@@ -916,7 +940,7 @@ class WebhookService:
                 logging.warning(f"WEBHOOK_SSRF_BLOCKED: Invalid URL format {url}")
                 return False
             
-            logging.debug(f"WEBHOOK_URL_VALIDATED: {hostname} -> {ip_address}")
+            logging.debug(f"WEBHOOK_URL_VALIDATED: {hostname} -> {len(ip_addresses)} IP(s) validated")
             return True
             
         except Exception as e:

@@ -1,10 +1,8 @@
 """
-Helper utilities for migrating from ProjectSettings (God-object) to specialized settings models.
+Helper utilities for accessing specialized project settings models.
 
-This module provides helper functions to:
-1. Migrate data from ProjectSettings to specialized models
-2. Access settings from specialized models with fallback to ProjectSettings
-3. Gradually migrate codebase from ProjectSettings to specialized models
+MIGRATION COMPLETE: This module now works ONLY with specialized models.
+No fallback to ProjectSettings - all data must be migrated first using migrate_project_settings().
 
 Specialized models:
 - ProjectSecuritySettings: Security-related settings
@@ -15,6 +13,10 @@ Specialized models:
 - ProjectOfflineAuthSettings: Offline authentication
 - ProjectAppearanceSettings: Appearance/UI settings
 - ProjectInviteSettings: Invite code settings
+
+NOTE: The migrate_project_settings() function should be run ONCE to migrate existing
+data from ProjectSettings to specialized models. After migration, all code should
+use ProjectSettingsHelper which works only with specialized models.
 """
 
 import logging
@@ -30,7 +32,6 @@ from ..models.core import (
     ProjectInviteSettings,
     ProjectOfflineAuthSettings,
     ProjectSecuritySettings,
-    ProjectSettings,
     ProjectSystemSettings,
 )
 
@@ -39,10 +40,10 @@ logger = logging.getLogger(__name__)
 
 class ProjectSettingsHelper:
     """
-    Helper class for accessing project settings with automatic migration support.
+    Helper class for accessing project settings from specialized models.
     
-    This class provides a clean interface to access settings from specialized models,
-    with automatic fallback to ProjectSettings for backward compatibility.
+    MIGRATION COMPLETE: This class now works ONLY with specialized models.
+    No fallback to ProjectSettings - all data must be migrated first.
     
     Usage:
         helper = ProjectSettingsHelper(project_id)
@@ -52,236 +53,147 @@ class ProjectSettingsHelper:
 
     def __init__(self, project_id: int):
         self.project_id = project_id
-        self._legacy_settings: Optional[ProjectSettings] = None
-
-    def _get_legacy_settings(self) -> Optional[ProjectSettings]:
-        """Get legacy ProjectSettings if needed"""
-        if self._legacy_settings is None:
-            self._legacy_settings = ProjectSettings.query.filter_by(
-                project_id=self.project_id
-            ).first()
-        return self._legacy_settings
 
     def get_security_settings(self) -> ProjectSecuritySettings:
         """
-        Get security settings from ProjectSecuritySettings with fallback to ProjectSettings.
+        Get security settings from ProjectSecuritySettings.
         
         Returns:
-            ProjectSecuritySettings instance (created if doesn't exist)
+            ProjectSecuritySettings instance (created with defaults if doesn't exist)
         """
         settings = ProjectSecuritySettings.query.filter_by(project_id=self.project_id).first()
         
         if not settings:
-            # Try to migrate from legacy ProjectSettings
-            legacy = self._get_legacy_settings()
+            # Create with default values (no migration from ProjectSettings)
             settings = ProjectSecuritySettings(project_id=self.project_id)
-            
-            if legacy:
-                # Migrate security-related fields
-                settings.min_password_length = legacy.min_password_length
-                settings.max_login_attempts = legacy.max_login_attempts
-                settings.ip_block_duration_minutes = legacy.ip_block_duration_minutes
-                settings.max_sessions_per_user = legacy.max_sessions_per_user
-                settings.log_retention_days = legacy.log_retention_days
-                settings.security_log_level = legacy.security_log_level
-                settings.two_factor_auth_required = legacy.two_factor_auth_required
-                settings.password_complexity_required = legacy.password_complexity_required
-                settings.session_fingerprinting = legacy.session_fingerprinting
-                settings.ip_whitelist_enabled = legacy.ip_whitelist_enabled
-                settings.ip_whitelist = legacy.ip_whitelist
-                settings.rate_limiting_enabled = legacy.rate_limiting_enabled
-                settings.rate_limit_requests_per_minute = legacy.rate_limit_requests_per_minute
-                settings.vpn_blocking_enabled = legacy.vpn_blocking_enabled
-                settings.security_logging_enabled = legacy.security_logging_enabled
-                settings.suspicious_activity_check_enabled = legacy.suspicious_activity_check_enabled
-                settings.session_limiting_enabled = legacy.session_limiting_enabled
-                settings.auto_log_cleanup_enabled = legacy.auto_log_cleanup_enabled
-                
-                logger.info(f"Migrated security settings from ProjectSettings for project {self.project_id}")
-            
             db.session.add(settings)
             db.session.commit()
+            logger.info(f"Created new security settings for project {self.project_id}")
         
         return settings
 
     def get_system_settings(self) -> ProjectSystemSettings:
         """
-        Get system settings from ProjectSystemSettings with fallback to ProjectSettings.
+        Get system settings from ProjectSystemSettings.
         
         Returns:
-            ProjectSystemSettings instance (created if doesn't exist)
+            ProjectSystemSettings instance (created with defaults if doesn't exist)
         """
         settings = ProjectSystemSettings.query.filter_by(project_id=self.project_id).first()
         
         if not settings:
-            legacy = self._get_legacy_settings()
             settings = ProjectSystemSettings(project_id=self.project_id)
-            
-            if legacy:
-                settings.max_connections = legacy.max_connections
-                settings.session_timeout_minutes = legacy.session_timeout_minutes
-                settings.log_file_size_mb = legacy.log_file_size_mb
-                settings.system_log_level = legacy.system_log_level
-                settings.auto_save_enabled = legacy.auto_save_enabled
-                settings.analytics_enabled = legacy.analytics_enabled
-                settings.system_notifications_enabled = legacy.system_notifications_enabled
-                
-                logger.info(f"Migrated system settings from ProjectSettings for project {self.project_id}")
-            
             db.session.add(settings)
             db.session.commit()
+            logger.info(f"Created new system settings for project {self.project_id}")
         
         return settings
 
     def get_encryption_settings(self) -> ProjectEncryptionSettings:
         """
-        Get encryption settings from ProjectEncryptionSettings with fallback to ProjectSettings.
+        Get encryption settings from ProjectEncryptionSettings.
         
         Returns:
-            ProjectEncryptionSettings instance (created if doesn't exist)
+            ProjectEncryptionSettings instance (created with defaults if doesn't exist)
         """
         settings = ProjectEncryptionSettings.query.filter_by(project_id=self.project_id).first()
         
         if not settings:
-            legacy = self._get_legacy_settings()
             settings = ProjectEncryptionSettings(project_id=self.project_id)
-            
-            if legacy:
-                settings.encryption_enabled = legacy.encryption_enabled
-                settings.encryption_algorithm = legacy.encryption_algorithm
-                settings.key_rotation_days = legacy.key_rotation_days
-                settings.project_master_key = legacy.project_master_key
-                
-                logger.info(f"Migrated encryption settings from ProjectSettings for project {self.project_id}")
-            
             db.session.add(settings)
             db.session.commit()
+            logger.info(f"Created new encryption settings for project {self.project_id}")
         
         return settings
 
     def get_backup_settings(self) -> ProjectBackupSettings:
         """
-        Get backup settings from ProjectBackupSettings with fallback to ProjectSettings.
+        Get backup settings from ProjectBackupSettings.
         
         Returns:
-            ProjectBackupSettings instance (created if doesn't exist)
+            ProjectBackupSettings instance (created with defaults if doesn't exist)
         """
         settings = ProjectBackupSettings.query.filter_by(project_id=self.project_id).first()
         
         if not settings:
-            legacy = self._get_legacy_settings()
             settings = ProjectBackupSettings(project_id=self.project_id)
-            
-            if legacy:
-                settings.auto_backup_enabled = legacy.auto_backup_enabled
-                settings.backup_frequency_hours = legacy.backup_frequency_hours
-                settings.backup_retention_days = legacy.backup_retention_days
-                
-                logger.info(f"Migrated backup settings from ProjectSettings for project {self.project_id}")
-            
             db.session.add(settings)
             db.session.commit()
+            logger.info(f"Created new backup settings for project {self.project_id}")
         
         return settings
 
     def get_chat_settings(self) -> ProjectChatSettings:
         """
-        Get chat settings from ProjectChatSettings with fallback to ProjectSettings.
+        Get chat settings from ProjectChatSettings.
         
         Returns:
-            ProjectChatSettings instance (created if doesn't exist)
+            ProjectChatSettings instance (created with defaults if doesn't exist)
         """
         settings = ProjectChatSettings.query.filter_by(project_id=self.project_id).first()
         
         if not settings:
-            legacy = self._get_legacy_settings()
             settings = ProjectChatSettings(project_id=self.project_id)
-            
-            if legacy:
-                settings.chat_message_limit_per_minute = legacy.chat_message_limit_per_minute
-                settings.chat_daily_message_limit = legacy.chat_daily_message_limit
-                settings.chat_message_max_length = legacy.chat_message_max_length
-                
-                logger.info(f"Migrated chat settings from ProjectSettings for project {self.project_id}")
-            
             db.session.add(settings)
             db.session.commit()
+            logger.info(f"Created new chat settings for project {self.project_id}")
         
         return settings
 
     def get_offline_auth_settings(self) -> ProjectOfflineAuthSettings:
         """
-        Get offline auth settings from ProjectOfflineAuthSettings with fallback to ProjectSettings.
+        Get offline auth settings from ProjectOfflineAuthSettings.
         
         Returns:
-            ProjectOfflineAuthSettings instance (created if doesn't exist)
+            ProjectOfflineAuthSettings instance (created with defaults if doesn't exist)
         """
         settings = ProjectOfflineAuthSettings.query.filter_by(project_id=self.project_id).first()
         
         if not settings:
-            legacy = self._get_legacy_settings()
             settings = ProjectOfflineAuthSettings(project_id=self.project_id)
-            
-            if legacy:
-                settings.offline_auth_enabled = legacy.offline_auth_enabled
-                settings.offline_ticket_expiration_hours = legacy.offline_ticket_expiration_hours
-                
-                logger.info(f"Migrated offline auth settings from ProjectSettings for project {self.project_id}")
-            
             db.session.add(settings)
             db.session.commit()
+            logger.info(f"Created new offline auth settings for project {self.project_id}")
         
         return settings
 
     def get_appearance_settings(self) -> ProjectAppearanceSettings:
         """
-        Get appearance settings from ProjectAppearanceSettings with fallback to ProjectSettings.
+        Get appearance settings from ProjectAppearanceSettings.
         
         Returns:
-            ProjectAppearanceSettings instance (created if doesn't exist)
+            ProjectAppearanceSettings instance (created with defaults if doesn't exist)
         """
         settings = ProjectAppearanceSettings.query.filter_by(project_id=self.project_id).first()
         
         if not settings:
-            legacy = self._get_legacy_settings()
             settings = ProjectAppearanceSettings(project_id=self.project_id)
-            
-            if legacy:
-                settings.appearance_settings = legacy.appearance_settings
-                
-                logger.info(f"Migrated appearance settings from ProjectSettings for project {self.project_id}")
-            
             db.session.add(settings)
             db.session.commit()
+            logger.info(f"Created new appearance settings for project {self.project_id}")
         
         return settings
 
     def get_invite_settings(self) -> ProjectInviteSettings:
         """
-        Get invite settings from ProjectInviteSettings with fallback to ProjectSettings.
+        Get invite settings from ProjectInviteSettings.
         
         Returns:
-            ProjectInviteSettings instance (created if doesn't exist)
+            ProjectInviteSettings instance (created with defaults if doesn't exist)
         """
         settings = ProjectInviteSettings.query.filter_by(project_id=self.project_id).first()
         
         if not settings:
-            legacy = self._get_legacy_settings()
             settings = ProjectInviteSettings(project_id=self.project_id)
-            
-            if legacy:
-                settings.invite_code_required = legacy.invite_code_required
-                
-                logger.info(f"Migrated invite settings from ProjectSettings for project {self.project_id}")
-            
             db.session.add(settings)
             db.session.commit()
+            logger.info(f"Created new invite settings for project {self.project_id}")
         
         return settings
 
     def get_project_master_key(self) -> Optional[str]:
         """
-        Get project_master_key from ProjectEncryptionSettings with fallback to ProjectSettings.
+        Get project_master_key from ProjectEncryptionSettings.
         
         This is a convenience method for the most commonly accessed field.
         
@@ -289,26 +201,18 @@ class ProjectSettingsHelper:
             Project master key string or None
         """
         encryption_settings = self.get_encryption_settings()
-        if encryption_settings.project_master_key:
-            return encryption_settings.project_master_key
-        
-        # Fallback to legacy
-        legacy = self._get_legacy_settings()
-        if legacy and legacy.project_master_key:
-            # Migrate it
-            encryption_settings.project_master_key = legacy.project_master_key
-            db.session.commit()
-            return encryption_settings.project_master_key
-        
-        return None
+        return encryption_settings.project_master_key if encryption_settings.project_master_key else None
 
 
 def migrate_project_settings(project_id: int) -> Dict[str, bool]:
     """
-    Migrate all settings from ProjectSettings to specialized models for a project.
+    ONE-TIME MIGRATION: Migrate all settings from ProjectSettings to specialized models.
     
-    This function creates specialized settings models and copies data from ProjectSettings.
-    It's safe to call multiple times - it won't overwrite existing specialized settings.
+    This function should be run ONCE per project to migrate existing data from
+    the deprecated ProjectSettings model to specialized models.
+    
+    After migration, all code should use ProjectSettingsHelper which works only
+    with specialized models (no fallback to ProjectSettings).
     
     Args:
         project_id: Project ID to migrate
@@ -316,61 +220,149 @@ def migrate_project_settings(project_id: int) -> Dict[str, bool]:
     Returns:
         Dict with migration status for each settings type
     """
-    helper = ProjectSettingsHelper(project_id)
-    results = {}
+    # Import ProjectSettings here to avoid circular dependency issues
+    from ..models.core import ProjectSettings
     
+    legacy_settings = ProjectSettings.query.filter_by(project_id=project_id).first()
+    if not legacy_settings:
+        logger.warning(f"No legacy ProjectSettings found for project {project_id}, creating new specialized settings")
+        # Just create new specialized settings with defaults
+        helper = ProjectSettingsHelper(project_id)
+        return {
+            "security": True,
+            "system": True,
+            "encryption": True,
+            "backup": True,
+            "chat": True,
+            "offline_auth": True,
+            "appearance": True,
+            "invite": True,
+        }
+    
+    results = {}
+    helper = ProjectSettingsHelper(project_id)
+    
+    # Migrate security settings
     try:
-        helper.get_security_settings()
+        security = helper.get_security_settings()
+        security.min_password_length = legacy_settings.min_password_length
+        security.max_login_attempts = legacy_settings.max_login_attempts
+        security.ip_block_duration_minutes = legacy_settings.ip_block_duration_minutes
+        security.max_sessions_per_user = legacy_settings.max_sessions_per_user
+        security.log_retention_days = legacy_settings.log_retention_days
+        security.security_log_level = legacy_settings.security_log_level
+        security.two_factor_auth_required = legacy_settings.two_factor_auth_required
+        security.password_complexity_required = legacy_settings.password_complexity_required
+        security.session_fingerprinting = legacy_settings.session_fingerprinting
+        security.ip_whitelist_enabled = legacy_settings.ip_whitelist_enabled
+        security.ip_whitelist = legacy_settings.ip_whitelist
+        security.rate_limiting_enabled = legacy_settings.rate_limiting_enabled
+        security.rate_limit_requests_per_minute = legacy_settings.rate_limit_requests_per_minute
+        security.vpn_blocking_enabled = legacy_settings.vpn_blocking_enabled
+        security.security_logging_enabled = legacy_settings.security_logging_enabled
+        security.suspicious_activity_check_enabled = legacy_settings.suspicious_activity_check_enabled
+        security.session_limiting_enabled = legacy_settings.session_limiting_enabled
+        security.auto_log_cleanup_enabled = legacy_settings.auto_log_cleanup_enabled
+        db.session.commit()
         results["security"] = True
+        logger.info(f"Migrated security settings for project {project_id}")
     except Exception as e:
         logger.error(f"Failed to migrate security settings for project {project_id}: {e}")
         results["security"] = False
     
+    # Migrate system settings
     try:
-        helper.get_system_settings()
+        system = helper.get_system_settings()
+        system.max_connections = legacy_settings.max_connections
+        system.session_timeout_minutes = legacy_settings.session_timeout_minutes
+        system.log_file_size_mb = legacy_settings.log_file_size_mb
+        system.system_log_level = legacy_settings.system_log_level
+        system.auto_save_enabled = legacy_settings.auto_save_enabled
+        system.analytics_enabled = legacy_settings.analytics_enabled
+        system.system_notifications_enabled = legacy_settings.system_notifications_enabled
+        db.session.commit()
         results["system"] = True
+        logger.info(f"Migrated system settings for project {project_id}")
     except Exception as e:
         logger.error(f"Failed to migrate system settings for project {project_id}: {e}")
         results["system"] = False
     
+    # Migrate encryption settings
     try:
-        helper.get_encryption_settings()
+        encryption = helper.get_encryption_settings()
+        encryption.encryption_enabled = legacy_settings.encryption_enabled
+        encryption.encryption_algorithm = legacy_settings.encryption_algorithm
+        encryption.key_rotation_days = legacy_settings.key_rotation_days
+        encryption.project_master_key = legacy_settings.project_master_key
+        db.session.commit()
         results["encryption"] = True
+        logger.info(f"Migrated encryption settings for project {project_id}")
     except Exception as e:
         logger.error(f"Failed to migrate encryption settings for project {project_id}: {e}")
         results["encryption"] = False
     
+    # Migrate backup settings
     try:
-        helper.get_backup_settings()
+        backup = helper.get_backup_settings()
+        backup.auto_backup_enabled = legacy_settings.auto_backup_enabled
+        backup.backup_frequency_hours = legacy_settings.backup_frequency_hours
+        backup.backup_retention_days = legacy_settings.backup_retention_days
+        db.session.commit()
         results["backup"] = True
+        logger.info(f"Migrated backup settings for project {project_id}")
     except Exception as e:
         logger.error(f"Failed to migrate backup settings for project {project_id}: {e}")
         results["backup"] = False
     
+    # Migrate chat settings
     try:
-        helper.get_chat_settings()
+        chat = helper.get_chat_settings()
+        if hasattr(legacy_settings, 'chat_message_limit_per_minute'):
+            chat.chat_message_limit_per_minute = legacy_settings.chat_message_limit_per_minute
+        if hasattr(legacy_settings, 'chat_daily_message_limit'):
+            chat.chat_daily_message_limit = legacy_settings.chat_daily_message_limit
+        if hasattr(legacy_settings, 'chat_message_max_length'):
+            chat.chat_message_max_length = legacy_settings.chat_message_max_length
+        db.session.commit()
         results["chat"] = True
+        logger.info(f"Migrated chat settings for project {project_id}")
     except Exception as e:
         logger.error(f"Failed to migrate chat settings for project {project_id}: {e}")
         results["chat"] = False
     
+    # Migrate offline auth settings
     try:
-        helper.get_offline_auth_settings()
+        offline_auth = helper.get_offline_auth_settings()
+        if hasattr(legacy_settings, 'offline_auth_enabled'):
+            offline_auth.offline_auth_enabled = legacy_settings.offline_auth_enabled
+        if hasattr(legacy_settings, 'offline_ticket_expiration_hours'):
+            offline_auth.offline_ticket_expiration_hours = legacy_settings.offline_ticket_expiration_hours
+        db.session.commit()
         results["offline_auth"] = True
+        logger.info(f"Migrated offline auth settings for project {project_id}")
     except Exception as e:
         logger.error(f"Failed to migrate offline auth settings for project {project_id}: {e}")
         results["offline_auth"] = False
     
+    # Migrate appearance settings
     try:
-        helper.get_appearance_settings()
+        appearance = helper.get_appearance_settings()
+        if hasattr(legacy_settings, 'appearance_settings'):
+            appearance.appearance_settings = legacy_settings.appearance_settings
+        db.session.commit()
         results["appearance"] = True
+        logger.info(f"Migrated appearance settings for project {project_id}")
     except Exception as e:
         logger.error(f"Failed to migrate appearance settings for project {project_id}: {e}")
         results["appearance"] = False
     
+    # Migrate invite settings
     try:
-        helper.get_invite_settings()
+        invite = helper.get_invite_settings()
+        invite.invite_code_required = legacy_settings.invite_code_required
+        db.session.commit()
         results["invite"] = True
+        logger.info(f"Migrated invite settings for project {project_id}")
     except Exception as e:
         logger.error(f"Failed to migrate invite settings for project {project_id}: {e}")
         results["invite"] = False

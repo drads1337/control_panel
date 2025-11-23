@@ -29,7 +29,7 @@ from ...models import (
 )
 from ...services.activity import activity_service
 from ...services.rbac import rbac_service
-from ...services.users.user_crud_service import user_crud_service
+from ...utils.service_helpers import get_service
 from ...middleware.auth import require_role, require_user
 from ...utils.rbac_utils import RBACManager
 from ...middleware.validation import validate_request
@@ -57,6 +57,7 @@ def get_users(current_user, project_id=None):
     roles_filter = request.args.getlist("roles")
     search = request.args.get("search")
 
+    user_crud_service = get_service('user_crud_service')
     result = user_crud_service.get_users_with_key_counts(
         current_user=current_user,
         page=page,
@@ -133,7 +134,7 @@ def add_user(current_user, validated_data=None, project_id=None):
 @require_role(RolePermissions.ADMIN_ROLES)
 def delete_user(user_id, current_user, project_id=None):
     """Delete a user safely"""
-
+    user_crud_service = get_service('user_crud_service')
     success, error = user_crud_service.delete_user_safely(current_user, user_id, project_id=project_id)
 
     if not success:

@@ -6,11 +6,12 @@ a direct implementation using DI services for better testability and clarity.
 """
 
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
 
 from ..core.extensions import db
 from ..models.core import User
 from ..models.keys import TokenTransaction
+from ..utils.service_exceptions import ValidationError, ConflictError, NotFoundError, BusinessLogicError, ServiceError
 from .service_helpers import (
     get_user_crud_service,
     get_user_role_service,
@@ -21,7 +22,7 @@ from .service_helpers import (
 
 def create_user_with_roles_and_products(
     current_user: User, data: Dict[str, Any], project_id: Optional[int] = None
-) -> Tuple[Optional[User], Optional[str]]:
+) -> User:
     """
     Create user with RBAC roles and product permissions using DI services.
     
@@ -44,7 +45,13 @@ def create_user_with_roles_and_products(
             - work_duration_days: Optional[int]
     
     Returns:
-        Tuple of (User instance or None, error message or None)
+        User instance
+    
+    Raises:
+        ValidationError: If validation fails
+        ConflictError: If username or email already exists
+        BusinessLogicError: If business rules are violated
+        ServiceError: If database operation fails
     """
     try:
         from werkzeug.security import generate_password_hash
@@ -76,10 +83,10 @@ def create_user_with_roles_and_products(
 
         # Validation
         if not username or not password:
-            return None, "Username and password are required"
+            raise ValidationError("Username and password are required", field="username")
 
         if not rbac_role_ids:
-            return None, "At least one RBAC role must be selected"
+            raise ValidationError("At least one RBAC role must be selected", field="rbac_role_ids")
 
         # Check permissions for token balance
         has_moderator_permission = rbac_service.check_permission(
@@ -88,9 +95,8 @@ def create_user_with_roles_and_products(
         
         if has_moderator_permission and token_balance > 0:
             if current_user.token_balance < token_balance:
-                return (
-                    None,
-                    f"Insufficient balance. Required: {token_balance}, Available: {current_user.token_balance}",
+                raise BusinessLogicError(
+                    f"Insufficient balance. Required: {token_balance}, Available: {current_user.token_balance}"
                 )
 
         # Determine project_id - use parameter first, then data, then current_user.project_id
@@ -109,11 +115,10 @@ def create_user_with_roles_and_products(
             for role_id in rbac_role_ids:
                 role = Role.query.filter_by(id=role_id).first()
                 if not role:
-                    return None, f"Role with id {role_id} does not exist"
+                    raise NotFoundError("Role", resource_id=str(role_id))
                 if role.project_id != project_id:
-                    return (
-                        None,
-                        f"Role '{role.name}' belongs to a different project (role project_id: {role.project_id}, target project_id: {project_id})",
+                    raise BusinessLogicError(
+                        f"Role '{role.name}' belongs to a different project (role project_id: {role.project_id}, target project_id: {project_id})"
                     )
 
         # Create user directly (CRUD service doesn't support all fields yet)
@@ -123,17 +128,17 @@ def create_user_with_roles_and_products(
         existing_user = User.query.filter_by(username=username).first()
         if existing_user:
             logger.warning(f"USER_CREATION: Username '{username}' already exists (id={existing_user.id})")
-            return None, "Username already exists"
+            raise ConflictError("Username already exists", resource_type="user")
         
         # Also check case-insensitively
         from sqlalchemy import func
         existing_user_ci = User.query.filter(func.lower(User.username) == username.lower()).first()
         if existing_user_ci and existing_user_ci.username != username:
             logger.warning(f"USER_CREATION: Username '{username}' conflicts with existing '{existing_user_ci.username}' (case-insensitive)")
-            return None, f"Username already exists (case-insensitive match: {existing_user_ci.username})"
+            raise ConflictError(f"Username already exists (case-insensitive match: {existing_user_ci.username})", resource_type="user")
         
         if email and User.query.filter_by(email=email.lower()).first():
-            return None, "Email already exists"
+            raise ConflictError("Email already exists", resource_type="user")
 
         logger.info(f"USER_CREATION: Creating User object with username='{username}'")
         user = User(
@@ -239,15 +244,18 @@ def create_user_with_roles_and_products(
             # List all usernames for debugging
             all_users = User.query.all()
             logger.error(f"USER_CREATION: All usernames in DB: {[u.username for u in all_users]}")
-            return None, "Failed to create user: user not found after commit"
+            raise ServiceError("Failed to create user: user not found after commit", status_code=500)
         
         logger.info(f"USER_CREATION: Successfully verified user {username} (id={created_user.id}) exists in database")
-        return user, None
+        return user
 
+    except (ValidationError, ConflictError, NotFoundError, BusinessLogicError):
+        db.session.rollback()
+        raise
     except Exception as e:
         db.session.rollback()
         import logging
         logger = logging.getLogger(__name__)
         logger.error(f"Error creating user with roles and products: {str(e)}", exc_info=True)
-        return None, f"Failed to create user: {str(e)}"
+        raise ServiceError(f"Failed to create user: {str(e)}", status_code=500) from e
 

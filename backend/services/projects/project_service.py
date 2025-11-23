@@ -16,6 +16,7 @@ from ...models.servers import Server
 from ...utils.fulltext_search import fulltext_search_filter
 from ...utils.rbac_utils import RBACManager
 from ...utils.role_constants import UserRoles
+from ...utils.service_exceptions import ValidationError, NotFoundError, ConflictError, ServiceError
 from ...services.cache import cache_service
 
 class ProjectService:
@@ -396,7 +397,7 @@ class ProjectService:
 
     def create_project(
         self, user_id: int, name: str, description: str = "", ip_address: str = None, user_agent: str = None
-    ) -> Dict[str, Any]:
+    ) -> Project:
         """
         Create a new project with all business logic
 
@@ -408,7 +409,13 @@ class ProjectService:
             user_agent: User agent for activity logging
 
         Returns:
-            Dictionary with project data or error
+            Project object
+
+        Raises:
+            NotFoundError: If user not found
+            ValidationError: If project name is invalid
+            ConflictError: If project with this name already exists
+            ServiceError: If database operation fails
         """
         try:
             from datetime import datetime, timedelta
@@ -417,15 +424,15 @@ class ProjectService:
 
             user = User.query.get(user_id)
             if not user:
-                return {"error": "User not found"}
+                raise NotFoundError("User", resource_id=str(user_id))
 
             name = name.strip()
             if not name:
-                return {"error": "Project name is required"}
+                raise ValidationError("Project name is required", field="name")
 
             existing_project = Project.query.filter_by(name=name).first()
             if existing_project:
-                return {"error": "Project with this name already exists"}
+                raise ConflictError("Project with this name already exists", resource_type="project")
 
             project = Project(
                 name=name,
@@ -460,20 +467,15 @@ class ProjectService:
             except Exception as e:
                 self.logger.warning(f"Failed to invalidate cache after project creation: {e}")
 
-            return {
-                "message": "Project created successfully",
-                "project": {
-                    "id": project.unique_id,
-                    "name": project.name,
-                    "description": project.description,
-                    "created_at": project.created_at.isoformat(),
-                },
-            }
+            return project
 
+        except (NotFoundError, ValidationError, ConflictError):
+            db.session.rollback()
+            raise
         except Exception as e:
             db.session.rollback()
-            self.logger.error(f"Error creating project: {str(e)}")
-            return {"error": "Failed to create project"}
+            self.logger.error(f"Error creating project: {str(e)}", exc_info=True)
+            raise ServiceError("Failed to create project", status_code=500) from e
 
     def update_project(
         self,

@@ -101,6 +101,11 @@ def make_celery(app=None):
                 "queue": "key_tasks",
                 "priority": 4,
             },
+            "backend.tasks.webhook_tasks.*": {"queue": "default"},
+            "backend.tasks.webhook_tasks.process_webhook": {
+                "queue": "default",
+                "priority": 3,
+            },
         },
 
         beat_schedule={

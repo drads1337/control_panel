@@ -11,7 +11,8 @@ from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 
 from ...core.extensions import db
-from ...models.core import Project, ProjectSettings, User
+from ...models.core import Project, User
+from ...utils.project_settings_migration import ProjectSettingsHelper
 from ...models.servers import Server
 from ...utils.fulltext_search import fulltext_search_filter
 from ...utils.rbac_utils import RBACManager
@@ -106,12 +107,12 @@ class ServerService:
             project_ids = list(set([server.project_id for server in pagination.items]))
             project_settings_dict = {}
             if project_ids and include_password:
-                project_settings_list = ProjectSettings.query.filter(
-                    ProjectSettings.project_id.in_(project_ids)
-                ).all()
-                project_settings_dict = {
-                    ps.project_id: ps.project_master_key for ps in project_settings_list
-                }
+                # Get project master keys from encryption settings
+                for pid in project_ids:
+                    helper = ProjectSettingsHelper(pid)
+                    encryption_settings = helper.get_encryption_settings()
+                    if encryption_settings.project_master_key:
+                        project_settings_dict[pid] = encryption_settings.project_master_key
 
             servers = []
             for server in pagination.items:
@@ -181,8 +182,9 @@ class ServerService:
             if Server.query.filter_by(ip_address=ip_address, project_id=project_id).first():
                 return None, "Server with this IP address already exists"
 
-            project_settings = ProjectSettings.query.filter_by(project_id=project_id).first()
-            if not project_settings or not project_settings.project_master_key:
+            helper = ProjectSettingsHelper(project_id)
+            encryption_settings = helper.get_encryption_settings()
+            if not encryption_settings.project_master_key:
                 return (
                     None,
                     "Project encryption key not found. Please contact administrator.",
@@ -201,7 +203,7 @@ class ServerService:
                 created_at=datetime.utcnow(),
             )
 
-            server.set_password(password, project_settings.project_master_key)
+            server.set_password(password, encryption_settings.project_master_key)
 
             db.session.add(server)
 
@@ -237,8 +239,10 @@ class ServerService:
 
             project_id = server.project_id
             if project_id:
-                from ...utils.project_counters import decrement_project_server_counters
-                decrement_project_server_counters(project_id)
+                # Invalidate statistics cache instead of using deprecated counters
+                from ...utils.service_helpers import get_service
+                cache_service = get_service('cache_service')
+                cache_service.invalidate_pattern(f"stats:project_id={project_id}:*")
 
             db.session.delete(server)
             db.session.commit()
@@ -324,7 +328,7 @@ class ServerService:
             self.logger.error(f"Error getting servers by IDs: {str(e)}")
             return []
 
-    def get_project_settings(self, project_id: int) -> Optional[ProjectSettings]:
+    def get_project_settings(self, project_id: int) -> Optional[Any]:
         """
         Get project settings for a project
 
@@ -332,10 +336,12 @@ class ServerService:
             project_id: Project ID
 
         Returns:
-            ProjectSettings object or None if not found
+            Aggregated settings object or None if not found
         """
         try:
-            return ProjectSettings.query.filter_by(project_id=project_id).first()
+            from ...services.settings.settings_repository import SettingsRepository
+            repo = SettingsRepository()
+            return repo.get_all_project_settings(project_id)
         except Exception as e:
             self.logger.error(f"Error getting project settings for project {project_id}: {str(e)}")
             return None

@@ -2,7 +2,6 @@
 Monitoring Services
 """
 
-from .load_monitor import load_monitor
+from .prometheus_metrics_reader import prometheus_metrics_reader
 
-__all__ = ["load_monitor"]
-
+__all__ = ["prometheus_metrics_reader"]

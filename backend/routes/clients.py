@@ -463,7 +463,8 @@ def toggle_user_product_access(user_id, product_id, current_user):
         db.session.commit()
 
         try:
-            from ..services.cache import cache_service
+            from ..utils.service_helpers import get_service
+            cache_service = get_service('cache_service')
             from ..services.products import product_service
 
             product_service.invalidate_product_cache(target_user.project_id, actual_product_id)

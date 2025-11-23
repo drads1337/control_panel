@@ -21,6 +21,7 @@ from ...models.rbac import Role, UserRole
 from ...models.project_user import ProjectUserRole
 from ...utils.fulltext_search import fulltext_search_filter
 from ...utils.rbac_utils import RBACManager
+from ...utils.service_exceptions import ValidationError, ConflictError, ServiceError
 from ...utils.structured_logging import get_logger
 from werkzeug.security import generate_password_hash
 
@@ -38,7 +39,7 @@ class UserCRUDService:
         password: str,
         project_id: Optional[int] = None,
         role: str = "user",
-    ) -> Tuple[Optional[User], Optional[str]]:
+    ) -> User:
         """
         Create a new user
 
@@ -50,20 +51,25 @@ class UserCRUDService:
             role: User role
 
         Returns:
-            Tuple of (User object or None, error message or None)
+            User object
+
+        Raises:
+            ValidationError: If validation fails
+            ConflictError: If username or email already exists
+            ServiceError: If database operation fails
         """
         try:
             if not username or not password:
-                return None, "Username and password are required"
+                raise ValidationError("Username and password are required", field="username")
 
             if len(password) < 8:
-                return None, "Password must be at least 8 characters long"
+                raise ValidationError("Password must be at least 8 characters long", field="password")
 
             if User.query.filter_by(username=username).first():
-                return None, "Username already exists"
+                raise ConflictError("Username already exists", resource_type="user")
 
             if email and User.query.filter_by(email=email.lower()).first():
-                return None, "Email already exists"
+                raise ConflictError("Email already exists", resource_type="user")
 
             user = User(
                 username=username,
@@ -84,12 +90,15 @@ class UserCRUDService:
 
             db.session.commit()
 
-            return user, None
+            return user
 
+        except (ValidationError, ConflictError):
+            db.session.rollback()
+            raise
         except Exception as e:
             db.session.rollback()
-            self.logger.error(f"Error creating user: {str(e)}")
-            return None, "Failed to create user"
+            self.logger.error(f"Error creating user: {str(e)}", exc_info=True)
+            raise ServiceError("Failed to create user", status_code=500) from e
 
     def get_user_by_id(self, user_id: int) -> Optional[User]:
         """
@@ -384,9 +393,10 @@ class UserCRUDService:
 
             project_id = target_user.project_id
             if project_id:
-                from ...utils.project_counters import decrement_project_user_counters
-                was_active = target_user.expires_at is None or target_user.expires_at > datetime.utcnow()
-                decrement_project_user_counters(project_id, was_active=was_active)
+                # Invalidate statistics cache instead of using deprecated counters
+                from ...utils.service_helpers import get_service
+                cache_service = get_service('cache_service')
+                cache_service.invalidate_pattern(f"stats:project_id={project_id}:*")
 
             db.session.delete(target_user)
             db.session.commit()
@@ -445,9 +455,10 @@ class UserCRUDService:
                 ProjectUserRole.query.filter_by(user_id=user.id).delete()
 
                 if user.project_id:
-                    from ...utils.project_counters import decrement_project_user_counters
-                    was_active = user.expires_at is None or user.expires_at > datetime.utcnow()
-                    decrement_project_user_counters(user.project_id, was_active=was_active)
+                    # Invalidate statistics cache instead of using deprecated counters
+                    from ...utils.service_helpers import get_service
+                    cache_service = get_service('cache_service')
+                    cache_service.invalidate_pattern(f"stats:project_id={user.project_id}:*")
 
                 db.session.delete(user)
                 deleted_count += 1
@@ -460,7 +471,7 @@ class UserCRUDService:
             self.logger.error(f"Error bulk deleting users: {str(e)}")
             return 0, f"Failed to delete users: {str(e)}"
 
-
-# Singleton instance
-user_crud_service = UserCRUDService()
+# Service instance should be obtained via ServiceContainer:
+#   from ...core.service_container import get_service
+#   service = get_service('user_crud_service')
 

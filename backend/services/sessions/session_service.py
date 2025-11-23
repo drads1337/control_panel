@@ -644,4 +644,8 @@ class SessionService:
             self.logger.error(f"Error calculating session duration: {e}")
             return "Unknown"
 
+# Singleton instance for backward compatibility
+# Service instance should be obtained via ServiceContainer:
+#   from ...utils.service_helpers import get_service
+#   service = get_service('session_service')
 session_service = SessionService()

@@ -21,6 +21,14 @@ from ...utils.redis_client import redis_client
 
 logger = logging.getLogger(__name__)
 
+# Import monitoring service
+try:
+    from ...services.monitoring.buffer_integrity_monitor import get_buffer_integrity_monitor
+    MONITORING_AVAILABLE = True
+except ImportError:
+    MONITORING_AVAILABLE = False
+    logger.warning("Buffer integrity monitoring not available")
+
 
 class AnalyticsBufferService:
     """
@@ -113,6 +121,19 @@ class AnalyticsBufferService:
             # Check if buffer is getting large or if enough time has passed since last flush
             # This ensures buffer is flushed even if Celery Beat is not running
             buffer_size = redis_client.client.llen(self.activity_buffer_key)
+            
+            # Record buffer size for monitoring
+            if MONITORING_AVAILABLE:
+                try:
+                    monitor = get_buffer_integrity_monitor()
+                    monitor.record_buffer_size('user_activity', buffer_size)
+                    
+                    # Check for overflow
+                    if buffer_size >= self.buffer_max_size:
+                        monitor.record_buffer_overflow('user_activity')
+                except Exception as e:
+                    logger.debug(f"Failed to record buffer metrics: {e}")
+            
             flush_threshold = max(min(self.buffer_max_size // 4, 10), 5)  # At least 5 items, max 25% of max size or 10
             
             # Check time since last flush
@@ -276,7 +297,10 @@ class AnalyticsBufferService:
         from ...core.extensions import db
         from ...models.core import UserActivity
         
+        import time
+        start_time = time.time()
         flushed_count = 0
+        success = False
         
         try:
             while True:
@@ -342,9 +366,28 @@ class AnalyticsBufferService:
                     db.session.rollback()
                     # Don't remove from buffer on error - will retry later
                     break
+            
+            success = True
+            
+            # Record flush metrics
+            if MONITORING_AVAILABLE:
+                try:
+                    duration = time.time() - start_time
+                    monitor = get_buffer_integrity_monitor()
+                    monitor.record_buffer_flush('user_activity', success, duration)
+                except Exception as e:
+                    logger.debug(f"Failed to record flush metrics: {e}")
                     
         except Exception as e:
             logger.error(f"Error flushing user activities: {e}")
+            # Record failed flush
+            if MONITORING_AVAILABLE:
+                try:
+                    duration = time.time() - start_time
+                    monitor = get_buffer_integrity_monitor()
+                    monitor.record_buffer_flush('user_activity', False, duration)
+                except Exception:
+                    pass
         
         return flushed_count
 
@@ -723,4 +766,3 @@ class AnalyticsBufferService:
 
 
 analytics_buffer_service = AnalyticsBufferService()
-

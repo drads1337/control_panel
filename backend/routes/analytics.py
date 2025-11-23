@@ -67,7 +67,7 @@ def get_dashboard_overview(current_user=None, project_id=None):
                 analytics_data["load_status"] = load_status
                 logging.info(f"Added load_status to dashboard overview for project {project_id}: {load_status.get('overall_status', 'unknown')}")
             else:
-                logging.warning(f"load_monitor.get_all_endpoints_status returned None or empty for project {project_id}")
+                logging.warning(f"prometheus_metrics_reader.get_all_endpoints_status returned None or empty for project {project_id}")
         except Exception as load_error:
             logging.error(f"Error getting load status for dashboard overview: {load_error}", exc_info=True)
             # Don't fail the entire request if load status fails

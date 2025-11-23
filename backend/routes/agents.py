@@ -299,7 +299,8 @@ def create_loader():
         }
 
         try:
-            from ..services.cache import cache_service
+            from ..utils.service_helpers import get_service
+            cache_service = get_service('cache_service')
 
             cache_service.invalidate_pattern(f"agents:project_id={user.project_id}:*")
         except ImportError:
@@ -384,7 +385,8 @@ def update_loader(agent_identifier):
         db.session.commit()
 
         try:
-            from ..services.cache import cache_service
+            from ..utils.service_helpers import get_service
+            cache_service = get_service('cache_service')
 
             cache_service.invalidate_pattern(f"agents:project_id={user.project_id}:*")
         except ImportError:
@@ -516,7 +518,8 @@ def delete_loader(agent_identifier):
         db.session.commit()
 
         try:
-            from ..services.cache import cache_service
+            from ..utils.service_helpers import get_service
+            cache_service = get_service('cache_service')
 
             cache_service.invalidate_pattern(f"agents:project_id={user.project_id}:*")
         except ImportError:
@@ -766,7 +769,8 @@ def update_loader_status(agent_identifier):
         db.session.commit()
 
         try:
-            from ..services.cache import cache_service
+            from ..utils.service_helpers import get_service
+            cache_service = get_service('cache_service')
 
             cache_service.invalidate_pattern(f"agents:project_id={user.project_id}:*")
         except ImportError:

@@ -12,6 +12,7 @@ from ...models.core import User
 from ...models.products import Product
 from ...models.keys import DeviceInfo, Key
 from ...models.agents import Agent
+from ...utils.service_exceptions import NotFoundError, PermissionDeniedError
 from .key_generation_service import key_generation_service
 from .key_validation_service import key_validation_service
 from ...utils.rbac_utils import RBACManager
@@ -87,18 +88,16 @@ class KeyBulkOperationsService:
 
         for i, key_data in enumerate(keys_data):
             try:
-                key, error = key_crud_service.create_key(user, key_data)
-                if key:
-                    created_count += 1
-                else:
-                    errors.append(f"Key {i+1}: {error}")
+                # create_key now raises exceptions instead of returning tuples
+                key = key_crud_service.create_key(user, key_data)
+                created_count += 1
             except Exception as e:
                 try:
                     db.session.rollback()
                 except Exception:
                     pass
                 error_msg = str(e)
-                errors.append(f"Key {i+1}: Failed to create key: {error_msg}")
+                errors.append(f"Key {i+1}: {error_msg}")
                 self.logger.error(f"Failed to create key {i+1} in bulk: {error_msg}")
 
         self.logger.info(f"Bulk created {created_count} keys for user {user.id}")
@@ -127,9 +126,8 @@ class KeyBulkOperationsService:
         """
         try:
             from ...services.products import product_service
-            product, error = product_service.get_product(user, product_id)
-            if error or not product:
-                return 0, error or "Product not found or access denied", None
+            # get_product now raises exceptions
+            product = product_service.get_product(user, product_id)
 
             is_access_code = product.login_type == "classic_login"
             item_type = "access codes" if is_access_code else "license keys"
@@ -368,9 +366,8 @@ class KeyBulkOperationsService:
         """Bulk pause keys by product"""
         try:
             from ...services.products import product_service
-            product, error = product_service.get_product(user, product_id)
-            if error or not product:
-                return 0, error or "Product not found or access denied", None
+            # get_product now raises exceptions
+            product = product_service.get_product(user, product_id)
 
             keys = Key.query.filter_by(product_id=product_id, project_id=user.project_id).all()
             if not keys:
@@ -381,6 +378,9 @@ class KeyBulkOperationsService:
 
             return affected_count, error, product.name
 
+        except (NotFoundError, PermissionDeniedError) as e:
+            # Re-raise service exceptions to be handled by caller
+            raise
         except Exception as e:
             self.logger.error(f"Failed to bulk pause keys by product: {str(e)}")
             return 0, f"Failed to pause keys: {str(e)}", None
@@ -391,9 +391,8 @@ class KeyBulkOperationsService:
         """Bulk resume keys by product"""
         try:
             from ...services.products import product_service
-            product, error = product_service.get_product(user, product_id)
-            if error or not product:
-                return 0, error or "Product not found or access denied", None
+            # get_product now raises exceptions
+            product = product_service.get_product(user, product_id)
 
             keys = Key.query.filter_by(product_id=product_id, project_id=user.project_id).all()
             if not keys:
@@ -414,9 +413,8 @@ class KeyBulkOperationsService:
         """Bulk reset keys by product"""
         try:
             from ...services.products import product_service
-            product, error = product_service.get_product(user, product_id)
-            if error or not product:
-                return 0, error or "Product not found or access denied", None
+            # get_product now raises exceptions
+            product = product_service.get_product(user, product_id)
 
             keys = Key.query.filter_by(product_id=product_id, project_id=user.project_id).all()
             if not keys:
@@ -437,9 +435,8 @@ class KeyBulkOperationsService:
         """Bulk add hours to keys by product"""
         try:
             from ...services.products import product_service
-            product, error = product_service.get_product(user, product_id)
-            if error or not product:
-                return 0, error or "Product not found or access denied", None
+            # get_product now raises exceptions
+            product = product_service.get_product(user, product_id)
 
             keys = Key.query.filter_by(product_id=product_id, project_id=user.project_id).all()
             if not keys:

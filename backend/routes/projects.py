@@ -71,7 +71,8 @@ def get_projects():
 
         if force_refresh:
             try:
-                from ..services.cache import cache_service
+                from ..utils.service_helpers import get_service
+                cache_service = get_service('cache_service')
                 cache_service.invalidate_pattern("projects:*")
                 logging.info("Cache invalidated due to force_refresh parameter")
             except Exception as e:
@@ -148,7 +149,8 @@ def create_project(current_user, validated_data=None):
         description = data.get("description", "").strip()
 
         from ..services.projects import project_service
-        result = project_service.create_project(
+        # Exceptions are handled by global handler
+        project = project_service.create_project(
             user_id=user.id,
             name=name,
             description=description,
@@ -156,14 +158,15 @@ def create_project(current_user, validated_data=None):
             user_agent=request.headers.get("User-Agent", ""),
         )
 
-        if "error" in result:
-            status_code = 400 if result["error"] in [
-                "Project name is required",
-                "Project with this name already exists"
-            ] else 500
-            return jsonify(result), status_code
-
-        return jsonify(result), 201
+        return jsonify({
+            "message": "Project created successfully",
+            "project": {
+                "id": project.unique_id,
+                "name": project.name,
+                "description": project.description,
+                "created_at": project.created_at.isoformat(),
+            },
+        }), 201
 
     except Exception as e:
         logging.error(f"Error creating project: {str(e)}")

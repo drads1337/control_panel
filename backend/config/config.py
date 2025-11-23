@@ -305,9 +305,9 @@ class Config:
     ANALYTICS_BUFFER_TTL = int(
         os.environ.get("ANALYTICS_BUFFER_TTL", 3600)
     )  # 1 hour TTL for safety
-    ANALYTICS_BUFFER_BACKUP_DIR = os.environ.get(
-        "ANALYTICS_BUFFER_BACKUP_DIR", "/tmp/analytics_backup"
-    )  # Directory for disk backups when Redis fails
+    ANALYTICS_MEMORY_QUEUE_SIZE = int(
+        os.environ.get("ANALYTICS_MEMORY_QUEUE_SIZE", 10000)
+    )  # Max items in in-memory queue when Redis fails (container-safe)
     ANALYTICS_BUFFER_FLUSH_INTERVAL = int(
         os.environ.get("ANALYTICS_BUFFER_FLUSH_INTERVAL", 30)
     )  # Flush every 30 seconds

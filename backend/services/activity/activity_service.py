@@ -14,113 +14,26 @@ from ...utils.ip_utils import get_location_from_ip
 from ...utils.structured_logging import get_logger
 
 class ActivityService:
-    """Service for managing user activity logging with adaptive buffering"""
+    """
+    Service for managing user activity logging with write-behind buffering.
+    
+    OPTIMIZATION: By default, uses Redis buffer to reduce database write pressure.
+    Direct writes are only used for critical actions or when buffer is unavailable.
+    
+    This prevents "blowing up" the database with activity logs under high load,
+    as recommended in the technical audit.
+    """
 
     def __init__(self):
         self.logger = get_logger("activity_service")
-        self._buffer_mode = False  # Start in direct write mode
-        self._load_check_interval = 5  # Check load every 5 seconds
-        self._last_load_check = 0
-        self._high_load_threshold_rps = 50  # Switch to buffer mode if > 50 req/s
-        self._low_load_threshold_rps = 20  # Switch back to direct mode if < 20 req/s
+        # OPTIMIZATION: Use buffer mode by default if enabled
+        # This prevents database overload from activity logs
+        self._use_buffer_by_default = True
 
-    def _check_system_load(self) -> bool:
-        """
-        Check if system is under high load and should use buffering.
-        
-        Returns:
-            True if system is under high load (should buffer), False otherwise
-        """
-        try:
-            import time
-            current_time = time.time()
-            
-            # Only check load every N seconds to avoid overhead
-            if current_time - self._last_load_check < self._load_check_interval:
-                return self._buffer_mode
-            
-            self._last_load_check = current_time
-            
-            # Check system load using psutil (replaces custom load_monitor)
-            try:
-                import psutil
-                
-                # Check CPU usage
-                cpu_percent = psutil.cpu_percent(interval=0.1)
-                
-                # Check memory usage
-                memory = psutil.virtual_memory()
-                
-                # Note: Request rate tracking moved to Prometheus
-                # Using simplified check based on system resources
-                recent_requests = 0
-                
-                # Switch to buffer mode if:
-                # - CPU > 70% OR
-                # - Memory > 80% OR
-                # - Request rate > threshold
-                high_load = (
-                    cpu_percent > 70 or
-                    memory.percent > 80 or
-                    recent_requests > self._high_load_threshold_rps
-                )
-                
-                # Switch back to direct mode if:
-                # - CPU < 50% AND
-                # - Memory < 70% AND
-                # - Request rate < low threshold
-                low_load = (
-                    cpu_percent < 50 and
-                    memory.percent < 70 and
-                    recent_requests < self._low_load_threshold_rps
-                )
-                
-                if high_load and not self._buffer_mode:
-                    self.logger.info(
-                        f"Switching to buffer mode due to high load: "
-                        f"CPU={cpu_percent:.1f}%, Memory={memory.percent:.1f}%, "
-                        f"RPS={recent_requests}"
-                    )
-                    self._buffer_mode = True
-                elif low_load and self._buffer_mode:
-                    self.logger.info(
-                        f"Switching back to direct write mode: "
-                        f"CPU={cpu_percent:.1f}%, Memory={memory.percent:.1f}%, "
-                        f"RPS={recent_requests}"
-                    )
-                    self._buffer_mode = False
-                    # Flush any remaining buffered activities
-                    analytics_buffer_service._trigger_async_flush()
-                
-                return self._buffer_mode
-                
-            except ImportError:
-                # LoadMonitor not available, use simple heuristic
-                try:
-                    import psutil
-                    cpu_percent = psutil.cpu_percent(interval=0.1)
-                    memory = psutil.virtual_memory()
-                    
-                    high_load = cpu_percent > 70 or memory.percent > 80
-                    low_load = cpu_percent < 50 and memory.percent < 70
-                    
-                    if high_load and not self._buffer_mode:
-                        self.logger.info(f"Switching to buffer mode: CPU={cpu_percent:.1f}%, Memory={memory.percent:.1f}%")
-                        self._buffer_mode = True
-                    elif low_load and self._buffer_mode:
-                        self.logger.info(f"Switching to direct mode: CPU={cpu_percent:.1f}%, Memory={memory.percent:.1f}%")
-                        self._buffer_mode = False
-                        analytics_buffer_service._trigger_async_flush()
-                    
-                    return self._buffer_mode
-                except Exception:
-                    # If we can't check load, default to direct mode
-                    return False
-                    
-        except Exception as e:
-            self.logger.warning(f"Failed to check system load: {e}")
-            # On error, default to direct write mode
-            return False
+    # REMOVED: _check_system_load() method
+    # OPTIMIZATION: Removed adaptive load checking - use buffer by default instead.
+    # This simplifies the code and prevents database overload from activity logs.
+    # The buffer is already efficient and handles high load scenarios automatically.
 
     def log_activity(
         self,
@@ -131,13 +44,17 @@ class ActivityService:
         user_agent: Optional[str] = None,
         session_id: Optional[str] = None,
         force_flush: bool = False,
+        use_direct_write: bool = False,
     ) -> Optional[UserActivity]:
         """
-        Log user activity with adaptive buffering.
+        Log user activity using write-behind buffering by default.
         
-        By default, writes directly to database for immediate visibility.
-        Automatically switches to buffering mode when system is under high load
-        to reduce database pressure.
+        OPTIMIZATION: By default, uses Redis buffer to reduce database write pressure.
+        This prevents "blowing up" the database with activity logs under high load.
+        
+        Direct writes are only used for:
+        - Critical actions (when use_direct_write=True)
+        - When buffer is unavailable (fallback)
 
         Args:
             user: User object performing the action
@@ -147,6 +64,7 @@ class ActivityService:
             user_agent: User agent string (optional)
             session_id: Session ID (optional)
             force_flush: Force immediate flush even in buffer mode (optional)
+            use_direct_write: Force direct write to database (for critical actions) (optional)
 
         Returns:
             UserActivity instance if logged successfully, None otherwise
@@ -171,11 +89,17 @@ class ActivityService:
                 except Exception as e:
                     self.logger.warning(f"Failed to get geolocation: {e}")
 
-            # Check system load and decide on write mode
-            use_buffer = self._check_system_load()
+            # OPTIMIZATION: Use buffer by default (unless explicitly requested direct write)
+            # This prevents database overload from activity logs
+            if use_direct_write:
+                # Critical action: write directly to database for immediate visibility
+                self.logger.debug(f"Using direct write for critical action: {action}")
+                return self._log_activity_direct(
+                    user, action, ip, details, user_agent, session_id, country, city
+                )
 
-            if use_buffer:
-                # High load: use buffering
+            # Default: use buffering to reduce database write pressure
+            try:
                 success = analytics_buffer_service.buffer_user_activity(
                     user_id=user.id,
                     action=action,
@@ -190,7 +114,8 @@ class ActivityService:
 
                 if success:
                     self.logger.debug(
-                        f"Buffered activity (high load mode): {action} for user {masked_username}"
+                        f"Buffered activity: {action} for user {masked_username} "
+                        f"(will be flushed to DB by background worker)"
                     )
                     
                     # Force flush for critical actions
@@ -210,15 +135,18 @@ class ActivityService:
                         session_id=session_id,
                     )
                 else:
-                    # Buffer failed, fallback to direct write
+                    # Buffer failed (e.g., Redis unavailable), fallback to direct write
                     self.logger.warning(
-                        f"Buffer failed, falling back to direct write for {action}"
+                        f"Buffer failed for {action}, falling back to direct write"
                     )
                     return self._log_activity_direct(
                         user, action, ip, details, user_agent, session_id, country, city
                     )
-            else:
-                # Normal load: write directly to database (immediate visibility)
+            except Exception as buffer_error:
+                # Buffer error, fallback to direct write
+                self.logger.warning(
+                    f"Buffer error for {action}: {buffer_error}, falling back to direct write"
+                )
                 return self._log_activity_direct(
                     user, action, ip, details, user_agent, session_id, country, city
                 )
@@ -229,7 +157,7 @@ class ActivityService:
 
             self.logger.warning(f"log_activity traceback: {traceback.format_exc()}")
 
-            # Fallback to direct write on error
+            # Final fallback to direct write on error
             try:
                 return self._log_activity_direct(
                     user, action, ip, details, user_agent, session_id, None, None

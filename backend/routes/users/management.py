@@ -20,7 +20,7 @@ from ...models import User
 from ...schemas.user import UserCreateSchema, UserUpdateSchema, UserAdminResponse
 from ...services.activity import activity_service
 from ...services.rbac import rbac_service
-from ...services.users import user_management_service, user_profile_service
+from ...services.users import user_profile_service
 from ...utils.rbac_utils import RBACManager
 from ...utils.role_constants import RolePermissions
 from ...utils.service_helpers import (
@@ -93,11 +93,8 @@ def add_user(current_user, validated_data=None, project_id=None):
         return jsonify({"error": "No data provided"}), 400
 
     try:
-        # Use DI helper function instead of facade
-        user, error = create_user_with_roles_and_products(current_user, data, project_id=project_id)
-
-        if error:
-            return jsonify({"error": error}), 400
+        # Use DI helper function - exceptions are handled by global handler
+        user = create_user_with_roles_and_products(current_user, data, project_id=project_id)
 
         try:
             activity_service.log_activity(
@@ -124,10 +121,12 @@ def add_user(current_user, validated_data=None, project_id=None):
             201,
         )
     except Exception as e:
-        logger.error(f"Error in add_user endpoint: {str(e)}", exc_info=True)
+        # ServiceError and subclasses are handled by global handler
+        # This catch is for unexpected exceptions only
+        logger.error(f"Unexpected error in add_user endpoint: {str(e)}", exc_info=True)
         import traceback
         logger.error(f"Traceback: {traceback.format_exc()}")
-        return jsonify({"error": f"Failed to create user: {str(e)}"}), 500
+        raise  # Re-raise to let global handler process it
 
 @management_bp.route("/<int:user_id>", methods=["PUT"])
 @jwt_required()

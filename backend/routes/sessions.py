@@ -12,7 +12,7 @@ from ..middleware.production_guard import development_only
 from ..models.core import User, UserActivity
 from ..models.rbac import Role, UserRole
 from ..services.activity import activity_service
-from ..services.sessions import session_service
+from ..utils.service_helpers import get_service
 from ..utils.rbac_utils import RBACManager
 
 sessions_bp = Blueprint("sessions", __name__)
@@ -832,6 +832,7 @@ def terminate_user_session(user_id):
         if not target_user or target_user.project_id != current_user.project_id:
             return jsonify({"error": "User not found"}), 404
 
+        session_service = get_service('session_service')
         terminated_count = session_service.terminate_user_sessions(
             user_id=user_id, reason="admin_termination", exclude_session=None
         )
@@ -908,6 +909,7 @@ def terminate_multiple_sessions():
                     )
                     continue
 
+                session_service = get_service('session_service')
                 count = session_service.terminate_user_sessions(
                     user_id=user_id, reason="bulk_termination", exclude_session=None
                 )
@@ -978,6 +980,7 @@ def get_suspicious_activity(user_id):
         if not target_user or target_user.project_id != current_user.project_id:
             return jsonify({"error": "User not found"}), 404
 
+        session_service = get_service('session_service')
         suspicious_activities = session_service.detect_suspicious_activity(
             user_id=user_id,
             ip_address=request.remote_addr or "unknown",
@@ -1013,6 +1016,7 @@ def get_enhanced_session_stats():
         if not current_user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
+        session_service = get_service('session_service')
         stats = session_service.get_session_statistics(project_id=current_user.project_id)
 
         return jsonify({"success": True, "statistics": stats})

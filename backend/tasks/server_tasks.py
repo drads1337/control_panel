@@ -25,8 +25,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from ..config.config import Config
-from ..models.core import ProjectSettings, db
+from ..models.core import db
 from ..models.servers import Server
+from ..utils.project_settings_migration import ProjectSettingsHelper
 from ..services.tasks import task_service
 
 logger = logging.getLogger(__name__)
@@ -137,10 +138,9 @@ def server_status_check(self, server_id, task_id=None, project_id=None):
                 task_service.update_task_status(task_id, "failed", error=error_msg)
             return {"status": "error", "error": error_msg}
 
-        project_settings = (
-            session.query(ProjectSettings).filter_by(project_id=server.project_id).first()
-        )
-        if not project_settings or not project_settings.project_master_key:
+        helper = ProjectSettingsHelper(server.project_id)
+        encryption_settings = helper.get_encryption_settings()
+        if not encryption_settings.project_master_key:
             error_msg = f"No encryption key found for project {server.project_id}"
             logger.error(error_msg)
             server.status = "error"
@@ -153,7 +153,7 @@ def server_status_check(self, server_id, task_id=None, project_id=None):
             task_service.update_task_status(task_id, "in_progress", progress=30)
 
         try:
-            decrypted_password = server.get_password(project_settings.project_master_key)
+            decrypted_password = server.get_password(encryption_settings.project_master_key)
         except Exception as e:
             error_msg = f"Failed to decrypt password: {str(e)}"
             logger.error(error_msg)
@@ -252,10 +252,9 @@ def server_start(self, server_id, task_id=None, project_id=None):
                 task_service.update_task_status(task_id, "failed", error=error_msg)
             return {"status": "error", "error": error_msg}
 
-        project_settings = (
-            session.query(ProjectSettings).filter_by(project_id=server.project_id).first()
-        )
-        if not project_settings or not project_settings.project_master_key:
+        helper = ProjectSettingsHelper(server.project_id)
+        encryption_settings = helper.get_encryption_settings()
+        if not encryption_settings.project_master_key:
             error_msg = f"No encryption key found for project {server.project_id}"
             logger.error(error_msg)
             server.status = "error"
@@ -271,7 +270,7 @@ def server_start(self, server_id, task_id=None, project_id=None):
             task_service.update_task_status(task_id, "in_progress", progress=30)
 
         try:
-            decrypted_password = server.get_password(project_settings.project_master_key)
+            decrypted_password = server.get_password(encryption_settings.project_master_key)
         except Exception as e:
             error_msg = f"Failed to decrypt password: {str(e)}"
             logger.error(error_msg)
@@ -371,10 +370,9 @@ def server_stop(self, server_id, task_id=None, project_id=None):
                 task_service.update_task_status(task_id, "failed", error=error_msg)
             return {"status": "error", "error": error_msg}
 
-        project_settings = (
-            session.query(ProjectSettings).filter_by(project_id=server.project_id).first()
-        )
-        if not project_settings or not project_settings.project_master_key:
+        helper = ProjectSettingsHelper(server.project_id)
+        encryption_settings = helper.get_encryption_settings()
+        if not encryption_settings.project_master_key:
             error_msg = f"No encryption key found for project {server.project_id}"
             logger.error(error_msg)
             server.status = "error"
@@ -390,7 +388,7 @@ def server_stop(self, server_id, task_id=None, project_id=None):
             task_service.update_task_status(task_id, "in_progress", progress=30)
 
         try:
-            decrypted_password = server.get_password(project_settings.project_master_key)
+            decrypted_password = server.get_password(encryption_settings.project_master_key)
         except Exception as e:
             error_msg = f"Failed to decrypt password: {str(e)}"
             logger.error(error_msg)

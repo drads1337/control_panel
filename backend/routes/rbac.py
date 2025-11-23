@@ -791,7 +791,8 @@ def update_user_permissions(user_id, current_user):
             f"RBAC_USER_PERMISSIONS_ADDED user_id={actual_user_id} added_count={added_count}"
         )
 
-        from ..services.cache import cache_service
+        from ..utils.service_helpers import get_service
+        cache_service = get_service('cache_service')
         cache_service.delete("rbac:user_permissions", user_id=actual_user_id)
 
         logging.info(

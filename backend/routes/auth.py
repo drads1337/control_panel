@@ -154,21 +154,13 @@ def _handle_simple_login(data: dict, ip: str, user_agent: str):
         password = data["password"]
 
         auth_service = get_service('auth_service')
-        response_data, error_code, error_message = auth_service.process_simple_login(
-            username, password, ip, user_agent
-        )
+        # Exceptions are handled by global handler
+        response_data = auth_service.process_simple_login(username, password, ip, user_agent)
 
-        if not response_data:
-
-            from ..utils.data_masking import mask_username
-            masked_username = mask_username(username) if username else "unknown"
-            log_suspicious(ip, "LOGIN_FAIL", f"username={masked_username}")
-            status_code = 401 if error_code == "INVALID_CREDENTIALS" else 403
-            return (
-                jsonify({"error": error_code, "msg": error_message, "message": error_message}),
-                status_code,
-            )
-
+        # Log suspicious activity for authentication errors (handled by exception handler)
+        from ..utils.data_masking import mask_username
+        masked_username = mask_username(username) if username else "unknown"
+        
         access_token = response_data.pop("access_token", None)
 
         response = make_response(jsonify(response_data))
@@ -242,12 +234,12 @@ def register(validated_data=None):
         if not validated_data:
             return jsonify({"error": "REGISTRATION_FAILED", "message": "Invalid request data"}), 400
 
-        from ...services.users.user_crud_service import user_crud_service
-        user, error = user_crud_service.create_user(
+        from ...utils.service_helpers import get_service
+        user_crud_service = get_service('user_crud_service')
+        # Exceptions are handled by global handler
+        user = user_crud_service.create_user(
             validated_data["username"], validated_data["email"], validated_data["password"]
         )
-        if not user:
-            return jsonify({"error": "REGISTRATION_FAILED", "message": error}), 400
 
         try:
             from ..services.webhooks import get_webhook_service
@@ -349,12 +341,12 @@ def register_with_invite():
                 invite.project_id = project_id
                 db.session.commit()
 
-        from ...services.users.user_crud_service import user_crud_service
-        user, error = user_crud_service.create_user(
+        from ...utils.service_helpers import get_service
+        user_crud_service = get_service('user_crud_service')
+        # Exceptions are handled by global handler
+        user = user_crud_service.create_user(
             username, None, password, project_id, UserRoles.ADMIN.value
         )
-        if not user:
-            return jsonify({"error": "REGISTRATION_FAILED", "message": error}), 400
 
         success, error = invite_service.use_invite_code(invite_code, user.id)
         if not success:

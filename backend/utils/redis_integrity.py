@@ -65,6 +65,21 @@ class RedisIntegrityProtection:
             )
             return hashlib.sha256("fallback_redis_integrity_key".encode()).digest()
     
+    def _get_key_pattern(self, key: str) -> str:
+        """
+        Extract key pattern from a Redis key for monitoring purposes.
+        
+        Args:
+            key: Redis key name
+            
+        Returns:
+            Key pattern (e.g., 'dynamic_config', 'session', 'challenge')
+        """
+        for pattern_name, pattern in self.PROTECTED_KEY_PATTERNS.items():
+            if key.startswith(pattern.replace("*", "")):
+                return pattern_name
+        return "unknown"
+    
     def _should_protect_key(self, key: str) -> bool:
         """
         Check if a key should be protected with HMAC.
@@ -160,9 +175,31 @@ class RedisIntegrityProtection:
                 f"[REDIS_INTEGRITY] HMAC verification failed for key {key} - "
                 f"possible tampering detected"
             )
+            
+            # Record integrity error for monitoring
+            try:
+                from ..services.monitoring.buffer_integrity_monitor import get_buffer_integrity_monitor
+                monitor = get_buffer_integrity_monitor()
+                # Determine key pattern
+                key_pattern = self._get_key_pattern(key)
+                monitor.record_redis_integrity_error(key_pattern)
+                monitor.record_redis_integrity_check(key_pattern, False)
+            except Exception as e:
+                logger.debug(f"Failed to record integrity error metrics: {e}")
+            
             return False, None
         
         logger.debug(f"[REDIS_INTEGRITY] Verified data for key {key}")
+        
+        # Record successful integrity check
+        try:
+            from ..services.monitoring.buffer_integrity_monitor import get_buffer_integrity_monitor
+            monitor = get_buffer_integrity_monitor()
+            key_pattern = self._get_key_pattern(key)
+            monitor.record_redis_integrity_check(key_pattern, True)
+        except Exception as e:
+            logger.debug(f"Failed to record integrity check metrics: {e}")
+        
         return True, data
     
     def store_with_integrity(
@@ -300,6 +337,14 @@ class RedisIntegrityProtection:
                     f"invalid={results['invalid_keys']} unsigned={results['unsigned_keys']} "
                     f"keys={results['invalid_key_list'][:10]}"
                 )
+            
+            # Record unsigned keys count for monitoring
+            try:
+                from ..services.monitoring.buffer_integrity_monitor import get_buffer_integrity_monitor
+                monitor = get_buffer_integrity_monitor()
+                monitor.record_unsigned_keys(key_pattern, results["unsigned_keys"])
+            except Exception as e:
+                logger.debug(f"Failed to record unsigned keys metrics: {e}")
             
             return results
         except Exception as e:

@@ -4,7 +4,6 @@ Provides centralized rate limiting for critical endpoints
 """
 
 import logging
-import time
 from functools import wraps
 from typing import Optional
 
@@ -90,9 +89,12 @@ def check_rate_limit_for_endpoint(endpoint_name, limit_string="10 per minute"):
 
 def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10):
     """
-    Enhanced rate limiting decorator for connect endpoints with progressive delays
+    Enhanced rate limiting decorator for connect endpoints
     Uses Redis for distributed rate limiting
     Supports both sync and async functions
+    
+    NOTE: Progressive delays were removed to avoid blocking worker threads.
+    Rate limiting works by returning 429 errors, not by blocking requests.
 
     Args:
         rate_limit: Maximum requests per minute
@@ -121,7 +123,6 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10):
 
             minute_key = f"rl_min:{user_key}:{ip}"
             burst_key = f"rl_burst:{user_key}:{ip}"
-            progressive_key = f"rl_prog:{user_key}:{ip}"
 
             burst_count = redis_client.incr(burst_key)
             if burst_count == 1:
@@ -139,13 +140,11 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10):
             if minute_count == 1:
                 redis_client.expire(minute_key, 60)
 
-            if minute_count > 1:
-                progressive_count = redis_client.incr(progressive_key)
-                if progressive_count == 1:
-                    redis_client.expire(progressive_key, 300)
-
-                delay = min(2 ** (progressive_count - 1), 16)
-                time.sleep(delay)
+            # NOTE: Removed blocking time.sleep() for progressive delays
+            # Progressive delays block worker threads and degrade performance under load.
+            # Rate limiting should work by returning 429 errors, not by blocking requests.
+            # If progressive delays are needed, they should be implemented asynchronously
+            # or using non-blocking mechanisms (e.g., gevent, async/await with proper event loop).
 
             if minute_count > rate_limit:
                 security_checker.log_suspicious_activity(ip, "RATE_LIMIT", user_key)

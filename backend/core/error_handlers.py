@@ -15,6 +15,11 @@ try:
 except ImportError:
     RateLimitExceeded = None
 
+try:
+    from ..utils.service_exceptions import ServiceError
+except ImportError:
+    ServiceError = None
+
 def register_error_handlers(app: Flask) -> None:
     """
     Register all error handlers for the application
@@ -110,9 +115,74 @@ def register_error_handlers(app: Flask) -> None:
                 429,
             )
 
+    # Register ServiceError handler before generic Exception handler
+    if ServiceError:
+        @app.errorhandler(ServiceError)
+        def handle_service_error(e: ServiceError):
+            """
+            Handle ServiceError and its subclasses (ValidationError, NotFoundError, etc.)
+            This provides unified error handling for the service layer.
+            """
+            logger = logging.getLogger(__name__)
+            
+            # Special handling for AuthenticationError - log suspicious activity
+            if hasattr(e, '__class__') and e.__class__.__name__ == 'AuthenticationError':
+                try:
+                    from flask import request
+                    ip = request.remote_addr if request else "unknown"
+                    # Log suspicious activity for authentication failures
+                    logger.warning(f"Suspicious activity from {ip}: LOGIN_FAIL - AuthenticationError: {e.message}")
+                except Exception:
+                    pass  # Don't fail if logging fails
+            
+            # Log the error with context if available
+            log_message = f"ServiceError: {type(e).__name__}: {e.message}"
+            if e.context:
+                context_str = " ".join(f"{k}={v}" for k, v in e.context.items())
+                log_message = f"{log_message} {context_str}"
+            
+            # Use appropriate log level based on status code
+            if e.status_code >= 500:
+                logger.error(log_message, exc_info=True)
+            elif e.status_code >= 400:
+                logger.warning(log_message)
+            else:
+                logger.info(log_message)
+            
+            # Build error response
+            error_response = {
+                "error": e.message,
+                "type": type(e).__name__.lower().replace("error", ""),
+            }
+            
+            # Add field information for ValidationError
+            if hasattr(e, "field") and e.field:
+                error_response["field"] = e.field
+            
+            # Add resource information for NotFoundError
+            if hasattr(e, "resource_type") and e.resource_type:
+                error_response["resource_type"] = e.resource_type
+                if hasattr(e, "resource_id") and e.resource_id:
+                    error_response["resource_id"] = e.resource_id
+            
+            # Add error_code for SecurityError
+            if hasattr(e, "error_code") and e.error_code:
+                error_response["error_code"] = e.error_code
+            
+            # In development, include more details
+            if Config.FLASK_ENV != "production" and app.debug:
+                error_response["exception_type"] = type(e).__name__
+                if e.context:
+                    error_response["context"] = e.context
+            
+            return jsonify(error_response), e.status_code
+
     @app.errorhandler(Exception)
     def handle_unhandled_exception(e):
         """Handle all unhandled exceptions"""
+        
+        # ServiceError should be handled by its specific handler above
+        # Flask will route ServiceError to the registered handler automatically
 
         if RateLimitExceeded and isinstance(e, RateLimitExceeded):
 

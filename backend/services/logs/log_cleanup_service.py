@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict
 
 from ...core.extensions import db
-from ...models.core import ProjectSettings, UserActivity
+from ...models.core import UserActivity
 from ...models.notifications import Notification
 from ...utils.structured_logging import get_logger
 

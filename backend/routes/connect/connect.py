@@ -10,7 +10,6 @@ from flask_jwt_extended import create_access_token, set_access_cookies
 from flask_wtf.csrf import CSRFProtect
 
 from ...config.config import Config
-from ...middleware.load_monitoring import monitor_load
 from ...middleware import require_mtls
 from ...middleware.rate_limiting import connect_rate_limit
 from ...services.connect import connect_service
@@ -48,7 +47,6 @@ def get_challenge():
 @connect_bp.route("/connect", methods=["POST"])
 @require_mtls
 @connect_rate_limit(rate_limit=Config.RATE_LIMIT, rate_limit_burst=Config.RATE_LIMIT_BURST)
-@monitor_load("connect")
 def api_connect():
     """
     Main connect endpoint

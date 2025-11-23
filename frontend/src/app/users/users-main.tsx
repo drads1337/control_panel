@@ -147,29 +147,31 @@ const UsersMain: React.FC = () => {
 
   if (!canViewUsers) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
-          <p className="text-muted-foreground">
-            You don't have permission to view users.
-          </p>
-          <p className="text-sm text-muted-foreground mt-2">
-            Your roles: {user?.roles?.join(', ') || 'unknown'}
-          </p>
-          <p className="text-sm text-muted-foreground mt-1">
-            Required permissions: employees.view or clients.view
-          </p>
+      <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 px-2 xs:px-3 sm:px-4 md:px-0">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <h2 className="text-lg xs:text-xl font-semibold mb-2">Access Denied</h2>
+            <p className="text-sm xs:text-base text-muted-foreground">
+              You don't have permission to view users.
+            </p>
+            <p className="text-xs xs:text-sm text-muted-foreground mt-2">
+              Your roles: {user?.roles?.join(', ') || 'unknown'}
+            </p>
+            <p className="text-xs xs:text-sm text-muted-foreground mt-1">
+              Required permissions: employees.view or clients.view
+            </p>
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 px-2 xs:px-3 sm:px-4 md:px-0">
       {}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">User Management</h1>
-        <p className="text-muted-foreground mt-2">
+      <div className="mb-3 xs:mb-4 sm:mb-5 md:mb-6">
+        <h1 className="text-xl xs:text-2xl sm:text-2xl md:text-3xl font-bold tracking-tight text-foreground leading-tight">User Management</h1>
+        <p className="text-xs xs:text-sm sm:text-sm md:text-base text-muted-foreground mt-1 xs:mt-1.5 sm:mt-2 leading-snug">
           Manage employees, clients, roles, and permissions
         </p>
       </div>
@@ -182,8 +184,8 @@ const UsersMain: React.FC = () => {
         <>
           {availableTabs.length > 1 ? (
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <div className="relative mb-4">
-                <TabsList className={`grid w-full h-14 bg-muted border border-border rounded-lg p-1`} style={{gridTemplateColumns: `repeat(${availableTabs.length}, 1fr)`}}>
+              <div className="relative mb-3 xs:mb-4">
+                <TabsList className={`grid w-full h-12 xs:h-14 bg-muted border border-border rounded-lg p-1`} style={{gridTemplateColumns: `repeat(${availableTabs.length}, 1fr)`}}>
                   {availableTabs.map((tab) => {
                     const Icon = tab.icon
                     return (
@@ -202,7 +204,7 @@ const UsersMain: React.FC = () => {
 
               <TabsContents>
                 {canViewEmployees && (
-                  <TabsContent value="employees" className="space-y-6">
+                  <TabsContent value="employees" className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6">
                     <EmployeesTab 
                       fetchUsersWithTracking={fetchUsersWithTracking}
                       currentPage={currentPage}
@@ -218,19 +220,19 @@ const UsersMain: React.FC = () => {
                 )}
 
                 {canViewClients && (
-                  <TabsContent value="clients" className="space-y-6">
+                  <TabsContent value="clients" className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6">
                     <ClientsTab />
                   </TabsContent>
                 )}
 
                 {canViewRbac && (
-                  <TabsContent value="rbac" className="space-y-6">
+                  <TabsContent value="rbac" className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6">
                     <RBACTab />
                   </TabsContent>
                 )}
 
                 {canViewReferrals && (
-                  <TabsContent value="referrals" className="space-y-6">
+                  <TabsContent value="referrals" className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6">
                     <ReferralsTab />
                   </TabsContent>
                 )}
@@ -240,7 +242,7 @@ const UsersMain: React.FC = () => {
 
             <>
               {canViewEmployees && activeTab === 'employees' && (
-                <div className="space-y-6 mt-4">
+                <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-3 xs:mt-4">
                   <EmployeesTab 
                     fetchUsersWithTracking={fetchUsersWithTracking}
                     currentPage={currentPage}
@@ -255,17 +257,17 @@ const UsersMain: React.FC = () => {
                 </div>
               )}
               {canViewClients && activeTab === 'clients' && (
-                <div className="space-y-6 mt-4">
+                <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-3 xs:mt-4">
                   <ClientsTab />
                 </div>
               )}
               {canViewRbac && activeTab === 'rbac' && (
-                <div className="space-y-6 mt-4">
+                <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-3 xs:mt-4">
                   <RBACTab />
                 </div>
               )}
               {canViewReferrals && activeTab === 'referrals' && (
-                <div className="space-y-6 mt-4">
+                <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-3 xs:mt-4">
                   <ReferralsTab />
                 </div>
               )}

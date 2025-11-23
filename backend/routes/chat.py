@@ -1,15 +1,13 @@
-import asyncio
 import json
 import logging
 from datetime import datetime, timedelta
 
-import telegram
 from flask import Blueprint, current_app, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ..core.extensions import db
 from ..models.chat import ChatGroup, ChatGroupProduct, ChatMessage, DiscordWebhook, TelegramBot
-from ..models.core import Project, ProjectSettings, User
+from ..models.core import Project, User
 from ..models.products import Product, ProductChatSettings
 from ..models.keys import Key
 from ..models.agents import Agent
@@ -49,17 +47,87 @@ def find_product_by_id_or_unique_id(product_identifier, project_id):
     return product
 
 class TelegramBotManager:
+    """
+    Telegram Bot Manager - Synchronous implementation
+    
+    OPTIMIZATION: Changed from async telegram.Bot to synchronous HTTP API
+    to avoid creating new event loops in Flask routes (which is inefficient).
+    Uses requests library like webhook_service for consistency.
+    """
 
     def __init__(self):
         self.bots = {}
+        self.timeout = 10  # Request timeout in seconds
 
-    async def send_message(self, bot_token, chat_id, message, parse_mode="HTML"):
+    def send_message(self, bot_token, chat_id, message, parse_mode="HTML"):
+        """
+        Send message to Telegram using synchronous HTTP API
+        
+        Args:
+            bot_token: Telegram bot token
+            chat_id: Telegram chat ID
+            message: Message text
+            parse_mode: Message parse mode (default: HTML)
+            
+        Returns:
+            message_id if successful, None otherwise
+        """
         try:
-            bot = telegram.Bot(token=bot_token)
-            result = await bot.send_message(chat_id=chat_id, text=message, parse_mode=parse_mode)
-            return result.message_id
+            import requests
+            
+            url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+            payload = {
+                "chat_id": chat_id,
+                "text": message,
+                "parse_mode": parse_mode,
+            }
+            
+            response = requests.post(url, json=payload, timeout=self.timeout)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if result.get("ok"):
+                    return result.get("result", {}).get("message_id")
+            else:
+                logger.error(f"Telegram API error: HTTP {response.status_code} - {response.text}")
+                return None
+                
+        except requests.exceptions.Timeout:
+            logger.error(f"Error sending message to Telegram: Request timeout")
+            return None
+        except requests.exceptions.ConnectionError:
+            logger.error(f"Error sending message to Telegram: Connection error")
+            return None
         except Exception as e:
             logger.error(f"Error sending message to Telegram: {e}")
+            return None
+
+    def get_bot_info(self, bot_token):
+        """
+        Get bot information using synchronous HTTP API
+        
+        Args:
+            bot_token: Telegram bot token
+            
+        Returns:
+            Bot info dict with username, or None if error
+        """
+        try:
+            import requests
+            
+            url = f"https://api.telegram.org/bot{bot_token}/getMe"
+            response = requests.get(url, timeout=self.timeout)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if result.get("ok"):
+                    return result.get("result")
+            else:
+                logger.error(f"Telegram API error getting bot info: HTTP {response.status_code} - {response.text}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error getting bot info: {e}")
             return None
 
     def format_message(self, sender_type, sender_name, message):
@@ -155,31 +223,33 @@ def send_message(project_id=None):
             )
         )
 
-        settings = ProjectSettings.query.filter_by(project_id=project_id).first()
+        from ..utils.project_settings_migration import ProjectSettingsHelper
+        helper = ProjectSettingsHelper(project_id)
+        chat_settings = helper.get_chat_settings()
         product_settings = None
         if product_id:
             product_settings = ProductChatSettings.query.filter_by(
                 product_id=product_id, project_id=project_id
             ).first()
-        if settings:
+        if chat_settings:
             max_len = (
                 product_settings.message_max_length
                 if (product_settings and product_settings.message_max_length is not None)
-                else settings.chat_message_max_length
+                else chat_settings.chat_message_max_length
             )
             per_min = (
                 product_settings.message_limit_per_minute
                 if (product_settings and product_settings.message_limit_per_minute is not None)
-                else settings.chat_message_limit_per_minute
+                else chat_settings.chat_message_limit_per_minute
             )
             daily = (
                 product_settings.daily_message_limit
                 if (product_settings and product_settings.daily_message_limit is not None)
-                else settings.chat_daily_message_limit
+                else chat_settings.chat_daily_message_limit
             )
             if max_len and len(message_text) > max_len:
                 return (
-                    jsonify({"error": f"Message too long (>{settings.chat_message_max_length})"}),
+                    jsonify({"error": f"Message too long (>{chat_settings.chat_message_max_length})"}),
                     400,
                 )
 
@@ -251,20 +321,15 @@ def send_message(project_id=None):
             formatted_message = bot_manager.format_message(sender_type, sender_name, message_text)
 
             try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                telegram_message_id = loop.run_until_complete(
-                    bot_manager.send_message(
-                        telegram_bot.bot_token, telegram_bot.chat_id, formatted_message
-                    )
+                # OPTIMIZATION: Use synchronous HTTP API instead of async event loop
+                telegram_message_id = bot_manager.send_message(
+                    telegram_bot.bot_token, telegram_bot.chat_id, formatted_message
                 )
 
                 if telegram_message_id:
                     chat_message.telegram_message_id = str(telegram_message_id)
                     chat_message.is_sent_to_telegram = True
                     db.session.commit()
-
-                loop.close()
             except Exception as e:
                 logger.error(f"Error sending to Telegram: {e}")
 
@@ -381,33 +446,19 @@ def configure_telegram_bot():
 
         existing_bot = TelegramBot.query.filter_by(project_id=project_id).first()
 
+        # OPTIMIZATION: Use synchronous HTTP API instead of async event loop
+        bot_info = bot_manager.get_bot_info(bot_token)
+        if not bot_info:
+            return jsonify({"error": "Invalid bot token"}), 400
+
+        bot_username = bot_info.get("username")
+
         if existing_bot:
             existing_bot.bot_token = bot_token
             existing_bot.chat_id = chat_id
+            existing_bot.bot_username = bot_username
             existing_bot.updated_at = datetime.utcnow()
-
-            try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                bot = telegram.Bot(token=bot_token)
-                bot_info = loop.run_until_complete(bot.get_me())
-                existing_bot.bot_username = bot_info.username
-                loop.close()
-            except Exception as e:
-                logger.error(f"Error getting bot info: {e}")
-                existing_bot.bot_username = None
         else:
-            try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                bot = telegram.Bot(token=bot_token)
-                bot_info = loop.run_until_complete(bot.get_me())
-                bot_username = bot_info.username
-                loop.close()
-            except Exception as e:
-                logger.error(f"Error getting bot info: {e}")
-                return jsonify({"error": "Invalid bot token"}), 400
-
             existing_bot = TelegramBot(
                 project_id=project_id,
                 bot_token=bot_token,
@@ -522,7 +573,7 @@ def send_client_message():
                 daily_count = ChatMessage.query.filter(
                     ChatMessage.project_id == project.id, ChatMessage.created_at >= start_of_day
                 ).count()
-                if daily_count >= settings.chat_daily_message_limit:
+                if daily_count >= chat_settings.chat_daily_message_limit:
                     return jsonify({"error": "Daily message limit reached"}), 429
 
         if product_id:
@@ -559,20 +610,15 @@ def send_client_message():
             formatted_message = bot_manager.format_message("client", sender_name, message_text)
 
             try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                telegram_message_id = loop.run_until_complete(
-                    bot_manager.send_message(
-                        telegram_bot.bot_token, telegram_bot.chat_id, formatted_message
-                    )
+                # OPTIMIZATION: Use synchronous HTTP API instead of async event loop
+                telegram_message_id = bot_manager.send_message(
+                    telegram_bot.bot_token, telegram_bot.chat_id, formatted_message
                 )
 
                 if telegram_message_id:
                     chat_message.telegram_message_id = str(telegram_message_id)
                     chat_message.is_sent_to_telegram = True
                     db.session.commit()
-
-                loop.close()
             except Exception as e:
                 logger.error(f"Error sending to Telegram: {e}")
 
@@ -622,12 +668,13 @@ def get_product_chat_settings(product_identifier):
         s = ProductChatSettings.query.filter_by(product_id=product.id, project_id=project_id).first()
         if not s:
 
-            ps = ProjectSettings.query.filter_by(project_id=project_id).first()
+            helper = ProjectSettingsHelper(project_id)
+            chat_settings = helper.get_chat_settings()
             return jsonify(
                 {
                     "telegram_enabled": True,
                     "discord_enabled": True,
-                    "message_limit_per_minute": None,
+                    "message_limit_per_minute": chat_settings.chat_message_limit_per_minute,
                     "daily_message_limit": None,
                     "message_max_length": None,
                     "defaults": {
@@ -718,17 +765,13 @@ def get_chat_settings():
         project_id = getattr(g, "project_id", user.project_id)
         if not project_id:
             return jsonify({"error": "User not associated with any project"}), 400
-        settings = ProjectSettings.query.filter_by(project_id=project_id).first()
-        if not settings:
-
-            settings = ProjectSettings(project_id=project_id)
-            db.session.add(settings)
-            db.session.commit()
+        helper = ProjectSettingsHelper(project_id)
+        chat_settings = helper.get_chat_settings()
         return jsonify(
             {
-                "chat_message_limit_per_minute": settings.chat_message_limit_per_minute,
-                "chat_daily_message_limit": settings.chat_daily_message_limit,
-                "chat_message_max_length": settings.chat_message_max_length,
+                "chat_message_limit_per_minute": chat_settings.chat_message_limit_per_minute,
+                "chat_daily_message_limit": chat_settings.chat_daily_message_limit,
+                "chat_message_max_length": chat_settings.chat_message_max_length,
             }
         )
     except Exception as e:
@@ -759,18 +802,16 @@ def update_chat_settings():
         if not project_id:
             return jsonify({"error": "User not associated with any project"}), 400
         data = request.get_json()
-        settings = ProjectSettings.query.filter_by(project_id=project_id).first()
-        if not settings:
-            settings = ProjectSettings(project_id=project_id)
-            db.session.add(settings)
+        helper = ProjectSettingsHelper(project_id)
+        chat_settings = helper.get_chat_settings()
         if "chat_message_limit_per_minute" in data:
             chat_settings.chat_message_limit_per_minute = int(
                 data.get("chat_message_limit_per_minute") or 0
             )
         if "chat_daily_message_limit" in data:
-            settings.chat_daily_message_limit = int(data.get("chat_daily_message_limit") or 0)
+            chat_settings.chat_daily_message_limit = int(data.get("chat_daily_message_limit") or 0)
         if "chat_message_max_length" in data:
-            settings.chat_message_max_length = int(data.get("chat_message_max_length") or 0)
+            chat_settings.chat_message_max_length = int(data.get("chat_message_max_length") or 0)
         db.session.commit()
         return jsonify({"message": "Chat settings updated"})
     except Exception as e:
