@@ -19,7 +19,7 @@ from ..utils.rbac_utils import RBACManager
 
 logs_bp = Blueprint("logs", __name__)
 
-def _get_logs_query_filter(user, user_id, project_id_param=None):
+def _get_logs_query_filter(user, user_id, project_id_param=None, project_id=None):
     """
     Get the appropriate query filter based on user permissions.
     SECURITY: Always applies project_id filtering to prevent data leakage.
@@ -27,12 +27,11 @@ def _get_logs_query_filter(user, user_id, project_id_param=None):
     - query_filter_dict: dict with filters to apply (None means no project filter - for owners only)
     - can_view_all_project_logs: bool indicating if user can view all project logs (True if user has logs.view permission)
     """
-    from flask import g
-
     user_roles = RBACManager.get_user_role_names(user)
     is_owner = user_roles and user_roles[0] == "owner"
 
-    project_id = getattr(g, "project_id", None)
+    # Use project_id from parameter, fallback to user.project_id
+    project_id = project_id or user.project_id if user else None
 
     if is_owner:
 
@@ -91,11 +90,9 @@ def _get_logs_query_filter(user, user_id, project_id_param=None):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def get_logs():
-    from flask import g
-
+def get_logs(current_user=None, project_id=None):
     user_id = get_jwt_identity()
-    user = User.query.get(user_id)
+    user = current_user or User.query.get(user_id)
 
     if not user:
         return jsonify({"error": "User not found"}), 404
@@ -127,7 +124,8 @@ def get_logs():
     user_roles = RBACManager.get_user_role_names(user)
     is_owner = user_roles and user_roles[0] == "owner"
 
-    project_id = getattr(g, "project_id", None)
+    # Use project_id from parameter, fallback to user.project_id
+    project_id = project_id or user.project_id
 
     if not is_owner:
         if project_id is None:
@@ -144,7 +142,7 @@ def get_logs():
 
         project_id_param = None
 
-    query_filters, can_view_all_project_logs = _get_logs_query_filter(user, user_id, project_id_param)
+    query_filters, can_view_all_project_logs = _get_logs_query_filter(user, user_id, project_id_param, project_id=project_id)
 
     if query_filters is None and not is_owner:
         return jsonify({"error": "Project isolation required"}), 403
@@ -585,11 +583,9 @@ def get_connection_log_stats():
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def get_log_stats():
-    from flask import g
-
+def get_log_stats(current_user=None, project_id=None):
     user_id = get_jwt_identity()
-    user = User.query.get(user_id)
+    user = current_user or User.query.get(user_id)
 
     if not user:
         return jsonify({"error": "User not found"}), 404
@@ -603,7 +599,9 @@ def get_log_stats():
 
     # Use the same filter logic as get_logs() to respect logs.view permission
     project_id_param = request.args.get("project_id", type=int)
-    query_filters, can_view_all_project_logs = _get_logs_query_filter(user, user_id, project_id_param)
+    # Use project_id from parameter, fallback to user.project_id
+    project_id = project_id or user.project_id
+    query_filters, can_view_all_project_logs = _get_logs_query_filter(user, user_id, project_id_param, project_id=project_id)
 
     if query_filters is None and not is_owner:
         return jsonify({"error": "Project isolation required"}), 403
@@ -714,11 +712,9 @@ def get_log_stats():
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def export_logs():
-    from flask import g
-
+def export_logs(current_user=None, project_id=None):
     user_id = get_jwt_identity()
-    user = User.query.get(user_id)
+    user = current_user or User.query.get(user_id)
 
     if not user:
         return jsonify({"error": "User not found"}), 404
@@ -759,7 +755,9 @@ def export_logs():
     query = UserActivity.query
 
     # Use the same filter logic as get_logs() to respect logs.view permission
-    query_filters, can_view_all_project_logs = _get_logs_query_filter(user, user_id, project_id_param)
+    # Use project_id from parameter, fallback to user.project_id
+    project_id = project_id or user.project_id
+    query_filters, can_view_all_project_logs = _get_logs_query_filter(user, user_id, project_id_param, project_id=project_id)
 
     if query_filters is None and not is_owner:
         return jsonify({"error": "Project isolation required"}), 403
@@ -776,7 +774,7 @@ def export_logs():
         if is_owner and not project_id_param:
             filtered_user = User.query.filter_by(id=user_filter).first()
         else:
-            project_id_for_check = project_id_param if is_owner and project_id_param else (getattr(g, "project_id", None) or user.project_id)
+            project_id_for_check = project_id_param if is_owner and project_id_param else (project_id or user.project_id)
             filtered_user = User.query.filter_by(id=user_filter, project_id=project_id_for_check).first()
         if filtered_user:
             query = query.filter_by(user_id=user_filter)
@@ -809,7 +807,7 @@ def export_logs():
         'date_to_obj': date_to_obj,
         'user': user,
         'user_id': user_id,
-        'project_id_for_users': project_id_param if is_owner and project_id_param else (getattr(g, "project_id", None) or user.project_id) if hasattr(g, "project_id") else user.project_id,
+        'project_id_for_users': project_id_param if is_owner and project_id_param else (project_id or user.project_id),
     }
 
     @copy_current_request_context

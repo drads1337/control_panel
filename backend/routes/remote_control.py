@@ -6,7 +6,7 @@ Handles remote control categories and features management
 import logging
 from datetime import datetime
 
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 
 from ..core.extensions import db

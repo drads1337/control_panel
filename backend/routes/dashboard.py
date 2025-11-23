@@ -2,7 +2,7 @@ import logging
 import random
 from datetime import datetime, timedelta
 
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from sqlalchemy import and_, desc, func, or_
 
@@ -23,7 +23,7 @@ dashboard_bp = Blueprint("dashboard", __name__)
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def get_dashboard_stats():
+def get_dashboard_stats(project_id=None):
     """
     Get overall dashboard statistics
     Optimized version with fixed N+1 problems
@@ -35,7 +35,7 @@ def get_dashboard_stats():
         if not user:
             return jsonify({"error": "Access denied"}), 403
 
-        project_filter = getattr(g, "project_id", None)
+        project_filter = project_id
 
         is_owner = RBACManager.is_owner(user)
 
@@ -413,7 +413,7 @@ def get_dashboard_stats():
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def get_activity_feed():
+def get_activity_feed(project_id=None):
     """Get activity feed"""
     try:
         user_id = get_jwt_identity()
@@ -422,7 +422,7 @@ def get_activity_feed():
         if not user:
             return jsonify({"error": "Access denied"}), 403
 
-        project_filter = getattr(g, "project_id", None)
+        project_filter = project_id
         is_owner = RBACManager.is_owner(user)
 
         if project_filter is None and not is_owner:
@@ -487,7 +487,7 @@ def get_api_metrics():
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def _authenticated_api_metrics():
+def _authenticated_api_metrics(project_id=None):
 
     try:
         user_id = get_jwt_identity()
@@ -496,7 +496,7 @@ def _authenticated_api_metrics():
         if not user:
             return jsonify({"error": "Access denied"}), 403
 
-        project_filter = getattr(g, "project_id", None)
+        project_filter = project_id
         is_owner = RBACManager.is_owner(user)
 
         if project_filter is None and not is_owner:
@@ -898,7 +898,7 @@ def _authenticated_api_metrics():
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def get_load_status():
+def get_load_status(project_id=None):
     """
     Get load status for connect and heartbeat endpoints.
     Statistics are filtered by project_id for project isolation.
@@ -910,7 +910,7 @@ def get_load_status():
         if not user:
             return jsonify({"error": "Access denied"}), 403
 
-        project_filter = getattr(g, "project_id", None)
+        project_filter = project_id
         is_owner = RBACManager.is_owner(user)
 
         if project_filter is None and not is_owner:

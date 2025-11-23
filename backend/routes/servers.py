@@ -6,10 +6,10 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ..middleware.auth import (
-    get_current_user,
     require_permission,
     require_project_isolation,
     require_project_with_grace_period,
+    require_user,
 )
 from ..services.activity import activity_service
 from ..services.servers import server_service
@@ -176,11 +176,11 @@ def delete_server(server_id):
 
 @servers_bp.route("/<int:server_id>/start", methods=["POST"])
 @jwt_required()
+@require_user
 @require_project_with_grace_period
 @require_project_isolation
 @require_permission("servers.manage")
-def start_server_route(server_id):
-    current_user = get_current_user()
+def start_server_route(server_id, current_user):
     server = server_service.get_server_by_id(server_id, current_user)
 
     if not server:

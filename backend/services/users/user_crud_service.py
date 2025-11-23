@@ -330,7 +330,7 @@ class UserCRUDService:
             return False, "Failed to update user expiry"
 
     def delete_user_safely(
-        self, current_user: User, target_user_id: int
+        self, current_user: User, target_user_id: int, project_id: Optional[int] = None
     ) -> Tuple[bool, Optional[str]]:
         """
         Safely delete a user with all related data
@@ -338,6 +338,7 @@ class UserCRUDService:
         Args:
             current_user: User performing the deletion
             target_user_id: ID of user to delete
+            project_id: Optional project ID for scoping (passed by middleware)
 
         Returns:
             Tuple of (success, error_message)
@@ -359,9 +360,9 @@ class UserCRUDService:
                 if RBACManager.is_admin(target_user) or RBACManager.is_owner(target_user):
                     return False, "Cannot delete owner or admin users"
             else:
-                from flask import g
-
-                if getattr(g, "project_id", None) != target_user.project_id:
+                # For users with delete_all permission, check project_id scope
+                scoped_project_id = project_id or current_user.project_id
+                if scoped_project_id and scoped_project_id != target_user.project_id:
                     return False, "Access denied"
 
                 if RBACManager.is_admin(target_user) or RBACManager.is_owner(target_user):

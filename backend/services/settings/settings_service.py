@@ -44,8 +44,13 @@ class SettingsService:
         """Get cache service instance"""
         return self.cache_service if self.cache_service is not None else cache_service
 
-    def get_settings_cached(self, user_id: int) -> Dict[str, Any]:
-        """Get project settings with caching support"""
+    def get_settings_cached(self, user_id: int, project_id: Optional[int] = None) -> Dict[str, Any]:
+        """Get project settings with caching support
+
+        Args:
+            user_id: User ID
+            project_id: Optional project ID (passed by middleware)
+        """
 
         def fetch_settings():
             """Fetch settings from database"""
@@ -75,12 +80,10 @@ class SettingsService:
                 # Check if user is owner - owners can work without project_id
                 is_owner = RBACManager.is_owner(user)
                 
+                # Use project_id from parameter (passed by middleware) or fallback logic
                 if not project_id:
                     if is_owner:
-                        # For owners without project_id, we need a project_id from request context
-                        # This should be set by middleware when owner selects a project
-                        from flask import g
-                        project_id = getattr(g, 'project_id', None)
+                        # For owners without project_id, try to use first available project as fallback
                         if not project_id:
                             # If no project_id in request context, try to use first available project as fallback
                             try:
@@ -556,7 +559,7 @@ class SettingsService:
             # Return empty keys instead of raising to prevent 500 errors
             return {"aes_key": "", "public_key": ""}
 
-    def update_settings_cached(self, user_id: int, settings_data: Dict[str, Any]) -> Dict[str, Any]:
+    def update_settings_cached(self, user_id: int, settings_data: Dict[str, Any], project_id: Optional[int] = None) -> Dict[str, Any]:
         """Update project settings and invalidate cache"""
         try:
             user = User.query.get(user_id)
@@ -567,11 +570,10 @@ class SettingsService:
             is_owner = RBACManager.is_owner(user)
             project_id = user.project_id
             
+            # Use project_id from parameter (passed by middleware) or fallback logic
             if not project_id:
                 if is_owner:
-                    # For owners without project_id, we need a project_id from request context
-                    from flask import g
-                    project_id = getattr(g, 'project_id', None)
+                    # For owners without project_id, try to use first available project as fallback
                     if not project_id:
                         # If no project_id in request context, try to use first available project as fallback
                         try:

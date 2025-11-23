@@ -3,7 +3,7 @@ User Balance Routes
 Handles balance management: topup, deduct
 """
 
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 
 from ...models import User

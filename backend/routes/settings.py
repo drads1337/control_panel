@@ -218,22 +218,20 @@ def get_or_create_project_keys(project_id):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def get_settings():
+def get_settings(current_user=None, project_id=None):
     """
     Get project settings for the current user.
     
     Returns:
         JSON response with settings data or error message
     """
-    from flask import g
     user_id = get_jwt_identity()
-    # Get project_id from context (set by middleware)
-    project_id = getattr(g, "project_id", None)
+    # Get project_id from parameter (passed by middleware)
     logger.info("Getting settings", user_id=user_id, project_id=project_id)
 
     from ..services.settings import settings_service
 
-    result = settings_service.get_settings_cached(user_id=user_id)
+    result = settings_service.get_settings_cached(user_id=user_id, project_id=project_id)
 
     if result is None:
         logger.error("Settings service returned None", user_id=user_id, project_id=project_id)

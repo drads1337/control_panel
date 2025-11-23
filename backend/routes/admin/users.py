@@ -78,7 +78,7 @@ def get_users(current_user, project_id=None):
 @enforce_project_scope
 @require_role(RolePermissions.USER_CREATION_ROLES)
 @validate_request(UserCreateSchema)
-def add_user(current_user, validated_data=None):
+def add_user(current_user, validated_data=None, project_id=None):
     """Create a new user with roles and product permissions"""
     import logging
 
@@ -91,7 +91,7 @@ def add_user(current_user, validated_data=None):
 
     try:
         # Use DI helper function instead of facade
-        user, error = create_user_with_roles_and_products(current_user, data)
+        user, error = create_user_with_roles_and_products(current_user, data, project_id=project_id)
 
         if error:
             return jsonify({"error": error}), 400
@@ -131,10 +131,10 @@ def add_user(current_user, validated_data=None):
 @require_user
 @enforce_project_scope
 @require_role(RolePermissions.ADMIN_ROLES)
-def delete_user(user_id, current_user):
+def delete_user(user_id, current_user, project_id=None):
     """Delete a user safely"""
 
-    success, error = user_crud_service.delete_user_safely(current_user, user_id)
+    success, error = user_crud_service.delete_user_safely(current_user, user_id, project_id=project_id)
 
     if not success:
         return jsonify({"error": error}), 400 if "not found" in error.lower() else 403

@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timedelta
 
 import telegram
-from flask import Blueprint, current_app, g, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ..core.extensions import db

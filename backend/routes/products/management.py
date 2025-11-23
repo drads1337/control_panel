@@ -52,10 +52,10 @@ def find_product_by_id_or_unique_id(product_identifier, project_id):
 @jwt_required()
 @require_project_with_grace_period
 @enforce_project_scope
-def get_products_count():
+def get_products_count(current_user, project_id=None):
     """Get count of products (optimized endpoint that doesn't load full product data)"""
     user_id = get_jwt_identity()
-    user = User.query.get(user_id)
+    user = current_user or User.query.get(user_id)
 
     if not user:
         return jsonify({"error": "User not found"}), 404
@@ -66,9 +66,7 @@ def get_products_count():
     if not user.project_id and not has_clients_view:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    from flask import g
-
-    scoped_project_id = getattr(g, "project_id", user.project_id)
+    scoped_project_id = project_id or user.project_id
     if not scoped_project_id:
         if has_clients_view:
             return jsonify({"success": True, "count": 0})
@@ -98,10 +96,10 @@ def get_products_count():
 @jwt_required()
 @require_project_with_grace_period
 @enforce_project_scope
-def get_products():
+def get_products(current_user=None, project_id=None):
     """Get list of products"""
     user_id = get_jwt_identity()
-    user = User.query.get(user_id)
+    user = current_user or User.query.get(user_id)
 
     if not user:
         return jsonify({"error": "User not found"}), 404
@@ -113,9 +111,7 @@ def get_products():
     if not user.project_id and not has_clients_view:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    from flask import g
-
-    scoped_project_id = getattr(g, "project_id", user.project_id)
+    scoped_project_id = project_id or user.project_id
     if not scoped_project_id:
         # If user has clients.view permission but no project_id, try to get project_id from request
         # This allows viewing products when editing users from different projects
@@ -223,10 +219,10 @@ def get_products():
 @jwt_required()
 @require_project_with_grace_period
 @enforce_project_scope
-def get_available_products_for_assignment():
+def get_available_products_for_assignment(current_user=None, project_id=None):
     """Get multi-app products that are not assigned to any agent, with pagination support"""
     user_id = get_jwt_identity()
-    user = User.query.get(user_id)
+    user = current_user or User.query.get(user_id)
 
     if not user:
         return jsonify({"error": "User not found"}), 404
@@ -234,9 +230,7 @@ def get_available_products_for_assignment():
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    from flask import g
-
-    scoped_project_id = getattr(g, "project_id", user.project_id)
+    scoped_project_id = project_id or user.project_id
     if not scoped_project_id:
         return jsonify({"error": "No project associated"}), 400
 

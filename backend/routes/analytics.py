@@ -30,15 +30,13 @@ analytics_bp = Blueprint("analytics", __name__)
 @analytics_bp.route("/dashboard/overview", methods=["GET"])
 @jwt_required()
 @enforce_project_scope
-def get_dashboard_overview():
+def get_dashboard_overview(current_user=None, project_id=None):
     """
     Get comprehensive dashboard overview with analytics
     """
     try:
-        from flask import g
-
         user_id = get_jwt_identity()
-        user = User.query.get(user_id)
+        user = current_user or User.query.get(user_id)
 
         if not user:
             return jsonify({"error": "User not found"}), 404
@@ -48,7 +46,8 @@ def get_dashboard_overview():
         if not rbac_service.check_permission(user.id, "analytics.view"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
-        project_id = getattr(g, "project_id", None)
+        # Use project_id from parameter or fallback to user.project_id
+        project_id = project_id or user.project_id
         period_days = request.args.get("period_days", 30, type=int)
 
         period_days = min(max(period_days, 1), 365)

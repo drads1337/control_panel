@@ -191,11 +191,7 @@ class UserManagementServiceFacade:
                 current_user.id, "employees.view"
             ) or rbac_service.check_permission(current_user.id, "clients.view")
             if not can_manage_all:
-                project_id = current_user.project_id
-            else:
-                from flask import g
-
-                project_id = getattr(g, "project_id", project_id)
+                project_id = project_id or current_user.project_id
 
             # Validate roles
             if rbac_role_ids and project_id:

@@ -2,7 +2,7 @@ import logging
 import os
 import traceback
 
-from flask import Blueprint, current_app, g, jsonify, request, send_file
+from flask import Blueprint, current_app, jsonify, request, send_file
 from flask_jwt_extended import get_jwt_identity, jwt_required, verify_jwt_in_request
 
 from ..core.extensions import db

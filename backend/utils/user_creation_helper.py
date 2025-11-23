@@ -20,7 +20,7 @@ from .service_helpers import (
 
 
 def create_user_with_roles_and_products(
-    current_user: User, data: Dict[str, Any]
+    current_user: User, data: Dict[str, Any], project_id: Optional[int] = None
 ) -> Tuple[Optional[User], Optional[str]]:
     """
     Create user with RBAC roles and product permissions using DI services.
@@ -47,7 +47,6 @@ def create_user_with_roles_and_products(
         Tuple of (User instance or None, error message or None)
     """
     try:
-        from flask import g
         from werkzeug.security import generate_password_hash
 
         # Get DI services
@@ -94,16 +93,14 @@ def create_user_with_roles_and_products(
                     f"Insufficient balance. Required: {token_balance}, Available: {current_user.token_balance}",
                 )
 
-        # Determine project_id
-        project_id = data.get("project_id")
+        # Determine project_id - use parameter first, then data, then current_user.project_id
+        project_id = project_id or data.get("project_id")
         can_manage_all = rbac_service.check_permission(
             current_user.id, "employees.view"
         ) or rbac_service.check_permission(current_user.id, "clients.view")
         
         if not can_manage_all:
-            project_id = current_user.project_id
-        else:
-            project_id = getattr(g, "project_id", project_id)
+            project_id = project_id or current_user.project_id
 
         # Validate roles
         if rbac_role_ids and project_id:

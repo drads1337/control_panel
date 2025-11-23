@@ -929,7 +929,6 @@ def require_project_isolation(f):
             g.current_project = project
 
             # Always pass parameters via kwargs for explicit dependency injection
-            # This allows routes to use explicit parameters instead of flask.g
             sig = inspect.signature(f)
             if "current_user" in sig.parameters and "current_user" not in kwargs:
                 kwargs["current_user"] = user

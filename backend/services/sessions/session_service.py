@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
-from flask import current_app, g, request
+from flask import current_app, request
 
 from ...core.extensions import db
 from ...models.core import User, UserActivity

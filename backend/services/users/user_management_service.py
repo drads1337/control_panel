@@ -392,11 +392,7 @@ class UserManagementService:
                 current_user.id, "employees.view"
             ) or rbac_service.check_permission(current_user.id, "clients.view")
             if not can_manage_all:
-                project_id = current_user.project_id
-            else:
-                from flask import g
-
-                project_id = getattr(g, "project_id", project_id)
+                project_id = project_id or current_user.project_id
 
             if rbac_role_ids and project_id:
                 for role_id in rbac_role_ids:
@@ -593,7 +589,7 @@ class UserManagementService:
             return None, f"Failed to create user: {str(e)}"
 
     def delete_user_safely(
-        self, current_user: User, target_user_id: int
+        self, current_user: User, target_user_id: int, project_id: Optional[int] = None
     ) -> Tuple[bool, Optional[str]]:
         """
         Safely delete a user with all related data
@@ -601,6 +597,7 @@ class UserManagementService:
         Args:
             current_user: User performing the deletion
             target_user_id: ID of user to delete
+            project_id: Optional project ID for scoping (passed by middleware)
 
         Returns:
             Tuple of (success, error_message)
@@ -622,9 +619,9 @@ class UserManagementService:
                 if RBACManager.is_admin(target_user) or RBACManager.is_owner(target_user):
                     return False, "Cannot delete owner or admin users"
             else:
-                from flask import g
-
-                if getattr(g, "project_id", None) != target_user.project_id:
+                # For users with delete_all permission, check project_id scope
+                scoped_project_id = project_id or current_user.project_id
+                if scoped_project_id and scoped_project_id != target_user.project_id:
                     return False, "Access denied"
 
                 if RBACManager.is_admin(target_user) or RBACManager.is_owner(target_user):

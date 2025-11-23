@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 from PIL import Image
 from sqlalchemy import case, func
