@@ -520,12 +520,17 @@ def get_webhook_events():
 
         event_categories = {
             "keys": [e for e in events if e.startswith("key.")],
+            "connect": [e for e in events if e.startswith("connect.")],
             "users": [e for e in events if e.startswith("user.")],
-            "projects": [e for e in events if e.startswith("project.")],
             "products": [e for e in events if e.startswith("product.")],
             "security": [e for e in events if e.startswith("security.")],
+            "agents": [e for e in events if e.startswith("agent.")],
+            "servers": [e for e in events if e.startswith("server.")],
+            "remote": [e for e in events if e.startswith("remote.")],
+            "notifications": [e for e in events if e.startswith("notification.")],
+            "rbac": [e for e in events if e.startswith("rbac.")],
+            "billing": [e for e in events if e.startswith("billing.")],
             "payments": [e for e in events if e.startswith("payment.")],
-            "system": [e for e in events if e.startswith("system.")],
         }
 
         return jsonify(

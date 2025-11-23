@@ -209,25 +209,25 @@ export function InviteCodeManager({ projectId }: InviteCodeManagerProps) {
   }
 
   return (
-    <div className="space-y-4">
-      {}
+    <div className="space-y-4 px-2 sm:px-0">
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg">Invite Codes (for inviting users)</CardTitle>
+        <CardHeader className="pb-2 p-4 sm:p-6">
+          <CardTitle className="text-base sm:text-lg">Invite Codes (for inviting users)</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-3 p-4 sm:p-6 pt-0">
           {latestCode && (
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2">
               <Input
                 readOnly
                 value={latestCode.code}
-                className="font-mono text-sm"
+                className="font-mono text-xs sm:text-sm flex-1 min-w-0"
               />
               <Button
                 variant="outline"
                 size="icon"
                 onClick={() => copyToClipboard(latestCode.code)}
                 aria-label="Copy invite code to clipboard"
+                className="shrink-0"
               >
                 <Copy className="h-4 w-4" />
               </Button>
@@ -342,22 +342,24 @@ export function InviteCodeManager({ projectId }: InviteCodeManagerProps) {
             </div>
           ) : inviteCodes.length > 0 ? (
             <div className="pt-3 border-t">
-              <div className="text-sm font-medium text-muted-foreground mb-2">
+              <div className="text-xs sm:text-sm font-medium text-muted-foreground mb-2">
                 {showOnlyUnused ? 'Unused Codes' : 'All Codes'} ({getFilteredCodes().length}) - Unused: {getUnusedCodesCount()}
               </div>
               <div className="space-y-1">
                 {getFilteredCodes().map((code, index) => (
                   <div key={`${code.code}-${index}`}>
-                    <div className="flex items-center justify-between py-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs">{code.code}</span>
-                        {getStatusBadge(code)}
-                        {code.role && (
-                          <Badge variant="outline" className="text-xs">
-                            {code.role}
-                          </Badge>
-                        )}
-                        <span className="text-xs text-muted-foreground">
+                    <div className="flex items-center justify-between gap-2 py-1">
+                      <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
+                        <span className="font-mono text-xs truncate">{code.code}</span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {getStatusBadge(code)}
+                          {code.role && (
+                            <Badge variant="outline" className="text-xs hidden sm:inline-flex">
+                              {code.role}
+                            </Badge>
+                          )}
+                        </div>
+                        <span className="text-xs text-muted-foreground hidden sm:inline">
                           {code.created_at && formatDate(code.created_at)}
                         </span>
                       </div>
@@ -365,8 +367,9 @@ export function InviteCodeManager({ projectId }: InviteCodeManagerProps) {
                         variant="ghost"
                         size="icon"
                         onClick={() => copyToClipboard(code.code)}
+                        className="shrink-0 h-7 w-7 sm:h-8 sm:w-8"
                       >
-                        <Copy className="h-3 w-3" />
+                        <Copy className="h-3 w-3 sm:h-4 sm:w-4" />
                       </Button>
                     </div>
                     {index < inviteCodes.length - 1 && (
@@ -377,7 +380,7 @@ export function InviteCodeManager({ projectId }: InviteCodeManagerProps) {
               </div>
             </div>
           ) : (
-            <div className="text-center py-4 text-muted-foreground">
+            <div className="text-center py-4 text-muted-foreground text-sm sm:text-base">
               {showOnlyUnused ? 'No unused invite codes' : 'No invite codes'}
             </div>
           )}

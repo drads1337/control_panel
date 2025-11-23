@@ -848,55 +848,52 @@ class AnalyticsService:
     def _get_system_user_analytics(self, start_date: datetime) -> Dict:
         """Get system-wide user analytics"""
         try:
-            from flask import current_app
             from sqlalchemy import func
 
-            with current_app.app_context():
+            role_stats = (
+                db.session.query(Role.name, func.count(UserRole.user_id))
+                .join(UserRole, Role.id == UserRole.role_id)
+                .group_by(Role.name)
+                .all()
+            )
+            by_role = [{"role": role, "count": count} for role, count in role_stats]
 
-                role_stats = (
-                    db.session.query(Role.name, func.count(UserRole.user_id))
-                    .join(UserRole, Role.id == UserRole.role_id)
-                    .group_by(Role.name)
-                    .all()
-                )
-                by_role = [{"role": role, "count": count} for role, count in role_stats]
+            admin_roles = ["admin", "owner"]
+            admin_role_ids = db.session.query(Role.id).filter(
+                Role.name.in_(admin_roles)
+            ).subquery()
 
-                admin_roles = ["admin", "owner"]
-                admin_role_ids = db.session.query(Role.id).filter(
-                    Role.name.in_(admin_roles)
-                ).subquery()
+            admin_user_ids = db.session.query(func.distinct(UserRole.user_id)).filter(
+                UserRole.role_id.in_(admin_role_ids)
+            ).subquery()
 
-                admin_user_ids = db.session.query(func.distinct(UserRole.user_id)).filter(
-                    UserRole.role_id.in_(admin_role_ids)
-                ).subquery()
+            admin_count = db.session.query(func.count()).select_from(admin_user_ids).scalar() or 0
+            total_users = User.query.count()
+            regular_count = max(0, total_users - admin_count)
 
-                admin_count = db.session.query(func.count()).select_from(admin_user_ids).scalar() or 0
-                total_users = User.query.count()
-                regular_count = max(0, total_users - admin_count)
+            by_status = [
+                {"status": "admin", "count": admin_count},
+                {"status": "user", "count": regular_count}
+            ]
 
-                by_status = [
-                    {"status": "admin", "count": admin_count},
-                    {"status": "user", "count": regular_count}
-                ]
+            new_today = User.query.filter(User.created_at >= datetime.utcnow().date()).count()
+            new_week = User.query.filter(
+                User.created_at >= datetime.utcnow() - timedelta(days=7)
+            ).count()
+            new_month = User.query.filter(
+                User.created_at >= datetime.utcnow() - timedelta(days=30)
+            ).count()
 
-                new_today = User.query.filter(User.created_at >= datetime.utcnow().date()).count()
-                new_week = User.query.filter(
-                    User.created_at >= datetime.utcnow() - timedelta(days=7)
-                ).count()
-                new_month = User.query.filter(
-                    User.created_at >= datetime.utcnow() - timedelta(days=30)
-                ).count()
-
-                return {
-                    "by_role": by_role,
-                    "by_status": by_status,
-                    "new_today": new_today,
-                    "new_week": new_week,
-                    "new_month": new_month,
-                }
+            return {
+                "by_role": by_role,
+                "by_status": by_status,
+                "new_today": new_today,
+                "new_week": new_week,
+                "new_month": new_month,
+            }
 
         except Exception as e:
-            logging.error(f"ANALYTICS_SYSTEM_USER_ANALYTICS_ERROR error={e}")
+            logging.error(f"ANALYTICS_SYSTEM_USER_ANALYTICS_ERROR error={e}", exc_info=True)
             return {}
 
     def _get_system_sales_analytics(self, start_date: datetime) -> Dict:
@@ -964,24 +961,21 @@ class AnalyticsService:
     def _get_system_popular_products(self, start_date: datetime) -> List[Dict]:
         """Get system-wide popular products"""
         try:
-            from flask import current_app
             from sqlalchemy import func
 
-            with current_app.app_context():
+            popular_products = (
+                db.session.query(Product.name, func.count(Key.id).label("key_count"))
+                .join(Key, Product.id == Key.product_id)
+                .group_by(Product.id, Product.name)
+                .order_by(func.count(Key.id).desc())
+                .limit(10)
+                .all()
+            )
 
-                popular_products = (
-                    db.session.query(Product.name, func.count(Key.id).label("key_count"))
-                    .join(Key, Product.id == Key.product_id)
-                    .group_by(Product.id, Product.name)
-                    .order_by(func.count(Key.id).desc())
-                    .limit(10)
-                    .all()
-                )
-
-                return [{"product": product, "keys": count} for product, count in popular_products]
+            return [{"product": product, "keys": count} for product, count in popular_products]
 
         except Exception as e:
-            logging.error(f"ANALYTICS_SYSTEM_POPULAR_PRODUCTS_ERROR error={e}")
+            logging.error(f"ANALYTICS_SYSTEM_POPULAR_PRODUCTS_ERROR error={e}", exc_info=True)
             return []
 
     def _get_system_security_analytics(self, start_date: datetime) -> Dict:

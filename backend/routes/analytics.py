@@ -88,6 +88,7 @@ def get_owner_dashboard_overview():
     """
     Get comprehensive system-wide dashboard overview for owner users
     """
+    user_id = None
     try:
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
@@ -124,7 +125,7 @@ def get_owner_dashboard_overview():
         return jsonify({"status": "success", "data": analytics_data})
 
     except Exception as e:
-        logging.error(f"OWNER_ANALYTICS_DASHBOARD_OVERVIEW_ERROR user_id={user_id} error={e}")
+        logging.error(f"OWNER_ANALYTICS_DASHBOARD_OVERVIEW_ERROR user_id={user_id} error={e}", exc_info=True)
         return jsonify({"error": "Internal server error"}), 500
 
 @analytics_bp.route("/sales/trends", methods=["GET"])

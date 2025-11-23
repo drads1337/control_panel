@@ -284,6 +284,10 @@ def init_services(app):
     from ..services.sessions.session_service import SessionService
     container.register('session_service', lambda: SessionService(), scope=ServiceScope.SINGLETON)
     
+    # Register analytics service (singleton - stateless)
+    from ..services.analytics.analytics_service import AnalyticsService
+    container.register('analytics_service', lambda: AnalyticsService(), scope=ServiceScope.SINGLETON)
+    
     # Setup request cleanup handler
     @app.teardown_request
     def cleanup_services(exception):

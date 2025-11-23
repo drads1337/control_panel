@@ -149,3 +149,4 @@ def decrypt_with_jwe(encrypted: str, key: bytes) -> dict:
 2. **Среднесрочно:** Добавить поддержку JWE параллельно
 3. **Долгосрочно:** Полная миграция на JWE
 
+

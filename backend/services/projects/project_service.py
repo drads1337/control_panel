@@ -9,10 +9,18 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import and_, func
 
 from ...core.extensions import db
-from ...models.core import Project, ProjectEncryptionKeys, ProjectInviteCode, User, UserActivity
+from ...models.core import (
+    Project, ProjectEncryptionKeys, ProjectInviteCode, User, UserActivity,
+    ProjectSecuritySettings, ProjectSystemSettings, ProjectEncryptionSettings,
+    ProjectBackupSettings, ProjectChatSettings, ProjectOfflineAuthSettings,
+    ProjectAppearanceSettings, ProjectInviteSettings, ProjectSettings
+)
 from ...models.products import Product, ProductKeyPrice
 from ...models.keys import Key
 from ...models.servers import Server
+from ...models.project_user import ProjectAdmin, ProjectUserRole
+from ...models.rbac import Role, Permission, UserRole, RolePermission
+from ...models.webhooks import Webhook
 from ...utils.fulltext_search import fulltext_search_filter
 from ...utils.rbac_utils import RBACManager
 from ...utils.role_constants import UserRoles
@@ -30,6 +38,30 @@ class ProjectService:
     def _cache_service(self):
         """Get cache service instance"""
         return self.cache_service if self.cache_service is not None else cache_service
+
+    def _find_project_by_id_or_unique_id(self, project_identifier):
+        """
+        Helper function to find a project by either id (int) or unique_id (string)
+        
+        Args:
+            project_identifier: Either an integer id or string unique_id
+            
+        Returns:
+            Project object or None if not found
+        """
+        # Try as integer id (primary key) first
+        if isinstance(project_identifier, int) or (isinstance(project_identifier, str) and project_identifier.isdigit()):
+            try:
+                project_id_int = int(project_identifier)
+                project = Project.query.get(project_id_int)
+                if project:
+                    return project
+            except (ValueError, TypeError):
+                pass
+        
+        # Try as unique_id (string)
+        project = Project.query.filter_by(unique_id=str(project_identifier)).first()
+        return project
 
     def get_projects_cached(
         self, user_id: int, page: int = 1, per_page: int = 20, search: Optional[str] = None
@@ -601,13 +633,13 @@ class ProjectService:
             return {"error": "Failed to update project", "message": str(e)}
 
     def delete_project(
-        self, project_id: int, user_id: int, ip_address: str = None, user_agent: str = None
+        self, project_id, user_id: int, ip_address: str = None, user_agent: str = None
     ) -> Dict[str, Any]:
         """
         Delete project and all related data with all business logic
 
         Args:
-            project_id: ID of the project to delete
+            project_id: ID or unique_id of the project to delete (can be int or string)
             user_id: ID of the user deleting the project
             ip_address: IP address for activity logging
             user_agent: User agent for activity logging
@@ -622,31 +654,98 @@ class ProjectService:
             if not user:
                 return {"error": "User not found"}
 
-            project = Project.query.get(project_id)
+            # Find project by either id or unique_id
+            project = self._find_project_by_id_or_unique_id(project_id)
             if not project:
                 return {"error": "Project not found"}
 
+            # Use the actual database id for all deletion operations
+            actual_project_id = project.id
             project_name = project.name
 
             db.session.begin_nested()
 
             try:
 
-                affected_user_ids = db.session.query(Key.user_id).filter_by(project_id=project_id).distinct().all()
+                affected_user_ids = db.session.query(Key.user_id).filter_by(project_id=actual_project_id).distinct().all()
                 affected_user_ids = [uid[0] for uid in affected_user_ids if uid[0] is not None]
 
-                Key.query.filter_by(project_id=project_id).delete()
-
+                # Delete all related data before deleting the project
+                # This ensures proper cleanup and avoids foreign key constraint violations
+                
+                # Keys and related data
+                Key.query.filter_by(project_id=actual_project_id).delete()
+                
                 from ...utils.key_counters import update_user_key_counters
-                for user_id in affected_user_ids:
-                    update_user_key_counters(user_id, project_id=project_id)
-                Product.query.filter_by(project_id=project_id).delete()
-                Server.query.filter_by(project_id=project_id).delete()
-                User.query.filter_by(project_id=project_id).delete()
-                UserActivity.query.filter_by(project_id=project_id).delete()
-                ProjectInviteCode.query.filter_by(project_id=project_id).delete()
-                ProjectEncryptionKeys.query.filter_by(project_id=project_id).delete()
+                for affected_user_id in affected_user_ids:
+                    update_user_key_counters(affected_user_id, project_id=actual_project_id)
+                
+                # Products and servers
+                Product.query.filter_by(project_id=actual_project_id).delete()
+                Server.query.filter_by(project_id=actual_project_id).delete()
+                
+                # Users and activities
+                User.query.filter_by(project_id=actual_project_id).delete()
+                UserActivity.query.filter_by(project_id=actual_project_id).delete()
+                
+                # Project invite codes and encryption keys
+                ProjectInviteCode.query.filter_by(project_id=actual_project_id).delete()
+                ProjectEncryptionKeys.query.filter_by(project_id=actual_project_id).delete()
+                
+                # Project settings (all variants)
+                ProjectSecuritySettings.query.filter_by(project_id=actual_project_id).delete()
+                ProjectSystemSettings.query.filter_by(project_id=actual_project_id).delete()
+                ProjectEncryptionSettings.query.filter_by(project_id=actual_project_id).delete()
+                ProjectBackupSettings.query.filter_by(project_id=actual_project_id).delete()
+                ProjectChatSettings.query.filter_by(project_id=actual_project_id).delete()
+                ProjectOfflineAuthSettings.query.filter_by(project_id=actual_project_id).delete()
+                ProjectAppearanceSettings.query.filter_by(project_id=actual_project_id).delete()
+                ProjectInviteSettings.query.filter_by(project_id=actual_project_id).delete()
+                ProjectSettings.query.filter_by(project_id=actual_project_id).delete()
+                
+                # Project-user relationships
+                ProjectAdmin.query.filter_by(project_id=actual_project_id).delete()
+                ProjectUserRole.query.filter_by(project_id=actual_project_id).delete()
+                
+                # RBAC (roles and permissions)
+                # Get all role IDs for this project first
+                role_ids = db.session.query(Role.id).filter_by(project_id=actual_project_id).all()
+                role_ids = [r[0] for r in role_ids]
+                
+                if role_ids:
+                    # Delete role-permission relationships
+                    RolePermission.query.filter(RolePermission.role_id.in_(role_ids)).delete()
+                    # Delete user-role relationships
+                    UserRole.query.filter(UserRole.role_id.in_(role_ids)).delete()
+                
+                # Delete roles and permissions
+                Permission.query.filter_by(project_id=actual_project_id).delete()
+                Role.query.filter_by(project_id=actual_project_id).delete()
+                
+                # Webhooks
+                Webhook.query.filter_by(project_id=actual_project_id).delete()
+                
+                # Remote control (if exists)
+                try:
+                    from ...models.remote_control import RemoteControlCategory, RemoteControlFeature, RemoteControlFeatureCategory
+                    # Get all feature IDs for this project first
+                    feature_ids = db.session.query(RemoteControlFeature.id).filter_by(project_id=actual_project_id).all()
+                    feature_ids = [f[0] for f in feature_ids]
+                    
+                    if feature_ids:
+                        # Delete feature-category relationships
+                        RemoteControlFeatureCategory.query.filter(
+                            RemoteControlFeatureCategory.feature_id.in_(feature_ids)
+                        ).delete()
+                    
+                    # Delete features and categories
+                    RemoteControlFeature.query.filter_by(project_id=actual_project_id).delete()
+                    RemoteControlCategory.query.filter_by(project_id=actual_project_id).delete()
+                except ImportError:
+                    # Remote control models might not exist in all versions
+                    pass
 
+                # Finally, delete the project itself
                 db.session.delete(project)
 
                 db.session.commit()

@@ -64,17 +64,18 @@ export function ProjectsNavigation({ activeTab, onTabChange }: ProjectsNavigatio
   const navigationItems = getNavigationItems(getPrimaryRole(user) || undefined)
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
-      {}
-      <Tabs value={activeTab} onValueChange={(value) => onTabChange(value as any)}>
-        <TabsList>
-          <TabsTrigger value="projects">
-            <FolderOpen className="mr-2 h-4 w-4" />
-            Projects
+    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
+      <Tabs value={activeTab} onValueChange={(value) => onTabChange(value as any)} className="w-full sm:w-auto">
+        <TabsList className="w-full sm:w-auto grid grid-cols-2">
+          <TabsTrigger value="projects" className="text-xs sm:text-sm">
+            <FolderOpen className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Projects</span>
+            <span className="sm:hidden">Projects</span>
           </TabsTrigger>
-          <TabsTrigger value="project-codes">
-            <FolderPlus className="mr-2 h-4 w-4" />
-            Project Codes
+          <TabsTrigger value="project-codes" className="text-xs sm:text-sm">
+            <FolderPlus className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Project Codes</span>
+            <span className="sm:hidden">Codes</span>
           </TabsTrigger>
         </TabsList>
       </Tabs>

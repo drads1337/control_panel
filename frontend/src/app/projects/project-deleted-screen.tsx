@@ -37,29 +37,29 @@ export function ProjectDeletedScreen({
     <div className="min-h-screen bg-muted flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <Card>
-          <CardContent className="p-6">
-            <div className="text-center space-y-4">
-              <div className="mx-auto w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center">
-                <Trash2 className="h-8 w-8 text-destructive" />
+          <CardContent className="p-4 sm:p-6">
+            <div className="text-center space-y-3 sm:space-y-4">
+              <div className="mx-auto w-12 h-12 sm:w-16 sm:h-16 bg-destructive/10 rounded-full flex items-center justify-center">
+                <Trash2 className="h-6 w-6 sm:h-8 sm:w-8 text-destructive" />
               </div>
 
               <div className="space-y-2">
-                <h1 className="text-2xl font-bold">Project Deleted</h1>
-                <p className="text-muted-foreground">
+                <h1 className="text-xl sm:text-2xl font-bold">Project Deleted</h1>
+                <p className="text-sm sm:text-base text-muted-foreground break-words px-2">
                   Your project "{projectName}" has been permanently deleted
                 </p>
               </div>
             </div>
 
-            <div className="mt-6 space-y-4">
+            <div className="mt-4 sm:mt-6 space-y-3 sm:space-y-4">
               <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>
                   <div className="space-y-1">
-                    <p className="font-semibold">
+                    <p className="font-semibold text-sm sm:text-base">
                       Data Deletion Complete
                     </p>
-                    <p className="text-sm">
+                    <p className="text-xs sm:text-sm">
                       All project data including keys, users, products, and settings 
                       have been permanently deleted and cannot be recovered.
                     </p>
@@ -67,8 +67,8 @@ export function ProjectDeletedScreen({
                 </AlertDescription>
               </Alert>
 
-              <div className="p-4 bg-destructive/5 border border-destructive/20 rounded-lg">
-                <h4 className="font-semibold text-destructive mb-3 text-sm">What was deleted:</h4>
+              <div className="p-3 sm:p-4 bg-destructive/5 border border-destructive/20 rounded-lg">
+                <h4 className="font-semibold text-destructive mb-2 sm:mb-3 text-xs sm:text-sm">What was deleted:</h4>
                 <ul className="text-xs text-destructive/80 space-y-1">
                   <li>• All license keys have been deleted</li>
                   <li>• All user accounts have been removed</li>
@@ -77,8 +77,8 @@ export function ProjectDeletedScreen({
                 </ul>
               </div>
 
-              <div className="bg-muted/50 rounded-lg p-4">
-                <h4 className="font-semibold mb-2 text-sm">What happened?</h4>
+              <div className="bg-muted/50 rounded-lg p-3 sm:p-4">
+                <h4 className="font-semibold mb-2 text-xs sm:text-sm">What happened?</h4>
                 <p className="text-xs text-muted-foreground">
                   Your project subscription expired and was not renewed within the 
                   14-day grace period. As a result, all project data has been 
@@ -86,18 +86,18 @@ export function ProjectDeletedScreen({
                 </p>
               </div>
 
-              <div className="space-y-3">
-                <div className="flex gap-2">
+              <div className="space-y-2 sm:space-y-3">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <Button 
                     onClick={handleContactSupport}
-                    className="flex-1"
+                    className="flex-1 w-full sm:w-auto"
                   >
                     Contact Support
                   </Button>
                   <Button 
                     onClick={handleRefresh}
                     variant="outline"
-                    className="flex-1"
+                    className="flex-1 w-full sm:w-auto"
                   >
                     <RefreshCw className="h-4 w-4 mr-2" />
                     Refresh
@@ -114,8 +114,8 @@ export function ProjectDeletedScreen({
                 </Button>
               </div>
 
-              <div className="text-center pt-4">
-                <p className="text-xs text-muted-foreground">
+              <div className="text-center pt-3 sm:pt-4">
+                <p className="text-xs text-muted-foreground px-2">
                   Need to start fresh? Contact support to discuss creating a new project.
                 </p>
               </div>

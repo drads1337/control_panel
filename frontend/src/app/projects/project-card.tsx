@@ -127,22 +127,22 @@ const ProjectActionsMenu = ({ project, onManage, onQuickAction }: Pick<ProjectCa
 };
 
 const ProjectCardHeader = ({ project, onManage, onQuickAction }: Pick<ProjectCardProps, 'project' | 'onManage' | 'onQuickAction'>) => (
-  <CardHeader>
-    <div className="flex items-start justify-between gap-4">
-      <div className={cn('w-12 h-12 rounded-lg flex items-center justify-center shrink-0', getIconColor(project.status))}>
-        <Database className="h-6 w-6" />
+  <CardHeader className="p-4 sm:p-6">
+    <div className="flex items-start justify-between gap-2 sm:gap-4">
+      <div className={cn('w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center shrink-0', getIconColor(project.status))}>
+        <Database className="h-5 w-5 sm:h-6 sm:w-6" />
       </div>
-      <div className="flex items-center gap-2">
-        <div className="flex flex-col items-end gap-2">
+      <div className="flex items-center gap-1 sm:gap-2">
+        <div className="flex flex-col items-end gap-1 sm:gap-2">
           <StatusBadge status={project.status} />
           <StatusBadge status={project.subscription_status_display} />
         </div>
         <ProjectActionsMenu project={project} onManage={onManage} onQuickAction={onQuickAction} />
       </div>
     </div>
-    <div className="pt-4">
-      <CardTitle className="text-lg">{project.name}</CardTitle>
-      <CardDescription className="line-clamp-2 mt-1">
+    <div className="pt-3 sm:pt-4">
+      <CardTitle className="text-base sm:text-lg break-words">{project.name}</CardTitle>
+      <CardDescription className="line-clamp-2 mt-1 text-xs sm:text-sm">
         {project.description || 'No description provided.'}
       </CardDescription>
       <div className="mt-2">
@@ -166,23 +166,23 @@ const ProjectStats = ({ project }: { project: Project }) => {
   const expiryDays = project.days_until_expiry;
 
   return (
-    <ul className="space-y-2.5 text-sm">
+    <ul className="space-y-2 sm:space-y-2.5 text-xs sm:text-sm">
       {stats.map(({ icon: Icon, label, value }) => (
-        <li key={label} className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Icon className="h-4 w-4" />
-            <span>{label}</span>
+        <li key={label} className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 text-muted-foreground">
+            <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+            <span className="truncate">{label}</span>
           </div>
-          <span className="font-medium">{value}</span>
+          <span className="font-medium shrink-0">{value}</span>
         </li>
       ))}
       {expiryDays !== null && (
-        <li className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <CalendarDays className="h-4 w-4" />
+        <li className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 text-muted-foreground">
+            <CalendarDays className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
             <span>Expires in</span>
           </div>
-          <span className={cn('font-medium', expiryDays <= 7 && 'text-destructive')}>
+          <span className={cn('font-medium shrink-0', expiryDays <= 7 && 'text-destructive')}>
             {expiryDays} {expiryDays === 1 ? 'day' : 'days'}
           </span>
         </li>
@@ -192,10 +192,10 @@ const ProjectStats = ({ project }: { project: Project }) => {
 };
 
 const ProjectCardFooter = ({ project }: { project: Project }) => (
-  <CardFooter className="text-xs text-muted-foreground">
+  <CardFooter className="text-xs text-muted-foreground p-4 sm:p-6 pt-0">
     <div className="flex items-center gap-1.5">
-      <Clock className="h-3 w-3" />
-      <span>Last updated {formatRelativeTime(project.created_at)}</span>
+      <Clock className="h-3 w-3 shrink-0" />
+      <span className="truncate">Last updated {formatRelativeTime(project.created_at)}</span>
     </div>
   </CardFooter>
 );
@@ -207,7 +207,7 @@ export const ProjectCard = React.memo(function ProjectCard({ project, onClick, o
       onClick={onClick}
     >
       <ProjectCardHeader project={project} onManage={onManage} onQuickAction={onQuickAction} />
-      <CardContent className="flex-grow space-y-4">
+      <CardContent className="flex-grow space-y-3 sm:space-y-4 p-4 sm:p-6 pt-0">
         <ProjectStats project={project} />
       </CardContent>
       <ProjectCardFooter project={project} />

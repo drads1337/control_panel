@@ -177,30 +177,28 @@ export function ProjectInviteCodeManager() {
   }
 
   return (
-    <div className="space-y-6">
-      {}
+    <div className="space-y-4 sm:space-y-6 px-2 sm:px-0">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Project Creation Codes</h2>
-          <p className="text-gray-600 mt-1">Manage codes that allow users to create new projects</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Project Creation Codes</h2>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Manage codes that allow users to create new projects</p>
         </div>
       </div>
 
-      {}
       {latestCode && (
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FolderPlus className="h-5 w-5" />
+          <CardHeader className="p-4 sm:p-6">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <FolderPlus className="h-4 w-4 sm:h-5 sm:w-5" />
               Latest Project Creation Code
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="flex items-center space-x-2">
+          <CardContent className="p-4 sm:p-6 pt-0">
+            <div className="flex items-center gap-2">
               <Input
                 readOnly
                 value={latestCode.code}
-                className="font-mono text-sm"
+                className="font-mono text-xs sm:text-sm flex-1 min-w-0"
                 placeholder="Project creation code"
               />
               <Button
@@ -208,14 +206,15 @@ export function ProjectInviteCodeManager() {
                 size="icon"
                 onClick={() => copyToClipboard(latestCode.code)}
                 aria-label="Copy invite code to clipboard"
+                className="shrink-0"
               >
                 <Copy className="h-4 w-4" />
               </Button>
             </div>
-            <div className="mt-2 text-sm text-gray-600">
-              Created: {formatDate(latestCode.created_at)}
+            <div className="mt-2 text-xs sm:text-sm text-gray-600 flex flex-col sm:flex-row gap-1 sm:gap-4">
+              <span>Created: {formatDate(latestCode.created_at)}</span>
               {latestCode.expires_at && (
-                <span className="ml-4">
+                <span>
                   Expires: {formatDate(latestCode.expires_at)}
                 </span>
               )}
@@ -224,12 +223,11 @@ export function ProjectInviteCodeManager() {
         </Card>
       )}
 
-      {}
       <Card>
-        <CardHeader>
-          <CardTitle>Actions</CardTitle>
+        <CardHeader className="p-4 sm:p-6">
+          <CardTitle className="text-base sm:text-lg">Actions</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 sm:p-6 pt-0">
           <div className="flex flex-wrap gap-2">
             <Dialog open={showGenerateDialog} onOpenChange={setShowGenerateDialog}>
               <DialogTrigger asChild>
@@ -311,30 +309,31 @@ export function ProjectInviteCodeManager() {
         </CardContent>
       </Card>
 
-      {}
       <Card>
-        <CardHeader>
-          <CardTitle>
+        <CardHeader className="p-4 sm:p-6">
+          <CardTitle className="text-base sm:text-lg">
             {showOnlyUnused ? 'Unused Project Codes' : 'All Project Codes'}
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 sm:p-6 pt-0">
           {isLoading ? (
-            <div className="flex items-center justify-center py-8">
+            <div className="flex flex-col sm:flex-row items-center justify-center py-8 gap-2">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              <span className="ml-2 text-muted-foreground">Loading codes...</span>
+              <span className="text-sm sm:text-base text-muted-foreground">Loading codes...</span>
             </div>
           ) : getFilteredCodes().length > 0 ? (
             <div className="space-y-3">
               {getFilteredCodes().map((code, index) => (
-                <div key={`${code.code}-${index}`} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono text-sm font-medium">{code.code}</span>
-                    {getStatusBadge(code)}
-                    <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">
-                      Project Creation
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
+                <div key={`${code.code}-${index}`} className="flex items-center justify-between gap-2 p-3 border rounded-lg">
+                  <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                    <span className="font-mono text-xs sm:text-sm font-medium truncate">{code.code}</span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {getStatusBadge(code)}
+                      <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 hidden sm:inline-flex">
+                        Project Creation
+                      </Badge>
+                    </div>
+                    <span className="text-xs text-muted-foreground hidden sm:inline">
                       {code.created_at && formatDate(code.created_at)}
                     </span>
                   </div>
@@ -342,6 +341,7 @@ export function ProjectInviteCodeManager() {
                     variant="ghost"
                     size="icon"
                     onClick={() => copyToClipboard(code.code)}
+                    className="shrink-0 h-8 w-8"
                   >
                     <Copy className="h-4 w-4" />
                   </Button>
@@ -349,12 +349,12 @@ export function ProjectInviteCodeManager() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <FolderPlus className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-              <p className="text-lg font-medium mb-2">
+            <div className="text-center py-8 text-muted-foreground px-4">
+              <FolderPlus className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-4 text-gray-300" />
+              <p className="text-base sm:text-lg font-medium mb-2">
                 {showOnlyUnused ? 'No unused project creation codes' : 'No project creation codes'}
               </p>
-              <p className="text-sm">
+              <p className="text-xs sm:text-sm">
                 {showOnlyUnused 
                   ? 'All codes have been used or there are no codes yet.'
                   : 'Create your first project creation code to get started.'

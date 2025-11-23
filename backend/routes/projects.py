@@ -261,7 +261,7 @@ def update_project(project_id, validated_data=None):
             "message": str(e)
         }), 500
 
-@projects_bp.route("/projects/<int:project_id>", methods=["DELETE"])
+@projects_bp.route("/projects/<project_id>", methods=["DELETE"])
 @jwt_required()
 @require_auth
 @require_owner

@@ -69,10 +69,10 @@ export function CreateProjectDialog({
           New Project
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create a New Project</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-lg sm:text-xl">Create a New Project</DialogTitle>
+          <DialogDescription className="text-sm">
             Fill in the details for your new project. Click 'Create Project' when
             you're done.
           </DialogDescription>
@@ -80,7 +80,7 @@ export function CreateProjectDialog({
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="name">
+              <Label htmlFor="name" className="text-sm">
                 Name
               </Label>
               <Input
@@ -89,10 +89,11 @@ export function CreateProjectDialog({
                 onChange={(e) => handleInputChange('name', e.target.value)}
                 required
                 placeholder="My Awesome Project"
+                className="text-sm"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="description">
+              <Label htmlFor="description" className="text-sm">
                 Description
               </Label>
               <Textarea
@@ -103,17 +104,18 @@ export function CreateProjectDialog({
                 }
                 rows={3}
                 placeholder="A short description of the project."
+                className="text-sm"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="status">
+              <Label htmlFor="status" className="text-sm">
                 Status
               </Label>
               <Select
                 value={formData.status}
                 onValueChange={(value) => handleInputChange('status', value)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="text-sm">
                   <SelectValue placeholder="Select a status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -123,8 +125,8 @@ export function CreateProjectDialog({
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="subscription_days" className="text-right">
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+              <Label htmlFor="subscription_days" className="text-sm sm:text-right">
                 Subscription
               </Label>
               <Input
@@ -137,14 +139,14 @@ export function CreateProjectDialog({
                     parseInt(e.target.value) || 7
                   )
                 }
-                className="col-span-3"
+                className="col-span-1 sm:col-span-3 text-sm"
                 min="1"
                 required
                 placeholder="e.g., 30"
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="storage_limit_gb" className="text-right">
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+              <Label htmlFor="storage_limit_gb" className="text-sm sm:text-right">
                 Storage (GB)
               </Label>
               <Input
@@ -157,7 +159,7 @@ export function CreateProjectDialog({
                     parseFloat(e.target.value) || 3
                   )
                 }
-                className="col-span-3"
+                className="col-span-1 sm:col-span-3 text-sm"
                 min="0.1"
                 step="0.1"
                 required
@@ -165,11 +167,11 @@ export function CreateProjectDialog({
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} className="w-full sm:w-auto">
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading}>
+            <Button type="submit" disabled={isLoading} className="w-full sm:w-auto">
               {isLoading && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}

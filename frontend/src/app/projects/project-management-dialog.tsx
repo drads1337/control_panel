@@ -75,9 +75,9 @@ const StatusSelect = ({ value, onChange }: { value: string; onChange: (value: st
 )
 
 const ProjectInfo = ({ project }: { project: Project }) => (
-  <div className="bg-muted/50 p-4 rounded-lg space-y-2">
-    <h4 className="font-medium">Current Information</h4>
-    <div className="grid grid-cols-2 gap-4 text-sm">
+  <div className="bg-muted/50 p-3 sm:p-4 rounded-lg space-y-2">
+    <h4 className="font-medium text-sm sm:text-base">Current Information</h4>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
       <div>
         <span className="text-muted-foreground">Subscription Status:</span>
         <Badge className={cn("ml-2", getStatusColor(project.subscription_status_display))}>
@@ -183,19 +183,20 @@ const ProjectForm = ({
   onDelete: () => void
   onClose: () => void
 }) => (
-  <form onSubmit={onSubmit} className="space-y-6">
-    <div className="grid grid-cols-2 gap-4">
+  <form onSubmit={onSubmit} className="space-y-4 sm:space-y-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div className="space-y-2">
-        <Label htmlFor="name">Project Name</Label>
+        <Label htmlFor="name" className="text-sm">Project Name</Label>
         <Input
           id="name"
           value={formData.name}
           onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
           placeholder="Enter project name"
+          className="text-sm"
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="status">Status</Label>
+        <Label htmlFor="status" className="text-sm">Status</Label>
         <StatusSelect
           value={formData.status}
           onChange={(value) => setFormData(prev => ({ ...prev, status: value }))}
@@ -204,56 +205,60 @@ const ProjectForm = ({
     </div>
 
     <div className="space-y-2">
-      <Label htmlFor="description">Description</Label>
+      <Label htmlFor="description" className="text-sm">Description</Label>
       <Textarea
         id="description"
         value={formData.description}
         onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
         placeholder="Enter project description"
         rows={3}
+        className="text-sm"
       />
     </div>
 
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div className="space-y-2">
-        <Label htmlFor="subscription_days">Extend for (days)</Label>
+        <Label htmlFor="subscription_days" className="text-sm">Extend for (days)</Label>
         <Input
           id="subscription_days"
           type="number"
           min="1"
           value={formData.subscription_days}
           onChange={(e) => setFormData(prev => ({ ...prev, subscription_days: parseInt(e.target.value) || 30 }))}
+          className="text-sm"
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="storage_limit_gb">Storage Limit (GB)</Label>
+        <Label htmlFor="storage_limit_gb" className="text-sm">Storage Limit (GB)</Label>
         <Input
           id="storage_limit_gb"
           type="number"
           min="1"
           value={formData.storage_limit_gb}
           onChange={(e) => setFormData(prev => ({ ...prev, storage_limit_gb: parseInt(e.target.value) || 3 }))}
+          className="text-sm"
         />
       </div>
     </div>
 
     <ProjectInfo project={project} />
 
-    <DialogFooter className="flex justify-between">
+    <DialogFooter className="flex flex-col sm:flex-row justify-between gap-2 sm:gap-0">
       <Button
         type="button"
         variant="destructive"
         onClick={onDelete}
         disabled={isSubmitting}
+        className="w-full sm:w-auto order-2 sm:order-1"
       >
         <Trash2 className="h-4 w-4 mr-2" />
         Delete Project
       </Button>
-      <div className="flex gap-2">
-        <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+      <div className="flex gap-2 w-full sm:w-auto order-1 sm:order-2">
+        <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting} className="flex-1 sm:flex-initial">
           Cancel
         </Button>
-        <Button type="submit" disabled={isSubmitting}>
+        <Button type="submit" disabled={isSubmitting} className="flex-1 sm:flex-initial">
           {isSubmitting ? (
             <>
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
@@ -338,12 +343,12 @@ export function ProjectManagementDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className="text-lg sm:text-xl">
             Manage Project
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-sm">
             Modify project settings or perform administrative actions.
           </DialogDescription>
         </DialogHeader>

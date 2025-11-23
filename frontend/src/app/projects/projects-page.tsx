@@ -106,20 +106,20 @@ export default function Projects() {
   }, [handleDeleteProject])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 px-2 sm:px-0">
       {}
       {error && (
         <>
           {}
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <div className="flex items-center">
-              <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
-              <span className="text-red-800">{error}</span>
+          <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-start sm:items-center gap-2">
+              <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-red-400 mt-0.5 sm:mt-0 shrink-0" />
+              <span className="text-sm sm:text-base text-red-800 flex-1 break-words">{error}</span>
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={clearError}
-                className="ml-auto text-red-600 hover:text-red-800"
+                className="ml-auto text-red-600 hover:text-red-800 shrink-0 h-6 w-6 sm:h-8 sm:w-8 p-0"
               >
                 ✕
               </Button>
@@ -142,9 +142,9 @@ export default function Projects() {
           {isLoading && (
             <>
               {}
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary mr-3" />
-                <span className="text-muted-foreground">Loading projects...</span>
+              <div className="flex flex-col sm:flex-row items-center justify-center py-8 sm:py-12 gap-2 sm:gap-3">
+                <Loader2 className="h-6 w-6 sm:h-8 sm:w-8 animate-spin text-primary" />
+                <span className="text-sm sm:text-base text-muted-foreground">Loading projects...</span>
               </div>
             </>
           )}
@@ -154,7 +154,7 @@ export default function Projects() {
             <>
               {}
               <div 
-                className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+                className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
               >
                 {projects.map((project) => {
 
@@ -170,12 +170,13 @@ export default function Projects() {
                 })}
               </div>
 
-              {}
-              <Pagination
-                currentPage={pagination.currentPage}
-                totalPages={pagination.pages}
-                onPageChange={handlePageChange}
-              />
+              <div className="mt-4 sm:mt-6">
+                <Pagination
+                  currentPage={pagination.currentPage}
+                  totalPages={pagination.pages}
+                  onPageChange={handlePageChange}
+                />
+              </div>
             </>
           )}
 
@@ -183,12 +184,12 @@ export default function Projects() {
           {!isLoading && projects.length === 0 && !error && (
             <>
               {}
-              <div className="text-center py-12">
-                <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Search className="h-8 w-8 text-muted-foreground" />
+              <div className="text-center py-8 sm:py-12 px-4">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                  <Search className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground" />
                 </div>
-                <h3 className="text-lg font-medium text-foreground mb-2">No projects found</h3>
-                <p className="text-muted-foreground mb-4">
+                <h3 className="text-base sm:text-lg font-medium text-foreground mb-2">No projects found</h3>
+                <p className="text-sm sm:text-base text-muted-foreground mb-4 px-2">
                   You don't have any projects yet. Create your first project to get started.
                 </p>
                 <CreateProjectDialog 
