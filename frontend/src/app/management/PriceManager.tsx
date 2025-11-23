@@ -268,9 +268,9 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, product
   // Always render Dialog to maintain hook order
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] sm:w-full sm:max-w-5xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle className="text-base">
+          <DialogTitle className="text-sm sm:text-base">
             {!canEditProducts ? 'Access Denied' : 'Price Management'}
           </DialogTitle>
           <DialogDescription className="mt-1 text-xs">
@@ -290,12 +290,12 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, product
             <Spinner message="Loading..." />
           </div>
         ) : (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="space-y-3 sm:space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               {commonDurations.map(duration => (
-                <div key={duration.value} className="flex flex-col gap-3 p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                <div key={duration.value} className="flex flex-col gap-2 sm:gap-3 p-3 sm:p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                   <div className="flex items-center justify-between">
-                    <Label className="font-medium text-sm">
+                    <Label className="font-medium text-xs sm:text-sm">
                       {duration.label}
                     </Label>
                     {editingPrices[duration.value] !== undefined && (
@@ -320,7 +320,7 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, product
                         placeholder="0"
                         value={editingPricesDisplay[duration.value] !== undefined ? editingPricesDisplay[duration.value] : ''}
                         onChange={(e) => handlePriceChange(duration.value, e.target.value)}
-                        className="flex-1"
+                        className="flex-1 text-sm"
                         disabled={saving || !canEditProducts}
                         inputMode="decimal"
                       />
@@ -332,7 +332,7 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, product
                         variant="outline"
                         size="sm"
                         onClick={() => handleAddPeriod(duration.value)}
-                        className="w-full"
+                        className="w-full text-xs sm:text-sm"
                         disabled={saving || !canEditProducts}
                       >
                         Add Price
@@ -342,10 +342,12 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, product
                 </div>
               ))}
             </div>
-            <div className="flex justify-between pt-4 border-t">
+            <div className="flex flex-col-reverse sm:flex-row justify-between gap-2 sm:gap-0 pt-3 sm:pt-4 border-t">
               <Button
                 variant="outline"
                 onClick={() => onOpenChange(false)}
+                className="w-full sm:w-auto text-sm"
+                size="sm"
               >
                 Cancel
               </Button>
@@ -356,6 +358,8 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, product
                   handleSavePrices();
                 }}
                 disabled={saving || !canEditProducts}
+                className="w-full sm:w-auto text-sm"
+                size="sm"
               >
                 {saving ? (
                   <>

@@ -221,3 +221,5 @@ class SettingsResponse(BaseSchema):
     # Full type definition should be in settings.py schema
     pass
 
+
+

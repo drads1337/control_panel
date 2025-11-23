@@ -14,10 +14,10 @@ export function ManagementAccessDenied({
 }: ManagementAccessDeniedProps) {
   if (!isAuthenticated) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
-          <p className="text-muted-foreground">
+      <div className="flex items-center justify-center min-h-[300px] sm:min-h-[400px] px-4">
+        <div className="text-center max-w-md">
+          <h2 className="text-lg sm:text-xl font-semibold mb-2">Access Denied</h2>
+          <p className="text-sm sm:text-base text-muted-foreground">
             You need to be logged in to access the management panel.
           </p>
         </div>
@@ -30,13 +30,13 @@ export function ManagementAccessDenied({
     // This helps prevent attackers from understanding the RBAC model structure
     // Show only generic error message without details
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
-          <p className="text-muted-foreground">
+      <div className="flex items-center justify-center min-h-[300px] sm:min-h-[400px] px-4">
+        <div className="text-center max-w-md">
+          <h2 className="text-lg sm:text-xl font-semibold mb-2">Access Denied</h2>
+          <p className="text-sm sm:text-base text-muted-foreground">
             You don't have permission to access the management panel.
           </p>
-          <p className="text-sm text-muted-foreground mt-2">
+          <p className="text-xs sm:text-sm text-muted-foreground mt-2">
             Please contact your administrator if you believe this is an error.
           </p>
         </div>

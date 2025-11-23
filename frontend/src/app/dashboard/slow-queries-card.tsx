@@ -39,23 +39,23 @@ export function SlowQueriesCard({ data }: SlowQueriesCardProps) {
             Slow query statistics and performance metrics
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <CardContent className="p-4 sm:p-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
             <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Total Queries</p>
-              <p className="text-2xl font-bold">{summary.total_queries.toLocaleString()}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Total Queries</p>
+              <p className="text-lg sm:text-xl md:text-2xl font-bold">{summary.total_queries.toLocaleString()}</p>
             </div>
             <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Slow Queries</p>
-              <p className="text-2xl font-bold text-orange-600">{summary.slow_queries.toLocaleString()}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Slow Queries</p>
+              <p className="text-lg sm:text-xl md:text-2xl font-bold text-orange-600">{summary.slow_queries.toLocaleString()}</p>
             </div>
             <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Avg Time</p>
-              <p className="text-2xl font-bold">{summary.avg_query_time_ms.toFixed(2)}ms</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Avg Time</p>
+              <p className="text-lg sm:text-xl md:text-2xl font-bold">{summary.avg_query_time_ms.toFixed(2)}ms</p>
             </div>
             <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Max Time</p>
-              <p className="text-2xl font-bold text-red-600">{summary.max_query_time_ms.toFixed(2)}ms</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Max Time</p>
+              <p className="text-lg sm:text-xl md:text-2xl font-bold text-red-600">{summary.max_query_time_ms.toFixed(2)}ms</p>
             </div>
           </div>
 
@@ -108,20 +108,20 @@ export function SlowQueriesCard({ data }: SlowQueriesCardProps) {
                   key={index}
                   className="p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline">{query.query_type}</Badge>
-                        <span className="text-sm font-medium text-red-600">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+                    <div className="flex-1 space-y-2 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline" className="text-xs">{query.query_type}</Badge>
+                        <span className="text-xs sm:text-sm font-medium text-red-600">
                           {query.duration_ms.toFixed(2)}ms
                         </span>
                         {query.endpoint && (
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-xs text-muted-foreground truncate">
                             {query.endpoint}
                           </span>
                         )}
                       </div>
-                      <p className="text-sm font-mono bg-muted p-2 rounded text-xs break-all">
+                      <p className="text-xs sm:text-sm font-mono bg-muted p-2 rounded break-all">
                         {query.statement_preview}
                       </p>
                       {query.tables && query.tables.length > 0 && (
@@ -165,25 +165,25 @@ export function SlowQueriesCard({ data }: SlowQueriesCardProps) {
                   key={pattern.fingerprint}
                   className="p-4 rounded-lg border bg-card"
                 >
-                  <div className="flex items-start justify-between gap-4 mb-3">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline">#{index + 1}</Badge>
-                      <span className="text-sm font-medium">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 mb-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="outline" className="text-xs">#{index + 1}</Badge>
+                      <span className="text-xs sm:text-sm font-medium">
                         Executed {pattern.count} times
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">Avg:</span>
-                      <span className="text-sm font-medium text-orange-600">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs sm:text-sm text-muted-foreground">Avg:</span>
+                      <span className="text-xs sm:text-sm font-medium text-orange-600">
                         {pattern.avg_duration_ms.toFixed(2)}ms
                       </span>
-                      <span className="text-sm text-muted-foreground">Max:</span>
-                      <span className="text-sm font-medium text-red-600">
+                      <span className="text-xs sm:text-sm text-muted-foreground">Max:</span>
+                      <span className="text-xs sm:text-sm font-medium text-red-600">
                         {pattern.max_duration_ms.toFixed(2)}ms
                       </span>
                     </div>
                   </div>
-                  <p className="text-sm font-mono bg-muted p-2 rounded text-xs break-all mb-2">
+                  <p className="text-xs sm:text-sm font-mono bg-muted p-2 rounded break-all mb-2">
                     {pattern.sample_query}
                   </p>
                   {pattern.tables && pattern.tables.length > 0 && (

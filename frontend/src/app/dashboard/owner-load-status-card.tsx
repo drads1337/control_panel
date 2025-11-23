@@ -55,54 +55,54 @@ export function OwnerLoadStatusCard({ loadStatus }: OwnerLoadStatusCardProps) {
 
   const renderEndpointStatus = (endpoint: any, endpointName: string) => {
     return (
-      <div key={endpointName} className="space-y-3 p-4 rounded-lg border bg-card">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+      <div key={endpointName} className="space-y-3 p-3 sm:p-4 rounded-lg border bg-card">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {getStatusIcon(endpoint.status)}
-            <h4 className="font-semibold capitalize">{endpointName}</h4>
-            <Badge variant={getStatusBadgeVariant(endpoint.status)}>
+            <h4 className="text-sm sm:text-base font-semibold capitalize">{endpointName}</h4>
+            <Badge variant={getStatusBadgeVariant(endpoint.status)} className="text-xs">
               {endpoint.status}
             </Badge>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Zap className="h-4 w-4" />
-              <span>Requests/sec</span>
+        <div className="grid grid-cols-2 sm:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
+          <div className="space-y-1 sm:space-y-2">
+            <div className="flex items-center gap-1 sm:gap-1.5 sm:gap-2 text-[10px] xs:text-xs sm:text-sm text-muted-foreground">
+              <Zap className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+              <span className="truncate">Requests/sec</span>
             </div>
-            <div className="text-lg font-semibold">
+            <div className="text-sm xs:text-base sm:text-lg font-semibold">
               {endpoint.requests_per_second.toFixed(1)}
             </div>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <TrendingUp className="h-4 w-4" />
-              <span>Total Requests</span>
+          <div className="space-y-1 sm:space-y-2">
+            <div className="flex items-center gap-1 sm:gap-1.5 sm:gap-2 text-[10px] xs:text-xs sm:text-sm text-muted-foreground">
+              <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+              <span className="truncate">Total Requests</span>
             </div>
-            <div className="text-lg font-semibold">
+            <div className="text-sm xs:text-base sm:text-lg font-semibold">
               {endpoint.total_requests.toLocaleString()}
             </div>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              <span>Avg Response</span>
+          <div className="space-y-1 sm:space-y-2">
+            <div className="flex items-center gap-1 sm:gap-1.5 sm:gap-2 text-[10px] xs:text-xs sm:text-sm text-muted-foreground">
+              <Clock className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+              <span className="truncate">Avg Response</span>
             </div>
-            <div className="text-lg font-semibold">
+            <div className="text-sm xs:text-base sm:text-lg font-semibold">
               {endpoint.response_time_ms.avg.toFixed(0)}ms
             </div>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <XCircle className="h-4 w-4" />
-              <span>Error Rate</span>
+          <div className="space-y-1 sm:space-y-2">
+            <div className="flex items-center gap-1 sm:gap-1.5 sm:gap-2 text-[10px] xs:text-xs sm:text-sm text-muted-foreground">
+              <XCircle className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+              <span className="truncate">Error Rate</span>
             </div>
-            <div className="text-lg font-semibold">
+            <div className="text-sm xs:text-base sm:text-lg font-semibold">
               {endpoint.error_rate_percent.toFixed(2)}%
             </div>
           </div>
@@ -111,7 +111,7 @@ export function OwnerLoadStatusCard({ loadStatus }: OwnerLoadStatusCardProps) {
         {endpoint.response_time_ms && (
           <div className="pt-2 border-t">
             <div className="text-xs text-muted-foreground mb-2">Response Time Percentiles</div>
-            <div className="grid grid-cols-3 gap-2 text-xs">
+            <div className="grid grid-cols-3 gap-1 sm:gap-2 text-[10px] sm:text-xs">
               <div>
                 <span className="text-muted-foreground">P50:</span>{' '}
                 <span className="font-medium">{endpoint.response_time_ms.p50.toFixed(0)}ms</span>
@@ -158,20 +158,24 @@ export function OwnerLoadStatusCard({ loadStatus }: OwnerLoadStatusCardProps) {
       <CardContent>
         <div className="space-y-4">
           {/* Overall Status */}
-          <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/50">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 rounded-lg border bg-muted/50">
             <div className="flex items-center gap-2">
               {getStatusIcon(loadStatus.overall_status)}
-              <span className="font-medium">Overall Status</span>
+              <span className="text-sm sm:text-base font-medium">Overall Status</span>
             </div>
-            <Badge variant={getStatusBadgeVariant(loadStatus.overall_status)}>
+            <Badge variant={getStatusBadgeVariant(loadStatus.overall_status)} className="text-xs w-fit">
               {loadStatus.overall_status}
             </Badge>
           </div>
 
-          {/* Endpoints */}
-          <div className="space-y-3">
-            {renderEndpointStatus(loadStatus.endpoints.connect, 'connect')}
-            {renderEndpointStatus(loadStatus.endpoints.heartbeat, 'heartbeat')}
+          {/* Endpoints - горизонтальный скролл на мобильных */}
+          <div className="flex sm:block gap-3 sm:gap-0 overflow-x-auto sm:overflow-x-visible pb-2 sm:pb-0 -mx-2 sm:mx-0 px-2 sm:px-0 scrollbar-hide sm:space-y-3">
+            <div className="min-w-[280px] sm:min-w-0 flex-shrink-0 sm:flex-shrink">
+              {renderEndpointStatus(loadStatus.endpoints.connect, 'connect')}
+            </div>
+            <div className="min-w-[280px] sm:min-w-0 flex-shrink-0 sm:flex-shrink">
+              {renderEndpointStatus(loadStatus.endpoints.heartbeat, 'heartbeat')}
+            </div>
           </div>
 
           {/* Last Updated */}

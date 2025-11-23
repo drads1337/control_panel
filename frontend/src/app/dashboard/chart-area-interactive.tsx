@@ -164,12 +164,12 @@ export function ChartAreaInteractive() {
   if (isLoading) {
     return (
       <Card className="@container/card">
-        <CardHeader>
-          <Skeleton className="h-6 w-32" />
-          <Skeleton className="h-4 w-48" />
+        <CardHeader className="px-3 py-3 sm:px-6 sm:py-4">
+          <Skeleton className="h-5 w-28 sm:h-6 sm:w-32" />
+          <Skeleton className="h-3 w-40 sm:h-4 sm:w-48 mt-1" />
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-          <Skeleton className="h-[250px] w-full" />
+        <CardContent className="px-2 pt-2 pb-3 sm:px-4 sm:pt-4 sm:pb-6 md:px-6 md:pt-6">
+          <Skeleton className="h-[180px] xs:h-[200px] sm:h-[250px] md:h-[300px] lg:h-[350px] w-full" />
         </CardContent>
       </Card>
     )
@@ -178,9 +178,9 @@ export function ChartAreaInteractive() {
   if (error) {
     return (
       <Card className="@container/card">
-        <CardHeader>
-          <CardTitle>{getChartTitle()}</CardTitle>
-          <CardDescription>
+        <CardHeader className="px-3 py-3 sm:px-6 sm:py-4">
+          <CardTitle className="text-base sm:text-lg md:text-xl">{getChartTitle()}</CardTitle>
+          <CardDescription className="text-xs sm:text-sm mt-1">
             <span className="hidden @[540px]/card:block">
               {getChartDescription()}
             </span>
@@ -189,10 +189,10 @@ export function ChartAreaInteractive() {
             </span>
           </CardDescription>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
+        <CardContent className="px-3 pt-2 pb-3 sm:px-4 sm:pt-4 sm:pb-6 md:px-6 md:pt-6">
+          <Alert variant="destructive" className="text-xs sm:text-sm">
+            <AlertCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <AlertDescription className="text-xs sm:text-sm">
               Failed to load chart data: {sanitizeString(String(error))}
             </AlertDescription>
           </Alert>
@@ -202,86 +202,96 @@ export function ChartAreaInteractive() {
   }
 
   return (
-    <Card className="@container/card">
-      <CardHeader>
-        <CardTitle>{getChartTitle()}</CardTitle>
-        <CardDescription>
-          <span className="hidden @[540px]/card:block">
-            {getChartDescription()}
-          </span>
-          <span className="@[540px]/card:hidden">
-            {chartType === "performance" ? "API metrics" : chartType === "users" ? "User metrics" : "Key metrics"}
-          </span>
-        </CardDescription>
-        <CardAction>
-          <div className="flex gap-2">
-            <ToggleGroup
-              type="single"
-              value={chartType}
-              onValueChange={setChartType}
-              variant="outline"
-              className="hidden *:data-[slot=toggle-group-item]:!px-3 @[767px]/card:flex"
-            >
-              <ToggleGroupItem value="performance">Perf</ToggleGroupItem>
-              <ToggleGroupItem value="users">Users</ToggleGroupItem>
-              <ToggleGroupItem value="keys">Keys</ToggleGroupItem>
-            </ToggleGroup>
-            <ToggleGroup
-              type="single"
-              value={timeRange}
-              onValueChange={setTimeRange}
-              variant="outline"
-              className="hidden *:data-[slot=toggle-group-item]:!px-4 @[767px]/card:flex"
-            >
-              <ToggleGroupItem value="24h">24h</ToggleGroupItem>
-              <ToggleGroupItem value="7d">7d</ToggleGroupItem>
-            </ToggleGroup>
+    <Card className="@container/card w-full">
+      <CardHeader className="px-3 py-3 sm:px-6 sm:py-4 space-y-2 sm:space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4">
+          <div className="flex-1 min-w-0">
+            <CardTitle className="text-base sm:text-lg md:text-lg leading-tight">
+              {getChartTitle()}
+            </CardTitle>
+            <CardDescription className="text-xs sm:text-sm mt-1 sm:mt-1.5">
+              <span className="hidden @[540px]/card:block">
+                {getChartDescription()}
+              </span>
+              <span className="@[540px]/card:hidden">
+                {chartType === "performance" ? "API metrics" : chartType === "users" ? "User metrics" : "Key metrics"}
+              </span>
+            </CardDescription>
           </div>
-          <div className="flex gap-2 @[767px]/card:hidden">
-            <Select value={chartType} onValueChange={setChartType}>
-              <SelectTrigger
-                className="flex w-32 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate h-8"
-                aria-label="Select chart type"
+          <CardAction className="flex-shrink-0 mt-1 sm:mt-0">
+            <div className="flex gap-1.5 sm:gap-2">
+              <ToggleGroup
+                type="single"
+                value={chartType}
+                onValueChange={setChartType}
+                variant="outline"
+                className="hidden *:data-[slot=toggle-group-item]:!px-2 *:data-[slot=toggle-group-item]:!text-xs sm:*:data-[slot=toggle-group-item]:!px-3 sm:*:data-[slot=toggle-group-item]:!text-sm @[767px]/card:flex"
               >
-                <SelectValue placeholder="Chart type" />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl">
-                <SelectItem value="performance" className="rounded-lg">
-                  Perf
-                </SelectItem>
-                <SelectItem value="users" className="rounded-lg">
-                  Users
-                </SelectItem>
-                <SelectItem value="keys" className="rounded-lg">
-                  Keys
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={timeRange} onValueChange={setTimeRange}>
-              <SelectTrigger
-                className="flex w-24 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate h-8"
-                aria-label="Select time range"
+                <ToggleGroupItem value="performance" className="text-xs sm:text-sm">Perf</ToggleGroupItem>
+                <ToggleGroupItem value="users" className="text-xs sm:text-sm">Users</ToggleGroupItem>
+                <ToggleGroupItem value="keys" className="text-xs sm:text-sm">Keys</ToggleGroupItem>
+              </ToggleGroup>
+              <ToggleGroup
+                type="single"
+                value={timeRange}
+                onValueChange={setTimeRange}
+                variant="outline"
+                className="hidden *:data-[slot=toggle-group-item]:!px-2.5 *:data-[slot=toggle-group-item]:!text-xs sm:*:data-[slot=toggle-group-item]:!px-4 sm:*:data-[slot=toggle-group-item]:!text-sm @[767px]/card:flex"
               >
-                <SelectValue placeholder="Time" />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl">
-                <SelectItem value="24h" className="rounded-lg">
-                  24h
-                </SelectItem>
-                <SelectItem value="7d" className="rounded-lg">
-                  7d
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardAction>
+                <ToggleGroupItem value="24h" className="text-xs sm:text-sm">24h</ToggleGroupItem>
+                <ToggleGroupItem value="7d" className="text-xs sm:text-sm">7d</ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+            <div className="flex gap-1.5 sm:gap-2 @[767px]/card:hidden">
+              <Select value={chartType} onValueChange={setChartType}>
+                <SelectTrigger
+                  className="flex w-28 xs:w-32 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate h-8 text-xs sm:text-sm"
+                  aria-label="Select chart type"
+                >
+                  <SelectValue placeholder="Type" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  <SelectItem value="performance" className="rounded-lg text-xs sm:text-sm">
+                    Perf
+                  </SelectItem>
+                  <SelectItem value="users" className="rounded-lg text-xs sm:text-sm">
+                    Users
+                  </SelectItem>
+                  <SelectItem value="keys" className="rounded-lg text-xs sm:text-sm">
+                    Keys
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={timeRange} onValueChange={setTimeRange}>
+                <SelectTrigger
+                  className="flex w-20 xs:w-24 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate h-8 text-xs sm:text-sm"
+                  aria-label="Select time range"
+                >
+                  <SelectValue placeholder="Time" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  <SelectItem value="24h" className="rounded-lg text-xs sm:text-sm">
+                    24h
+                  </SelectItem>
+                  <SelectItem value="7d" className="rounded-lg text-xs sm:text-sm">
+                    7d
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardAction>
+        </div>
       </CardHeader>
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
+      <CardContent className="px-2 pt-2 pb-3 sm:px-4 sm:pt-4 sm:pb-6 md:px-6 md:pt-6">
         <ChartContainer
           config={chartConfig}
-          className="aspect-auto h-[250px] w-full"
+          className="aspect-auto h-[180px] xs:h-[200px] sm:h-[250px] md:h-[300px] lg:h-[350px] xl:h-[400px] w-full"
         >
-          <AreaChart data={filteredData}>
+          <AreaChart 
+            data={filteredData}
+            margin={{ top: 8, right: 4, bottom: 20, left: 4 }}
+            className="w-full"
+          >
             <defs>
               {getDataKeys().map((key, index) => (
                 <linearGradient key={key} id={`fill${key}`} x1="0" y1="0" x2="0" y2="1">
@@ -298,16 +308,36 @@ export function ChartAreaInteractive() {
                 </linearGradient>
               ))}
             </defs>
-            <CartesianGrid vertical={false} />
+            <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-muted" />
             <XAxis
               dataKey={getXAxisKey()}
               tickLine={false}
               axisLine={false}
-              tickMargin={8}
-              minTickGap={32}
+              tickMargin={4}
+              minTickGap={8}
+              tick={{ fontSize: 10 }}
+              className="text-[10px] xs:text-xs sm:text-sm"
+              interval="preserveStartEnd"
               tickFormatter={(value) => {
                 if (chartType === "performance") {
+                  // Форматируем время - показываем только часы:минуты для компактности
+                  if (typeof value === 'string' && value.includes(':')) {
+                    const parts = value.split(' ')
+                    return parts.length > 1 ? parts[1] : value
+                  }
                   return value
+                }
+                // Для дат - показываем короткий формат
+                if (typeof value === 'string') {
+                  try {
+                    const date = new Date(value)
+                    if (!isNaN(date.getTime())) {
+                      // Короткий формат: М/Д
+                      return `${date.getMonth() + 1}/${date.getDate()}`
+                    }
+                  } catch {
+                    // Если не удалось распарсить, возвращаем как есть
+                  }
                 }
                 return value
               }}
@@ -316,6 +346,7 @@ export function ChartAreaInteractive() {
               cursor={false}
               content={
                 <ChartTooltipContent
+                  className="text-xs sm:text-sm"
                   labelFormatter={(value) => {
                     if (chartType === "performance") {
                       return value
@@ -333,6 +364,7 @@ export function ChartAreaInteractive() {
                 type="natural"
                 fill={`url(#fill${key})`}
                 stroke={`var(--color-${key})`}
+                strokeWidth={1.5}
                 stackId={chartType === "users" ? "a" : undefined}
               />
             ))}

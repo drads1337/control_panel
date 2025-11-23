@@ -10,10 +10,10 @@ export function ManagementPageContent() {
   const { availableTabs } = useManagementData()
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6">
       {}
       {loadingStats && (
-        <div className="flex items-center justify-center p-8">
+        <div className="flex items-center justify-center p-3 xs:p-4 sm:p-6 md:p-8">
           <Spinner message="Loading management data..." />
         </div>
       )}

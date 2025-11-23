@@ -11,8 +11,7 @@ interface ManagementStatsCardsProps {
 export function ManagementStatsCards({ stats, loading }: ManagementStatsCardsProps) {
   return (
     <div
-      className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid gap-6 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs"
-      style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))' }}
+      className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 xs:gap-2.5 sm:gap-3 md:gap-4 lg:gap-6 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs"
     >
       <ManagementStatCard
         permission="keys.view"

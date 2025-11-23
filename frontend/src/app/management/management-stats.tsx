@@ -10,24 +10,20 @@ interface ManagementStatsProps {
 }
 
 const ManagementStats: React.FC<ManagementStatsProps> = React.memo(({ stats, loading = false }) => {
-  // Уменьшаем размер сетки до 120px для компактности
-  const gridStyle = { gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))' };
-
   if (loading) {
     return (
       <div 
-        className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid gap-2 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs"
-        style={gridStyle}
+        className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 xs:gap-2.5 sm:gap-3 md:gap-4 lg:gap-6 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs"
       >
         {[...Array(4)].map((_, i) => (
           <Card key={i}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-1.5 pb-0.5">
-              <div className="h-2 w-8 bg-muted animate-pulse rounded"></div>
-              <div className="h-2 w-2 bg-muted animate-pulse rounded"></div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-2 xs:p-2.5 sm:p-3 md:p-4 lg:p-6 pb-1 xs:pb-1.5">
+              <div className="h-2 xs:h-2.5 w-8 xs:w-10 bg-muted animate-pulse rounded"></div>
+              <div className="h-2 xs:h-2.5 w-2 xs:w-2.5 bg-muted animate-pulse rounded"></div>
             </CardHeader>
-            <CardContent className="p-1.5 pt-0">
-              <div className="h-3.5 w-6 bg-muted animate-pulse rounded mb-0.5"></div>
-              <div className="h-1.5 w-10 bg-muted animate-pulse rounded"></div>
+            <CardContent className="p-2 xs:p-2.5 sm:p-3 md:p-4 lg:p-6 pt-0">
+              <div className="h-3.5 xs:h-4 sm:h-5 w-6 xs:w-8 sm:w-10 bg-muted animate-pulse rounded mb-0.5 xs:mb-1"></div>
+              <div className="h-1.5 xs:h-2 w-10 xs:w-12 sm:w-16 bg-muted animate-pulse rounded"></div>
             </CardContent>
           </Card>
         ))}
@@ -80,8 +76,7 @@ const ManagementStats: React.FC<ManagementStatsProps> = React.memo(({ stats, loa
 
   return (
     <div 
-      className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid gap-2 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs"
-      style={gridStyle}
+      className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 xs:gap-2.5 sm:gap-3 md:gap-4 lg:gap-6 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs"
     >
       {statCards.map((stat, index) => {
         return (
@@ -92,8 +87,8 @@ const ManagementStats: React.FC<ManagementStatsProps> = React.memo(({ stats, loa
             icon={stat.icon}
             subtitle={stat.subtitle}
             badge={stat.badge}
-            valueClassName="text-sm font-semibold sm:text-base"
-            className="[&_header]:!p-1.5 [&_header]:!pb-0.5 [&_h2]:!text-sm [&_h2]:!mb-0 [&_p]:!text-xs [&_p]:!mb-0 [&_svg]:!h-3 [&_svg]:!w-3 [&_span]:!text-xs [&_span]:!px-1 [&_span]:!py-0"
+            valueClassName="text-xs xs:text-sm font-semibold sm:text-base md:text-lg"
+            className="[&_header]:!p-2 [&_header]:xs:!p-2.5 [&_header]:sm:!p-3 [&_header]:!pb-1 [&_header]:xs:!pb-1.5 [&_h2]:!text-xs [&_h2]:xs:!text-sm [&_h2]:sm:!text-base [&_h2]:!mb-0 [&_h2]:!leading-tight [&_p]:!text-[10px] [&_p]:xs:!text-xs [&_p]:!mb-0 [&_p]:!leading-tight [&_svg]:!h-3 [&_svg]:!w-3 [&_svg]:xs:!h-3.5 [&_svg]:xs:!w-3.5 [&_svg]:sm:!h-4 [&_svg]:sm:!w-4 [&_span]:!text-[10px] [&_span]:xs:!text-xs [&_span]:!px-1 [&_span]:xs:!px-1.5 [&_span]:!py-0 [&_span]:!leading-tight"
           />
         );
       })}

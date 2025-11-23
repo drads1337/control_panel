@@ -227,14 +227,19 @@ export function LoadStatusCard({ projectId }: LoadStatusCardProps) {
     </Widget>
   )
 
-  // Уменьшили gap между карточками
-  const containerClass = "grid grid-cols-1 md:grid-cols-2 gap-2"
+  // Горизонтальный скролл на мобильных, сетка на больших экранах
+  const containerClass = "flex sm:grid sm:grid-cols-2 gap-2 sm:gap-3 overflow-x-auto sm:overflow-x-visible pb-2 sm:pb-0 -mx-2 sm:mx-0 px-2 sm:px-0 scrollbar-hide"
+  const mobileItemClass = "min-w-[280px] sm:min-w-0 flex-shrink-0 sm:flex-shrink"
 
   if (loading) {
     return (
       <div className={containerClass}>
-        <StatusPlaceholder title="connect" />
-        <StatusPlaceholder title="heartbeat" />
+        <div className={mobileItemClass}>
+          <StatusPlaceholder title="connect" />
+        </div>
+        <div className={mobileItemClass}>
+          <StatusPlaceholder title="heartbeat" />
+        </div>
       </div>
     )
   }
@@ -242,8 +247,12 @@ export function LoadStatusCard({ projectId }: LoadStatusCardProps) {
   if (error) {
     return (
       <div className={containerClass}>
-        <StatusPlaceholder title="connect" icon={AlertTriangle} message="Failed" subMessage={error} />
-        <StatusPlaceholder title="heartbeat" icon={AlertTriangle} message="Failed" subMessage={error} />
+        <div className={mobileItemClass}>
+          <StatusPlaceholder title="connect" icon={AlertTriangle} message="Failed" subMessage={error} />
+        </div>
+        <div className={mobileItemClass}>
+          <StatusPlaceholder title="heartbeat" icon={AlertTriangle} message="Failed" subMessage={error} />
+        </div>
       </div>
     )
   }
@@ -251,24 +260,32 @@ export function LoadStatusCard({ projectId }: LoadStatusCardProps) {
   if (!data) {
     return (
       <div className={containerClass}>
-        <StatusPlaceholder title="connect" icon={AlertTriangle} message="No data" />
-        <StatusPlaceholder title="heartbeat" icon={AlertTriangle} message="No data" />
+        <div className={mobileItemClass}>
+          <StatusPlaceholder title="connect" icon={AlertTriangle} message="No data" />
+        </div>
+        <div className={mobileItemClass}>
+          <StatusPlaceholder title="heartbeat" icon={AlertTriangle} message="No data" />
+        </div>
       </div>
     )
   }
 
   return (
     <div className={containerClass}>
-      <EndpointWidget
-        endpointName="connect"
-        endpoint={data.endpoints.connect}
-        timestamp={data.timestamp}
-      />
-      <EndpointWidget
-        endpointName="heartbeat"
-        endpoint={data.endpoints.heartbeat}
-        timestamp={data.timestamp}
-      />
+      <div className={mobileItemClass}>
+        <EndpointWidget
+          endpointName="connect"
+          endpoint={data.endpoints.connect}
+          timestamp={data.timestamp}
+        />
+      </div>
+      <div className={mobileItemClass}>
+        <EndpointWidget
+          endpointName="heartbeat"
+          endpoint={data.endpoints.heartbeat}
+          timestamp={data.timestamp}
+        />
+      </div>
     </div>
   )
 }

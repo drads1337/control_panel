@@ -72,22 +72,22 @@ export function DashboardPage({ type }: DashboardPageProps) {
 
   if (!canViewAnalytics) {
     return (
-      <div>
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-foreground mb-2">
+      <div className="w-full px-2 sm:px-4 md:px-6">
+        <div className="mb-4 sm:mb-6 md:mb-8">
+          <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-1 sm:mb-2">
             Dashboard
           </h2>
-          <p className="text-muted-foreground">
+          <p className="text-sm sm:text-base text-muted-foreground">
             Overview of your system performance and key metrics.
           </p>
         </div>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <Card className="w-full max-w-md text-center">
-            <CardContent className="p-6">
+        <div className="flex items-center justify-center min-h-[300px] sm:min-h-[400px]">
+          <Card className="w-full max-w-md text-center mx-2 sm:mx-0">
+            <CardContent className="p-4 sm:p-6">
               <div className="text-center">
-                <BarChart3 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
-                <p className="text-muted-foreground">
+                <BarChart3 className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-3 sm:mb-4 text-muted-foreground" />
+                <h2 className="text-lg sm:text-xl font-semibold mb-2">Access Denied</h2>
+                <p className="text-sm sm:text-base text-muted-foreground">
                   You don't have permission to view analytics and dashboard.
                 </p>
               </div>
@@ -127,10 +127,10 @@ export function DashboardPage({ type }: DashboardPageProps) {
         return (
           <>
             <StatCardsGrid data={data} type="dashboard" />
-            <Suspense fallback={<div className="flex items-center justify-center min-h-[400px]"><Spinner size="lg" message="Loading charts..." /></div>}>
+            <Suspense fallback={<div className="flex items-center justify-center min-h-[250px] sm:min-h-[400px]"><Spinner size="lg" message="Loading charts..." /></div>}>
               <ChartAreaInteractive />
             </Suspense>
-            <Suspense fallback={<div className="flex items-center justify-center min-h-[400px]"><Spinner size="lg" message="Loading data table..." /></div>}>
+            <Suspense fallback={<div className="flex items-center justify-center min-h-[250px] sm:min-h-[400px]"><Spinner size="lg" message="Loading data table..." /></div>}>
               <DataTable 
                 data={(data as DashboardData)?.top_products || []} 
                 announcements={(data as DashboardData)?.announcements || []}
@@ -144,36 +144,36 @@ export function DashboardPage({ type }: DashboardPageProps) {
         return (
           <>
             <div>
-              <h3 className="text-2xl font-semibold mb-4">System Overview</h3>
+              <h3 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4">System Overview</h3>
               <StatCardsGrid data={data} type="owner" />
             </div>
 
-            <Suspense fallback={<div className="flex items-center justify-center min-h-[200px]"><Spinner size="lg" message="Loading status..." /></div>}>
+            <Suspense fallback={<div className="flex items-center justify-center min-h-[150px] sm:min-h-[200px]"><Spinner size="lg" message="Loading status..." /></div>}>
               <OwnerLoadStatusCard loadStatus={(data as OwnerDashboardStats)?.load_status} />
             </Suspense>
 
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5" />
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                  <Building2 className="h-4 w-4 sm:h-5 sm:w-5" />
                   Projects Overview
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-sm">
                   All projects in the system
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
+              <CardContent className="p-4 sm:p-6">
+                <div className="space-y-3 sm:space-y-4">
                   {(data as OwnerDashboardStats)?.project_analytics && (data as OwnerDashboardStats).project_analytics.length > 0 ? (
                     (data as OwnerDashboardStats).project_analytics.map((project: any) => (
-                      <div key={project.project_id} className="flex items-center justify-between p-4 rounded-lg border bg-card">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                            <Building2 className="h-5 w-5 text-primary" />
+                      <div key={project.project_id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border bg-card">
+                        <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                            <Building2 className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                           </div>
-                          <div>
-                            <h4 className="font-medium">{project.project_name}</h4>
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <div className="min-w-0 flex-1">
+                            <h4 className="font-medium text-sm sm:text-base truncate">{project.project_name}</h4>
+                            <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground mt-1">
                               <span>{project.users_count} users</span>
                               <span>{project.keys_count} keys</span>
                               <span>{project.products_count} products</span>
@@ -181,11 +181,11 @@ export function DashboardPage({ type }: DashboardPageProps) {
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={project.status === 'active' ? 'default' : 'secondary'}>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <Badge variant={project.status === 'active' ? 'default' : 'secondary'} className="text-xs">
                             {project.status}
                           </Badge>
-                          <Badge variant="outline">
+                          <Badge variant="outline" className="text-xs">
                             {project.subscription_status}
                           </Badge>
                         </div>
@@ -193,7 +193,7 @@ export function DashboardPage({ type }: DashboardPageProps) {
                     ))
                   ) : (
                     <div className="text-center py-6 text-muted-foreground">
-                      <Building2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <Building2 className="h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-2 opacity-50" />
                       <p className="text-sm">No projects found</p>
                     </div>
                   )}
@@ -232,20 +232,20 @@ export function DashboardPage({ type }: DashboardPageProps) {
   }
 
   return (
-    <div>
+    <div className="w-full px-2 sm:px-4 md:px-6">
       {}
-      <div className="mb-8">
-        <h2 className="text-3xl font-bold text-foreground mb-2">
+      <div className="mb-4 sm:mb-6 md:mb-8">
+        <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-1 sm:mb-2">
           {getPageTitle()}
         </h2>
-        <p className="text-muted-foreground">
+        <p className="text-sm sm:text-base text-muted-foreground">
           {getPageDescription()}
         </p>
       </div>
 
       <div className="flex flex-1 flex-col">
-        <div className="flex flex-1 flex-col gap-2">
-          <div className="flex flex-col gap-6">
+        <div className="flex flex-1 flex-col gap-2 sm:gap-4 md:gap-6">
+          <div className="flex flex-col gap-4 sm:gap-6">
             {renderDashboardContent()}
           </div>
         </div>

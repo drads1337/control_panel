@@ -65,8 +65,8 @@ export function StatCardsGrid({ data, type }: StatCardsGridProps) {
             icon={stat.icon}
             subtitle={stat.subtitle}
             badge={stat.badge}
-            valueClassName="text-sm font-semibold sm:text-base"
-            className="[&_header]:!p-1.5 [&_header]:!pb-0.5 [&_h2]:!text-sm [&_h2]:!mb-0 [&_p]:!text-xs [&_p]:!mb-0 [&_svg]:!h-3 [&_svg]:!w-3 [&_span]:!text-xs [&_span]:!px-1 [&_span]:!py-0"
+            valueClassName="text-xs xs:text-sm font-semibold sm:text-base md:text-lg"
+            className="[&_header]:!p-2 [&_header]:sm:!p-3 [&_header]:!pb-1 [&_header]:sm:!pb-1.5 [&_h2]:!text-xs [&_h2]:xs:!text-sm [&_h2]:sm:!text-base [&_h2]:!mb-0 [&_h2]:!leading-tight [&_p]:!text-[10px] [&_p]:xs:!text-xs [&_p]:!mb-0 [&_p]:!leading-tight [&_svg]:!h-3 [&_svg]:!w-3 [&_svg]:xs:!h-3.5 [&_svg]:xs:!w-3.5 [&_svg]:sm:!h-4 [&_svg]:sm:!w-4 [&_span]:!text-[10px] [&_span]:xs:!text-xs [&_span]:!px-1 [&_span]:xs:!px-1.5 [&_span]:!py-0 [&_span]:!leading-tight"
           />
         ))}
       </>
@@ -127,8 +127,8 @@ export function StatCardsGrid({ data, type }: StatCardsGridProps) {
             icon={stat.icon}
             subtitle={stat.subtitle}
             badge={stat.badge}
-            valueClassName="text-sm font-semibold sm:text-base"
-            className="[&_header]:!p-1.5 [&_header]:!pb-0.5 [&_h2]:!text-sm [&_h2]:!mb-0 [&_p]:!text-xs [&_p]:!mb-0 [&_svg]:!h-3 [&_svg]:!w-3 [&_span]:!text-xs [&_span]:!px-1 [&_span]:!py-0"
+            valueClassName="text-xs xs:text-sm font-semibold sm:text-base md:text-lg"
+            className="[&_header]:!p-2 [&_header]:sm:!p-3 [&_header]:!pb-1 [&_header]:sm:!pb-1.5 [&_h2]:!text-xs [&_h2]:xs:!text-sm [&_h2]:sm:!text-base [&_h2]:!mb-0 [&_h2]:!leading-tight [&_p]:!text-[10px] [&_p]:xs:!text-xs [&_p]:!mb-0 [&_p]:!leading-tight [&_svg]:!h-3 [&_svg]:!w-3 [&_svg]:xs:!h-3.5 [&_svg]:xs:!w-3.5 [&_svg]:sm:!h-4 [&_svg]:sm:!w-4 [&_span]:!text-[10px] [&_span]:xs:!text-xs [&_span]:!px-1 [&_span]:xs:!px-1.5 [&_span]:!py-0 [&_span]:!leading-tight"
           />
         ))}
       </>
@@ -146,15 +146,21 @@ export function StatCardsGrid({ data, type }: StatCardsGridProps) {
     }
   }
 
-  // Компактный стиль как в users-stats.tsx
-  const gridStyle = { gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))' };
-
+  // Горизонтальный скролл на мобильных, сетка на больших экранах
   return (
-    <div 
-      className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid gap-2 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs"
-      style={gridStyle}
-    >
-      {renderCards()}
+    <div className="w-full">
+      {/* Мобильная версия с горизонтальным скроллом */}
+      <div className="flex gap-2 xs:gap-2.5 sm:hidden overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide">
+        <div className="flex gap-2 xs:gap-2.5 min-w-max *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs *:min-w-[140px] *:flex-shrink-0">
+          {renderCards()}
+        </div>
+      </div>
+      {/* Десктопная версия с сеткой */}
+      <div 
+        className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs"
+      >
+        {renderCards()}
+      </div>
     </div>
   )
 }

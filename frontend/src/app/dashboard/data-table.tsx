@@ -726,42 +726,44 @@ export function DataTable({ data, announcements, topUsers }: DataTableProps) {
       onValueChange={setActiveTab}
       className="w-full flex-col justify-start gap-6"
     >
-      <div className="flex items-center justify-between">
-        <Label htmlFor="view-selector" className="sr-only">
-          View
-        </Label>
-        <Select value={activeTab} onValueChange={setActiveTab}>
-          <SelectTrigger
-            className="flex w-fit @4xl/main:hidden h-8"
-            id="view-selector"
-          >
-            <SelectValue placeholder="Select a view" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="products">Top Products</SelectItem>
-            <SelectItem value="users">Active Users</SelectItem>
-            <SelectItem value="announcements">Announcements</SelectItem>
-          </SelectContent>
-        </Select>
-        <TabsList className="**:data-[slot=badge]:bg-muted-foreground/30 hidden **:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:px-1 @4xl/main:flex">
-          <TabsTrigger value="products">
-            Top products <Badge variant="secondary">{data?.length || 0}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="users">
-            Active Users <Badge variant="secondary">{topUsers?.length || 0}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="announcements">
-            Announcements <Badge variant="secondary">{announcements?.length || 0}</Badge>
-          </TabsTrigger>
-        </TabsList>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
+          <Label htmlFor="view-selector" className="sr-only">
+            View
+          </Label>
+          <Select value={activeTab} onValueChange={setActiveTab}>
+            <SelectTrigger
+              className="flex w-fit @4xl/main:hidden h-8 sm:h-9"
+              id="view-selector"
+            >
+              <SelectValue placeholder="Select a view" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="products">Top Products</SelectItem>
+              <SelectItem value="users">Active Users</SelectItem>
+              <SelectItem value="announcements">Announcements</SelectItem>
+            </SelectContent>
+          </Select>
+          <TabsList className="**:data-[slot=badge]:bg-muted-foreground/30 hidden **:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:px-1 @4xl/main:flex">
+            <TabsTrigger value="products" className="text-xs sm:text-sm">
+              Top products <Badge variant="secondary">{data?.length || 0}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="users" className="text-xs sm:text-sm">
+              Active Users <Badge variant="secondary">{topUsers?.length || 0}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="announcements" className="text-xs sm:text-sm">
+              Announcements <Badge variant="secondary">{announcements?.length || 0}</Badge>
+            </TabsTrigger>
+          </TabsList>
+        </div>
         <div className="flex items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Layout />
+              <Button variant="outline" size="sm" className="h-8 sm:h-9 text-xs sm:text-sm">
+                <Layout className="h-3 w-3 sm:h-4 sm:w-4" />
                 <span className="hidden lg:inline">Customize Columns</span>
                 <span className="lg:hidden">Columns</span>
-                <ChevronDown />
+                <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
@@ -793,10 +795,11 @@ export function DataTable({ data, announcements, topUsers }: DataTableProps) {
 
       <TabsContent
         value="products"
-        className="relative flex flex-col gap-6 overflow-auto pb-8"
+        className="relative flex flex-col gap-4 sm:gap-6 overflow-auto pb-4 sm:pb-8"
       >
-        <div className="overflow-hidden rounded-lg border">
-          <Table>
+        <div className="overflow-x-auto rounded-lg border -mx-2 sm:mx-0">
+          <div className="min-w-full inline-block">
+            <Table>
             <TableHeader className="bg-muted sticky top-0 z-10">
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
@@ -838,15 +841,16 @@ export function DataTable({ data, announcements, topUsers }: DataTableProps) {
               )}
             </TableBody>
           </Table>
+          </div>
         </div>
-        <div className="flex items-center justify-between pt-4 border-t border-border/50">
-          <div className="text-muted-foreground hidden flex-1 text-sm lg:flex">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 pt-4 border-t border-border/50">
+          <div className="text-muted-foreground hidden flex-1 text-xs sm:text-sm lg:flex">
             {table.getFilteredSelectedRowModel().rows.length} of{" "}
             {table.getFilteredRowModel().rows.length} row(s) selected.
           </div>
-          <div className="flex w-full items-center gap-8 lg:w-fit">
+          <div className="flex flex-col sm:flex-row w-full items-center gap-3 sm:gap-4 lg:w-fit">
             <div className="hidden items-center gap-2 lg:flex">
-              <Label htmlFor="rows-per-page" className="text-sm font-medium">
+              <Label htmlFor="rows-per-page" className="text-xs sm:text-sm font-medium">
                 Rows per page
               </Label>
               <Select
@@ -869,49 +873,49 @@ export function DataTable({ data, announcements, topUsers }: DataTableProps) {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex w-fit items-center justify-center text-sm font-medium">
+            <div className="flex w-full sm:w-fit items-center justify-center text-xs sm:text-sm font-medium">
               Page {table.getState().pagination.pageIndex + 1} of{" "}
               {table.getPageCount()}
             </div>
-            <div className="ml-auto flex items-center gap-2 lg:ml-0">
+            <div className="flex w-full sm:w-fit items-center justify-center sm:justify-end gap-1 sm:gap-2">
               <Button
                 variant="outline"
-                className="hidden h-8 w-8 p-0 lg:flex"
+                className="hidden h-7 w-7 sm:h-8 sm:w-8 p-0 lg:flex"
                 onClick={() => table.setPageIndex(0)}
                 disabled={!table.getCanPreviousPage()}
               >
                 <span className="sr-only">Go to first page</span>
-                <ChevronsLeft />
+                <ChevronsLeft className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
               <Button
                 variant="outline"
-                className="size-8"
+                className="h-7 w-7 sm:h-8 sm:w-8 p-0"
                 size="icon"
                 onClick={() => table.previousPage()}
                 disabled={!table.getCanPreviousPage()}
               >
                 <span className="sr-only">Go to previous page</span>
-                <ChevronLeft />
+                <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
               <Button
                 variant="outline"
-                className="size-8"
+                className="h-7 w-7 sm:h-8 sm:w-8 p-0"
                 size="icon"
                 onClick={() => table.nextPage()}
                 disabled={!table.getCanNextPage()}
               >
                 <span className="sr-only">Go to next page</span>
-                <ChevronRight />
+                <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
               <Button
                 variant="outline"
-                className="hidden size-8 lg:flex"
+                className="hidden h-7 w-7 sm:h-8 sm:w-8 p-0 lg:flex"
                 size="icon"
                 onClick={() => table.setPageIndex(table.getPageCount() - 1)}
                 disabled={!table.getCanNextPage()}
               >
                 <span className="sr-only">Go to last page</span>
-                <ChevronsRight />
+                <ChevronsRight className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
             </div>
           </div>
@@ -920,10 +924,11 @@ export function DataTable({ data, announcements, topUsers }: DataTableProps) {
 
       <TabsContent
         value="users"
-        className="relative flex flex-col gap-6 overflow-auto pb-8"
+        className="relative flex flex-col gap-4 sm:gap-6 overflow-auto pb-4 sm:pb-8"
       >
-        <div className="overflow-hidden rounded-lg border">
-          <Table>
+        <div className="overflow-x-auto rounded-lg border -mx-2 sm:mx-0">
+          <div className="min-w-full inline-block">
+            <Table>
             <TableHeader className="bg-muted sticky top-0 z-10">
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
@@ -965,15 +970,16 @@ export function DataTable({ data, announcements, topUsers }: DataTableProps) {
               )}
             </TableBody>
           </Table>
+          </div>
         </div>
-        <div className="flex items-center justify-between pt-4 border-t border-border/50">
-          <div className="text-muted-foreground hidden flex-1 text-sm lg:flex">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 pt-4 border-t border-border/50">
+          <div className="text-muted-foreground hidden flex-1 text-xs sm:text-sm lg:flex">
             {table.getFilteredSelectedRowModel().rows.length} of{" "}
             {table.getFilteredRowModel().rows.length} row(s) selected.
           </div>
-          <div className="flex w-full items-center gap-8 lg:w-fit">
+          <div className="flex flex-col sm:flex-row w-full items-center gap-3 sm:gap-4 lg:w-fit">
             <div className="hidden items-center gap-2 lg:flex">
-              <Label htmlFor="rows-per-page" className="text-sm font-medium">
+              <Label htmlFor="rows-per-page" className="text-xs sm:text-sm font-medium">
                 Rows per page
               </Label>
               <Select
@@ -996,49 +1002,49 @@ export function DataTable({ data, announcements, topUsers }: DataTableProps) {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex w-fit items-center justify-center text-sm font-medium">
+            <div className="flex w-full sm:w-fit items-center justify-center text-xs sm:text-sm font-medium">
               Page {table.getState().pagination.pageIndex + 1} of{" "}
               {table.getPageCount()}
             </div>
-            <div className="ml-auto flex items-center gap-2 lg:ml-0">
+            <div className="flex w-full sm:w-fit items-center justify-center sm:justify-end gap-1 sm:gap-2">
               <Button
                 variant="outline"
-                className="hidden h-8 w-8 p-0 lg:flex"
+                className="hidden h-7 w-7 sm:h-8 sm:w-8 p-0 lg:flex"
                 onClick={() => table.setPageIndex(0)}
                 disabled={!table.getCanPreviousPage()}
               >
                 <span className="sr-only">Go to first page</span>
-                <ChevronsLeft />
+                <ChevronsLeft className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
               <Button
                 variant="outline"
-                className="size-8"
+                className="h-7 w-7 sm:h-8 sm:w-8 p-0"
                 size="icon"
                 onClick={() => table.previousPage()}
                 disabled={!table.getCanPreviousPage()}
               >
                 <span className="sr-only">Go to previous page</span>
-                <ChevronLeft />
+                <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
               <Button
                 variant="outline"
-                className="size-8"
+                className="h-7 w-7 sm:h-8 sm:w-8 p-0"
                 size="icon"
                 onClick={() => table.nextPage()}
                 disabled={!table.getCanNextPage()}
               >
                 <span className="sr-only">Go to next page</span>
-                <ChevronRight />
+                <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
               <Button
                 variant="outline"
-                className="hidden size-8 lg:flex"
+                className="hidden h-7 w-7 sm:h-8 sm:w-8 p-0 lg:flex"
                 size="icon"
                 onClick={() => table.setPageIndex(table.getPageCount() - 1)}
                 disabled={!table.getCanNextPage()}
               >
                 <span className="sr-only">Go to last page</span>
-                <ChevronsRight />
+                <ChevronsRight className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
             </div>
           </div>
@@ -1047,10 +1053,11 @@ export function DataTable({ data, announcements, topUsers }: DataTableProps) {
 
       <TabsContent
         value="announcements"
-        className="relative flex flex-col gap-6 overflow-auto pb-8"
+        className="relative flex flex-col gap-4 sm:gap-6 overflow-auto pb-4 sm:pb-8"
       >
-        <div className="overflow-hidden rounded-lg border">
-          <Table>
+        <div className="overflow-x-auto rounded-lg border -mx-2 sm:mx-0">
+          <div className="min-w-full inline-block">
+            <Table>
             <TableHeader className="bg-muted sticky top-0 z-10">
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
@@ -1092,15 +1099,16 @@ export function DataTable({ data, announcements, topUsers }: DataTableProps) {
               )}
             </TableBody>
           </Table>
+          </div>
         </div>
-        <div className="flex items-center justify-between pt-4 border-t border-border/50">
-          <div className="text-muted-foreground hidden flex-1 text-sm lg:flex">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 pt-4 border-t border-border/50">
+          <div className="text-muted-foreground hidden flex-1 text-xs sm:text-sm lg:flex">
             {table.getFilteredSelectedRowModel().rows.length} of{" "}
             {table.getFilteredRowModel().rows.length} row(s) selected.
           </div>
-          <div className="flex w-full items-center gap-8 lg:w-fit">
+          <div className="flex flex-col sm:flex-row w-full items-center gap-3 sm:gap-4 lg:w-fit">
             <div className="hidden items-center gap-2 lg:flex">
-              <Label htmlFor="rows-per-page" className="text-sm font-medium">
+              <Label htmlFor="rows-per-page" className="text-xs sm:text-sm font-medium">
                 Rows per page
               </Label>
               <Select
@@ -1123,49 +1131,49 @@ export function DataTable({ data, announcements, topUsers }: DataTableProps) {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex w-fit items-center justify-center text-sm font-medium">
+            <div className="flex w-full sm:w-fit items-center justify-center text-xs sm:text-sm font-medium">
               Page {table.getState().pagination.pageIndex + 1} of{" "}
               {table.getPageCount()}
             </div>
-            <div className="ml-auto flex items-center gap-2 lg:ml-0">
+            <div className="flex w-full sm:w-fit items-center justify-center sm:justify-end gap-1 sm:gap-2">
               <Button
                 variant="outline"
-                className="hidden h-8 w-8 p-0 lg:flex"
+                className="hidden h-7 w-7 sm:h-8 sm:w-8 p-0 lg:flex"
                 onClick={() => table.setPageIndex(0)}
                 disabled={!table.getCanPreviousPage()}
               >
                 <span className="sr-only">Go to first page</span>
-                <ChevronsLeft />
+                <ChevronsLeft className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
               <Button
                 variant="outline"
-                className="size-8"
+                className="h-7 w-7 sm:h-8 sm:w-8 p-0"
                 size="icon"
                 onClick={() => table.previousPage()}
                 disabled={!table.getCanPreviousPage()}
               >
                 <span className="sr-only">Go to previous page</span>
-                <ChevronLeft />
+                <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
               <Button
                 variant="outline"
-                className="size-8"
+                className="h-7 w-7 sm:h-8 sm:w-8 p-0"
                 size="icon"
                 onClick={() => table.nextPage()}
                 disabled={!table.getCanNextPage()}
               >
                 <span className="sr-only">Go to next page</span>
-                <ChevronRight />
+                <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
               <Button
                 variant="outline"
-                className="hidden size-8 lg:flex"
+                className="hidden h-7 w-7 sm:h-8 sm:w-8 p-0 lg:flex"
                 size="icon"
                 onClick={() => table.setPageIndex(table.getPageCount() - 1)}
                 disabled={!table.getCanNextPage()}
               >
                 <span className="sr-only">Go to last page</span>
-                <ChevronsRight />
+                <ChevronsRight className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
             </div>
           </div>

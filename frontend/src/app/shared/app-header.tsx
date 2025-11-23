@@ -21,7 +21,7 @@ export function AppHeader({ title, children, showSearch = true }: AppHeaderProps
 
       <div className="ml-auto flex items-center gap-3">
         {showSearch && (
-          <div className="max-w-sm">
+          <div className="hidden md:block max-w-sm">
             <SearchBar placeholder="Search the system..." />
           </div>
         )}

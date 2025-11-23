@@ -55,11 +55,11 @@ export default function ManagementPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 px-2 xs:px-3 sm:px-4 md:px-0">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">System Management</h1>
-        <p className="text-muted-foreground mt-2">
+      <div className="mb-3 xs:mb-4 sm:mb-5 md:mb-6">
+        <h1 className="text-xl xs:text-2xl sm:text-2xl md:text-3xl font-bold tracking-tight text-foreground leading-tight">System Management</h1>
+        <p className="text-xs xs:text-sm sm:text-sm md:text-base text-muted-foreground mt-1 xs:mt-1.5 sm:mt-2 leading-snug">
           Comprehensive management of licenses, products, files, and agents
         </p>
       </div>
@@ -72,18 +72,18 @@ export default function ManagementPage() {
         <>
           {availableTabs.length > 1 ? (
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <div className="relative mb-4">
-                <TabsList className={`grid w-full h-14 bg-muted border border-border rounded-lg p-1`} style={{gridTemplateColumns: `repeat(${availableTabs.length}, 1fr)`}}>
+              <div className="relative mb-2 xs:mb-3 sm:mb-4 overflow-x-auto -mx-2 xs:-mx-2 sm:mx-0 px-2 xs:px-2 sm:px-0">
+                <TabsList className={`grid w-full min-w-max sm:min-w-0 h-10 xs:h-11 sm:h-12 md:h-14 bg-muted border border-border rounded-lg p-0.5 xs:p-1 gap-0.5 xs:gap-1`} style={{gridTemplateColumns: `repeat(${availableTabs.length}, minmax(100px, 1fr))`}}>
                   {availableTabs.map((tab) => {
                     const Icon = tab.icon;
                     return (
                       <TabsTrigger 
                         key={tab.value}
                         value={tab.value} 
-                        className="flex items-center justify-center gap-2"
+                        className="flex items-center justify-center gap-1 xs:gap-1.5 sm:gap-2 text-[10px] xs:text-xs sm:text-sm px-1.5 xs:px-2 sm:px-3 md:px-4 py-1.5 xs:py-2"
                       >
-                        <Icon className="h-4 w-4" />
-                        <span>{tab.label}</span>
+                        <Icon className="h-3 w-3 xs:h-3.5 xs:w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                        <span className="truncate">{tab.label}</span>
                       </TabsTrigger>
                     );
                   })}
@@ -92,7 +92,7 @@ export default function ManagementPage() {
 
               <TabsContents>
                 {canViewKeys && (
-                  <TabsContent value="license-keys" className="space-y-6">
+                  <TabsContent value="license-keys" className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4 md:mt-0">
                     <ManagementTabContent 
                       tabValue="license-keys"
                       wrapInTabsContent={false}
@@ -101,7 +101,7 @@ export default function ManagementPage() {
                 )}
 
                 {canViewFiles && (
-                  <TabsContent value="file-manager" className="space-y-6">
+                  <TabsContent value="file-manager" className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4 md:mt-0">
                     <ManagementTabContent 
                       tabValue="file-manager"
                       wrapInTabsContent={false}
@@ -110,7 +110,7 @@ export default function ManagementPage() {
                 )}
 
                 {canViewProducts && (
-                  <TabsContent value="product-database" className="space-y-6">
+                  <TabsContent value="product-database" className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4 md:mt-0">
                     <ManagementTabContent 
                       tabValue="product-database"
                       wrapInTabsContent={false}
@@ -119,7 +119,7 @@ export default function ManagementPage() {
                 )}
 
                 {canViewAgents && (
-                  <TabsContent value="agent-manager" className="space-y-6">
+                  <TabsContent value="agent-manager" className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4 md:mt-0">
                     <ManagementTabContent 
                       tabValue="agent-manager"
                       wrapInTabsContent={false}
@@ -128,7 +128,7 @@ export default function ManagementPage() {
                 )}
 
                 {canViewNotifications && (
-                  <TabsContent value="notifications" className="space-y-6">
+                  <TabsContent value="notifications" className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4 md:mt-0">
                     <ManagementTabContent 
                       tabValue="notifications"
                       wrapInTabsContent={false}
@@ -140,7 +140,7 @@ export default function ManagementPage() {
           ) : (
             <>
               {canViewKeys && activeTab === 'license-keys' && (
-                <div className="space-y-6 mt-4">
+                <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4">
                   <ManagementTabContent 
                     tabValue="license-keys"
                     wrapInTabsContent={false}
@@ -148,7 +148,7 @@ export default function ManagementPage() {
                 </div>
               )}
               {canViewFiles && activeTab === 'file-manager' && (
-                <div className="space-y-6 mt-4">
+                <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4">
                   <ManagementTabContent 
                     tabValue="file-manager"
                     wrapInTabsContent={false}
@@ -156,7 +156,7 @@ export default function ManagementPage() {
                 </div>
               )}
               {canViewProducts && activeTab === 'product-database' && (
-                <div className="space-y-6 mt-4">
+                <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4">
                   <ManagementTabContent 
                     tabValue="product-database"
                     wrapInTabsContent={false}
@@ -164,7 +164,7 @@ export default function ManagementPage() {
                 </div>
               )}
               {canViewAgents && activeTab === 'agent-manager' && (
-                <div className="space-y-6 mt-4">
+                <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4">
                   <ManagementTabContent 
                     tabValue="agent-manager"
                     wrapInTabsContent={false}
@@ -172,7 +172,7 @@ export default function ManagementPage() {
                 </div>
               )}
               {canViewNotifications && activeTab === 'notifications' && (
-                <div className="space-y-6 mt-4">
+                <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4">
                   <ManagementTabContent 
                     tabValue="notifications"
                     wrapInTabsContent={false}

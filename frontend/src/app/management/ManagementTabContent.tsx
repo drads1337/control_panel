@@ -37,8 +37,8 @@ export const ManagementTabContent: React.FC<ManagementTabContentProps> = ({
 
   if (canViewKeys && tabValue === 'license-keys') {
     return (
-      <div className="space-y-4">
-        <Suspense fallback={<div className="flex items-center justify-center min-h-[400px]"><Spinner size="lg" message="Loading license keys..." /></div>}>
+      <div className="space-y-3 sm:space-y-4">
+        <Suspense fallback={<div className="flex items-center justify-center min-h-[250px] sm:min-h-[400px]"><Spinner size="lg" message="Loading license keys..." /></div>}>
           <LicenseKeysMain 
             onSwitchToProductDatabase={() => setActiveTab('product-database')} 
             activeTab={activeTab}
@@ -50,8 +50,8 @@ export const ManagementTabContent: React.FC<ManagementTabContentProps> = ({
 
   if (canViewFiles && tabValue === 'file-manager') {
     return (
-      <div className="space-y-4">
-        <Suspense fallback={<div className="flex items-center justify-center min-h-[400px]"><Spinner size="lg" message="Loading file manager..." /></div>}>
+      <div className="space-y-3 sm:space-y-4">
+        <Suspense fallback={<div className="flex items-center justify-center min-h-[250px] sm:min-h-[400px]"><Spinner size="lg" message="Loading file manager..." /></div>}>
           <FileManager onSwitchToProductDatabase={() => setActiveTab('product-database')} />
         </Suspense>
       </div>
@@ -60,25 +60,27 @@ export const ManagementTabContent: React.FC<ManagementTabContentProps> = ({
 
   if (canViewProducts && tabValue === 'product-database') {
     return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold mb-0 text-foreground">Products Database</h3>
-            <p className="text-muted-foreground">
+      <div className="space-y-3 sm:space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-base sm:text-lg font-semibold mb-0 text-foreground">Products Database</h3>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
               Manage the catalog of products, their versions, and settings.
             </p>
           </div>
           <ConditionalRender permission="products.create" fallback={null}>
             <Button 
               onClick={() => setCreateProductDialogRequested(true)}
-              className="gap-2"
+              className="gap-2 w-full sm:w-auto text-sm"
+              size="sm"
             >
               <Plus className="h-4 w-4" />
-              Create Products
+              <span className="hidden sm:inline">Create Products</span>
+              <span className="sm:hidden">Create</span>
             </Button>
           </ConditionalRender>
         </div>
-        <Suspense fallback={<div className="flex items-center justify-center min-h-[400px]"><Spinner size="lg" message="Loading product database..." /></div>}>
+        <Suspense fallback={<div className="flex items-center justify-center min-h-[250px] sm:min-h-[400px]"><Spinner size="lg" message="Loading product database..." /></div>}>
           <ProductDatabase 
             onCreateProductRequested={createProductDialogRequested}
             onCreateProductRequestHandled={() => setCreateProductDialogRequested(false)}
@@ -90,25 +92,27 @@ export const ManagementTabContent: React.FC<ManagementTabContentProps> = ({
 
   if (canViewAgents && tabValue === 'agent-manager') {
     return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold mb-0 text-foreground">Agent Management</h3>
-            <p className="text-muted-foreground">
+      <div className="space-y-3 sm:space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-base sm:text-lg font-semibold mb-0 text-foreground">Agent Management</h3>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
               Configure and manage agents for different platforms.
             </p>
           </div>
           <ConditionalRender permission="agents.create" fallback={null}>
             <Button 
               onClick={() => setCreateAgentDialogRequested(true)}
-              className="gap-2"
+              className="gap-2 w-full sm:w-auto text-sm"
+              size="sm"
             >
               <Plus className="h-4 w-4" />
-              Create Agent
+              <span className="hidden sm:inline">Create Agent</span>
+              <span className="sm:hidden">Create</span>
             </Button>
           </ConditionalRender>
         </div>
-        <Suspense fallback={<div className="flex items-center justify-center min-h-[400px]"><Spinner size="lg" message="Loading agent manager..." /></div>}>
+        <Suspense fallback={<div className="flex items-center justify-center min-h-[250px] sm:min-h-[400px]"><Spinner size="lg" message="Loading agent manager..." /></div>}>
           <AgentManager 
             onCreateAgentRequested={createAgentDialogRequested}
             onCreateAgentRequestHandled={() => setCreateAgentDialogRequested(false)}
@@ -120,8 +124,8 @@ export const ManagementTabContent: React.FC<ManagementTabContentProps> = ({
 
   if (canViewNotifications && tabValue === 'notifications') {
     return (
-      <div className="space-y-4">
-        <Suspense fallback={<div className="flex items-center justify-center min-h-[400px]"><Spinner size="lg" message="Loading notifications..." /></div>}>
+      <div className="space-y-3 sm:space-y-4">
+        <Suspense fallback={<div className="flex items-center justify-center min-h-[250px] sm:min-h-[400px]"><Spinner size="lg" message="Loading notifications..." /></div>}>
           <NotificationsManager />
         </Suspense>
       </div>
