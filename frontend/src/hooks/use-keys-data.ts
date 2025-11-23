@@ -39,6 +39,7 @@ export function useKeysData({
   const queryClient = useQueryClient();
 
   const showMyKeysOnly = !canViewKeys ? true : viewMode === 'my';
+  
   const keysQuery = useKeysQuery({
     page: currentPage,
     per_page: 20,

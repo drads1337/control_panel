@@ -113,7 +113,7 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
             </div>
           </div>
         </CardHeader>
-        <CardContent className="pt-0 -mt-3">
+        <CardContent className="pt-0">
           <form onSubmit={handleSubmit} className="space-y-4">
             {showTargetTypeToggle && (
               <div className="space-y-2">
@@ -163,12 +163,12 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
                       onValueChange={(value) => updateField('productId', value)}
                       disabled={loading}
                     >
-                      <SelectTrigger className="flex-1">
+                      <SelectTrigger className="flex-1 text-sm h-10">
                         <SelectValue placeholder="Select a product" />
                       </SelectTrigger>
                       <SelectContent>
                         {getProductLibraryProducts().map((product) => (
-                          <SelectItem key={product.id} value={product.id.toString()}>
+                          <SelectItem key={product.id} value={product.id.toString()} className="text-sm">
                             {product.name}
                           </SelectItem>
                         ))}
@@ -180,7 +180,7 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
                       size="icon"
                       onClick={() => updateField('productId', '')}
                       disabled={loading}
-                      className="h-10 w-10"
+                      className="h-10 w-10 shrink-0"
                     >
                       <X className="h-4 w-4" />
                     </Button>
@@ -210,12 +210,12 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
                         }}
                         disabled={loading || agentsLoading}
                       >
-                        <SelectTrigger className="flex-1">
+                        <SelectTrigger className="flex-1 text-sm h-10">
                           <SelectValue placeholder={agentsLoading ? "Loading agents..." : "Select a agent"} />
                         </SelectTrigger>
                         <SelectContent>
                           {agents.map((agent) => (
-                            <SelectItem key={agent.id} value={agent.id.toString()}>
+                            <SelectItem key={agent.id} value={agent.id.toString()} className="text-sm">
                               {agent.name}
                             </SelectItem>
                           ))}
@@ -230,7 +230,7 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
                           updateField('selectedProducts', []);
                         }}
                         disabled={loading}
-                        className="h-10 w-10"
+                        className="h-10 w-10 shrink-0"
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -262,11 +262,12 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
                                 }
                               }}
                             />
-                            <Label htmlFor="select-all-products" className="text-sm font-medium">All Products</Label>
+                            <Label htmlFor="select-all-products" className="text-sm font-medium cursor-pointer">All Products</Label>
                           </div>
-                          <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
+                          {/* Mobile: 1 col, Tablet+: 2 cols */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto border rounded-md p-2">
                             {getAssignedProductsForAgent(parseInt(formData.agentId)).map(product => (
-                              <div key={product.id} className="flex items-center space-x-2">
+                              <div key={product.id} className="flex items-center space-x-2 p-1 hover:bg-muted/50 rounded transition-colors">
                                 <Checkbox
                                   id={`product-${product.id}`}
                                   checked={formData.selectedProducts.includes(product.id)}
@@ -278,7 +279,9 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
                                     }
                                   }}
                                 />
-                                <Label htmlFor={`product-${product.id}`} className="text-sm font-normal">{product.name}</Label>
+                                <Label htmlFor={`product-${product.id}`} className="text-sm font-normal cursor-pointer w-full truncate" title={product.name}>
+                                  {product.name}
+                                </Label>
                               </div>
                             ))}
                           </div>
@@ -292,7 +295,8 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
 
             <div className="space-y-2">
               <Label className="text-sm font-medium text-foreground">Duration</Label>
-              <div className="grid grid-cols-5 gap-2">
+              {/* Mobile: 3 cols, Tablet+: 5 cols */}
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                 {durationOptions.map((option) => (
                   <Button
                     key={option.value}
@@ -304,7 +308,7 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
                       updateField('customHours', '');
                     }}
                     disabled={loading}
-                    className="text-xs"
+                    className="text-xs h-9"
                   >
                     {option.label}
                   </Button>
@@ -312,7 +316,8 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            {/* Mobile: Stacked, Tablet+: Side-by-side */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-foreground">Or Custom Hours</Label>
                 <Input
@@ -328,6 +333,7 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
                   }}
                   disabled={loading}
                   min="1"
+                  className="h-10"
                 />
               </div>
               <div className="space-y-2">
@@ -338,15 +344,16 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
                   onChange={(e) => updateField('maxDevices', parseInt(e.target.value) || 1)}
                   disabled={loading}
                   min="1"
+                  className="h-10"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end pt-4">
+            <div className="flex justify-end pt-2">
               <Button
                 type="submit"
                 disabled={loading || (formData.targetType === 'product' ? !formData.productId : !formData.agentId || formData.selectedProducts.length === 0)}
-                className="flex items-center gap-2"
+                className="w-full sm:w-auto flex items-center gap-2 h-10"
               >
                 <Plus className="h-4 w-4" />
                 {loading ? 'Generating...' : 'Generate License Key'}

@@ -150,8 +150,7 @@ export default function SecurityTabs({
   const hasBlockedData = (canViewIPs && blockedIPs.length > 0) || (canViewHWIDs && blockedHWIDs.length > 0);
 
   return (
-    <div className="space-y-6">
-      {}
+    <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6">
       {hasBlockedData && (
         <SecurityStatsCards 
           stats={stats} 
@@ -161,7 +160,6 @@ export default function SecurityTabs({
         />
       )}
 
-      {}
       {availableTabs.length > 0 && (
         <>
           {availableTabs.length > 1 ? (
@@ -176,8 +174,8 @@ export default function SecurityTabs({
                         value={tab.value} 
                         className="flex items-center justify-center gap-2"
                       >
-                        <Icon className="h-4 w-4" />
-                        <span>{tab.label}</span>
+                        <Icon className="h-4 w-4 md:h-4 md:w-4" />
+                        <span className="hidden md:inline">{tab.label}</span>
                       </TabsTrigger>
                     )
                   })}
@@ -186,7 +184,7 @@ export default function SecurityTabs({
 
               <TabsContents>
                 {canViewHWIDs && (
-                  <TabsContent value="blocked-hwids" className="space-y-6">
+                  <TabsContent value="blocked-hwids" className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4 md:mt-0">
                     <BlockedHWIDsList
                       blockedHWIDs={blockedHWIDs}
                       loading={loading}
@@ -201,7 +199,7 @@ export default function SecurityTabs({
                 )}
 
                 {canViewIPs && (
-                  <TabsContent value="blocked-ips" className="space-y-6">
+                  <TabsContent value="blocked-ips" className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4 md:mt-0">
                     <BlockedIPsList
                       blockedIPs={blockedIPs}
                       loading={loading}
@@ -216,7 +214,7 @@ export default function SecurityTabs({
                 )}
 
                 {canManageRules && (
-                  <TabsContent value="rules" className="space-y-6">
+                  <TabsContent value="rules" className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4 md:mt-0">
                     <SecurityRules onRefresh={onRefreshRules} loading={loading} />
                   </TabsContent>
                 )}
@@ -225,7 +223,7 @@ export default function SecurityTabs({
           ) : (
             <>
               {canViewHWIDs && activeTab === 'blocked-hwids' && (
-                <div className="space-y-6 mt-4">
+                <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4">
                   <BlockedHWIDsList
                     blockedHWIDs={blockedHWIDs}
                     loading={loading}
@@ -239,7 +237,7 @@ export default function SecurityTabs({
                 </div>
               )}
               {canViewIPs && activeTab === 'blocked-ips' && (
-                <div className="space-y-6 mt-4">
+                <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4">
                   <BlockedIPsList
                     blockedIPs={blockedIPs}
                     loading={loading}
@@ -253,7 +251,7 @@ export default function SecurityTabs({
                 </div>
               )}
               {canManageRules && activeTab === 'rules' && (
-                <div className="space-y-6 mt-4">
+                <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4">
                   <SecurityRules onRefresh={onRefreshRules} loading={loading} />
                 </div>
               )}

@@ -280,9 +280,14 @@ function FaultyTerminalComponent({
 
   const { recommendedSettings } = usePerformanceDetection();
 
-  const lowPowerMode = lowPowerModeProp ?? recommendedSettings.lowPowerMode;
-  const maxFPS = maxFPSProp ?? recommendedSettings.maxFPS;
-  const adaptiveQuality = adaptiveQualityProp ?? recommendedSettings.adaptiveQuality;
+  const isIPad = useMemo(() => {
+    const ua = navigator.userAgent.toLowerCase();
+    return /ipad/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }, []);
+
+  const lowPowerMode = lowPowerModeProp ?? (isIPad ? true : recommendedSettings.lowPowerMode);
+  const maxFPS = maxFPSProp ?? (isIPad ? 30 : recommendedSettings.maxFPS);
+  const adaptiveQuality = adaptiveQualityProp ?? true;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const programRef = useRef<Program | null>(null);
@@ -301,6 +306,10 @@ function FaultyTerminalComponent({
   const currentFPSRef = useRef(60);
   const performanceModeRef = useRef<'high' | 'medium' | 'low'>('high');
   const lastFrameTimeRef = useRef(0);
+  const isVisibleRef = useRef(true);
+  const contextLostRef = useRef(false);
+  const renderSkippedRef = useRef(0);
+  const isIPadRef = useRef(false);
 
   const propsRef = useRef({
     scale,
@@ -382,14 +391,94 @@ function FaultyTerminalComponent({
     mouseRef.current = { x, y };
   }, []);
 
+  // Определяем iPad
+  useEffect(() => {
+    const ua = navigator.userAgent.toLowerCase();
+    isIPadRef.current = /ipad/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }, []);
+
+  // Обработка видимости страницы
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      isVisibleRef.current = !document.hidden;
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
   useEffect(() => {
     const ctn = containerRef.current;
     if (!ctn) return;
 
-    const renderer = new Renderer({ dpr });
+    // Используем значение isIPad из useMemo
+    const isIPadDevice = isIPad;
+    
+    const renderer = new Renderer({ 
+      dpr: isIPadDevice ? Math.min(dpr, 1.5) : dpr,
+      powerPreference: isIPadDevice ? 'low-power' : 'default',
+      antialias: !isIPadDevice,
+      depth: false,
+      stencil: false,
+      alpha: false
+    });
     rendererRef.current = renderer;
     const gl = renderer.gl;
     gl.clearColor(0, 0, 0, 1);
+
+    // Обработка потери контекста
+    const handleContextLost = (e: Event) => {
+      e.preventDefault();
+      contextLostRef.current = true;
+      console.warn('WebGL context lost, will attempt to restore');
+    };
+
+    const handleContextRestored = () => {
+      contextLostRef.current = false;
+      console.log('WebGL context restored');
+      // Пересоздаем программу и меш после восстановления контекста
+      try {
+        const geometry = new Triangle(gl);
+        geometryRef.current = geometry;
+        
+        // Сохраняем старые значения uniform для восстановления
+        const oldUniforms = programRef.current?.uniforms;
+        
+        const program = new Program(gl, {
+          vertex: vertexShader,
+          fragment: fragmentShader,
+          uniforms: {
+            iTime: { value: oldUniforms?.iTime?.value || 0 },
+            iResolution: oldUniforms?.iResolution?.value || new Color(gl.canvas.width, gl.canvas.height, gl.canvas.width / gl.canvas.height),
+            uScale: { value: oldUniforms?.uScale?.value || scale },
+            uGridMul: { value: oldUniforms?.uGridMul?.value || new Float32Array(gridMul) },
+            uDigitSize: { value: oldUniforms?.uDigitSize?.value || digitSize },
+            uScanlineIntensity: { value: oldUniforms?.uScanlineIntensity?.value || scanlineIntensity },
+            uGlitchAmount: { value: oldUniforms?.uGlitchAmount?.value || glitchAmount },
+            uFlickerAmount: { value: oldUniforms?.uFlickerAmount?.value || flickerAmount },
+            uNoiseAmp: { value: oldUniforms?.uNoiseAmp?.value || noiseAmp },
+            uChromaticAberration: { value: oldUniforms?.uChromaticAberration?.value || chromaticAberration },
+            uDither: { value: oldUniforms?.uDither?.value || (typeof dither === "boolean" ? (dither ? 1 : 0) : dither) },
+            uCurvature: { value: oldUniforms?.uCurvature?.value || curvature },
+            uTint: { value: oldUniforms?.uTint?.value || new Color(tintVec[0], tintVec[1], tintVec[2]) },
+            uMouse: { value: oldUniforms?.uMouse?.value || new Float32Array([smoothMouseRef.current.x, smoothMouseRef.current.y]) },
+            uMouseStrength: { value: oldUniforms?.uMouseStrength?.value || mouseStrength },
+            uUseMouse: { value: oldUniforms?.uUseMouse?.value || (mouseReact ? 1 : 0) },
+            uPageLoadProgress: { value: oldUniforms?.uPageLoadProgress?.value || (pageLoadAnimation ? 0 : 1) },
+            uUsePageLoadAnimation: { value: oldUniforms?.uUsePageLoadAnimation?.value || (pageLoadAnimation ? 1 : 0) },
+            uBrightness: { value: oldUniforms?.uBrightness?.value || brightness },
+          },
+        });
+        programRef.current = program;
+        
+        const mesh = new Mesh(gl, { geometry, program });
+        meshRef.current = mesh;
+      } catch (error) {
+        console.error('Error restoring WebGL context:', error);
+      }
+    };
+
+    gl.canvas.addEventListener('webglcontextlost', handleContextLost);
+    gl.canvas.addEventListener('webglcontextrestored', handleContextRestored);
 
     const geometry = new Triangle(gl);
     geometryRef.current = geometry;
@@ -452,6 +541,19 @@ function FaultyTerminalComponent({
     const update = (t: number) => {
       const props = propsRef.current;
 
+      // Проверяем контекст и видимость
+      if (contextLostRef.current || !isVisibleRef.current) {
+        rafRef.current = requestAnimationFrame(update);
+        return;
+      }
+
+      // Проверяем валидность WebGL контекста
+      if (!gl || gl.isContextLost()) {
+        contextLostRef.current = true;
+        rafRef.current = requestAnimationFrame(update);
+        return;
+      }
+
       frameCountRef.current++;
       const deltaTime = t - lastFrameTimeRef.current;
       lastFrameTimeRef.current = t;
@@ -472,15 +574,29 @@ function FaultyTerminalComponent({
         }
       }
 
-      if (props.lowPowerMode && currentFPSRef.current > props.maxFPS) {
+      // Для iPad используем более агрессивное ограничение FPS
+      const targetFPS = isIPadDevice ? Math.min(props.maxFPS, 30) : props.maxFPS;
+      
+      if (props.lowPowerMode && currentFPSRef.current > targetFPS) {
         rafRef.current = requestAnimationFrame(update);
         return;
       }
 
-      if (props.adaptiveQuality && performanceModeRef.current === 'low' && frameCountRef.current % 2 === 0) {
+      // Для iPad пропускаем каждый второй кадр в режиме low
+      const skipFrame = isIPadDevice && performanceModeRef.current === 'low' && frameCountRef.current % 2 === 0;
+      if (props.adaptiveQuality && skipFrame) {
         rafRef.current = requestAnimationFrame(update);
         return;
       }
+
+      // Дополнительная оптимизация для iPad - пропускаем кадры при низкой производительности
+      // Используем deltaTime для более точного определения производительности
+      if (isIPadDevice && deltaTime > 50 && renderSkippedRef.current % 2 !== 0) {
+        renderSkippedRef.current++;
+        rafRef.current = requestAnimationFrame(update);
+        return;
+      }
+      renderSkippedRef.current = 0;
 
       rafRef.current = requestAnimationFrame(update);
 
@@ -504,7 +620,7 @@ function FaultyTerminalComponent({
       }
 
       if (props.mouseReact) {
-        const dampingFactor = 0.08;
+        const dampingFactor = isIPadDevice ? 0.12 : 0.08;
         const smoothMouse = smoothMouseRef.current;
         const mouse = mouseRef.current;
         smoothMouse.x += (mouse.x - smoothMouse.x) * dampingFactor;
@@ -515,19 +631,52 @@ function FaultyTerminalComponent({
         mouseUniform[1] = smoothMouse.y;
       }
 
-      renderer.render({ scene: mesh });
+      try {
+        renderer.render({ scene: mesh });
+      } catch (error) {
+        console.warn('Render error:', error);
+        contextLostRef.current = true;
+        // Пытаемся продолжить анимацию даже при ошибке
+        rafRef.current = requestAnimationFrame(update);
+        return;
+      }
     };
-    rafRef.current = requestAnimationFrame(update);
+    
+    let lastRenderTime = performance.now();
+    
+    // Обновляем время последнего рендера в функции update
+    const updateWithKeepAlive = (t: number) => {
+      lastRenderTime = t;
+      update(t);
+    };
+    
+    const keepAliveInterval = isIPadDevice ? setInterval(() => {
+      const now = performance.now();
+      // Если прошло больше 2 секунд без обновления, перезапускаем анимацию
+      if (now - lastRenderTime > 2000) {
+        console.log('Animation stalled, restarting...');
+        cancelAnimationFrame(rafRef.current);
+        contextLostRef.current = false;
+        lastRenderTime = now;
+        rafRef.current = requestAnimationFrame(updateWithKeepAlive);
+      }
+    }, 1000) : null;
+    
+    // Запускаем анимацию
+    rafRef.current = requestAnimationFrame(updateWithKeepAlive);
     ctn.appendChild(gl.canvas);
 
     if (mouseReact) ctn.addEventListener("mousemove", handleMouseMove);
 
     return () => {
-
       cancelAnimationFrame(rafRef.current);
+      if (keepAliveInterval) clearInterval(keepAliveInterval);
       resizeObserver.disconnect();
 
       if (mouseReact) ctn.removeEventListener("mousemove", handleMouseMove);
+
+      gl.canvas.removeEventListener('webglcontextlost', handleContextLost);
+      gl.canvas.removeEventListener('webglcontextrestored', handleContextRestored);
 
       if (gl.canvas.parentElement === ctn) ctn.removeChild(gl.canvas);
 
@@ -543,8 +692,10 @@ function FaultyTerminalComponent({
 
       loadAnimationStartRef.current = 0;
       timeOffsetRef.current = Math.random() * 100;
+      contextLostRef.current = false;
+      renderSkippedRef.current = 0;
     };
-  }, [dpr, handleMouseMove]);
+  }, [dpr, handleMouseMove, isIPad]);
 
   useEffect(() => {
     if (!programRef.current) return;

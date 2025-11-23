@@ -67,7 +67,7 @@ export function WebhookForm({
   const prefix = isEdit ? 'edit-' : '';
 
   return (
-    <div className="space-y-4 max-h-[70vh] overflow-y-auto p-4">
+    <div className="space-y-4 max-h-[70vh] overflow-y-auto p-1 sm:p-4">
       <div>
         <Label htmlFor={`${prefix}name`}>Name</Label>
         <Input
@@ -75,6 +75,7 @@ export function WebhookForm({
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           placeholder="My Webhook"
+          className="w-full"
         />
       </div>
 
@@ -86,7 +87,7 @@ export function WebhookForm({
             setFormData({ ...formData, webhook_type: value })
           }
         >
-          <SelectTrigger id={`${prefix}webhook_type`}>
+          <SelectTrigger id={`${prefix}webhook_type`} className="w-full">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -101,6 +102,7 @@ export function WebhookForm({
         <>
           <div>
             <Label htmlFor={`${prefix}telegram_bot_token`}>Bot Token</Label>
+            {/* АДАПТАЦИЯ: flex-1 для инпута, чтобы он занимал всю ширину минус кнопка */}
             <div className="flex gap-2">
               <Input
                 id={`${prefix}telegram_bot_token`}
@@ -108,10 +110,12 @@ export function WebhookForm({
                 value={formData.telegram_bot_token}
                 onChange={(e) => setFormData({ ...formData, telegram_bot_token: e.target.value })}
                 placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
+                className="flex-1"
               />
               <Button
                 variant="outline"
                 size="sm"
+                className="shrink-0"
                 onClick={() => setSecretsVisibility(prev => ({ 
                   ...prev, 
                   [isEdit ? 'editTelegramToken' : 'createTelegramToken']: !prev[isEdit ? 'editTelegramToken' : 'createTelegramToken']
@@ -129,6 +133,7 @@ export function WebhookForm({
               value={formData.telegram_chat_id}
               onChange={(e) => setFormData({ ...formData, telegram_chat_id: e.target.value })}
               placeholder="@username or -1001234567890"
+              className="w-full"
             />
             <p className="text-sm text-muted-foreground mt-1">
               You can specify @username or Chat ID of group/channel
@@ -146,6 +151,7 @@ export function WebhookForm({
               value={formData.discord_webhook_url}
               onChange={(e) => setFormData({ ...formData, discord_webhook_url: e.target.value })}
               placeholder="https://discord.com/api/webhooks/..."
+              className="w-full"
             />
           </div>
 
@@ -161,11 +167,13 @@ export function WebhookForm({
                 type={secretsVisibility[isEdit ? 'editDiscordToken' : 'createDiscordToken'] ? 'text' : 'password'}
                 value={formData.discord_bot_token}
                 onChange={(e) => setFormData({ ...formData, discord_bot_token: e.target.value })}
-                placeholder="MTIzNDU2Nzg5MDEyMzQ1Njc4OQ.GhIjKl.MnOpQrStUvWxYzAbCdEfGhIjKlMnOpQrStUvWx"
+                placeholder="MTIzNDU2Nzg5MDEyMzQ1Njc4OQ..."
+                className="flex-1"
               />
               <Button
                 variant="outline"
                 size="sm"
+                className="shrink-0"
                 onClick={() => setSecretsVisibility(prev => ({ 
                   ...prev, 
                   [isEdit ? 'editDiscordToken' : 'createDiscordToken']: !prev[isEdit ? 'editDiscordToken' : 'createDiscordToken']
@@ -183,6 +191,7 @@ export function WebhookForm({
               value={formData.discord_channel_id}
               onChange={(e) => setFormData({ ...formData, discord_channel_id: e.target.value })}
               placeholder="1234567890123456789"
+              className="w-full"
             />
           </div>
         </>
@@ -196,6 +205,7 @@ export function WebhookForm({
             value={formData.url}
             onChange={(e) => setFormData({ ...formData, url: e.target.value })}
             placeholder="https://example.com/webhook"
+            className="w-full"
           />
         </div>
       )}
@@ -209,10 +219,12 @@ export function WebhookForm({
             value={formData.secret}
             onChange={(e) => setFormData({ ...formData, secret: e.target.value })}
             placeholder="Webhook secret for signing"
+            className="flex-1"
           />
           <Button
             variant="outline"
             size="sm"
+            className="shrink-0"
             onClick={() => setSecretsVisibility(prev => ({ 
               ...prev, 
               [isEdit ? 'editSecret' : 'createSecret']: !prev[isEdit ? 'editSecret' : 'createSecret']
@@ -237,7 +249,7 @@ export function WebhookForm({
                       checked={formData.events.includes(event.name)}
                       onCheckedChange={() => toggleEvent(event.name)}
                     />
-                    <Label htmlFor={`${prefix}${event.name}`} className="text-sm font-normal">
+                    <Label htmlFor={`${prefix}${event.name}`} className="text-sm font-normal cursor-pointer">
                       {event.name}
                     </Label>
                   </div>
@@ -250,29 +262,39 @@ export function WebhookForm({
 
       <div>
         <Label>Custom Headers</Label>
-        <div className="space-y-2">
+        <div className="space-y-3">
           {customHeaders.map((header, index) => (
-            <div key={index} className="flex gap-2">
+            // АДАПТАЦИЯ: 
+            // flex-col для мобильных (поля друг под другом), 
+            // sm:flex-row для планшетов/ПК (в одну строку)
+            <div key={index} className="flex flex-col sm:flex-row gap-2">
               <Input
                 placeholder="Header name"
                 value={header.key}
                 onChange={(e) => updateCustomHeader(index, 'key', e.target.value)}
+                className="w-full sm:flex-1"
               />
               <Input
                 placeholder="Header value"
                 value={header.value}
                 onChange={(e) => updateCustomHeader(index, 'value', e.target.value)}
+                className="w-full sm:flex-1"
               />
               <Button
                 variant="outline"
                 size="sm"
+                // Кнопка удаления на всю ширину на мобильном (удобно нажимать)
+                // На ПК обычный размер
+                className="w-full sm:w-auto shrink-0"
                 onClick={() => removeCustomHeader(index)}
               >
                 <Trash2 className="h-4 w-4" />
+                {/* Опционально: текст "Remove" для мобильных */}
+                <span className="sm:hidden ml-2">Remove Header</span>
               </Button>
             </div>
           ))}
-          <Button variant="outline" size="sm" onClick={addCustomHeader}>
+          <Button variant="outline" size="sm" onClick={addCustomHeader} className="w-full sm:w-auto">
             <Plus className="h-4 w-4 mr-2" />
             Add Header
           </Button>

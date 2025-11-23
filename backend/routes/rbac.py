@@ -471,13 +471,11 @@ def delete_permission(permission_id):
 @token_required
 @admin_required
 @require_project_isolation
-def get_user_roles(user_id, current_user=None):
+def get_user_roles(user_id, current_user):
     """Get all roles assigned to a user"""
 
-    if current_user is None:
-        current_user = get_current_user()
-        if not current_user:
-            return jsonify({"error": "Authentication required"}), 401
+    if not current_user:
+        return jsonify({"error": "Authentication required"}), 401
 
     try:
 
@@ -503,13 +501,8 @@ def get_user_roles(user_id, current_user=None):
 @token_required
 @admin_required
 @require_project_isolation
-def assign_role_to_user(user_id, current_user=None):
+def assign_role_to_user(user_id, current_user):
     """Assign a role to a user"""
-
-    if current_user is None:
-        current_user = get_current_user()
-        if not current_user:
-            return jsonify({"error": "Authentication required"}), 401
 
     try:
         data = request.get_json()
@@ -554,13 +547,8 @@ def assign_role_to_user(user_id, current_user=None):
 @token_required
 @admin_required
 @require_project_isolation
-def remove_role_from_user(user_id, role_id, current_user=None):
+def remove_role_from_user(user_id, role_id, current_user):
     """Remove a role from a user"""
-
-    if current_user is None:
-        current_user = get_current_user()
-        if not current_user:
-            return jsonify({"error": "Authentication required"}), 401
 
     try:
 
@@ -595,14 +583,8 @@ def remove_role_from_user(user_id, role_id, current_user=None):
 @jwt_required()
 @token_required
 @require_project_isolation
-def get_user_permissions(user_id, current_user=None):
+def get_user_permissions(user_id, current_user):
     """Get all permissions for a user"""
-
-    if current_user is None:
-        current_user = get_current_user()
-        if not current_user:
-            logging.error(f"RBAC_PERMISSIONS_GET: Authentication required for user_id={user_id}")
-            return jsonify({"error": "Authentication required"}), 401
 
     logging.info(
         f"RBAC_PERMISSIONS_GET: Request for user_id={user_id} (type={type(user_id).__name__}) by current_user_id={current_user.id} "
@@ -722,13 +704,8 @@ def get_user_permissions(user_id, current_user=None):
 @jwt_required()
 @token_required
 @require_project_isolation
-def update_user_permissions(user_id, current_user=None):
+def update_user_permissions(user_id, current_user):
     """Update individual permissions for a user (overrides role permissions)"""
-
-    if current_user is None:
-        current_user = get_current_user()
-        if not current_user:
-            return jsonify({"error": "Authentication required"}), 401
 
     try:
 
@@ -2059,13 +2036,11 @@ def get_role_permissions_detailed(current_user, role_id):
 @token_required
 @admin_required
 @require_project_isolation
-def get_user_permissions_detailed(user_id, current_user=None):
+def get_user_permissions_detailed(user_id, current_user):
     """Get detailed permissions for a user including allow/deny types"""
 
-    if current_user is None:
-        current_user = get_current_user()
-        if not current_user:
-            return jsonify({"error": "Authentication required"}), 401
+    if not current_user:
+        return jsonify({"error": "Authentication required"}), 401
 
     try:
 

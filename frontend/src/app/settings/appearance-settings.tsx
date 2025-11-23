@@ -38,22 +38,22 @@ export default function AppearanceSettings() {
       <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
           <Palette className="h-4 w-4 text-muted-foreground" />
-          <CardTitle>Appearance</CardTitle>
+          <CardTitle className="text-base sm:text-lg">Appearance</CardTitle>
         </div>
-        <CardDescription>
+        <CardDescription className="text-xs sm:text-sm">
           Theme and color settings
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-0">
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">Theme</label>
+            <label className="text-xs sm:text-sm font-medium text-foreground">Theme</label>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button 
                   variant="outline" 
-                  className="w-full justify-between"
+                  className="w-full justify-between text-xs sm:text-sm h-9 sm:h-10"
                   disabled={!mounted}
                 >
                   <div className="flex items-center gap-2">
@@ -82,7 +82,7 @@ export default function AppearanceSettings() {
 
           {}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">Accent Color</label>
+            <label className="text-xs sm:text-sm font-medium text-foreground">Accent Color</label>
           <ColorPicker />
           </div>
         </div>

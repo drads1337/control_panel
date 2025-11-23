@@ -127,7 +127,7 @@ export const CustomKeyForm: React.FC<CustomKeyFormProps> = ({
           </div>
         </CardHeader>
 
-        <CardContent className="pt-0 -mt-3">
+        <CardContent className="pt-0">
           <form onSubmit={handleSubmit} className="space-y-4">
             {showTargetTypeToggle && (
               <div className="space-y-2">
@@ -155,10 +155,10 @@ export const CustomKeyForm: React.FC<CustomKeyFormProps> = ({
                 <Label className="text-sm font-medium text-foreground">Product</Label>
                 {getProductLibraryProducts().length === 0 ? (
                   products.length === 0 ? (
-                  <div className="p-4 border border-dashed border-muted-foreground/25 rounded-md bg-muted/20">
-                    <div className="text-center">
-                      <Database className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                        <p className="text-sm text-muted-foreground">No products available. Create an product first.</p>
+                    <div className="p-4 border border-dashed border-muted-foreground/25 rounded-md bg-muted/20">
+                      <div className="text-center">
+                        <Database className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">No products available. Create a product first.</p>
                       </div>
                     </div>
                   ) : (
@@ -166,8 +166,8 @@ export const CustomKeyForm: React.FC<CustomKeyFormProps> = ({
                       <div className="text-center">
                         <Database className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                         <p className="text-sm text-muted-foreground">You only have access to multi-app products. Use Agent target type to create keys for them.</p>
+                      </div>
                     </div>
-                  </div>
                   )
                 ) : (
                   <div className="flex gap-2 items-center">
@@ -176,12 +176,12 @@ export const CustomKeyForm: React.FC<CustomKeyFormProps> = ({
                       onValueChange={(value) => updateField('productId', value)}
                       disabled={loading}
                     >
-                      <SelectTrigger className="flex-1">
+                      <SelectTrigger className="flex-1 text-sm h-10">
                         <SelectValue placeholder="Select a product" />
                       </SelectTrigger>
                       <SelectContent>
                         {getProductLibraryProducts().map((product) => (
-                          <SelectItem key={product.id} value={product.id.toString()}>
+                          <SelectItem key={product.id} value={product.id.toString()} className="text-sm">
                             {product.name}
                           </SelectItem>
                         ))}
@@ -193,7 +193,7 @@ export const CustomKeyForm: React.FC<CustomKeyFormProps> = ({
                       size="icon"
                       onClick={() => updateField('productId', '')}
                       disabled={loading}
-                      className="h-10 w-10"
+                      className="h-10 w-10 shrink-0"
                     >
                       <X className="h-4 w-4" />
                     </Button>
@@ -213,12 +213,12 @@ export const CustomKeyForm: React.FC<CustomKeyFormProps> = ({
                       }}
                       disabled={loading || agentsLoading}
                     >
-                      <SelectTrigger className="flex-1">
-                        <SelectValue placeholder={agentsLoading ? "Loading agents..." : "Select a agent"} />
+                      <SelectTrigger className="flex-1 text-sm h-10">
+                        <SelectValue placeholder={agentsLoading ? "Loading agents..." : "Select an agent"} />
                       </SelectTrigger>
                       <SelectContent>
                         {agents.map((agent) => (
-                          <SelectItem key={agent.id} value={agent.id.toString()}>
+                          <SelectItem key={agent.id} value={agent.id.toString()} className="text-sm">
                             {agent.name}
                           </SelectItem>
                         ))}
@@ -233,7 +233,7 @@ export const CustomKeyForm: React.FC<CustomKeyFormProps> = ({
                         updateField('selectedProducts', []);
                       }}
                       disabled={loading}
-                      className="h-10 w-10"
+                      className="h-10 w-10 shrink-0"
                     >
                       <X className="h-4 w-4" />
                     </Button>
@@ -265,11 +265,12 @@ export const CustomKeyForm: React.FC<CustomKeyFormProps> = ({
                               }
                             }}
                           />
-                          <Label htmlFor="select-all-custom-products" className="text-sm font-medium">All Products</Label>
+                          <Label htmlFor="select-all-custom-products" className="text-sm font-medium cursor-pointer">All Products</Label>
                         </div>
-                        <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
+                        {/* Mobile: 1 column, Tablet+: 2 columns */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto border rounded-md p-2">
                           {getAssignedProductsForAgent(parseInt(formData.agentId)).map(product => (
-                            <div key={product.id} className="flex items-center space-x-2">
+                            <div key={product.id} className="flex items-center space-x-2 p-1 hover:bg-muted/50 rounded transition-colors">
                               <Checkbox
                                 id={`custom-product-${product.id}`}
                                 checked={formData.selectedProducts.includes(product.id)}
@@ -281,7 +282,9 @@ export const CustomKeyForm: React.FC<CustomKeyFormProps> = ({
                                   }
                                 }}
                               />
-                              <Label htmlFor={`custom-product-${product.id}`} className="text-sm font-normal">{sanitizeString(product.name)}</Label>
+                              <Label htmlFor={`custom-product-${product.id}`} className="text-sm font-normal cursor-pointer w-full truncate" title={sanitizeString(product.name)}>
+                                {sanitizeString(product.name)}
+                              </Label>
                             </div>
                           ))}
                         </div>
@@ -300,12 +303,14 @@ export const CustomKeyForm: React.FC<CustomKeyFormProps> = ({
                 placeholder="Enter a name for this key"
                 disabled={loading}
                 required
+                className="h-10"
               />
             </div>
 
             <div className="space-y-2">
               <Label className="text-sm font-medium text-foreground">Duration</Label>
-              <div className="grid grid-cols-5 gap-2">
+              {/* Mobile: 3 columns, Tablet+: 5 columns */}
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                 {durationOptions.map((option) => (
                   <Button
                     key={option.value}
@@ -317,7 +322,7 @@ export const CustomKeyForm: React.FC<CustomKeyFormProps> = ({
                       updateField('customHours', '');
                     }}
                     disabled={loading}
-                    className="text-xs"
+                    className="text-xs h-9"
                   >
                     {option.label}
                   </Button>
@@ -325,7 +330,8 @@ export const CustomKeyForm: React.FC<CustomKeyFormProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            {/* Mobile: Stacked, Tablet+: Side-by-side */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-foreground">Or Custom Hours</Label>
                 <Input
@@ -341,6 +347,7 @@ export const CustomKeyForm: React.FC<CustomKeyFormProps> = ({
                   }}
                   disabled={loading}
                   min="1"
+                  className="h-10"
                 />
               </div>
               <div className="space-y-2">
@@ -351,15 +358,16 @@ export const CustomKeyForm: React.FC<CustomKeyFormProps> = ({
                   onChange={(e) => updateField('maxDevices', parseInt(e.target.value) || 1)}
                   disabled={loading}
                   min="1"
+                  className="h-10"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end pt-4">
+            <div className="flex justify-end pt-2">
               <Button
                 type="submit"
                 disabled={loading || !keyName.trim() || (formData.targetType === 'product' ? !formData.productId : !formData.agentId || formData.selectedProducts.length === 0)}
-                className="flex items-center gap-2"
+                className="w-full sm:w-auto flex items-center gap-2 h-10"
               >
                 <Plus className="h-4 w-4" />
                 {loading ? 'Creating...' : 'Create Custom Key'}

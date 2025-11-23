@@ -42,15 +42,17 @@ export const ColorPicker = () => {
   };
 
   return (
-    <div className="space-y-2.5">
-      {}
+    // АДАПТАЦИЯ: space-y-3 для мобильных, space-y-2.5 для ПК
+    <div className="space-y-3 sm:space-y-2.5">
+      {/* Preset Colors */}
       <div className="flex items-center gap-2 flex-wrap">
         {PRESET_COLORS.map((color) => (
           <button
             key={color.value}
             onClick={() => handlePresetColorClick(color.value)}
+            // АДАПТАЦИЯ: w-8 h-8 для мобильных (удобнее нажимать), w-7 h-7 для ПК (как было)
             className={`
-              relative w-7 h-7 rounded border transition-all
+              relative w-8 h-8 sm:w-7 sm:h-7 rounded border transition-all
               ${customColor.primary === color.value 
                 ? 'border-foreground ring-1 ring-foreground/20' 
                 : 'border-border/50 hover:border-foreground/50'
@@ -68,29 +70,32 @@ export const ColorPicker = () => {
         ))}
       </div>
 
-      {}
+      {/* Custom Color Input */}
       <div className="flex items-center gap-2">
         <Input
           id="custom-color"
           type="color"
           value={customColorInput}
           onChange={handleCustomColorChange}
-          className="w-9 h-8 p-0.5 border border-border/50 rounded-md cursor-pointer"
+          // АДАПТАЦИЯ: w-10 h-9 для мобильных, w-9 h-8 для ПК
+          className="w-10 h-9 sm:w-9 sm:h-8 p-0.5 border border-border/50 rounded-md cursor-pointer shrink-0"
         />
         <Input
           type="text"
           value={customColorInput}
           onChange={handleCustomColorChange}
           placeholder="#134e4a"
-          className="flex-1 h-8 text-xs"
+          // АДАПТАЦИЯ: h-9 text-sm для мобильных (читаемость), h-8 text-xs для ПК
+          className="flex-1 h-9 sm:h-8 text-sm sm:text-xs"
         />
         <Button
           variant="ghost"
           onClick={handleReset}
           size="sm"
-          className="h-8 px-2"
+          // АДАПТАЦИЯ: h-9 для мобильных, h-8 для ПК
+          className="h-9 sm:h-8 px-2 shrink-0"
         >
-          <RotateCcw className="h-3 w-3" />
+          <RotateCcw className="h-4 w-4 sm:h-3 sm:w-3" />
         </Button>
       </div>
     </div>

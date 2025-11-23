@@ -24,12 +24,10 @@ logger = logging.getLogger(__name__)
 @require_user
 @enforce_project_scope
 @require_role(RolePermissions.ADMIN_ROLES)
-def get_refcodes(current_user=None, project_id=None):
+def get_refcodes(current_user, project_id=None):
     """Get referral codes for admin users"""
     try:
 
-        if current_user is None:
-            current_user = g.current_user
         if project_id is None:
             project_id = getattr(g, "project_id", current_user.project_id)
 
@@ -71,12 +69,10 @@ def get_refcodes(current_user=None, project_id=None):
 @jwt_required()
 @require_user
 @require_role(RolePermissions.ADMIN_ROLES)
-def create_refcode(current_user=None, project_id=None):
+def create_refcode(current_user, project_id=None):
     """Create a new referral code"""
     try:
 
-        if current_user is None:
-            current_user = g.current_user
         if project_id is None:
             project_id = getattr(g, "project_id", current_user.project_id)
 
@@ -156,12 +152,10 @@ def create_refcode(current_user=None, project_id=None):
 @jwt_required()
 @require_user
 @require_role(RolePermissions.ADMIN_ROLES)
-def delete_refcode(code_id, current_user=None, project_id=None):
+def delete_refcode(code_id, current_user, project_id=None):
     """Delete a referral code"""
     try:
 
-        if current_user is None:
-            current_user = g.current_user
         if project_id is None:
             project_id = getattr(g, "project_id", current_user.project_id)
 
@@ -201,12 +195,10 @@ def delete_refcode(code_id, current_user=None, project_id=None):
 @jwt_required()
 @require_user
 @require_role(RolePermissions.ADMIN_ROLES)
-def delete_unused_refcodes(current_user=None, project_id=None):
+def delete_unused_refcodes(current_user, project_id=None):
     """Delete all unused referral codes"""
     try:
 
-        if current_user is None:
-            current_user = g.current_user
         if project_id is None:
             project_id = getattr(g, "project_id", current_user.project_id)
 

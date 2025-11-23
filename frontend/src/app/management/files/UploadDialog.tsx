@@ -10,6 +10,7 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
 import { toast } from 'sonner';
 import { sanitizeString } from '@/lib/sanitization';
+import { cn } from '@/lib/utils';
 import type { Product } from '@/entities/product';
 import type { FileStats } from '@/entities/file';
 import { 
@@ -18,10 +19,15 @@ import {
   FileText, 
   Cloud,
   Upload,
-  Loader2
+  Loader2,
+  FileArchive,
+  Layers,
+  CheckCircle2,
+  Database,
+  HardDrive
 } from 'lucide-react';
 
-interface UploadDialogProps {
+interface UploadProductFilesDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   product: Product | null;
@@ -32,17 +38,20 @@ interface SelectedFile {
   type: 'logo' | 'banner' | 'file' | 'additional';
 }
 
-const UploadDialog: React.FC<UploadDialogProps> = ({ open, onOpenChange, product }) => {
+const UploadProductFilesDialog: React.FC<UploadProductFilesDialogProps> = ({ open, onOpenChange, product }) => {
   const { token } = useAuth();
   const { hasPermission } = usePermissions();
   const canUploadFiles = hasPermission('products.files_upload') || hasPermission('products.upload_files');
+  
   const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [storageInfo, setStorageInfo] = useState<FileStats['storage_info'] | null>(null);
+  const [fileStats, setFileStats] = useState<FileStats | null>(null);
 
   useEffect(() => {
     if (open && token) {
       loadStorageInfo();
+      setSelectedFiles([]); // Reset selection on open
     }
   }, [open, token]);
 
@@ -50,16 +59,23 @@ const UploadDialog: React.FC<UploadDialogProps> = ({ open, onOpenChange, product
     try {
       const stats = await getFileStats();
       setStorageInfo(stats.storage_info);
+      setFileStats(stats);
     } catch (error) {
-
+      console.error("Failed to load storage stats", error);
     }
   };
 
   if (!product || !canUploadFiles) return null;
 
   const handleFileSelect = (files: any[], type: 'logo' | 'banner' | 'file' | 'additional') => {
-    const newFiles = files.map(fileWithPreview => ({ file: fileWithPreview.file, type }));
+    // Normalize input: files might be File[] or objects containing File
+    const newFiles = files.map(f => ({ 
+      file: f.file || f, // Handle if component returns {file: File, preview: string} or just File
+      type 
+    }));
+
     setSelectedFiles(prev => {
+      // For single-file types, replace existing. For multi, append (or replace depending on logic, here we replace per category for simplicity in UI sync)
       const filtered = prev.filter(f => f.type !== type);
       return [...filtered, ...newFiles];
     });
@@ -67,17 +83,17 @@ const UploadDialog: React.FC<UploadDialogProps> = ({ open, onOpenChange, product
 
   const handleUploadAll = async () => {
     if (!token || selectedFiles.length === 0) {
-      toast.error('No files to upload');
+      toast.error('No files selected to upload');
       return;
     }
 
     setUploading(true);
 
     try {
-
       const mainFiles = selectedFiles.filter(f => f.type !== 'additional');
       const additionalFiles = selectedFiles.filter(f => f.type === 'additional');
 
+      // 1. Upload Main Product Assets (Logo, Banner, Main File)
       if (mainFiles.length > 0) {
         const filesToUpload = mainFiles.map(f => ({
           file: f.file,
@@ -85,192 +101,219 @@ const UploadDialog: React.FC<UploadDialogProps> = ({ open, onOpenChange, product
         }));
 
         await uploadProductFiles(product.id, filesToUpload);
-        toast.success(`Uploaded ${mainFiles.length} main files`);
       }
 
+      // 2. Upload Additional Files one by one
       if (additionalFiles.length > 0) {
-        for (const additionalFile of additionalFiles) {
-          try {
-            await uploadProductExtraFile(
-              additionalFile.file, 
+        // Using Promise.allSettled to prevent one failure stopping others
+        const results = await Promise.allSettled(
+          additionalFiles.map(f => 
+            uploadProductExtraFile(
+              f.file, 
               product.id, 
-              additionalFile.file.name,
-              `Additional file for the product ${product.name}`
-            );
-          } catch (error) {
+              f.file.name,
+              `Additional file for ${product.name}`
+            )
+          )
+        );
 
-            toast.error(`Error uploading file: ${additionalFile.file.name}`);
-          }
+        const failed = results.filter(r => r.status === 'rejected');
+        if (failed.length > 0) {
+          toast.warning(`Uploaded with ${failed.length} errors`);
         }
-        toast.success(`Uploaded ${additionalFiles.length} additional files`);
       }
 
+      toast.success('Upload process completed');
       setSelectedFiles([]);
       onOpenChange(false);
+      loadStorageInfo(); // Refresh stats
 
     } catch (error) {
-
-      toast.error('Error uploading files');
+      console.error(error);
+      toast.error('An unexpected error occurred during upload');
     } finally {
       setUploading(false);
     }
   };
 
-  const getSelectedFilesCount = (type: 'logo' | 'banner' | 'file' | 'additional') => {
-    return selectedFiles.filter(f => f.type === type).length;
-  };
+  const getSelectedCount = (type: string) => selectedFiles.filter(f => f.type === type).length;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Cloud className="h-5 w-5" />
-            Upload Files for Product
+    <Dialog open={open} onOpenChange={(val) => !uploading && onOpenChange(val)}>
+      <DialogContent className="sm:max-w-5xl max-h-[95vh] overflow-hidden flex flex-col p-0 gap-0">
+        <DialogHeader className="p-6 pb-4 border-b bg-background z-10">
+          <DialogTitle className="flex items-center gap-2.5 text-xl">
+            <div className="p-2 bg-primary/10 rounded-md">
+              <Cloud className="h-5 w-5 text-primary" />
+            </div>
+            Upload Product Files
           </DialogTitle>
           <DialogDescription>
-            Upload files for the product "{product.name}"
+            Manage assets and binaries for this product version.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="mb-6 p-4 bg-muted/50 rounded-lg">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Package className="h-6 w-6 text-primary" />
+        <div className="flex-1 overflow-y-auto p-6">
+          {/* Product Summary Card */}
+          <div className="flex flex-col sm:flex-row gap-4 p-4 bg-muted/40 rounded-xl border mb-6 items-start sm:items-center">
+            <div className="w-12 h-12 rounded-lg bg-background border flex items-center justify-center shrink-0 shadow-sm">
+              {product.logo ? (
+                <img src={product.logo} alt="logo" className="w-8 h-8 object-contain" />
+              ) : (
+                <Package className="h-6 w-6 text-muted-foreground" />
+              )}
             </div>
-            <div>
-              <h4 className="font-semibold text-lg">{product.name}</h4>
-              <p className="text-sm text-muted-foreground">
-                {product.description ? sanitizeString(product.description) : 'No description available'}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <h4 className="font-semibold text-base truncate">{product.name}</h4>
+                <Badge variant="outline" className="h-5 text-[10px] font-mono">v{product.version}</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground truncate">
+                {product.description ? sanitizeString(product.description) : 'No description provided'}
               </p>
-              <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                <span>Version: {product.version}</span>
-                <span>Status: {product.status}</span>
-                <span>Type: {product.is_multi_app ? 'Multi-App' : 'Product Library'}</span>
-              </div>
             </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-6">
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Image className="w-5 h-5 text-blue-500" />
-              <label className="text-base font-medium">Product Logo</label>
-              <Badge variant="outline" className="text-xs">Optional</Badge>
-            </div>
-            <FileUpload
-              onFilesSelect={(files) => handleFileSelect(files, 'logo')}
-              multiple={false}
-              accept="image/*"
-            />
-          </div>
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Image className="w-5 h-5 text-purple-500" />
-              <label className="text-base font-medium">Product Banner</label>
-              <Badge variant="outline" className="text-xs">Recommended</Badge>
-            </div>
-            <FileUpload
-              onFilesSelect={(files) => handleFileSelect(files, 'banner')}
-              multiple={false}
-              accept="image/*"
-            />
-          </div>
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Package className="w-5 h-5 text-orange-500" />
-              <label className="text-base font-medium">Product File</label>
-              <Badge variant="outline" className="text-xs">Optional</Badge>
-            </div>
-            <FileUpload
-              onFilesSelect={(files) => handleFileSelect(files, 'file')}
-              multiple={false}
-              accept="*/*"
-            />
-          </div>
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <FileText className="w-5 h-5 text-green-500" />
-              <label className="text-base font-medium">Additional Files</label>
-              <Badge variant="outline" className="text-xs">Optional</Badge>
-            </div>
-            <MultiFileUpload
-              onFilesUpload={async (files: any[]) => {
-                const fileObjects = files.map((f: any) => ({ file: f.file, type: 'additional' }));
-                handleFileSelect(fileObjects, 'additional');
-              }}
-              multiple={true}
-              accept="*/*"
-            />
-          </div>
-        </div>
-        {storageInfo && (
-          <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Cloud className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                <span className="text-sm font-medium text-blue-900 dark:text-blue-100">Storage Information</span>
-              </div>
-              <div className="text-xs text-blue-700 dark:text-blue-300">
-                {storageInfo.usage_percent.toFixed(1)}% used
-              </div>
-            </div>
-            <div className="mt-2 text-xs text-blue-800 dark:text-blue-200">
-              <p>Available space: {storageInfo.available_space_human}</p>
-              <p>Total limit: {storageInfo.storage_limit_human}</p>
-            </div>
-          </div>
-        )}
-
-        <div className="mt-8 p-4 bg-muted/30 rounded-lg">
-          <div className="flex items-center justify-between mb-4">
-            <h4 className="font-medium">
-              {selectedFiles.length > 0 
-                ? `Ready to upload: ${selectedFiles.length} files`
-                : 'Select files to upload'
-              }
-            </h4>
-            <div className="text-xs text-muted-foreground">
-              <p>• All files are optional</p>
-              <p>• Files will be checked for compliance</p>
-              <p>• You will be notified of the result after uploading</p>
+            <div className="flex gap-2 shrink-0">
+               <Badge variant={product.status === 'active' ? 'default' : 'secondary'} className="capitalize">
+                 {product.status}
+               </Badge>
             </div>
           </div>
 
-          {selectedFiles.length > 0 && (
-            <div className="space-y-2">
-              <div className="text-sm text-muted-foreground">Selected files:</div>
-              <div className="flex flex-wrap gap-2">
-                {selectedFiles.map((file, index) => (
-                  <Badge key={index} variant="secondary" className="text-xs">
-                    {file.type}: {file.file.name}
-                  </Badge>
-                ))}
+          {/* Upload Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {/* LOGO */}
+            <div className={cn("space-y-3 p-4 rounded-xl border transition-all", getSelectedCount('logo') ? "bg-blue-50/50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800" : "bg-card")}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                  <Image className="w-4 h-4" />
+                  <span className="font-medium text-sm">Product Logo</span>
+                </div>
+                {getSelectedCount('logo') > 0 && <CheckCircle2 className="w-4 h-4 text-blue-500" />}
               </div>
+              <FileUpload
+                onFilesSelect={(files) => handleFileSelect(files, 'logo')}
+                multiple={false}
+                accept="image/*"
+              />
+              <p className="text-[11px] text-muted-foreground">Recommended: 512x512px PNG or SVG</p>
             </div>
+
+            {/* BANNER */}
+            <div className={cn("space-y-3 p-4 rounded-xl border transition-all", getSelectedCount('banner') ? "bg-purple-50/50 border-purple-200 dark:bg-purple-950/20 dark:border-purple-800" : "bg-card")}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400">
+                  <Layers className="w-4 h-4" />
+                  <span className="font-medium text-sm">Promo Banner</span>
+                </div>
+                {getSelectedCount('banner') > 0 && <CheckCircle2 className="w-4 h-4 text-purple-500" />}
+              </div>
+              <FileUpload
+                onFilesSelect={(files) => handleFileSelect(files, 'banner')}
+                multiple={false}
+                accept="image/*"
+              />
+              <p className="text-[11px] text-muted-foreground">Recommended: 1920x1080px JPG or PNG</p>
+            </div>
+
+            {/* MAIN FILE */}
+            <div className={cn("space-y-3 p-4 rounded-xl border transition-all", getSelectedCount('file') ? "bg-orange-50/50 border-orange-200 dark:bg-orange-950/20 dark:border-orange-800" : "bg-card")}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400">
+                  <FileArchive className="w-4 h-4" />
+                  <span className="font-medium text-sm">Main Distribution</span>
+                </div>
+                {getSelectedCount('file') > 0 && <CheckCircle2 className="w-4 h-4 text-orange-500" />}
+              </div>
+              <FileUpload
+                onFilesSelect={(files) => handleFileSelect(files, 'file')}
+                multiple={false}
+                accept="*/*"
+              />
+              <p className="text-[11px] text-muted-foreground">Main executable, installer, or zip bundle</p>
+            </div>
+
+            {/* ADDITIONAL FILES */}
+            <div className={cn("space-y-3 p-4 rounded-xl border transition-all", getSelectedCount('additional') ? "bg-green-50/50 border-green-200 dark:bg-green-950/20 dark:border-green-800" : "bg-card")}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                  <FileText className="w-4 h-4" />
+                  <span className="font-medium text-sm">Additional Resources</span>
+                </div>
+                <Badge variant="secondary" className="h-5 px-1.5">{getSelectedCount('additional')}</Badge>
+              </div>
+              <MultiFileUpload
+                onFilesUpload={async (files: any[]) => {
+                  // The MultiFileUpload component might trigger upload immediately or just return files depending on implementation.
+                  // Assuming here it returns files for manual upload logic based on original code structure.
+                  const fileObjects = files.map((f: any) => ({ file: f.file || f }));
+                  handleFileSelect(fileObjects, 'additional');
+                }}
+                multiple={true}
+                accept="*/*"
+              />
+              <p className="text-[11px] text-muted-foreground">Documentation, extra configs, or patch notes</p>
+            </div>
+          </div>
+
+          {/* Storage Info Bar */}
+          {storageInfo && (
+             <div className="mt-8 space-y-3">
+               <div className="flex items-center justify-between text-sm">
+                 <div className="flex items-center gap-2 text-muted-foreground">
+                   <HardDrive className="w-4 h-4" />
+                   <span>Storage Usage</span>
+                 </div>
+                 <span className="font-medium">{storageInfo.usage_percent.toFixed(1)}%</span>
+               </div>
+               <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                  <div 
+                    className={cn("h-full transition-all duration-500", 
+                      storageInfo.usage_percent > 90 ? "bg-red-500" : 
+                      storageInfo.usage_percent > 75 ? "bg-yellow-500" : "bg-blue-500"
+                    )}
+                    style={{ width: `${Math.min(storageInfo.usage_percent, 100)}%` }}
+                  />
+               </div>
+               <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Used: {fileStats?.overview.total_size_human || '0 B'}</span>
+                  <span>Limit: {storageInfo.storage_limit_human || 'Unlimited'}</span>
+               </div>
+             </div>
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="p-4 border-t bg-muted/20 sm:gap-0 gap-2">
+          <div className="hidden sm:flex flex-1 items-center text-sm text-muted-foreground">
+            {selectedFiles.length > 0 ? (
+              <span className="text-foreground font-medium flex items-center gap-2">
+                <Database className="h-4 w-4" />
+                {selectedFiles.length} files selected
+              </span>
+            ) : (
+              <span>No files selected</span>
+            )}
+          </div>
+          
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={uploading}>
             Cancel
           </Button>
+          
           <ConditionalRender permission="products.files_upload" fallback={null}>
             <Button 
               onClick={handleUploadAll}
               disabled={uploading || selectedFiles.length === 0}
-              className="min-w-[140px]"
+              className="gap-2 min-w-[140px]"
             >
               {uploading ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Uploading...
                 </>
               ) : (
                 <>
-                  <Upload className="mr-2 h-4 w-4" />
-                  Upload All Files
+                  <Upload className="h-4 w-4" />
+                  Start Upload
                 </>
               )}
             </Button>
@@ -281,4 +324,4 @@ const UploadDialog: React.FC<UploadDialogProps> = ({ open, onOpenChange, product
   );
 };
 
-export default UploadDialog;
+export default UploadProductFilesDialog;

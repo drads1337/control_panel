@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { usePermissions } from '@/hooks/use-permissions';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
 import { getErrorMessage } from '@/shared/api/enhanced-client';
+import { cn } from '@/lib/utils';
 
 interface CreateProductDialogProps {
   open: boolean;
@@ -57,7 +58,6 @@ const CreateProductDialog: React.FC<CreateProductDialogProps> = ({ open, onOpenC
         version: createProductData.version.trim() || '1.0.0'
       }
 
-      // Use new universal function, fallback to old one
       let response: Awaited<ReturnType<typeof createProduct>>;
       try {
         response = await createProduct(productData);
@@ -72,16 +72,15 @@ const CreateProductDialog: React.FC<CreateProductDialogProps> = ({ open, onOpenC
           await createFolder({
             name: 'configs',
             parent_path: '/',
-            product_id: createdProduct.id  // Keep product_id for backward compatibility
+            product_id: createdProduct.id
           });
 
         } catch (folderError) {
-
+          // Ignore folder creation error
         }
       }
 
       if (response.success && createdProduct) {
-
         toast.success('Product successfully created!');
         onOpenChange(false);
         setCreateProductData({
@@ -93,22 +92,17 @@ const CreateProductDialog: React.FC<CreateProductDialogProps> = ({ open, onOpenC
         onSuccess();
       } else {
         toast.error(response.message || 'Failed to create product.');
-
       }
     } catch (err: unknown) {
-
       if (import.meta.env.DEV) {
-
         if (err && typeof err === 'object' && 'debug' in err) {
-          const debugInfo = (err as any).debug
-
+           // Debug logic
         }
       }
 
       const errorMessage = getErrorMessage(err)
       toast.error(errorMessage)
     } finally {
-
       setCreatingProduct(false);
     }
   };
@@ -129,15 +123,16 @@ const CreateProductDialog: React.FC<CreateProductDialogProps> = ({ open, onOpenC
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
+      <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-hidden">
+        <DialogHeader className="flex-shrink-0 text-left">
           <DialogTitle>Create New Product</DialogTitle>
           <DialogDescription>
             Fill in the details for the new product.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        {/* Scrollable Form Area */}
+        <div className="flex-1 overflow-y-auto py-2 space-y-4 pr-1 scrollbar-thin">
           <div className="space-y-2">
             <Label htmlFor="productName">Product Name *</Label>
             <Input 
@@ -145,6 +140,7 @@ const CreateProductDialog: React.FC<CreateProductDialogProps> = ({ open, onOpenC
               placeholder="Enter product name"
               value={createProductData.name}
               onChange={(e) => setCreateProductData(prev => ({ ...prev, name: e.target.value }))}
+              className="text-base sm:text-sm" // Larger text on mobile to prevent zoom
             />
           </div>
 
@@ -155,6 +151,7 @@ const CreateProductDialog: React.FC<CreateProductDialogProps> = ({ open, onOpenC
               placeholder="Enter product description (optional)"
               value={createProductData.description}
               onChange={(e) => setCreateProductData(prev => ({ ...prev, description: e.target.value }))}
+              className="text-base sm:text-sm"
             />
           </div>
 
@@ -167,7 +164,7 @@ const CreateProductDialog: React.FC<CreateProductDialogProps> = ({ open, onOpenC
                 is_multi_app: value === 'multi_app' 
               }))}
             >
-              <SelectTrigger>
+              <SelectTrigger className="w-full text-base sm:text-sm">
                 <SelectValue placeholder="Select product type" />
               </SelectTrigger>
               <SelectContent>
@@ -184,15 +181,17 @@ const CreateProductDialog: React.FC<CreateProductDialogProps> = ({ open, onOpenC
               placeholder="1.0.0" 
               value={createProductData.version}
               onChange={(e) => setCreateProductData(prev => ({ ...prev, version: e.target.value }))}
+              className="text-base sm:text-sm"
             />
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-shrink-0 flex-col-reverse sm:flex-row gap-2 sm:gap-0 mt-2">
           <Button 
             variant="outline" 
             onClick={handleCancel}
             disabled={creatingProduct}
+            className="w-full sm:w-auto mt-2 sm:mt-0"
           >
             Cancel
           </Button>
@@ -200,6 +199,7 @@ const CreateProductDialog: React.FC<CreateProductDialogProps> = ({ open, onOpenC
             <Button 
               onClick={handleCreateProduct}
               disabled={creatingProduct || !createProductData.name.trim()}
+              className="w-full sm:w-auto"
             >
               {creatingProduct ? 'Creating...' : 'Create Product'}
             </Button>

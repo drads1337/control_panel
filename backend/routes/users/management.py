@@ -37,7 +37,7 @@ management_bp = Blueprint("users_management", __name__)
 @require_project_with_grace_period
 @enforce_project_scope
 @require_role(RolePermissions.ADMIN_ROLES)
-def get_users(current_user=None, project_id=None):
+def get_users(current_user, project_id=None):
     """Get users with optimized key counts"""
     import logging
     from flask import g
@@ -46,10 +46,9 @@ def get_users(current_user=None, project_id=None):
 
     try:
 
-        if current_user is None:
-            current_user = g.current_user
+        # project_id should be passed via kwargs from middleware
         if project_id is None:
-            project_id = getattr(g, "project_id", request.args.get("project_id", type=int))
+            project_id = request.args.get("project_id", type=int)
 
         page = request.args.get("page", 1, type=int)
         per_page = request.args.get("per_page", 20, type=int)
@@ -83,15 +82,11 @@ def get_users(current_user=None, project_id=None):
 @enforce_project_scope
 @require_role(RolePermissions.USER_CREATION_ROLES)
 @validate_request(UserCreateSchema)
-def add_user(current_user=None, validated_data=None):
+def add_user(current_user, validated_data=None):
     """Create a new user with roles and product permissions"""
     import logging
 
     logger = logging.getLogger(__name__)
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     data = validated_data if validated_data is not None else request.get_json()
 
@@ -142,15 +137,13 @@ def add_user(current_user=None, validated_data=None):
 @require_role(RolePermissions.ADMIN_ROLES)
 @validate_request(UserUpdateSchema)
 @serialize_response(UserAdminResponse)
-def update_user(user_id, current_user=None, validated_data=None):
+def update_user(user_id, current_user, validated_data=None):
     """Update a user with roles and product permissions"""
     import logging
     from flask import g
 
     logger = logging.getLogger(__name__)
 
-    if current_user is None:
-        current_user = g.current_user
 
     data = validated_data if validated_data else request.get_json()
     if not data:
@@ -170,8 +163,9 @@ def update_user(user_id, current_user=None, validated_data=None):
             if current_user.project_id != target_user.project_id:
                 return jsonify({"error": "Access denied"}), 403
         else:
-
-            project_id = getattr(g, "project_id", current_user.project_id)
+            # project_id should be passed via kwargs from middleware
+            if project_id is None:
+                project_id = current_user.project_id
             if project_id and target_user.project_id != project_id:
                 return jsonify({"error": "Access denied"}), 403
 
@@ -226,12 +220,8 @@ def update_user(user_id, current_user=None, validated_data=None):
 @require_user
 @enforce_project_scope
 @require_role(RolePermissions.ADMIN_ROLES)
-def delete_user(user_id, current_user=None):
+def delete_user(user_id, current_user):
     """Delete a user safely"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     # Use DI container to get service
     user_crud_service = get_user_crud_service()
@@ -251,12 +241,9 @@ def delete_user(user_id, current_user=None):
 @require_user
 @enforce_project_scope
 @require_role(RolePermissions.USER_CREATION_ROLES)
-def bulk_action(current_user=None, project_id=None):
+def bulk_action(current_user, project_id=None):
     """Perform bulk actions on users"""
 
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
     data = request.get_json()
 
     action = data.get("action")
@@ -277,9 +264,7 @@ def bulk_action(current_user=None, project_id=None):
         query = query.filter_by(project_id=current_user.project_id)
     else:
 
-        if project_id is None:
-            from flask import g
-            project_id = getattr(g, "project_id", None)
+        # project_id should be passed via kwargs from middleware
         if project_id:
             query = query.filter_by(project_id=project_id)
 
@@ -362,16 +347,15 @@ def bulk_action(current_user=None, project_id=None):
 @require_user
 @require_role(RolePermissions.ADMIN_ROLES)
 @require_project_isolation
-def export_users():
+def export_users(current_user, project_id=None):
     """Export users to CSV with streaming to avoid memory issues"""
     import csv
-    from flask import Response, g
+    from flask import Response
     from io import StringIO
 
-    current_user = g.current_user
-
     role_filter = request.args.get("role")
-    project_id = request.args.get("project_id", type=int)
+    if project_id is None:
+        project_id = request.args.get("project_id", type=int)
 
     query = User.query
 
@@ -475,14 +459,11 @@ def export_users():
 @jwt_required()
 @require_user
 @require_role(RolePermissions.USER_CREATION_ROLES)
-def invite_user():
+def invite_user(current_user):
     """Create an invitation for a new user"""
-    from flask import g
     from datetime import datetime, timedelta
     import secrets
     import string
-
-    current_user = g.current_user
     data = request.get_json()
 
     email = data.get("email")
@@ -543,13 +524,10 @@ def invite_user():
 @require_user
 @require_role(RolePermissions.ADMIN_ROLES)
 @require_project_isolation
-def get_users_stats():
+def get_users_stats(current_user, project_id=None):
     """Get user statistics"""
-    from flask import g
     from datetime import datetime
     from sqlalchemy import func, select
-
-    current_user = g.current_user
 
     query = User.query
 
@@ -561,6 +539,8 @@ def get_users_stats():
     ) or rbac_service.check_permission(current_user.id, "clients.view")
     if not can_view_all:
         query = query.filter_by(project_id=current_user.project_id)
+    elif project_id:
+        query = query.filter_by(project_id=project_id)
 
     total_users = query.count()
 
@@ -593,13 +573,10 @@ def get_users_stats():
 @require_user
 @require_role(RolePermissions.ADMIN_ROLES)
 @require_project_isolation
-def get_user_stats(user_id):
+def get_user_stats(user_id, current_user, project_id=None):
     """Get statistics for a specific user"""
-    from flask import g
     from datetime import datetime, timedelta
     from sqlalchemy import and_, case, func
-
-    current_user = g.current_user
     target_user = User.query.get(user_id)
 
     if not target_user:
@@ -615,13 +592,13 @@ def get_user_stats(user_id):
     if not can_view_all:
         if current_user.project_id != target_user.project_id:
             return jsonify({"error": "Access denied"}), 403
+        project_id = current_user.project_id
     else:
-
-        project_id = getattr(g, "project_id", current_user.project_id)
+        if project_id is None:
+            project_id = current_user.project_id
         if project_id and target_user.project_id != project_id:
             return jsonify({"error": "Access denied"}), 403
-
-    project_id = getattr(g, "project_id", current_user.project_id)
+    
     if not project_id:
         project_id = target_user.project_id
 
@@ -701,11 +678,8 @@ def get_user_stats(user_id):
 @require_user
 @require_role(RolePermissions.ADMIN_ROLES)
 @require_project_isolation
-def get_user_activities(user_id):
+def get_user_activities(user_id, current_user):
     """Get activities for a specific user"""
-    from flask import g
-
-    current_user = g.current_user
     target_user = User.query.get(user_id)
 
     if not target_user:
@@ -762,13 +736,11 @@ def get_user_activities(user_id):
 @require_user
 @require_role(RolePermissions.ADMIN_ROLES)
 @require_project_isolation
-def get_user_transactions(user_id):
+def get_user_transactions(user_id, current_user):
     """Get transaction history for a specific user with pagination"""
     import logging
-    from flask import g
 
     logger = logging.getLogger(__name__)
-    current_user = g.current_user
     target_user = User.query.get(user_id)
 
     if not target_user:

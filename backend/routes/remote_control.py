@@ -85,13 +85,9 @@ def get_categories(project_id=None):
 @require_project_with_grace_period
 @enforce_project_scope
 @require_any_permission(["remote_control.create", "remote_control.edit"])
-def create_category(project_id=None, current_user=None):
+def create_category(current_user, project_id=None):
     """Create a new remote control category"""
     try:
-
-        if current_user is None:
-            current_user = g.current_user
-
         if project_id is None:
             return (
                 jsonify({"error": "Project ID is required. Please specify project_id parameter."}),
@@ -176,13 +172,9 @@ def create_category(project_id=None, current_user=None):
 @require_project_with_grace_period
 @enforce_project_scope
 @require_any_permission(["remote_control.create", "remote_control.edit"])
-def update_category(category_id, project_id=None, current_user=None):
+def update_category(category_id, current_user, project_id=None):
     """Update a remote control category"""
     try:
-
-        if current_user is None:
-            current_user = g.current_user
-
         if project_id is None:
             return (
                 jsonify({"error": "Project ID is required. Please specify project_id parameter."}),
@@ -255,13 +247,9 @@ def update_category(category_id, project_id=None, current_user=None):
 @require_project_with_grace_period
 @enforce_project_scope
 @require_any_permission(["remote_control.create", "remote_control.edit"])
-def delete_category(category_id, project_id=None, current_user=None):
+def delete_category(category_id, current_user, project_id=None):
     """Delete a remote control category"""
     try:
-
-        if current_user is None:
-            current_user = g.current_user
-
         if project_id is None:
             return (
                 jsonify({"error": "Project ID is required. Please specify project_id parameter."}),
@@ -366,13 +354,9 @@ def get_features(project_id=None):
 @require_project_with_grace_period
 @enforce_project_scope
 @require_any_permission(["remote_control.create", "remote_control.edit"])
-def create_feature(project_id=None, current_user=None):
+def create_feature(current_user, project_id=None):
     """Create a new remote control feature"""
     try:
-
-        if current_user is None:
-            current_user = g.current_user
-
         if project_id is None:
             return (
                 jsonify({"error": "Project ID is required. Please specify project_id parameter."}),
@@ -449,13 +433,9 @@ def create_feature(project_id=None, current_user=None):
 @require_project_with_grace_period
 @enforce_project_scope
 @require_any_permission(["remote_control.create", "remote_control.edit"])
-def update_feature(feature_id, project_id=None, current_user=None):
+def update_feature(feature_id, current_user, project_id=None):
     """Update a remote control feature"""
     try:
-
-        if current_user is None:
-            current_user = g.current_user
-
         if project_id is None:
             return (
                 jsonify({"error": "Project ID is required. Please specify project_id parameter."}),
@@ -538,13 +518,9 @@ def update_feature(feature_id, project_id=None, current_user=None):
 @require_project_with_grace_period
 @enforce_project_scope
 @require_any_permission(["remote_control.create", "remote_control.edit"])
-def delete_feature(feature_id, project_id=None, current_user=None):
+def delete_feature(feature_id, current_user, project_id=None):
     """Delete a remote control feature"""
     try:
-
-        if current_user is None:
-            current_user = g.current_user
-
         if project_id is None:
             return (
                 jsonify({"error": "Project ID is required. Please specify project_id parameter."}),
@@ -583,13 +559,9 @@ def delete_feature(feature_id, project_id=None, current_user=None):
 @require_project_with_grace_period
 @enforce_project_scope
 @require_any_permission(["remote_control.create", "remote_control.edit"])
-def toggle_feature(feature_id, project_id=None, current_user=None):
+def toggle_feature(feature_id, current_user, project_id=None):
     """Toggle a remote control feature on/off"""
     try:
-
-        if current_user is None:
-            current_user = g.current_user
-
         if project_id is None:
             return (
                 jsonify({"error": "Project ID is required. Please specify project_id parameter."}),

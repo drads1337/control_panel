@@ -897,11 +897,14 @@ def require_project_isolation(f):
                 g.current_user = user
                 g.current_project = Project.query.get(owner_project_id) if owner_project_id else None
 
+                # Always pass parameters via kwargs for explicit dependency injection
                 sig = inspect.signature(f)
                 if "current_user" in sig.parameters and "current_user" not in kwargs:
                     kwargs["current_user"] = user
+                
                 if "current_project" in sig.parameters and "current_project" not in kwargs:
                     kwargs["current_project"] = g.current_project
+                
                 if "project_id" in sig.parameters and "project_id" not in kwargs:
                     kwargs["project_id"] = owner_project_id
 
@@ -920,15 +923,24 @@ def require_project_isolation(f):
                 )
                 return jsonify({"error": "Project is inactive"}), 403
 
+            # Always set g for backward compatibility and query isolation
             g.project_id = user.project_id
             g.current_user = user
             g.current_project = project
 
+            # Always pass parameters via kwargs for explicit dependency injection
+            # This allows routes to use explicit parameters instead of flask.g
             sig = inspect.signature(f)
             if "current_user" in sig.parameters and "current_user" not in kwargs:
                 kwargs["current_user"] = user
+            elif "current_user" not in sig.parameters:
+                # Even if function doesn't declare current_user, pass it for future migration
+                # Routes can accept it as **kwargs if needed
+                pass
+            
             if "current_project" in sig.parameters and "current_project" not in kwargs:
                 kwargs["current_project"] = project
+            
             if "project_id" in sig.parameters and "project_id" not in kwargs:
                 kwargs["project_id"] = user.project_id
 

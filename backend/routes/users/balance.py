@@ -18,11 +18,9 @@ balance_bp = Blueprint("users_balance", __name__)
 @require_user
 @require_role(RolePermissions.BALANCE_MANAGEMENT_ROLES)
 @require_project_isolation
-def topup_user_balance(current_user=None):
+def topup_user_balance(current_user):
     """Top up user balance"""
 
-    if current_user is None:
-        current_user = g.current_user
     data = request.get_json()
 
     if not data:
@@ -64,11 +62,9 @@ def topup_user_balance(current_user=None):
 @require_user
 @require_role(RolePermissions.BALANCE_MANAGEMENT_ROLES)
 @require_project_isolation
-def deduct_user_balance(current_user=None):
+def deduct_user_balance(current_user):
     """Deduct from user balance"""
 
-    if current_user is None:
-        current_user = g.current_user
     data = request.get_json()
 
     if not data:

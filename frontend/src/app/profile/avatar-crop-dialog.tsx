@@ -77,17 +77,17 @@ export function AvatarCropDialog({
         return null
       }
 
-      // Calculate scale factors from displayed image to natural image
+      // Calculate scaling factors from displayed image to original
       const scaleX = image.naturalWidth / image.width
       const scaleY = image.naturalHeight / image.height
 
-      // Calculate actual crop dimensions in natural image coordinates
+      // Calculate actual crop dimensions in original image coordinates
       const sourceX = Math.round(crop.x * scaleX)
       const sourceY = Math.round(crop.y * scaleY)
       const sourceWidth = Math.round(crop.width * scaleX)
       const sourceHeight = Math.round(crop.height * scaleY)
 
-      // Set canvas to target size (square, fixed resolution)
+      // Set canvas size to target size (square, fixed resolution)
       canvas.width = TARGET_SIZE
       canvas.height = TARGET_SIZE
 
@@ -167,17 +167,17 @@ export function AvatarCropDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="w-full max-w-md sm:max-w-lg md:max-w-xl lg:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Crop Avatar</DialogTitle>
           <DialogDescription>
-            Select the area of the image for your avatar. Drag the corners to resize.
+            Select the image area for your avatar. Drag the corners to resize.
           </DialogDescription>
         </DialogHeader>
         
-        <div className="flex flex-col items-center justify-center p-4">
+        <div className="flex flex-col items-center justify-center p-2 sm:p-4">
           {imageSrc && (
-            <div className="relative w-full max-w-md">
+            <div className="relative w-full">
               <ReactCrop
                 crop={crop}
                 onChange={(_, percentCrop) => setCrop(percentCrop)}
@@ -185,13 +185,13 @@ export function AvatarCropDialog({
                 aspect={ASPECT_RATIO}
                 minWidth={MIN_DIMENSION}
                 minHeight={MIN_DIMENSION}
-                className="max-h-[500px]"
+                className="max-h-[60vh]"
               >
                 <img
                   ref={imgRef}
-                  alt="Crop me"
+                  alt="Crop"
                   src={imageSrc}
-                  style={{ maxWidth: '100%', maxHeight: '500px', display: 'block' }}
+                  style={{ maxWidth: '100%', maxHeight: '60vh', display: 'block' }}
                   onLoad={onImageLoad}
                 />
               </ReactCrop>
@@ -199,17 +199,19 @@ export function AvatarCropDialog({
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-end gap-2 px-6 pb-4">
           <Button
             variant="outline"
             onClick={handleCancel}
             disabled={isProcessing}
+            className="w-full sm:w-auto"
           >
             Cancel
           </Button>
           <Button
             onClick={handleCropComplete}
             disabled={!completedCrop || isProcessing}
+            className="w-full sm:w-auto"
           >
             {isProcessing ? (
               <>

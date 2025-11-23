@@ -3,24 +3,19 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { 
-  ChevronDown, 
-  ChevronUp
-} from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { ChevronDown, ChevronUp, Settings2, Info } from 'lucide-react';
 import MultiFileUpload from '@/components/ui/multi-file-upload';
 import { useMultiFileUpload } from '@/hooks/use-multi-file-upload';
 import { usePermissions } from '@/hooks/use-permissions';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
 import type { Product } from '@/entities/product';
 import { toast } from 'sonner';
-import { Spinner } from '@/components/ui/spinner';
+import { cn } from '@/lib/utils';
 
 interface MultiFileUploadDialogProps {
   product: Product | null;
@@ -73,17 +68,13 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
 
   const { uploading, uploadStats, uploadFiles, resetStats } = useMultiFileUpload();
 
-  const handleFilesSelect = (files: FileWithPreview[]) => {
-    setSelectedFiles(files);
-  };
-
   const handleUpload = async (files: FileWithPreview[]) => {
     if (!product) {
       return;
     }
 
     try {
-      const results = await uploadFiles(files, product.id, uploadForm, {
+      await uploadFiles(files, product.id, uploadForm, {
         uploadInParallel: uploadSettings.uploadInParallel,
         onProgress: (fileId, progress) => {
           setSelectedFiles(prev => prev.map(f => 
@@ -102,36 +93,14 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
       });
 
       setTimeout(() => {
-
         onUploadComplete?.();
       }, 1000);
       setOpen(false);
       setSelectedFiles([]);
       resetStats();
     } catch (error) {
-
       toast.error(`Upload error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  };
-
-  const resetForm = () => {
-    setUploadForm({
-      name: '',
-      description: '',
-      version: '1.0.0',
-      isPublic: true,
-      category: 'config'
-    });
-    setSelectedFiles([]);
-    resetStats();
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   return (
@@ -142,327 +111,165 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
             variant="outline" 
             size="sm"
             disabled={!canUploadFiles}
+            className="whitespace-nowrap"
           >
-            Multi-File Upload
+            Multi-Upload
           </Button>
         </DialogTrigger>
-      <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-base">
-            Multi-File Upload with Advanced Settings
+      <DialogContent className="w-[95vw] sm:max-w-[800px] max-h-[90vh] flex flex-col p-0 overflow-hidden gap-0">
+        <DialogHeader className="p-4 sm:p-6 pb-2 sm:pb-4 border-b flex-shrink-0">
+          <DialogTitle className="text-base sm:text-lg">
+            Multi-File Upload
           </DialogTitle>
-          <DialogDescription className="mt-1 text-xs">
-            Upload multiple files simultaneously with advanced configuration options
+          <DialogDescription className="mt-1 text-xs truncate">
+            Upload files for "{product?.name || 'Unknown'}"
           </DialogDescription>
         </DialogHeader>
 
-        {}
-        {!product ? (
-          <div className="border-dashed border-2 border-muted-foreground/25 rounded-lg p-8">
-            <div className="text-center">
-              <h3 className="text-base font-semibold mb-2">Product Selection Required</h3>
-              <p className="text-muted-foreground text-sm max-w-md mx-auto">
-                Please select an product first to upload files
-              </p>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 sm:space-y-6">
+          {!product ? (
+            <div className="border-dashed border-2 border-muted-foreground/25 rounded-lg p-8 text-center">
+              <h3 className="text-base font-semibold mb-2">Product Required</h3>
+              <p className="text-muted-foreground text-sm">Please select a product first.</p>
             </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 flex-wrap p-3 border rounded-lg">
-              <span className="text-sm font-medium">Basic Settings:</span>
-
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="parallel-upload" className="text-xs whitespace-nowrap">Parallel Upload</Label>
-                    <Switch
-                      id="parallel-upload"
-                      checked={uploadSettings.uploadInParallel}
-                      onCheckedChange={(checked) => 
-                        setUploadSettings(prev => ({ ...prev, uploadInParallel: checked }))
-                      }
-                    />
+          ) : (
+            <>
+              {/* Basic Settings Group */}
+              <div className="bg-muted/30 rounded-lg border p-3">
+                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border/50">
+                  <Settings2 className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium">Basic Settings</span>
+                </div>
+                
+                <div className="grid grid-cols-2 sm:flex sm:flex-row sm:items-center gap-4 sm:gap-6">
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id="parallel-upload"
+                        checked={uploadSettings.uploadInParallel}
+                        onCheckedChange={(checked) => setUploadSettings(prev => ({ ...prev, uploadInParallel: checked }))}
+                      />
+                      <Label htmlFor="parallel-upload" className="text-xs cursor-pointer">Parallel</Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id="auto-upload"
+                        checked={uploadSettings.autoUpload}
+                        onCheckedChange={(checked) => setUploadSettings(prev => ({ ...prev, autoUpload: checked }))}
+                      />
+                      <Label htmlFor="auto-upload" className="text-xs cursor-pointer">Auto-start</Label>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="auto-upload" className="text-xs whitespace-nowrap">Auto Upload</Label>
-                    <Switch
-                      id="auto-upload"
-                      checked={uploadSettings.autoUpload}
-                      onCheckedChange={(checked) => 
-                        setUploadSettings(prev => ({ ...prev, autoUpload: checked }))
-                      }
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="max-files" className="text-xs whitespace-nowrap">Max Files</Label>
+                  <div className="flex flex-col gap-1.5 min-w-0">
+                    <Label htmlFor="max-files" className="text-xs text-muted-foreground">Max Files</Label>
                     <Input
                       id="max-files"
                       type="number"
                       value={uploadSettings.maxFiles}
-                      onChange={(e) => 
-                        setUploadSettings(prev => ({ 
-                          ...prev, 
-                          maxFiles: parseInt(e.target.value) || 50 
-                        }))
-                      }
+                      onChange={(e) => setUploadSettings(prev => ({ ...prev, maxFiles: parseInt(e.target.value) || 50 }))}
                       min="1"
                       max="100"
-                      className="h-8 w-16"
+                      className="h-8 w-full sm:w-20 text-base sm:text-sm"
                     />
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="max-size" className="text-xs whitespace-nowrap">Max Size (MB)</Label>
+                  <div className="flex flex-col gap-1.5 min-w-0">
+                    <Label htmlFor="max-size" className="text-xs text-muted-foreground">Max Size (MB)</Label>
                     <Input
                       id="max-size"
                       type="number"
                       value={uploadSettings.maxSize / (1024 * 1024)}
-                      onChange={(e) => 
-                        setUploadSettings(prev => ({ 
-                          ...prev, 
-                          maxSize: (parseInt(e.target.value) || 100) * 1024 * 1024 
-                        }))
-                      }
+                      onChange={(e) => setUploadSettings(prev => ({ ...prev, maxSize: (parseInt(e.target.value) || 100) * 1024 * 1024 }))}
                       min="1"
                       max="1000"
-                      className="h-8 w-20"
+                      className="h-8 w-full sm:w-20 text-base sm:text-sm"
                     />
                   </div>
-            </div>
-
-            <Collapsible open={advancedSettingsOpen} onOpenChange={setAdvancedSettingsOpen}>
-              <div className="border rounded-lg">
-                <CollapsibleTrigger asChild>
-                  <div className="cursor-pointer hover:bg-muted/50 transition-colors p-4 border-b">
-                    <div className="flex items-center justify-between">
-                      <span className="text-base font-semibold">Advanced Settings</span>
-                      {advancedSettingsOpen ? (
-                        <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Configure retry attempts, chunking, compression, and more
-                    </p>
-                  </div>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="space-y-4 p-4">
-                    {}
-                    <div className="space-y-3">
-                      <Label className="text-sm font-medium">Reliability & Retry</Label>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-6">
-                        <div className="space-y-2">
-                          <Label htmlFor="retry-attempts" className="text-xs">Retry Attempts</Label>
-                          <Input
-                            id="retry-attempts"
-                            type="number"
-                            value={uploadSettings.retryAttempts}
-                            onChange={(e) => 
-                              setUploadSettings(prev => ({ 
-                                ...prev, 
-                                retryAttempts: Math.max(0, parseInt(e.target.value) || 3)
-                              }))
-                            }
-                            min="0"
-                            max="10"
-                            className="h-8"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="chunk-size" className="text-xs">Chunk Size (MB)</Label>
-                          <Input
-                            id="chunk-size"
-                            type="number"
-                            value={uploadSettings.chunkSize / (1024 * 1024)}
-                            onChange={(e) => 
-                              setUploadSettings(prev => ({ 
-                                ...prev, 
-                                chunkSize: (parseInt(e.target.value) || 5) * 1024 * 1024
-                              }))
-                            }
-                            min="1"
-                            max="50"
-                            className="h-8"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <Separator />
-
-                    {}
-                    <div className="space-y-3">
-                      <Label className="text-sm font-medium">File Processing</Label>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-6">
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label htmlFor="enable-compression" className="text-xs">Enable Compression</Label>
-                            <p className="text-xs text-muted-foreground">Compress files before upload</p>
-                          </div>
-                          <Switch
-                            id="enable-compression"
-                            checked={uploadSettings.enableCompression}
-                            onCheckedChange={(checked) => 
-                              setUploadSettings(prev => ({ ...prev, enableCompression: checked }))
-                            }
-                          />
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label htmlFor="preserve-structure" className="text-xs">Preserve Folder Structure</Label>
-                            <p className="text-xs text-muted-foreground">Maintain directory hierarchy</p>
-                          </div>
-                          <Switch
-                            id="preserve-structure"
-                            checked={uploadSettings.preserveFolderStructure}
-                            onCheckedChange={(checked) => 
-                              setUploadSettings(prev => ({ ...prev, preserveFolderStructure: checked }))
-                            }
-                          />
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label htmlFor="auto-rename" className="text-xs">Auto Rename Duplicates</Label>
-                            <p className="text-xs text-muted-foreground">Automatically rename duplicate files</p>
-                          </div>
-                          <Switch
-                            id="auto-rename"
-                            checked={uploadSettings.autoRenameDuplicates}
-                            onCheckedChange={(checked) => 
-                              setUploadSettings(prev => ({ ...prev, autoRenameDuplicates: checked }))
-                            }
-                          />
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label htmlFor="validate-files" className="text-xs">Validate Files</Label>
-                            <p className="text-xs text-muted-foreground">Check file integrity</p>
-                          </div>
-                          <Switch
-                            id="validate-files"
-                            checked={uploadSettings.validateFiles}
-                            onCheckedChange={(checked) => 
-                              setUploadSettings(prev => ({ ...prev, validateFiles: checked }))
-                            }
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <Separator />
-
-                    {}
-                    <div className="space-y-3">
-                      <Label className="text-sm font-medium">Upload Performance</Label>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-6">
-                        <div className="space-y-2">
-                          <Label htmlFor="upload-priority" className="text-xs">Upload Priority</Label>
-                          <Select
-                            value={uploadSettings.uploadPriority}
-                            onValueChange={(value: 'high' | 'normal' | 'low') => 
-                              setUploadSettings(prev => ({ ...prev, uploadPriority: value }))
-                            }
-                          >
-                            <SelectTrigger className="h-8">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="high">High Priority</SelectItem>
-                              <SelectItem value="normal">Normal Priority</SelectItem>
-                              <SelectItem value="low">Low Priority</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="bandwidth-limit" className="text-xs">Bandwidth Limit (MB/s)</Label>
-                          <Input
-                            id="bandwidth-limit"
-                            type="number"
-                            value={uploadSettings.bandwidthLimit || ''}
-                            onChange={(e) => 
-                              setUploadSettings(prev => ({ 
-                                ...prev, 
-                                bandwidthLimit: parseInt(e.target.value) || 0
-                              }))
-                            }
-                            min="0"
-                            placeholder="0 = Unlimited"
-                            className="h-8"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <Separator />
-
-                    {}
-                    <div className="space-y-3">
-                      <Label className="text-sm font-medium">File Naming</Label>
-                      <div className="space-y-3 pl-6">
-                        <div className="space-y-2">
-                          <Label htmlFor="naming-pattern" className="text-xs">Custom Naming Pattern</Label>
-                          <Input
-                            id="naming-pattern"
-                            value={uploadSettings.customNamingPattern}
-                            onChange={(e) => 
-                              setUploadSettings(prev => ({ ...prev, customNamingPattern: e.target.value }))
-                            }
-                            placeholder="e.g., {name}_{timestamp}_{hash}"
-                            className="h-8"
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            Available: {'{name}'}, {'{timestamp}'}, {'{hash}'}, {'{index}'}
-                          </p>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="flex items-center justify-between">
-                            <div className="space-y-0.5">
-                              <Label htmlFor="add-timestamp" className="text-xs">Add Timestamp</Label>
-                              <p className="text-xs text-muted-foreground">Append timestamp to filename</p>
-                            </div>
-                            <Switch
-                              id="add-timestamp"
-                              checked={uploadSettings.addTimestamp}
-                              onCheckedChange={(checked) => 
-                                setUploadSettings(prev => ({ ...prev, addTimestamp: checked }))
-                              }
-                            />
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <div className="space-y-0.5">
-                              <Label htmlFor="add-hash" className="text-xs">Add Hash</Label>
-                              <p className="text-xs text-muted-foreground">Include file hash in name</p>
-                            </div>
-                            <Switch
-                              id="add-hash"
-                              checked={uploadSettings.addHash}
-                              onCheckedChange={(checked) => 
-                                setUploadSettings(prev => ({ ...prev, addHash: checked }))
-                              }
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CollapsibleContent>
+                </div>
               </div>
-            </Collapsible>
 
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 flex-wrap p-3 border rounded-lg">
-              <span className="text-sm font-medium">File Info:</span>
+              {/* Advanced Settings Accordion */}
+              <Collapsible open={advancedSettingsOpen} onOpenChange={setAdvancedSettingsOpen}>
+                <div className="border rounded-lg bg-card">
+                  <CollapsibleTrigger asChild>
+                    <div className="cursor-pointer hover:bg-muted/50 transition-colors p-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">Advanced Configuration</span>
+                        <Badge variant="outline" className="text-[10px] px-1 py-0 h-4">Optional</Badge>
+                      </div>
+                      {advancedSettingsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </div>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="p-3 pt-0 space-y-4">
+                      <Separator className="mb-3" />
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 px-1 sm:px-2">
+                        {/* Retry & Chunking */}
+                        <div className="space-y-3">
+                          <Label className="text-xs font-semibold uppercase text-muted-foreground">Reliability</Label>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <Label className="text-[10px]">Retries</Label>
+                              <Input
+                                type="number"
+                                value={uploadSettings.retryAttempts}
+                                onChange={(e) => setUploadSettings(prev => ({ ...prev, retryAttempts: parseInt(e.target.value) || 3 }))}
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-[10px]">Chunk (MB)</Label>
+                              <Input
+                                type="number"
+                                value={uploadSettings.chunkSize / (1024 * 1024)}
+                                onChange={(e) => setUploadSettings(prev => ({ ...prev, chunkSize: (parseInt(e.target.value) || 5) * 1024 * 1024 }))}
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                          </div>
+                        </div>
 
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="category" className="text-xs whitespace-nowrap">Category</Label>
+                        {/* Toggles */}
+                        <div className="space-y-3">
+                          <Label className="text-xs font-semibold uppercase text-muted-foreground">Processing</Label>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label htmlFor="comp" className="text-xs">Compression</Label>
+                              <Switch id="comp" checked={uploadSettings.enableCompression} onCheckedChange={(c) => setUploadSettings(p => ({...p, enableCompression: c}))} className="scale-75 origin-right"/>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <Label htmlFor="struct" className="text-xs">Folder Structure</Label>
+                              <Switch id="struct" checked={uploadSettings.preserveFolderStructure} onCheckedChange={(c) => setUploadSettings(p => ({...p, preserveFolderStructure: c}))} className="scale-75 origin-right"/>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <Label htmlFor="rename" className="text-xs">Auto Rename</Label>
+                              <Switch id="rename" checked={uploadSettings.autoRenameDuplicates} onCheckedChange={(c) => setUploadSettings(p => ({...p, autoRenameDuplicates: c}))} className="scale-75 origin-right"/>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CollapsibleContent>
+                </div>
+              </Collapsible>
+
+              {/* File Info Form */}
+              <div className="bg-muted/30 rounded-lg border p-3">
+                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border/50">
+                  <Info className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium">File Information</span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:flex sm:items-end gap-3">
+                  <div className="space-y-1.5 col-span-1 sm:w-32">
+                    <Label htmlFor="category" className="text-xs">Category</Label>
                     <Select
                       value={uploadForm.category}
-                      onValueChange={(value: 'config' | 'resource') => 
-                        setUploadForm(prev => ({ ...prev, category: value }))
-                      }
+                      onValueChange={(value: any) => setUploadForm(prev => ({ ...prev, category: value }))}
                     >
-                      <SelectTrigger className="h-8 w-28">
+                      <SelectTrigger className="h-8 text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -472,87 +279,71 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
                     </Select>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="version" className="text-xs whitespace-nowrap">Version</Label>
+                  <div className="space-y-1.5 col-span-1 sm:w-24">
+                    <Label htmlFor="version" className="text-xs">Version</Label>
                     <Input
                       id="version"
                       value={uploadForm.version}
-                      onChange={(e) => 
-                        setUploadForm(prev => ({ ...prev, version: e.target.value }))
-                      }
-                      placeholder="1.0.0"
-                      className="h-8 w-20"
+                      onChange={(e) => setUploadForm(prev => ({ ...prev, version: e.target.value }))}
+                      className="h-8 text-xs"
                     />
                   </div>
 
-                  <div className="flex items-center gap-2 flex-1">
-                    <Label htmlFor="description" className="text-xs whitespace-nowrap">Description</Label>
+                  <div className="space-y-1.5 col-span-2 sm:flex-1">
+                    <Label htmlFor="description" className="text-xs">Description</Label>
                     <Input
                       id="description"
                       value={uploadForm.description}
-                      onChange={(e) => 
-                        setUploadForm(prev => ({ ...prev, description: e.target.value }))
-                      }
-                      placeholder="File description..."
-                      className="h-8 min-w-0"
+                      onChange={(e) => setUploadForm(prev => ({ ...prev, description: e.target.value }))}
+                      placeholder="Optional description"
+                      className="h-8 text-xs"
                     />
-                  </div>
-            </div>
-
-            <div className="border rounded-lg p-4">
-              <div className="mb-3">
-                <span className="text-sm font-medium">File Upload</span>
-              </div>
-              <MultiFileUpload
-                onFilesUpload={handleUpload}
-                multiple={true}
-                maxFiles={uploadSettings.maxFiles}
-                maxSize={uploadSettings.maxSize}
-                autoUpload={uploadSettings.autoUpload}
-                className="w-full"
-              />
-            </div>
-
-            {uploading && (
-              <div className="flex items-center justify-between p-3 border rounded-lg">
-                <span className="text-sm font-medium">Upload Progress:</span>
-                <div className="flex items-center gap-4 text-xs">
-                  <div className="flex items-center gap-1">
-                    <span className="text-muted-foreground">Total:</span>
-                    <span className="font-medium">{uploadStats.total}</span>
-                  </div>
-                  <div className="flex items-center gap-1 text-green-600">
-                    <span>✓</span>
-                    <span>{uploadStats.completed}</span>
-                  </div>
-                  <div className="flex items-center gap-1 text-red-600">
-                    <span>✗</span>
-                    <span>{uploadStats.failed}</span>
-                  </div>
-                  <div className="flex items-center gap-1 text-yellow-600">
-                    <span>⏳</span>
-                    <span>{uploadStats.total - uploadStats.completed - uploadStats.failed}</span>
                   </div>
                 </div>
               </div>
-            )}
-          </div>
-        )}
 
-        <DialogFooter>
+              {/* Dropzone & Upload Area */}
+              <div className="rounded-lg border p-1">
+                <MultiFileUpload
+                  onFilesUpload={handleUpload}
+                  multiple={true}
+                  maxFiles={uploadSettings.maxFiles}
+                  maxSize={uploadSettings.maxSize}
+                  autoUpload={uploadSettings.autoUpload}
+                  className="w-full min-h-[200px]"
+                />
+              </div>
+
+              {/* Stats Bar */}
+              {uploading && (
+                <div className="flex items-center justify-between p-3 bg-background border rounded-lg text-xs shadow-sm">
+                  <span className="font-medium">Progress:</span>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1 text-green-600">
+                      <span>✓</span> {uploadStats.completed}
+                    </div>
+                    <div className="flex items-center gap-1 text-red-600">
+                      <span>✗</span> {uploadStats.failed}
+                    </div>
+                    <div className="flex items-center gap-1 text-muted-foreground">
+                      <span>Total:</span> {uploadStats.total}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <DialogFooter className="p-4 border-t bg-background flex-shrink-0">
           <Button 
             variant="outline" 
             onClick={() => setOpen(false)} 
             disabled={uploading}
+            className="w-full sm:w-auto"
           >
-            Cancel
+            Close
           </Button>
-          {uploading && (
-            <Button disabled>
-              <Spinner className="h-4 w-4 mr-2" />
-              Uploading...
-            </Button>
-          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

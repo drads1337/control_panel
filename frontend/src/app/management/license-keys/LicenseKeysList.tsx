@@ -101,7 +101,6 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
 
   useLayoutEffect(() => {
     if (!loading && scrollPositionRef.current > 0) {
-
       window.scrollTo({
         top: scrollPositionRef.current,
         behavior: 'instant' as ScrollBehavior,
@@ -121,25 +120,14 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
   };
 
   const getStatusType = (status: number, is_expired?: boolean): StatusType => {
-    // Blocked keys are never expired, regardless of is_expired flag
-    if (status === KEY_STATUS.BLOCKED) {
-      return 'blocked';
-    }
-    // If key is expired and active, show as expired
-    if (status === KEY_STATUS.ACTIVE && is_expired) {
-      return 'expired';
-    }
+    if (status === KEY_STATUS.BLOCKED) return 'blocked';
+    if (status === KEY_STATUS.ACTIVE && is_expired) return 'expired';
     switch (status) {
-      case KEY_STATUS.BLOCKED:
-        return 'blocked';
-      case KEY_STATUS.ACTIVE:
-        return 'active';
-      case KEY_STATUS.EXPIRED:
-        return 'expired';
-      case KEY_STATUS.PAUSED:
-        return 'inactive';
-      default:
-        return 'inactive';
+      case KEY_STATUS.BLOCKED: return 'blocked';
+      case KEY_STATUS.ACTIVE: return 'active';
+      case KEY_STATUS.EXPIRED: return 'expired';
+      case KEY_STATUS.PAUSED: return 'inactive';
+      default: return 'inactive';
     }
   };
 
@@ -170,7 +158,6 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
 
   return (
     <div className="space-y-4">
-      {}
       <ConditionalRender permission="keys.view" fallback={null}>
         <div className="flex justify-end">
           <Tabs value={viewMode} onValueChange={(value) => onViewModeChange?.(value as 'my' | 'all')}>
@@ -182,106 +169,9 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
         </div>
       </ConditionalRender>
 
-      <div className="rounded-md border">
-        <Table style={{ tableLayout: 'fixed' }}>
-          <colgroup>
-            <col style={{ width: '5%' }} />
-            <col style={{ width: '18%' }} />
-            <col style={{ width: '11%' }} />
-            <col style={{ width: '9%' }} />
-            <col style={{ width: '9%' }} />
-            <col style={{ width: '11%' }} />
-            <col style={{ width: '9%' }} />
-            <col style={{ width: '10%' }} />
-            <col style={{ width: '18%' }} />
-          </colgroup>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-12">
-                <Checkbox
-                  checked={allSelected}
-                  onCheckedChange={onSelectAll}
-                  ref={(el) => {
-                    if (el && 'indeterminate' in el) (el as any).indeterminate = someSelected && !allSelected;
-                  }}
-                />
-              </TableHead>
-              <TableHead className="text-left">Licenses</TableHead>
-              <TableHead className="text-left">Product</TableHead>
-              <TableHead className="text-left">Target Type</TableHead>
-              <TableHead className="text-left">Status</TableHead>
-              <TableHead className="text-left">Time</TableHead>
-              <TableHead className="text-left">Devices</TableHead>
-              <TableHead className="text-left">Created</TableHead>
-              <TableHead className="w-auto text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-        </Table>
-        {}
-        {shouldVirtualize ? (
-          <div
-            ref={parentRef}
-            className="overflow-auto"
-            style={{ height: '600px', contain: 'strict' }}
-          >
-            <div
-              style={{
-                height: `${rowVirtualizer.getTotalSize()}px`,
-                width: '100%',
-                position: 'relative',
-              }}
-            >
-              <Table style={{ tableLayout: 'fixed' }}>
-                <colgroup>
-                  <col style={{ width: '5%' }} />
-                  <col style={{ width: '18%' }} />
-                  <col style={{ width: '11%' }} />
-                  <col style={{ width: '9%' }} />
-                  <col style={{ width: '9%' }} />
-                  <col style={{ width: '11%' }} />
-                  <col style={{ width: '9%' }} />
-                  <col style={{ width: '10%' }} />
-                  <col style={{ width: '18%' }} />
-                </colgroup>
-                <TableBody>
-                  {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                    const key = keys[virtualRow.index];
-                    return (
-                      <KeyRow
-                        key={key.id}
-                        data-index={virtualRow.index}
-                        keyData={key}
-                        isSelected={selectedKeys.has(key.id)}
-                        isKeyVisible={showKey[key.id] || false}
-                        fullKey={fullKeys[key.id]}
-                        isLoading={actionLoading.has(key.id)}
-                        onToggleKeyVisibility={onToggleKeyVisibility}
-                        onSelectKey={onSelectKey}
-                        onKeyAction={onKeyAction}
-                        onViewDetails={onViewDetails}
-                        canPerformAction={canPerformAction}
-                        getStatusType={(status: number) => getStatusType(status, key.is_expired)}
-                        canEdit={canEdit}
-                        canDelete={canDelete}
-                        canReset={canReset}
-                        canPauseResume={canPauseResume}
-                        canExtend={canExtend}
-                        canBlock={canBlock}
-                        style={{
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          width: '100%',
-                          transform: `translateY(${virtualRow.start}px)`,
-                        }}
-                      />
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-        ) : (
+      {/* Обертка для горизонтального скролла на мобильных */}
+      <div className="rounded-md border overflow-x-auto relative">
+        <div className="min-w-[1000px]">
           <Table style={{ tableLayout: 'fixed' }}>
             <colgroup>
               <col style={{ width: '5%' }} />
@@ -294,120 +184,199 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
               <col style={{ width: '10%' }} />
               <col style={{ width: '18%' }} />
             </colgroup>
-            <TableBody>
-              {keys.map((key) => (
-                <KeyRow
-                  key={key.id}
-                  keyData={key}
-                  isSelected={selectedKeys.has(key.id)}
-                  isKeyVisible={showKey[key.id] || false}
-                  fullKey={fullKeys[key.id]}
-                  isLoading={actionLoading.has(key.id)}
-                  onToggleKeyVisibility={onToggleKeyVisibility}
-                  onSelectKey={onSelectKey}
-                  onKeyAction={onKeyAction}
-                  onViewDetails={onViewDetails}
-                  canPerformAction={canPerformAction}
-                  getStatusType={(status: number) => getStatusType(status, key.is_expired)}
-                  canEdit={canEdit}
-                  canDelete={canDelete}
-                  canReset={canReset}
-                  canPauseResume={canPauseResume}
-                  canExtend={canExtend}
-                  canBlock={canBlock}
-                />
-              ))}
-            </TableBody>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12">
+                  <Checkbox
+                    checked={allSelected}
+                    onCheckedChange={onSelectAll}
+                    ref={(el) => {
+                      if (el && 'indeterminate' in el) (el as any).indeterminate = someSelected && !allSelected;
+                    }}
+                  />
+                </TableHead>
+                <TableHead className="text-left">Licenses</TableHead>
+                <TableHead className="text-left">Product</TableHead>
+                <TableHead className="text-left">Target Type</TableHead>
+                <TableHead className="text-left">Status</TableHead>
+                <TableHead className="text-left">Time</TableHead>
+                <TableHead className="text-left">Devices</TableHead>
+                <TableHead className="text-left">Created</TableHead>
+                <TableHead className="w-auto text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
           </Table>
-        )}
+
+          {shouldVirtualize ? (
+            <div
+              ref={parentRef}
+              className="overflow-auto"
+              style={{ height: '600px', contain: 'strict' }}
+            >
+              <div
+                style={{
+                  height: `${rowVirtualizer.getTotalSize()}px`,
+                  width: '100%',
+                  position: 'relative',
+                }}
+              >
+                <Table style={{ tableLayout: 'fixed' }}>
+                  <colgroup>
+                    <col style={{ width: '5%' }} />
+                    <col style={{ width: '18%' }} />
+                    <col style={{ width: '11%' }} />
+                    <col style={{ width: '9%' }} />
+                    <col style={{ width: '9%' }} />
+                    <col style={{ width: '11%' }} />
+                    <col style={{ width: '9%' }} />
+                    <col style={{ width: '10%' }} />
+                    <col style={{ width: '18%' }} />
+                  </colgroup>
+                  <TableBody>
+                    {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                      const key = keys[virtualRow.index];
+                      return (
+                        <KeyRow
+                          key={key.id}
+                          data-index={virtualRow.index}
+                          keyData={key}
+                          isSelected={selectedKeys.has(key.id)}
+                          isKeyVisible={showKey[key.id] || false}
+                          fullKey={fullKeys[key.id]}
+                          isLoading={actionLoading.has(key.id)}
+                          onToggleKeyVisibility={onToggleKeyVisibility}
+                          onSelectKey={onSelectKey}
+                          onKeyAction={onKeyAction}
+                          onViewDetails={onViewDetails}
+                          canPerformAction={canPerformAction}
+                          getStatusType={(status: number) => getStatusType(status, key.is_expired)}
+                          canEdit={canEdit}
+                          canDelete={canDelete}
+                          canReset={canReset}
+                          canPauseResume={canPauseResume}
+                          canExtend={canExtend}
+                          canBlock={canBlock}
+                          style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            transform: `translateY(${virtualRow.start}px)`,
+                          }}
+                        />
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          ) : (
+            <Table style={{ tableLayout: 'fixed' }}>
+              <colgroup>
+                <col style={{ width: '5%' }} />
+                <col style={{ width: '18%' }} />
+                <col style={{ width: '11%' }} />
+                <col style={{ width: '9%' }} />
+                <col style={{ width: '9%' }} />
+                <col style={{ width: '11%' }} />
+                <col style={{ width: '9%' }} />
+                <col style={{ width: '10%' }} />
+                <col style={{ width: '18%' }} />
+              </colgroup>
+              <TableBody>
+                {keys.map((key) => (
+                  <KeyRow
+                    key={key.id}
+                    keyData={key}
+                    isSelected={selectedKeys.has(key.id)}
+                    isKeyVisible={showKey[key.id] || false}
+                    fullKey={fullKeys[key.id]}
+                    isLoading={actionLoading.has(key.id)}
+                    onToggleKeyVisibility={onToggleKeyVisibility}
+                    onSelectKey={onSelectKey}
+                    onKeyAction={onKeyAction}
+                    onViewDetails={onViewDetails}
+                    canPerformAction={canPerformAction}
+                    getStatusType={(status: number) => getStatusType(status, key.is_expired)}
+                    canEdit={canEdit}
+                    canDelete={canDelete}
+                    canReset={canReset}
+                    canPauseResume={canPauseResume}
+                    canExtend={canExtend}
+                    canBlock={canBlock}
+                  />
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
       </div>
 
-      {}
       {pagination.pages > 1 && (
-        <div className="flex items-center justify-between mt-4">
-          <div className="text-sm text-muted-foreground whitespace-nowrap">Showing {((pagination.page - 1) * pagination.perPage) + 1} to {Math.min(pagination.page * pagination.perPage, pagination.total)} of {pagination.total} keys</div>
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (pagination.page > 1) {
-                      handlePageChange(pagination.page - 1);
-                    }
-                  }}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                  }}
-                  className={pagination.page === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                />
-              </PaginationItem>
-
-              {}
-              {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
-                let pageNum: number;
-
-                if (pagination.pages <= 5) {
-
-                  pageNum = i + 1;
-                } else if (pagination.page <= 3) {
-
-                  pageNum = i + 1;
-                } else if (pagination.page >= pagination.pages - 2) {
-
-                  pageNum = pagination.pages - 4 + i;
-                } else {
-
-                  pageNum = pagination.page - 2 + i;
-                }
-
-                return (
-                  <PaginationItem key={pageNum}>
-                    <PaginationLink
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handlePageChange(pageNum);
-                      }}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                      }}
-                      isActive={pagination.page === pageNum}
-                      className="cursor-pointer"
-                    >
-                      {pageNum}
-                    </PaginationLink>
-                  </PaginationItem>
-                );
-              })}
-
-              {pagination.pages > 5 && pagination.page < pagination.pages - 2 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4">
+          <div className="text-sm text-muted-foreground whitespace-nowrap order-2 sm:order-1">
+            Showing {((pagination.page - 1) * pagination.perPage) + 1} to {Math.min(pagination.page * pagination.perPage, pagination.total)} of {pagination.total} keys
+          </div>
+          <div className="order-1 sm:order-2 w-full sm:w-auto flex justify-center">
+            <Pagination>
+              <PaginationContent>
                 <PaginationItem>
-                  <PaginationEllipsis />
+                  <PaginationPrevious
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (pagination.page > 1) handlePageChange(pagination.page - 1);
+                    }}
+                    className={pagination.page === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                  />
                 </PaginationItem>
-              )}
 
-              <PaginationItem>
-                <PaginationNext
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (pagination.page < pagination.pages) {
-                      handlePageChange(pagination.page + 1);
-                    }
-                  }}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                  }}
-                  className={pagination.page >= pagination.pages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
+                {/* Скрываем номера страниц на очень маленьких экранах, оставляя только стрелки, или показываем меньше */}
+                <div className="hidden xs:flex">
+                  {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
+                    let pageNum: number;
+                    if (pagination.pages <= 5) pageNum = i + 1;
+                    else if (pagination.page <= 3) pageNum = i + 1;
+                    else if (pagination.page >= pagination.pages - 2) pageNum = pagination.pages - 4 + i;
+                    else pageNum = pagination.page - 2 + i;
+
+                    return (
+                      <PaginationItem key={pageNum}>
+                        <PaginationLink
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handlePageChange(pageNum);
+                          }}
+                          isActive={pagination.page === pageNum}
+                          className="cursor-pointer"
+                        >
+                          {pageNum}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  })}
+                </div>
+
+                {pagination.pages > 5 && pagination.page < pagination.pages - 2 && (
+                  <PaginationItem className="hidden xs:block">
+                    <PaginationEllipsis />
+                  </PaginationItem>
+                )}
+
+                <PaginationItem>
+                  <PaginationNext
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (pagination.page < pagination.pages) handlePageChange(pagination.page + 1);
+                    }}
+                    className={pagination.page >= pagination.pages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
         </div>
       )}
     </div>

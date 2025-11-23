@@ -65,7 +65,8 @@ export default function RemoteControlTabs({
   canToggle
 }: RemoteControlTabsProps) {
   return (
-    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full -mt-4">
+    // АДАПТАЦИЯ: mt-2 для мобильных (отступ от кнопок табов), -mt-4 для десктопа (эффект склеивания)
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-2 sm:-mt-4">
       <CategoryTabs
         categories={categories}
         activeTab={activeTab}
@@ -78,35 +79,43 @@ export default function RemoteControlTabs({
       {categories.length > 0 && (
         <TabsContents>
           {categories.map(category => (
-            <TabsContent key={category.id} value={category.id} className="mt-0">
+            // АДАПТАЦИЯ: mt-2 для мобильных, mt-0 для десктопа
+            <TabsContent key={category.id} value={category.id} className="mt-2 sm:mt-0">
               <Card>
-                <CardHeader className="pb-0">
-                  <div className="flex items-center justify-between">
-                    <div>
+                <CardHeader className="pb-3 sm:pb-0">
+                  {/* АДАПТАЦИЯ: flex-col на мобильных, flex-row на десктопе */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
+                    <div className="pr-0 sm:pr-4">
                       <CardTitle className="text-base">{category.name}</CardTitle>
-                      <CardDescription className="mt-1 text-xs">
+                      <CardDescription className="mt-1 text-xs break-words">
                         {category.description}
                       </CardDescription>
                     </div>
-                    <FeatureDialogs
-                      categories={categories}
-                      currentCategoryId={category.id}
-                      addDialogOpen={addDialogOpen}
-                      setAddDialogOpen={setAddDialogOpen}
-                      editDialogOpen={editDialogOpen}
-                      setEditDialogOpen={setEditDialogOpen}
-                      editingFeature={editingFeature}
-                      formData={formData}
-                      setFormData={setFormData}
-                      onAddFeature={onAddFeature}
-                      onUpdateFeature={onUpdateFeature}
-                      onEditFeature={onEditFeature}
-                      canCreate={canCreate}
-                      canEdit={canEdit}
-                    />
+                    
+                    {/* Контейнер для кнопки добавления фичи */}
+                    <div className="shrink-0">
+                      <FeatureDialogs
+                        categories={categories}
+                        currentCategoryId={category.id}
+                        addDialogOpen={addDialogOpen}
+                        setAddDialogOpen={setAddDialogOpen}
+                        editDialogOpen={editDialogOpen}
+                        setEditDialogOpen={setEditDialogOpen}
+                        editingFeature={editingFeature}
+                        formData={formData}
+                        setFormData={setFormData}
+                        onAddFeature={onAddFeature}
+                        onUpdateFeature={onUpdateFeature}
+                        onEditFeature={onEditFeature}
+                        canCreate={canCreate}
+                        canEdit={canEdit}
+                      />
+                    </div>
                   </div>
                 </CardHeader>
-                <CardContent className="pt-0 pb-4 -mt-3">
+                
+                {/* АДАПТАЦИЯ: Убран отрицательный отступ на мобильных, так как макет вертикальный */}
+                <CardContent className="pt-0 pb-4 sm:-mt-3">
                   <FeatureList
                     features={getCategoryFeatures(category.id)}
                     loading={loading}

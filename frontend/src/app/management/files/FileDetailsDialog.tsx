@@ -38,23 +38,34 @@ const FileDetailsDialog: React.FC<FileDetailsDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      {/* 
+        w-[95vw]: почти полная ширина на мобильном
+        max-h-[85vh] + overflow-y-auto: скролл, если контент не влезает по высоте
+      */}
+      <DialogContent className="w-[95vw] sm:max-w-[600px] max-h-[85vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Eye className="w-5 h-5 text-primary" />
+          <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
+            <Eye className="w-5 h-5 text-primary shrink-0" />
             File Information
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
             Detailed information about the selected file
           </DialogDescription>
         </DialogHeader>
+
         {selectedFile ? (
-          <div className="grid gap-6 py-4">
-            <div className="flex items-center gap-3">
-              {getFileIcon(selectedFile.name, selectedFile.type)}
-              <div>
-                <div className="font-medium text-lg">{selectedFile.name}</div>
-                <div className="text-sm text-muted-foreground">
+          <div className="grid gap-4 sm:gap-6 py-2 sm:py-4">
+            {/* Header with Icon and Name */}
+            <div className="flex items-start gap-3 bg-muted/30 p-3 rounded-lg">
+              <div className="shrink-0 mt-1">
+                {getFileIcon(selectedFile.name, selectedFile.type)}
+              </div>
+              <div className="min-w-0 flex-1">
+                {/* break-words/break-all: предотвращает выход длинных имен за пределы контейнера */}
+                <div className="font-medium text-base sm:text-lg break-words leading-tight mb-1">
+                  {selectedFile.name}
+                </div>
+                <div className="text-xs sm:text-sm text-muted-foreground">
                   {selectedFile.category === 'config' && 'Configuration file'}
                   {selectedFile.category === 'resource' && 'Extra file'}
                   {selectedFile.category === 'logo' && 'Logo'}
@@ -65,41 +76,46 @@ const FileDetailsDialog: React.FC<FileDetailsDialogProps> = ({
             </div>
 
             {selectedFile.description && (
-              <div>
-                <Label className="text-sm font-medium">Description</Label>
-                <div className="text-sm text-muted-foreground mt-1">
+              <div className="space-y-1">
+                <Label className="text-xs sm:text-sm font-medium">Description</Label>
+                <div className="text-xs sm:text-sm text-muted-foreground bg-muted/20 p-2 rounded-md break-words">
                   {sanitizeString(selectedFile.description)}
                 </div>
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4">
+            {/* 
+              Grid Layout:
+              grid-cols-1: на мобильном свойства идут друг под другом
+              sm:grid-cols-2: на планшете в две колонки
+            */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
-                <Label className="text-sm font-medium">File ID</Label>
-                <div className="text-sm text-muted-foreground font-mono">
+                <Label className="text-xs sm:text-sm font-medium text-muted-foreground">File ID</Label>
+                <div className="text-sm font-mono mt-0.5 break-all">
                   {selectedFile.id}
                 </div>
               </div>
               <div>
-                <Label className="text-sm font-medium">Size</Label>
-                <div className="text-sm text-muted-foreground">
+                <Label className="text-xs sm:text-sm font-medium text-muted-foreground">Size</Label>
+                <div className="text-sm mt-0.5">
                   {formatFileSize(selectedFile.size)}
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
-                <Label className="text-sm font-medium">Status</Label>
-                <div className="text-sm">
+                <Label className="text-xs sm:text-sm font-medium text-muted-foreground">Status</Label>
+                <div className="mt-1">
                   <Badge variant={selectedFile.status === 'active' ? 'default' : 'secondary'}>
                     {selectedFile.status === 'active' ? 'Active' : 'Inactive'}
                   </Badge>
                 </div>
               </div>
               <div>
-                <Label className="text-sm font-medium">Modified</Label>
-                <div className="text-sm text-muted-foreground">
+                <Label className="text-xs sm:text-sm font-medium text-muted-foreground">Modified</Label>
+                <div className="text-sm mt-0.5">
                   {new Date(selectedFile.modified).toLocaleString()}
                 </div>
               </div>
@@ -107,28 +123,24 @@ const FileDetailsDialog: React.FC<FileDetailsDialogProps> = ({
 
             {selectedFile.version && (
               <div>
-                <Label className="text-sm font-medium">Version</Label>
-                <div className="text-sm text-muted-foreground">
+                <Label className="text-xs sm:text-sm font-medium text-muted-foreground">Version</Label>
+                <div className="text-sm mt-0.5">
                   v{selectedFile.version}
                 </div>
               </div>
             )}
-
-            <div>
-              <Label className="text-sm font-medium">Last Modified</Label>
-              <div className="text-sm text-muted-foreground">
-                {new Date(selectedFile.modified).toLocaleString('en-US')}
-              </div>
-            </div>
+            
+            {/* Дублирование Last Modified убрано (оно было выше), или можно оставить как доп инфо */}
           </div>
         ) : null}
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+
+        <DialogFooter className="gap-2 sm:gap-0 flex-col sm:flex-row">
+          <Button variant="outline" onClick={onClose} className="w-full sm:w-auto order-1 sm:order-none">
             Close
           </Button>
           {selectedFile && (
             <ConditionalRender permission="products.files_download" fallback={null}>
-              <Button onClick={handleDownload} disabled={!canDownloadFiles}>
+              <Button onClick={handleDownload} disabled={!canDownloadFiles} className="w-full sm:w-auto order-0 sm:order-none">
                 <Download className="mr-2 h-4 w-4" />
                 Download
               </Button>

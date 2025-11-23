@@ -228,7 +228,7 @@ export function LoadStatusCard({ projectId }: LoadStatusCardProps) {
   )
 
   // Горизонтальный скролл на мобильных, сетка на больших экранах
-  const containerClass = "flex sm:grid sm:grid-cols-2 gap-2 sm:gap-3 overflow-x-auto sm:overflow-x-visible pb-2 sm:pb-0 -mx-2 sm:mx-0 px-2 sm:px-0 scrollbar-hide"
+  const containerClass = "flex sm:grid sm:grid-cols-2 gap-2 sm:gap-3 overflow-x-auto sm:overflow-x-visible pb-2 sm:pb-0 -mx-2 sm:mx-0 px-2 sm:px-0 no-scrollbar"
   const mobileItemClass = "min-w-[280px] sm:min-w-0 flex-shrink-0 sm:flex-shrink"
 
   if (loading) {

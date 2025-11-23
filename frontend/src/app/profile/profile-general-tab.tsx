@@ -39,7 +39,8 @@ export function ProfileGeneralTab({
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && isEditing && !isLoading) {
+    // Saving on Enter won't work for textarea
+    if (e.key === 'Enter' && !(e.target instanceof HTMLTextAreaElement) && isEditing && !isLoading) {
       e.preventDefault()
       e.stopPropagation()
       onSave()
@@ -49,15 +50,15 @@ export function ProfileGeneralTab({
   return (
     <Card className="@container/card">
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle>General Information</CardTitle>
             <CardDescription>Manage your personal and contact information</CardDescription>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             {isEditing ? (
               <>
-                <Button type="button" onClick={handleSaveClick} size="sm" disabled={isLoading}>
+                <Button type="button" onClick={handleSaveClick} size="sm" disabled={isLoading} className="w-full sm:w-auto">
                   {isLoading ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -70,13 +71,13 @@ export function ProfileGeneralTab({
                     </>
                   )}
                 </Button>
-                <Button type="button" onClick={onCancel} variant="outline" size="sm">
+                <Button type="button" onClick={onCancel} variant="outline" size="sm" className="w-full sm:w-auto">
                   <X className="h-4 w-4 mr-2" />
                   Cancel
                 </Button>
               </>
             ) : (
-              <Button type="button" onClick={onEdit} size="sm">
+              <Button type="button" onClick={onEdit} size="sm" className="w-full sm:w-auto">
                 <Edit className="h-4 w-4 mr-2" />
                 Edit
               </Button>
@@ -84,7 +85,7 @@ export function ProfileGeneralTab({
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-4 md:space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="firstName">First Name</Label>
@@ -146,16 +147,15 @@ export function ProfileGeneralTab({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="bio">About me</Label>
+          <Label htmlFor="bio">About</Label>
           <textarea
             id="bio"
             value={profileData.bio}
             onChange={(e) => onInputChange('bio', e.target.value)}
-            onKeyDown={handleKeyDown}
             disabled={!isEditing}
-            className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent disabled:bg-muted disabled:text-muted-foreground bg-background text-foreground resize-none"
+            className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
             rows={4}
-            placeholder="Tell us about yourself..."
+            placeholder="Tell us a little about yourself..."
             maxLength={500}
           />
           <div className="flex justify-between text-xs text-muted-foreground">

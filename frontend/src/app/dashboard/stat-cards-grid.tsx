@@ -11,155 +11,95 @@ interface StatCardsGridProps {
 export function StatCardsGrid({ data, type }: StatCardsGridProps) {
   if (!data) return null
 
-  const renderDashboardCards = (data: DashboardData) => {
-    const statCards = [
-      {
-        title: 'Users',
-        value: data.overview.users.total,
-        icon: Users,
-        subtitle: data.overview.users.total > 0 ? `${data.overview.users.new_today} new today` : 'No users yet',
-        badge: {
-          text: `${data.overview.users.active} active`,
-          color: 'primary' as const
+  // Определяем данные для рендера в зависимости от типа
+  const getStatCards = () => {
+    if (type === 'dashboard') {
+      const d = data as DashboardData;
+      return [
+        {
+          title: 'Users',
+          value: d.overview.users.total,
+          icon: Users,
+          subtitle: d.overview.users.total > 0 ? `${d.overview.users.new_today} new today` : 'No users yet',
+          badge: { text: `${d.overview.users.active} active`, color: 'primary' as const }
+        },
+        {
+          title: 'License Keys',
+          value: d.overview.keys.total,
+          icon: Key,
+          subtitle: d.overview.keys.expired > 0 ? `${d.overview.keys.expired} expired keys` : 'All keys active',
+          badge: { text: `${d.overview.keys.active} active`, color: 'primary' as const }
+        },
+        {
+          title: 'Products',
+          value: d.overview.products.total,
+          icon: Database,
+          subtitle: d.overview.products.active > 0 ? `${d.overview.products.active} active` : 'No products yet',
+          badge: { text: `${d.overview.products.active} active`, color: 'primary' as const }
+        },
+        {
+          title: 'Servers',
+          value: d.overview.servers.total,
+          icon: Server,
+          subtitle: d.overview.servers.offline > 0 ? `${d.overview.servers.offline} offline` : 'All servers online',
+          badge: { text: `${d.overview.servers.online} online`, color: 'primary' as const }
         }
-      },
-      {
-        title: 'License Keys',
-        value: data.overview.keys.total,
-        icon: Key,
-        subtitle: data.overview.keys.expired > 0 ? `${data.overview.keys.expired} expired keys` : 'All keys active',
-        badge: {
-          text: `${data.overview.keys.active} active`,
-          color: 'primary' as const
+      ];
+    } else {
+      const d = data as OwnerDashboardStats;
+      return [
+        {
+          title: 'Projects',
+          value: d.system_overview.total_projects,
+          icon: Building2,
+          subtitle: d.system_overview.active_projects > 0 ? `${d.system_overview.active_projects} active` : 'No projects yet',
+          badge: { text: `${d.system_overview.active_projects} active`, color: 'primary' as const }
+        },
+        {
+          title: 'Total Users',
+          value: d.system_overview.total_users,
+          icon: Users,
+          subtitle: d.user_analytics.new_today > 0 ? `${d.user_analytics.new_today} new today` : 'No new users today',
+          badge: { text: `${d.system_overview.active_users} active`, color: 'primary' as const }
+        },
+        {
+          title: 'License Keys',
+          value: d.system_overview.total_keys,
+          icon: Key,
+          subtitle: d.system_overview.active_keys > 0 ? `${d.system_overview.active_keys} active` : 'No keys yet',
+          badge: { text: `${d.system_overview.active_keys} active`, color: 'primary' as const }
+        },
+        {
+          title: 'Revenue',
+          value: `$${d.system_overview.total_revenue.toLocaleString()}`,
+          icon: DollarSign,
+          subtitle: `$${d.system_overview.monthly_revenue.toLocaleString()} this month`,
+          badge: { text: 'All Projects', color: 'primary' as const }
         }
-      },
-      {
-        title: 'Products',
-        value: data.overview.products.total,
-        icon: Database,
-        subtitle: data.overview.products.active > 0 ? `${data.overview.products.active} active` : 'No products yet',
-        badge: {
-          text: `${data.overview.products.active} active`,
-          color: 'primary' as const
-        }
-      },
-      {
-        title: 'Servers',
-        value: data.overview.servers.total,
-        icon: Server,
-        subtitle: data.overview.servers.offline > 0 ? `${data.overview.servers.offline} offline` : 'All servers online',
-        badge: {
-          text: `${data.overview.servers.online} online`,
-          color: 'primary' as const
-        }
-      }
-    ];
-
-    return (
-      <>
-        {statCards.map((stat, index) => (
-          <StatCard
-            key={index}
-            title={stat.title}
-            value={stat.value}
-            icon={stat.icon}
-            subtitle={stat.subtitle}
-            badge={stat.badge}
-            valueClassName="text-xs xs:text-sm font-semibold sm:text-base md:text-lg"
-            className="[&_header]:!p-2 [&_header]:sm:!p-3 [&_header]:!pb-1 [&_header]:sm:!pb-1.5 [&_h2]:!text-xs [&_h2]:xs:!text-sm [&_h2]:sm:!text-base [&_h2]:!mb-0 [&_h2]:!leading-tight [&_p]:!text-[10px] [&_p]:xs:!text-xs [&_p]:!mb-0 [&_p]:!leading-tight [&_svg]:!h-3 [&_svg]:!w-3 [&_svg]:xs:!h-3.5 [&_svg]:xs:!w-3.5 [&_svg]:sm:!h-4 [&_svg]:sm:!w-4 [&_span]:!text-[10px] [&_span]:xs:!text-xs [&_span]:!px-1 [&_span]:xs:!px-1.5 [&_span]:!py-0 [&_span]:!leading-tight"
-          />
-        ))}
-      </>
-    );
-  }
-
-  const renderOwnerCards = (data: OwnerDashboardStats) => {
-    const statCards = [
-      {
-        title: 'Projects',
-        value: data.system_overview.total_projects,
-        icon: Building2,
-        subtitle: data.system_overview.active_projects > 0 ? `${data.system_overview.active_projects} active` : 'No projects yet',
-        badge: {
-          text: `${data.system_overview.active_projects} active`,
-          color: 'primary' as const
-        }
-      },
-      {
-        title: 'Total Users',
-        value: data.system_overview.total_users,
-        icon: Users,
-        subtitle: data.user_analytics.new_today > 0 ? `${data.user_analytics.new_today} new today` : 'No new users today',
-        badge: {
-          text: `${data.system_overview.active_users} active`,
-          color: 'primary' as const
-        }
-      },
-      {
-        title: 'License Keys',
-        value: data.system_overview.total_keys,
-        icon: Key,
-        subtitle: data.system_overview.active_keys > 0 ? `${data.system_overview.active_keys} active` : 'No keys yet',
-        badge: {
-          text: `${data.system_overview.active_keys} active`,
-          color: 'primary' as const
-        }
-      },
-      {
-        title: 'Revenue',
-        value: `$${data.system_overview.total_revenue.toLocaleString()}`,
-        icon: DollarSign,
-        subtitle: `$${data.system_overview.monthly_revenue.toLocaleString()} this month`,
-        badge: {
-          text: 'All Projects',
-          color: 'primary' as const
-        }
-      }
-    ];
-
-    return (
-      <>
-        {statCards.map((stat, index) => (
-          <StatCard
-            key={index}
-            title={stat.title}
-            value={stat.value}
-            icon={stat.icon}
-            subtitle={stat.subtitle}
-            badge={stat.badge}
-            valueClassName="text-xs xs:text-sm font-semibold sm:text-base md:text-lg"
-            className="[&_header]:!p-2 [&_header]:sm:!p-3 [&_header]:!pb-1 [&_header]:sm:!pb-1.5 [&_h2]:!text-xs [&_h2]:xs:!text-sm [&_h2]:sm:!text-base [&_h2]:!mb-0 [&_h2]:!leading-tight [&_p]:!text-[10px] [&_p]:xs:!text-xs [&_p]:!mb-0 [&_p]:!leading-tight [&_svg]:!h-3 [&_svg]:!w-3 [&_svg]:xs:!h-3.5 [&_svg]:xs:!w-3.5 [&_svg]:sm:!h-4 [&_svg]:sm:!w-4 [&_span]:!text-[10px] [&_span]:xs:!text-xs [&_span]:!px-1 [&_span]:xs:!px-1.5 [&_span]:!py-0 [&_span]:!leading-tight"
-          />
-        ))}
-      </>
-    );
-  }
-
-  const renderCards = () => {
-    switch (type) {
-      case 'dashboard':
-        return renderDashboardCards(data as DashboardData)
-      case 'owner':
-        return renderOwnerCards(data as OwnerDashboardStats)
-      default:
-        return null
+      ];
     }
   }
 
-  // Горизонтальный скролл на мобильных, сетка на больших экранах
+  const cards = getStatCards();
+
   return (
     <div className="w-full">
-      {/* Мобильная версия с горизонтальным скроллом */}
-      <div className="flex gap-2 xs:gap-2.5 sm:hidden overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide">
-        <div className="flex gap-2 xs:gap-2.5 min-w-max *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs *:min-w-[140px] *:flex-shrink-0">
-          {renderCards()}
-        </div>
-      </div>
-      {/* Десктопная версия с сеткой */}
       <div 
-        className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs"
+        className="hidden md:grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4 *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs"
       >
-        {renderCards()}
+        {cards.map((stat, index) => (
+          <StatCard
+            key={index}
+            title={stat.title}
+            value={stat.value}
+            icon={stat.icon}
+            subtitle={stat.subtitle}
+            badge={stat.badge}
+            // Ваши стили для уменьшения шрифта оставлены, чтобы карточки влезали в один ряд на планшете
+            valueClassName="text-xs xs:text-sm font-semibold sm:text-base md:text-lg"
+            className="[&_header]:!p-2 [&_header]:sm:!p-3 [&_header]:!pb-1 [&_header]:sm:!pb-1.5 [&_h2]:!text-xs [&_h2]:xs:!text-sm [&_h2]:sm:!text-base [&_h2]:!mb-0 [&_h2]:!leading-tight [&_p]:!text-[10px] [&_p]:xs:!text-xs [&_p]:!mb-0 [&_p]:!leading-tight [&_svg]:!h-3 [&_svg]:!w-3 [&_svg]:xs:!h-3.5 [&_svg]:xs:!w-3.5 [&_svg]:sm:!h-4 [&_svg]:sm:!w-4 [&_span]:!text-[10px] [&_span]:xs:!text-xs [&_span]:!px-1 [&_span]:xs:!px-1.5 [&_span]:!py-0 [&_span]:!leading-tight"
+          />
+        ))}
       </div>
     </div>
   )

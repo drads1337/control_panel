@@ -112,15 +112,20 @@ const ChangelogManager: React.FC<ChangelogManagerProps> = ({ product, onUpdate }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      {/* Responsive Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h3 className="text-lg font-semibold">Changelog: {sanitizeString(product.name)}</h3>
+          <h3 className="text-lg font-semibold break-words">Changelog: {sanitizeString(product.name)}</h3>
           <p className="text-sm text-muted-foreground">
             Manage changelog entries for the product.
           </p>
         </div>
         <ConditionalRender permission="changelog.create" fallback={null}>
-          <Button onClick={handleCreateEntry} disabled={!canCreateChangelog}>
+          <Button 
+            onClick={handleCreateEntry} 
+            disabled={!canCreateChangelog}
+            className="w-full sm:w-auto"
+          >
             <Plus className="h-4 w-4 mr-2" />
             Add Entry
           </Button>
@@ -137,17 +142,22 @@ const ChangelogManager: React.FC<ChangelogManagerProps> = ({ product, onUpdate }
         </Alert>
       )}
 
+      {/* Empty State */}
       {!loading && !error && changelog.length === 0 && (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-8">
-            <div className="text-center space-y-2">
-              <Tag className="h-12 w-12 text-muted-foreground mx-auto" />
+          <CardContent className="flex flex-col items-center justify-center py-8 sm:py-12">
+            <div className="text-center space-y-2 px-4">
+              <Tag className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mx-auto" />
               <h3 className="text-lg font-semibold">No changelog for this product yet</h3>
-              <p className="text-muted-foreground">
+              <p className="text-sm sm:text-base text-muted-foreground max-w-md mx-auto">
                 Create the first changelog entry to display the history of changes.
               </p>
               <ConditionalRender permission="changelog.create" fallback={null}>
-                <Button onClick={handleCreateEntry} className="mt-4" disabled={!canCreateChangelog}>
+                <Button 
+                  onClick={handleCreateEntry} 
+                  className="mt-4 w-full sm:w-auto" 
+                  disabled={!canCreateChangelog}
+                >
                   <Plus className="h-4 w-4 mr-2" />
                   Create First Entry
                 </Button>
@@ -157,29 +167,33 @@ const ChangelogManager: React.FC<ChangelogManagerProps> = ({ product, onUpdate }
         </Card>
       )}
 
+      {/* Changelog List */}
       {!loading && !error && changelog.length > 0 && (
         <div className="space-y-4">
           {changelog.map((entry) => (
             <Card key={entry.id}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <CardTitle className="text-lg">{sanitizeString(entry.title)}</CardTitle>
-                      <Badge variant="secondary">{entry.version}</Badge>
+              <CardHeader className="p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                  <div className="space-y-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <CardTitle className="text-base sm:text-lg break-words">{sanitizeString(entry.title)}</CardTitle>
+                      <Badge variant="secondary" className="shrink-0">{entry.version}</Badge>
                     </div>
-                    <CardDescription className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4" />
+                    <CardDescription className="flex items-center gap-2 text-xs sm:text-sm">
+                      <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
                       {formatDate(entry.release_date)}
                     </CardDescription>
                   </div>
-                  <div className="flex gap-2">
+                  
+                  {/* Actions */}
+                  <div className="flex gap-2 self-end sm:self-start shrink-0">
                     <ConditionalRender permission="changelog.edit" fallback={null}>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleEditEntry(entry)}
                         disabled={!canEditChangelog}
+                        className="h-8 w-8 p-0"
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -190,6 +204,7 @@ const ChangelogManager: React.FC<ChangelogManagerProps> = ({ product, onUpdate }
                         size="sm"
                         onClick={() => handleDeleteEntry(entry)}
                         disabled={!canDeleteChangelog}
+                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -197,17 +212,17 @@ const ChangelogManager: React.FC<ChangelogManagerProps> = ({ product, onUpdate }
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0 space-y-3">
                 {entry.description && (
-                  <p className="text-sm text-muted-foreground">{sanitizeString(entry.description)}</p>
+                  <p className="text-sm text-muted-foreground break-words">{sanitizeString(entry.description)}</p>
                 )}
                 <div className="space-y-2">
                   <h4 className="text-sm font-medium">Changes:</h4>
-                  <ul className="space-y-1">
+                  <ul className="space-y-1.5">
                     {entry.changes.map((change, index) => (
                       <li key={index} className="text-sm flex items-start gap-2">
-                        <span className="text-primary mt-1">•</span>
-                        <span>{sanitizeString(change)}</span>
+                        <span className="text-primary mt-1.5 text-[10px] sm:text-xs">•</span>
+                        <span className="break-words flex-1">{sanitizeString(change)}</span>
                       </li>
                     ))}
                   </ul>

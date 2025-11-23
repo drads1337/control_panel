@@ -192,8 +192,8 @@ const UsersMain: React.FC = () => {
                         value={tab.value} 
                         className="flex items-center justify-center gap-2"
                       >
-                        <Icon className="h-4 w-4" />
-                        <span>{tab.label}</span>
+                        <Icon className="h-4 w-4 md:h-4 md:w-4" />
+                        <span className="hidden md:inline">{tab.label}</span>
                       </TabsTrigger>
                     )
                   })}

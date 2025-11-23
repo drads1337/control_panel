@@ -1,5 +1,4 @@
 import React from 'react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { StatCard } from '@/app/dashboard/stat-card';
 import { Users, UserCheck, Shield, Key } from 'lucide-react';
 
@@ -14,31 +13,6 @@ interface UsersStatsProps {
 }
 
 const UsersStats: React.FC<UsersStatsProps> = React.memo(({ stats, loading = false }) => {
-  // Уменьшаем размер сетки до 120px для компактности
-  const gridStyle = { gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))' };
-
-  if (loading) {
-    return (
-      <div 
-        className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid gap-2 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs"
-        style={gridStyle}
-      >
-        {[...Array(4)].map((_, i) => (
-          <Card key={i}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-1.5 pb-0.5">
-              <div className="h-2 w-8 bg-muted animate-pulse rounded"></div>
-              <div className="h-2 w-2 bg-muted animate-pulse rounded"></div>
-            </CardHeader>
-            <CardContent className="p-1.5 pt-0">
-              <div className="h-3.5 w-6 bg-muted animate-pulse rounded mb-0.5"></div>
-              <div className="h-1.5 w-10 bg-muted animate-pulse rounded"></div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    );
-  }
-
   const statCards = [
     {
       title: 'Total Users',
@@ -47,7 +21,7 @@ const UsersStats: React.FC<UsersStatsProps> = React.memo(({ stats, loading = fal
       subtitle: stats.total > 0 ? `${Math.round((stats.active / stats.total) * 100) || 0}% active` : 'No users yet',
       badge: {
         text: `${stats.active} active`,
-        color: 'primary'
+        color: 'primary' as const
       }
     },
     {
@@ -57,7 +31,7 @@ const UsersStats: React.FC<UsersStatsProps> = React.memo(({ stats, loading = fal
       subtitle: 'Currently active users',
       badge: {
         text: 'Active',
-        color: 'primary'
+        color: 'primary' as const
       }
     },
     {
@@ -67,7 +41,7 @@ const UsersStats: React.FC<UsersStatsProps> = React.memo(({ stats, loading = fal
       subtitle: stats.total > 0 && stats.withKeys > 0 ? `${Math.round((stats.withKeys / stats.total) * 100) || 0}% of total` : stats.withKeys === 0 ? 'No license keys' : 'Calculating...',
       badge: {
         text: 'Has keys',
-        color: 'primary'
+        color: 'primary' as const
       }
     },
     {
@@ -77,30 +51,30 @@ const UsersStats: React.FC<UsersStatsProps> = React.memo(({ stats, loading = fal
       subtitle: 'Staff members & admins',
       badge: {
         text: 'Employees',
-        color: 'primary'
+        color: 'primary' as const
       }
     }
   ];
 
   return (
-    <div 
-      className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid gap-2 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs"
-      style={gridStyle}
-    >
-      {statCards.map((stat, index) => {
-        return (
+    <div className="w-full">
+      <div 
+        className="hidden md:grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4 *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs"
+      >
+        {statCards.map((stat, index) => (
           <StatCard
             key={index}
             title={stat.title}
-            value={stat.value}
+            value={loading ? undefined : stat.value}
             icon={stat.icon}
             subtitle={stat.subtitle}
             badge={stat.badge}
-            valueClassName="text-sm font-semibold sm:text-base"
-            className="[&_header]:!p-1.5 [&_header]:!pb-0.5 [&_h2]:!text-sm [&_h2]:!mb-0 [&_p]:!text-xs [&_p]:!mb-0 [&_svg]:!h-3 [&_svg]:!w-3 [&_span]:!text-xs [&_span]:!px-1 [&_span]:!py-0"
+            loading={loading}
+            valueClassName="text-xs xs:text-sm font-semibold sm:text-base md:text-lg"
+            className="[&_header]:!p-2 [&_header]:sm:!p-3 [&_header]:!pb-1 [&_header]:sm:!pb-1.5 [&_h2]:!text-xs [&_h2]:xs:!text-sm [&_h2]:sm:!text-base [&_h2]:!mb-0 [&_h2]:!leading-tight [&_p]:!text-[10px] [&_p]:xs:!text-xs [&_p]:!mb-0 [&_p]:!leading-tight [&_svg]:!h-3 [&_svg]:!w-3 [&_svg]:xs:!h-3.5 [&_svg]:xs:!w-3.5 [&_svg]:sm:!h-4 [&_svg]:sm:!w-4 [&_span]:!text-[10px] [&_span]:xs:!text-xs [&_span]:!px-1 [&_span]:xs:!px-1.5 [&_span]:!py-0 [&_span]:!leading-tight"
           />
-        );
-      })}
+        ))}
+      </div>
     </div>
   );
 });

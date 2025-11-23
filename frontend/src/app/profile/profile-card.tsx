@@ -166,12 +166,12 @@ export function ProfileCard({
 
   return (
     <Card className="@container/card border shadow-sm">
-      <CardContent className="p-8">
+      <CardContent className="p-4 sm:p-6 md:p-8">
         <div className="text-center">
           {}
-          <div className="relative inline-block mb-6">
+          <div className="relative inline-block mb-4 sm:mb-6">
             <Avatar 
-              className="h-28 w-28 bg-muted border-2 border-border" 
+              className="h-24 w-24 sm:h-28 sm:w-28 bg-muted border-2 border-border" 
               key={`avatar-container-${user?.avatar || 'no-avatar'}-${avatarKey}`}
             >
               <AvatarImage
@@ -188,7 +188,7 @@ export function ProfileCard({
                   // Avatar image load started
                 }}
               />
-              <AvatarFallback className="text-3xl font-bold text-foreground bg-muted">
+              <AvatarFallback className="text-2xl sm:text-3xl font-bold text-foreground bg-muted">
                 {getInitials()}
               </AvatarFallback>
             </Avatar>
@@ -228,13 +228,13 @@ export function ProfileCard({
           </div>
 
           {}
-          <h3 className="text-2xl font-bold text-foreground mb-2">{getFullName()}</h3>
+          <h3 className="text-xl sm:text-2xl font-bold text-foreground mb-1 sm:mb-2">{getFullName()}</h3>
 
           {}
-          <p className="text-muted-foreground mb-4 text-lg">@{profileData.username}</p>
+          <p className="text-muted-foreground mb-4 sm:mb-6 text-base sm:text-lg">@{profileData.username}</p>
 
           {}
-          <Badge className="mb-6 bg-primary text-primary-foreground px-4 py-2 text-sm font-medium rounded-md">
+          <Badge className="mb-6 bg-primary text-primary-foreground px-3 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium rounded-md">
             {(() => {
               const primaryRole = getPrimaryRole(user ?? null)
               return primaryRole
@@ -247,7 +247,7 @@ export function ProfileCard({
           <div className="space-y-4 text-left">
             {profileData.email && (
               <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                <Mail className="h-4 w-4 text-muted-foreground" />
+                <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 <span className="truncate">{profileData.email}</span>
               </div>
             )}

@@ -282,10 +282,10 @@ export function ChartAreaInteractive() {
           </CardAction>
         </div>
       </CardHeader>
-      <CardContent className="px-2 pt-2 pb-3 sm:px-4 sm:pt-4 sm:pb-6 md:px-6 md:pt-6">
+      <CardContent className="px-2 pt-2 pb-3 sm:px-4 sm:pt-4 sm:pb-6 md:px-6 md:pt-6 overflow-x-auto no-scrollbar -mx-2 sm:mx-0">
         <ChartContainer
           config={chartConfig}
-          className="aspect-auto h-[180px] xs:h-[200px] sm:h-[250px] md:h-[300px] lg:h-[350px] xl:h-[400px] w-full"
+          className="aspect-auto h-[180px] xs:h-[200px] sm:h-[250px] md:h-[300px] lg:h-[350px] xl:h-[400px] w-full min-w-[320px]"
         >
           <AreaChart 
             data={filteredData}

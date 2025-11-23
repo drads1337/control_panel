@@ -1,6 +1,6 @@
 import logging
 
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ..core.extensions import db
@@ -132,13 +132,13 @@ def get_projects():
 @require_auth
 @require_owner
 @validate_request(ProjectCreateSchema)
-def create_project(validated_data=None):
+def create_project(current_user, validated_data=None):
     """Create a new project"""
     logging.debug("=== FRONTEND CREATE PROJECT CALLED ===")
     logging.debug(f"Request data: {validated_data}")
 
     try:
-        user = g.current_user
+        user = current_user
 
         data = validated_data or request.get_json()
         if not data:
@@ -262,10 +262,10 @@ def update_project(project_id, validated_data=None):
 @jwt_required()
 @require_auth
 @require_owner
-def delete_project(project_id):
+def delete_project(project_id, current_user):
     """Delete project and all related data"""
     try:
-        user = g.current_user
+        user = current_user
 
         from ..services.projects import project_service
         result = project_service.delete_project(
@@ -319,10 +319,9 @@ def get_project_stats(project_id):
 @projects_bp.route("/project-codes", methods=["GET"])
 @jwt_required()
 @require_owner
-def get_project_invite_codes():
+def get_project_invite_codes(current_user):
     """Get all project invite codes for the current user's project"""
     try:
-        current_user = g.current_user
 
         from ..services.projects import project_service
         result = project_service.get_project_invite_codes(user_id=current_user.id)
@@ -343,10 +342,9 @@ def get_project_invite_codes():
 @projects_bp.route("/project-codes/latest", methods=["GET"])
 @jwt_required()
 @require_owner
-def get_latest_project_invite_code():
+def get_latest_project_invite_code(current_user):
     """Get the latest project invite code for the current user's project"""
     try:
-        current_user = g.current_user
 
         from ..services.projects import project_service
         result = project_service.get_latest_project_invite_code(user_id=current_user.id)
@@ -367,10 +365,9 @@ def get_latest_project_invite_code():
 @projects_bp.route("/project-codes", methods=["POST"])
 @jwt_required()
 @require_owner
-def create_project_invite_code():
+def create_project_invite_code(current_user):
     """Create a new project invite code"""
     try:
-        current_user = g.current_user
         data = request.get_json() or {}
 
         expires_in_days = data.get("expires_in_days", 7)
@@ -399,10 +396,9 @@ def create_project_invite_code():
 @projects_bp.route("/project-codes/<int:code_id>", methods=["DELETE"])
 @jwt_required()
 @require_owner
-def delete_project_invite_code(code_id):
+def delete_project_invite_code(code_id, current_user):
     """Delete a project invite code"""
     try:
-        current_user = g.current_user
 
         from ..services.projects import project_service
         result = project_service.delete_project_invite_code(

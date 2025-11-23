@@ -47,7 +47,13 @@ export function CreateWebhookDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      {/* 
+         АДАПТАЦИЯ: 
+         1. w-[95vw] - почти полная ширина на мобильном.
+         2. sm:max-w-2xl - ограничение ширины на десктопе (как было).
+         3. max-h-[90vh] + overflow-y-auto - скролл, если контент не влезает по высоте.
+      */}
+      <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-base">Create Webhook</DialogTitle>
           <DialogDescription className="mt-1 text-xs">
@@ -65,11 +71,20 @@ export function CreateWebhookDialog({
           isEdit={false}
         />
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        {/* АДАПТАЦИЯ: flex-col для вертикальных кнопок на мобильном */}
+        <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end mt-4">
+          <Button 
+            variant="outline" 
+            onClick={() => onOpenChange(false)}
+            className="w-full sm:w-auto"
+          >
             Cancel
           </Button>
-          <Button onClick={onCreateWebhook} disabled={saving}>
+          <Button 
+            onClick={onCreateWebhook} 
+            disabled={saving}
+            className="w-full sm:w-auto"
+          >
             {saving ? (<><Spinner className="mr-2 h-4 w-4 animate-spin" />Creating...</>) : 'Create Webhook'}
           </Button>
         </DialogFooter>

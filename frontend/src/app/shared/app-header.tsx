@@ -12,16 +12,22 @@ interface AppHeaderProps {
 
 export function AppHeader({ title, children, showSearch = true }: AppHeaderProps) {
   return (
-    <header className="flex h-16 shrink-0 items-center gap-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 lg:px-6">
-      <div className="flex items-center gap-2">
+    // АДАПТАЦИЯ: h-14 для мобильных, h-16 для планшетов+. px-3 для мобильных.
+    <header className="flex h-14 sm:h-16 shrink-0 items-center gap-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-3 sm:px-6 transition-all">
+      {/* min-w-0 критичен для работы truncate внутри flex-контейнера */}
+      <div className="flex items-center gap-2 min-w-0 flex-1 sm:flex-none">
         <SidebarTrigger className="-ml-1" />
-        <Separator orientation="vertical" className="mr-2 h-4" />
-        <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+        <Separator orientation="vertical" className="mr-2 h-4 shrink-0" />
+        {/* АДАПТАЦИЯ: text-base для мобильных, truncate для обрезки длинных названий */}
+        <h1 className="text-base sm:text-xl font-semibold tracking-tight truncate">
+          {title}
+        </h1>
       </div>
 
-      <div className="ml-auto flex items-center gap-3">
+      <div className="ml-auto flex items-center gap-2 sm:gap-3 shrink-0">
         {showSearch && (
-          <div className="hidden md:block max-w-sm">
+          // Поиск скрыт на мобильных (hidden), появляется на md (планшет/ПК)
+          <div className="hidden md:block w-full max-w-sm">
             <SearchBar placeholder="Search the system..." />
           </div>
         )}

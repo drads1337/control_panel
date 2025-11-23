@@ -6,14 +6,22 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
   FolderOpen, Plus, Upload, Download, Trash2, Eye, FileText, 
   Image, Package, Search, AlertTriangle,
   Folder, File, Video, Music, Zap,
-  RefreshCw, X, Check, ChevronRight, Database, Container
+  RefreshCw, X, Check, ChevronRight, Database, Container, MoreVertical
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/hooks/use-auth';
 import { usePermissions } from '@/hooks/use-permissions';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
@@ -37,6 +45,20 @@ import FileDetailsDialog from './FileDetailsDialog';
 import type { Product } from '@/entities/product';
 import type { FileItem } from '@/entities/file';
 import type { Agent } from '@/entities/agent';
+import { cn } from '@/lib/utils';
+
+// Хук для определения размера экрана
+const useMediaQuery = (query: string) => {
+  const [matches, setMatches] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    if (media.matches !== matches) setMatches(media.matches);
+    const listener = () => setMatches(media.matches);
+    media.addEventListener('change', listener);
+    return () => media.removeEventListener('change', listener);
+  }, [matches, query]);
+  return matches;
+};
 
 interface FileManagerProps {
   onSwitchToProductDatabase?: () => void;
@@ -56,6 +78,7 @@ interface FileItemProps {
   formatFileSize: (bytes: number) => string;
 }
 
+// Desktop Row Component
 const FileItemComponent = React.memo(function FileItemComponent({
   file,
   isSelected,
@@ -74,7 +97,7 @@ const FileItemComponent = React.memo(function FileItemComponent({
 
   return (
     <div
-      className={`flex items-center justify-between p-2.5 border-b hover:bg-accent/50 transition-colors cursor-pointer ${
+      className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-2.5 border-b hover:bg-accent/50 transition-colors cursor-pointer gap-2 ${
         isSelected ? 'bg-primary/5' : ''
       }`}
       onClick={() => {
@@ -85,34 +108,34 @@ const FileItemComponent = React.memo(function FileItemComponent({
         }
       }}
     >
-      <div className="flex items-center gap-3 flex-1 min-w-0">
+      <div className="flex items-center gap-3 flex-1 min-w-0 w-full">
         <div className="flex-shrink-0">
           {getFileIcon(file.name, file.type)}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h4 className="font-medium text-sm truncate">{file.name}</h4>
+          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+            <h4 className="font-medium text-sm truncate max-w-[200px] sm:max-w-none">{file.name}</h4>
             {file.category && file.category !== 'folder' && (
-              <Badge variant="secondary" className="text-xs">
+              <Badge variant="secondary" className="text-[10px] px-1.5 h-5">
                 {file.category}
               </Badge>
             )}
             {isSelected && (
-              <Check className="h-3 w-3 text-primary" />
+              <Check className="h-3 w-3 text-primary shrink-0" />
             )}
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-xs text-muted-foreground truncate">
+          <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
+            <p className="whitespace-nowrap">
               {formatFileSize(file.size)}
             </p>
-            <span className="text-xs text-muted-foreground">•</span>
-            <p className="text-xs text-muted-foreground">
+            <span className="hidden xs:inline">•</span>
+            <p className="whitespace-nowrap">
               {new Date(file.modified).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </p>
             {file.description && (
               <>
-                <span className="text-xs text-muted-foreground">•</span>
-                <p className="text-xs text-muted-foreground truncate">
+                <span className="hidden sm:inline">•</span>
+                <p className="truncate max-w-[150px] hidden sm:block">
                   {sanitizeString(file.description)}
                 </p>
               </>
@@ -120,8 +143,9 @@ const FileItemComponent = React.memo(function FileItemComponent({
           </div>
         </div>
       </div>
+      
       {!isFolder && (
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 self-end sm:self-auto mt-2 sm:mt-0">
           <ConditionalRender permission="products.files_view" fallback={null}>
             <Button 
               variant="ghost" 
@@ -169,6 +193,104 @@ const FileItemComponent = React.memo(function FileItemComponent({
   );
 });
 
+// Mobile Card Render Function (used inside FilesList)
+const renderMobileFileCard = (
+    file: FileItem, 
+    props: FileItemProps, 
+    style?: React.CSSProperties
+) => {
+    const isFolder = file.type === 'folder';
+    const isConfigsFolder = isFolder && file.name === 'configs';
+
+    return (
+        <div 
+            key={file.id} 
+            style={style}
+            className={cn(
+                "flex flex-col p-4 border rounded-lg bg-card text-card-foreground shadow-sm mb-3 transition-colors",
+                props.isSelected ? "border-primary/50 bg-primary/5" : "border-border"
+            )}
+            onClick={() => {
+                if (isConfigsFolder) props.onFolderClick(file.name);
+            }}
+        >
+            <div className="flex justify-between items-start mb-3 border-b pb-2">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="flex-shrink-0">
+                        {props.getFileIcon(file.name, file.type)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                         <div className="flex items-center gap-2">
+                            <h4 className="font-semibold text-sm truncate max-w-full">{file.name}</h4>
+                         </div>
+                         {file.category && file.category !== 'folder' && (
+                             <Badge variant="outline" className="text-[10px] px-1.5 h-4 mt-1">
+                                 {file.category}
+                             </Badge>
+                         )}
+                    </div>
+                </div>
+                
+                {!isFolder && (
+                    <div className="flex items-center pl-2" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox 
+                            checked={props.isSelected}
+                            onCheckedChange={() => props.onToggleSelection(String(file.id))}
+                            className="h-5 w-5"
+                        />
+                    </div>
+                )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground mb-3">
+                <div>Size: {props.formatFileSize(file.size)}</div>
+                <div className="text-right">{new Date(file.modified).toLocaleDateString()}</div>
+                {file.description && (
+                     <div className="col-span-2 truncate italic opacity-80">
+                         {sanitizeString(file.description)}
+                     </div>
+                )}
+            </div>
+
+            {!isFolder && (
+                <div className="flex items-center justify-end gap-2 pt-1 border-t border-dashed mt-1">
+                    <ConditionalRender permission="products.files_view" fallback={null}>
+                         <Button variant="outline" size="sm" className="h-8 flex-1" onClick={(e) => { e.stopPropagation(); props.onView(file); }}>
+                             <Eye className="h-3.5 w-3.5 mr-1.5" /> View
+                         </Button>
+                    </ConditionalRender>
+                    
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}>
+                                <MoreVertical className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                             <ConditionalRender permission="products.files_download" fallback={null}>
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); props.onDownload(file); }} disabled={!props.canDownload}>
+                                    <Download className="mr-2 h-4 w-4" /> Download
+                                </DropdownMenuItem>
+                             </ConditionalRender>
+                             <DropdownMenuSeparator />
+                             <ConditionalRender permission="products.files_delete" fallback={null}>
+                                <DropdownMenuItem 
+                                    onClick={(e) => { e.stopPropagation(); props.onDelete(file); }} 
+                                    disabled={!props.canDelete}
+                                    className="text-red-600 focus:text-red-600"
+                                >
+                                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                </DropdownMenuItem>
+                             </ConditionalRender>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+            )}
+        </div>
+    );
+};
+
 interface FilesListProps {
   files: FileItem[];
   selectedFiles: string[];
@@ -181,6 +303,7 @@ interface FilesListProps {
   onDelete: (file: FileItem) => void;
   getFileIcon: (name: string, type?: string) => React.ReactNode;
   formatFileSize: (bytes: number) => string;
+  isMobile: boolean;
 }
 
 const FilesList: React.FC<FilesListProps> = ({
@@ -194,19 +317,57 @@ const FilesList: React.FC<FilesListProps> = ({
   onView,
   onDelete,
   getFileIcon,
-  formatFileSize
+  formatFileSize,
+  isMobile
 }) => {
   const parentRef = useRef<HTMLDivElement>(null);
-  // Lower threshold for better performance - virtualize when more than 30 items
   const shouldVirtualize = files.length > 30;
+
+  // Динамическая высота: 80px для таблицы (desktop), ~200px для карточки (mobile) с запасом
+  const itemHeight = isMobile ? 200 : 80;
 
   const rowVirtualizer = useVirtualizer({
     count: shouldVirtualize ? files.length : 0,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 80,
+    estimateSize: () => itemHeight,
     overscan: 5,
     enabled: shouldVirtualize,
   });
+
+  // Обновляем виртуализатор при смене режима
+  useEffect(() => {
+    rowVirtualizer.measure();
+  }, [isMobile, rowVirtualizer]);
+
+  const renderItem = (file: FileItem, index: number, style?: React.CSSProperties) => {
+     const commonProps = {
+        file,
+        isSelected: selectedFiles.includes(file.id),
+        canDownload,
+        canDelete,
+        onToggleSelection,
+        onFolderClick,
+        onDownload,
+        onView,
+        onDelete,
+        getFileIcon,
+        formatFileSize
+     };
+
+     if (isMobile) {
+         return renderMobileFileCard(file, commonProps, style);
+     }
+
+     return (
+        <div
+          key={file.id}
+          data-index={index}
+          style={style}
+        >
+          <FileItemComponent {...commonProps} />
+        </div>
+     );
+  };
 
   if (shouldVirtualize) {
     return (
@@ -222,36 +383,16 @@ const FilesList: React.FC<FilesListProps> = ({
             position: 'relative',
           }}
         >
-          <div className="divide-y">
+          <div className={isMobile ? "p-1" : "divide-y"}>
             {rowVirtualizer.getVirtualItems().map((virtualRow) => {
               const file = files[virtualRow.index];
-              return (
-                <div
-                  key={file.id}
-                  data-index={virtualRow.index}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    transform: `translateY(${virtualRow.start}px)`,
-                  }}
-                >
-                  <FileItemComponent
-                    file={file}
-                    isSelected={selectedFiles.includes(file.id)}
-                    canDownload={canDownload}
-                    canDelete={canDelete}
-                    onToggleSelection={onToggleSelection}
-                    onFolderClick={onFolderClick}
-                    onDownload={onDownload}
-                    onView={onView}
-                    onDelete={onDelete}
-                    getFileIcon={getFileIcon}
-                    formatFileSize={formatFileSize}
-                  />
-                </div>
-              );
+              return renderItem(file, virtualRow.index, {
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                transform: `translateY(${virtualRow.start}px)`,
+              });
             })}
           </div>
         </div>
@@ -260,28 +401,14 @@ const FilesList: React.FC<FilesListProps> = ({
   }
 
   return (
-    <div className="divide-y">
-      {files.map((file) => (
-        <FileItemComponent
-          key={file.id}
-          file={file}
-          isSelected={selectedFiles.includes(file.id)}
-          canDownload={canDownload}
-          canDelete={canDelete}
-          onToggleSelection={onToggleSelection}
-          onFolderClick={onFolderClick}
-          onDownload={onDownload}
-          onView={onView}
-          onDelete={onDelete}
-          getFileIcon={getFileIcon}
-          formatFileSize={formatFileSize}
-        />
-      ))}
+    <div className={isMobile ? "flex flex-col gap-2" : "divide-y"}>
+      {files.map((file, index) => renderItem(file, index))}
     </div>
   );
 };
 
 const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) => {
+  const isMobile = useMediaQuery('(max-width: 768px)');
   const { isAuthenticated } = useAuth();
   const { hasPermission } = usePermissions();
 
@@ -319,18 +446,15 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
   const [lastProductsLoad, setLastProductsLoad] = useState<number>(0);
   const PRODUCTS_LOAD_COOLDOWN = 5000;
 
-  // Используем специализированные хуки
   const fileSelection = useFileManagerSelection();
   const fileDialogs = useFileManagerDialogs();
   
-  // Фильтры будут инициализированы после загрузки файлов
   const fileFilters = useFileManagerFilters({
     files,
     showConfigsFolder,
     selectedProductId: selectedProduct?.id,
   });
 
-  // Инициализация фильтров из localStorage при монтировании
   useEffect(() => {
     if (isAuthenticated && canViewFiles) {
       fileFilters.loadFiltersFromStorage();
@@ -374,7 +498,6 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
     } else if (targetType === 'agent') {
       const allItems = [...agents, ...filteredProductsForSelect];
       if (allItems.length > 0 && !selectedProduct && !selectedAgent) {
-
         const firstAgent = agents[0];
         if (firstAgent) {
           setSelectedAgent(firstAgent);
@@ -420,10 +543,8 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
   }, [targetType]);
 
   const loadInitialData = async (retryCount = 0) => {
-
     const now = Date.now();
     if (isLoadingProducts || (now - lastProductsLoad < PRODUCTS_LOAD_COOLDOWN)) {
-
       return;
     }
 
@@ -438,19 +559,15 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
       try {
         const agentsResponse = await getAgents();
         setAgents(agentsResponse.agents || []);
-      } catch (agentError) {
-
-      }
+      } catch (agentError) {}
 
       await ensureConfigsFoldersExist(response.products || []);
     } catch (error: unknown) {
       const errorMsg = isErrorWithMessage(error) ? error.message : getErrorMessageUtil(error)
       if (errorMsg.includes('429') || errorMsg.includes('TOO MANY REQUESTS')) {
         const retryDelay = Math.min(1000 * Math.pow(2, retryCount), 10000);
-
         if (retryCount < 3) {
           toast.error(`Rate limited. Retrying in ${Math.ceil(retryDelay/1000)}s...`);
-
           setTimeout(() => {
             loadInitialData(retryCount + 1);
           }, retryDelay);
@@ -469,9 +586,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
 
   const ensureConfigsFoldersExist = async (products: Product[]) => {
     if (!isAuthenticated) return;
-
     try {
-
       const promises = products.map(async (product) => {
         try {
           await createFolder({
@@ -479,35 +594,19 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
             parent_path: '/',
             product_id: product.id
           });
-        } catch (error) {
-
-        }
+        } catch (error) {}
       });
-
       await Promise.all(promises);
-    } catch (error) {
-
-    }
+    } catch (error) {}
   };
 
   const loadProductFiles = async () => {
     const targetId = selectedProduct?.id || selectedAgent?.id;
-    const targetType = selectedProduct ? 'product' : 'agent';
-    const targetName = selectedProduct?.name || selectedAgent?.name || 'Unknown';
-
-    if (!targetId) {
-
-      return;
-    }
+    if (!targetId) return;
 
     try {
-
       setRefreshing(true);
-
-      const apiStartTime = performance.now();
-
       const targetTypeForApi = selectedAgent ? 'agent' : selectedProduct ? 'product' : 'auto';
-
       const response = await getProductFiles(
         targetId, 
         fileFilters.categoryFilter, 
@@ -516,24 +615,16 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
         targetTypeForApi as 'product' | 'agent' | 'auto'
       );
 
-      const apiDuration = performance.now() - apiStartTime;
-
       if (response.files) {
         setFiles(response.files);
       } else {
         setFiles([]);
       }
     } catch (error: unknown) {
-
-      if (import.meta.env.DEV) {
-
-      }
-
       const errorMessage = getErrorMessage(error)
       toast.error(`Failed to load files: ${errorMessage}`);
       setFiles([]);
     } finally {
-
       setRefreshing(false);
     }
   };
@@ -549,18 +640,15 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
       toast.info('Products are already loading, please wait...');
       return;
     }
-
     const now = Date.now();
     if (now - lastProductsLoad < PRODUCTS_LOAD_COOLDOWN) {
       const remainingTime = Math.ceil((PRODUCTS_LOAD_COOLDOWN - (now - lastProductsLoad)) / 1000);
       toast.info(`Please wait ${remainingTime} seconds before refreshing again`);
       return;
     }
-
     await loadInitialData();
   };
 
-  // Загрузка файлов - инициализируем после определения loadProductFiles
   const fileUpload = useFileManagerUpload({
     selectedProduct,
     selectedAgent,
@@ -568,16 +656,11 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
     onUploadSuccess: loadProductFiles,
   });
 
-  // Используем методы из хука выбора
   const toggleFileSelection = fileSelection.toggleFileSelection;
   const selectAllFiles = () => fileSelection.selectAllFiles(fileFilters.filteredFiles);
   const clearSelection = fileSelection.clearSelection;
-
-  // Используем методы из хука загрузки
   const handleFileUpload = fileUpload.handleFileUpload;
   const resetUploadForm = fileUpload.resetUploadForm;
-
-  // Используем методы drag & drop из хука загрузки
   const handleDragOver = fileUpload.handleDragOver;
   const handleDragLeave = fileUpload.handleDragLeave;
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -586,42 +669,30 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
     });
   }, [fileUpload, fileDialogs]);
 
-
   const handleFileDownload = async (file: FileItem) => {
     try {
       let blob: Blob;
       let filename: string = file.name;
-
       toast.loading(`Downloading ${file.name}...`);
 
       if (file.category === 'config') {
         const configId = parseInt(file.id.replace('config_', ''));
-        if (isNaN(configId)) {
-          toast.error('Invalid config ID');
-          return;
-        }
+        if (isNaN(configId)) { toast.error('Invalid config ID'); return; }
         blob = await downloadProductConfig(configId);
       } else if (file.category === 'resource') {
         const fileId = parseInt(file.id.replace('extra_', ''));
-        if (isNaN(fileId)) {
-          toast.error('Invalid file ID');
-          return;
-        }
+        if (isNaN(fileId)) { toast.error('Invalid file ID'); return; }
         const result = await downloadProductExtraFile(fileId);
         blob = result.blob;
         filename = result.filename || file.name;
       } else if (file.category === 'logo' || file.category === 'banner' || file.category === 'agent') {
         const productId = file.productId;
-        if (!productId) {
-          toast.error('Could not determine product ID to download the file');
-          return;
-        }
+        if (!productId) { toast.error('Could not determine product ID'); return; }
         const fileType = file.category as 'logo' | 'banner' | 'agent';
         blob = await downloadProductFile(productId, fileType);
-
         filename = `${file.name}_${fileType}.${fileType === 'agent' ? 'exe' : 'png'}`;
       } else {
-        toast.error('Unsupported file type for download');
+        toast.error('Unsupported file type');
         return;
       }
 
@@ -639,241 +710,108 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-
       toast.success(`File "${filename}" downloaded successfully`);
     } catch (error: unknown) {
       let errorMessage = 'Error downloading file';
       const errorMsg = isErrorWithMessage(error) ? error.message : getErrorMessageUtil(error)
       if (errorMsg) {
-        if (errorMsg.includes('File not found')) {
-          errorMessage = 'File not found on server';
-        } else if (errorMsg.includes('Access denied')) {
-          errorMessage = 'Access denied to this file';
-        } else if (errorMsg.includes('Network')) {
-          errorMessage = 'Network error during download';
-        } else {
-          errorMessage = errorMsg;
-        }
+        if (errorMsg.includes('File not found')) errorMessage = 'File not found on server';
+        else if (errorMsg.includes('Access denied')) errorMessage = 'Access denied';
+        else errorMessage = errorMsg;
       }
-
       toast.error(errorMessage);
     }
   };
 
   const handleFileDelete = async (file: FileItem) => {
-
-    const confirmMessage = `Are you sure you want to delete "${file.name}"?\n\nThis action cannot be undone.`;
-    if (!confirm(confirmMessage)) {
-      return false;
-    }
+    const confirmMessage = `Are you sure you want to delete "${file.name}"?`;
+    if (!confirm(confirmMessage)) return false;
 
     try {
-
       toast.loading(`Deleting ${file.name}...`);
-
       if (file.category === 'config') {
         const configId = parseInt(file.id.replace('config_', ''));
-        if (isNaN(configId)) {
-          toast.error('Invalid config ID');
-          return false;
-        }
+        if (isNaN(configId)) { toast.error('Invalid config ID'); return false; }
         await deleteProductConfig(configId);
       } else if (file.category === 'resource') {
         const fileId = parseInt(file.id.replace('extra_', ''));
-        if (isNaN(fileId)) {
-          toast.error('Invalid file ID');
-          return false;
-        }
+        if (isNaN(fileId)) { toast.error('Invalid file ID'); return false; }
         await deleteProductExtraFile(fileId);
       } else if (file.category === 'logo' || file.category === 'banner' || file.category === 'agent') {
         const productId = file.productId;
-        if (!productId) {
-          toast.error('Could not determine product ID to delete the file');
-          return false;
-        }
+        if (!productId) { toast.error('Could not determine product ID'); return false; }
         const fileType = file.category as 'logo' | 'banner' | 'agent';
         await deleteProductFile(productId, fileType);
       } else {
-        toast.error('Unsupported file type for deletion');
+        toast.error('Unsupported file type');
         return false;
       }
 
       toast.success(`File "${file.name}" deleted successfully`);
-
       fileSelection.setSelectedFiles((prev) => prev.filter((id) => id !== file.id));
-
       await loadProductFiles();
-
       return true;
     } catch (error: unknown) {
-      let errorMessage = 'Error deleting file';
-      const errorMsg = isErrorWithMessage(error) ? error.message : getErrorMessageUtil(error)
-      if (errorMsg) {
-        if (errorMsg.includes('File not found')) {
-          errorMessage = 'File not found on server';
-        } else if (errorMsg.includes('Access denied')) {
-          errorMessage = 'Access denied to delete this file';
-        } else if (errorMsg.includes('Permission')) {
-          errorMessage = 'Insufficient permissions to delete this file';
-        } else {
-          errorMessage = errorMsg;
-        }
-      }
-
-      toast.error(errorMessage);
+      toast.error('Error deleting file');
       return false;
     }
   };
 
   const handleBulkDownload = async () => {
     const selectedFileObjects = fileSelection.getSelectedFileObjects(files);
-    if (selectedFileObjects.length === 0) {
-      toast.error('No files selected for download');
-      return;
-    }
-
+    if (selectedFileObjects.length === 0) { toast.error('No files selected'); return; }
     toast.loading(`Downloading ${selectedFileObjects.length} files...`);
-
     try {
       let successCount = 0;
-      let errorCount = 0;
-
       for (const file of selectedFileObjects) {
-        try {
-          await handleFileDownload(file);
-          successCount++;
-          await new Promise(resolve => setTimeout(resolve, 300));
-        } catch (error) {
-          errorCount++;
-        }
+        try { await handleFileDownload(file); successCount++; await new Promise(resolve => setTimeout(resolve, 300)); } catch (error) {}
       }
-
-      if (successCount > 0) {
-        toast.success(`Successfully downloaded ${successCount} files`);
-      }
-      if (errorCount > 0) {
-        toast.error(`Failed to download ${errorCount} files`);
-      }
-    } catch (error) {
-      toast.error('Bulk download failed');
-    }
+      if (successCount > 0) toast.success(`Downloaded ${successCount} files`);
+    } catch (error) { toast.error('Bulk download failed'); }
   };
 
   const handleBulkDelete = async () => {
     const selectedFileObjects = fileSelection.getSelectedFileObjects(files);
-    if (selectedFileObjects.length === 0) {
-      toast.error('No files selected for deletion');
-      return;
-    }
-
-    const confirmMessage = `Are you sure you want to delete ${selectedFileObjects.length} files?\n\nThis action cannot be undone.`;
-    if (!confirm(confirmMessage)) {
-      return;
-    }
-
-    toast.loading(`Deleting ${selectedFileObjects.length} files...`);
-
+    if (selectedFileObjects.length === 0) { toast.error('No files selected'); return; }
+    if (!confirm(`Delete ${selectedFileObjects.length} files?`)) return;
+    toast.loading(`Deleting...`);
     try {
       let successCount = 0;
-      let errorCount = 0;
-
       for (const file of selectedFileObjects) {
-        try {
-          const success = await handleFileDelete(file);
-          if (success) {
-            successCount++;
-          } else {
-            errorCount++;
-          }
-        } catch (error) {
-          errorCount++;
-        }
+        try { const success = await handleFileDelete(file); if (success) successCount++; } catch (error) {}
       }
-
       fileSelection.clearSelection();
-
-      if (successCount > 0) {
-        toast.success(`Successfully deleted ${successCount} files`);
-      }
-      if (errorCount > 0) {
-        toast.error(`Failed to delete ${errorCount} files`);
-      }
-    } catch (error) {
-      toast.error('Bulk deletion failed');
-    }
+      if (successCount > 0) toast.success(`Deleted ${successCount} files`);
+    } catch (error) { toast.error('Bulk deletion failed'); }
   };
 
-  // Используем метод из хука диалогов
   const handleViewFile = fileDialogs.openFileDetails;
-
   const handleFolderClick = (folderName: string) => {
     if (folderName === 'configs') {
       setShowConfigsFolder(true);
       setCurrentPath('/configs');
     }
   };
-
   const handleBackToRoot = () => {
     setShowConfigsFolder(false);
     setCurrentPath('/');
   };
 
-  const hasActiveFilters = fileFilters.hasActiveFilters;
-
   const getFileIcon = (fileName: string, fileType?: string) => {
-
-    if (fileType === 'folder') {
-      return <Folder className="h-5 w-5 text-blue-500" />;
-    }
-
+    if (fileType === 'folder') return <Folder className="h-5 w-5 text-blue-500" />;
     const extension = fileName.split('.').pop()?.toLowerCase();
-
     switch (extension) {
-      case 'txt':
-      case 'md':
-      case 'log':
-        return <FileText className="h-5 w-5 text-muted-foreground" />;
-      case 'exe':
-      case 'dll':
-      case 'so':
-      case 'dylib':
-        return <Zap className="h-5 w-5 text-primary" />;
-      case 'zip':
-      case 'rar':
-      case '7z':
-      case 'tar':
-      case 'gz':
-        return <Package className="h-5 w-5 text-orange-500" />;
-      case 'jpg':
-      case 'jpeg':
-      case 'png':
-      case 'gif':
-      case 'svg':
-      case 'ico':
-        return <Image className="h-5 w-5 text-green-500" />;
-      case 'mp4':
-      case 'avi':
-      case 'mov':
-      case 'wmv':
-        return <Video className="h-5 w-5 text-purple-500" />;
-      case 'mp3':
-      case 'wav':
-      case 'flac':
-      case 'aac':
-        return <Music className="h-5 w-5 text-blue-500" />;
-      case 'pdf':
-        return <FileText className="h-5 w-5 text-red-500" />;
-      case 'doc':
-      case 'docx':
-        return <FileText className="h-5 w-5 text-blue-600" />;
-      case 'xls':
-      case 'xlsx':
-        return <FileText className="h-5 w-5 text-green-600" />;
-      case 'ppt':
-      case 'pptx':
-        return <FileText className="h-5 w-5 text-orange-600" />;
-      default:
-        return <File className="h-5 w-5 text-muted-foreground" />;
+      case 'txt': case 'md': case 'log': return <FileText className="h-5 w-5 text-muted-foreground" />;
+      case 'exe': case 'dll': case 'so': case 'dylib': return <Zap className="h-5 w-5 text-primary" />;
+      case 'zip': case 'rar': case '7z': case 'tar': case 'gz': return <Package className="h-5 w-5 text-orange-500" />;
+      case 'jpg': case 'jpeg': case 'png': case 'gif': case 'svg': case 'ico': return <Image className="h-5 w-5 text-green-500" />;
+      case 'mp4': case 'avi': case 'mov': case 'wmv': return <Video className="h-5 w-5 text-purple-500" />;
+      case 'mp3': case 'wav': case 'flac': case 'aac': return <Music className="h-5 w-5 text-blue-500" />;
+      case 'pdf': return <FileText className="h-5 w-5 text-red-500" />;
+      case 'doc': case 'docx': return <FileText className="h-5 w-5 text-blue-600" />;
+      case 'xls': case 'xlsx': return <FileText className="h-5 w-5 text-green-600" />;
+      case 'ppt': case 'pptx': return <FileText className="h-5 w-5 text-orange-600" />;
+      default: return <File className="h-5 w-5 text-muted-foreground" />;
     }
   };
 
@@ -885,9 +823,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  // Используем отфильтрованные файлы из хука фильтров
   const filteredFiles = fileFilters.filteredFiles;
-
   const stats = useMemo(() => ({
     total: files.length,
     files: files.filter(f => f.type === 'file').length,
@@ -897,48 +833,27 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
     archived: files.filter(f => f.status === 'archived').length
   }), [files]);
 
-  const filteredProducts = useMemo(() => {
-    if (!products || !Array.isArray(products)) {
-      return [];
-    }
-    if (targetType === 'product') {
-
-      return products.filter(g => g.is_multi_app === false);
-    } else {
-
-      return products.filter(g => g.is_multi_app === true);
-    }
-  }, [products, targetType]);
-
   const displayItems = useMemo(() => {
     if (targetType === 'agent') {
-
       return [
         ...agents.map(l => ({ type: 'agent' as const, item: l })),
-        ...filteredProducts.map(g => ({ type: 'product' as const, item: g }))
+        ...filteredProductsForSelect.map(g => ({ type: 'product' as const, item: g }))
       ];
     } else {
-
-      return filteredProducts.map(g => ({ type: 'product' as const, item: g }));
+      return filteredProductsForSelect.map(g => ({ type: 'product' as const, item: g }));
     }
-  }, [targetType, agents, filteredProducts]);
+  }, [targetType, agents, filteredProductsForSelect]);
 
   const hasItems = targetType === 'product' 
-    ? filteredProducts.length > 0 
-    : (agents.length > 0 || filteredProducts.length > 0);
+    ? filteredProductsForSelect.length > 0 
+    : (agents.length > 0 || filteredProductsForSelect.length > 0);
 
   if (loading) {
-    return (
-      <div className="p-8">
-        <Spinner message="Loading..." />
-      </div>
-    );
+    return <div className="p-8"><Spinner message="Loading..." /></div>;
   }
 
   return (
     <div className="space-y-6">
-
-      {}
       {!hasItems && !loading && (
         <Card className="border-dashed border-2 border-muted-foreground/25">
           <CardContent className="p-12">
@@ -951,118 +866,71 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
               </h3>
               <p className="text-muted-foreground mb-8 max-w-md mx-auto leading-relaxed">
                 {targetType === 'product' 
-                  ? 'Get started by creating your first product. You can manage settings, upload files, and track usage.'
-                  : 'Get started by creating your first agent or product with agent support.'}
+                  ? 'Get started by creating your first product.'
+                  : 'Get started by creating your first agent.'}
               </p>
-              <Button 
-                onClick={() => onSwitchToProductDatabase?.()}
-                className="gap-2"
-                size="lg"
-              >
+              <Button onClick={() => onSwitchToProductDatabase?.()} className="gap-2" size="lg">
                 <Plus className="h-5 w-5" />
-                {targetType === 'product' ? 'Create Your First Product' : 'Create Agent'}
+                {targetType === 'product' ? 'Create Product' : 'Create Agent'}
               </Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {}
       {hasItems && (
         <Card>
           <CardHeader className="pb-0">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-row items-start justify-between gap-3">
               <div>
                 <CardTitle className="text-base">Select Product</CardTitle>
                 <CardDescription className="mt-1 text-xs">
                   {targetType === 'product' 
-                    ? `${filteredProducts.length} ${filteredProducts.length === 1 ? 'product' : 'products'} available`
-                    : `${agents.length + filteredProducts.length} ${agents.length + filteredProducts.length === 1 ? 'agent' : 'agents'} available`}
+                    ? `${filteredProductsForSelect.length} products available`
+                    : `${agents.length + filteredProductsForSelect.length} available`}
                 </CardDescription>
               </div>
-              <div className="flex items-center gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  onClick={handleRefreshProducts}
-                  disabled={isLoadingProducts}
-                >
+              <div className="flex items-center gap-2 shrink-0">
+                <Button variant="ghost" size="icon" onClick={handleRefreshProducts} disabled={isLoadingProducts}>
                   <RefreshCw className={`h-4 w-4 ${isLoadingProducts ? 'animate-spin' : ''}`} />
                 </Button>
               </div>
             </div>
           </CardHeader>
-          <CardContent className="pt-0 -mt-3 space-y-4">
-            {showTargetTypeToggle ? (
+          <CardContent className="pt-0 space-y-4">
+            {showTargetTypeToggle && (
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Type</Label>
-                <ToggleGroup
-                  type="single"
-                  value={targetType}
-                  onValueChange={(value) => value && setTargetType(value as 'product' | 'agent')}
-                  className="grid grid-cols-2 w-full"
-                >
-                  <ToggleGroupItem 
-                    value="product" 
-                    className="flex items-center justify-center gap-2 h-8 text-xs font-medium border border-border bg-background text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary hover:bg-muted hover:border-muted-foreground/20 transition-colors"
-                  >
-                    <Database className="h-3 w-3" />
-                    Product
+                <ToggleGroup type="single" value={targetType} onValueChange={(value) => value && setTargetType(value as 'product' | 'agent')} className="grid grid-cols-2 w-full">
+                  <ToggleGroupItem value="product" className="flex items-center justify-center gap-2 h-8 text-xs font-medium">
+                    <Database className="h-3 w-3" /> Product
                   </ToggleGroupItem>
-                  <ToggleGroupItem 
-                    value="agent" 
-                    className="flex items-center justify-center gap-2 h-8 text-xs font-medium border border-border bg-background text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary hover:bg-muted hover:border-muted-foreground/20 transition-colors"
-                  >
-                    <Container className="h-3 w-3" />
-                    Agent
+                  <ToggleGroupItem value="agent" className="flex items-center justify-center gap-2 h-8 text-xs font-medium">
+                    <Container className="h-3 w-3" /> Agent
                   </ToggleGroupItem>
                 </ToggleGroup>
               </div>
-            ) : null}
+            )}
 
-            <div className="divide-y">
+            <div className="divide-y max-h-[200px] overflow-y-auto">
               {displayItems.map(({ type, item }) => {
-                const isSelected = type === 'agent' 
-                  ? selectedAgent?.id === item.id
-                  : selectedProduct?.id === item.id;
-
+                const isSelected = type === 'agent' ? selectedAgent?.id === item.id : selectedProduct?.id === item.id;
                 return (
-                  <div
-                    key={`${type}-${item.id}`}
-                    className={`flex items-center justify-between p-2.5 cursor-pointer transition-colors hover:bg-accent/50 ${
-                      isSelected ? 'bg-primary/5' : ''
-                    }`}
-                    onClick={() => {
-                      if (type === 'agent') {
-                        setSelectedAgent(item as Agent);
-                        setSelectedProduct(null);
-                      } else {
-                        setSelectedProduct(item as Product);
-                        setSelectedAgent(null);
-                      }
+                  <div key={`${type}-${item.id}`} className={`flex items-center justify-between p-2.5 cursor-pointer transition-colors hover:bg-accent/50 ${isSelected ? 'bg-primary/5' : ''}`} onClick={() => {
+                      if (type === 'agent') { setSelectedAgent(item as Agent); setSelectedProduct(null); } 
+                      else { setSelectedProduct(item as Product); setSelectedAgent(null); }
                       fileSelection.clearSelection();
-                    }}
-                  >
+                    }}>
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <div className="w-9 h-9 bg-gradient-to-br from-primary/20 to-primary/10 rounded flex items-center justify-center flex-shrink-0">
-                        {type === 'agent' ? (
-                          <Container className="h-4 w-4 text-primary" />
-                        ) : (
-                          <Database className="h-4 w-4 text-primary" />
-                        )}
+                        {type === 'agent' ? <Container className="h-4 w-4 text-primary" /> : <Database className="h-4 w-4 text-primary" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="font-medium text-sm truncate">{item.name}</h4>
-                          {isSelected && (
-                            <Check className="h-3 w-3 text-primary" />
-                          )}
+                          {isSelected && <Check className="h-3 w-3 text-primary" />}
                         </div>
-                        {isSelected && (
-                          <p className="text-xs text-muted-foreground">
-                            {stats.total} files • {formatFileSize(stats.totalSize)}
-                          </p>
-                        )}
+                        {isSelected && <p className="text-xs text-muted-foreground">{stats.total} files • {formatFileSize(stats.totalSize)}</p>}
                       </div>
                     </div>
                   </div>
@@ -1073,177 +941,119 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
         </Card>
       )}
 
-      {}
       {fileSelection.selectedFiles.length > 0 && (
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
+          <CardContent className="pt-4 sm:pt-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">
-                  Selected: {fileSelection.selectedFiles.length} {fileSelection.selectedFiles.length === 1 ? 'file' : 'files'}
-                </span>
-                <Button variant="outline" size="sm" onClick={clearSelection}>
-                  <X className="h-4 w-4 mr-1" />
-                  Clear
-                </Button>
+                <span className="text-sm text-muted-foreground">Selected: {fileSelection.selectedFiles.length}</span>
+                <Button variant="outline" size="sm" onClick={clearSelection}><X className="h-4 w-4 mr-1" /> Clear</Button>
               </div>
-              <div className="flex items-center gap-2">
-                <ConditionalRender permission="products.files_download" fallback={null}>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={handleBulkDownload}
-                    disabled={!canDownloadFiles}
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    Download All
-                  </Button>
-                </ConditionalRender>
-                <ConditionalRender permission="products.files_delete" fallback={null}>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="text-destructive hover:text-destructive"
-                    onClick={handleBulkDelete}
-                    disabled={!canDeleteFiles}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete All
-                  </Button>
-                </ConditionalRender>
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <Button variant="outline" size="sm" onClick={handleBulkDownload} disabled={!canDownloadFiles} className="flex-1 sm:flex-none"><Download className="mr-2 h-4 w-4" /> Download All</Button>
+                <Button variant="outline" size="sm" className="text-destructive hover:text-destructive flex-1 sm:flex-none" onClick={handleBulkDelete} disabled={!canDeleteFiles}><Trash2 className="mr-2 h-4 w-4" /> Delete All</Button>
               </div>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {}
-      {hasItems && !selectedProduct && !selectedAgent ? (
-        <Card className="border-dashed border-2 border-muted-foreground/25">
-          <CardContent className="p-12">
-            <div className="text-center">
-              <div className="w-20 h-20 bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <FolderOpen className="h-10 w-10 text-primary" />
-              </div>
-              <h3 className="text-2xl font-semibold mb-3">Select an Product</h3>
-              <p className="text-muted-foreground text-lg mb-6 max-w-md mx-auto">
-                Choose an product from the list above to view and manage its files, 
-                configurations, and resources.
-              </p>
-              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                <span className="inline-flex items-center justify-center rounded-md border px-3 py-1 text-xs font-medium">
-                  {targetType === 'product' 
-                    ? `${filteredProducts.length} products available`
-                    : `${agents.length + filteredProducts.length} agents available`}
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ) : hasItems && (selectedProduct || selectedAgent) ? (
-        <Card 
-          className={`transition-colors ${fileUpload.dragOver ? 'border-primary bg-primary/5' : ''}`}
-          onDragOver={fileUpload.handleDragOver}
-          onDragLeave={fileUpload.handleDragLeave}
-          onDrop={handleDrop}
-        >
-          <CardHeader className="pb-0">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  {showConfigsFolder && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleBackToRoot}
-                      className="h-6 w-6"
-                    >
-                      <ChevronRight className="h-3 w-3 rotate-180" />
-                    </Button>
-                  )}
-                  <CardTitle className="text-base">
-                    {showConfigsFolder 
-                      ? 'Configs Folder' 
-                      : `${selectedProduct?.name || selectedAgent?.name || 'Unknown'} Files`}
-                  </CardTitle>
+      {hasItems && (selectedProduct || selectedAgent) ? (
+        <Card className={`transition-colors ${fileUpload.dragOver ? 'border-primary bg-primary/5' : ''}`} onDragOver={fileUpload.handleDragOver} onDragLeave={fileUpload.handleDragLeave} onDrop={handleDrop}>
+          <CardHeader className="pb-0 px-4 sm:px-6 pt-4 sm:pt-6 relative">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={refreshData} 
+              disabled={refreshing} 
+              className="absolute top-4 right-4 sm:top-6 sm:right-6 h-9 w-9 sm:h-8 sm:w-8 shrink-0 touch-manipulation z-10"
+            >
+              <RefreshCw className={`h-4 w-4 sm:h-4 sm:w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            </Button>
+            <div className="flex flex-col gap-3 sm:gap-4 pr-12 sm:pr-10">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
+                <div className="w-full sm:w-auto min-w-0 flex-1">
+                  <div className="flex items-center gap-2 mb-1.5 sm:mb-1">
+                    {showConfigsFolder && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={handleBackToRoot} 
+                        className="h-9 w-9 sm:h-8 sm:w-8 shrink-0 touch-manipulation"
+                      >
+                        <ChevronRight className="h-4 w-4 sm:h-3.5 sm:w-3.5 rotate-180" />
+                      </Button>
+                    )}
+                    <CardTitle className="text-base sm:text-base truncate flex-1 min-w-0 leading-tight">
+                      {showConfigsFolder ? 'Configs Folder' : `${selectedProduct?.name || selectedAgent?.name || 'Unknown'} Files`}
+                    </CardTitle>
+                  </div>
+                  <CardDescription className="mt-1 text-xs sm:text-xs leading-relaxed">
+                    <span className="block sm:inline">{filteredFiles.length} files</span>
+                    {fileUpload.dragOver && (
+                      <span className="text-primary ml-0 sm:ml-2 block sm:inline mt-1 sm:mt-0">
+                        • Drag files to upload
+                      </span>
+                    )}
+                  </CardDescription>
                 </div>
-                <CardDescription className="mt-1 text-xs">
-                  {filteredFiles.length} {filteredFiles.length === 1 ? 'file' : 'files'}
-                  {fileUpload.dragOver && (
-                    <span className="text-primary ml-2">• Drag files here to upload</span>
-                  )}
-                </CardDescription>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  onClick={refreshData}
-                  disabled={refreshing}
-                >
-                  <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={selectAllFiles}
-                  disabled={filteredFiles.length === 0}
-                >
-                  <Check className="h-4 w-4 mr-1.5" />
-                  Select All
-                </Button>
-                <ConditionalRender permission="products.files_upload" fallback={null}>
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:flex-nowrap">
                   <Button 
-                    variant="default" 
-                    size="sm"
-                    onClick={fileDialogs.openUploadDialog}
-                    disabled={!canUploadFiles}
+                    variant="outline" 
+                    size="sm" 
+                    onClick={selectAllFiles} 
+                    disabled={filteredFiles.length === 0} 
+                    className="flex-1 sm:flex-none min-w-0 text-sm sm:text-sm h-10 sm:h-9 touch-manipulation px-3"
                   >
-                    <Upload className="h-4 w-4 mr-1.5" />
-                    Upload
+                    <Check className="h-4 w-4 sm:h-4 sm:w-4 mr-1.5 sm:mr-1.5 shrink-0" /> 
+                    <span className="truncate">Select All</span>
                   </Button>
-                </ConditionalRender>
-                {selectedProduct && (
-                  <MultiFileUploadDialog 
-                    product={selectedProduct}
-                    onUploadComplete={loadProductFiles}
+                  <ConditionalRender permission="products.files_upload" fallback={null}>
+                    <Button 
+                      variant="default" 
+                      size="sm" 
+                      onClick={fileDialogs.openUploadDialog} 
+                      disabled={!canUploadFiles} 
+                      className="flex-1 sm:flex-none min-w-0 text-sm sm:text-sm h-10 sm:h-9 touch-manipulation px-3"
+                    >
+                      <Upload className="h-4 w-4 sm:h-4 sm:w-4 mr-1.5 sm:mr-1.5 shrink-0" /> 
+                      <span className="truncate">Upload</span>
+                    </Button>
+                  </ConditionalRender>
+                  {selectedProduct && (
+                    <div className="w-full sm:w-auto">
+                      <MultiFileUploadDialog product={selectedProduct} onUploadComplete={loadProductFiles} />
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-2 mt-1 sm:mt-4">
+                <div className="relative flex-1 w-full min-w-0">
+                  <Search className="absolute left-3 sm:left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-4 sm:w-4 text-muted-foreground pointer-events-none" />
+                  <Input 
+                    placeholder="Search files..." 
+                    value={fileFilters.searchTerm} 
+                    onChange={(e) => fileFilters.setSearchTerm(e.target.value)} 
+                    className="pl-10 sm:pl-8 w-full h-10 sm:h-9 text-sm touch-manipulation" 
                   />
-                )}
+                </div>
+                <Select value={fileFilters.categoryFilter} onValueChange={fileFilters.setCategoryFilter}>
+                  <SelectTrigger className="w-full sm:w-[180px] h-10 sm:h-9 text-sm touch-manipulation">
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    <SelectItem value="config">Config</SelectItem>
+                    <SelectItem value="resource">Resource</SelectItem>
+                    <SelectItem value="folder">Folder</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
-            <div className="flex items-center gap-2 mt-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search files..."
-                  value={fileFilters.searchTerm}
-                  onChange={(e) => fileFilters.setSearchTerm(e.target.value)}
-                  className="pl-8"
-                />
-              </div>
-              <Select value={fileFilters.categoryFilter} onValueChange={fileFilters.setCategoryFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  <SelectItem value="config">Config</SelectItem>
-                  <SelectItem value="resource">Resource</SelectItem>
-                  <SelectItem value="folder">Folder</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </CardHeader>
-          <CardContent className="pt-0 -mt-3">
-            {refreshing ? (
-              <Spinner message="Loading files..." />
-            ) : filteredFiles.length === 0 ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="text-center">
-                  <FolderOpen className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                  <div className="text-sm text-muted-foreground">No files found</div>
-                </div>
-              </div>
+          <CardContent className="pt-0">
+            {refreshing ? <Spinner message="Loading files..." /> : filteredFiles.length === 0 ? (
+              <div className="flex items-center justify-center py-12"><div className="text-center"><FolderOpen className="h-10 w-10 text-muted-foreground mx-auto mb-3" /><div className="text-sm text-muted-foreground">No files found</div></div></div>
             ) : (
               <FilesList
                 files={filteredFiles}
@@ -1257,13 +1067,12 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
                 onDelete={handleFileDelete}
                 getFileIcon={getFileIcon}
                 formatFileSize={formatFileSize}
+                isMobile={isMobile}
               />
             )}
           </CardContent>
         </Card>
       ) : null}
-
-      {}
 
       <FileDetailsDialog
         open={fileDialogs.fileDetailsOpen}
@@ -1276,7 +1085,6 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
         onClose={fileDialogs.closeFileDetails}
       />
 
-      {}
       <FileUploadDialog
         open={fileDialogs.uploadDialogOpen}
         onOpenChange={fileDialogs.setUploadDialogOpen}
@@ -1292,12 +1100,8 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
         onUploadFormChange={fileUpload.setUploadForm}
         onDragOver={fileUpload.handleDragOver}
         onDragLeave={fileUpload.handleDragLeave}
-        onDrop={(e) => fileUpload.handleDrop(e, (file) => {
-          // File is already set in uploadForm by handleDrop
-        })}
-        onFileSelect={(file) => {
-          fileUpload.setUploadForm(prev => ({ ...prev, name: file.name }));
-        }}
+        onDrop={(e) => fileUpload.handleDrop(e, (file) => {})}
+        onFileSelect={(file) => { fileUpload.setUploadForm(prev => ({ ...prev, name: file.name })); }}
         onUpload={handleFileUpload}
         onResetForm={resetUploadForm}
       />

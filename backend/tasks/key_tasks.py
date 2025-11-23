@@ -27,7 +27,7 @@ from ..models.products import Product
 from ..models.keys import Key
 from ..models.agents import Agent
 from ..services.activity import activity_service
-from ..services.keys.key_service_facade import key_service
+from ..services.keys.key_generation_service import key_generation_service
 from ..services.tasks import task_service
 from ..utils.rbac_utils import RBACManager
 
@@ -215,7 +215,7 @@ def bulk_create_keys_task(
                     progress = 10 + int((i + 1) / total * 80)
                     task_service.update_task_status(task_id, "in_progress", progress=progress)
 
-                key_string = key_service.generate_key_string(
+                key_string = key_generation_service.generate_key_string(
                     length=32, product=product, duration_hours=duration_hours, project_id=project_id
                 )
 
@@ -445,7 +445,7 @@ def bulk_create_loader_keys_task(
                     progress = 10 + int((i + 1) / count * 80)
                     task_service.update_task_status(task_id, "in_progress", progress=progress)
 
-                key_string = key_service.generate_key_string(
+                key_string = key_generation_service.generate_key_string(
                     length=32, agent=agent, duration_hours=duration_hours, project_id=project_id
                 )
 

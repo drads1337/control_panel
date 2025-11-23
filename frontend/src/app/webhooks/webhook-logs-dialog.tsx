@@ -64,87 +64,139 @@ export function WebhookLogsDialog({
       setLoading(false);
     }
   };
+
   return (
     <ConditionalRender permission="webhooks.view_logs" fallback={null}>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
+        {/* АДАПТАЦИЯ: w-[95vw], flex-col для фиксации хедера/футера */}
+        <DialogContent className="w-[95vw] sm:max-w-4xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
+          <DialogHeader className="p-6 pb-2 shrink-0">
             <DialogTitle>Webhook Logs</DialogTitle>
             <DialogDescription>
               Execution logs for {webhook?.name}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="max-h-96 overflow-y-auto">
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <Spinner size="lg" message="Loading webhook logs..." />
-            </div>
-          ) : !webhookLogs || webhookLogs.length === 0 ? (
-            <div className="text-center py-8">
-              <Clock className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No logs yet</h3>
-              <p className="text-muted-foreground">
-                This webhook hasn't been triggered yet
-              </p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Event</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Response</TableHead>
-                  <TableHead>Error</TableHead>
-                  <TableHead>Time</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {webhookLogs.map((log) => (
-                  <TableRow key={log.id}>
-                    <TableCell className="font-medium">{log.event}</TableCell>
-                    <TableCell>
-                      <Badge variant={log.success ? 'default' : 'destructive'}>
-                        {log.success ? 'Success' : 'Failed'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {log.response_status && (
-                        <Badge variant="outline">{log.response_status}</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
+          {/* Контейнер со скроллом */}
+          <div className="flex-1 overflow-y-auto p-6 pt-2">
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <Spinner size="lg" message="Loading webhook logs..." />
+              </div>
+            ) : !webhookLogs || webhookLogs.length === 0 ? (
+              <div className="text-center py-8">
+                <Clock className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No logs yet</h3>
+                <p className="text-muted-foreground">
+                  This webhook hasn't been triggered yet
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* 
+                  АДАПТАЦИЯ: МОБИЛЬНЫЙ ВИД (Карточки) 
+                  Показывается только на экранах < sm (640px)
+                */}
+                <div className="sm:hidden space-y-4">
+                  {webhookLogs.map((log) => (
+                    <div key={log.id} className="border rounded-lg p-3 space-y-3 bg-card">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{log.event}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {new Date(log.created_at).toLocaleString()}
+                          </p>
+                        </div>
+                        <Badge variant={log.success ? 'default' : 'destructive'}>
+                          {log.success ? 'Success' : 'Failed'}
+                        </Badge>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-xs">
+                         <span className="text-muted-foreground">Status:</span>
+                         {log.response_status ? (
+                            <Badge variant="outline" className="text-[10px] h-5 px-1.5">{log.response_status}</Badge>
+                         ) : <span>-</span>}
+                      </div>
+
                       {log.error_message && (
-                        <div className="text-sm text-red-600 max-w-xs truncate" title={sanitizeString(log.error_message)}>
+                        <div className="bg-destructive/10 p-2 rounded text-xs text-red-600 break-all">
+                          <span className="font-semibold block mb-0.5">Error:</span>
                           {sanitizeString(log.error_message)}
                         </div>
                       )}
-                    </TableCell>
-                    <TableCell>
-                      {new Date(log.created_at).toLocaleString()}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </div>
+                    </div>
+                  ))}
+                </div>
 
-        <DialogFooter>
-          <Button 
-            variant="outline" 
-            onClick={loadWebhookLogs}
-            disabled={loading}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Close
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+                {/* 
+                  АДАПТАЦИЯ: ДЕСКТОПНЫЙ ВИД (Таблица) 
+                  Показывается только на экранах >= sm (640px)
+                */}
+                <div className="hidden sm:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Event</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Response</TableHead>
+                        <TableHead>Error</TableHead>
+                        <TableHead>Time</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {webhookLogs.map((log) => (
+                        <TableRow key={log.id}>
+                          <TableCell className="font-medium">{log.event}</TableCell>
+                          <TableCell>
+                            <Badge variant={log.success ? 'default' : 'destructive'}>
+                              {log.success ? 'Success' : 'Failed'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {log.response_status && (
+                              <Badge variant="outline">{log.response_status}</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {log.error_message && (
+                              <div className="text-sm text-red-600 max-w-xs truncate" title={sanitizeString(log.error_message)}>
+                                {sanitizeString(log.error_message)}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {new Date(log.created_at).toLocaleString()}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
+            )}
+          </div>
+
+          <DialogFooter className="p-6 pt-4 border-t flex flex-col gap-2 sm:flex-row sm:justify-end shrink-0">
+            <Button 
+              variant="outline" 
+              onClick={loadWebhookLogs}
+              disabled={loading}
+              className="w-full sm:w-auto"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => onOpenChange(false)}
+              className="w-full sm:w-auto"
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </ConditionalRender>
   );
 }

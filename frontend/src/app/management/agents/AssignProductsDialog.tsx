@@ -3,43 +3,55 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Spinner } from '@/components/ui/spinner';
 import { Label } from '@/components/ui/label';
 import { type Agent } from '@/entities/agent';
 import { getProducts, getProductsAvailableForAssignment, type Product } from '@/entities/product';
+import { cn } from '@/lib/utils';
 
 const ProductItem = React.memo<{
   product: Product;
   isSelected: boolean;
   onToggle: (productId: number) => void;
   prefix: string;
-  hoverClass: string;
-}>(function ProductItem({ product, isSelected, onToggle, prefix, hoverClass }) {
+}>(function ProductItem({ product, isSelected, onToggle, prefix }) {
   return (
-    <div key={product.id} className={`flex items-center space-x-2 p-2 ${hoverClass} rounded-md`}>
+    <div 
+      className={cn(
+        "flex items-center space-x-3 p-3 transition-colors active:bg-accent/50",
+        isSelected ? "bg-accent/30" : "hover:bg-muted/50"
+      )}
+      onClick={() => onToggle(product.id)}
+    >
       <Checkbox
         id={`${prefix}-product-${product.id}`}
         checked={isSelected}
         onCheckedChange={() => onToggle(product.id)}
+        className="h-5 w-5 border-muted-foreground/40"
       />
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <Label htmlFor={`${prefix}-product-${product.id}`} className="font-medium cursor-pointer">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+          <Label 
+            htmlFor={`${prefix}-product-${product.id}`} 
+            className="font-medium cursor-pointer text-sm sm:text-base truncate"
+            onClick={(e) => e.stopPropagation()}
+          >
             {product.name}
           </Label>
-          <Badge variant="outline" className="text-xs">
-            {product.version}
-          </Badge>
-          {product.is_multi_app ? (
-            <Badge variant="default" className="text-xs">
-              Multi-App
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-normal">
+              v{product.version}
             </Badge>
-          ) : (
-            <Badge variant="secondary" className="text-xs">
-              Library
-            </Badge>
-          )}
+            {product.is_multi_app ? (
+              <Badge variant="default" className="text-[10px] h-5 px-1.5">
+                Multi-App
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
+                Library
+              </Badge>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -55,20 +67,23 @@ const SectionHeader: React.FC<{
   onToggle: () => void;
   badgeVariant: "destructive" | "secondary";
 }> = ({ title, count, selectedCount, checkboxId, isChecked, onToggle, badgeVariant }) => (
-  <div className="flex items-center justify-between">
+  <div className="flex items-center justify-between py-1">
     <div className="flex items-center space-x-2">
       <Checkbox
         id={checkboxId}
         checked={isChecked}
         onCheckedChange={onToggle}
+        className="h-4 w-4"
       />
-      <Label htmlFor={checkboxId} className="text-sm font-medium">
+      <Label htmlFor={checkboxId} className="text-sm font-medium cursor-pointer">
         {title} ({count})
       </Label>
     </div>
-    <Badge variant={badgeVariant}>
-      {selectedCount} selected
-    </Badge>
+    {selectedCount > 0 && (
+      <Badge variant={badgeVariant} className="text-xs">
+        {selectedCount} selected
+      </Badge>
+    )}
   </div>
 );
 
@@ -105,11 +120,9 @@ const AssignProductsDialog: React.FC<AssignProductsDialogProps> = ({
   const loadAvailableProducts = async () => {
     setLoading(true);
     try {
-
       const response = await getProductsAvailableForAssignment(1, 100);
       setAvailableProducts(response.products || []);
     } catch (error) {
-
       setAvailableProducts([]);
     } finally {
       setLoading(false);
@@ -121,9 +134,7 @@ const AssignProductsDialog: React.FC<AssignProductsDialogProps> = ({
       setAssignedProducts([]);
       return;
     }
-
     try {
-
       const response = await getProducts('all');
       const allProducts = response.products || [];
       const assigned = allProducts.filter(product => 
@@ -131,7 +142,6 @@ const AssignProductsDialog: React.FC<AssignProductsDialogProps> = ({
       );
       setAssignedProducts(assigned);
     } catch (error) {
-
       setAssignedProducts([]);
     }
   };
@@ -170,14 +180,13 @@ const AssignProductsDialog: React.FC<AssignProductsDialogProps> = ({
 
   const handleAssign = async () => {
     if (!agent || selectedProducts.length === 0) return;
-
     setAssigning(true);
     try {
       await onAssign(agent.id, selectedProducts);
       setSelectedProducts([]);
       onOpenChange(false);
     } catch (error) {
-
+      // Error handled by parent
     } finally {
       setAssigning(false);
     }
@@ -185,14 +194,13 @@ const AssignProductsDialog: React.FC<AssignProductsDialogProps> = ({
 
   const handleUnassign = async () => {
     if (!agent || selectedAssignedProducts.length === 0 || !onUnassign) return;
-
     setUnassigning(true);
     try {
       await onUnassign(agent.id, selectedAssignedProducts);
       setSelectedAssignedProducts([]);
       onOpenChange(false);
     } catch (error) {
-
+      // Error handled by parent
     } finally {
       setUnassigning(false);
     }
@@ -206,19 +214,20 @@ const AssignProductsDialog: React.FC<AssignProductsDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="text-base">Assign Products to Agent</DialogTitle>
+      <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] flex flex-col p-0 overflow-hidden gap-0">
+        <DialogHeader className="p-4 sm:p-6 pb-2 sm:pb-4 border-b flex-shrink-0">
+          <DialogTitle className="text-base sm:text-lg">Assign Products</DialogTitle>
           <DialogDescription className="mt-1 text-xs">
-            Select products to assign to this agent. Products already assigned to other agents are not available for assignment.
+            Manage product assignments for this agent.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+          {/* Assigned Products Section */}
           {assignedProducts.length > 0 && (
             <div className="space-y-3">
               <SectionHeader
-                title="Remove Assigned"
+                title="Currently Assigned"
                 count={assignedProducts.length}
                 selectedCount={selectedAssignedProducts.length}
                 checkboxId="select-all-assigned"
@@ -227,26 +236,24 @@ const AssignProductsDialog: React.FC<AssignProductsDialogProps> = ({
                 badgeVariant="secondary"
               />
 
-              <ScrollArea className="h-32 border rounded-md p-3">
-                <div className="space-y-1">
-                  {assignedProducts.map((product) => (
-                    <ProductItem
-                      key={product.id}
-                      product={product}
-                      isSelected={selectedAssignedProducts.includes(product.id)}
-                      onToggle={handleAssignedProductToggle}
-                      prefix="assigned"
-                      hoverClass="hover:bg-muted"
-                    />
-                  ))}
-                </div>
-              </ScrollArea>
+              <div className="border rounded-md divide-y overflow-hidden bg-card">
+                {assignedProducts.map((product) => (
+                  <ProductItem
+                    key={product.id}
+                    product={product}
+                    isSelected={selectedAssignedProducts.includes(product.id)}
+                    onToggle={handleAssignedProductToggle}
+                    prefix="assigned"
+                  />
+                ))}
+              </div>
             </div>
           )}
 
+          {/* Available Products Section */}
           <div className="space-y-3">
             <SectionHeader
-              title="Assign Available"
+              title="Available for Assignment"
               count={availableProducts.length}
               selectedCount={selectedProducts.length}
               checkboxId="select-all"
@@ -255,19 +262,21 @@ const AssignProductsDialog: React.FC<AssignProductsDialogProps> = ({
               badgeVariant="secondary"
             />
 
-            <ScrollArea className="h-32 border rounded-md p-3">
+            <div className="border rounded-md overflow-hidden bg-card min-h-[100px]">
               {loading ? (
                 <div className="text-center py-8">
-                  <Spinner className="h-6 w-6 mx-auto" />
-                  <p className="mt-2 text-sm text-muted-foreground">Loading products...</p>
+                  <Spinner className="h-6 w-6 mx-auto mb-2" />
+                  <p className="text-xs text-muted-foreground">Loading products...</p>
                 </div>
               ) : availableProducts.length === 0 ? (
-                <div className="text-center py-6 text-muted-foreground">
-                  <p>No available products for assignment</p>
-                  <p className="text-xs mt-1">All multi-app products are already assigned to agents. A product can only be assigned to one agent at a time.</p>
+                <div className="text-center py-8 px-4 text-muted-foreground">
+                  <p className="text-sm font-medium">No available products</p>
+                  <p className="text-xs mt-1 max-w-[250px] mx-auto">
+                    All multi-app products are already assigned.
+                  </p>
                 </div>
               ) : (
-                <div className="space-y-1">
+                <div className="divide-y">
                   {availableProducts.map((product) => (
                     <ProductItem
                       key={product.id}
@@ -275,38 +284,53 @@ const AssignProductsDialog: React.FC<AssignProductsDialogProps> = ({
                       isSelected={selectedProducts.includes(product.id)}
                       onToggle={handleProductToggle}
                       prefix="product"
-                      hoverClass="hover:bg-muted"
                     />
                   ))}
                 </div>
               )}
-            </ScrollArea>
+            </div>
           </div>
         </div>
 
-        <DialogFooter className="flex-col sm:flex-row gap-2">
-          <div className="flex gap-2">
+        <DialogFooter className="p-4 border-t bg-background flex-shrink-0 flex-col-reverse sm:flex-row gap-2 sm:gap-0">
+          <Button 
+            variant="outline" 
+            onClick={handleClose}
+            className="w-full sm:w-auto"
+          >
+            Cancel
+          </Button>
+          
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             {selectedAssignedProducts.length > 0 && onUnassign && (
               <Button
                 variant="destructive"
                 onClick={handleUnassign}
                 disabled={unassigning}
+                className="w-full sm:w-auto order-2 sm:order-1"
               >
-                {unassigning ? (<><Spinner className="mr-2 h-4 w-4 animate-spin" />Removing...</>) : `Remove ${selectedAssignedProducts.length} Products`}
+                {unassigning ? (
+                  <><Spinner className="mr-2 h-4 w-4 animate-spin" />Removing...</>
+                ) : (
+                  `Remove (${selectedAssignedProducts.length})`
+                )}
               </Button>
             )}
+            
             {selectedProducts.length > 0 && (
               <Button
                 onClick={handleAssign}
                 disabled={assigning}
+                className="w-full sm:w-auto order-1 sm:order-2"
               >
-                {assigning ? (<><Spinner className="mr-2 h-4 w-4 animate-spin" />Assigning...</>) : `Assign ${selectedProducts.length} Products`}
+                {assigning ? (
+                  <><Spinner className="mr-2 h-4 w-4 animate-spin" />Assigning...</>
+                ) : (
+                  `Assign (${selectedProducts.length})`
+                )}
               </Button>
             )}
           </div>
-          <Button variant="outline" onClick={handleClose}>
-            Cancel
-          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

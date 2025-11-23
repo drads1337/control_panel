@@ -31,12 +31,9 @@ logger = logging.getLogger(__name__)
 @require_project_with_grace_period
 @enforce_project_scope
 @require_permission("clients.view")
-def get_clients(current_user=None, project_id=None):
+def get_clients(current_user, project_id=None):
     """Get clients with optimized queries (fixes N+1 problem)"""
     try:
-
-        if current_user is None:
-            current_user = g.current_user
 
         page = request.args.get("page", 1, type=int)
         per_page = request.args.get("per_page", 20, type=int)

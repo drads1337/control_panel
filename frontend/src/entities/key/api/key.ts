@@ -34,7 +34,6 @@ export async function getLicenseKeys(
   const requestKey = `keys-${page}-${perPage}-${status || 'all'}-${productId || 'all'}-${search || ''}-${myKeys ? 'my' : 'all'}`
 
   return preventDuplicateRequest(requestKey, async () => {
-
     const response = await api.get(API_ENDPOINTS.KEYS, { params })
     return response.data
   })

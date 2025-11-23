@@ -9,7 +9,7 @@ import logging
 import secrets
 from datetime import datetime
 
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 
 from ...core.extensions import db
@@ -32,9 +32,8 @@ logger = logging.getLogger(__name__)
 @require_project_with_grace_period
 @enforce_project_scope
 @require_role(RolePermissions.ADMIN_ROLES)
-def get_user_tokens(user_id):
+def get_user_tokens(user_id, current_user):
     """Get all API tokens for a specific user"""
-    current_user = g.current_user
     target_user = User.query.get(user_id)
 
     if not target_user:
@@ -79,9 +78,8 @@ def get_user_tokens(user_id):
 @require_project_with_grace_period
 @enforce_project_scope
 @require_role(RolePermissions.ADMIN_ROLES)
-def create_user_token(user_id):
+def create_user_token(user_id, current_user):
     """Create a new API token for a user"""
-    current_user = g.current_user
     target_user = User.query.get(user_id)
 
     if not target_user:
@@ -158,9 +156,8 @@ def create_user_token(user_id):
 @require_project_with_grace_period
 @enforce_project_scope
 @require_role(RolePermissions.ADMIN_ROLES)
-def update_user_token(user_id, token_id):
+def update_user_token(user_id, token_id, current_user):
     """Update an API token"""
-    current_user = g.current_user
     target_user = User.query.get(user_id)
 
     if not target_user:
@@ -235,9 +232,8 @@ def update_user_token(user_id, token_id):
 @require_project_with_grace_period
 @enforce_project_scope
 @require_role(RolePermissions.ADMIN_ROLES)
-def delete_user_token(user_id, token_id):
+def delete_user_token(user_id, token_id, current_user):
     """Delete an API token"""
-    current_user = g.current_user
     target_user = User.query.get(user_id)
 
     if not target_user:

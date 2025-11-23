@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, Filter, X } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Search, Filter, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 interface UsersFiltersProps {
   filters: {
@@ -26,6 +28,8 @@ const UsersFilters: React.FC<UsersFiltersProps> = React.memo(({
   onFiltersChange,
   onClearFilters
 }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
   const handleFilterChange = React.useCallback((key: string, value: string) => {
     onFiltersChange({
       ...filters,
@@ -33,56 +37,63 @@ const UsersFilters: React.FC<UsersFiltersProps> = React.memo(({
     });
   }, [filters, onFiltersChange]);
 
-  const hasActiveFilters = React.useMemo(() => 
-    filters.search !== '' || 
-    filters.role !== 'all' || 
-    filters.status !== 'all' || 
-    filters.project !== 'all',
-    [filters.search, filters.role, filters.status, filters.project]
-  );
+  const activeFiltersCount = React.useMemo(() => {
+    let count = 0;
+    if (filters.role !== 'all') count++;
+    if (filters.status !== 'all') count++;
+    if (filters.project !== 'all') count++;
+    return count;
+  }, [filters]);
+
+  const hasActiveFilters = filters.search !== '' || activeFiltersCount > 0;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <Filter className="h-5 w-5" />
-          <span>Filters</span>
-          {hasActiveFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClearFilters}
-              className="ml-auto"
-            >
-              <X className="h-4 w-4 mr-1" />
-              Clear
-            </Button>
-          )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Search</label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by username, email..."
-                value={filters.search}
-                onChange={(e) => handleFilterChange('search', e.target.value)}
-                className="pl-10"
-              />
-            </div>
+    <Card className="border-0 shadow-none bg-transparent md:border md:shadow-sm md:bg-card">
+      <CardContent className="p-0 md:p-6 space-y-4">
+        {/* Top Row: Search + Toggle Button (Mobile) */}
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search users..."
+              value={filters.search}
+              onChange={(e) => handleFilterChange('search', e.target.value)}
+              className="pl-10 w-full text-base sm:text-sm" // text-base prevents iOS zoom
+            />
           </div>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setIsExpanded(!isExpanded)}
+            className={cn(
+              "md:hidden shrink-0",
+              (isExpanded || activeFiltersCount > 0) && "border-primary text-primary bg-primary/5"
+            )}
+          >
+            <Filter className="h-4 w-4" />
+            {activeFiltersCount > 0 && !isExpanded && (
+              <span className="absolute -top-1 -right-1 h-3 w-3 bg-primary rounded-full" />
+            )}
+          </Button>
+        </div>
 
+        {/* Collapsible Filters Area */}
+        <div className={cn(
+          "grid gap-4 transition-all",
+          // Mobile styles
+          "grid-cols-1",
+          isExpanded ? "block" : "hidden",
+          // Desktop styles (always visible)
+          "md:grid md:grid-cols-3"
+        )}>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Role</label>
+            <label className="text-sm font-medium md:hidden">Role</label>
             <Select
               value={filters.role}
               onValueChange={(value) => handleFilterChange('role', value)}
             >
-              <SelectTrigger>
-                <SelectValue placeholder="All roles" />
+              <SelectTrigger className="w-full text-base sm:text-sm">
+                <SelectValue placeholder="Role" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Roles</SelectItem>
@@ -96,13 +107,13 @@ const UsersFilters: React.FC<UsersFiltersProps> = React.memo(({
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Status</label>
+            <label className="text-sm font-medium md:hidden">Status</label>
             <Select
               value={filters.status}
               onValueChange={(value) => handleFilterChange('status', value)}
             >
-              <SelectTrigger>
-                <SelectValue placeholder="All statuses" />
+              <SelectTrigger className="w-full text-base sm:text-sm">
+                <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
@@ -115,13 +126,13 @@ const UsersFilters: React.FC<UsersFiltersProps> = React.memo(({
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Project</label>
+            <label className="text-sm font-medium md:hidden">Project</label>
             <Select
               value={filters.project}
               onValueChange={(value) => handleFilterChange('project', value)}
             >
-              <SelectTrigger>
-                <SelectValue placeholder="All projects" />
+              <SelectTrigger className="w-full text-base sm:text-sm">
+                <SelectValue placeholder="Project" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Projects</SelectItem>
@@ -132,59 +143,56 @@ const UsersFilters: React.FC<UsersFiltersProps> = React.memo(({
           </div>
         </div>
 
+        {/* Active Filters Chips */}
         {hasActiveFilters && (
-          <div className="flex flex-wrap gap-2">
-            {filters.search && (
-              <div className="flex items-center space-x-1 bg-primary/10 text-primary px-2 py-1 rounded-md text-sm">
-                <span>Search: {filters.search}</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleFilterChange('search', '')}
-                  className="h-auto p-0 ml-1"
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </div>
-            )}
+          <div className="flex flex-wrap gap-2 pt-2 md:pt-0 items-center">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClearFilters}
+              className="h-7 px-2 text-xs hover:bg-destructive/10 hover:text-destructive"
+            >
+              Clear All
+            </Button>
+            
             {filters.role !== 'all' && (
-              <div className="flex items-center space-x-1 bg-primary/10 text-primary px-2 py-1 rounded-md text-sm">
-                <span>Role: {filters.role}</span>
+              <Badge variant="secondary" className="h-7 gap-1 pl-2 pr-1">
+                Role: {filters.role}
                 <Button
                   variant="ghost"
-                  size="sm"
+                  size="icon"
+                  className="h-4 w-4 rounded-full hover:bg-muted-foreground/20"
                   onClick={() => handleFilterChange('role', 'all')}
-                  className="h-auto p-0 ml-1"
                 >
                   <X className="h-3 w-3" />
                 </Button>
-              </div>
+              </Badge>
             )}
             {filters.status !== 'all' && (
-              <div className="flex items-center space-x-1 bg-primary/10 text-primary px-2 py-1 rounded-md text-sm">
-                <span>Status: {filters.status}</span>
+              <Badge variant="secondary" className="h-7 gap-1 pl-2 pr-1">
+                Status: {filters.status}
                 <Button
                   variant="ghost"
-                  size="sm"
+                  size="icon"
+                  className="h-4 w-4 rounded-full hover:bg-muted-foreground/20"
                   onClick={() => handleFilterChange('status', 'all')}
-                  className="h-auto p-0 ml-1"
                 >
                   <X className="h-3 w-3" />
                 </Button>
-              </div>
+              </Badge>
             )}
             {filters.project !== 'all' && (
-              <div className="flex items-center space-x-1 bg-primary/10 text-primary px-2 py-1 rounded-md text-sm">
-                <span>Project: {filters.project}</span>
+              <Badge variant="secondary" className="h-7 gap-1 pl-2 pr-1">
+                Project: {filters.project}
                 <Button
                   variant="ghost"
-                  size="sm"
+                  size="icon"
+                  className="h-4 w-4 rounded-full hover:bg-muted-foreground/20"
                   onClick={() => handleFilterChange('project', 'all')}
-                  className="h-auto p-0 ml-1"
                 >
                   <X className="h-3 w-3" />
                 </Button>
-              </div>
+              </Badge>
             )}
           </div>
         )}

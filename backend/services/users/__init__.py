@@ -4,7 +4,14 @@ Contains business logic for user management, profiles, invites, and 2FA
 """
 
 # Import user management service facade for backward compatibility
-# The facade delegates to specialized services while maintaining the original interface
+# ⚠️ DEPRECATED: The facade is kept only for backward compatibility.
+# All routes have been migrated to specialized services.
+# For new code, use specialized services directly:
+# - user_crud_service for CRUD operations
+# - user_role_service for role management
+# - user_permission_service for permission management
+# - user_statistics_service for statistics
+# - user_invite_service for invitations
 from .user_management_service_facade import UserManagementServiceFacade
 
 # Also export specialized services for direct use if needed

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,33 +12,53 @@ import NotificationDialog from './notification-dialog';
 import UserTokensDialog from './user-tokens-dialog';
 import { usePermissions } from '@/hooks/use-permissions';
 import { toast } from 'sonner';
-import { Plus, RefreshCw, Users, Edit, Trash2, Bell, Key } from 'lucide-react';
+import { Plus, RefreshCw, Users, Edit, Trash2, Bell, Key, MoreVertical, Mail, Calendar, Shield, Coins } from 'lucide-react';
 import { isAdmin, isOwner } from '@/lib/rbac-utils';
 import type { User } from '@/entities/user';
 import { handleError } from '@/lib/error-handler';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
-const UserItem = React.memo(({ 
-  user, 
-  loading, 
+// Hook to detect screen size
+const useMediaQuery = (query: string) => {
+  const [matches, setMatches] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    if (media.matches !== matches) setMatches(media.matches);
+    const listener = () => setMatches(media.matches);
+    media.addEventListener('change', listener);
+    return () => media.removeEventListener('change', listener);
+  }, [matches, query]);
+  return matches;
+};
+
+// Desktop Row Component
+const UserItem = React.memo(({
+  user,
+  loading,
   onDelete,
   onEdit,
   onTokens,
   getStatusBadge,
-  getRoleBadge,
   canEdit,
   canDelete,
-  employeeRolesFilter
-}: { 
+}: {
   user: User;
   loading: boolean;
   onDelete: (userId: number) => void;
   onEdit: (userId: number) => void;
   onTokens: (userId: number) => void;
   getStatusBadge: (user: User) => React.ReactElement | null;
-  getRoleBadge: (user: User, employeeRolesFilter?: string[]) => React.ReactElement;
   canEdit: boolean;
   canDelete: boolean;
-  employeeRolesFilter?: string[];
 }) => {
   const isProtected = React.useMemo(() => {
     const rbacRoles = user.rbac_roles || [];
@@ -61,29 +81,35 @@ const UserItem = React.memo(({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h4 className="font-medium text-sm truncate">
-              {user.first_name && user.last_name 
+              {user.first_name && user.last_name
                 ? `${user.first_name} ${user.last_name}`
                 : user.username
               }
             </h4>
-            {getRoleBadge(user, employeeRolesFilter)}
             {getStatusBadge(user)}
-            {!isProtected && (
-              <span className="text-xs text-muted-foreground">• {user.token_balance ?? 0} tokens</span>
+            {user.rbac_roles && user.rbac_roles.length > 0 && (
+              <Badge variant="outline" className="text-xs">
+                {user.rbac_roles.map(r => typeof r === 'string' ? r : r.name).join(', ')}
+              </Badge>
             )}
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-xs text-muted-foreground truncate">
-            {user.email || `@${user.username}`}
-          </p>
-            {user.expires_at ? (
-              <span className="text-xs text-muted-foreground">
-                • Until {new Date(user.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-              </span>
-            ) : (
-              <span className="text-xs text-muted-foreground">
-                • Unlimited
-              </span>
+              {user.email || `@${user.username}`}
+            </p>
+            {!isProtected && (
+              <>
+                {user.expires_at ? (
+                  <span className="text-xs text-muted-foreground">
+                    • Expires {new Date(user.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">
+                    • Unlimited access
+                  </span>
+                )}
+                <span className="text-xs text-muted-foreground">• {user.token_balance ?? 0} tokens</span>
+              </>
             )}
           </div>
         </div>
@@ -94,8 +120,8 @@ const UserItem = React.memo(({
         ) : (
           <>
             {canEdit && (
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 className="h-8 w-8"
                 onClick={() => onEdit(user.id)}
@@ -105,8 +131,8 @@ const UserItem = React.memo(({
               </Button>
             )}
             {canEdit && (
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 className="h-8 w-8"
                 onClick={() => onTokens(user.id)}
@@ -116,8 +142,8 @@ const UserItem = React.memo(({
               </Button>
             )}
             {canDelete && (
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 className="h-8 w-8 text-destructive hover:text-destructive"
                 onClick={() => onDelete(user.id)}
@@ -132,8 +158,125 @@ const UserItem = React.memo(({
     </div>
   );
 });
-
 UserItem.displayName = 'UserItem';
+
+// Mobile Card Component
+const MobileUserCard = React.memo(({
+  user,
+  loading,
+  onDelete,
+  onEdit,
+  onTokens,
+  getStatusBadge,
+  canEdit,
+  canDelete,
+}: {
+  user: User;
+  loading: boolean;
+  onDelete: (userId: number) => void;
+  onEdit: (userId: number) => void;
+  onTokens: (userId: number) => void;
+  getStatusBadge: (user: User) => React.ReactElement | null;
+  canEdit: boolean;
+  canDelete: boolean;
+}) => {
+  const isProtected = React.useMemo(() => {
+    const rbacRoles = user.rbac_roles || [];
+    if (rbacRoles.length === 0) return false;
+    const roleNames = rbacRoles
+      .map(r => (typeof r === 'string' ? r : r?.name || ''))
+      .map(name => name.toLowerCase());
+    return roleNames.includes('owner') || roleNames.includes('admin') || roleNames.includes('administrator');
+  }, [user]);
+
+  return (
+    <div className="p-3 border-b hover:bg-accent/50 transition-colors">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2.5 flex-1 min-w-0">
+          <Avatar className="h-8 w-8 shrink-0">
+            <AvatarImage src={getAvatarUrl(user.avatar)} />
+            <AvatarFallback className="text-xs">
+              {user.first_name?.[0]}{user.last_name?.[0] || user.username?.[0] || 'U'}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+              <h4 className="font-medium text-sm truncate">
+                {user.first_name && user.last_name
+                  ? `${user.first_name} ${user.last_name}`
+                  : user.username
+                }
+              </h4>
+              {getStatusBadge(user)}
+            </div>
+            <div className="flex items-center gap-1.5 flex-wrap text-xs text-muted-foreground">
+              <span className="truncate">{user.email || `@${user.username}`}</span>
+              {!isProtected && user.rbac_roles && user.rbac_roles.length > 0 && (
+                <>
+                  <span>•</span>
+                  <span>{user.rbac_roles.map(r => typeof r === 'string' ? r : r.name).join(', ')}</span>
+                </>
+              )}
+              {!isProtected && (
+                <>
+                  <span>•</span>
+                  {user.expires_at ? (
+                    <span>{new Date(user.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                  ) : (
+                    <span>Unlimited</span>
+                  )}
+                  <span>•</span>
+                  <span>{user.token_balance ?? 0} tokens</span>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+        {!isProtected && (
+          <div className="flex items-center gap-0.5 shrink-0">
+            {canEdit && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => onEdit(user.id)}
+                disabled={loading}
+              >
+                <Edit className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            {canEdit && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => onTokens(user.id)}
+                disabled={loading}
+              >
+                <Key className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            {canDelete && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-destructive hover:text-destructive"
+                onClick={() => onDelete(user.id)}
+                disabled={loading}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
+        )}
+        {isProtected && (
+          <span className="text-xs text-muted-foreground shrink-0">Protected</span>
+        )}
+      </div>
+    </div>
+  );
+});
+MobileUserCard.displayName = 'MobileUserCard';
 
 interface EmployeesListProps {
   users: User[];
@@ -142,10 +285,9 @@ interface EmployeesListProps {
   onEdit: (userId: number) => void;
   onTokens: (userId: number) => void;
   getStatusBadge: (user: User) => React.ReactElement | null;
-  getRoleBadge: (user: User, employeeRolesFilter?: string[]) => React.ReactElement;
   canEdit: boolean;
   canDelete: boolean;
-  employeeRolesFilter?: string[];
+  isMobile: boolean;
 }
 
 const EmployeesList: React.FC<EmployeesListProps> = ({
@@ -155,23 +297,63 @@ const EmployeesList: React.FC<EmployeesListProps> = ({
   onEdit,
   onTokens,
   getStatusBadge,
-  getRoleBadge,
   canEdit,
   canDelete,
-  employeeRolesFilter
+  isMobile
 }) => {
 
   const parentRef = useRef<HTMLDivElement>(null);
-  // Lower threshold for better performance - virtualize when more than 30 items
   const shouldVirtualize = users.length > 30;
+
+  // Adjusted height for mobile cards vs desktop rows
+  const itemHeight = isMobile ? 70 : 65;
 
   const rowVirtualizer = useVirtualizer({
     count: shouldVirtualize ? users.length : 0,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 100,
+    estimateSize: () => itemHeight,
     overscan: 5,
     enabled: shouldVirtualize,
   });
+
+  // Update measurements when view changes
+  useEffect(() => {
+    rowVirtualizer.measure();
+  }, [isMobile, rowVirtualizer]);
+
+  const renderItem = (user: User, index: number, style?: React.CSSProperties) => {
+    if (isMobile) {
+      return (
+        <div key={user.id} style={style}>
+          <MobileUserCard
+            user={user}
+            loading={loading}
+            onDelete={onDelete}
+            onEdit={onEdit}
+            onTokens={onTokens}
+            getStatusBadge={getStatusBadge}
+            canEdit={canEdit}
+            canDelete={canDelete}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div key={user.id} data-index={index} style={style}>
+        <UserItem
+          user={user}
+          loading={loading}
+          onDelete={onDelete}
+          onEdit={onEdit}
+          onTokens={onTokens}
+          getStatusBadge={getStatusBadge}
+          canEdit={canEdit}
+          canDelete={canDelete}
+        />
+      </div>
+    );
+  };
 
   if (shouldVirtualize) {
     return (
@@ -187,35 +369,16 @@ const EmployeesList: React.FC<EmployeesListProps> = ({
             position: 'relative',
           }}
         >
-          <div className="divide-y">
+          <div className={isMobile ? "p-1" : ""}>
             {rowVirtualizer.getVirtualItems().map((virtualRow) => {
               const user = users[virtualRow.index];
-              return (
-                <div
-                  key={user.id}
-                  data-index={virtualRow.index}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    transform: `translateY(${virtualRow.start}px)`,
-                  }}
-                >
-                  <UserItem
-                    user={user}
-                    loading={loading}
-                    onDelete={onDelete}
-                    onEdit={onEdit}
-                    onTokens={onTokens}
-                    getStatusBadge={getStatusBadge}
-                    getRoleBadge={getRoleBadge}
-                    canEdit={canEdit}
-                    canDelete={canDelete}
-                    employeeRolesFilter={employeeRolesFilter}
-                  />
-                </div>
-              );
+              return renderItem(user, virtualRow.index, {
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                transform: `translateY(${virtualRow.start}px)`,
+              });
             })}
           </div>
         </div>
@@ -224,22 +387,8 @@ const EmployeesList: React.FC<EmployeesListProps> = ({
   }
 
   return (
-    <div className="divide-y">
-      {users.map((user) => (
-        <UserItem
-          key={user.id}
-          user={user}
-          loading={loading}
-          onDelete={onDelete}
-          onEdit={onEdit}
-          onTokens={onTokens}
-          getStatusBadge={getStatusBadge}
-          getRoleBadge={getRoleBadge}
-          canEdit={canEdit}
-          canDelete={canDelete}
-          employeeRolesFilter={employeeRolesFilter}
-        />
-      ))}
+    <div className={isMobile ? "flex flex-col gap-1" : ""}>
+      {users.map((user, index) => renderItem(user, index))}
     </div>
   );
 };
@@ -263,9 +412,9 @@ interface EmployeesTabProps {
   employeeRolesFilter?: string[];
 }
 
-const EmployeesTab: React.FC<EmployeesTabProps> = ({ 
-  fetchUsersWithTracking, 
-  currentPage, 
+const EmployeesTab: React.FC<EmployeesTabProps> = ({
+  fetchUsersWithTracking,
+  currentPage,
   perPage,
   users,
   loading,
@@ -274,7 +423,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   deleteExistingUser,
   employeeRolesFilter = ['admin', 'seller', 'developer', 'moderator']
 }) => {
-
+  const isMobile = useMediaQuery('(max-width: 768px)');
   const activeRolesFilter = employeeRolesFilter || ['admin', 'seller', 'developer', 'moderator'];
 
   const { hasPermission } = usePermissions();
@@ -299,52 +448,13 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     repeatCount: 1
   });
 
-  const getRoleDisplayName = useCallback((role: string) => {
-    const roleNames: Record<string, string> = {
-      'admin': 'Administrator',
-      'developer': 'Developer',
-      'seller': 'Seller',
-      'user': 'Employee',
-      'custom': 'Custom Role',
-    }
-    return roleNames[role] || role
-  }, [])
-
   const getStatusBadge = useCallback((user: User) => {
     if (user.expires_at && new Date(user.expires_at) < new Date()) {
-      return <span className="text-xs text-muted-foreground">Expired</span>
+      return <span className="text-xs text-muted-foreground bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 px-1.5 py-0.5 rounded">Expired</span>
     }
     return null;
   }, [])
 
-  const getRoleBadge = useCallback((user: User, employeeRolesFilter?: string[]) => {
-    const rbacRoles = user.rbac_roles || [];
-    let roleName = '';
-
-    if (rbacRoles.length > 0) {
-      const firstRole = rbacRoles[0];
-      roleName = typeof firstRole === 'string' ? firstRole : (firstRole?.name || '');
-    } else {
-      const legacyRoles = user.roles || [];
-      if (legacyRoles.length > 0) {
-        roleName = legacyRoles[0];
-      }
-    }
-
-    if (!roleName) {
-      return <span className="text-xs text-muted-foreground">Employee</span>
-    }
-
-    const roleNameLower = roleName.toLowerCase();
-    if (roleNameLower === 'owner') {
-      return <span className="text-xs text-muted-foreground">Owner</span>
-    }
-    if (roleNameLower === 'admin' || roleNameLower === 'administrator') {
-      return <span className="text-xs text-muted-foreground">Admin</span>
-    }
-
-    return <span className="text-xs text-muted-foreground">{getRoleDisplayName(roleName)}</span>
-  }, [getRoleDisplayName])
 
   const handleDeleteUser = useCallback(async (userId: number) => {
     const userToDelete = users.find(u => u.id === userId)
@@ -369,7 +479,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
         })
       }
     }
-  }, [users, deleteExistingUser, fetchUsersWithTracking])
+  }, [users, deleteExistingUser, fetchUsersWithTracking, activeRolesFilter])
 
   const handleEditUser = useCallback((userId: number) => {
     const user = users.find(u => u.id === userId);
@@ -384,8 +494,8 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     if (user) {
       setSelectedUserIdForTokens(userId);
       setSelectedUserNameForTokens(
-        user.first_name && user.last_name 
-          ? `${user.first_name} ${user.last_name}` 
+        user.first_name && user.last_name
+          ? `${user.first_name} ${user.last_name}`
           : user.username || `User ${userId}`
       );
       setIsTokensDialogOpen(true);
@@ -445,7 +555,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
         method: 'POST',
         credentials: 'include',
         headers: {
-          'Content-Type': 'product/json'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(notificationData)
       })
@@ -479,8 +589,8 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader className="pb-0">
+      <Card className={cn(isMobile && "border-0 shadow-none bg-transparent")}>
+        <CardHeader className={cn(isMobile && "px-0 pt-0")}>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-base">Employees</CardTitle>
@@ -489,17 +599,17 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 onClick={() => fetchUsersWithTracking({ roles: activeRolesFilter })}
                 disabled={loading}
               >
-                <RefreshCw className="h-4 w-4" />
+                <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
               </Button>
               <ConditionalRender permission="employees.create" fallback={null}>
-                <Button 
-                  variant="default" 
+                <Button
+                  variant="default"
                   size="sm"
                   onClick={() => setIsCreateUserDialogOpen(true)}
                   disabled={loading}
@@ -509,8 +619,8 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                 </Button>
               </ConditionalRender>
               <ConditionalRender permission="employees.send_notification" fallback={null}>
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   size="icon"
                   onClick={() => setIsNotificationDialogOpen(true)}
                   disabled={loading || users.length === 0}
@@ -521,12 +631,14 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
             </div>
           </div>
         </CardHeader>
-        <CardContent className="pt-0 -mt-3">
+        <CardContent className={cn("pt-0", !isMobile && "-mt-3", isMobile && "px-0")}>
           {loading ? (
-            <Spinner message="Loading employees..." />
+            <div className="flex justify-center py-8">
+              <Spinner message="Loading employees..." />
+            </div>
           ) : error ? (
             <div className="flex items-center justify-center py-8">
-              <div className="text-red-500">Error: {error}</div>
+              <div className="text-red-500 text-sm text-center px-4">Error: {error}</div>
             </div>
           ) : users.length === 0 ? (
             <div className="flex items-center justify-center py-12">
@@ -543,10 +655,9 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
               onEdit={handleEditUser}
               onTokens={handleTokens}
               getStatusBadge={getStatusBadge}
-              getRoleBadge={getRoleBadge}
               canEdit={canEditUsers}
               canDelete={canDeleteUsers}
-              employeeRolesFilter={activeRolesFilter}
+              isMobile={isMobile}
             />
           )}
         </CardContent>

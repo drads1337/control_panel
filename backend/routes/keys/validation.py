@@ -20,12 +20,8 @@ validation_bp = Blueprint("keys_validation", __name__)
 @require_project_with_grace_period
 @require_project_isolation
 @validate_request(KeyValidateSchema)
-def validate_key(current_user=None, project_id=None, validated_data=None):
+def validate_key(current_user, project_id=None, validated_data=None):
     """Validate a key"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404

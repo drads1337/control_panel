@@ -162,11 +162,11 @@ export function DashboardPage({ type }: DashboardPageProps) {
                   All projects in the system
                 </CardDescription>
               </CardHeader>
-              <CardContent className="p-4 sm:p-6">
-                <div className="space-y-3 sm:space-y-4">
+              <CardContent className="p-3 sm:p-4 md:p-6">
+                <div className="flex sm:block gap-3 sm:gap-0 overflow-x-auto sm:overflow-x-visible pb-2 sm:pb-0 -mx-2 sm:mx-0 px-2 sm:px-0 no-scrollbar sm:space-y-3 md:space-y-4">
                   {(data as OwnerDashboardStats)?.project_analytics && (data as OwnerDashboardStats).project_analytics.length > 0 ? (
                     (data as OwnerDashboardStats).project_analytics.map((project: any) => (
-                      <div key={project.project_id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border bg-card">
+                      <div key={project.project_id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border bg-card min-w-[280px] sm:min-w-0 flex-shrink-0 sm:flex-shrink">
                         <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
                           <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                             <Building2 className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
@@ -192,7 +192,7 @@ export function DashboardPage({ type }: DashboardPageProps) {
                       </div>
                     ))
                   ) : (
-                    <div className="text-center py-6 text-muted-foreground">
+                    <div className="text-center py-6 text-muted-foreground w-full">
                       <Building2 className="h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-2 opacity-50" />
                       <p className="text-sm">No projects found</p>
                     </div>

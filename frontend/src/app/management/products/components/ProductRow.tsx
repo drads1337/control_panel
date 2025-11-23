@@ -6,6 +6,7 @@ import { sanitizeString } from '@/lib/sanitization';
 import type { Product } from '@/entities/product';
 import { ProductSelectionCheckbox } from './ProductSelectionCheckbox';
 import { ProductActions } from './ProductActions';
+import { cn } from '@/lib/utils';
 
 interface ProductRowProps {
   product: Product;
@@ -51,54 +52,72 @@ export const ProductRow: React.FC<ProductRowProps> = React.memo(({
   const statusType = product.status as StatusType;
 
   return (
-    <div className="flex items-center justify-between p-2.5 border-b hover:bg-accent/50 transition-colors">
-      <div className="flex items-center gap-3 flex-1 min-w-0">
+    <div className={cn(
+      "flex items-center justify-between p-3 border-b transition-colors",
+      isSelected ? "bg-accent/40" : "hover:bg-accent/30"
+    )}>
+      <div className="flex items-center gap-3 flex-1 min-w-0 mr-4">
         <ProductSelectionCheckbox
           productId={product.id}
           isSelected={isSelected}
           onToggleSelection={onToggleSelection}
         />
         
-        <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-          <Package className="h-4 w-4 text-primary" />
+        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+          <Package className="h-5 w-5 text-primary" />
         </div>
         
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            <h4 className="font-medium text-sm truncate">{product.name}</h4>
+            <h4 className="font-medium text-sm truncate max-w-[200px] sm:max-w-xs">
+              {product.name}
+            </h4>
             {isSelected && (
-              <Check className="h-3 w-3 text-primary" />
+              <Check className="h-3 w-3 text-primary shrink-0" />
             )}
-            <span className={getStatusClasses(statusType)}>
+            <span className={cn("shrink-0 text-[10px] px-1.5 py-0.5 rounded-full border", getStatusClasses(statusType))}>
               {getStatusText(statusType)}
             </span>
           </div>
           
           {product.description && (
-            <p className="text-xs text-muted-foreground truncate mb-1">
+            <p className="text-xs text-muted-foreground truncate mb-1.5 max-w-[300px] md:max-w-[400px]">
               {sanitizeString(product.description)}
             </p>
           )}
           
-          <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
-            <span className="font-mono">ID: {product.unique_id}</span>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+            {/* Version - Always visible */}
+            <span className="font-medium text-foreground/80">v{product.version}</span>
+            
             <span>•</span>
-            <span>v{product.version}</span>
-            <span>•</span>
+            
+            {/* Type Badge - Always visible */}
             <Badge
               variant={product.login_type === 'classic_login' ? 'default' : 'secondary'}
-              className="text-xs h-4 px-1.5"
+              className="text-[10px] h-4 px-1.5 font-normal"
             >
               {product.login_type === 'classic_login' ? 'Classic' : 'License'}
             </Badge>
-            <span>•</span>
-            <span>{product.downloads.toLocaleString()} downloads</span>
-            <span>•</span>
-            <span>{(product.activeUsers || product.active_users || 0).toLocaleString()} users</span>
+
+            {/* ID - Hidden on tablets, visible on large screens */}
+            <span className="hidden xl:inline-flex items-center gap-2">
+               <span>•</span>
+               <span className="font-mono text-[10px] opacity-70">ID: {product.unique_id}</span>
+            </span>
+
+            {/* Stats - Hidden on smaller laptops/tablets, visible on XL screens */}
+            <span className="hidden 2xl:inline-flex items-center gap-2">
+              <span>•</span>
+              <span>{product.downloads.toLocaleString()} downloads</span>
+              <span>•</span>
+              <span>{(product.activeUsers || product.active_users || 0).toLocaleString()} users</span>
+            </span>
           </div>
         </div>
       </div>
       
+      {/* Actions Component - Handles its own responsiveness (Dropdown vs Icons) */}
       <ProductActions
         product={product}
         onViewProduct={onViewProduct}
@@ -122,4 +141,3 @@ export const ProductRow: React.FC<ProductRowProps> = React.memo(({
 });
 
 ProductRow.displayName = 'ProductRow';
-

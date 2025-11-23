@@ -16,7 +16,8 @@ from ...middleware.validation import validate_request
 from ...models import Product, Key, User
 from ...schemas.key import KeyCreateSchema, KeyExtendSchema, KeyMoveSchema, KeyUpdateSchema, CustomKeyCreateSchema
 from ...services.activity import activity_service
-from ...services.keys.key_service_facade import key_service
+from ...services.keys.key_crud_service import key_crud_service
+from ...services.keys.key_generation_service import key_generation_service
 from ...services.rbac import rbac_service
 from ...utils.data_masking import mask_license_key
 from ...utils.rbac_utils import RBACManager
@@ -53,12 +54,10 @@ def find_key_by_id_or_unique_id(key_identifier, project_id):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def get_keys(current_user=None, project_id=None):
+def get_keys(current_user, project_id=None):
     """Get list of keys with filtering and pagination"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
+    import logging
+    logger = logging.getLogger(__name__)
 
     if not current_user:
         return jsonify({"error": "Access denied"}), 403
@@ -67,25 +66,59 @@ def get_keys(current_user=None, project_id=None):
         return jsonify({"error": "User must be assigned to a project"}), 403
 
     my_keys = request.args.get("my_keys", "false").lower() == "true"
+    
+    # Get status filter, but ignore if it's "all"
+    status_arg = request.args.get("status")
+    status_filter = None if (status_arg is None or status_arg.lower() == "all") else status_arg
+    
     filters = {
         "page": request.args.get("page", 1, type=int),
         "per_page": request.args.get("per_page", 20, type=int),
-        "status": request.args.get("status"),
+        "status": status_filter,
         "product_id": request.args.get("product_id", type=int),
         "search": request.args.get("search"),
         "my_keys": my_keys,
     }
 
+    logger.info(
+        f"🔑 GET /api/keys - user_id={current_user.id}, project_id={current_user.project_id}, "
+        f"filters={filters}, query_params={dict(request.args)}"
+    )
+
     if filters["product_id"]:
         product = Product.query.filter_by(id=filters["product_id"], project_id=current_user.project_id).first()
         if not product:
+            logger.warning(f"❌ Product {filters['product_id']} not found for project {current_user.project_id}")
             return jsonify({"error": "Product not found or access denied"}), 404
 
-    keys, total_count = key_service.get_keys(current_user, filters)
+    result, error = key_crud_service.get_keys(current_user, filters)
+    if error:
+        return jsonify({"error": error}), 500
+    if not result:
+        keys = []
+        total_count = 0
+    else:
+        # Convert KeyListResponse to legacy format
+        keys = [key.model_dump() for key in result.keys]
+        total_count = result.total
+    
+    logger.info(
+        f"✅ GET /api/keys response - keys_count={len(keys)}, total_count={total_count}, "
+        f"page={filters['page']}, per_page={filters['per_page']}"
+    )
 
     page = filters["page"]
     per_page = filters["per_page"]
-    pages = (total_count + per_page - 1) // per_page
+    
+    # Ensure pages is at least 1 even when total is 0 (for proper pagination UI)
+    if total_count == 0:
+        pages = 0
+    else:
+        pages = (total_count + per_page - 1) // per_page
+
+    # Ensure keys is always a list
+    if keys is None:
+        keys = []
 
     return jsonify(
         {
@@ -102,14 +135,10 @@ def get_keys(current_user=None, project_id=None):
 @require_project_with_grace_period
 @require_project_isolation
 @validate_request(KeyCreateSchema)
-def create_key(current_user=None, project_id=None, validated_data=None):
+def create_key(current_user, project_id=None, validated_data=None):
     """Create a new key"""
     logger = logging.getLogger(__name__)
     logger.info(f"🔑 Create key request - Origin: {request.headers.get('Origin')}")
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
@@ -154,7 +183,7 @@ def create_key(current_user=None, project_id=None, validated_data=None):
     if not product:
         return jsonify({"error": "Product ID is required"}), 400
 
-    key, error = key_service.create_key(current_user, key_data)
+    key, error = key_crud_service.create_key(current_user, key_data)
     if error:
         logger.error(f"🔑 Failed to create key: {error}")
         return jsonify({"error": error}), 500
@@ -214,14 +243,10 @@ def create_key(current_user=None, project_id=None, validated_data=None):
 @require_project_with_grace_period
 @require_project_isolation
 @validate_request(CustomKeyCreateSchema)
-def create_custom_key(current_user=None, project_id=None, validated_data=None):
+def create_custom_key(current_user, project_id=None, validated_data=None):
     """Create a custom key with a specified key string"""
     logger = logging.getLogger(__name__)
     logger.info(f"🔑 Create custom key request - Origin: {request.headers.get('Origin')}")
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
@@ -352,12 +377,8 @@ def create_custom_key(current_user=None, project_id=None, validated_data=None):
 @require_project_with_grace_period
 @require_project_isolation
 @validate_request(KeyUpdateSchema)
-def update_key(key_id, current_user=None, project_id=None, validated_data=None):
+def update_key(key_id, current_user, project_id=None, validated_data=None):
     """Update a key"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
@@ -376,7 +397,7 @@ def update_key(key_id, current_user=None, project_id=None, validated_data=None):
     if not can_manage_key(current_user, key, "keys.edit"):
         return jsonify({"error": "You do not have permission to edit this key"}), 403
 
-    key, error = key_service.update_key(current_user, key.id, data)
+    key, error = key_crud_service.update_key(current_user, key.id, data)
     if error:
         return jsonify({"error": error}), 400
 
@@ -393,12 +414,8 @@ def update_key(key_id, current_user=None, project_id=None, validated_data=None):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def delete_key(key_id, current_user=None, project_id=None):
+def delete_key(key_id, current_user, project_id=None):
     """Delete a key"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
@@ -418,7 +435,7 @@ def delete_key(key_id, current_user=None, project_id=None):
     if not can_manage_key(current_user, key, "keys.delete"):
         return jsonify({"error": "You do not have permission to delete this key"}), 403
 
-    success, error = key_service.delete_key(current_user, key.id)
+    success, error = key_crud_service.delete_key(current_user, key.id)
     if not success:
         return jsonify({"error": error}), 500
 
@@ -438,12 +455,8 @@ def delete_key(key_id, current_user=None, project_id=None):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def reset_key(key_id, current_user=None, project_id=None):
+def reset_key(key_id, current_user, project_id=None):
     """Reset a key"""
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
-
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
@@ -483,12 +496,8 @@ def reset_key(key_id, current_user=None, project_id=None):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def pause_key(key_id, current_user=None, project_id=None):
+def pause_key(key_id, current_user, project_id=None):
     """Pause a key"""
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
-
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
@@ -542,12 +551,8 @@ def pause_key(key_id, current_user=None, project_id=None):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def resume_key(key_id, current_user=None, project_id=None):
+def resume_key(key_id, current_user, project_id=None):
     """Resume a key"""
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
-
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
@@ -602,12 +607,8 @@ def resume_key(key_id, current_user=None, project_id=None):
 @require_project_with_grace_period
 @require_project_isolation
 @validate_request(KeyExtendSchema)
-def extend_key(key_id, current_user=None, project_id=None, validated_data=None):
+def extend_key(key_id, current_user, project_id=None, validated_data=None):
     """Extend a key"""
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
-
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
@@ -650,12 +651,8 @@ def extend_key(key_id, current_user=None, project_id=None, validated_data=None):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def duplicate_key(key_id, current_user=None, project_id=None):
+def duplicate_key(key_id, current_user, project_id=None):
     """Duplicate a key"""
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
-
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
@@ -668,14 +665,12 @@ def duplicate_key(key_id, current_user=None, project_id=None):
         return jsonify({"error": "Key not found or access denied"}), 404
 
     try:
-        from ...services.keys.key_service_facade import key_service
-
         product = Product.query.get(key.product_id) if key.product_id else None
 
         if not product:
             return jsonify({"error": "Product not found"}), 404
 
-        new_key_string = key_service.generate_key_string(
+        new_key_string = key_generation_service.generate_key_string(
             length=32, product=product, duration_hours=key.duration_hours, project_id=current_user.project_id
         )
 
@@ -724,12 +719,8 @@ def duplicate_key(key_id, current_user=None, project_id=None):
 @require_project_with_grace_period
 @require_project_isolation
 @validate_request(KeyMoveSchema)
-def move_key(key_id, current_user=None, project_id=None, validated_data=None):
+def move_key(key_id, current_user, project_id=None, validated_data=None):
     """Move a key to another user"""
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
-
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
@@ -773,12 +764,8 @@ def move_key(key_id, current_user=None, project_id=None, validated_data=None):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def block_key(key_id, current_user=None, project_id=None):
+def block_key(key_id, current_user, project_id=None):
     """Block a key"""
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
-
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
@@ -869,12 +856,8 @@ def block_key(key_id, current_user=None, project_id=None):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def unblock_key(key_id, current_user=None, project_id=None):
+def unblock_key(key_id, current_user, project_id=None):
     """Unblock a key"""
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
-
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
@@ -928,12 +911,8 @@ def unblock_key(key_id, current_user=None, project_id=None):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def archive_key(key_id, current_user=None, project_id=None):
+def archive_key(key_id, current_user, project_id=None):
     """Archive a key"""
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
-
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
@@ -972,12 +951,8 @@ def archive_key(key_id, current_user=None, project_id=None):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def restore_key(key_id, current_user=None, project_id=None):
+def restore_key(key_id, current_user, project_id=None):
     """Restore an archived key"""
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
-
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
@@ -1016,12 +991,8 @@ def restore_key(key_id, current_user=None, project_id=None):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def export_key(key_id, current_user=None, project_id=None):
+def export_key(key_id, current_user, project_id=None):
     """Export a single key"""
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
-
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
@@ -1081,16 +1052,12 @@ def export_key(key_id, current_user=None, project_id=None):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def download_key(key_id, current_user=None, project_id=None):
+def download_key(key_id, current_user, project_id=None):
     """Download a key as JSON file
 
     SECURITY: Requires keys.view permission to download full key.
     Users without permission will receive a masked key.
     """
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
-
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
@@ -1161,7 +1128,7 @@ def download_key(key_id, current_user=None, project_id=None):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def get_key_details(key_id, current_user=None, project_id=None):
+def get_key_details(key_id, current_user, project_id=None):
     """Get detailed information about a key
 
     SECURITY: By default, keys are masked. Full keys are only returned if:
@@ -1172,10 +1139,6 @@ def get_key_details(key_id, current_user=None, project_id=None):
     This endpoint uses a more lenient rate limit (60/min) to allow users
     to view multiple keys in quick succession without hitting rate limits.
     """
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
-
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
@@ -1259,7 +1222,7 @@ def get_key_details(key_id, current_user=None, project_id=None):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def reveal_key(key_id, current_user=None, project_id=None):
+def reveal_key(key_id, current_user, project_id=None):
     """Reveal full license key
 
     SECURITY: This endpoint requires keys.see_analytics or keys.copy permission to reveal full keys.
@@ -1269,10 +1232,6 @@ def reveal_key(key_id, current_user=None, project_id=None):
     Returns:
         Full key value if user has permission, otherwise returns masked key.
     """
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
-
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 

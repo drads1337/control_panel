@@ -21,7 +21,8 @@ from ...schemas.key import (
     LoaderKeyCreateSchema,
 )
 from ...services.activity import activity_service
-from ...services.keys.key_service_facade import key_service
+from ...services.keys.key_generation_service import key_generation_service
+from ...services.keys.key_bulk_operations_service import key_bulk_operations_service
 from ...utils.rbac_utils import RBACManager
 
 loader_bp = Blueprint("keys_loader", __name__)
@@ -31,12 +32,8 @@ loader_bp = Blueprint("keys_loader", __name__)
 @require_project_with_grace_period
 @require_project_isolation
 @validate_request(LoaderKeyCreateSchema)
-def create_loader_key(current_user=None, project_id=None, validated_data=None):
+def create_loader_key(current_user, project_id=None, validated_data=None):
     """Create a agent key"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
@@ -59,7 +56,7 @@ def create_loader_key(current_user=None, project_id=None, validated_data=None):
     if len(products) != len(product_ids):
         return jsonify({"error": "Some products not found or access denied"}), 404
 
-    unified_key_string = key_service.generate_key_string(
+    unified_key_string = key_generation_service.generate_key_string(
         32, agent=agent, duration_hours=duration_hours, project_id=current_user.project_id
     )
 
@@ -141,12 +138,8 @@ def create_loader_key(current_user=None, project_id=None, validated_data=None):
 @require_project_with_grace_period
 @require_project_isolation
 @validate_request(CustomLoaderKeyCreateSchema)
-def create_custom_loader_key(current_user=None, project_id=None, validated_data=None):
+def create_custom_loader_key(current_user, project_id=None, validated_data=None):
     """Create a custom agent key"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
@@ -253,12 +246,8 @@ def create_custom_loader_key(current_user=None, project_id=None, validated_data=
 @require_project_with_grace_period
 @require_project_isolation
 @validate_request(BulkLoaderKeyCreateSchema)
-def bulk_create_loader_keys(current_user=None, project_id=None, validated_data=None):
+def bulk_create_loader_keys(current_user, project_id=None, validated_data=None):
     """Bulk create agent keys - uses async tasks for large operations"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
@@ -292,7 +281,7 @@ def bulk_create_loader_keys(current_user=None, project_id=None, validated_data=N
             from ...models import Key
 
             for i in range(count):
-                key_string = key_service.generate_key_string(
+                key_string = key_generation_service.generate_key_string(
                     length=32, agent=agent, duration_hours=duration_hours, project_id=current_user.project_id
                 )
 
@@ -433,12 +422,8 @@ def bulk_create_loader_keys(current_user=None, project_id=None, validated_data=N
 @require_project_with_grace_period
 @require_project_isolation
 @validate_request(BulkLoaderKeyActionSchema)
-def bulk_pause_loader_keys(current_user=None, project_id=None, validated_data=None):
+def bulk_pause_loader_keys(current_user, project_id=None, validated_data=None):
     """Bulk pause agent keys"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
@@ -496,12 +481,8 @@ def bulk_pause_loader_keys(current_user=None, project_id=None, validated_data=No
 @require_project_with_grace_period
 @require_project_isolation
 @validate_request(BulkLoaderKeyActionSchema)
-def bulk_resume_loader_keys(current_user=None, project_id=None, validated_data=None):
+def bulk_resume_loader_keys(current_user, project_id=None, validated_data=None):
     """Bulk resume agent keys"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
@@ -559,12 +540,8 @@ def bulk_resume_loader_keys(current_user=None, project_id=None, validated_data=N
 @require_project_with_grace_period
 @require_project_isolation
 @validate_request(BulkLoaderKeyActionSchema)
-def bulk_reset_loader_keys(current_user=None, project_id=None, validated_data=None):
+def bulk_reset_loader_keys(current_user, project_id=None, validated_data=None):
     """Bulk reset agent keys"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
@@ -615,12 +592,8 @@ def bulk_reset_loader_keys(current_user=None, project_id=None, validated_data=No
 @require_project_with_grace_period
 @require_project_isolation
 @validate_request(BulkAddHoursSchema)
-def bulk_add_hours_loader_keys(current_user=None, project_id=None, validated_data=None):
+def bulk_add_hours_loader_keys(current_user, project_id=None, validated_data=None):
     """Bulk add hours to agent keys"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
@@ -675,12 +648,8 @@ def bulk_add_hours_loader_keys(current_user=None, project_id=None, validated_dat
 @require_project_with_grace_period
 @require_project_isolation
 @validate_request(BulkLoaderKeyActionSchema)
-def bulk_delete_unused_loader_keys(current_user=None, project_id=None, validated_data=None):
+def bulk_delete_unused_loader_keys(current_user, project_id=None, validated_data=None):
     """Bulk delete unused agent keys"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
@@ -696,7 +665,7 @@ def bulk_delete_unused_loader_keys(current_user=None, project_id=None, validated
     if not agent:
         return jsonify({"error": "Agent not found or access denied"}), 404
 
-    deleted_count, error = key_service.bulk_delete_unused_loader_keys(current_user, agent_id)
+    deleted_count, error = key_bulk_operations_service.bulk_delete_unused_loader_keys(current_user, agent_id)
 
     if error:
         return jsonify({"error": error}), 500
@@ -720,12 +689,8 @@ def bulk_delete_unused_loader_keys(current_user=None, project_id=None, validated
 @require_project_with_grace_period
 @require_project_isolation
 @validate_request(BulkLoaderKeyActionSchema)
-def bulk_delete_expired_loader_keys(current_user=None, project_id=None, validated_data=None):
+def bulk_delete_expired_loader_keys(current_user, project_id=None, validated_data=None):
     """Bulk delete expired agent keys"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
@@ -741,7 +706,7 @@ def bulk_delete_expired_loader_keys(current_user=None, project_id=None, validate
     if not agent:
         return jsonify({"error": "Agent not found or access denied"}), 404
 
-    deleted_count, error = key_service.bulk_delete_expired_loader_keys(current_user, agent_id)
+    deleted_count, error = key_bulk_operations_service.bulk_delete_expired_loader_keys(current_user, agent_id)
 
     if error:
         return jsonify({"error": error}), 500

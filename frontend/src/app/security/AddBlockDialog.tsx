@@ -78,7 +78,17 @@ export default function AddBlockDialog({ config, onAdd, loading = false }: AddBl
             {config.buttonText}
           </Button>
         </DialogTrigger>
-        <DialogContent className={config.dialogMaxWidth || "sm:max-w-[700px]"}>
+        {/* 
+            АДАПТАЦИЯ: 
+            1. w-[95vw]: на мобильных ширина почти во весь экран.
+            2. max-h-[90vh] + overflow-y-auto: скролл, если форма не влезает по высоте.
+            3. config.dialogMaxWidth применяем через cn(), но он должен быть в формате sm:max-w-..., 
+               чтобы не перебивать мобильную ширину. Если в конфиге жесткий класс, он применится корректно.
+        */}
+        <DialogContent className={cn(
+          "w-[95vw] max-h-[90vh] overflow-y-auto",
+          config.dialogMaxWidth || "sm:max-w-[700px]"
+        )}>
           <DialogHeader>
             <DialogTitle className="text-base">{config.title}</DialogTitle>
             <DialogDescription className="mt-1 text-xs">
@@ -95,11 +105,21 @@ export default function AddBlockDialog({ config, onAdd, loading = false }: AddBl
               onExpiresDateChange={setExpiresDate}
             />
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            {/* АДАПТАЦИЯ: Кнопки в колонку на мобильных, в ряд на десктопе */}
+            <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setOpen(false)}
+                className="w-full sm:w-auto"
+              >
                 Cancel
               </Button>
-              <Button type="submit" disabled={loading || !isValid}>
+              <Button 
+                type="submit" 
+                disabled={loading || !isValid}
+                className="w-full sm:w-auto"
+              >
                 {loading ? (<><Spinner className="mr-2 h-4 w-4 animate-spin" />Blocking...</>) : config.submitButtonText}
               </Button>
             </DialogFooter>

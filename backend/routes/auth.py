@@ -242,8 +242,8 @@ def register(validated_data=None):
         if not validated_data:
             return jsonify({"error": "REGISTRATION_FAILED", "message": "Invalid request data"}), 400
 
-        user_management_service = get_service('user_management_service')
-        user, error = user_management_service.create_user(
+        from ...services.users.user_crud_service import user_crud_service
+        user, error = user_crud_service.create_user(
             validated_data["username"], validated_data["email"], validated_data["password"]
         )
         if not user:
@@ -349,8 +349,8 @@ def register_with_invite():
                 invite.project_id = project_id
                 db.session.commit()
 
-        user_management_service = get_service('user_management_service')
-        user, error = user_management_service.create_user(
+        from ...services.users.user_crud_service import user_crud_service
+        user, error = user_crud_service.create_user(
             username, None, password, project_id, UserRoles.ADMIN.value
         )
         if not user:

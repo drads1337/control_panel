@@ -68,13 +68,45 @@ class KeyServiceFacade:
         Note: Returns legacy format (List[Dict], int) for backward compatibility.
         The underlying service returns KeyListResponse, which is converted here.
         """
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info(
+            f"🔑 KeyServiceFacade.get_keys - user_id={user.id}, project_id={user.project_id}, "
+            f"filters={filters}"
+        )
+        
         result, error = self.crud_service.get_keys(user, filters)
+        
         if error:
+            logger.error(f"❌ KeyServiceFacade.get_keys error: {error}")
             return [], 0
+        
         if result:
             # Convert KeyListResponse to legacy format
+            logger.info(
+                f"📦 KeyServiceFacade.get_keys - result received: "
+                f"keys_count={len(result.keys)}, total={result.total}"
+            )
+            
             keys_dict = [key.model_dump() for key in result.keys]
+            
+            logger.info(
+                f"✅ KeyServiceFacade.get_keys - returning {len(keys_dict)} keys, total={result.total}"
+            )
+            
+            if len(keys_dict) == 0 and result.total > 0:
+                logger.warning(
+                    f"⚠️ KeyServiceFacade.get_keys - WARNING: "
+                    f"result.total={result.total} but keys_dict is empty! "
+                    f"This might indicate a conversion issue."
+                )
+            
             return keys_dict, result.total
+        
+        logger.warning(
+            f"⚠️ KeyServiceFacade.get_keys - result is None, returning empty list"
+        )
         return [], 0
 
     def get_key_details(

@@ -88,22 +88,22 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 px-2 sm:px-0">
       {}
       <div>
-        <h2 className="text-2xl font-semibold mb-1">Settings</h2>
-        <p className="text-sm text-muted-foreground">
+        <h2 className="text-xl sm:text-2xl font-semibold mb-1">Settings</h2>
+        <p className="text-xs sm:text-sm text-muted-foreground">
           Manage product settings and configuration
         </p>
       </div>
 
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          <div className="lg:col-span-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
+          <div className="md:col-span-2 lg:col-span-3">
             <CryptographicKeys settings={settings} isSaving={isSaving} />
           </div>
-          <div className="lg:col-span-2 space-y-6">
+          <div className="md:col-span-2 lg:col-span-2 space-y-4 sm:space-y-6">
             <AppearanceSettings />
             {canAccessFeature(user, 'project_settings') && (
               <CurrentProjectInfo currentProject={currentProject} />

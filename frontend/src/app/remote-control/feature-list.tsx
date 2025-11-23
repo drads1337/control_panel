@@ -40,14 +40,17 @@ const FeatureItem = React.memo(({
 }) => {
   return (
     <div className="flex items-center justify-between p-2.5 border-b hover:bg-accent/50 transition-colors">
-      <div className="flex items-center gap-3 flex-1 min-w-0">
+      {/* АДАПТАЦИЯ: pr-2 добавляет отступ от кнопок на мобильном */}
+      <div className="flex items-center gap-3 flex-1 min-w-0 pr-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h4 className="font-medium text-sm truncate">
               {feature.name}
             </h4>
             {feature.enabled && (
-              <span className="text-xs text-muted-foreground">• Enabled</span>
+              // АДАПТАЦИЯ: hidden sm:inline - скрываем текст "Enabled" на телефоне, 
+              // так как Switch уже показывает состояние. Экономит место.
+              <span className="text-xs text-muted-foreground hidden sm:inline">• Enabled</span>
             )}
           </div>
           <p className="text-xs text-muted-foreground truncate mt-0.5">
@@ -55,12 +58,15 @@ const FeatureItem = React.memo(({
           </p>
         </div>
       </div>
-      <div className="flex items-center gap-1">
+      
+      {/* АДАПТАЦИЯ: shrink-0 гарантирует, что кнопки не будут сплющиваться */}
+      <div className="flex items-center gap-1 shrink-0">
         <ConditionalRender permission="remote_control.toggle" fallback={null}>
           <Switch
             checked={feature.enabled}
             onCheckedChange={() => onFeatureToggle(feature.id)}
             disabled={!canToggle || loading}
+            // АДАПТАЦИЯ: scale-90 sm:scale-100 опционально уменьшает свитч на телефоне, если нужно
           />
         </ConditionalRender>
         {canEdit && (
@@ -113,7 +119,7 @@ export default function FeatureList({
   if (features.length === 0) {
     return (
       <div className="flex items-center justify-center py-6">
-        <div className="text-center">
+        <div className="text-center px-4">
           <Settings className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
           <div className="text-sm text-muted-foreground">No features in this category</div>
           <ConditionalRender permission="remote_control.create" fallback={null}>

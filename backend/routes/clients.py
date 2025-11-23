@@ -89,12 +89,8 @@ def find_product_by_id_or_unique_id(product_identifier, project_id):
 @require_project_with_grace_period
 @enforce_project_scope
 @require_permission("clients.view")
-def get_clients(current_user=None, project_id=None):
+def get_clients(current_user, project_id=None):
     """Get clients with optimized queries (fixes N+1 problem)"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 20, type=int)
@@ -169,12 +165,9 @@ def get_clients(current_user=None, project_id=None):
 @require_project_with_grace_period
 @enforce_project_scope
 @require_permission("clients.delete")
-def bulk_delete_clients(current_user=None, project_id=None):
+def bulk_delete_clients(current_user, project_id=None):
     """Bulk delete clients with filters"""
 
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
     data = request.get_json()
 
     client_ids = data.get("client_ids", [])
@@ -277,12 +270,8 @@ def bulk_delete_clients(current_user=None, project_id=None):
 @require_user
 @require_role(RolePermissions.PRODUCT_MANAGEMENT_ROLES)
 @require_project_isolation
-def get_classic_users_for_product(product_identifier, current_user=None):
+def get_classic_users_for_product(product_identifier, current_user):
     """Get users who have permissions for a specific product"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     from ..models.products import Product
 
@@ -326,12 +315,8 @@ def get_classic_users_for_product(product_identifier, current_user=None):
 @require_user
 @require_permission("clients.view")
 @require_project_isolation
-def get_user_products(user_id, current_user=None):
+def get_user_products(user_id, current_user):
     """Get products/products accessible by a specific user (supports both /products and /products endpoints)"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     logging.info(
         f"CLIENTS_PRODUCTS_GET: Request for user_id={user_id} (type={type(user_id).__name__}) by current_user_id={current_user.id} "
@@ -436,13 +421,9 @@ def get_user_products(user_id, current_user=None):
 @require_user
 @require_role(RolePermissions.PRODUCT_MANAGEMENT_ROLES)
 @require_project_isolation
-def toggle_user_product_access(user_id, product_id, current_user=None):
+def toggle_user_product_access(user_id, product_id, current_user):
     """Toggle user access to a specific product/product (supports both /products and /products endpoints)"""
 
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
-    
     target_user = find_user_by_id_or_unique_id(user_id, current_user.project_id)
 
     if not target_user:

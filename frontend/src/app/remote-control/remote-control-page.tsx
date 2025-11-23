@@ -417,12 +417,12 @@ export default function RemoteControl() {
 
   if (!hasPermission('remote_control.view')) {
     return (
-      <div>
+      <div className="p-1 sm:p-0">
         <div className="mb-4">
-          <h2 className="text-3xl font-bold text-foreground mb-2">
+          <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
             Remote Control
           </h2>
-          <p className="text-muted-foreground">
+          <p className="text-sm sm:text-base text-muted-foreground">
             Manage online features for mods and cheats for clients
           </p>
         </div>
@@ -445,19 +445,19 @@ export default function RemoteControl() {
 
   if (error) {
     return (
-      <div>
+      <div className="p-1 sm:p-0">
         <div className="mb-4">
-          <h2 className="text-3xl font-bold text-foreground mb-2">
+          <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
             Remote Control
           </h2>
-          <p className="text-muted-foreground">
+          <p className="text-sm sm:text-base text-muted-foreground">
             Manage online features for mods and cheats for clients
           </p>
         </div>
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 text-destructive" />
+              <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
               <span className="text-sm text-destructive">{error}</span>
               <Button
                 variant="ghost"
@@ -475,52 +475,60 @@ export default function RemoteControl() {
   }
 
   return (
-    <div>
+    <div className="p-1 sm:p-0">
       <div className="mb-4">
-        <h2 className="text-3xl font-bold text-foreground mb-2">
+        <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
           Remote Control
         </h2>
-        <p className="text-muted-foreground">
+        <p className="text-sm sm:text-base text-muted-foreground">
           Manage online features for mods and cheats for clients
         </p>
       </div>
       <Card>
-        <CardHeader className="border-b bg-muted/30 pt-3 pb-0 px-6">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="p-1.5 rounded-md bg-primary/10 text-primary pt-1 -mb-4">
+        {/* АДАПТАЦИЯ: p-4 для мобильных, desktop стили с -mb-4 для "вдавленного" вида табов */}
+        <CardHeader className="border-b bg-muted/30 pt-3 px-4 pb-3 sm:pb-0 sm:px-6">
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
+            
+            {/* Группа Select и Иконки: flex-1 позволяет растягиваться */}
+            <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+              <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                {/* Иконка */}
+                <div className="p-1.5 rounded-md bg-primary/10 text-primary shrink-0 sm:pt-1 sm:-mb-4">
                   <Database className="h-4 w-4" />
                 </div>
-                <div className="pt-1 -mb-4">
-                <Select
-                  value={selectedProductId?.toString() || ''}
-                  onValueChange={(value) => {
-                    setSelectedProductId(parseInt(value))
-                    setActiveTab('')
-                  }}
-                  disabled={productsLoading}
-                >
-                    <SelectTrigger id="product-select" className="w-[280px] h-9 border-border/50 bg-background !mt-0 !mb-0">
-                    <SelectValue placeholder="Select a product" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {products.map((product) => (
-                      <SelectItem key={product.id} value={product.id.toString()}>
-                        {product.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                
+                {/* Селект: w-full на мобильном, w-[280px] на ПК */}
+                <div className="flex-1 sm:flex-none sm:pt-1 sm:-mb-4 min-w-0">
+                  <Select
+                    value={selectedProductId?.toString() || ''}
+                    onValueChange={(value) => {
+                      setSelectedProductId(parseInt(value))
+                      setActiveTab('')
+                    }}
+                    disabled={productsLoading}
+                  >
+                    <SelectTrigger id="product-select" className="w-full sm:w-[280px] h-9 border-border/50 bg-background !mt-0 !mb-0">
+                      <SelectValue placeholder="Select a product" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {products.map((product) => (
+                        <SelectItem key={product.id} value={product.id.toString()}>
+                          {product.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>
+
+            {/* Кнопка обновления: shrink-0 чтобы не исчезала */}
             <Button 
               variant="ghost" 
               size="icon"
               onClick={loadData}
               disabled={loading || !selectedProductId}
-              className="pt-1 -mb-4"
+              className="shrink-0 sm:pt-1 sm:-mb-4"
             >
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -530,7 +538,9 @@ export default function RemoteControl() {
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="pt-0 pb-4">
+        
+        {/* АДАПТАЦИЯ: p-4 для мобильных чтобы был отступ, sm:pt-0 чтобы табы прилегали к хедеру */}
+        <CardContent className="p-4 sm:pt-0 sm:pb-4">
           {!selectedProductId ? (
             <div className="flex items-center justify-center py-6">
               <div className="text-center">
@@ -576,7 +586,10 @@ export default function RemoteControl() {
       </Card>
 
       {selectedProductId && !loading && categories.length > 0 && (
-        <RemoteControlStatsCards categories={categories} stats={stats} />
+        <div className="mt-6">
+           {/* Обертка для статистики, если компонент сам не поддерживает адаптивность */}
+           <RemoteControlStatsCards categories={categories} stats={stats} />
+        </div>
       )}
 
       {selectedProductId && (

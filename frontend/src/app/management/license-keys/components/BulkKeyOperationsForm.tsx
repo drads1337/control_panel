@@ -111,7 +111,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
       if (filters.customDateFrom) filterParams.date_from = filters.customDateFrom;
       if (filters.customDateTo) filterParams.date_to = filters.customDateTo;
     } else if (filters.dateRange !== 'all') {
-
+        // Логика диапазона дат, если она есть в API
     }
 
     return filterParams;
@@ -125,7 +125,6 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
       setKeysCount(result.count);
       toast.success(`Found ${result.count} keys matching the criteria`);
     } catch (error) {
-
       toast.error(getErrorMessage(error));
     } finally {
       setBulkActionLoading(null);
@@ -146,7 +145,6 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
       setKeysCount(null);
       onOperationComplete();
     } catch (error) {
-
       toast.error(getErrorMessage(error));
     } finally {
       setBulkActionLoading(null);
@@ -167,7 +165,6 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
       setKeysCount(null);
       onOperationComplete();
     } catch (error) {
-
       toast.error(getErrorMessage(error));
     } finally {
       setBulkActionLoading(null);
@@ -188,7 +185,6 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
       setKeysCount(null);
       onOperationComplete();
     } catch (error) {
-
       toast.error(getErrorMessage(error));
     } finally {
       setBulkActionLoading(null);
@@ -240,7 +236,6 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
         }
       }
     } catch (error) {
-
       toast.error(getErrorMessage(error));
     } finally {
       setBulkActionLoading(null);
@@ -263,53 +258,51 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
             </div>
           </div>
         </CardHeader>
-        <CardContent className="pt-0 -mt-3">
-          {}
-          {showTargetTypeToggle && (
-            <TargetTypeSelector
-              value={formData.targetType}
-              onChange={(value) => updateField('targetType', value)}
-            />
-          )}
+        <CardContent className="pt-0">
+          <div className="space-y-4">
+            {showTargetTypeToggle && (
+              <TargetTypeSelector
+                value={formData.targetType}
+                onChange={(value) => updateField('targetType', value)}
+              />
+            )}
 
-          {}
-          {(formData.targetType === 'product' && canViewProducts) || (canViewProducts && !canViewAgents) ? (
-            <ProductSelector
-              products={getProductLibraryProducts()}
-              value={formData.productId}
-              onChange={(value) => updateField('productId', value)}
-            />
-          ) : ((formData.targetType === 'agent' && canViewAgents) || (canViewAgents && !canViewProducts)) ? (
-            <AgentSelector
-              agents={agents}
-              agentId={formData.agentId}
-              selectedProducts={formData.selectedProducts}
-              availableProducts={formData.agentId ? getAssignedProductsForAgent(parseInt(formData.agentId)) : []}
-              agentsLoading={agentsLoading}
-              onAgentChange={(value) => {
-                updateField('agentId', value);
-                updateField('selectedProducts', []);
-              }}
-              onProductsChange={(productIds) => updateField('selectedProducts', productIds)}
-            />
-          ) : null}
+            {(formData.targetType === 'product' && canViewProducts) || (canViewProducts && !canViewAgents) ? (
+              <ProductSelector
+                products={getProductLibraryProducts()}
+                value={formData.productId}
+                onChange={(value) => updateField('productId', value)}
+              />
+            ) : ((formData.targetType === 'agent' && canViewAgents) || (canViewAgents && !canViewProducts)) ? (
+              <AgentSelector
+                agents={agents}
+                agentId={formData.agentId}
+                selectedProducts={formData.selectedProducts}
+                availableProducts={formData.agentId ? getAssignedProductsForAgent(parseInt(formData.agentId)) : []}
+                agentsLoading={agentsLoading}
+                onAgentChange={(value) => {
+                  updateField('agentId', value);
+                  updateField('selectedProducts', []);
+                }}
+                onProductsChange={(productIds) => updateField('selectedProducts', productIds)}
+              />
+            ) : null}
 
-          {}
-          <AdvancedFilters
-            filters={filters}
-            onFiltersChange={setFilters}
-            onGetCount={handleGetCount}
-            keysCount={keysCount}
-            isLoading={bulkActionLoading === 'count'}
-            disabled={!isTargetSelected}
-          />
+            <AdvancedFilters
+              filters={filters}
+              onFiltersChange={setFilters}
+              onGetCount={handleGetCount}
+              keysCount={keysCount}
+              isLoading={bulkActionLoading === 'count'}
+              disabled={!isTargetSelected}
+            />
+          </div>
         </CardContent>
-        <CardFooter className="flex-col items-start gap-4">
+        <CardFooter className="flex flex-col items-start gap-4 pt-2">
           <p className="text-sm text-muted-foreground">
             Actions will be applied to all keys matching the selected targets above.
           </p>
 
-          {}
           <FilteredOperations
             keysCount={keysCount || 0}
             onDelete={handleBulkDelete}
@@ -318,7 +311,6 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
             isLoading={bulkActionLoading !== null}
           />
 
-          {}
           <QuickOperations
             onPause={() => handleQuickOperation('pause')}
             onActivate={() => handleQuickOperation('activate')}

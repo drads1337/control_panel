@@ -44,7 +44,7 @@ export function ProfileSecurityTab({
         <CardTitle>Security</CardTitle>
         <CardDescription>Manage your password and security settings</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="p-4 sm:p-6 space-y-4 sm:space-y-6">
         <div className="space-y-2">
           <Label htmlFor="currentPassword">Current Password</Label>
           <Input
@@ -54,6 +54,7 @@ export function ProfileSecurityTab({
             value={passwordData.currentPassword}
             onChange={(e) => onPasswordChange('currentPassword', e.target.value)}
             onKeyDown={handleKeyDown}
+            disabled={isPasswordChanging}
           />
         </div>
 
@@ -66,6 +67,7 @@ export function ProfileSecurityTab({
             value={passwordData.newPassword}
             onChange={(e) => onPasswordChange('newPassword', e.target.value)}
             onKeyDown={handleKeyDown}
+            disabled={isPasswordChanging}
           />
           <p className="text-xs text-muted-foreground">Minimum 6 characters</p>
         </div>
@@ -79,32 +81,35 @@ export function ProfileSecurityTab({
             value={passwordData.confirmPassword}
             onChange={(e) => onPasswordChange('confirmPassword', e.target.value)}
             onKeyDown={handleKeyDown}
+            disabled={isPasswordChanging}
           />
         </div>
 
-        <Button
-          type="button"
-          className="w-full"
-          onClick={handleButtonClick}
-          disabled={
-            isPasswordChanging ||
-            !passwordData.currentPassword ||
-            !passwordData.newPassword ||
-            !passwordData.confirmPassword
-          }
-        >
-          {isPasswordChanging ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Changing...
-            </>
-          ) : (
-            <>
-              <Key className="h-4 w-4 mr-2" />
-              Change Password
-            </>
-          )}
-        </Button>
+        <div className="pt-2">
+          <Button
+            type="button"
+            className="w-full md:w-auto md:ml-auto md:block"
+            onClick={handleButtonClick}
+            disabled={
+              isPasswordChanging ||
+              !passwordData.currentPassword ||
+              !passwordData.newPassword ||
+              !passwordData.confirmPassword
+            }
+          >
+            {isPasswordChanging ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Changing...
+              </>
+            ) : (
+              <>
+                <Key className="h-4 w-4 mr-2" />
+                Change Password
+              </>
+            )}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   )

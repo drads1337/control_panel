@@ -37,26 +37,27 @@ export default function CryptographicKeys({ settings, isSaving }: CryptographicK
 
   return (
     <Card className="h-full flex flex-col">
-      <CardHeader>
+      <CardHeader className="pb-3 sm:pb-6">
         <div className="flex items-center gap-2">
           <Key className="h-4 w-4 text-muted-foreground" />
-          <CardTitle>Cryptographic Keys</CardTitle>
+          <CardTitle className="text-base sm:text-lg">Cryptographic Keys</CardTitle>
         </div>
-        <CardDescription>
+        <CardDescription className="text-xs sm:text-sm">
           Encryption keys for data protection
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4 flex-1">
+      <CardContent className="space-y-3 sm:space-y-4 flex-1 pt-0">
         {}
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">AES Key</span>
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs sm:text-sm font-medium">AES Key</span>
+            <div className="flex items-center gap-1 sm:gap-2">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => copyToClipboard(keys.aes_key, 'AES Key')}
                 disabled={isSaving}
+                className="h-7 w-7 sm:h-8 sm:w-8 p-0"
               >
                 <Copy className="h-3 w-3" />
               </Button>
@@ -65,13 +66,14 @@ export default function CryptographicKeys({ settings, isSaving }: CryptographicK
                 size="sm"
                 onClick={() => handleRegenerate('aes')}
                 disabled={isSaving || regenerating === 'aes'}
+                className="h-7 w-7 sm:h-8 sm:w-8 p-0"
               >
                 <RotateCcw className={`h-3 w-3 ${regenerating === 'aes' ? 'animate-spin' : ''}`} />
               </Button>
             </div>
           </div>
-          <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
-            <code className="text-xs font-mono text-muted-foreground break-all">
+          <div className="p-2 sm:p-3 rounded-lg bg-muted/30 border border-border/50">
+            <code className="text-[10px] sm:text-xs font-mono text-muted-foreground break-all">
               {keys.aes_key}
             </code>
           </div>
@@ -79,14 +81,15 @@ export default function CryptographicKeys({ settings, isSaving }: CryptographicK
 
         {}
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Public Key</span>
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs sm:text-sm font-medium">Public Key</span>
+            <div className="flex items-center gap-1 sm:gap-2">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => copyToClipboard(keys.public_key, 'Public Key')}
                 disabled={isSaving}
+                className="h-7 w-7 sm:h-8 sm:w-8 p-0"
               >
                 <Copy className="h-3 w-3" />
               </Button>
@@ -95,13 +98,14 @@ export default function CryptographicKeys({ settings, isSaving }: CryptographicK
                 size="sm"
                 onClick={() => handleRegenerate('rsa')}
                 disabled={isSaving || regenerating === 'rsa'}
+                className="h-7 w-7 sm:h-8 sm:w-8 p-0"
               >
                 <RotateCcw className={`h-3 w-3 ${regenerating === 'rsa' ? 'animate-spin' : ''}`} />
               </Button>
             </div>
           </div>
-          <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
-            <code className="text-xs font-mono text-muted-foreground break-all">
+          <div className="p-2 sm:p-3 rounded-lg bg-muted/30 border border-border/50">
+            <code className="text-[10px] sm:text-xs font-mono text-muted-foreground break-all">
               {keys.public_key}
             </code>
           </div>
@@ -114,7 +118,7 @@ export default function CryptographicKeys({ settings, isSaving }: CryptographicK
             size="sm"
             onClick={() => handleRegenerate('all')}
             disabled={isSaving || !!regenerating}
-            className="w-full"
+            className="w-full text-xs sm:text-sm"
           >
             <RotateCcw className={`h-3 w-3 mr-2 ${regenerating === 'all' ? 'animate-spin' : ''}`} />
             Regenerate All Keys

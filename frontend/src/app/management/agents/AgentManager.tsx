@@ -5,9 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
   Zap, Plus, Edit, Trash2, AlertTriangle, Upload, Bell, Eye, 
-  Settings, Database, GitCommit, Search, RefreshCw, Check, X, Container
+  Settings, Database, GitCommit, Search, RefreshCw, Check, X, Container,
+  MoreVertical, Download, Users, Layers, Activity
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { usePermissions } from '@/hooks/use-permissions';
@@ -27,237 +29,30 @@ import { toast } from 'sonner';
 import { getStatusClasses, getStatusText, type StatusType } from '@/lib/status-utils';
 import { Spinner } from '@/components/ui/spinner';
 import { sanitizeString } from '@/lib/sanitization';
+import { cn } from '@/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { Agent } from '@/entities/agent';
 import type { Product } from '@/entities/product';
 
-interface AgentItemProps {
-  agent: Agent;
-  products: Product[];
-  isSelected: boolean;
-  onToggleSelection: (agentId: number) => void;
-  onViewDetails: (agent: Agent) => void;
-  onEditAgent: (agent: Agent) => void;
-  onConfigAgent: (agent: Agent) => void;
-  onAssignProducts: (agent: Agent) => void;
-  onUploadFiles: (agent: Agent) => void;
-  onNotificationsProduct: (agent: Agent) => void;
-  onChangelogProduct: (agent: Agent) => void;
-  onStatusChange: (agentId: number, newStatus: Agent['status']) => void;
-  onDeleteAgent: (agentId: number) => void;
-  canEditAgents: boolean;
-  canDeleteAgents: boolean;
-  canUploadFiles: boolean;
-  canViewNotifications: boolean;
-  canCreateNotifications: boolean;
-  canEditNotifications: boolean;
-  canViewChangelog: boolean;
-  canCreateChangelog: boolean;
-  canEditChangelog: boolean;
-  canManageStatus: boolean;
-  canAssignProducts: boolean;
-  canConfigurationSettings: boolean;
-}
-
-const AgentItem = React.memo(({
-  agent,
-  products,
-  isSelected,
-  onToggleSelection,
-  onViewDetails,
-  onEditAgent,
-  onConfigAgent,
-  onAssignProducts,
-  onUploadFiles,
-  onNotificationsProduct,
-  onChangelogProduct,
-  onStatusChange,
-  onDeleteAgent,
-  canEditAgents,
-  canDeleteAgents,
-  canUploadFiles,
-  canViewNotifications,
-  canCreateNotifications,
-  canEditNotifications,
-  canViewChangelog,
-  canCreateChangelog,
-  canEditChangelog,
-  canManageStatus,
-  canAssignProducts,
-  canConfigurationSettings,
-}: AgentItemProps) => {
-  const getStatusBadge = (status: string) => {
-    const statusType = status as StatusType;
-    return (
-      <span className={getStatusClasses(statusType)}>
-        {getStatusText(statusType)}
-      </span>
-    );
-  };
-
-  const assignedProductsNames = useMemo(() => {
-    const assignedIds = agent.assigned_products || [];
-    return assignedIds
-      .map((productId: number) => products.find(p => p.id === productId)?.name)
-      .filter(Boolean)
-      .join(', ');
-  }, [agent, products]);
-
-  return (
-    <div className="flex items-center justify-between p-2.5 border-b hover:bg-accent/50 transition-colors">
-      <div className="flex items-center gap-3 flex-1 min-w-0">
-        <input
-          type="checkbox"
-          className="rounded border-gray-300"
-          checked={isSelected}
-          onChange={() => onToggleSelection(agent.id)}
-          onClick={(e) => e.stopPropagation()}
-        />
-        <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-          {agent.logo ? (
-            <img src={agent.logo} alt={agent.name} className="w-7 h-7 rounded" />
-          ) : (
-            <Container className="h-4 w-4 text-primary" />
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap mb-1">
-            <h4 className="font-medium text-sm truncate">{sanitizeString(agent.name)}</h4>
-            {isSelected && (
-              <Check className="h-3 w-3 text-primary" />
-            )}
-            {getStatusBadge(agent.status)}
-          </div>
-          {agent.description && (
-            <p className="text-xs text-muted-foreground truncate mb-1">
-              {sanitizeString(agent.description)}
-            </p>
-          )}
-          <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
-            <span className="font-mono">ID: {agent.id}</span>
-            <span>•</span>
-            <span>v{agent.version}</span>
-            <span>•</span>
-            <span>{agent.downloads.toLocaleString()} downloads</span>
-            <span>•</span>
-            <span>{agent.active_users.toLocaleString()} users</span>
-            {(agent.assigned_products?.length || 0) > 0 && (
-              <>
-                <span>•</span>
-                <span>{agent.assigned_products?.length || 0} products</span>
-              </>
-            )}
-            {assignedProductsNames && (
-              <>
-                <span>•</span>
-                <span className="truncate max-w-xs" title={assignedProductsNames}>
-                  {assignedProductsNames}
-                </span>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-      <div className="flex items-center gap-1">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={() => onViewDetails(agent)}
-        >
-          <Eye className="h-4 w-4" />
-        </Button>
-        {canEditAgents && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => onEditAgent(agent)}
-          >
-            <Edit className="h-4 w-4" />
-          </Button>
-        )}
-        {canConfigurationSettings && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => onConfigAgent(agent)}
-          >
-            <Settings className="h-4 w-4" />
-          </Button>
-        )}
-        {canAssignProducts && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => onAssignProducts(agent)}
-          >
-            <Database className="h-4 w-4" />
-          </Button>
-        )}
-        {canUploadFiles && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => onUploadFiles(agent)}
-          >
-            <Upload className="h-4 w-4" />
-          </Button>
-        )}
-        {(canViewNotifications || canCreateNotifications || canEditNotifications) && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => onNotificationsProduct(agent)}
-          >
-            <Bell className="h-4 w-4" />
-          </Button>
-        )}
-        {(canViewChangelog || canCreateChangelog || canEditChangelog) && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => onChangelogProduct(agent)}
-          >
-            <GitCommit className="h-4 w-4" />
-          </Button>
-        )}
-        {canManageStatus && (
-          <Select
-            value={agent.status}
-            onValueChange={(value) => onStatusChange(agent.id, value as Agent['status'])}
-          >
-            <SelectTrigger className="w-28 h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="inactive">Inactive</SelectItem>
-              <SelectItem value="maintenance">Maintenance</SelectItem>
-              <SelectItem value="testing">Testing</SelectItem>
-            </SelectContent>
-          </Select>
-        )}
-        {canDeleteAgents && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-destructive hover:text-destructive"
-            onClick={() => onDeleteAgent(agent.id)}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-});
-
-AgentItem.displayName = 'AgentItem';
+// Хук для определения размера экрана
+const useMediaQuery = (query: string) => {
+  const [matches, setMatches] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    if (media.matches !== matches) setMatches(media.matches);
+    const listener = () => setMatches(media.matches);
+    media.addEventListener('change', listener);
+    return () => media.removeEventListener('change', listener);
+  }, [matches, query]);
+  return matches;
+};
 
 interface AgentsListProps {
   agents: Agent[];
@@ -314,17 +109,304 @@ const AgentsList: React.FC<AgentsListProps> = ({
   canAssignProducts,
   canConfigurationSettings,
 }) => {
+  const isMobile = useMediaQuery('(max-width: 768px)');
   const parentRef = useRef<HTMLDivElement>(null);
-  // Lower threshold for better performance - virtualize when more than 30 items
   const shouldVirtualize = agents.length > 30;
 
   const rowVirtualizer = useVirtualizer({
     count: shouldVirtualize ? agents.length : 0,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 100,
+    estimateSize: () => 180, // Increased estimate size to accommodate mobile cards
     overscan: 5,
     enabled: shouldVirtualize,
   });
+
+  const getStatusBadge = (status: string) => {
+    const statusType = status as StatusType;
+    return (
+      <span className={cn(getStatusClasses(statusType), "whitespace-nowrap")}>
+        {getStatusText(statusType)}
+      </span>
+    );
+  };
+
+  const renderAgentItem = (agent: Agent) => {
+    if (isMobile) {
+      // Mobile Card View - matching ProductDatabase style
+      return (
+        <div className={cn(
+          "flex flex-col p-4 border rounded-lg bg-card text-card-foreground shadow-sm mb-3 transition-colors",
+          selectedAgents.includes(agent.id) ? "border-primary/50 bg-primary/5" : "border-border"
+        )}>
+          <div className="flex justify-between items-start mb-3 border-b pb-3">
+            <div className="flex items-center gap-3">
+              <Checkbox
+                checked={selectedAgents.includes(agent.id)}
+                onCheckedChange={() => onToggleAgentSelection(agent.id)}
+              />
+              <div>
+                <h4 className="font-semibold text-sm truncate max-w-[180px]">{sanitizeString(agent.name)}</h4>
+                <Badge variant="secondary" className={cn("mt-1 text-xs capitalize", getStatusClasses(agent.status as StatusType))}>
+                  {getStatusText(agent.status as StatusType)}
+                </Badge>
+              </div>
+            </div>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => onViewDetails(agent)}>
+                  <Eye className="mr-2 h-4 w-4" /> View Details
+                </DropdownMenuItem>
+                {canEditAgents && (
+                  <DropdownMenuItem onClick={() => onEditAgent(agent)}>
+                    <Edit className="mr-2 h-4 w-4" /> Edit
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                {canConfigurationSettings && (
+                  <DropdownMenuItem onClick={() => onConfigAgent(agent)}>
+                    <Settings className="mr-2 h-4 w-4" /> Configuration
+                  </DropdownMenuItem>
+                )}
+                {canAssignProducts && (
+                  <DropdownMenuItem onClick={() => onAssignProducts(agent)}>
+                    <Database className="mr-2 h-4 w-4" /> Assign Products
+                  </DropdownMenuItem>
+                )}
+                {canUploadFiles && (
+                  <DropdownMenuItem onClick={() => onUploadFiles(agent)}>
+                    <Upload className="mr-2 h-4 w-4" /> Files
+                  </DropdownMenuItem>
+                )}
+                {(canViewNotifications || canCreateNotifications) && (
+                  <DropdownMenuItem onClick={() => onNotificationsProduct(agent)}>
+                    <Bell className="mr-2 h-4 w-4" /> Notifications
+                  </DropdownMenuItem>
+                )}
+                {(canViewChangelog || canCreateChangelog) && (
+                  <DropdownMenuItem onClick={() => onChangelogProduct(agent)}>
+                    <GitCommit className="mr-2 h-4 w-4" /> Changelog
+                  </DropdownMenuItem>
+                )}
+                {canManageStatus && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel>Status</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={() => onStatusChange(agent.id, 'active')}>
+                      Set Active
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onStatusChange(agent.id, 'maintenance')}>
+                      Set Maintenance
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onStatusChange(agent.id, 'inactive')}>
+                      Set Inactive
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onStatusChange(agent.id, 'testing')}>
+                      Set Testing
+                    </DropdownMenuItem>
+                  </>
+                )}
+                {canDeleteAgents && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem 
+                      onClick={() => onDeleteAgent(agent.id)}
+                      className="text-red-600 focus:text-red-600"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" /> Delete
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+            <div>
+              <span className="font-medium text-foreground">Version:</span> {agent.version || 'N/A'}
+            </div>
+            {agent.created_at && (
+              <div className="text-right">
+                {new Date(agent.created_at).toLocaleDateString()}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    } else {
+      // Desktop Row View
+      const assignedIds = agent.assigned_products || [];
+      const assignedProductsNames = assignedIds
+        .map((productId: number) => products.find(p => p.id === productId)?.name)
+        .filter(Boolean)
+        .join(', ');
+
+      return (
+        <div className="flex items-center justify-between p-2.5 border-b hover:bg-accent/50 transition-colors">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <Checkbox
+              checked={selectedAgents.includes(agent.id)}
+              onCheckedChange={() => onToggleAgentSelection(agent.id)}
+            />
+            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+              {agent.logo ? (
+                <img src={agent.logo} alt={agent.name} className="w-7 h-7 rounded" />
+              ) : (
+                <Container className="h-4 w-4 text-primary" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <h4 className="font-medium text-sm truncate">{sanitizeString(agent.name)}</h4>
+                {selectedAgents.includes(agent.id) && (
+                  <Check className="h-3 w-3 text-primary" />
+                )}
+                {getStatusBadge(agent.status)}
+              </div>
+              {agent.description && (
+                <p className="text-xs text-muted-foreground truncate mb-1">
+                  {sanitizeString(agent.description)}
+                </p>
+              )}
+              <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
+                <span className="font-mono">ID: {agent.id}</span>
+                <span>•</span>
+                <span>v{agent.version}</span>
+                <span>•</span>
+                <span>{agent.downloads.toLocaleString()} downloads</span>
+                <span>•</span>
+                <span>{agent.active_users.toLocaleString()} users</span>
+                {(agent.assigned_products?.length || 0) > 0 && (
+                  <>
+                    <span>•</span>
+                    <span>{agent.assigned_products?.length || 0} products</span>
+                  </>
+                )}
+                {assignedProductsNames && (
+                  <>
+                    <span>•</span>
+                    <span className="truncate max-w-xs" title={assignedProductsNames}>
+                      {assignedProductsNames}
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => onViewDetails(agent)}
+              title="View Details"
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+            {canEditAgents && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => onEditAgent(agent)}
+                title="Edit"
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+            )}
+            {canConfigurationSettings && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => onConfigAgent(agent)}
+                title="Configuration"
+              >
+                <Settings className="h-4 w-4" />
+              </Button>
+            )}
+            {canAssignProducts && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => onAssignProducts(agent)}
+                title="Assign Products"
+              >
+                <Database className="h-4 w-4" />
+              </Button>
+            )}
+            {canUploadFiles && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => onUploadFiles(agent)}
+                title="Upload Files"
+              >
+                <Upload className="h-4 w-4" />
+              </Button>
+            )}
+            {(canViewNotifications || canCreateNotifications || canEditNotifications) && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => onNotificationsProduct(agent)}
+                title="Notifications"
+              >
+                <Bell className="h-4 w-4" />
+              </Button>
+            )}
+            {(canViewChangelog || canCreateChangelog || canEditChangelog) && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => onChangelogProduct(agent)}
+                title="Changelog"
+              >
+                <GitCommit className="h-4 w-4" />
+              </Button>
+            )}
+            {canManageStatus && (
+              <Select
+                value={agent.status}
+                onValueChange={(value) => onStatusChange(agent.id, value as Agent['status'])}
+              >
+                <SelectTrigger className="w-28 h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="maintenance">Maintenance</SelectItem>
+                  <SelectItem value="testing">Testing</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+            {canDeleteAgents && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-destructive hover:text-destructive"
+                onClick={() => onDeleteAgent(agent.id)}
+                title="Delete"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+      );
+    }
+  };
 
   if (shouldVirtualize) {
     return (
@@ -340,7 +422,7 @@ const AgentsList: React.FC<AgentsListProps> = ({
             position: 'relative',
           }}
         >
-          <div className="divide-y">
+          <div className={isMobile ? "space-y-3" : "divide-y"}>
             {rowVirtualizer.getVirtualItems().map((virtualRow) => {
               const agent = agents[virtualRow.index];
               return (
@@ -355,33 +437,7 @@ const AgentsList: React.FC<AgentsListProps> = ({
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
                 >
-                  <AgentItem
-                    agent={agent}
-                    products={products}
-                    isSelected={selectedAgents.includes(agent.id)}
-                    onToggleSelection={onToggleAgentSelection}
-                    onViewDetails={onViewDetails}
-                    onEditAgent={onEditAgent}
-                    onConfigAgent={onConfigAgent}
-                    onAssignProducts={onAssignProducts}
-                    onUploadFiles={onUploadFiles}
-                    onNotificationsProduct={onNotificationsProduct}
-                    onChangelogProduct={onChangelogProduct}
-                    onStatusChange={onStatusChange}
-                    onDeleteAgent={onDeleteAgent}
-                    canEditAgents={canEditAgents}
-                    canDeleteAgents={canDeleteAgents}
-                    canUploadFiles={canUploadFiles}
-                    canViewNotifications={canViewNotifications}
-                    canCreateNotifications={canCreateNotifications}
-                    canEditNotifications={canEditNotifications}
-                    canViewChangelog={canViewChangelog}
-                    canCreateChangelog={canCreateChangelog}
-                    canEditChangelog={canEditChangelog}
-                    canManageStatus={canManageStatus}
-                    canAssignProducts={canAssignProducts}
-                    canConfigurationSettings={canConfigurationSettings}
-                  />
+                  {renderAgentItem(agent)}
                 </div>
               );
             })}
@@ -392,36 +448,11 @@ const AgentsList: React.FC<AgentsListProps> = ({
   }
 
   return (
-    <div className="divide-y">
+    <div className={isMobile ? "space-y-3" : "divide-y"}>
       {agents.map((agent) => (
-        <AgentItem
-          key={agent.id}
-          agent={agent}
-          products={products}
-          isSelected={selectedAgents.includes(agent.id)}
-          onToggleSelection={onToggleAgentSelection}
-          onViewDetails={onViewDetails}
-          onEditAgent={onEditAgent}
-          onConfigAgent={onConfigAgent}
-          onAssignProducts={onAssignProducts}
-          onUploadFiles={onUploadFiles}
-          onNotificationsProduct={onNotificationsProduct}
-          onChangelogProduct={onChangelogProduct}
-          onStatusChange={onStatusChange}
-          onDeleteAgent={onDeleteAgent}
-          canEditAgents={canEditAgents}
-          canDeleteAgents={canDeleteAgents}
-          canUploadFiles={canUploadFiles}
-          canViewNotifications={canViewNotifications}
-          canCreateNotifications={canCreateNotifications}
-          canEditNotifications={canEditNotifications}
-          canViewChangelog={canViewChangelog}
-          canCreateChangelog={canCreateChangelog}
-          canEditChangelog={canEditChangelog}
-          canManageStatus={canManageStatus}
-                    canAssignProducts={canAssignProducts}
-          canConfigurationSettings={canConfigurationSettings}
-        />
+        <div key={agent.id}>
+          {renderAgentItem(agent)}
+        </div>
       ))}
     </div>
   );
@@ -433,6 +464,7 @@ interface AgentManagerProps {
 }
 
 const AgentManager: React.FC<AgentManagerProps> = ({ onCreateAgentRequested, onCreateAgentRequestHandled }) => {
+  const isMobile = useMediaQuery('(max-width: 768px)');
   const { isAuthenticated, user } = useAuth();
   const { hasPermission } = usePermissions();
 
@@ -508,111 +540,39 @@ const AgentManager: React.FC<AgentManagerProps> = ({ onCreateAgentRequested, onC
 
   const handleBulkAction = async () => {
     if (!bulkAction || selectedAgents.length === 0) return;
-
     try {
       const actions = selectedAgents.map(agentId => {
         switch (bulkAction) {
-          case 'activate':
-            return updateStatusMutation(agentId, 'active');
-          case 'deactivate':
-            return updateStatusMutation(agentId, 'inactive');
-          case 'maintenance':
-            return updateStatusMutation(agentId, 'maintenance');
-          case 'testing':
-            return updateStatusMutation(agentId, 'testing');
-          case 'delete':
-            return deleteAgentMutation(agentId);
-          default:
-            return Promise.resolve();
+          case 'activate': return updateStatusMutation(agentId, 'active');
+          case 'deactivate': return updateStatusMutation(agentId, 'inactive');
+          case 'maintenance': return updateStatusMutation(agentId, 'maintenance');
+          case 'testing': return updateStatusMutation(agentId, 'testing');
+          case 'delete': return deleteAgentMutation(agentId);
+          default: return Promise.resolve();
         }
       });
-
       await Promise.all(actions);
-
       setSelectedAgents([]);
       setBulkAction('');
-
-    } catch (err) {
-
-    }
+    } catch (err) {}
   };
 
   const handleStatusChange = async (agentId: number, newStatus: Agent['status']) => {
-    try {
-      await updateStatusMutation(agentId, newStatus);
-
-    } catch (err) {
-
-    }
+    try { await updateStatusMutation(agentId, newStatus); } catch (err) {}
   };
 
   const handleDeleteAgent = async (agentId: number) => {
     if (!confirm('Are you sure you want to delete this agent?')) return;
-
-    try {
-      await deleteAgentMutation(agentId);
-
-    } catch (err) {
-
-    }
+    try { await deleteAgentMutation(agentId); } catch (err) {}
   };
 
-  const handleDownloadAgent = async (agentId: number) => {
-    try {
-      const response = await recordAgentDownload(agentId);
-      if (response.success && response.download_url) {
-
-        const link = document.createElement('a');
-        link.href = response.download_url;
-        link.download = response.filename || 'agent';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        toast.success('Download started');
-
-        refetch();
-      }
-    } catch (err) {
-      toast.error('Failed to download agent.');
-
-    }
-  };
-
-  const handleEditAgent = (agent: Agent) => {
-    setSelectedAgent(agent);
-    setEditDialogOpen(true);
-  };
-
-  const handleUploadFiles = (agent: Agent) => {
-    setSelectedAgent(agent);
-    setUploadFilesDialogOpen(true);
-  };
-
-  const handleViewDetails = (agent: Agent) => {
-    setSelectedAgent(agent);
-    setDetailsDialogOpen(true);
-  };
-
-  const handleConfigAgent = (agent: Agent) => {
-    setSelectedAgent(agent);
-    setConfigDialogOpen(true);
-  };
-
-  const handleAssignProducts = (agent: Agent) => {
-    setSelectedAgent(agent);
-    setAssignProductsDialogOpen(true);
-  };
-
-  const handleNotificationsProduct = (agent: Agent) => {
-    setSelectedAgent(agent);
-    setNotificationsDialogOpen(true);
-  };
-
-  const handleChangelogProduct = (agent: Agent) => {
-    setSelectedAgent(agent);
-    setChangelogDialogOpen(true);
-  };
+  const handleEditAgent = (agent: Agent) => { setSelectedAgent(agent); setEditDialogOpen(true); };
+  const handleUploadFiles = (agent: Agent) => { setSelectedAgent(agent); setUploadFilesDialogOpen(true); };
+  const handleViewDetails = (agent: Agent) => { setSelectedAgent(agent); setDetailsDialogOpen(true); };
+  const handleConfigAgent = (agent: Agent) => { setSelectedAgent(agent); setConfigDialogOpen(true); };
+  const handleAssignProducts = (agent: Agent) => { setSelectedAgent(agent); setAssignProductsDialogOpen(true); };
+  const handleNotificationsProduct = (agent: Agent) => { setSelectedAgent(agent); setNotificationsDialogOpen(true); };
+  const handleChangelogProduct = (agent: Agent) => { setSelectedAgent(agent); setChangelogDialogOpen(true); };
 
   const filteredAgents = useMemo(() => {
     return agents.filter(agent => {
@@ -626,16 +586,10 @@ const AgentManager: React.FC<AgentManagerProps> = ({ onCreateAgentRequested, onC
   const allSelected = selectedAgents.length === filteredAgents.length && filteredAgents.length > 0;
 
   const handleSelectAll = () => {
-    if (allSelected) {
-      setSelectedAgents([]);
-    } else {
-      setSelectedAgents(filteredAgents.map(a => a.id));
-    }
+    if (allSelected) { setSelectedAgents([]); } else { setSelectedAgents(filteredAgents.map(a => a.id)); }
   };
 
-  const clearSelection = () => {
-    setSelectedAgents([]);
-  };
+  const clearSelection = () => setSelectedAgents([]);
 
   if (error) {
     return (
@@ -661,12 +615,12 @@ const AgentManager: React.FC<AgentManagerProps> = ({ onCreateAgentRequested, onC
               <p className="text-muted-foreground mb-8 max-w-md mx-auto leading-relaxed">
                 Get started by creating your first agent. You can manage settings, upload files, and track usage.
               </p>
-              <div className="flex gap-2 justify-center">
+              <div className="flex flex-col sm:flex-row gap-2 justify-center">
                 <ConditionalRender permission="products.create" fallback={null}>
                   <Button 
                     onClick={() => setCreateProductDialogOpen(true)}
                     variant="outline"
-                    className="gap-2"
+                    className="gap-2 w-full sm:w-auto"
                     size="lg"
                   >
                     <Plus className="h-5 w-5" />
@@ -676,7 +630,7 @@ const AgentManager: React.FC<AgentManagerProps> = ({ onCreateAgentRequested, onC
                 {canCreateAgents && (
                   <Button 
                     onClick={() => setCreateDialogOpen(true)}
-                    className="gap-2"
+                    className="gap-2 w-full sm:w-auto"
                     size="lg"
                   >
                     <Plus className="h-5 w-5" />
@@ -690,14 +644,39 @@ const AgentManager: React.FC<AgentManagerProps> = ({ onCreateAgentRequested, onC
       ) : (
         <Card>
           <CardHeader className="pb-0">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-base">Agents</CardTitle>
-                <CardDescription className="mt-1 text-xs">
-                  {filteredAgents.length} {filteredAgents.length === 1 ? 'agent' : 'agents'}
-                </CardDescription>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center justify-between w-full sm:w-auto">
+                <div>
+                  <CardTitle className="text-base">Agents</CardTitle>
+                  <CardDescription className="mt-1 text-xs">
+                    {filteredAgents.length} {filteredAgents.length === 1 ? 'agent' : 'agents'}
+                  </CardDescription>
+                </div>
+                {/* Mobile Refresh/Add buttons moved to top right next to title */}
+                <div className="flex sm:hidden items-center gap-2">
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={refetch}
+                    disabled={loading}
+                  >
+                    <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                  </Button>
+                  <ConditionalRender permission="agents.create" fallback={null}>
+                    <Button 
+                      variant="default" 
+                      size="sm"
+                      onClick={() => setCreateDialogOpen(true)}
+                      disabled={loading}
+                      className="h-8 w-8 p-0"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </ConditionalRender>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
+              
+              <div className="hidden sm:flex items-center gap-2">
                 <Button 
                   variant="ghost" 
                   size="icon"
@@ -719,21 +698,23 @@ const AgentManager: React.FC<AgentManagerProps> = ({ onCreateAgentRequested, onC
                 </ConditionalRender>
               </div>
             </div>
-            <div className="flex items-center gap-2 mt-4">
+            
+            {/* Responsive Filters */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mt-4">
               <div className="relative flex-1">
                 <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search agents..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8"
+                  className="pl-8 w-full"
                 />
               </div>
               <Select 
                 value={statusFilter} 
                 onValueChange={setStatusFilter}
               >
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-full sm:w-[180px]">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -745,52 +726,55 @@ const AgentManager: React.FC<AgentManagerProps> = ({ onCreateAgentRequested, onC
                 </SelectContent>
               </Select>
             </div>
+
             {selectedAgents.length > 0 && (
-              <div className="flex items-center justify-between mt-4 pt-4 border-t">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between mt-4 pt-4 border-t gap-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">
-                    Selected: {selectedAgents.length} {selectedAgents.length === 1 ? 'agent' : 'agents'}
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">
+                    Selected: {selectedAgents.length}
                   </span>
                   <Button variant="outline" size="sm" onClick={clearSelection}>
                     <X className="h-4 w-4 mr-1" />
                     Clear
                   </Button>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
                   <ConditionalRender 
                     permissions={['agents.status', 'agents.delete']}
                     requireAll={false}
                     fallback={null}
                   >
-                    <Select value={bulkAction} onValueChange={setBulkAction}>
-                      <SelectTrigger className="w-40">
-                        <SelectValue placeholder="Action" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <ConditionalRender permission="agents.status" fallback={null}>
-                          <SelectItem value="activate">Activate</SelectItem>
-                          <SelectItem value="deactivate">Deactivate</SelectItem>
-                          <SelectItem value="maintenance">Maintenance</SelectItem>
-                          <SelectItem value="testing">Testing</SelectItem>
-                        </ConditionalRender>
-                        <ConditionalRender permission="agents.delete" fallback={null}>
-                          <SelectItem value="delete">Delete</SelectItem>
-                        </ConditionalRender>
-                      </SelectContent>
-                    </Select>
-                    <Button 
-                      onClick={handleBulkAction} 
-                      disabled={!bulkAction || (!canManageStatus && !canDeleteAgents)} 
-                      size="sm"
-                    >
-                      Apply
-                    </Button>
+                    <div className="flex gap-2 w-full sm:w-auto">
+                      <Select value={bulkAction} onValueChange={setBulkAction}>
+                        <SelectTrigger className="flex-1 sm:w-40">
+                          <SelectValue placeholder="Action" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <ConditionalRender permission="agents.status" fallback={null}>
+                            <SelectItem value="activate">Activate</SelectItem>
+                            <SelectItem value="deactivate">Deactivate</SelectItem>
+                            <SelectItem value="maintenance">Maintenance</SelectItem>
+                            <SelectItem value="testing">Testing</SelectItem>
+                          </ConditionalRender>
+                          <ConditionalRender permission="agents.delete" fallback={null}>
+                            <SelectItem value="delete">Delete</SelectItem>
+                          </ConditionalRender>
+                        </SelectContent>
+                      </Select>
+                      <Button 
+                        onClick={handleBulkAction} 
+                        disabled={!bulkAction || (!canManageStatus && !canDeleteAgents)} 
+                        size="sm"
+                      >
+                        Apply
+                      </Button>
+                    </div>
                   </ConditionalRender>
                 </div>
               </div>
             )}
           </CardHeader>
-          <CardContent className="pt-0 -mt-3">
+          <CardContent className={cn("pt-0", !isMobile && "-mt-3")}>
             {loading ? (
               <Spinner message="Loading agents..." />
             ) : filteredAgents.length === 0 ? (
@@ -802,12 +786,13 @@ const AgentManager: React.FC<AgentManagerProps> = ({ onCreateAgentRequested, onC
               </div>
             ) : (
               <>
-                <div className="flex items-center gap-2 mb-2 pb-2 border-b">
+                <div className={cn("flex items-center gap-2 mb-2 pb-2 border-b", isMobile && "mt-2")}>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={handleSelectAll}
                     disabled={filteredAgents.length === 0}
+                    className={cn(isMobile && "w-full")}
                   >
                     <Check className="h-4 w-4 mr-1" />
                     Select All
@@ -846,7 +831,7 @@ const AgentManager: React.FC<AgentManagerProps> = ({ onCreateAgentRequested, onC
         </Card>
       )}
 
-      {}
+      {/* Dialogs ... */}
       {canCreateAgents && (
         <CreateAgentDialog
           open={createDialogOpen}
@@ -857,89 +842,54 @@ const AgentManager: React.FC<AgentManagerProps> = ({ onCreateAgentRequested, onC
           }}
         />
       )}
-
-      {}
       {canEditAgents && (
         <EditAgentDialog
           open={editDialogOpen}
           onOpenChange={setEditDialogOpen}
-          onSuccess={() => {
-            refetch();
-            refetchStats();
-          }}
+          onSuccess={() => { refetch(); refetchStats(); }}
           agent={selectedAgent}
         />
       )}
-
-      {}
       {canUploadFiles && (
         <UploadAgentFilesDialog
           open={uploadFilesDialogOpen}
           onOpenChange={setUploadFilesDialogOpen}
-          onSuccess={() => {
-            refetch();
-            refetchStats();
-          }}
+          onSuccess={() => { refetch(); refetchStats(); }}
           agent={selectedAgent}
         />
       )}
-
-      {}
       <AgentDetailsDialog
         open={detailsDialogOpen}
         onOpenChange={setDetailsDialogOpen}
         agent={selectedAgent}
         products={products}
       />
-
-      {}
       {canConfigurationSettings && (
         <AgentConfigDialog
           open={configDialogOpen}
           onOpenChange={setConfigDialogOpen}
-          onSuccess={() => {
-            refetch();
-            refetchStats();
-          }}
+          onSuccess={() => { refetch(); refetchStats(); }}
           agent={selectedAgent}
         />
       )}
-
-      {}
       {canAssignProducts && (
         <AssignProductsDialog
         open={assignProductsDialogOpen}
         onOpenChange={setAssignProductsDialogOpen}
         agent={selectedAgent}
         onAssign={async (agentId, productIds) => {
-          try {
-            await assignProductsMutation(agentId, productIds);
-
-          } catch (error) {
-
-          }
+          try { await assignProductsMutation(agentId, productIds); } catch (error) {}
         }}
         onUnassign={async (agentId, productIds) => {
-          try {
-            await unassignProductsMutation(agentId, productIds);
-
-          } catch (error) {
-
-          }
+          try { await unassignProductsMutation(agentId, productIds); } catch (error) {}
         }}
         />
       )}
-
-      {}
       <CreateProductDialog
         open={createProductDialogOpen}
         onOpenChange={setCreateProductDialogOpen}
-        onSuccess={() => {
-          refetch();
-          refetchStats();
-        }}
+        onSuccess={() => { refetch(); refetchStats(); }}
       />
-
       {(canViewNotifications || canCreateNotifications) && selectedAgent && (
         <NotificationsDialog
           key="agent-notifications-dialog"
@@ -953,7 +903,6 @@ const AgentManager: React.FC<AgentManagerProps> = ({ onCreateAgentRequested, onC
           isAgent={true}
         />
       )}
-
       {canViewChangelog && selectedAgent && (
         <ChangelogManagementDialog
           key="agent-changelog-dialog"

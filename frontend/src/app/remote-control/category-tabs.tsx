@@ -52,29 +52,48 @@ export default function CategoryTabs({
   }
 
   return (
-    <div className="flex items-center justify-between">
-      <div className="relative mr-2 flex-1">
+    // АДАПТАЦИЯ: flex-col для мобильных, sm:flex-row для планшетов/десктопа
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
+      
+      {/* Контейнер табов */}
+      <div className="relative w-full sm:mr-2 sm:flex-1 min-w-0">
+        {/* 
+           АДАПТАЦИЯ TabsList: 
+           1. Убрали inline gridTemplateColumns, заменили на Flexbox логику.
+           2. overflow-x-auto: позволяет скроллить табы на мобильном.
+           3. sm:overflow-visible: убирает скролл на десктопе (где места достаточно).
+           4. scrollbar-hide (опционально): скрывает полосу прокрутки для красоты.
+        */}
         <TabsList 
-          className={`grid w-full h-14 bg-muted border border-border rounded-lg p-1`}
-          style={{ gridTemplateColumns: `repeat(${categories.length}, 1fr)` }}
+          className={`
+            flex w-full h-14 bg-muted border border-border rounded-lg p-1
+            overflow-x-auto sm:overflow-visible
+          `}
         >
           {categories.map(category => (
             <TabsTrigger
               key={category.id}
               value={category.id}
-              className="flex items-center justify-center gap-2"
+              // АДАПТАЦИЯ TabsTrigger:
+              // flex-shrink-0: на мобильном не сжимать элементы (включается скролл).
+              // min-w-[100px]: минимальная ширина на мобильном для читаемости.
+              // sm:flex-1: на десктопе занимать равное пространство (аналог grid repeat 1fr).
+              // sm:min-w-0: позволяет тексту обрезаться через truncate, если нужно, вместо раздувания контейнера.
+              className="flex items-center justify-center gap-2 flex-shrink-0 min-w-[100px] px-3 sm:px-0 sm:flex-1 sm:min-w-0"
             >
               <div
-                className="w-2 h-2 rounded-full"
+                className="w-2 h-2 rounded-full shrink-0"
                 style={{ backgroundColor: category.color }}
               />
-              <span>{category.name}</span>
+              <span className="truncate">{category.name}</span>
             </TabsTrigger>
           ))}
         </TabsList>
       </div>
 
-      <div className="flex gap-2 shrink-0">
+      {/* Кнопки управления */}
+      {/* АДАПТАЦИЯ: w-full и justify-end на мобильных для выравнивания кнопок */}
+      <div className="flex gap-2 shrink-0 w-full sm:w-auto justify-end">
         <ConditionalRender permission="remote_control.create" fallback={null}>
           <Button
             variant="default"
@@ -82,6 +101,8 @@ export default function CategoryTabs({
             onClick={onAddCategory}
             disabled={categories.length >= 8 || !canCreate}
             title={categories.length >= 8 ? "Maximum of 8 sections allowed" : !canCreate ? "You don't have permission to create sections" : ""}
+            // На мобильных можно сделать кнопку шире, если хочется
+            className="flex-1 sm:flex-none" 
           >
             <Plus className="h-4 w-4 mr-1.5" />
             Add

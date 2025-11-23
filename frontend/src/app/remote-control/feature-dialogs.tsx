@@ -63,7 +63,7 @@ export default function FeatureDialogs({
 }: FeatureDialogsProps) {
   return (
     <>
-      {}
+      {/* Add Dialog */}
       <ConditionalRender permission="remote_control.create" fallback={null}>
         <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
           <DialogTrigger asChild>
@@ -86,7 +86,8 @@ export default function FeatureDialogs({
               Add
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[400px]">
+          {/* АДАПТАЦИЯ: w-[95vw] для мобильных, max-h для защиты от переполнения */}
+          <DialogContent className="w-[95vw] sm:max-w-[400px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-base">Add Feature</DialogTitle>
               <DialogDescription className="text-xs">
@@ -139,11 +140,22 @@ export default function FeatureDialogs({
                 <Label htmlFor="enabled">Enable</Label>
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" size="sm" onClick={() => setAddDialogOpen(false)}>
+            {/* АДАПТАЦИЯ: flex-col для мобильных кнопок */}
+            <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setAddDialogOpen(false)}
+                className="w-full sm:w-auto"
+              >
                 Cancel
               </Button>
-              <Button size="sm" onClick={onAddFeature} disabled={!canCreate}>
+              <Button 
+                size="sm" 
+                onClick={onAddFeature} 
+                disabled={!canCreate}
+                className="w-full sm:w-auto"
+              >
                 Add
               </Button>
             </DialogFooter>
@@ -151,10 +163,11 @@ export default function FeatureDialogs({
         </Dialog>
       </ConditionalRender>
 
-      {}
+      {/* Edit Dialog */}
       <ConditionalRender permission="remote_control.edit" fallback={null}>
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-          <DialogContent className="sm:max-w-[400px]">
+          {/* АДАПТАЦИЯ: w-[95vw] для мобильных, max-h для защиты от переполнения */}
+          <DialogContent className="w-[95vw] sm:max-w-[400px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-base">Edit Feature</DialogTitle>
               <DialogDescription className="text-xs">
@@ -207,11 +220,22 @@ export default function FeatureDialogs({
                 <Label htmlFor="edit-enabled">Enabled</Label>
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" size="sm" onClick={() => setEditDialogOpen(false)}>
+            {/* АДАПТАЦИЯ: flex-col для мобильных кнопок */}
+            <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setEditDialogOpen(false)}
+                className="w-full sm:w-auto"
+              >
                 Cancel
               </Button>
-              <Button size="sm" onClick={onUpdateFeature} disabled={!canEdit}>
+              <Button 
+                size="sm" 
+                onClick={onUpdateFeature} 
+                disabled={!canEdit}
+                className="w-full sm:w-auto"
+              >
                 Save
               </Button>
             </DialogFooter>

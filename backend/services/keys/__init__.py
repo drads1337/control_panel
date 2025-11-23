@@ -4,7 +4,15 @@ Contains business logic for key management and validation
 """
 
 # Import key service facade for backward compatibility
-# The facade delegates to specialized services while maintaining the original interface
+# ⚠️ DEPRECATED: The facade is kept only for backward compatibility.
+# All routes and tasks have been migrated to specialized services.
+# For new code, use specialized services directly:
+# - key_crud_service for CRUD operations
+# - key_bulk_operations_service for bulk operations
+# - key_status_service for status management
+# - key_export_service for export operations
+# - key_statistics_service for statistics
+# - key_generation_service for key generation
 from .key_service_facade import KeyServiceFacade, key_service
 
 # Also export specialized services for direct use if needed

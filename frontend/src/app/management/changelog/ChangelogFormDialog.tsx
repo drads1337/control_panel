@@ -53,10 +53,6 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
 
   const hasPermissionForAction = isEditMode ? canEditChangelog : canCreateChangelog;
 
-  if (!hasPermissionForAction) {
-    return null;
-  }
-
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<CreateChangelogData>({
     version: '',
@@ -72,11 +68,9 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
   const [releaseHour, setReleaseHour] = useState<string>('');
   const [releaseMinute, setReleaseMinute] = useState<string>('');
 
-  // Генерируем опции для часов и минут
   const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
   const minutes = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
 
-  // Обновляем releaseTime когда меняются час или минута
   useEffect(() => {
     if (releaseHour && releaseMinute) {
       setReleaseTime(`${releaseHour}:${releaseMinute}`);
@@ -85,7 +79,6 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
     }
   }, [releaseHour, releaseMinute]);
 
-  // Парсим releaseTime в час и минуту при изменении
   useEffect(() => {
     if (releaseTime && releaseTime.includes(':')) {
       const [hour, minute] = releaseTime.split(':');
@@ -100,9 +93,7 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
   useEffect(() => {
     if (open) {
       if (entry && isEditMode) {
-
         const validatedEntry = parseChangelogEntry(entry);
-
         if (validatedEntry) {
           setFormData({
             version: validatedEntry.version || '',
@@ -135,7 +126,6 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
             setUseCurrentTime(true);
           }
         } else {
-
           setFormData({
             version: entry.version || '',
             title: entry.title || '',
@@ -165,7 +155,6 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
           }
         }
       } else if (product) {
-
         const now = new Date();
         setFormData({
           version: '',
@@ -239,13 +228,11 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
       };
 
       if (isEditMode && entry) {
-
         const result = await updateChangelogEntry(entry.id, data);
         toast.success('Changelog entry updated successfully');
         onEntryUpdated?.();
         onSave?.(result.entry);
       } else {
-
         const result = isAgent
           ? await createAgentChangelogEntry(product.id, data)
           : await createChangelogEntry(product.id, data);
@@ -256,7 +243,7 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
 
       onOpenChange(false);
     } catch (error) {
-
+      // Error is handled in the API utility
     } finally {
       setLoading(false);
     }
@@ -298,268 +285,282 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] w-[95vw] overflow-hidden">
-        <DialogHeader>
+      <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-hidden">
+        <DialogHeader className="flex-shrink-0 text-left">
           <DialogTitle className="text-base">
             {isEditMode ? 'Edit Changelog Entry' : 'Create Changelog Entry'}
           </DialogTitle>
-          <DialogDescription className="mt-1 text-xs">
+          <DialogDescription className="mt-1 text-xs truncate pr-4">
             {isEditMode ? `Version ${entry?.version}` : product.name}
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6 overflow-y-auto max-h-[calc(90vh-140px)] px-1">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Form Container */}
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 space-y-4 mt-2">
+          
+          {/* Scrollable Content */}
+          <div className="flex-1 overflow-y-auto pr-1 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="version" className="text-sm font-medium">Version *</Label>
+                <Input
+                  id="version"
+                  value={formData.version}
+                  onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}
+                  placeholder="1.0.0"
+                  required
+                  disabled={isEditMode || loading}
+                  className={cn("text-base sm:text-sm", isEditMode && "bg-muted")}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="releaseDate" className="text-sm font-medium">Release Date & Time</Label>
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2 p-2 border rounded-md bg-muted/20">
+                    <Switch
+                      id="useCurrentTime"
+                      checked={useCurrentTime}
+                      onCheckedChange={(checked: boolean) => {
+                        setUseCurrentTime(checked);
+                        if (checked) {
+                          const now = new Date();
+                          setReleaseDate(now);
+                          const timeStr = now.toTimeString().slice(0, 5);
+                          setReleaseTime(timeStr);
+                          const [hour, minute] = timeStr.split(':');
+                          setReleaseHour(hour);
+                          setReleaseMinute(minute);
+                        } else {
+                          setReleaseDate(undefined);
+                          setReleaseTime('');
+                          setReleaseHour('');
+                          setReleaseMinute('');
+                        }
+                      }}
+                      disabled={loading}
+                    />
+                    <Label htmlFor="useCurrentTime" className="text-xs cursor-pointer">
+                      Use current time
+                    </Label>
+                  </div>
+
+                  {!useCurrentTime && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor="releaseDate" className="text-xs text-muted-foreground mb-1 block">Date</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "w-full justify-start text-left font-normal h-10 sm:h-9 text-sm",
+                                !releaseDate && "text-muted-foreground"
+                              )}
+                              disabled={loading}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              <span className="truncate">
+                                {releaseDate ? format(releaseDate, "PPP") : "Pick date"}
+                              </span>
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={releaseDate}
+                              onSelect={setReleaseDate}
+                              disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <div>
+                        <Label htmlFor="releaseTime" className="text-xs text-muted-foreground mb-1 block">Time</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "w-full justify-start text-left font-normal h-10 sm:h-9 text-sm",
+                                !releaseTime && "text-muted-foreground"
+                              )}
+                              disabled={loading}
+                            >
+                              <Clock className="mr-2 h-4 w-4" />
+                              <span className="truncate">
+                                {releaseTime || "Pick time"}
+                              </span>
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-4" align="end">
+                            <div className="flex items-center gap-2">
+                              <div className="space-y-2">
+                                <Label className="text-xs text-muted-foreground">Hour</Label>
+                                <Select
+                                  value={releaseHour}
+                                  onValueChange={setReleaseHour}
+                                  disabled={loading}
+                                >
+                                  <SelectTrigger className="w-[70px] h-9">
+                                    <SelectValue placeholder="HH" />
+                                  </SelectTrigger>
+                                  <SelectContent className="max-h-[200px]">
+                                    {hours.map((hour) => (
+                                      <SelectItem key={hour} value={hour}>
+                                        {hour}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <span className="text-lg font-semibold mt-6">:</span>
+                              <div className="space-y-2">
+                                <Label className="text-xs text-muted-foreground">Min</Label>
+                                <Select
+                                  value={releaseMinute}
+                                  onValueChange={setReleaseMinute}
+                                  disabled={loading}
+                                >
+                                  <SelectTrigger className="w-[70px] h-9">
+                                    <SelectValue placeholder="MM" />
+                                  </SelectTrigger>
+                                  <SelectContent className="max-h-[200px]">
+                                    {minutes.map((minute) => (
+                                      <SelectItem key={minute} value={minute}>
+                                        {minute}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+                  )}
+
+                  {useCurrentTime && (
+                    <div className="p-2 bg-muted/50 rounded-md">
+                      <p className="text-xs text-muted-foreground">
+                        Release scheduled for: <span className="font-medium">{new Date().toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <div className="space-y-2">
-              <Label htmlFor="version" className="text-sm">Version *</Label>
+              <Label htmlFor="title" className="text-sm font-medium">Title *</Label>
               <Input
-                id="version"
-                value={formData.version}
-                onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}
-                placeholder="1.0.0"
+                id="title"
+                value={formData.title}
+                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="Brief description of the update"
                 required
-                disabled={isEditMode || loading}
-                className={isEditMode ? "bg-muted" : ""}
+                className="w-full text-base sm:text-sm"
+                disabled={loading}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="releaseDate" className="text-sm">Release Date and Time</Label>
-              <div className="space-y-3">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="useCurrentTime"
-                    checked={useCurrentTime}
-                    onCheckedChange={(checked: boolean) => {
-                      setUseCurrentTime(checked);
-                      if (checked) {
-                        const now = new Date();
-                        setReleaseDate(now);
-                        const timeStr = now.toTimeString().slice(0, 5);
-                        setReleaseTime(timeStr);
-                        const [hour, minute] = timeStr.split(':');
-                        setReleaseHour(hour);
-                        setReleaseMinute(minute);
-                      } else {
-                        setReleaseDate(undefined);
-                        setReleaseTime('');
-                        setReleaseHour('');
-                        setReleaseMinute('');
-                      }
-                    }}
-                    disabled={loading}
-                  />
-                  <Label htmlFor="useCurrentTime" className="text-xs cursor-pointer">
-                    Use current time
-                  </Label>
-                </div>
+              <Label htmlFor="description" className="text-sm font-medium">Description</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Detailed description of the changes"
+                rows={3}
+                className="resize-none w-full text-base sm:text-sm"
+                disabled={loading}
+              />
+            </div>
 
-                {!useCurrentTime && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label htmlFor="releaseDate" className="text-sm text-muted-foreground">Date</Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full justify-start text-left font-normal h-9",
-                              !releaseDate && "text-muted-foreground"
-                            )}
-                            disabled={loading}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {releaseDate ? format(releaseDate, "PPP") : "Pick a date"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={releaseDate}
-                            onSelect={setReleaseDate}
-                            disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    <div>
-                      <Label htmlFor="releaseTime" className="text-sm text-muted-foreground">Time</Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full justify-start text-left font-normal h-9",
-                              !releaseTime && "text-muted-foreground"
-                            )}
-                            disabled={loading}
-                          >
-                            <Clock className="mr-2 h-4 w-4" />
-                            {releaseTime || "Pick a time"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-4" align="start">
-                          <div className="flex items-center gap-2">
-                            <div className="space-y-2">
-                              <Label className="text-xs text-muted-foreground">Hour</Label>
-                              <Select
-                                value={releaseHour}
-                                onValueChange={setReleaseHour}
-                                disabled={loading}
-                              >
-                                <SelectTrigger className="w-20 h-9">
-                                  <SelectValue placeholder="HH" />
-                                </SelectTrigger>
-                                <SelectContent className="max-h-[200px]">
-                                  {hours.map((hour) => (
-                                    <SelectItem key={hour} value={hour}>
-                                      {hour}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <span className="text-lg font-semibold mt-6">:</span>
-                            <div className="space-y-2">
-                              <Label className="text-xs text-muted-foreground">Minute</Label>
-                              <Select
-                                value={releaseMinute}
-                                onValueChange={setReleaseMinute}
-                                disabled={loading}
-                              >
-                                <SelectTrigger className="w-20 h-9">
-                                  <SelectValue placeholder="MM" />
-                                </SelectTrigger>
-                                <SelectContent className="max-h-[200px]">
-                                  {minutes.map((minute) => (
-                                    <SelectItem key={minute} value={minute}>
-                                      {minute}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">List of Changes *</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addChange}
+                  className="h-8"
+                  disabled={loading}
+                >
+                  Add Change
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                {(formData.changes || []).map((change, index) => (
+                  <div key={index} className="flex gap-2 items-center">
+                    <Input
+                      value={change}
+                      onChange={(e) => updateChange(index, e.target.value)}
+                      placeholder={`Change ${index + 1}`}
+                      className="flex-1 min-w-0 text-base sm:text-sm"
+                      disabled={loading}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeChange(index)}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950 h-10 w-10 sm:h-8 sm:w-8 p-0 flex-shrink-0"
+                      disabled={loading}
+                    >
+                      <span className="text-lg">×</span>
+                    </Button>
                   </div>
-                )}
+                ))}
 
-                {useCurrentTime && (
-                  <div className="p-2 bg-muted/50 rounded-md">
-                    <p className="text-xs text-muted-foreground">
-                      The release will be scheduled for: <span className="font-medium">{new Date().toLocaleString('en-US')}</span>
-                    </p>
+                {(formData.changes || []).length === 0 && (
+                  <div className="text-xs text-muted-foreground text-center py-6 border-2 border-dashed rounded-lg bg-muted/10">
+                    No changes listed yet. Click "Add Change" to start.
                   </div>
                 )}
               </div>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="title" className="text-sm">Title *</Label>
-            <Input
-              id="title"
-              value={formData.title}
-              onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-              placeholder="Brief description of the update"
-              required
-              className="w-full"
-              disabled={loading}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="description" className="text-sm">Description</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="Detailed description of the changes"
-              rows={3}
-              className="resize-none w-full"
-              disabled={loading}
-            />
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm">List of Changes *</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={addChange}
-                className="h-8"
-                disabled={loading}
-              >
-                Add
-              </Button>
-            </div>
-
-            <div className="space-y-2">
-              {(formData.changes || []).map((change, index) => (
-                <div key={index} className="flex gap-2 items-center">
-                  <Input
-                    value={change}
-                    onChange={(e) => updateChange(index, e.target.value)}
-                    placeholder={`Change ${index + 1}`}
-                    className="flex-1 min-w-0"
-                    disabled={loading}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeChange(index)}
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950 h-8 w-8 p-0 flex-shrink-0"
-                    disabled={loading}
-                  >
-                    ×
-                  </Button>
-                </div>
-              ))}
-
-              {(formData.changes || []).length === 0 && (
-                <p className="text-xs text-muted-foreground text-center py-4">
-                  Click "Add" to create a list of changes
-                </p>
-              )}
-            </div>
-          </div>
-
-        </form>
-
-        <DialogFooter className="flex-col sm:flex-row gap-2">
-          <Button type="button" variant="outline" onClick={handleCancel} className="w-full sm:w-auto" disabled={loading}>
-            Cancel
-          </Button>
-          <ConditionalRender 
-            permission={isEditMode 
-              ? (isAgent ? 'agents.changelog_edit' : 'products.changelog_edit')
-              : (isAgent ? 'agents.changelog_create' : 'products.changelog_create')
-            } 
-            fallback={null}
-          >
+          <DialogFooter className="flex-shrink-0 flex-col-reverse sm:flex-row gap-2 sm:gap-0 mt-2">
             <Button 
-              type="submit" 
-              disabled={loading || !isFormValid} 
-              onClick={handleSubmit}
-              className="w-full sm:w-auto"
+              type="button" 
+              variant="outline" 
+              onClick={handleCancel} 
+              className="w-full sm:w-auto" 
+              disabled={loading}
             >
-              {loading ? (
-                <>
-                  <Spinner className="h-4 w-4 mr-2" />
-                  {isEditMode ? 'Saving...' : 'Creating...'}
-                </>
-              ) : (
-                isEditMode ? 'Save' : 'Create'
-              )}
+              Cancel
             </Button>
-          </ConditionalRender>
-        </DialogFooter>
+            <ConditionalRender 
+              permission={isEditMode 
+                ? (isAgent ? 'agents.changelog_edit' : 'products.changelog_edit')
+                : (isAgent ? 'agents.changelog_create' : 'products.changelog_create')
+              } 
+              fallback={null}
+            >
+              <Button 
+                type="submit" 
+                disabled={loading || !isFormValid} 
+                onClick={handleSubmit}
+                className="w-full sm:w-auto"
+              >
+                {loading ? (
+                  <>
+                    <Spinner className="h-4 w-4 mr-2" />
+                    {isEditMode ? 'Saving...' : 'Creating...'}
+                  </>
+                ) : (
+                  isEditMode ? 'Save' : 'Create'
+                )}
+              </Button>
+            </ConditionalRender>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

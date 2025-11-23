@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuthContext } from '../../contexts/auth-context';
-import { Webhook, Plus, RefreshCw } from 'lucide-react';
+import { WebhookPermissionsProvider, useWebhookPermissions } from '../../contexts/webhook-permissions-context';
+import { Plus, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { toast } from 'sonner';
@@ -9,23 +10,28 @@ import { WebhookStats } from './webhook-stats';
 import { CreateWebhookDialog } from './create-webhook-dialog';
 import { EditWebhookDialog } from './edit-webhook-dialog';
 import { WebhookLogsDialog } from './webhook-logs-dialog';
-import type { WebhookData, WebhookFormData, WebhookStats as WebhookStatsType, SecretsVisibility } from './types';
-import { WEBHOOK_EVENTS } from './constants';
-import { webhookAPI } from '@/entities/webhook';
-import { ConditionalRender } from '@/components/rbac/conditional-render';
-import { usePermissions } from '@/hooks/use-permissions';
-import { getErrorMessage, isAxiosError } from '@/lib/error-utils';
-import { filterMaskedValues } from '@/lib/webhook-utils';
+import { WebhookAccessDenied } from './webhook-access-denied';
+import { useWebhookActions } from './hooks/use-webhook-actions';
+import type { WebhookData, WebhookFormData, SecretsVisibility } from './types';
 
-export default function WebhooksPage() {
-  const { isAuthenticated, user } = useAuthContext();
-  const { hasPermission } = usePermissions();
+function WebhooksPageContent() {
+  const { isAuthenticated, user, isInitialized } = useAuthContext();
+  const webhookPermissions = useWebhookPermissions();
 
-  const [webhooks, setWebhooks] = useState<WebhookData[]>([]);
-  const [stats, setStats] = useState<WebhookStatsType | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    webhooks,
+    stats,
+    loading,
+    refreshing,
+    error,
+    loadData,
+    handleCreateWebhook: createWebhook,
+    handleEditWebhook: editWebhook,
+    handleDeleteWebhook: deleteWebhook,
+    handleTestWebhook: testWebhook,
+    handleToggleStatus: toggleStatus,
+    handleRefresh,
+  } = useWebhookActions();
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -59,59 +65,7 @@ export default function WebhooksPage() {
 
   const [customHeaders, setCustomHeaders] = useState<Array<{ key: string, value: string }>>([]);
   
-  // Сохраняем оригинальные значения вебхука для сравнения при редактировании
   const [originalWebhookData, setOriginalWebhookData] = useState<WebhookData | null>(null);
-
-  const loadData = useCallback(async (showLoading = true) => {
-    if (showLoading) {
-      setLoading(true);
-    } else {
-      setRefreshing(true);
-    }
-    setError(null);
-    try {
-      const [webhooksResponse, statsResponse] = await Promise.allSettled([
-        webhookAPI.getWebhooks(),
-        webhookAPI.getWebhookStats()
-      ]);
-
-      if (webhooksResponse.status === 'fulfilled') {
-        setWebhooks(webhooksResponse.value);
-      } else {
-
-        if (showLoading) {
-          setWebhooks([]);
-        }
-      }
-
-      if (statsResponse.status === 'fulfilled') {
-        setStats(statsResponse.value);
-      } else {
-
-        if (showLoading) {
-          setStats(null);
-        }
-      }
-    } catch (err: unknown) {
-      let errorMessage = 'Error loading webhooks data';
-      if (isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
-        const errorData = err.response.data as { error?: string }
-        errorMessage = errorData.error || errorMessage
-      } else {
-        errorMessage = getErrorMessage(err)
-      }
-      if (showLoading) {
-        setError(errorMessage);
-        setWebhooks([]);
-        setStats(null);
-      } else {
-        toast.error(errorMessage);
-      }
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -120,212 +74,43 @@ export default function WebhooksPage() {
   }, [isAuthenticated, loadData]);
 
   const handleCreateWebhook = async () => {
-    if (!hasPermission('webhooks.create')) {
-      toast.error("You don't have permission to create webhooks");
-      return;
-    }
-
-    try {
-      const webhookData = {
-        ...formData,
-        headers: customHeaders.reduce((acc, header) => {
-          if (header.key && header.value) {
-            acc[header.key] = header.value;
-          }
-          return acc;
-        }, {} as Record<string, string>)
-      };
-
-      await webhookAPI.createWebhook(webhookData);
-      toast.success('Webhook created successfully');
+    const success = await createWebhook(formData, customHeaders);
+    if (success) {
       setCreateDialogOpen(false);
       resetForm();
-      await loadData();
-    } catch (err: unknown) {
-      let errorMessage = 'Error creating webhook';
-      if (isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
-        const errorData = err.response.data as { error?: string }
-        errorMessage = errorData.error || errorMessage
-      } else {
-        errorMessage = getErrorMessage(err)
-      }
-      toast.error(errorMessage);
-      setError(errorMessage);
     }
   };
 
   const handleEditWebhook = async () => {
     if (!editingWebhook) return;
 
-    if (!hasPermission('webhooks.edit')) {
-      toast.error("You don't have permission to edit webhooks");
-      return;
-    }
-
-    try {
-      // Собираем данные вебхука
-      const webhookData = {
-        ...formData,
-        headers: customHeaders.reduce((acc, header) => {
-          if (header.key && header.value) {
-            acc[header.key] = header.value;
-          }
-          return acc;
-        }, {} as Record<string, string>)
-      };
-
-      // SECURITY: Фильтруем маскированные значения, чтобы не перезаписать реальные токены
-      // Если пользователь не изменил токен/секрет, мы не отправляем маскированное значение
-      const filteredData = filterMaskedValues(webhookData, originalWebhookData || undefined);
-
-      await webhookAPI.updateWebhook(editingWebhook.id, filteredData);
-      toast.success('Webhook updated successfully');
+    const success = await editWebhook(editingWebhook.id, formData, customHeaders, originalWebhookData);
+    if (success) {
       setEditDialogOpen(false);
       setEditingWebhook(null);
       setOriginalWebhookData(null);
       resetForm();
-      await loadData();
-    } catch (err: unknown) {
-      let errorMessage = 'Error updating webhook';
-      if (isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
-        const errorData = err.response.data as { error?: string }
-        errorMessage = errorData.error || errorMessage
-      } else {
-        errorMessage = getErrorMessage(err)
-      }
-      toast.error(errorMessage);
-      setError(errorMessage);
     }
   };
 
   const handleDeleteWebhook = async (webhookId: number) => {
-    if (!hasPermission('webhooks.delete')) {
-      toast.error("You don't have permission to delete webhooks");
-      return;
-    }
-
-    try {
-      await webhookAPI.deleteWebhook(webhookId);
-      toast.success('Webhook deleted successfully');
-      await loadData();
-    } catch (err: unknown) {
-      let errorMessage = 'Error deleting webhook';
-      if (isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
-        const errorData = err.response.data as { error?: string }
-        errorMessage = errorData.error || errorMessage
-      } else {
-        errorMessage = getErrorMessage(err)
-      }
-      toast.error(errorMessage);
-      setError(errorMessage);
-    }
+    await deleteWebhook(webhookId);
   };
 
   const handleTestWebhook = async (webhookId: number) => {
-    if (!hasPermission('webhooks.test')) {
-      toast.error("You don't have permission to test webhooks");
-      return;
-    }
-
-    try {
-      const result = await webhookAPI.testWebhook(webhookId);
-      if (result.success) {
-        toast.success('Test webhook sent successfully');
-      } else {
-        toast.error(`Test webhook failed: ${result.error_message}`);
-      }
-    } catch (err: unknown) {
-      let errorMessage = 'Error testing webhook';
-      if (isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
-        const errorData = err.response.data as { error?: string }
-        errorMessage = errorData.error || errorMessage
-      } else {
-        errorMessage = getErrorMessage(err)
-      }
-      toast.error(errorMessage);
-    }
+    await testWebhook(webhookId);
   };
 
   const handleToggleStatus = async (webhook: WebhookData) => {
-    if (!hasPermission('webhooks.edit')) {
-      toast.error("You don't have permission to edit webhooks");
-      return;
-    }
-
-    const newStatus = !webhook.is_active;
-
-    setWebhooks(prevWebhooks => 
-      prevWebhooks.map(w => 
-        w.id === webhook.id ? { ...w, is_active: newStatus } : w
-      )
-    );
-
-    if (stats) {
-      setStats(prevStats => {
-        if (!prevStats) return prevStats;
-        const newActiveCount = newStatus 
-          ? prevStats.active_webhooks + 1 
-          : prevStats.active_webhooks - 1;
-        return {
-          ...prevStats,
-          active_webhooks: Math.max(0, newActiveCount)
-        };
-      });
-    }
-
-    try {
-      await webhookAPI.updateWebhook(webhook.id, {
-        is_active: newStatus
-      });
-      toast.success(`Webhook ${webhook.is_active ? 'disabled' : 'enabled'} successfully`);
-
-      webhookAPI.getWebhookStats()
-        .then(updatedStats => {
-          if (updatedStats) {
-            setStats(updatedStats);
-          }
-        })
-        .catch(err => {
-
-        });
-    } catch (err: unknown) {
-      let errorMessage = 'Error updating webhook status';
-      if (isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
-        const errorData = err.response.data as { error?: string }
-        errorMessage = errorData.error || errorMessage
-      } else {
-        errorMessage = getErrorMessage(err)
-      }
-      toast.error(errorMessage);
-
-      setWebhooks(prevWebhooks => 
-        prevWebhooks.map(w => 
-          w.id === webhook.id ? { ...w, is_active: webhook.is_active } : w
-        )
-      );
-
-      if (stats) {
-        setStats(prevStats => {
-          if (!prevStats) return prevStats;
-          const newActiveCount = newStatus 
-            ? prevStats.active_webhooks - 1 
-            : prevStats.active_webhooks + 1;
-          return {
-            ...prevStats,
-            active_webhooks: Math.max(0, newActiveCount)
-          };
-        });
-      }
-    }
+    await toggleStatus(webhook);
   };
 
   const handleEditClick = (webhook: WebhookData) => {
-    if (!hasPermission('webhooks.edit')) {
+    if (!webhookPermissions.canEdit) {
       toast.error("You don't have permission to edit webhooks");
       return;
     }
 
-    // Сохраняем оригинальные данные для сравнения при сохранении
     setOriginalWebhookData(webhook);
     setEditingWebhook(webhook);
     setFormData({
@@ -353,7 +138,7 @@ export default function WebhooksPage() {
   };
 
   const handleLogsClick = (webhook: WebhookData) => {
-    if (!hasPermission('webhooks.view_logs')) {
+    if (!webhookPermissions.canViewLogs) {
       toast.error("You don't have permission to view webhook logs");
       return;
     }
@@ -394,43 +179,22 @@ export default function WebhooksPage() {
     });
   };
 
-  const canView = hasPermission('webhooks.view');
-  const canCreate = hasPermission('webhooks.create');
-  const canEdit = hasPermission('webhooks.edit');
-  const canDelete = hasPermission('webhooks.delete');
-  const canTest = hasPermission('webhooks.test');
-  const canViewLogs = hasPermission('webhooks.view_logs');
-
-  if (!isAuthenticated || !user) {
+  if (!isInitialized) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
-          <p className="text-muted-foreground">
-            You need to be logged in to view the webhooks panel.
-          </p>
+      <div className="flex h-screen bg-background">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-muted-foreground">Initializing...</div>
         </div>
       </div>
-    );
+    )
   }
 
-  if (!canView) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
-          <p className="text-muted-foreground">
-            You don't have permission to view webhooks.
-          </p>
-          <p className="text-sm text-muted-foreground mt-2">
-            Your roles: {user?.roles?.join(', ') || 'unknown'}
-          </p>
-          <p className="text-sm text-muted-foreground mt-1">
-            Required permissions: webhooks.view
-          </p>
-        </div>
-      </div>
-    );
+  if (!isAuthenticated || !user) {
+    return <WebhookAccessDenied message="You need to be logged in to view the webhooks panel." />;
+  }
+
+  if (!webhookPermissions.canViewWebhooks) {
+    return <WebhookAccessDenied message="You don't have permission to access the webhooks panel." />;
   }
 
   if (loading) {
@@ -456,38 +220,35 @@ export default function WebhooksPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {}
-      <div className="mb-6">
+    <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 px-2 xs:px-3 sm:px-4 md:px-0">
+      <div className="mb-3 xs:mb-4 sm:mb-5 md:mb-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">Webhooks</h1>
-            <p className="text-muted-foreground mt-2">
+            <h1 className="text-xl xs:text-2xl sm:text-2xl md:text-3xl font-bold tracking-tight text-foreground leading-tight">Webhooks</h1>
+            <p className="text-xs xs:text-sm sm:text-sm md:text-base text-muted-foreground mt-1 xs:mt-1.5 sm:mt-2 leading-snug">
               Configure webhooks to receive real-time notifications about events in your system.
             </p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="ghost" size="icon" onClick={() => loadData(false)} disabled={refreshing}>
-              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-            </Button>
-            {canCreate && (
-              <Button onClick={() => setCreateDialogOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Create Webhook
-              </Button>
+            {webhookPermissions.canCreate && (
+              <div className="mt-2 xs:mt-2.5 sm:mt-3 hidden sm:block">
+                <Button onClick={() => setCreateDialogOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Webhook
+                </Button>
+              </div>
             )}
           </div>
+          <Button variant="ghost" size="icon" onClick={handleRefresh} disabled={loading || refreshing}>
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+          </Button>
         </div>
       </div>
 
-      {}
-      {stats && webhooks.length > 0 && <WebhookStats stats={stats} loading={false} />}
+      {stats && webhooks.length > 0 && <WebhookStats stats={stats} loading={loading} />}
 
-      {}
       <WebhookTable
         webhooks={webhooks}
         onCreateClick={() => {
-          if (!canCreate) {
+          if (!webhookPermissions.canCreate) {
             toast.error("You don't have permission to create webhooks");
             return;
           }
@@ -501,8 +262,7 @@ export default function WebhooksPage() {
         onCopyToClipboard={handleCopyToClipboard}
       />
 
-      {}
-      {canCreate && (
+      {webhookPermissions.canCreate && (
         <CreateWebhookDialog
           open={createDialogOpen}
           onOpenChange={setCreateDialogOpen}
@@ -517,7 +277,7 @@ export default function WebhooksPage() {
         />
       )}
 
-      {canEdit && (
+      {webhookPermissions.canEdit && (
         <EditWebhookDialog
           open={editDialogOpen}
           onOpenChange={setEditDialogOpen}
@@ -533,7 +293,7 @@ export default function WebhooksPage() {
         />
       )}
 
-      {canViewLogs && (
+      {webhookPermissions.canViewLogs && (
         <WebhookLogsDialog
           open={logsDialogOpen}
           onOpenChange={setLogsDialogOpen}
@@ -541,5 +301,13 @@ export default function WebhooksPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function WebhooksPage() {
+  return (
+    <WebhookPermissionsProvider>
+      <WebhooksPageContent />
+    </WebhookPermissionsProvider>
   );
 }

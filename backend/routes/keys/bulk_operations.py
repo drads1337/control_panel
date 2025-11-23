@@ -11,7 +11,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ...middleware.auth import require_project_isolation, require_project_with_grace_period
 from ...services.activity import activity_service
-from ...services.keys.key_service_facade import key_service
+from ...services.keys.key_bulk_operations_service import key_bulk_operations_service
 
 bulk_operations_bp = Blueprint("keys_bulk", __name__)
 
@@ -19,16 +19,12 @@ bulk_operations_bp = Blueprint("keys_bulk", __name__)
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def bulk_create_keys(current_user=None, project_id=None):
+def bulk_create_keys(current_user, project_id=None):
     """Bulk create keys - uses async tasks for large operations"""
     import logging
 
     logger = logging.getLogger(__name__)
     logger.info(f"🔑 Bulk create keys request - Origin: {request.headers.get('Origin')}")
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
@@ -67,7 +63,7 @@ def bulk_create_keys(current_user=None, project_id=None):
     if count <= ASYNC_THRESHOLD:
 
         # Use product.id (actual database ID) instead of product_id (which might be unique_id)
-        created_count, error_message, created_keys = key_service.bulk_create_keys(
+        created_count, error_message, created_keys = key_bulk_operations_service.bulk_create_keys(
             user=current_user,
             count=count,
             product_id=product.id,  # Use actual product.id
@@ -178,12 +174,8 @@ def bulk_create_keys(current_user=None, project_id=None):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def bulk_delete_keys(current_user=None, project_id=None):
+def bulk_delete_keys(current_user, project_id=None):
     """Bulk delete keys"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
@@ -194,7 +186,7 @@ def bulk_delete_keys(current_user=None, project_id=None):
     if not key_ids:
         return jsonify({"error": "key_ids is required"}), 400
 
-    deleted_count, error = key_service.bulk_delete_keys(current_user, key_ids)
+    deleted_count, error = key_bulk_operations_service.bulk_delete_keys(current_user, key_ids)
 
     if error:
         return jsonify({"error": error}), 500
@@ -219,12 +211,8 @@ def bulk_delete_keys(current_user=None, project_id=None):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def bulk_reset_keys(current_user=None, project_id=None):
+def bulk_reset_keys(current_user, project_id=None):
     """Bulk reset keys"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
@@ -235,7 +223,7 @@ def bulk_reset_keys(current_user=None, project_id=None):
     if not key_ids:
         return jsonify({"error": "key_ids is required"}), 400
 
-    affected_count, error = key_service.bulk_reset_keys(current_user, key_ids)
+    affected_count, error = key_bulk_operations_service.bulk_reset_keys(current_user, key_ids)
 
     if error:
         return jsonify({"error": error}), 500
@@ -253,12 +241,8 @@ def bulk_reset_keys(current_user=None, project_id=None):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def bulk_pause_keys(current_user=None, project_id=None):
+def bulk_pause_keys(current_user, project_id=None):
     """Bulk pause keys"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
@@ -269,7 +253,7 @@ def bulk_pause_keys(current_user=None, project_id=None):
     if not key_ids:
         return jsonify({"error": "key_ids is required"}), 400
 
-    affected_count, error = key_service.bulk_pause_keys(current_user, key_ids)
+    affected_count, error = key_bulk_operations_service.bulk_pause_keys(current_user, key_ids)
 
     if error:
         return jsonify({"error": error}), 500
@@ -287,12 +271,8 @@ def bulk_pause_keys(current_user=None, project_id=None):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def bulk_resume_keys(current_user=None, project_id=None):
+def bulk_resume_keys(current_user, project_id=None):
     """Bulk resume keys"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
@@ -303,7 +283,7 @@ def bulk_resume_keys(current_user=None, project_id=None):
     if not key_ids:
         return jsonify({"error": "key_ids is required"}), 400
 
-    affected_count, error = key_service.bulk_resume_keys(current_user, key_ids)
+    affected_count, error = key_bulk_operations_service.bulk_resume_keys(current_user, key_ids)
 
     if error:
         return jsonify({"error": error}), 500
@@ -321,12 +301,8 @@ def bulk_resume_keys(current_user=None, project_id=None):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def bulk_add_hours(current_user=None, project_id=None):
+def bulk_add_hours(current_user, project_id=None):
     """Bulk add hours to keys"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
@@ -341,7 +317,7 @@ def bulk_add_hours(current_user=None, project_id=None):
     if hours <= 0:
         return jsonify({"error": "hours must be positive"}), 400
 
-    affected_count, error = key_service.bulk_extend_keys(current_user, key_ids, hours)
+    affected_count, error = key_bulk_operations_service.bulk_extend_keys(current_user, key_ids, hours)
 
     if error:
         return jsonify({"error": error}), 500
@@ -362,12 +338,8 @@ def bulk_add_hours(current_user=None, project_id=None):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def bulk_pause_keys_by_product(current_user=None, project_id=None):
+def bulk_pause_keys_by_product(current_user, project_id=None):
     """Bulk pause keys by product"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
@@ -378,7 +350,7 @@ def bulk_pause_keys_by_product(current_user=None, project_id=None):
     if not product_id:
         return jsonify({"error": "product_id is required"}), 400
 
-    affected_count, error, product_name = key_service.bulk_pause_keys_by_product(current_user, product_id)
+    affected_count, error, product_name = key_bulk_operations_service.bulk_pause_keys_by_product(current_user, product_id)
 
     if error:
         return jsonify({"error": error}), 500 if error != "Product not found or access denied" else 404
@@ -399,12 +371,8 @@ def bulk_pause_keys_by_product(current_user=None, project_id=None):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def bulk_resume_keys_by_product(current_user=None, project_id=None):
+def bulk_resume_keys_by_product(current_user, project_id=None):
     """Bulk resume keys by product"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
@@ -415,7 +383,7 @@ def bulk_resume_keys_by_product(current_user=None, project_id=None):
     if not product_id:
         return jsonify({"error": "product_id is required"}), 400
 
-    affected_count, error, product_name = key_service.bulk_resume_keys_by_product(current_user, product_id)
+    affected_count, error, product_name = key_bulk_operations_service.bulk_resume_keys_by_product(current_user, product_id)
 
     if error:
         return jsonify({"error": error}), 500 if error != "Product not found or access denied" else 404
@@ -436,12 +404,8 @@ def bulk_resume_keys_by_product(current_user=None, project_id=None):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def bulk_reset_keys_by_product(current_user=None, project_id=None):
+def bulk_reset_keys_by_product(current_user, project_id=None):
     """Bulk reset keys by product"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
@@ -452,7 +416,7 @@ def bulk_reset_keys_by_product(current_user=None, project_id=None):
     if not product_id:
         return jsonify({"error": "product_id is required"}), 400
 
-    affected_count, error, product_name = key_service.bulk_reset_keys_by_product(current_user, product_id)
+    affected_count, error, product_name = key_bulk_operations_service.bulk_reset_keys_by_product(current_user, product_id)
 
     if error:
         return jsonify({"error": error}), 500 if error != "Product not found or access denied" else 404
@@ -473,12 +437,8 @@ def bulk_reset_keys_by_product(current_user=None, project_id=None):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def bulk_add_hours_by_product(current_user=None, project_id=None):
+def bulk_add_hours_by_product(current_user, project_id=None):
     """Bulk add hours to keys by product"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
@@ -493,7 +453,7 @@ def bulk_add_hours_by_product(current_user=None, project_id=None):
     if hours <= 0:
         return jsonify({"error": "hours must be positive"}), 400
 
-    affected_count, error, product_name = key_service.bulk_add_hours_by_product(
+    affected_count, error, product_name = key_bulk_operations_service.bulk_add_hours_by_product(
         current_user, product_id, hours
     )
 
@@ -520,19 +480,15 @@ def bulk_add_hours_by_product(current_user=None, project_id=None):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def bulk_delete_keys_by_filters(current_user=None, project_id=None):
+def bulk_delete_keys_by_filters(current_user, project_id=None):
     """Bulk delete keys by filters"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
     data = request.get_json()
 
-    deleted_count, error = key_service.bulk_delete_keys_by_filters(current_user, data)
+    deleted_count, error = key_bulk_operations_service.bulk_delete_keys_by_filters(current_user, data)
 
     if error:
         return jsonify({"error": error}), 500
@@ -555,19 +511,15 @@ def bulk_delete_keys_by_filters(current_user=None, project_id=None):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def bulk_reset_keys_by_filters(current_user=None, project_id=None):
+def bulk_reset_keys_by_filters(current_user, project_id=None):
     """Bulk reset keys by filters"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
     data = request.get_json()
 
-    reset_count, error = key_service.bulk_reset_keys_by_filters(current_user, data)
+    reset_count, error = key_bulk_operations_service.bulk_reset_keys_by_filters(current_user, data)
 
     if error:
         return jsonify({"error": error}), 500
@@ -590,12 +542,8 @@ def bulk_reset_keys_by_filters(current_user=None, project_id=None):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def bulk_extend_keys_by_filters(current_user=None, project_id=None):
+def bulk_extend_keys_by_filters(current_user, project_id=None):
     """Bulk extend keys by filters"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
@@ -606,7 +554,7 @@ def bulk_extend_keys_by_filters(current_user=None, project_id=None):
     if hours <= 0:
         return jsonify({"error": "Hours must be positive"}), 400
 
-    extended_count, error = key_service.bulk_extend_keys_by_filters(current_user, data, hours)
+    extended_count, error = key_bulk_operations_service.bulk_extend_keys_by_filters(current_user, data, hours)
 
     if error:
         return jsonify({"error": error}), 500

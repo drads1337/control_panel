@@ -181,12 +181,8 @@ def get_keys_analytics():
 @analytics_bp.route("/<key_id>/analytics", methods=["GET"])
 @jwt_required()
 @require_project_isolation
-def get_key_analytics(key_id, current_user=None, project_id=None):
+def get_key_analytics(key_id, current_user, project_id=None):
     """Get analytics for a specific key"""
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
-
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
@@ -279,9 +275,9 @@ def get_keys_stats():
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    from ...services.keys.key_service_facade import key_service
+    from ...services.keys.key_statistics_service import key_statistics_service
 
-    stats = key_service.get_key_stats(user)
+    stats = key_statistics_service.get_key_stats(user)
 
     return jsonify(
         {

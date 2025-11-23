@@ -49,7 +49,12 @@ export function EditWebhookDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      {/* 
+          АДАПТАЦИЯ: 
+          1. w-[95vw] для мобильных.
+          2. max-h-[90vh] + overflow-y-auto для скролла на небольших экранах.
+      */}
+      <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Webhook</DialogTitle>
           <DialogDescription>
@@ -67,11 +72,20 @@ export function EditWebhookDialog({
           isEdit={true}
         />
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        {/* АДАПТАЦИЯ: flex-col для вертикального расположения кнопок на телефоне */}
+        <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end mt-4">
+          <Button 
+            variant="outline" 
+            onClick={() => onOpenChange(false)}
+            className="w-full sm:w-auto"
+          >
             Cancel
           </Button>
-          <Button onClick={onUpdateWebhook} disabled={saving}>
+          <Button 
+            onClick={onUpdateWebhook} 
+            disabled={saving}
+            className="w-full sm:w-auto"
+          >
             {saving && <Spinner className="h-4 w-4 mr-2" />}
             Update Webhook
           </Button>

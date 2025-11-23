@@ -1,32 +1,31 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import type { UserActivityStats } from '@/entities/user';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 import { 
   Activity, 
   Clock, 
-  MapPin, 
-  Monitor, 
   TrendingUp,
   Calendar,
   Globe,
   RefreshCw,
-  Loader2
-} from 'lucide-react'
+  Shield,
+  Zap
+} from 'lucide-react';
 
 interface UserActivityStatsProps {
-  className?: string
+  className?: string;
   stats?: {
-    total_activities: number
-    today_activities: number
-    week_activities: number
-    month_activities: number
-    unique_ips: number
-    unique_locations: number
-    last_activity: string | null
-  }
-  loading?: boolean
-  onRefresh?: () => void
+    total_activities: number;
+    today_activities: number;
+    week_activities: number;
+    month_activities: number;
+    unique_ips: number;
+    unique_locations: number;
+    last_activity: string | null;
+  };
+  loading?: boolean;
+  onRefresh?: () => void;
 }
 
 export function UserActivityStats({ 
@@ -36,155 +35,150 @@ export function UserActivityStats({
   onRefresh
 }: UserActivityStatsProps) {
 
-  if (!stats) {
+  // Date formatter logic
+  const formatLastActivity = (dateString: string | null) => {
+    if (!dateString) return 'Never';
+
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+
+    if (diffInMinutes < 1) return 'Just now';
+    if (diffInMinutes < 60) return `${diffInMinutes} min ago`;
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    if (diffInDays < 7) return `${diffInDays}d ago`;
+    
+    return date.toLocaleDateString('en-US', {
+      day: 'numeric', 
+      month: 'short'
+    });
+  };
+
+  // Loading Skeleton
+  if (!stats && loading) {
     return (
-      <Card className={`@container/card ${className}`}>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Activity Statistics
-          </CardTitle>
-          <CardDescription>
-            An overview of your account activity
-          </CardDescription>
+      <Card className={className}>
+        <CardHeader className="pb-4">
+          <div className="h-6 w-32 bg-muted rounded animate-pulse" />
+          <div className="h-4 w-48 bg-muted rounded animate-pulse mt-2" />
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="hidden md:grid grid-cols-2 md:grid-cols-4 gap-4">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="animate-pulse">
-                <div className="h-16 bg-muted rounded-lg"></div>
-              </div>
+              <div key={i} className="h-24 bg-muted rounded-xl animate-pulse" />
             ))}
           </div>
         </CardContent>
       </Card>
-    )
+    );
   }
 
-  const formatLastActivity = (dateString: string | null) => {
-    if (!dateString) return 'No data'
-
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffInMs = now.getTime() - date.getTime()
-    const diffInMinutes = Math.floor(diffInMs / (1000 * 60))
-    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60))
-    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24))
-
-    if (diffInMinutes < 1) {
-      return 'Just now'
-    } else if (diffInMinutes < 60) {
-      return `${diffInMinutes} min. ago`
-    } else if (diffInHours < 24) {
-      return `${diffInHours}h ago`
-    } else if (diffInDays < 7) {
-      return `${diffInDays} days ago`
-    } else {
-      return date.toLocaleDateString('en-US', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric'
-      })
-    }
-  }
+  if (!stats) return null;
 
   return (
-    <Card className={`@container/card ${className}`}>
-      <CardHeader>
+    <Card className={cn("shadow-sm", className)}>
+      <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Activity Statistics
+          <div className="space-y-1">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <Activity className="h-5 w-5 text-primary" />
+              Activity Overview
             </CardTitle>
             <CardDescription>
-              An overview of your account activity
+              Summary of your account actions and sessions
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2">
-            {onRefresh && (
-              <Button variant="ghost" size="icon" onClick={onRefresh} disabled={loading}>
-                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              </Button>
-            )}
-          </div>
+          {onRefresh && (
+            <Button 
+              variant="outline" 
+              size="icon" 
+              className="h-8 w-8"
+              onClick={onRefresh} 
+              disabled={loading}
+            >
+              <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
+            </Button>
+          )}
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="text-center p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200/50 dark:border-blue-800/30">
-            <div className="flex items-center justify-center mb-2">
-              <Activity className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+      
+      <CardContent className="space-y-6">
+        {/* Main Stats Grid */}
+        <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Total Activities */}
+          <div className="p-4 rounded-xl border bg-card hover:bg-accent/40 transition-colors space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-muted-foreground">Total Events</span>
+              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              </div>
             </div>
-            <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
-              {stats.total_activities}
-            </div>
-            <div className="text-sm text-blue-600 dark:text-blue-300">Total Actions</div>
+            <div className="text-2xl font-bold">{stats.total_activities.toLocaleString()}</div>
           </div>
 
-          <div className="text-center p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200/50 dark:border-green-800/30">
-            <div className="flex items-center justify-center mb-2">
-              <Calendar className="h-6 w-6 text-green-600 dark:text-green-400" />
+          {/* Today */}
+          <div className="p-4 rounded-xl border bg-card hover:bg-accent/40 transition-colors space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-muted-foreground">Today</span>
+              <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                <Zap className="h-4 w-4 text-green-600 dark:text-green-400" />
+              </div>
             </div>
-            <div className="text-2xl font-bold text-green-900 dark:text-green-100">
-              {stats.today_activities}
-            </div>
-            <div className="text-sm text-green-600 dark:text-green-300">Today</div>
+            <div className="text-2xl font-bold">{stats.today_activities.toLocaleString()}</div>
           </div>
 
-          <div className="text-center p-4 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200/50 dark:border-purple-800/30">
-            <div className="flex items-center justify-center mb-2">
-              <Monitor className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+          {/* Unique IPs */}
+          <div className="p-4 rounded-xl border bg-card hover:bg-accent/40 transition-colors space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-muted-foreground">Unique IPs</span>
+              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                <Shield className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+              </div>
             </div>
-            <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">
-              {stats.unique_ips}
-            </div>
-            <div className="text-sm text-purple-600 dark:text-purple-300">Unique IPs</div>
+            <div className="text-2xl font-bold">{stats.unique_ips}</div>
           </div>
 
-          <div className="text-center p-4 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-200/50 dark:border-orange-800/30">
-            <div className="flex items-center justify-center mb-2">
-              <Globe className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+          {/* Locations */}
+          <div className="p-4 rounded-xl border bg-card hover:bg-accent/40 transition-colors space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-muted-foreground">Locations</span>
+              <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                <Globe className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+              </div>
             </div>
-            <div className="text-2xl font-bold text-orange-900 dark:text-orange-100">
-              {stats.unique_locations}
-            </div>
-            <div className="text-sm text-orange-600 dark:text-orange-300">Locations</div>
+            <div className="text-2xl font-bold">{stats.unique_locations}</div>
           </div>
         </div>
 
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="flex items-center gap-3 p-3 bg-muted rounded-lg border border-border">
-            <Clock className="h-5 w-5 text-muted-foreground" />
-            <div>
-              <div className="text-sm font-medium text-foreground">Last Activity</div>
-              <div className="text-sm text-muted-foreground">
-                {formatLastActivity(stats.last_activity)}
-              </div>
-            </div>
+        <Separator />
+
+        {/* Secondary Stats Footer */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+          <div className="flex items-center gap-3 text-muted-foreground">
+            <Clock className="h-4 w-4" />
+            <span>
+              Last active: <span className="font-medium text-foreground">{formatLastActivity(stats.last_activity)}</span>
+            </span>
           </div>
 
-          <div className="flex items-center gap-3 p-3 bg-muted rounded-lg border border-border">
-            <Calendar className="h-5 w-5 text-muted-foreground" />
-            <div>
-              <div className="text-sm font-medium text-foreground">This Week</div>
-              <div className="text-sm text-muted-foreground">
-                {stats.week_activities} actions
-              </div>
-            </div>
+          <div className="flex items-center gap-3 text-muted-foreground">
+            <Calendar className="h-4 w-4" />
+            <span>
+              This week: <span className="font-medium text-foreground">{stats.week_activities}</span>
+            </span>
           </div>
 
-          <div className="flex items-center gap-3 p-3 bg-muted rounded-lg border border-border">
-            <Calendar className="h-5 w-5 text-muted-foreground" />
-            <div>
-              <div className="text-sm font-medium text-foreground">This Month</div>
-              <div className="text-sm text-muted-foreground">
-                {stats.month_activities} actions
-              </div>
-            </div>
+          <div className="flex items-center gap-3 text-muted-foreground sm:justify-end">
+            <Calendar className="h-4 w-4" />
+            <span>
+              This month: <span className="font-medium text-foreground">{stats.month_activities}</span>
+            </span>
           </div>
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

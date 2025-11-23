@@ -7,6 +7,7 @@ import FileUpload from '@/components/ui/file-upload';
 import { uploadProductFiles } from '@/entities/file';
 import { toast } from 'sonner';
 import type { Product } from '@/entities/product';
+import { cn } from '@/lib/utils';
 
 interface ProductFileUploadDialogProps {
   open: boolean;
@@ -81,110 +82,128 @@ const ProductFileUploadDialog: React.FC<ProductFileUploadDialogProps> = ({ open,
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="w-[95vw] sm:max-w-[900px] max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-hidden">
+        <DialogHeader className="flex-shrink-0 text-left">
           <DialogTitle className="text-base">Upload Files for Product</DialogTitle>
           <DialogDescription className="mt-1 text-xs">
-            Upload files for the product "{product.name}". Supported formats: PNG, JPG, JPEG, GIF, EXE, APK, SO, DMG, DEB, RPM.
+            Upload files for the product "{product.name}".
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-3">
-              <Label className="text-sm font-medium">
-                Product Logo
-              </Label>
-              <FileUpload
-                onFilesSelect={(files) => handleFilesSelect(files, 'logo')}
-                multiple={false}
-                accept="image/*"
-                maxSize={5 * 1024 * 1024}
-                maxFiles={1}
-                showPreview={true}
-                showProgress={false}
-              />
-            </div>
-            <div className="space-y-3">
-              <Label className="text-sm font-medium">
-                Product Banner
-              </Label>
-              <FileUpload
-                onFilesSelect={(files) => handleFilesSelect(files, 'banner')}
-                multiple={false}
-                accept="image/*"
-                maxSize={10 * 1024 * 1024}
-                maxFiles={1}
-                showPreview={true}
-                showProgress={false}
-              />
-            </div>
-            <div className="space-y-3">
-              <Label className="text-sm font-medium">
-                Product Background
-              </Label>
-              <FileUpload
-                onFilesSelect={(files) => handleFilesSelect(files, 'background')}
-                multiple={false}
-                accept="image/*"
-                maxSize={15 * 1024 * 1024}
-                maxFiles={1}
-                showPreview={true}
-                showProgress={false}
-              />
-            </div>
-            <div className="space-y-3">
-              <Label className="text-sm font-medium">
-                Product File (required)
-              </Label>
-              <FileUpload
-                onFilesSelect={(files) => handleFilesSelect(files, 'file')}
-                multiple={false}
-                accept=".exe,.apk,.so,.dmg,.deb,.rpm"
-                maxSize={50 * 1024 * 1024}
-                maxFiles={1}
-                showPreview={false}
-                showProgress={false}
-                className="min-h-[140px]"
-              />
-              {selectedFiles.file && (
-                <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-                  <span>✓</span>
-                  File selected: {selectedFiles.file.name}
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-            <h4 className="text-sm font-medium text-foreground">File Requirements:</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-muted-foreground">
-              <div>Logo: PNG, JPG, JPEG, GIF (up to 5MB)</div>
-              <div>Banner: PNG, JPG, JPEG, GIF (up to 10MB)</div>
-              <div>Background: PNG, JPG, JPEG, GIF (up to 15MB)</div>
-              <div>File: EXE, APK, SO, DMG, DEB, RPM (up to 50MB)</div>
-            </div>
-          </div>
-          {loading && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span>Uploading files...</span>
-                <span>{uploadProgress}%</span>
-              </div>
-              <div className="w-full bg-muted rounded-full h-2">
-                <div 
-                  className="bg-primary h-2 rounded-full transition-all duration-300 ease-out"
-                  style={{ width: `${uploadProgress}%` }}
+
+        {/* Form container wrapping content and footer */}
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 space-y-4 mt-2">
+          
+          {/* Scrollable Content Area */}
+          <div className="flex-1 overflow-y-auto pr-1 -mr-1 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+              <div className="space-y-2 sm:space-y-3">
+                <Label className="text-sm font-medium">
+                  Product Logo
+                </Label>
+                <FileUpload
+                  onFilesSelect={(files) => handleFilesSelect(files, 'logo')}
+                  multiple={false}
+                  accept="image/*"
+                  maxSize={5 * 1024 * 1024}
+                  maxFiles={1}
+                  showPreview={true}
+                  showProgress={false}
                 />
               </div>
+              <div className="space-y-2 sm:space-y-3">
+                <Label className="text-sm font-medium">
+                  Product Banner
+                </Label>
+                <FileUpload
+                  onFilesSelect={(files) => handleFilesSelect(files, 'banner')}
+                  multiple={false}
+                  accept="image/*"
+                  maxSize={10 * 1024 * 1024}
+                  maxFiles={1}
+                  showPreview={true}
+                  showProgress={false}
+                />
+              </div>
+              <div className="space-y-2 sm:space-y-3">
+                <Label className="text-sm font-medium">
+                  Product Background
+                </Label>
+                <FileUpload
+                  onFilesSelect={(files) => handleFilesSelect(files, 'background')}
+                  multiple={false}
+                  accept="image/*"
+                  maxSize={15 * 1024 * 1024}
+                  maxFiles={1}
+                  showPreview={true}
+                  showProgress={false}
+                />
+              </div>
+              <div className="space-y-2 sm:space-y-3">
+                <Label className="text-sm font-medium">
+                  Product File (required)
+                </Label>
+                <FileUpload
+                  onFilesSelect={(files) => handleFilesSelect(files, 'file')}
+                  multiple={false}
+                  accept=".exe,.apk,.so,.dmg,.deb,.rpm"
+                  maxSize={50 * 1024 * 1024}
+                  maxFiles={1}
+                  showPreview={false}
+                  showProgress={false}
+                  className="min-h-[100px] sm:min-h-[140px]"
+                />
+                {selectedFiles.file && (
+                  <div className="flex items-center gap-2 text-xs sm:text-sm text-green-600 dark:text-green-400">
+                    <span>✓</span>
+                    <span className="truncate max-w-[200px] sm:max-w-xs">
+                      File selected: {selectedFiles.file.name}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
-          )}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+
+            <div className="bg-muted/50 rounded-lg p-3 sm:p-4 space-y-2">
+              <h4 className="text-sm font-medium text-foreground">File Requirements:</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground">
+                <div>Logo: PNG, JPG, JPEG, GIF (up to 5MB)</div>
+                <div>Banner: PNG, JPG, JPEG, GIF (up to 10MB)</div>
+                <div>Background: PNG, JPG, JPEG, GIF (up to 15MB)</div>
+                <div>File: EXE, APK, SO, DMG, DEB, RPM (up to 50MB)</div>
+              </div>
+            </div>
+
+            {loading && (
+              <div className="space-y-2 px-1">
+                <div className="flex items-center justify-between text-xs sm:text-sm">
+                  <span>Uploading files...</span>
+                  <span>{uploadProgress}%</span>
+                </div>
+                <div className="w-full bg-muted rounded-full h-2">
+                  <div 
+                    className="bg-primary h-2 rounded-full transition-all duration-300 ease-out"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Footer pinned to bottom */}
+          <DialogFooter className="flex-shrink-0 flex-col-reverse sm:flex-row gap-2 sm:gap-0 border-t pt-4">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => onOpenChange(false)} 
+              disabled={loading}
+              className="w-full sm:w-auto"
+            >
               Cancel
             </Button>
             <Button 
               type="submit" 
               disabled={loading || !selectedFiles.file}
-              className="min-w-[140px]"
+              className="w-full sm:w-auto min-w-[140px]"
             >
               {loading ? (
                 <><Spinner className="mr-2 h-4 w-4 animate-spin" />Uploading...</>

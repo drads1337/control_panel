@@ -12,7 +12,6 @@ import {
   Unlock,
   Eye,
   RefreshCw,
-  Plus,
   Loader2
 } from 'lucide-react'
 import { ConditionalRender } from '@/components/rbac/conditional-render'
@@ -75,46 +74,50 @@ const IPItem = React.memo(({
   getCategoryColor: (category: string) => string;
 }) => {
   return (
-    <div className="flex items-center justify-between p-2.5 border-b hover:bg-accent/50 transition-colors">
-      <div className="flex items-center gap-3 flex-1 min-w-0">
-        <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0 p-3 sm:p-2.5 border-b hover:bg-accent/50 transition-colors">
+      <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0">
+        <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
           <Globe className="h-4 w-4 text-primary" />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h4 className="font-medium text-sm font-mono">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-0">
+            <h4 className="font-medium text-xs sm:text-sm font-mono break-all sm:truncate">
               {ip.ip_address}
             </h4>
-            <Badge className={getCategoryColor(ip.category)} variant="secondary">
-              {ip.category}
-            </Badge>
-            <Badge className={getSeverityColor(ip.severity)} variant="secondary">
-              {ip.severity}
-            </Badge>
-            {!ip.is_active && (
-              <span className="text-xs text-muted-foreground">• Inactive</span>
-            )}
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              <Badge className={`${getCategoryColor(ip.category)} text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5`} variant="secondary">
+                {ip.category}
+              </Badge>
+              <Badge className={`${getSeverityColor(ip.severity)} text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5`} variant="secondary">
+                {ip.severity}
+              </Badge>
+              {!ip.is_active && (
+                <span className="text-[10px] sm:text-xs text-muted-foreground">• Inactive</span>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-xs text-muted-foreground truncate">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+            <p className="text-xs text-muted-foreground break-words sm:truncate sm:max-w-md">
               {ip.reason}
             </p>
-            {ip.city && ip.country && (
-              <span className="text-xs text-muted-foreground">
-                • <MapPin className="h-3 w-3 inline" /> {ip.city}, {ip.country}
+            <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+              {ip.city && ip.country && (
+                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                  • <MapPin className="h-3 w-3 inline" /> {ip.city}, {ip.country}
+                </span>
+              )}
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                • {new Date(ip.blocked_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
               </span>
-            )}
-            <span className="text-xs text-muted-foreground">
-              • {new Date(ip.blocked_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-            </span>
+            </div>
           </div>
         </div>
       </div>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-2 sm:gap-1 shrink-0 self-end sm:self-auto">
         <Button 
           variant="ghost" 
           size="icon"
-          className="h-8 w-8"
+          className="h-9 w-9 sm:h-8 sm:w-8"
           onClick={() => onViewDetails(ip)}
           disabled={loading}
         >
@@ -124,7 +127,7 @@ const IPItem = React.memo(({
           <Button 
             variant="ghost" 
             size="icon"
-            className="h-8 w-8 text-destructive hover:text-destructive"
+            className="h-9 w-9 sm:h-8 sm:w-8 text-destructive hover:text-destructive"
             onClick={() => onUnblock(ip.id)}
             disabled={loading}
           >
@@ -158,13 +161,12 @@ const IPsList: React.FC<IPsListProps> = ({
   getCategoryColor
 }) => {
   const parentRef = useRef<HTMLDivElement>(null);
-  // Lower threshold for better performance - virtualize when more than 30 items
   const shouldVirtualize = ips.length > 30;
 
   const rowVirtualizer = useVirtualizer({
     count: shouldVirtualize ? ips.length : 0,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 100,
+    estimateSize: () => 120,
     overscan: 5,
     enabled: shouldVirtualize,
   });
@@ -174,7 +176,7 @@ const IPsList: React.FC<IPsListProps> = ({
       <div
         ref={parentRef}
         className="overflow-auto"
-        style={{ height: '600px', contain: 'strict' }}
+        style={{ height: 'calc(100vh - 280px)', maxHeight: '600px', contain: 'strict' }}
       >
         <div
           style={{
@@ -286,34 +288,37 @@ export default function BlockedIPsList({
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader className="pb-0">
-          <div className="flex items-center justify-between">
+        <CardHeader className="pb-3 sm:pb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <CardTitle className="text-base">Blocked IP Addresses</CardTitle>
-              <CardDescription className="mt-1 text-xs">
+              <CardTitle className="text-base sm:text-lg">Blocked IP Addresses</CardTitle>
+              <CardDescription className="mt-1 text-xs sm:text-sm">
                 {blockedIPs?.length || 0} total
               </CardDescription>
             </div>
-            <div className="flex items-center gap-2">
+            
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
               {onRefresh && (
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  onClick={onRefresh}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4" />
-                  )}
-                </Button>
+                 <Button 
+                 variant="ghost" 
+                 size="sm"
+                 onClick={onRefresh}
+                 disabled={loading}
+                 className="justify-center h-9 sm:h-8"
+               >
+                 {loading ? (
+                   <Spinner className="h-4 w-4 animate-spin" />
+                 ) : (
+                   'Refresh'
+                 )}
+               </Button>
               )}
-              <div className="relative">
+
+              <div className="relative w-full sm:w-auto">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search IPs, reasons, locations..."
-                  className="pl-10 w-64"
+                  placeholder="Search..."
+                  className="pl-10 w-full sm:w-64 h-9 sm:h-8 text-sm"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -324,7 +329,8 @@ export default function BlockedIPsList({
             </div>
           </div>
         </CardHeader>
-        <CardContent className="pt-0 -mt-3">
+        
+        <CardContent className="pt-0 pb-4 sm:pb-6">
           {loading ? (
             <Spinner message="Loading blocked IPs..." />
           ) : filteredIPs.length === 0 ? (

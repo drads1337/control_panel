@@ -199,12 +199,8 @@ def mark_as_read(notification_id):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def increment_show_count(notification_id, current_user=None, project_id=None):
+def increment_show_count(notification_id, current_user, project_id=None):
     """Increment the show count of a notification"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
@@ -294,12 +290,8 @@ def mark_all_as_read():
 @require_project_with_grace_period
 @require_project_isolation
 @validate_request(NotificationCreateSchema)
-def create_notification(current_user=None, project_id=None, validated_data=None):
+def create_notification(current_user, project_id=None, validated_data=None):
     """Create a new notification"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
@@ -360,12 +352,8 @@ def create_notification(current_user=None, project_id=None, validated_data=None)
 @require_project_with_grace_period
 @require_project_isolation
 @validate_request(NotificationSendSchema)
-def send_notification(current_user=None, project_id=None, validated_data=None):
+def send_notification(current_user, project_id=None, validated_data=None):
     """Send notifications to specific users"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
@@ -424,12 +412,8 @@ def send_notification(current_user=None, project_id=None, validated_data=None):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def delete_notification(notification_id, current_user=None, project_id=None):
+def delete_notification(notification_id, current_user, project_id=None):
     """Delete a notification (soft delete)"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
@@ -458,12 +442,8 @@ def delete_notification(notification_id, current_user=None, project_id=None):
 @require_project_with_grace_period
 @require_project_isolation
 @validate_request(NotificationBulkActionSchema)
-def bulk_action(current_user=None, project_id=None, validated_data=None):
+def bulk_action(current_user, project_id=None, validated_data=None):
     """Bulk operations on notifications"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
@@ -555,12 +535,8 @@ def bulk_action(current_user=None, project_id=None, validated_data=None):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def get_notification_stats(current_user=None, project_id=None):
+def get_notification_stats(current_user, project_id=None):
     """Get notification statistics"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
@@ -627,12 +603,8 @@ def get_notification_stats(current_user=None, project_id=None):
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def get_unread_count(current_user=None, project_id=None):
+def get_unread_count(current_user, project_id=None):
     """Get the count of unread notifications"""
-
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404

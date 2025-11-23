@@ -37,6 +37,33 @@ class KeyCRUDService:
         self.generation_service = key_generation_service
         self.validation_service = key_validation_service
 
+    def _parse_key_metadata(self, key_metadata_value):
+        """
+        Parse key_metadata from JSON string to dict if needed
+        
+        Args:
+            key_metadata_value: Can be a string (JSON), dict, or None
+            
+        Returns:
+            dict or None
+        """
+        if not key_metadata_value:
+            return None
+        
+        try:
+            import json
+            if isinstance(key_metadata_value, str):
+                return json.loads(key_metadata_value)
+            elif isinstance(key_metadata_value, dict):
+                return key_metadata_value
+            else:
+                return None
+        except (json.JSONDecodeError, TypeError) as e:
+            self.logger.warning(
+                f"⚠️ Failed to parse key_metadata: {key_metadata_value}, error: {str(e)}"
+            )
+            return None
+
     def create_key(
         self, user: User, key_data: Dict[str, Any]
     ) -> Tuple[Optional[Key], Optional[str]]:
@@ -291,6 +318,9 @@ class KeyCRUDService:
                         devices_list = [d.strip() for d in key.devices.split(",") if d.strip()]
                         device_count = len(devices_list)
 
+                # Parse key_metadata from JSON string to dict if needed
+                key_metadata = self._parse_key_metadata(key.key_metadata)
+
                 keys.append(
                     KeyListItem(
                         id=key.unique_id,
@@ -309,7 +339,7 @@ class KeyCRUDService:
                         created_at=key.created_at.isoformat(),
                         activated_at=key.activated_at.isoformat() if key.activated_at else None,
                         duration_hours=key.duration_hours,
-                        key_metadata=key.key_metadata,
+                        key_metadata=key_metadata,
                     )
                 )
 
@@ -373,6 +403,9 @@ class KeyCRUDService:
 
             key_value = key.key if can_view_full_key else mask_license_key(key.key)
 
+            # Parse key_metadata from JSON string to dict if needed
+            key_metadata = self._parse_key_metadata(key.key_metadata)
+
             key_data = KeyDetailsData(
                 id=key.id,
                 key=key_value,
@@ -394,7 +427,7 @@ class KeyCRUDService:
                 duration_hours=key.duration_hours,
                 project_id=key.project_id,
                 fingerprint=key.fingerprint,
-                key_metadata=key.key_metadata,
+                key_metadata=key_metadata,
             )
 
             return KeyDetailsResponse(key=key_data, devices=devices_data, usage_history=[]), None

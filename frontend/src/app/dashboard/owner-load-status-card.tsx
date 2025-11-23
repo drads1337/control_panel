@@ -169,7 +169,7 @@ export function OwnerLoadStatusCard({ loadStatus }: OwnerLoadStatusCardProps) {
           </div>
 
           {/* Endpoints - горизонтальный скролл на мобильных */}
-          <div className="flex sm:block gap-3 sm:gap-0 overflow-x-auto sm:overflow-x-visible pb-2 sm:pb-0 -mx-2 sm:mx-0 px-2 sm:px-0 scrollbar-hide sm:space-y-3">
+          <div className="flex sm:block gap-3 sm:gap-0 overflow-x-auto sm:overflow-x-visible pb-2 sm:pb-0 -mx-2 sm:mx-0 px-2 sm:px-0 no-scrollbar sm:space-y-3">
             <div className="min-w-[280px] sm:min-w-0 flex-shrink-0 sm:flex-shrink">
               {renderEndpointStatus(loadStatus.endpoints.connect, 'connect')}
             </div>

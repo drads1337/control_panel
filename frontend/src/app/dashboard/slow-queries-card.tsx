@@ -40,22 +40,23 @@ export function SlowQueriesCard({ data }: SlowQueriesCardProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="p-4 sm:p-6">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-            <div className="space-y-1">
+          {/* Горизонтальный скролл на мобильных */}
+          <div className="flex sm:grid sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 overflow-x-auto sm:overflow-x-visible pb-2 sm:pb-0 -mx-2 sm:mx-0 px-2 sm:px-0 no-scrollbar">
+            <div className="space-y-1 min-w-[120px] sm:min-w-0 flex-shrink-0 sm:flex-shrink">
               <p className="text-xs sm:text-sm text-muted-foreground">Total Queries</p>
-              <p className="text-lg sm:text-xl md:text-2xl font-bold">{summary.total_queries.toLocaleString()}</p>
+              <p className="text-base xs:text-lg sm:text-xl md:text-2xl font-bold">{summary.total_queries.toLocaleString()}</p>
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1 min-w-[120px] sm:min-w-0 flex-shrink-0 sm:flex-shrink">
               <p className="text-xs sm:text-sm text-muted-foreground">Slow Queries</p>
-              <p className="text-lg sm:text-xl md:text-2xl font-bold text-orange-600">{summary.slow_queries.toLocaleString()}</p>
+              <p className="text-base xs:text-lg sm:text-xl md:text-2xl font-bold text-orange-600">{summary.slow_queries.toLocaleString()}</p>
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1 min-w-[120px] sm:min-w-0 flex-shrink-0 sm:flex-shrink">
               <p className="text-xs sm:text-sm text-muted-foreground">Avg Time</p>
-              <p className="text-lg sm:text-xl md:text-2xl font-bold">{summary.avg_query_time_ms.toFixed(2)}ms</p>
+              <p className="text-base xs:text-lg sm:text-xl md:text-2xl font-bold">{summary.avg_query_time_ms.toFixed(2)}ms</p>
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1 min-w-[120px] sm:min-w-0 flex-shrink-0 sm:flex-shrink">
               <p className="text-xs sm:text-sm text-muted-foreground">Max Time</p>
-              <p className="text-lg sm:text-xl md:text-2xl font-bold text-red-600">{summary.max_query_time_ms.toFixed(2)}ms</p>
+              <p className="text-base xs:text-lg sm:text-xl md:text-2xl font-bold text-red-600">{summary.max_query_time_ms.toFixed(2)}ms</p>
             </div>
           </div>
 

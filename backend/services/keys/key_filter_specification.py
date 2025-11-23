@@ -87,8 +87,16 @@ class KeyFilterSpecification:
                 )
             elif status == "expired":
                 if self.logger:
-                    self.logger.info("⏰ Applying expired status filter: expires_at <= now")
-                query = query.filter(Key.expires_at <= datetime.utcnow())
+                    self.logger.info(
+                        "⏰ Applying expired status filter: "
+                        "status=1 AND expires_at <= now (only active keys can be expired)"
+                    )
+                # Only active keys (status=1) can be expired
+                # Blocked/paused keys are not considered expired
+                query = query.filter(
+                    Key.status == 1,
+                    Key.expires_at <= datetime.utcnow()
+                )
             elif status == "inactive":
                 if self.logger:
                     self.logger.info("❌ Applying inactive status filter: status=0")

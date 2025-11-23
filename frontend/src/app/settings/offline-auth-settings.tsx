@@ -75,15 +75,15 @@ export default function OfflineAuthSettings() {
       <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
           <WifiOff className="h-4 w-4 text-muted-foreground" />
-          <CardTitle>Offline Authentication</CardTitle>
+          <CardTitle className="text-base sm:text-lg">Offline Authentication</CardTitle>
         </div>
-        <CardDescription>
+        <CardDescription className="text-xs sm:text-sm">
           Cached tickets for offline access
         </CardDescription>
       </CardHeader>
-      <CardContent className="pt-0 space-y-4">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="offline-auth-enabled" className="text-sm font-medium">
+      <CardContent className="pt-0 space-y-3 sm:space-y-4">
+        <div className="flex items-center justify-between gap-4">
+          <Label htmlFor="offline-auth-enabled" className="text-xs sm:text-sm font-medium">
             Enable
           </Label>
           <Switch
@@ -97,8 +97,8 @@ export default function OfflineAuthSettings() {
         {offlineAuthEnabled && (
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-muted-foreground" />
-              <Label htmlFor="expiration-hours" className="text-sm font-medium">
+              <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <Label htmlFor="expiration-hours" className="text-xs sm:text-sm font-medium">
                 Expiration (hours)
               </Label>
             </div>
@@ -110,7 +110,7 @@ export default function OfflineAuthSettings() {
               value={expirationHours}
               onChange={(e) => handleExpirationChange(e.target.value)}
               disabled={isSaving}
-              className="max-w-xs"
+              className="w-full sm:max-w-xs"
             />
           </div>
         )}

@@ -40,7 +40,8 @@ export function BlockFormFields({
 
   return (
     <>
-      <div className={cn(isGridLayout ? "grid grid-cols-2 gap-4" : "space-y-4")}>
+      {/* АДАПТАЦИЯ: grid-cols-1 для мобильных, sm:grid-cols-2 для планшетов+ */}
+      <div className={cn(isGridLayout ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : "space-y-4")}>
         <div className="space-y-2">
           <Label htmlFor={config.fieldName}>{config.fieldLabel} *</Label>
           <Input
@@ -84,7 +85,8 @@ export function BlockFormFields({
       </div>
 
       {!isGridLayout && (
-        <div className="grid grid-cols-2 gap-4">
+        // АДАПТАЦИЯ: 1 колонка на мобильном, 2 на планшете
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="block_type">Block Type</Label>
             <Select value={formData.block_type as string} onValueChange={(value) => onInputChange('block_type', value)}>
@@ -119,7 +121,8 @@ export function BlockFormFields({
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
+      {/* АДАПТАЦИЯ: 1 колонка на мобильном, 2 на планшете */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {isGridLayout && (
           <div className="space-y-2">
             <Label htmlFor="category">Category</Label>
@@ -155,7 +158,8 @@ export function BlockFormFields({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      {/* АДАПТАЦИЯ: 1 колонка на мобильном, 2 на планшете */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="threat_score">Threat Score (0-100)</Label>
           <Input

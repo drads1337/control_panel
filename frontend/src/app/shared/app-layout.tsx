@@ -25,11 +25,18 @@ export function AppLayout({
           <AppHeader title={title} showSearch={showSearch}>
             {headerActions}
           </AppHeader>
-          <main className="flex-1 overflow-y-auto px-6 pt-6">
-            <div className="pb-6">
+          
+          {/* АДАПТАЦИЯ: 
+              px-4 pt-4: Уменьшенные отступы для мобильных (16px)
+              sm:px-6 sm:pt-6: Оригинальные отступы для планшетов и ПК (24px)
+          */}
+          <main className="flex-1 overflow-y-auto px-4 pt-4 sm:px-6 sm:pt-6">
+            {/* АДАПТАЦИЯ: Отступ снизу тоже уменьшен на мобильном */}
+            <div className="pb-4 sm:pb-6">
               {children}
             </div>
           </main>
+          
           <AppFooter />
         </div>
       </SidebarInset>

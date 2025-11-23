@@ -131,12 +131,9 @@ def process_image(file_stream, crop_data=None):
 @require_user
 @require_project_assignment
 @serialize_response(UserPrivateResponse)
-def get_me(current_user=None):
+def get_me(current_user):
     """Get current user profile with optimized queries"""
 
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
     user = current_user
 
     key_stats = (
@@ -179,12 +176,9 @@ def get_me(current_user=None):
 @jwt_required()
 @require_user
 @require_project_assignment
-def update_profile(current_user=None):
+def update_profile(current_user):
     """Update user profile information"""
 
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
     user = current_user
     data = request.get_json()
 
@@ -225,12 +219,9 @@ def update_profile(current_user=None):
 @jwt_required()
 @require_user
 @require_project_assignment
-def change_password(current_user=None):
+def change_password(current_user):
     """Change user password with security validation"""
 
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
     user = current_user
     data = request.get_json()
 
@@ -288,12 +279,9 @@ def change_password(current_user=None):
 @jwt_required()
 @require_user
 @require_project_assignment
-def upload_avatar(current_user=None):
+def upload_avatar(current_user):
     """Upload user avatar with enhanced security"""
 
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
     user = current_user
 
     if "avatar" not in request.files:
@@ -396,12 +384,9 @@ def upload_avatar(current_user=None):
 @jwt_required()
 @require_user
 @require_project_assignment
-def remove_avatar(current_user=None):
+def remove_avatar(current_user):
     """Remove user avatar"""
 
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
     user = current_user
 
     if user.avatar:
@@ -422,12 +407,9 @@ def remove_avatar(current_user=None):
 @require_user
 @require_project_assignment
 @require_project_isolation
-def get_my_stats(current_user=None):
+def get_my_stats(current_user):
     """Get current user statistics with optimized queries"""
 
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
     user = current_user
 
     key_stats = (
@@ -498,12 +480,9 @@ def get_my_stats(current_user=None):
 @require_user
 @require_project_assignment
 @require_project_isolation
-def get_user_activity(current_user=None):
+def get_user_activity(current_user):
     """Get user activity with pagination"""
 
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
     user = current_user
 
     try:
@@ -535,12 +514,9 @@ def get_user_activity(current_user=None):
 @require_user
 @require_project_assignment
 @require_project_isolation
-def get_user_activity_stats(current_user=None):
+def get_user_activity_stats(current_user):
     """Get user activity statistics"""
 
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
     user = current_user
 
     try:
@@ -607,12 +583,9 @@ def get_user_activity_stats(current_user=None):
 @require_user
 @require_project_assignment
 @require_project_isolation
-def export_user_activity(current_user=None):
+def export_user_activity(current_user):
     """Export user activity to CSV"""
 
-    if current_user is None:
-        from flask import g
-        current_user = g.current_user
     user = current_user
 
     try:

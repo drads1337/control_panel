@@ -32,6 +32,7 @@ import { projectKeys } from '@/entities/project'
 import { useNavigationQuery } from '@/entities/navigation'
 import { canAccessNavigationItem, type NavigationItem } from '@/entities/navigation'
 import { getAvatarUrl } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import {
   Sidebar,
   SidebarContent,
@@ -104,7 +105,6 @@ function convertNavigationItemsToSidebarItems(navigationItems: NavigationItem[])
     .map(item => {
       const uiMetadata = navigationUIMap[item.href]
       if (!uiMetadata) {
-
         return null
       }
 
@@ -162,6 +162,8 @@ function AppSidebarContent() {
     navigate(href)
   }
 
+  // На мобильных устройствах состояние 'collapsed' обычно не используется так же, как на десктопе
+  // (там сайдбар просто скрыт или открыт полностью), но проверка не помешает.
   const isCollapsed = state === 'collapsed'
 
   return (
@@ -173,11 +175,11 @@ function AppSidebarContent() {
               size="lg"
               className="cursor-default"
             >
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground shrink-0">
                 <Briefcase className="size-4" />
               </div>
               {!isCollapsed && (
-                <div className="grid flex-1 text-left text-sm leading-tight">
+                <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
                   <span className="truncate font-semibold">
                     {currentProject?.name || 'Panel'}
                   </span>
@@ -225,14 +227,14 @@ function AppSidebarContent() {
                   size="lg"
                   className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
-                  <Avatar className="h-8 w-8 rounded-lg">
+                  <Avatar className="h-8 w-8 rounded-lg shrink-0">
                     <AvatarImage src={getAvatarUrl(user?.avatar)} alt={user?.username || 'User'} />
                     <AvatarFallback className="rounded-lg bg-sidebar-accent text-sidebar-foreground">
                       {user?.username?.charAt(0).toUpperCase() || 'U'}
                     </AvatarFallback>
                   </Avatar>
                   {!isCollapsed && (
-                    <div className="grid flex-1 text-left text-sm leading-tight">
+                    <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
                       <span className="truncate font-semibold">
                         {user?.username || 'User'}
                       </span>
@@ -244,24 +246,29 @@ function AppSidebarContent() {
                       </span>
                     </div>
                   )}
-                  {!isCollapsed && <ChevronsUpDown className="ml-auto size-4" />}
+                  {!isCollapsed && <ChevronsUpDown className="ml-auto size-4 shrink-0" />}
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent
-                className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg ml-2"
-                side={isMobile ? 'bottom' : 'right'}
+                // АДАПТАЦИЯ: Убираем ml-2 на мобильном, чтобы не вылезало за край
+                className={cn(
+                  "w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg",
+                  !isMobile && "ml-2"
+                )}
+                // АДАПТАЦИЯ: На мобильном открываем ВВЕРХ (top), так как футер внизу экрана
+                side={isMobile ? 'top' : 'right'}
                 align="end"
                 sideOffset={4}
               >
                 <DropdownMenuLabel className="p-0 font-normal">
                   <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                    <Avatar className="h-8 w-8 rounded-lg">
+                    <Avatar className="h-8 w-8 rounded-lg shrink-0">
                       <AvatarImage src={getAvatarUrl(user?.avatar)} alt={user?.username || 'User'} />
                       <AvatarFallback className="rounded-lg">
                         {user?.username?.charAt(0).toUpperCase() || 'U'}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="grid flex-1 text-left text-sm leading-tight">
+                    <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
                       <span className="truncate font-semibold">
                         {user?.username || 'User'}
                       </span>
@@ -307,6 +314,8 @@ function AppSidebarContent() {
 
 export function AppSidebarInner() {
   return (
+    // collapsible="icon" работает для десктопа. 
+    // На мобильном SidebarProvider превращает это в Drawer (шторку).
     <Sidebar collapsible="icon" variant="sidebar">
       <AppSidebarContent />
     </Sidebar>
