@@ -126,6 +126,7 @@ class BalanceService:
         amount: float,
         reason: Optional[str] = None,
         ip_address: Optional[str] = None,
+        commit: bool = True,
     ) -> Tuple[bool, Optional[str], Optional[Dict[str, Any]]]:
         """
         Deduct from user balance with transaction logging
@@ -136,6 +137,8 @@ class BalanceService:
             amount: Amount to deduct (must be positive)
             reason: Optional reason for deduction
             ip_address: Optional IP address for activity logging
+            commit: Whether to commit the transaction (default: True). 
+                   Set to False when calling within an existing transaction.
 
         Returns:
             Tuple of (success, error_message, result_data)
@@ -166,14 +169,17 @@ class BalanceService:
                 created_at=datetime.utcnow(),
             )
             db.session.add(transaction)
-            db.session.commit()
+            
+            if commit:
+                db.session.commit()
 
-            activity_service.log_activity(
-                current_user,
-                "deduct_balance",
-                details=f'Deducted {amount} tokens from user {target_user.username} (ID: {target_user.id}). Old balance: {old_balance}, New balance: {target_user.token_balance}. Reason: {reason or "Balance deduction"}',
-                ip=ip_address,
-            )
+            if commit:
+                activity_service.log_activity(
+                    current_user,
+                    "deduct_balance",
+                    details=f'Deducted {amount} tokens from user {target_user.username} (ID: {target_user.id}). Old balance: {old_balance}, New balance: {target_user.token_balance}. Reason: {reason or "Balance deduction"}',
+                    ip=ip_address,
+                )
 
             result_data = {
                 "user_id": target_user_id,
@@ -186,7 +192,8 @@ class BalanceService:
             return True, None, result_data
 
         except Exception as e:
-            db.session.rollback()
+            if commit:
+                db.session.rollback()
             self.logger.error(f"Error deducting balance: {str(e)}")
             return False, f"Failed to deduct balance: {str(e)}", None
 

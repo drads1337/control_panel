@@ -161,6 +161,43 @@ class KeyCRUDService:
         duration_hours = key_data.get("duration_hours", 24)
         max_devices = key_data.get("max_devices", 1)
 
+        # Deduct balance for key creation (except for admin/owner) - BEFORE creating the key
+        from ...utils.rbac_utils import RBACManager
+        
+        is_owner = RBACManager.is_owner(user)
+        is_admin = RBACManager.is_admin(user)
+        
+        if not is_owner and not is_admin and product and user.project_id:
+            from ...services.products.price_calculation_service import price_calculation_service
+            from ...services.balance import balance_service
+            
+            key_price = price_calculation_service.calculate_key_price(
+                product_id=product.id,
+                duration_hours=duration_hours,
+                project_id=user.project_id
+            )
+            
+            if key_price > 0:
+                # Refresh user to get latest balance
+                db.session.refresh(user)
+                
+                # Check if user has sufficient balance
+                if user.token_balance < key_price:
+                    raise ValidationError(f"Insufficient balance. Required: {key_price} tokens, Available: {user.token_balance} tokens")
+                
+                # Deduct balance without committing (we're inside a transaction)
+                success, error_msg, _ = balance_service.deduct_balance(
+                    current_user=user,
+                    target_user_id=user.id,
+                    amount=key_price,
+                    reason=f"Key creation: {duration_hours} hours for product {product.name}",
+                    ip_address=None,
+                    commit=False  # Don't commit, we're inside a transaction
+                )
+                
+                if not success:
+                    raise ValidationError(f"Failed to deduct balance: {error_msg}")
+
         key_string = self.generation_service.generate_key_string(
             length=key_data.get("length", 32),
             product=product,
@@ -188,39 +225,6 @@ class KeyCRUDService:
 
         db.session.add(key)
         db.session.flush()
-
-        # Deduct balance for key creation (except for admin/owner)
-        from ...utils.rbac_utils import RBACManager
-        
-        is_owner = RBACManager.is_owner(user)
-        is_admin = RBACManager.is_admin(user)
-        
-        if not is_owner and not is_admin and product and user.project_id:
-            from ...services.products.price_calculation_service import price_calculation_service
-            from ...services.balance import balance_service
-            
-            key_price = price_calculation_service.calculate_key_price(
-                product_id=product.id,
-                duration_hours=duration_hours,
-                project_id=user.project_id
-            )
-            
-            if key_price > 0:
-                # Check if user has sufficient balance
-                if user.token_balance < key_price:
-                    raise ValidationError(f"Insufficient balance. Required: {key_price} tokens, Available: {user.token_balance} tokens")
-                
-                # Deduct balance
-                success, error_msg, _ = balance_service.deduct_balance(
-                    current_user=user,
-                    target_user_id=user.id,
-                    amount=key_price,
-                    reason=f"Key creation: {duration_hours} hours for product {product.name}",
-                    ip_address=None
-                )
-                
-                if not success:
-                    raise ValidationError(f"Failed to deduct balance: {error_msg}")
 
         from ...utils.key_counters import increment_user_key_counters
         increment_user_key_counters(user.id, is_active=True)

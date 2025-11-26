@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 from flask import current_app
+from sqlalchemy import func
 
 from ...core.extensions import db
 from ...models.core import Project, ProjectInviteCode, User
@@ -138,7 +139,7 @@ class InviteService:
 
     def validate_invite_code(self, code: str) -> Tuple[Optional[Dict], Optional[str]]:
         """
-        Validate an invite code
+        Validate an invite code (checks both ProjectInviteCode and ReferralCode)
 
         Args:
             code: Invite code to validate
@@ -156,7 +157,7 @@ class InviteService:
             if len(code) < 6:
                 return None, "Invite code is too short"
 
-            if len(code) > 20:
+            if len(code) > 64:
                 return None, "Invite code is too long"
 
             import re
@@ -164,27 +165,68 @@ class InviteService:
             if not re.match(r"^[A-Z0-9]+$", code):
                 return None, "Invite code can only contain letters and numbers"
 
+            self.logger.debug(f"Validating invite code: '{code}' (length: {len(code)})")
+
+            # First try ProjectInviteCode (exact match)
             invite = ProjectInviteCode.query.filter_by(code=code).first()
             if not invite:
-                return None, "Invalid invite code"
+                # Try case-insensitive search as fallback
+                invite = ProjectInviteCode.query.filter(func.upper(ProjectInviteCode.code) == code).first()
+                if invite:
+                    self.logger.debug(f"Found ProjectInviteCode with case-insensitive search: '{invite.code}'")
+            
+            if invite:
+                if invite.is_expired or (invite.expires_at and invite.expires_at < datetime.utcnow()):
+                    return None, "Invite code has expired"
 
-            if invite.is_expired or (invite.expires_at and invite.expires_at < datetime.utcnow()):
-                return None, "Invite code has expired"
+                if invite.is_used:
+                    return None, "Invite code has already been used"
 
-            if invite.is_used:
-                return None, "Invite code has already been used"
+                return {
+                    "code": invite.code,
+                    "project_id": invite.project_id,
+                    "expires_at": invite.expires_at.isoformat() if invite.expires_at else None,
+                    "max_uses": 1,
+                    "used_count": 1 if invite.is_used else 0,
+                    "created_by": invite.created_by,
+                    "code_type": "project_invite",
+                }, None
 
-            return {
-                "code": invite.code,
-                "project_id": invite.project_id,
-                "expires_at": invite.expires_at.isoformat() if invite.expires_at else None,
-                "max_uses": 1,
-                "used_count": 1 if invite.is_used else 0,
-                "created_by": invite.created_by,
-            }, None
+            # If not found, try ReferralCode (exact match)
+            referral = ReferralCode.query.filter_by(code=code).first()
+            if not referral:
+                # Try case-insensitive search as fallback
+                referral = ReferralCode.query.filter(func.upper(ReferralCode.code) == code).first()
+                if referral:
+                    self.logger.debug(f"Found ReferralCode with case-insensitive search: '{referral.code}'")
+            
+            if referral:
+                if referral.expires_at and referral.expires_at < datetime.utcnow():
+                    return None, "Invite code has expired"
+
+                if referral.used:
+                    return None, "Invite code has already been used"
+
+                return {
+                    "code": referral.code,
+                    "project_id": referral.project_id,
+                    "expires_at": referral.expires_at.isoformat() if referral.expires_at else None,
+                    "max_uses": 1,
+                    "used_count": 1 if referral.used else 0,
+                    "created_by": referral.created_by,
+                    "code_type": "referral",
+                    "token_balance": referral.token_balance,
+                    "work_duration_days": referral.work_duration_days,
+                    "product_ids": referral.product_ids_list,
+                    "rbac_role_ids": referral.rbac_role_ids if referral.rbac_role_ids else [],
+                }, None
+
+            # Code not found in either table
+            self.logger.warning(f"Invite code not found: '{code}' (searched in ProjectInviteCode and ReferralCode)")
+            return None, "Invalid invite code"
 
         except Exception as e:
-            self.logger.error(f"Error validating invite code: {str(e)}")
+            self.logger.error(f"Error validating invite code: {str(e)}", exc_info=True)
             return None, "Failed to validate invite code"
 
     def validate_referral_code(self, code: str) -> Tuple[Optional[Dict], Optional[str]]:

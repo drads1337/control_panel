@@ -352,20 +352,91 @@ def register_with_invite():
                 invite.project_id = project_id
                 db.session.commit()
 
+        # Check if this is a referral code with RBAC roles
+        code_type = code_info.get("code_type", "project_invite")
+        rbac_role_ids = code_info.get("rbac_role_ids", []) if code_type == "referral" else []
+        product_ids = code_info.get("product_ids", []) if code_type == "referral" else []
+        token_balance = code_info.get("token_balance", 0) if code_type == "referral" else 0
+        work_duration_days = code_info.get("work_duration_days") if code_type == "referral" else None
+        
+        # Log for debugging
+        if code_type == "referral":
+            logger.info(
+                f"Referral code registration: code={invite_code}, "
+                f"product_ids={product_ids}, rbac_role_ids={rbac_role_ids}, "
+                f"token_balance={token_balance}, work_duration_days={work_duration_days}"
+            )
+
         user_crud_service = get_service('user_crud_service')
         # Exceptions are handled by global handler
         try:
-            user = user_crud_service.create_user(
-                username, None, password, project_id, UserRoles.ADMIN.value
-            )
+            # Handle referral codes - always assign products and roles if specified
+            if code_type == "referral":
+                from werkzeug.security import generate_password_hash
+                from ..models.core import User
+                from ..utils.service_helpers import get_user_role_service, get_user_permission_service
+                from ..models.keys import ReferralCode
+                from datetime import timedelta
+                
+                # Validate username doesn't exist
+                if User.query.filter_by(username=username).first():
+                    raise ConflictError("Username already exists", resource_type="user")
+                
+                # Create user without legacy role field (roles are managed via RBAC)
+                user = User(
+                    username=username,
+                    email=None,
+                    password=generate_password_hash(password),
+                    project_id=project_id,
+                    created_at=datetime.utcnow(),
+                )
+                db.session.add(user)
+                db.session.flush()
+                
+                # Assign RBAC roles if provided
+                if rbac_role_ids and project_id:
+                    user_role_service = get_user_role_service()
+                    user_role_service.assign_roles_to_user(user.id, project_id, rbac_role_ids)
+                
+                # Assign product permissions - always try to assign if product_ids provided
+                if project_id:
+                    user_permission_service = get_user_permission_service()
+                    # Process product_ids to filter out invalid values like 0
+                    processed_product_ids = user_permission_service.process_product_ids_from_data(product_ids)
+                    if processed_product_ids:
+                        user_permission_service.assign_product_permissions(user.id, project_id, processed_product_ids)
+                
+                # Set work duration if specified
+                if work_duration_days:
+                    user.expires_at = datetime.utcnow() + timedelta(days=work_duration_days)
+                
+                # Add token balance if provided
+                if token_balance > 0:
+                    user.token_balance = token_balance
+                
+                db.session.commit()
+                
+                # Mark referral code as used
+                referral = ReferralCode.query.filter_by(code=invite_code).first()
+                if referral:
+                    referral.used = True
+                    referral.used_by = user.id
+                    db.session.commit()
+            else:
+                # Default behavior for project invite codes
+                default_role = UserRoles.ADMIN.value
+                user = user_crud_service.create_user(
+                    username, None, password, project_id, default_role
+                )
+                
+                # Mark invite code as used
+                success, error = invite_service.use_invite_code(invite_code, user.id)
+                if not success:
+                    logger.warning(f"Failed to mark invite code as used: {error}")
         except (ValidationError, ConflictError, ServiceError):
             # Let global error handler deal with these, but ensure rollback
             db.session.rollback()
             raise
-
-        success, error = invite_service.use_invite_code(invite_code, user.id)
-        if not success:
-            logger.warning(f"Failed to mark invite code as used: {error}")
 
         return (
             jsonify(
@@ -801,27 +872,55 @@ def validate_invite_code():
         if not code_info:
             return jsonify({"error": error}), 400
 
+        code_type = code_info.get("code_type", "project_invite")
+        project_id = code_info.get("project_id")
+
         response_data = {
             "code": code_info["code"],
-            "project_id": code_info["project_id"],
+            "project_id": project_id,
             "expires_at": code_info["expires_at"],
             "max_uses": code_info.get("max_uses"),
             "used_count": code_info.get("used_count", 0),
+            "code_type": code_type,
         }
 
-        if code_info["project_id"]:
-
-            project = Project.query.get(code_info["project_id"])
+        # Add referral code specific fields if it's a referral code
+        if code_type == "referral":
+            response_data["token_balance"] = code_info.get("token_balance", 0)
+            response_data["work_duration_days"] = code_info.get("work_duration_days")
+            response_data["product_ids"] = code_info.get("product_ids", [])
+            response_data["rbac_role_ids"] = code_info.get("rbac_role_ids", [])
+            
+            # Get role information for rbac_role_ids
+            rbac_role_ids = code_info.get("rbac_role_ids", [])
+            roles = []
+            if rbac_role_ids and project_id:
+                from ..models.rbac import Role
+                role_objects = Role.query.filter(
+                    Role.id.in_(rbac_role_ids),
+                    Role.project_id == project_id
+                ).all()
+                roles = [
+                    {
+                        "id": role.id,
+                        "name": role.name,
+                        "description": role.description,
+                        "is_system_role": role.is_system_role,
+                    }
+                    for role in role_objects
+                ]
+            response_data["roles"] = roles
+            response_data["requires_project_name"] = False
+        elif project_id:
+            # Project invite code with project_id
+            project = Project.query.get(project_id)
             if project:
-                response_data["code_type"] = "project_invite"
                 response_data["project_name"] = project.name
                 response_data["requires_project_name"] = False
             else:
-                response_data["code_type"] = "project_invite"
                 response_data["requires_project_name"] = False
         else:
-
-            response_data["code_type"] = "project_invite"
+            # Project invite code without project_id (requires project name)
             response_data["requires_project_name"] = True
 
         return jsonify(response_data), 200

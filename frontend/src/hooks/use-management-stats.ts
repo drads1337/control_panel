@@ -112,9 +112,9 @@ export function useManagementStats() {
       return statsData
     },
     enabled: isAuthenticated && hasAccess,
-    staleTime: 30 * 1000,
+    staleTime: 60 * 1000, // Increased to 1 minute - stats don't need to update as frequently
     gcTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false, // Disabled - stats are not critical for immediate update
     refetchOnReconnect: true,
     retry: (failureCount, error: any) => {
 

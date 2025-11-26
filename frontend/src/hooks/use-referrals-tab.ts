@@ -31,11 +31,13 @@ interface UseReferralsTabReturn {
   productsLoading: boolean;
   productsError: Error | null;
   isCreating: boolean;
+  isDeleting: boolean;
 
   setReferralCodeForm: (form: ReferralCodeForm | ((prev: ReferralCodeForm) => ReferralCodeForm)) => void;
   setIsCreateReferralDialogOpen: (open: boolean) => void;
   handleCreateReferralCode: () => Promise<void>;
   generateReferralCode: () => void;
+  deleteReferralCode: (codeId: number) => Promise<void>;
   refetchReferralCodes: () => void;
 }
 
@@ -55,7 +57,9 @@ export function useReferralsTab(): UseReferralsTabReturn {
     isLoading: referralCodesLoading, 
     error: referralCodesError, 
     createCode, 
-    isCreating, 
+    isCreating,
+    deleteCode,
+    isDeleting,
     refetch: refetchReferralCodes 
   } = useReferrals();
 
@@ -75,7 +79,6 @@ export function useReferralsTab(): UseReferralsTabReturn {
       const response = await getProducts('all');
       return response.products || [];
     },
-    enabled: isCreateReferralDialogOpen,
     staleTime: 2 * 60 * 1000,
     gcTime: 5 * 60 * 1000,
     retry: (failureCount, error: any) => {
@@ -133,6 +136,10 @@ export function useReferralsTab(): UseReferralsTabReturn {
     setReferralCodeForm(prev => ({ ...prev, code: result }));
   }, []);
 
+  const deleteReferralCode = useCallback(async (codeId: number) => {
+    await deleteCode(codeId);
+  }, [deleteCode]);
+
   return {
 
     referralCodeForm,
@@ -148,11 +155,13 @@ export function useReferralsTab(): UseReferralsTabReturn {
     productsLoading,
     productsError: productsError instanceof Error ? productsError : null,
     isCreating,
+    isDeleting,
 
     setReferralCodeForm,
     setIsCreateReferralDialogOpen,
     handleCreateReferralCode,
     generateReferralCode,
+    deleteReferralCode,
     refetchReferralCodes,
   };
 }

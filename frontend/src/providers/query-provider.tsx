@@ -19,6 +19,12 @@ export function QueryProvider({ children }: QueryProviderProps) {
           // Default garbage collection time: 30 minutes - unused queries are kept in cache for 30 minutes (increased for better performance)
           gcTime: 30 * 60 * 1000,
 
+          // Disable refetch on mount if data is fresh - improves initial load performance
+          refetchOnMount: (query) => {
+            // Only refetch if data is stale
+            return query.state.dataUpdatedAt === 0 || query.isStale()
+          },
+
           retry: (failureCount, error: any) => {
 
             if (error?.response?.status === 401 || error?.response?.status === 403) {
@@ -118,6 +124,14 @@ export function QueryProvider({ children }: QueryProviderProps) {
       staleTime: 10 * 60 * 1000,
       gcTime: 30 * 60 * 1000,
       refetchOnWindowFocus: false,
+    })
+
+    // Navigation config - rarely changes, cache aggressively
+    client.setQueryDefaults(['navigation', 'config'], {
+      staleTime: 15 * 60 * 1000, // 15 minutes - navigation rarely changes
+      gcTime: 60 * 60 * 1000, // Keep in cache for 1 hour
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
     })
 
     return client

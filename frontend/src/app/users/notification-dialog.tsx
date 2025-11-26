@@ -24,6 +24,7 @@ interface NotificationDialogProps {
   };
   onFormChange: (form: any) => void;
   users: User[];
+  currentUserId?: number;
 }
 
 const NotificationDialog: React.FC<NotificationDialogProps> = ({
@@ -33,7 +34,8 @@ const NotificationDialog: React.FC<NotificationDialogProps> = ({
   loading,
   form,
   onFormChange,
-  users
+  users,
+  currentUserId
 }) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -124,21 +126,37 @@ const NotificationDialog: React.FC<NotificationDialogProps> = ({
                 }
                 disabled={loading}
               />
-              <Label htmlFor="send-to-all" className="text-sm cursor-pointer">Send to all (except admin/owner)</Label>
+              <Label htmlFor="send-to-all" className="text-sm cursor-pointer">Send to all</Label>
             </div>
 
             {!form.sendToAll && (
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Select Employees</Label>
                 <div className="max-h-[200px] overflow-y-auto border rounded-md bg-card">
-                  {users.filter(user => !user.roles?.includes('admin') && !user.roles?.includes('owner')).length === 0 ? (
+                  {users.filter(user => {
+                    // Exclude admin, owner, and current user
+                    const isAdminOrOwner = user.roles?.includes('admin') || user.roles?.includes('owner');
+                    // Normalize IDs for comparison (handle both string and number)
+                    const userId = typeof user.id === 'string' ? parseInt(user.id, 10) : user.id;
+                    const normalizedCurrentUserId = currentUserId ? (typeof currentUserId === 'string' ? parseInt(currentUserId, 10) : currentUserId) : null;
+                    const isCurrentUser = normalizedCurrentUserId && userId === normalizedCurrentUserId;
+                    return !isAdminOrOwner && !isCurrentUser;
+                  }).length === 0 ? (
                     <div className="text-sm text-muted-foreground p-4 text-center">
                       No available employees found.
                     </div>
                   ) : (
                     <div className="divide-y">
                       {users
-                        .filter(user => !user.roles?.includes('admin') && !user.roles?.includes('owner'))
+                        .filter(user => {
+                          // Exclude admin, owner, and current user
+                          const isAdminOrOwner = user.roles?.includes('admin') || user.roles?.includes('owner');
+                          // Normalize IDs for comparison (handle both string and number)
+                          const userId = typeof user.id === 'string' ? parseInt(user.id, 10) : user.id;
+                          const normalizedCurrentUserId = currentUserId ? (typeof currentUserId === 'string' ? parseInt(currentUserId, 10) : currentUserId) : null;
+                          const isCurrentUser = normalizedCurrentUserId && userId === normalizedCurrentUserId;
+                          return !isAdminOrOwner && !isCurrentUser;
+                        })
                         .map((user) => {
                           const isChecked = form.targetUsers.includes(user.id);
                           return (

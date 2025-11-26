@@ -902,10 +902,10 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Type</Label>
                 <ToggleGroup type="single" value={targetType} onValueChange={(value) => value && setTargetType(value as 'product' | 'agent')} className="grid grid-cols-2 w-full">
-                  <ToggleGroupItem value="product" className="flex items-center justify-center gap-2 h-8 text-xs font-medium">
+                  <ToggleGroupItem value="product" className="flex items-center justify-center gap-2 h-8 text-xs font-medium data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
                     <Database className="h-3 w-3" /> Product
                   </ToggleGroupItem>
-                  <ToggleGroupItem value="agent" className="flex items-center justify-center gap-2 h-8 text-xs font-medium">
+                  <ToggleGroupItem value="agent" className="flex items-center justify-center gap-2 h-8 text-xs font-medium data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
                     <Container className="h-3 w-3" /> Agent
                   </ToggleGroupItem>
                 </ToggleGroup>

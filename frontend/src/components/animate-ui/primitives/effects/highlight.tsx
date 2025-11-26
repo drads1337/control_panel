@@ -219,9 +219,9 @@ function Highlight<T extends React.ElementType = 'div'>({
     };
   });
 
-  const safeSetBounds = (bounds: DOMRect) => {
+  const safeSetBounds = React.useCallback((bounds: DOMRect) => {
     safeSetBoundsRef.current?.(bounds);
-  };
+  }, []);
 
   const clearBounds = React.useCallback(() => {
     setBoundsState((prev) => (prev === null ? prev : null));
@@ -427,7 +427,9 @@ function HighlightItem<T extends React.ElementType>({
   React.useImperativeHandle(ref, () => localRef.current as HTMLDivElement);
 
   const refCallback = React.useCallback((node: HTMLElement | null) => {
-    localRef.current = node as HTMLDivElement;
+    if (node !== localRef.current) {
+      localRef.current = node as HTMLDivElement;
+    }
   }, []);
 
   React.useEffect(() => {

@@ -13,7 +13,8 @@ from sqlalchemy import desc
 from ...core.extensions import db
 from ...middleware.auth import enforce_project_scope, require_role, require_user
 from ...models import ReferralCode, User
-from ...services.activity import activity_service
+from ...models.rbac import Role
+from ...utils.service_helpers import get_service
 from ...utils.role_constants import RolePermissions, UserRoles
 
 referral_codes_bp = Blueprint("users_referral_codes", __name__)
@@ -29,7 +30,7 @@ def get_refcodes(current_user, project_id=None):
     try:
 
         if project_id is None:
-            project_id = getattr(g, "project_id", current_user.project_id)
+            project_id = current_user.project_id
 
         if not project_id:
             return jsonify({"error": "Project ID is required"}), 400
@@ -40,17 +41,59 @@ def get_refcodes(current_user, project_id=None):
             .all()
         )
 
+        # Get all role IDs from all referral codes for batch query
+        all_role_ids = set()
+        for code in referral_codes:
+            if code.rbac_role_ids:
+                if isinstance(code.rbac_role_ids, list):
+                    all_role_ids.update(code.rbac_role_ids)
+        
+        # Batch fetch all roles
+        roles_dict = {}
+        if all_role_ids and project_id:
+            roles = Role.query.filter(
+                Role.id.in_(list(all_role_ids)),
+                Role.project_id == project_id
+            ).all()
+            roles_dict = {
+                role.id: {
+                    "id": role.id,
+                    "name": role.name,
+                    "description": role.description,
+                    "is_system_role": role.is_system_role,
+                }
+                for role in roles
+            }
+        
         codes_data = []
         for code in referral_codes:
+            rbac_role_ids = code.rbac_role_ids if code.rbac_role_ids else []
+            # Get role information for this code's rbac_role_ids
+            roles = []
+            if rbac_role_ids:
+                if isinstance(rbac_role_ids, list):
+                    roles = [roles_dict[role_id] for role_id in rbac_role_ids if role_id in roles_dict]
+            
+            # Compute is_expired based on expires_at
+            is_expired = False
+            if code.expires_at and code.expires_at < datetime.utcnow():
+                is_expired = True
+            
+            # Get role names as comma-separated string for backward compatibility
+            role_names = ", ".join([role["name"] for role in roles]) if roles else None
+            
             codes_data.append(
                 {
                     "id": code.id,
                     "code": code.code,
                     "expires_at": code.expires_at.isoformat() if code.expires_at else None,
                     "used": code.used,
+                    "is_expired": is_expired,
                     "used_by": code.used_by,
                     "product_ids": code.product_ids_list,
-                    "rbac_role_ids": code.rbac_role_ids if code.rbac_role_ids else [],
+                    "rbac_role_ids": rbac_role_ids,
+                    "roles": roles,
+                    "role": role_names,
                     "token_balance": code.token_balance,
                     "work_duration_days": code.work_duration_days,
                     "project_id": code.project_id,
@@ -74,7 +117,7 @@ def create_refcode(current_user, project_id=None):
     try:
 
         if project_id is None:
-            project_id = getattr(g, "project_id", current_user.project_id)
+            project_id = current_user.project_id
 
         if not project_id:
             return jsonify({"error": "Project ID is required"}), 400
@@ -87,28 +130,44 @@ def create_refcode(current_user, project_id=None):
         import secrets
         import string
 
-        role = data.get("role", "client")
+        code = data.get("code", "").strip()
         token_balance = data.get("token_balance", 0)
         work_duration_days = data.get("work_duration_days")
-        product_ids = data.get("product_ids", [])
+        product_ids_raw = data.get("product_ids", [])
         rbac_role_ids = data.get("rbac_role_ids", [])
-        expires_in_days = data.get("expires_in_days", 90)
+        expires_days = data.get("expires_days") or data.get("expires_in_days", 90)
 
-        def generate_code():
-            return "".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(12))
+        # Filter out invalid product IDs (0, None, negative, etc.)
+        product_ids = []
+        if isinstance(product_ids_raw, list):
+            for pid in product_ids_raw:
+                try:
+                    pid_int = int(pid)
+                    if pid_int > 0:
+                        product_ids.append(pid_int)
+                except (ValueError, TypeError):
+                    continue
 
-        code = generate_code()
+        # Generate code if not provided
+        if not code:
+            def generate_code():
+                return "".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(12))
 
-        while ReferralCode.query.filter_by(code=code).first():
             code = generate_code()
+            while ReferralCode.query.filter_by(code=code).first():
+                code = generate_code()
+        else:
+            # Check if code already exists
+            existing_code = ReferralCode.query.filter_by(code=code).first()
+            if existing_code:
+                return jsonify({"error": "Referral code already exists"}), 400
 
         referral_code = ReferralCode(
             code=code,
-            role=role,
             project_id=project_id,
             token_balance=token_balance,
             work_duration_days=work_duration_days,
-            expires_at=datetime.utcnow() + timedelta(days=expires_in_days),
+            expires_at=datetime.utcnow() + timedelta(days=expires_days),
             product_ids=product_ids if product_ids else None,
             rbac_role_ids=rbac_role_ids if rbac_role_ids else None,
             created_by=current_user.id,
@@ -117,6 +176,7 @@ def create_refcode(current_user, project_id=None):
         db.session.add(referral_code)
         db.session.commit()
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user,
             "create_referral_code",
@@ -130,7 +190,6 @@ def create_refcode(current_user, project_id=None):
                 "code": {
                     "id": referral_code.id,
                     "code": referral_code.code,
-                    "role": referral_code.role,
                     "token_balance": referral_code.token_balance,
                     "work_duration_days": referral_code.work_duration_days,
                     "expires_at": referral_code.expires_at.isoformat() if referral_code.expires_at else None,
@@ -157,7 +216,7 @@ def delete_refcode(code_id, current_user, project_id=None):
     try:
 
         if project_id is None:
-            project_id = getattr(g, "project_id", current_user.project_id)
+            project_id = current_user.project_id
 
         referral_code = ReferralCode.query.get(code_id)
         if not referral_code:
@@ -177,6 +236,7 @@ def delete_refcode(code_id, current_user, project_id=None):
         db.session.delete(referral_code)
         db.session.commit()
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user,
             "delete_referral_code",
@@ -200,7 +260,7 @@ def delete_unused_refcodes(current_user, project_id=None):
     try:
 
         if project_id is None:
-            project_id = getattr(g, "project_id", current_user.project_id)
+            project_id = current_user.project_id
 
         if not project_id:
             return jsonify({"error": "Project ID is required"}), 400
@@ -220,6 +280,7 @@ def delete_unused_refcodes(current_user, project_id=None):
 
         db.session.commit()
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user,
             "delete_unused_referral_codes",

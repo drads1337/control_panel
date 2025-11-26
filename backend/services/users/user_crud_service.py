@@ -17,7 +17,7 @@ from ...models.core import (
     UserProductPermission,
 )
 from ...models.keys import Key
-from ...models.rbac import Role, UserRole
+from ...models.rbac import Role, UserRole, UserPermission
 from ...models.project_user import ProjectUserRole
 from ...utils.fulltext_search import fulltext_search_filter
 from ...utils.rbac_utils import RBACManager
@@ -388,6 +388,7 @@ class UserCRUDService:
             UserActivity.query.filter_by(user_id=target_user_id).delete()
 
             UserRole.query.filter_by(user_id=target_user_id).delete()
+            UserPermission.query.filter_by(user_id=target_user_id).delete()
 
             ProjectUserRole.query.filter_by(user_id=target_user_id).delete()
 
@@ -451,6 +452,7 @@ class UserCRUDService:
                 UserActivity.query.filter_by(user_id=user.id).delete()
 
                 UserRole.query.filter_by(user_id=user.id).delete()
+                UserPermission.query.filter_by(user_id=user.id).delete()
 
                 ProjectUserRole.query.filter_by(user_id=user.id).delete()
 

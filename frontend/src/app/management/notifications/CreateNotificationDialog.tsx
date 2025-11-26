@@ -440,7 +440,12 @@ const CreateNotificationDialog: React.FC<CreateNotificationDialogProps> = ({
                         </p>
                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
                           <span>{useCurrentTime ? 'Now' : (scheduledDate && scheduledTime ? new Date(`${scheduledDate.toISOString().split('T')[0]}T${scheduledTime}`).toLocaleString('en-US') : 'Not specified')}</span>
-                          <span>Views: 0/{repeatCount}</span>
+                          <span className="flex items-center gap-1">
+                            <span>Repeats:</span>
+                            <span className="font-medium">
+                              {repeatCount}
+                            </span>
+                          </span>
                         </div>
                       </div>
                     </div>

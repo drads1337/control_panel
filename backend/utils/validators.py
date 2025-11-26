@@ -269,7 +269,7 @@ class InviteValidator:
         if len(code) < 6:
             return False, "Invite code is too short"
 
-        if len(code) > 20:
+        if len(code) > 64:
             return False, "Invite code is too long"
 
         if not re.match(r"^[A-Z0-9]+$", code):
@@ -296,7 +296,7 @@ class InviteValidator:
         if len(code) < 6:
             return False, "Referral code is too short"
 
-        if len(code) > 20:
+        if len(code) > 32:
             return False, "Referral code is too long"
 
         if not re.match(r"^[A-Z0-9]+$", code):

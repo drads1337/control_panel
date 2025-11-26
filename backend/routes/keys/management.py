@@ -15,10 +15,7 @@ from ...middleware.auth import require_project_isolation, require_project_with_g
 from ...middleware.validation import validate_request
 from ...models import Product, Key, User
 from ...schemas.key import KeyCreateSchema, KeyExtendSchema, KeyMoveSchema, KeyUpdateSchema, CustomKeyCreateSchema
-from ...services.activity import activity_service
-from ...services.keys.key_crud_service import key_crud_service
-from ...services.keys.key_generation_service import key_generation_service
-from ...services.rbac import rbac_service
+from ...utils.service_helpers import get_service
 from ...utils.data_masking import mask_license_key
 from ...utils.rbac_utils import RBACManager
 from ...utils.role_constants import UserRoles
@@ -91,6 +88,7 @@ def get_keys(current_user, project_id=None):
             logger.warning(f"❌ Product {filters['product_id']} not found for project {current_user.project_id}")
             return jsonify({"error": "Product not found or access denied"}), 404
 
+    key_crud_service = get_service('key_crud_service')
     result, error = key_crud_service.get_keys(current_user, filters)
     if error:
         return jsonify({"error": error}), 500
@@ -183,6 +181,7 @@ def create_key(current_user, project_id=None, validated_data=None):
         return jsonify({"error": "Product ID is required"}), 400
 
     # Exceptions are handled by global handler
+    key_crud_service = get_service('key_crud_service')
     key = key_crud_service.create_key(current_user, key_data)
 
     logger.info(f"🔑 Key {key.id} created and committed")
@@ -221,6 +220,7 @@ def create_key(current_user, project_id=None, validated_data=None):
     logger.info(f"🔑 Returning success response for key {key.id}, user {current_user.id}")
 
     try:
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user,
             "create_key",
@@ -286,37 +286,7 @@ def create_custom_key(current_user, project_id=None, validated_data=None):
         # For owners, use the product's project_id
         key_project_id = product.project_id
 
-    # Deduct balance for custom key creation (except for admin/owner)
-    is_admin = RBACManager.is_admin(current_user)
-    
-    if not is_owner and not is_admin and product and key_project_id:
-        from ...services.products.price_calculation_service import price_calculation_service
-        from ...services.balance import balance_service
-        
-        key_price = price_calculation_service.calculate_key_price(
-            product_id=product.id,
-            duration_hours=duration_hours,
-            project_id=key_project_id
-        )
-        
-        if key_price > 0:
-            # Check if user has sufficient balance
-            if current_user.token_balance < key_price:
-                return jsonify({"error": f"Insufficient balance. Required: {key_price} tokens, Available: {current_user.token_balance} tokens"}), 400
-            
-            # Deduct balance
-            success, error_msg, _ = balance_service.deduct_balance(
-                current_user=current_user,
-                target_user_id=current_user.id,
-                amount=key_price,
-                reason=f"Custom key creation: {duration_hours} hours for product {product.name}",
-                ip_address=request.remote_addr
-            )
-            
-            if not success:
-                return jsonify({"error": f"Failed to deduct balance: {error_msg}"}), 400
-
-    # Create the key
+    # Create the key (balance deduction happens before creation in try block)
     key_metadata = {
         "type": "custom",
         "generation_type": generation_type,
@@ -330,6 +300,40 @@ def create_custom_key(current_user, project_id=None, validated_data=None):
     }
 
     try:
+        # Deduct balance for custom key creation (except for admin/owner) - BEFORE creating the key
+        is_admin = RBACManager.is_admin(current_user)
+        
+        if not is_owner and not is_admin and product and key_project_id:
+            from ...services.products.price_calculation_service import price_calculation_service
+            from ...services.balance import balance_service
+            
+            key_price = price_calculation_service.calculate_key_price(
+                product_id=product.id,
+                duration_hours=duration_hours,
+                project_id=key_project_id
+            )
+            
+            if key_price > 0:
+                # Refresh user to get latest balance
+                db.session.refresh(current_user)
+                
+                # Check if user has sufficient balance
+                if current_user.token_balance < key_price:
+                    return jsonify({"error": f"Insufficient balance. Required: {key_price} tokens, Available: {current_user.token_balance} tokens"}), 400
+                
+                # Deduct balance without committing (we're inside a transaction)
+                success, error_msg, _ = balance_service.deduct_balance(
+                    current_user=current_user,
+                    target_user_id=current_user.id,
+                    amount=key_price,
+                    reason=f"Custom key creation: {duration_hours} hours for product {product.name}",
+                    ip_address=request.remote_addr,
+                    commit=False  # Don't commit, we're inside a transaction
+                )
+                
+                if not success:
+                    return jsonify({"error": f"Failed to deduct balance: {error_msg}"}), 400
+
         key = Key(
             key=custom_key,
             user_id=current_user.id,
@@ -376,6 +380,7 @@ def create_custom_key(current_user, project_id=None, validated_data=None):
         logger.info(f"🔑 Returning success response for custom key {key.id}, user {current_user.id}")
 
         try:
+            activity_service = get_service('activity_service')
             activity_service.log_activity(
                 current_user,
                 "create_custom_key",
@@ -419,10 +424,12 @@ def update_key(key_id, current_user, project_id=None, validated_data=None):
     if not can_manage_key(current_user, key, "keys.edit"):
         return jsonify({"error": "You do not have permission to edit this key"}), 403
 
+    key_crud_service = get_service('key_crud_service')
     key, error = key_crud_service.update_key(current_user, key.id, data)
     if error:
         return jsonify({"error": error}), 400
 
+    activity_service = get_service('activity_service')
     activity_service.log_activity(
         current_user,
         "update_key",
@@ -457,6 +464,7 @@ def delete_key(key_id, current_user, project_id=None):
     if not can_manage_key(current_user, key, "keys.delete"):
         return jsonify({"error": "You do not have permission to delete this key"}), 403
 
+    key_crud_service = get_service('key_crud_service')
     success, error = key_crud_service.delete_key(current_user, key.id)
     if not success:
         return jsonify({"error": error}), 500
@@ -467,6 +475,7 @@ def delete_key(key_id, current_user, project_id=None):
     except ImportError:
         pass
 
+    activity_service = get_service('activity_service')
     activity_service.log_activity(
         current_user, "delete_key", details=f"Deleted key: {key.key[:8]}...", ip=request.remote_addr
     )
@@ -535,6 +544,7 @@ def reset_key(key_id, current_user, project_id=None):
 
         db.session.commit()
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user, "reset_key", details=f"Reset key: {key.key[:8]}...", ip=request.remote_addr
         )
@@ -578,6 +588,7 @@ def pause_key(key_id, current_user, project_id=None):
 
         db.session.commit()
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user, "pause_key", details=f"Paused key: {key.key[:8]}...", ip=request.remote_addr
         )
@@ -633,6 +644,7 @@ def resume_key(key_id, current_user, project_id=None):
 
         db.session.commit()
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user, "resume_key", details=f"Resumed key: {key.key[:8]}...", ip=request.remote_addr
         )
@@ -687,6 +699,7 @@ def extend_key(key_id, current_user, project_id=None, validated_data=None):
 
         db.session.commit()
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user,
             "extend_key",
@@ -723,6 +736,7 @@ def duplicate_key(key_id, current_user, project_id=None):
         if not product:
             return jsonify({"error": "Product not found"}), 404
 
+        key_generation_service = get_service('key_generation_service')
         new_key_string = key_generation_service.generate_key_string(
             length=32, product=product, duration_hours=key.duration_hours, project_id=current_user.project_id
         )
@@ -742,6 +756,7 @@ def duplicate_key(key_id, current_user, project_id=None):
         db.session.add(duplicate_key)
         db.session.commit()
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user,
             "duplicate_key",
@@ -800,6 +815,7 @@ def move_key(key_id, current_user, project_id=None, validated_data=None):
         key.user_id = new_user_id
         db.session.commit()
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user,
             "move_key",
@@ -850,6 +866,7 @@ def block_key(key_id, current_user, project_id=None):
             
             db.session.commit()
             
+            activity_service = get_service('activity_service')
             activity_service.log_activity(
                 current_user, "unblock_key", details=f"Unblocked key: {key.key[:8]}...", ip=request.remote_addr
             )
@@ -881,6 +898,7 @@ def block_key(key_id, current_user, project_id=None):
 
             db.session.commit()
 
+            activity_service = get_service('activity_service')
             activity_service.log_activity(
                 current_user, "block_key", details=f"Blocked key: {key.key[:8]}...", ip=request.remote_addr
             )
@@ -938,6 +956,7 @@ def unblock_key(key_id, current_user, project_id=None):
 
         db.session.commit()
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user, "unblock_key", details=f"Unblocked key: {key.key[:8]}...", ip=request.remote_addr
         )
@@ -990,6 +1009,7 @@ def archive_key(key_id, current_user, project_id=None):
 
         db.session.commit()
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user, "archive_key", details=f"Archived key: {key.key[:8]}...", ip=request.remote_addr
         )
@@ -1030,6 +1050,7 @@ def restore_key(key_id, current_user, project_id=None):
 
         db.session.commit()
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user, "restore_key", details=f"Restored key: {key.key[:8]}...", ip=request.remote_addr
         )
@@ -1086,6 +1107,7 @@ def export_key(key_id, current_user, project_id=None):
             "key_metadata": key.key_metadata,
         }
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user, "export_key", details=f"Exported key: {key.key[:8]}...", ip=request.remote_addr
         )
@@ -1130,6 +1152,7 @@ def download_key(key_id, current_user, project_id=None):
         if not can_download_full_key:
 
             is_own_key = key.user_id == current_user.id
+            rbac_service = get_service('rbac_service')
             if is_own_key:
 
                 can_download_full_key = rbac_service.check_permission(current_user.id, "keys.view")
@@ -1234,6 +1257,7 @@ def get_key_details(key_id, current_user, project_id=None):
         if not can_view_full_key:
 
             is_own_key = key.user_id == current_user.id
+            rbac_service = get_service('rbac_service')
             if is_own_key:
 
                 can_view_full_key = rbac_service.check_permission(current_user.id, "keys.view")
@@ -1305,19 +1329,20 @@ def reveal_key(key_id, current_user, project_id=None):
             is_own_key = key.user_id == current_user.id
             if is_own_key:
 
+                rbac_service = get_service('rbac_service')
                 can_reveal_key = (
                     rbac_service.check_permission(current_user.id, "keys.see_analytics") or
                     rbac_service.check_permission(current_user.id, "keys.copy")
                 )
             else:
-
+                rbac_service = get_service('rbac_service')
                 can_reveal_key = (
                     rbac_service.check_permission(current_user.id, "keys.see_analytics") or
                     rbac_service.check_permission(current_user.id, "keys.copy")
                 )
 
         if not can_reveal_key:
-
+            rbac_service = get_service('rbac_service')
             logging.warning(
                 f"🚫 Unauthorized key reveal attempt: user_id={current_user.id}, key_id={key_id}, "
                 f"key_owner={key.user_id}, has_keys_see_analytics={rbac_service.check_permission(current_user.id, 'keys.see_analytics')}, "

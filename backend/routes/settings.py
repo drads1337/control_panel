@@ -1333,6 +1333,10 @@ def get_security_rules():
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
+        # Ensure default rules exist
+        from ..services.security.security_rules_init import security_rules_init_service
+        security_rules_init_service.ensure_default_rules(project_id)
+
         from ..models.security import SecurityRule
 
         rules = (
@@ -1341,26 +1345,57 @@ def get_security_rules():
             .all()
         )
 
+        # Map rule types to frontend types
+        type_mapping = {
+            "threat_score": "ip",
+            "rate_limit": "behavior",
+            "failed_login": "behavior",
+            "hwid_block": "hwid",
+            "geo_block": "geo",
+            "vpn_detection": "ip",
+            "brute_force": "behavior",
+            "behavioral": "behavior",
+            "fingerprint_block": "ip",
+        }
+
+        # Map action types to frontend actions
+        action_mapping = {
+            "block": "block",
+            "monitor": "monitor",
+            "log": "monitor",
+            "warn": "monitor",
+        }
+
+        # Map severity
+        severity_mapping = {
+            "low": "low",
+            "medium": "medium",
+            "high": "high",
+            "critical": "critical",
+        }
+
         rules_list = []
         for rule in rules:
+            rule_type = type_mapping.get(rule.rule_type, "behavior")
+            action_type = action_mapping.get(rule.action_type, "monitor")
+            
             rules_list.append(
                 {
                     "id": rule.id,
                     "name": rule.name,
                     "description": rule.description,
-                    "rule_type": rule.rule_type,
-                    "conditions": rule.conditions,
-                    "action_type": rule.action_type,
-                    "action_params": rule.action_params,
-                    "is_active": rule.is_active,
-                    "priority": rule.priority,
-                    "cooldown_minutes": rule.cooldown_minutes,
-                    "trigger_count": rule.trigger_count,
-                    "last_triggered": (
+                    "type": rule_type,
+                    "action": action_type,
+                    "severity": severity_mapping.get(
+                        json.loads(rule.action_params or "{}").get("severity", "medium"), "medium"
+                    ),
+                    "isActive": rule.is_active,
+                    "createdAt": rule.created_at.isoformat(),
+                    "updatedAt": rule.updated_at.isoformat() if rule.updated_at else rule.created_at.isoformat(),
+                    "triggerCount": rule.trigger_count,
+                    "lastTriggered": (
                         rule.last_triggered.isoformat() if rule.last_triggered else None
                     ),
-                    "created_at": rule.created_at.isoformat(),
-                    "created_by": rule.created_by_user.username if rule.created_by_user else None,
                 }
             )
 
@@ -1493,6 +1528,7 @@ def get_security_events():
 @require_project_with_grace_period
 @require_project_isolation
 def toggle_security_rule(rule_id):
+    """Toggle security rule active status"""
     try:
         user_id = get_jwt_identity()
         project_id, error = get_user_project_id(user_id)
@@ -1514,6 +1550,8 @@ def toggle_security_rule(rule_id):
             return jsonify({"error": "Insufficient permissions"}), 403
 
         from ..models.security import SecurityRule
+        from ..services.activity import activity_service
+        from ..utils.ip_utils import get_real_ip
 
         rule = SecurityRule.query.filter_by(id=rule_id, project_id=project_id).first()
         if not rule:
@@ -1522,8 +1560,37 @@ def toggle_security_rule(rule_id):
         if rule.name == "Rapid Request Detection":
             return jsonify({"error": "Rapid Request Detection rule cannot be disabled"}), 400
 
+        old_status = rule.is_active
         rule.is_active = not rule.is_active
         db.session.commit()
+
+        # Log the activity
+        try:
+            action = "security_rule_enabled" if rule.is_active else "security_rule_disabled"
+            details = f'Security rule "{rule.name}" (ID: {rule.id}) {"enabled" if rule.is_active else "disabled"}'
+            
+            activity_service.log_activity(
+                user=user,
+                action=action,
+                ip=get_real_ip(),
+                user_agent=request.headers.get("User-Agent", ""),
+                details=details,
+                force_flush=True,  # Force immediate write for security actions
+            )
+            
+            logger.info(
+                f"Security rule toggled: {rule.name} (ID: {rule.id}) - "
+                f"{'enabled' if rule.is_active else 'disabled'} by user {user.id}",
+                user_id=user.id,
+                project_id=project_id,
+                rule_id=rule.id,
+                rule_name=rule.name,
+                old_status=old_status,
+                new_status=rule.is_active,
+            )
+        except Exception as log_error:
+            # Don't fail the request if logging fails
+            logger.warning(f"Failed to log security rule toggle activity: {log_error}")
 
         return jsonify(
             {
@@ -1533,6 +1600,8 @@ def toggle_security_rule(rule_id):
         )
 
     except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error toggling security rule: {e}", error=str(e), rule_id=rule_id)
         return jsonify({"error": str(e)}), 500
 
 @settings_bp.route("/api/settings/security/rules/<int:rule_id>", methods=["PUT"])

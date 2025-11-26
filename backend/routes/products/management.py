@@ -16,9 +16,6 @@ from ...models import Product, User
 from ...models.agents import AgentProductAssignment
 from ...schemas.product import ProductCreateSchema, ProductStatusUpdateSchema, ProductUpdateSchema
 from ...utils.service_helpers import get_service
-from ...services.activity import activity_service
-from ...services.products import product_service
-from ...services.rbac import rbac_service
 from ...utils.rbac_utils import RBACManager
 
 management_bp = Blueprint("products_management", __name__)
@@ -61,6 +58,7 @@ def get_products_count(current_user, project_id=None):
         return jsonify({"error": "User not found"}), 404
 
     # Allow users with clients.view permission to access products even if they don't have a project_id
+    rbac_service = get_service('rbac_service')
     has_clients_view = rbac_service.check_permission(user.id, "clients.view")
     
     if not user.project_id and not has_clients_view:
@@ -74,6 +72,7 @@ def get_products_count(current_user, project_id=None):
 
     try:
         product_type = request.args.get("type", "all")
+        product_service = get_service('product_service')
         
         result = product_service.get_products_count(
             project_id=scoped_project_id, product_type=product_type, user_id=user_id
@@ -106,6 +105,7 @@ def get_products(current_user=None, project_id=None):
 
     # Allow users with clients.view permission to access products even if they don't have a project_id
     # This is needed when editing users
+    rbac_service = get_service('rbac_service')
     has_clients_view = rbac_service.check_permission(user.id, "clients.view")
     
     if not user.project_id and not has_clients_view:
@@ -127,7 +127,9 @@ def get_products(current_user=None, project_id=None):
         product_type = request.args.get("type", "all")
         current_app.logger.info(f"Filtering products by type: {product_type}")
 
+        rbac_service = get_service('rbac_service')
         has_view_permission = rbac_service.check_permission(user.id, "products.view")
+        product_service = get_service('product_service')
 
         result = product_service.get_products_cached(
             project_id=scoped_project_id, product_type=product_type, user_id=user_id
@@ -137,6 +139,28 @@ def get_products(current_user=None, project_id=None):
             original_products = result.get("products", [])
 
             from ...models.core import UserProductPermission
+            from ...models.products import Product
+            
+            # Build mapping from product unique_id to database id
+            product_unique_ids = [p.get("id") for p in original_products]
+            product_id_map = {}
+            if product_unique_ids:
+                try:
+                    products_by_unique_id = Product.query.filter(
+                        Product.unique_id.in_(product_unique_ids)
+                    ).all()
+                    product_id_map = {p.unique_id: p.id for p in products_by_unique_id}
+                except Exception as map_error:
+                    db.session.rollback()
+                    current_app.logger.warning(f"Error building product id map: {str(map_error)}")
+                    try:
+                        products_by_unique_id = Product.query.filter(
+                            Product.unique_id.in_(product_unique_ids)
+                        ).all()
+                        product_id_map = {p.unique_id: p.id for p in products_by_unique_id}
+                    except Exception:
+                        product_id_map = {}
+            
             try:
                 user_product_permissions = {
                     perm.product_id: perm.has_access
@@ -175,11 +199,13 @@ def get_products(current_user=None, project_id=None):
 
             filtered_products = []
             for product in original_products:
-                product_id = product.get("id")
+                product_unique_id = product.get("id")
+                product_db_id = product_id_map.get(product_unique_id)
                 should_include = False
 
-                if product_id in user_product_permissions:
-                    should_include = user_product_permissions[product_id]
+                # Check permissions using database id
+                if product_db_id and product_db_id in user_product_permissions:
+                    should_include = user_product_permissions[product_db_id]
                 else:
 
                     if is_seller:
@@ -187,7 +213,7 @@ def get_products(current_user=None, project_id=None):
                         should_include = False
                     elif not has_view_permission:
 
-                        should_include = rbac_service.check_permission(user.id, "products.view", product_id=product_id)
+                        should_include = rbac_service.check_permission(user.id, "products.view", product_id=product_unique_id)
                     else:
 
                         should_include = True
@@ -332,8 +358,10 @@ def create_product(validated_data=None):
             return jsonify({"error": "Invalid request data"}), 400
 
         # Exceptions are handled by global handler
+        product_service = get_service('product_service')
         new_product = product_service.create_product(user, validated_data)
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(user, "product_created", details=f"Created product: {new_product.id}")
 
         return (
@@ -397,8 +425,10 @@ def update_product_status(product_identifier, validated_data=None):
         product.status = new_status
         db.session.commit()
 
+        product_service = get_service('product_service')
         product_service.invalidate_product_cache(user.project_id, product.id)
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "product_status_updated",
@@ -475,8 +505,10 @@ def update_product(product_identifier, validated_data=None):
 
         db.session.commit()
 
+        product_service = get_service('product_service')
         product_service.invalidate_product_cache(user.project_id, product.id)
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "product_updated",
@@ -549,8 +581,10 @@ def delete_product(product_identifier):
         db.session.delete(product)
         db.session.commit()
 
+        product_service = get_service('product_service')
         product_service.invalidate_product_cache(user.project_id, product_id)
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "product_deleted",

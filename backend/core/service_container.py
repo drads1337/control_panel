@@ -292,6 +292,120 @@ def init_services(app):
     from ..services.analytics.analytics_buffer_service import AnalyticsBufferService
     container.register('analytics_buffer_service', lambda: AnalyticsBufferService(), scope=ServiceScope.SINGLETON)
     
+    # Register persistence layer (singleton - stateless)
+    from ..services.analytics.persistence_layer import PersistenceLayer
+    container.register('persistence_layer', lambda: PersistenceLayer(), scope=ServiceScope.SINGLETON)
+    
+    # Register product services (singleton - stateless)
+    from ..services.products.product_service import ProductService
+    from ..services.products.price_calculation_service import PriceCalculationService
+    container.register('product_service', lambda: ProductService(), scope=ServiceScope.SINGLETON)
+    container.register('price_calculation_service', lambda: PriceCalculationService(), scope=ServiceScope.SINGLETON)
+    
+    # Register key services (singleton - stateless)
+    from ..services.keys.key_crud_service import KeyCRUDService
+    from ..services.keys.key_bulk_operations_service import KeyBulkOperationsService
+    from ..services.keys.key_validation_service import KeyValidationService
+    from ..services.keys.key_status_service import KeyStatusService
+    from ..services.keys.key_statistics_service import KeyStatisticsService
+    from ..services.keys.key_export_service import KeyExportService
+    from ..services.keys.key_generation_service import KeyGenerationService
+    from ..services.keys.key_validator import KeyValidator
+    container.register('key_crud_service', lambda: KeyCRUDService(), scope=ServiceScope.SINGLETON)
+    container.register('key_bulk_operations_service', lambda: KeyBulkOperationsService(), scope=ServiceScope.SINGLETON)
+    container.register('key_validation_service', lambda: KeyValidationService(), scope=ServiceScope.SINGLETON)
+    container.register('key_status_service', lambda: KeyStatusService(), scope=ServiceScope.SINGLETON)
+    container.register('key_statistics_service', lambda: KeyStatisticsService(), scope=ServiceScope.SINGLETON)
+    container.register('key_export_service', lambda: KeyExportService(), scope=ServiceScope.SINGLETON)
+    container.register('key_generation_service', lambda: KeyGenerationService(), scope=ServiceScope.SINGLETON)
+    container.register('key_validator', lambda: KeyValidator(), scope=ServiceScope.SINGLETON)
+    
+    # Register file service (singleton - stateless)
+    from ..services.files.file_service import FileService
+    container.register('file_service', lambda: FileService(), scope=ServiceScope.SINGLETON)
+    
+    # Register balance service (singleton - stateless)
+    from ..services.balance.balance_service import BalanceService
+    container.register('balance_service', lambda: BalanceService(), scope=ServiceScope.SINGLETON)
+    
+    # Register connect service (singleton - stateless)
+    from ..services.connect.connect_service import ConnectService
+    container.register('connect_service', lambda: ConnectService(), scope=ServiceScope.SINGLETON)
+    
+    # Register device update buffer (singleton - stateless)
+    from ..services.connect.device_update_buffer import DeviceUpdateBuffer
+    container.register('device_update_buffer', lambda: DeviceUpdateBuffer(), scope=ServiceScope.SINGLETON)
+    
+    # Register project services (singleton - stateless)
+    from ..services.projects.project_service import ProjectService
+    from ..services.projects.project_relationships_service import ProjectRelationshipsService
+    container.register('project_service', lambda: ProjectService(), scope=ServiceScope.SINGLETON)
+    container.register('project_relationships_service', lambda: ProjectRelationshipsService(), scope=ServiceScope.SINGLETON)
+    
+    # Register server service (singleton - stateless)
+    from ..services.servers.server_service import ServerService
+    container.register('server_service', lambda: ServerService(), scope=ServiceScope.SINGLETON)
+    
+    # Register log cleanup service (singleton - stateless)
+    from ..services.logs.log_cleanup_service import LogCleanupService
+    container.register('log_cleanup_service', lambda: LogCleanupService(), scope=ServiceScope.SINGLETON)
+    
+    # Register notification service (singleton - stateless)
+    from ..services.notifications.notification_service import NotificationService
+    container.register('notification_service', lambda: NotificationService(), scope=ServiceScope.SINGLETON)
+    
+    # Register heartbeat service (singleton - stateless)
+    from ..services.heartbeat.heartbeat_service import HeartbeatService
+    container.register('heartbeat_service', lambda: HeartbeatService(), scope=ServiceScope.SINGLETON)
+    
+    # Register task service (singleton - stateless)
+    from ..services.tasks.task_service import TaskService
+    container.register('task_service', lambda: TaskService(), scope=ServiceScope.SINGLETON)
+    
+    # Register dynamic config service (singleton - stateless)
+    from ..services.dynamic_config.dynamic_config_service import DynamicConfigService
+    container.register('dynamic_config_service', lambda: DynamicConfigService(), scope=ServiceScope.SINGLETON)
+    
+    # Register admin service (singleton - stateless)
+    from ..services.admin.admin_service import AdminService
+    container.register('admin_service', lambda: AdminService(), scope=ServiceScope.SINGLETON)
+    
+    # Register RBAC services (singleton - stateless)
+    from ..services.rbac.authorization_audit import AuthorizationAuditService
+    from ..services.rbac.abac_service import ABACService
+    from ..services.rbac.role_service import RoleService
+    from ..services.rbac.permission_service import PermissionService
+    from ..services.rbac.policy_engine import PolicyEngine
+    container.register('authorization_audit_service', lambda: AuthorizationAuditService(), scope=ServiceScope.SINGLETON)
+    container.register('abac_service', lambda: ABACService(), scope=ServiceScope.SINGLETON)
+    container.register('role_service', lambda: RoleService(), scope=ServiceScope.SINGLETON)
+    container.register('permission_service', lambda: PermissionService(), scope=ServiceScope.SINGLETON)
+    container.register('policy_engine', lambda: PolicyEngine(), scope=ServiceScope.SINGLETON)
+    
+    # Register user services (singleton - stateless)
+    from ..services.users.two_factor_service import TwoFactorService
+    from ..services.users.user_relationships_service import UserRelationshipsService
+    from ..services.users.invite_service import InviteService
+    container.register('two_factor_service', lambda: TwoFactorService(), scope=ServiceScope.SINGLETON)
+    container.register('user_relationships_service', lambda: UserRelationshipsService(), scope=ServiceScope.SINGLETON)
+    container.register('invite_service', lambda: InviteService(), scope=ServiceScope.SINGLETON)
+    
+    # Register auth services (singleton - stateless)
+    from ..services.auth.challenge_service import ChallengeService
+    container.register('challenge_service', lambda: ChallengeService(), scope=ServiceScope.SINGLETON)
+    
+    # Register monitoring service (singleton - stateless)
+    from ..services.monitoring.prometheus_metrics_reader import PrometheusMetricsReader
+    container.register('prometheus_metrics_reader', lambda: PrometheusMetricsReader(), scope=ServiceScope.SINGLETON)
+    
+    # Register validation service (singleton - stateless)
+    from ..services.validation.request_validation_pipeline import RequestValidationPipeline
+    container.register('request_validation_pipeline', lambda: RequestValidationPipeline(), scope=ServiceScope.SINGLETON)
+    
+    # Register webhook service (singleton - stateless)
+    from ..services.webhooks.webhook_service import WebhookService
+    container.register('webhook_service', lambda: WebhookService(), scope=ServiceScope.SINGLETON)
+    
     # Setup request cleanup handler
     @app.teardown_request
     def cleanup_services(exception):

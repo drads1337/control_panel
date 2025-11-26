@@ -375,69 +375,81 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
               <FormField
                 control={form.control}
                 name="selected_products"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Product Access</FormLabel>
-                    {productsLoading ? (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground p-2 border rounded-md">
-                        <Spinner className="h-4 w-4 animate-spin" />
-                        Loading products...
-                      </div>
-                    ) : productsError ? (
-                      <div className="text-sm text-red-500 p-2 bg-red-50 dark:bg-red-900/10 rounded">Error: {productsError}</div>
-                    ) : (
-                      <div className="max-h-[200px] overflow-y-auto border rounded-md bg-card p-1">
-                        {products.length === 0 ? (
-                          <div className="text-center p-4 text-sm text-muted-foreground">No products available</div>
-                        ) : (
-                          products.map((product) => (
-                            <div 
-                              key={product.id} 
-                              className="flex items-start space-x-3 p-2 hover:bg-accent/50 rounded transition-colors cursor-pointer"
-                              onClick={() => {
-                                if (loading) return;
-                                const currentProducts = Array.isArray(field.value) ? field.value : [];
-                                const productId = typeof product.id === 'number' ? product.id : parseInt(String(product.id), 10);
-                                const isSelected = currentProducts
-                                  .map(id => typeof id === 'number' ? id : parseInt(String(id), 10))
-                                  .includes(productId);
+                render={({ field }) => {
+                  const handleProductToggle = (productId: number) => {
+                    if (loading) return;
+                    const currentProducts = Array.isArray(field.value) ? field.value : [];
+                    const normalizedProductId = typeof productId === 'number' ? productId : parseInt(String(productId), 10);
+                    const normalizedCurrent = currentProducts.map(id => typeof id === 'number' ? id : parseInt(String(id), 10));
+                    const isSelected = normalizedCurrent.includes(normalizedProductId);
 
-                                if (isSelected) {
-                                  field.onChange(currentProducts.filter(id => id !== productId));
-                                } else {
-                                  field.onChange([...currentProducts, productId]);
-                                }
-                              }}
-                            >
-                              <Checkbox
-                                id={`product-${product.id}`}
-                                checked={
-                                  (Array.isArray(field.value) ? field.value : [])
-                                    .map(id => typeof id === 'number' ? id : parseInt(String(id), 10))
-                                    .includes(typeof product.id === 'number' ? product.id : parseInt(String(product.id), 10))
-                                }
-                                onCheckedChange={() => {}} // Handled by parent div click
-                                disabled={loading}
-                                className="mt-1"
-                              />
-                              <Label 
-                                htmlFor={`product-${product.id}`} 
-                                className="text-sm flex-1 cursor-pointer"
-                                onClick={(e) => e.stopPropagation()} // Prevent double toggle
-                              >
-                                <div>
-                                  <div className="font-medium">{sanitizeString(product.name)}</div>
-                                  <div className="text-xs text-muted-foreground">{product.description ? sanitizeString(product.description) : 'No description'}</div>
+                    if (isSelected) {
+                      field.onChange(normalizedCurrent.filter(id => id !== normalizedProductId));
+                    } else {
+                      field.onChange([...normalizedCurrent, normalizedProductId]);
+                    }
+                  };
+
+                  const isProductSelected = (productId: number | string) => {
+                    const currentProducts = Array.isArray(field.value) ? field.value : [];
+                    const normalizedProductId = typeof productId === 'number' ? productId : parseInt(String(productId), 10);
+                    return currentProducts
+                      .map(id => typeof id === 'number' ? id : parseInt(String(id), 10))
+                      .includes(normalizedProductId);
+                  };
+
+                  return (
+                    <FormItem>
+                      <FormLabel>Product Access</FormLabel>
+                      {productsLoading ? (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground p-2 border rounded-md">
+                          <Spinner className="h-4 w-4 animate-spin" />
+                          Loading products...
+                        </div>
+                      ) : productsError ? (
+                        <div className="text-sm text-red-500 p-2 bg-red-50 dark:bg-red-900/10 rounded">Error: {productsError}</div>
+                      ) : (
+                        <div className="max-h-[200px] overflow-y-auto border rounded-md bg-card p-1">
+                          {products.length === 0 ? (
+                            <div className="text-center p-4 text-sm text-muted-foreground">No products available</div>
+                          ) : (
+                            products.map((product) => {
+                              const productId = typeof product.id === 'number' ? product.id : parseInt(String(product.id), 10);
+                              const selected = isProductSelected(productId);
+                              
+                              return (
+                                <div 
+                                  key={product.id} 
+                                  className="flex items-start space-x-3 p-2 hover:bg-accent/50 rounded transition-colors"
+                                >
+                                  <Checkbox
+                                    id={`product-${product.id}`}
+                                    checked={selected}
+                                    onCheckedChange={() => {
+                                      handleProductToggle(productId);
+                                    }}
+                                    disabled={loading}
+                                    className="mt-1"
+                                  />
+                                  <Label 
+                                    htmlFor={`product-${product.id}`} 
+                                    className="text-sm flex-1 cursor-pointer"
+                                  >
+                                    <div>
+                                      <div className="font-medium">{sanitizeString(product.name)}</div>
+                                      <div className="text-xs text-muted-foreground">{product.description ? sanitizeString(product.description) : 'No description'}</div>
+                                    </div>
+                                  </Label>
                                 </div>
-                              </Label>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    )}
-                    <FormMessage />
-                  </FormItem>
-                )}
+                              );
+                            })
+                          )}
+                        </div>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
             </div>
 

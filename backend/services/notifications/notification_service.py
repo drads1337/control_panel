@@ -96,13 +96,118 @@ class NotificationService:
             Tuple of (notifications_created, notification_ids, error_message)
         """
         try:
+            if not target_user_ids:
+                return 0, [], "No target users specified"
 
-            target_user_objects = User.query.filter(
-                User.id.in_(target_user_ids), User.project_id == user.project_id
-            ).all()
+            self.logger.debug(
+                f"Sending notifications: user_id={user.id}, project_id={user.project_id}, "
+                f"target_user_ids={target_user_ids}, message_length={len(message)}"
+            )
+
+            # API returns unique_id as id, so we need to search by both id and unique_id
+            # If value is 9 digits, it's likely a unique_id (string), otherwise it's an id (int)
+            # Convert all to strings for unique_id lookup, and keep as ints for id lookup
+            target_user_ids_str = [str(uid) for uid in target_user_ids]
+            
+            # Try to find users by both id (integer) and unique_id (string)
+            # First try by id (for small integers)
+            users_by_id = User.query.filter(User.id.in_(target_user_ids)).all()
+            
+            # Then try by unique_id (for 9-digit strings)
+            users_by_unique_id = User.query.filter(User.unique_id.in_(target_user_ids_str)).all()
+            
+            # Combine and deduplicate
+            all_users_any_project = list({u.id: u for u in users_by_id + users_by_unique_id}.values())
+            all_existing_user_ids = {u.id for u in all_users_any_project}
+            all_existing_unique_ids = {u.unique_id for u in all_users_any_project}
+            
+            # Map input IDs to actual user IDs
+            # If input is a 9-digit number (likely unique_id), map it to the actual user.id
+            id_mapping = {}
+            for uid in target_user_ids:
+                uid_str = str(uid)
+                # If 9 digits, treat as unique_id
+                if len(uid_str) == 9 and uid_str.isdigit():
+                    # Find user by unique_id
+                    user_by_unique = next((u for u in all_users_any_project if u.unique_id == uid_str), None)
+                    if user_by_unique:
+                        id_mapping[uid] = user_by_unique.id
+                    else:
+                        id_mapping[uid] = uid  # Keep original if not found
+                else:
+                    # Treat as regular id
+                    user_by_id = next((u for u in all_users_any_project if u.id == uid), None)
+                    if user_by_id:
+                        id_mapping[uid] = user_by_id.id
+                    else:
+                        id_mapping[uid] = uid  # Keep original if not found
+            
+            # Then filter by project_id - enforce project isolation
+            # Users must belong to the same project as the sender (both must have matching project_id)
+            # If sender has project_id, target must have the same project_id (not None)
+            if user.project_id is not None:
+                target_user_objects = [
+                    u for u in all_users_any_project 
+                    if u.project_id == user.project_id
+                ]
+            else:
+                # If sender has no project_id, only allow targets with no project_id
+                target_user_objects = [
+                    u for u in all_users_any_project 
+                    if u.project_id is None
+                ]
+
+            # Map target IDs to actual user IDs for validation
+            mapped_target_ids = [id_mapping.get(uid, uid) for uid in target_user_ids]
 
             if len(target_user_objects) != len(target_user_ids):
-                return 0, [], "One or more target users not found or do not belong to this project"
+                # Find which users are missing or don't belong to the project
+                # Use mapped IDs for comparison
+                found_user_ids = {user_obj.id for user_obj in target_user_objects}
+                missing_user_ids = [uid for uid in mapped_target_ids if uid not in found_user_ids]
+                # Keep original IDs for error messages
+                missing_original_ids = [
+                    orig_id for orig_id, mapped_id in zip(target_user_ids, mapped_target_ids)
+                    if mapped_id not in found_user_ids
+                ]
+                
+                # Check if they exist but belong to different project (or have None project_id when sender has one)
+                wrong_project_user_ids = [
+                    mapped_id for mapped_id, orig_id in zip(mapped_target_ids, target_user_ids)
+                    if mapped_id in all_existing_user_ids and mapped_id not in found_user_ids
+                ]
+                # Get original IDs for wrong project users
+                wrong_project_original_ids = [
+                    orig_id for orig_id, mapped_id in zip(target_user_ids, mapped_target_ids)
+                    if mapped_id in wrong_project_user_ids
+                ]
+                
+                not_found_user_ids = [
+                    orig_id for orig_id, mapped_id in zip(target_user_ids, mapped_target_ids)
+                    if mapped_id not in all_existing_user_ids
+                ]
+                
+                error_parts = []
+                if not_found_user_ids:
+                    ids_str = ', '.join(map(str, not_found_user_ids))
+                    error_parts.append(f"User IDs [{ids_str}] not found in database")
+                if wrong_project_original_ids:
+                    ids_str = ', '.join(map(str, wrong_project_original_ids))
+                    error_parts.append(f"User IDs [{ids_str}] belong to a different project (project isolation enforced)")
+                
+                error_msg = "One or more target users not found or do not belong to this project"
+                if error_parts:
+                    error_msg += f": {', '.join(error_parts)}"
+                else:
+                    error_msg += ". Please refresh the user list and try again."
+                
+                self.logger.warning(
+                    f"Notification send failed: user_id={user.id}, project_id={user.project_id}, "
+                    f"target_user_ids={target_user_ids}, found={len(target_user_objects)}, "
+                    f"not_found={not_found_user_ids}, wrong_project={wrong_project_original_ids}"
+                )
+                
+                return 0, [], error_msg
 
             workers_only = [
                 target_user

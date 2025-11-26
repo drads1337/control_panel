@@ -11,8 +11,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from ...core.extensions import db
 from ...middleware.auth import require_project_isolation, require_project_with_grace_period
 from ...models import Product, ProductKeyPrice, User
-from ...services.activity import activity_service
-from ...services.products import product_service
+from ...utils.service_helpers import get_service
 from ...utils.rbac_utils import RBACManager
 
 prices_bp = Blueprint("products_prices", __name__)
@@ -168,8 +167,10 @@ def update_product_prices(product_identifier):
 
         db.session.commit()
 
+        product_service = get_service('product_service')
         product_service.invalidate_product_cache(user.project_id, product.id)
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "product_prices_updated",
@@ -318,8 +319,10 @@ def add_custom_period(product_identifier):
         db.session.add(new_price)
         db.session.commit()
 
+        product_service = get_service('product_service')
         product_service.invalidate_product_cache(user.project_id, product.id)
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "product_custom_period_added",
@@ -401,8 +404,10 @@ def remove_custom_period(product_identifier, custom_period_id):
         db.session.delete(custom_price)
         db.session.commit()
 
+        product_service = get_service('product_service')
         product_service.invalidate_product_cache(user.project_id, product.id)
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "product_custom_period_removed",

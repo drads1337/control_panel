@@ -312,7 +312,11 @@ def setup_structured_logging(app):
         request_id = str(uuid.uuid4())
         g.request_id = request_id
         g.start_time = datetime.utcnow()
-        set_request_context(request_id)
+        
+        # Check if client sent correlation ID in headers, otherwise generate new one
+        correlation_id = request.headers.get('X-Correlation-ID') or str(uuid.uuid4())
+        
+        set_request_context(request_id, correlation_id=correlation_id)
 
         try:
             from flask_jwt_extended import get_jwt_identity
@@ -326,6 +330,16 @@ def setup_structured_logging(app):
     @app.after_request
     def log_request(response):
         g.response_status = response.status_code
+
+        # Add Correlation ID to response headers for observability
+        correlation_id = correlation_id_var.get()
+        if correlation_id:
+            response.headers['X-Correlation-ID'] = correlation_id
+        
+        # Also add request ID for backward compatibility
+        request_id = request_id_var.get()
+        if request_id:
+            response.headers['X-Request-ID'] = request_id
 
         excluded_paths = [
             "/api/logs",

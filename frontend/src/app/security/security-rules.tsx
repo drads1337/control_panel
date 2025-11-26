@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useMemo } from 'react'
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -6,20 +6,9 @@ import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { ConditionalRender } from '@/components/rbac/conditional-render'
 import { usePermissions } from '@/hooks/use-permissions'
-
-interface SecurityRule {
-  id: number
-  name: string
-  description: string
-  type: 'ip' | 'hwid' | 'behavior' | 'geo'
-  action: 'block' | 'allow' | 'monitor'
-  severity: 'low' | 'medium' | 'high' | 'critical'
-  isActive: boolean
-  createdAt: string
-  updatedAt: string
-  triggerCount: number
-  lastTriggered?: string
-}
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { securityAPI, SecurityRule } from '@/lib/api/security'
+import { toast } from 'sonner'
 
 interface SecurityRulesProps {
   onRefresh?: () => void
@@ -29,111 +18,41 @@ interface SecurityRulesProps {
 export default function SecurityRules({ onRefresh, loading = false }: SecurityRulesProps) {
   const { hasPermission } = usePermissions()
   const canManage = hasPermission('security.manage_rules')
+  const queryClient = useQueryClient()
 
-  const [rules, setRules] = useState<SecurityRule[]>([
-    {
-      id: 1,
-      name: 'Auto-block Suspicious IPs',
-      description: 'Automatically block IPs with high threat score',
-      type: 'ip',
-      action: 'block',
-      severity: 'high',
-      isActive: true,
-      createdAt: '2024-01-15T10:30:00Z',
-      updatedAt: '2024-01-15T10:30:00Z',
-      triggerCount: 24,
-      lastTriggered: '2024-01-20T14:22:00Z'
+  const { data: rules = [], isLoading, refetch } = useQuery<SecurityRule[]>({
+    queryKey: ['security-rules'],
+    queryFn: () => securityAPI.getSecurityRules(),
+    staleTime: 30000, // 30 seconds
+  })
+
+  const toggleMutation = useMutation({
+    mutationFn: (ruleId: number) => securityAPI.toggleSecurityRule(ruleId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['security-rules'] })
+      toast.success('Security rule updated')
     },
-    {
-      id: 2,
-      name: 'Rate Limiting Protection',
-      description: 'Limit requests per minute per IP',
-      type: 'behavior',
-      action: 'monitor',
-      severity: 'medium',
-      isActive: true,
-      createdAt: '2024-01-10T09:15:00Z',
-      updatedAt: '2024-01-18T16:45:00Z',
-      triggerCount: 89,
-      lastTriggered: '2024-01-20T08:45:00Z'
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.error || 'Failed to update security rule')
     },
-    {
-      id: 3,
-      name: 'Failed Login Protection',
-      description: 'Block after 5 failed login attempts',
-      type: 'behavior',
-      action: 'block',
-      severity: 'high',
-      isActive: true,
-      createdAt: '2024-01-05T14:20:00Z',
-      updatedAt: '2024-01-05T14:20:00Z',
-      triggerCount: 8,
-      lastTriggered: '2024-01-19T09:15:00Z'
-    },
-    {
-      id: 4,
-      name: 'HWID Blacklist',
-      description: 'Block known malicious hardware IDs',
-      type: 'hwid',
-      action: 'block',
-      severity: 'critical',
-      isActive: true,
-      createdAt: '2024-01-12T11:00:00Z',
-      updatedAt: '2024-01-12T11:00:00Z',
-      triggerCount: 3,
-      lastTriggered: '2024-01-18T16:30:00Z'
-    },
-    {
-      id: 5,
-      name: 'Geo-blocking',
-      description: 'Block connections from specific countries',
-      type: 'geo',
-      action: 'block',
-      severity: 'medium',
-      isActive: false,
-      createdAt: '2024-01-12T11:00:00Z',
-      updatedAt: '2024-01-12T11:00:00Z',
-      triggerCount: 0
-    },
-    {
-      id: 6,
-      name: 'VPN Detection',
-      description: 'Detect and block VPN connections',
-      type: 'ip',
-      action: 'monitor',
-      severity: 'medium',
-      isActive: false,
-      createdAt: '2024-01-08T13:30:00Z',
-      updatedAt: '2024-01-08T13:30:00Z',
-      triggerCount: 0
-    },
-    {
-      id: 7,
-      name: 'Brute Force Protection',
-      description: 'Temporary block after multiple failed attempts',
-      type: 'behavior',
-      action: 'block',
-      severity: 'high',
-      isActive: true,
-      createdAt: '2024-01-06T10:15:00Z',
-      updatedAt: '2024-01-06T10:15:00Z',
-      triggerCount: 12,
-      lastTriggered: '2024-01-19T14:20:00Z'
-    },
-    {
-      id: 8,
-      name: 'Suspicious Activity Monitor',
-      description: 'Monitor unusual access patterns',
-      type: 'behavior',
-      action: 'monitor',
-      severity: 'low',
-      isActive: true,
-      createdAt: '2024-01-04T09:00:00Z',
-      updatedAt: '2024-01-04T09:00:00Z',
-      triggerCount: 45,
-      lastTriggered: '2024-01-20T10:15:00Z'
+  })
+
+  useEffect(() => {
+    if (onRefresh) {
+      // Sync with parent refresh
+      const interval = setInterval(() => {
+        refetch()
+      }, 60000) // Refresh every minute
+      return () => clearInterval(interval)
     }
-  ])
+  }, [onRefresh, refetch])
+
+  const [localRules, setLocalRules] = useState<SecurityRule[]>([])
+  useEffect(() => {
+    if (rules.length > 0) {
+      setLocalRules(rules)
+    }
+  }, [rules])
 
   const getSeverityColor = useCallback((severity: string) => {
     switch (severity) {
@@ -155,25 +74,55 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
     }
   }, []);
 
+  const isBetaRule = useCallback((ruleName: string) => {
+    const betaRules = [
+      'VPN Detection',
+      'Auto-block Suspicious IPs',
+      'Geo-blocking',
+      'Failed Login Protection'
+    ];
+    return betaRules.includes(ruleName);
+  }, []);
+
+  const getBetaWarning = useCallback((ruleName: string) => {
+    switch (ruleName) {
+      case 'VPN Detection':
+        return 'This feature is in beta and may not work correctly. VPN detection accuracy may vary.';
+      case 'Auto-block Suspicious IPs':
+        return 'This feature is in beta. Auto-blocking may have false positives.';
+      case 'Geo-blocking':
+        return 'This feature is in beta and may not work correctly. Geographic blocking accuracy may vary.';
+      case 'Failed Login Protection':
+        return 'This feature is in beta. Blocking behavior may not work as expected.';
+      default:
+        return 'This feature is in beta and may not work correctly.';
+    }
+  }, []);
+
   const toggleRule = useCallback((ruleId: number) => {
-    setRules(rules.map(rule => 
-      rule.id === ruleId ? { ...rule, isActive: !rule.isActive } : rule
-    ))
-  }, [rules]);
+    if (!canManage) return
+    toggleMutation.mutate(ruleId)
+  }, [canManage, toggleMutation]);
 
   const RuleItem = React.memo(({ 
     rule, 
     onToggle,
     canManage,
     getSeverityColor,
-    getTypeIcon
+    getTypeIcon,
+    isBetaRule,
+    getBetaWarning
   }: { 
     rule: SecurityRule;
     onToggle: (ruleId: number) => void;
     canManage: boolean;
     getSeverityColor: (severity: string) => string;
     getTypeIcon: (type: string) => React.ReactElement;
+    isBetaRule: (ruleName: string) => boolean;
+    getBetaWarning: (ruleName: string) => string;
   }) => {
+    const isBeta = isBetaRule(rule.name);
+    
     return (
       <div className="flex items-center justify-between p-2.5 border-b hover:bg-accent/50 transition-colors">
         <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -188,6 +137,11 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
               <Badge className={getSeverityColor(rule.severity)} variant="secondary">
                 {rule.severity}
               </Badge>
+              {isBeta && (
+                <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400" variant="secondary">
+                  BETA
+                </Badge>
+              )}
               {!rule.isActive && (
                 <span className="text-xs text-muted-foreground">• Inactive</span>
               )}
@@ -205,6 +159,13 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
                 </span>
               )}
             </div>
+            {isBeta && (
+              <div className="mt-1.5">
+                <p className="text-xs text-orange-600 dark:text-orange-400 italic">
+                   {getBetaWarning(rule.name)}
+                </p>
+              </div>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -226,7 +187,9 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
     canManage: boolean;
     getSeverityColor: (severity: string) => string;
     getTypeIcon: (type: string) => React.ReactElement;
-  }> = ({ rules, onToggle, canManage, getSeverityColor, getTypeIcon }) => {
+    isBetaRule: (ruleName: string) => boolean;
+    getBetaWarning: (ruleName: string) => string;
+  }> = ({ rules, onToggle, canManage, getSeverityColor, getTypeIcon, isBetaRule, getBetaWarning }) => {
     const parentRef = useRef<HTMLDivElement>(null);
     // Lower threshold for better performance - virtualize when more than 30 items
     const shouldVirtualize = rules.length > 30;
@@ -274,6 +237,8 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
                       canManage={canManage}
                       getSeverityColor={getSeverityColor}
                       getTypeIcon={getTypeIcon}
+                      isBetaRule={isBetaRule}
+                      getBetaWarning={getBetaWarning}
                     />
                   </div>
                 );
@@ -294,13 +259,21 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
             canManage={canManage}
             getSeverityColor={getSeverityColor}
             getTypeIcon={getTypeIcon}
+            isBetaRule={isBetaRule}
+            getBetaWarning={getBetaWarning}
           />
         ))}
       </div>
     );
   };
 
-  const activeRulesCount = useMemo(() => rules.filter(r => r.isActive).length, [rules]);
+  const activeRulesCount = useMemo(() => {
+    const rulesToCount = localRules.length > 0 ? localRules : rules
+    return rulesToCount.filter(r => r.isActive).length
+  }, [localRules, rules]);
+  
+  const displayRules = localRules.length > 0 ? localRules : rules
+  const isLoadingData = isLoading || loading
 
   return (
     <ConditionalRender permission="security.manage_rules" fallback={null}>
@@ -311,7 +284,7 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
               <div>
                 <CardTitle className="text-base">Security Rules</CardTitle>
                 <CardDescription className="mt-1 text-xs">
-                  {activeRulesCount} of {rules.length} active
+                  {activeRulesCount} of {displayRules.length} active
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2">
@@ -319,8 +292,11 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
                   <Button 
                     variant="ghost" 
                     size="sm"
-                    onClick={onRefresh}
-                    disabled={loading}
+                    onClick={() => {
+                      refetch()
+                      onRefresh?.()
+                    }}
+                    disabled={isLoadingData}
                   >
                     Refresh
                   </Button>
@@ -329,7 +305,13 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
             </div>
           </CardHeader>
           <CardContent className="pt-0 -mt-3">
-            {rules.length === 0 ? (
+            {isLoadingData ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="text-sm text-muted-foreground">Loading security rules...</div>
+                </div>
+              </div>
+            ) : displayRules.length === 0 ? (
               <div className="flex items-center justify-center py-12">
                 <div className="text-center">
                   <div className="text-sm text-muted-foreground">No security rules configured</div>
@@ -337,11 +319,13 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
               </div>
             ) : (
               <RulesList
-                rules={rules}
+                rules={displayRules}
                 onToggle={toggleRule}
                 canManage={canManage}
                 getSeverityColor={getSeverityColor}
                 getTypeIcon={getTypeIcon}
+                isBetaRule={isBetaRule}
+                getBetaWarning={getBetaWarning}
               />
             )}
           </CardContent>

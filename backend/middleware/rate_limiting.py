@@ -148,6 +148,23 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10):
 
             if minute_count > rate_limit:
                 security_checker.log_suspicious_activity(ip, "RATE_LIMIT", user_key)
+                
+                # Update trigger count for Rate Limiting Protection rule
+                try:
+                    from ...services.security import security_service, SecurityContext
+                    from ...models.keys import Key
+                    # Try to get project_id from user_key if available
+                    project_id = None
+                    if user_key:
+                        key_obj = Key.query.filter_by(key=user_key).first()
+                        if key_obj:
+                            project_id = key_obj.project_id
+                    
+                    if project_id:
+                        security_service._update_rule_trigger("Rate Limiting Protection", project_id)
+                except Exception as e:
+                    logger.debug(f"Could not update rate limit rule trigger: {e}")
+                
                 error_response = response_builder.build_error_response("Rate limit exceeded")
                 encrypted_response = response_builder.encrypt_response(error_response, True)
                 return encrypted_response, 429

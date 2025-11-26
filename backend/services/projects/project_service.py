@@ -501,6 +501,14 @@ class ProjectService:
             except Exception as e:
                 self.logger.warning(f"Failed to invalidate cache after project creation: {e}")
 
+            # Initialize default security rules for the project
+            try:
+                from ...services.security.security_rules_init import security_rules_init_service
+                security_rules_init_service.initialize_default_rules(project.id, user_id)
+                self.logger.info(f"Initialized default security rules for project {project.id}")
+            except Exception as e:
+                self.logger.warning(f"Failed to initialize security rules for project {project.id}: {e}")
+
             return project
 
         except (NotFoundError, ValidationError, ConflictError):

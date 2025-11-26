@@ -12,10 +12,13 @@ import NotificationDialog from './notification-dialog';
 import { TopupBalanceDialog } from './topup-balance-dialog';
 import { usePermissions } from '@/hooks/use-permissions';
 import { toast } from 'sonner';
-import { Plus, RefreshCw, Users, Edit, Trash2, Bell, MoreVertical, Mail, Calendar, Shield } from 'lucide-react';
+import { Plus, RefreshCw, Users, Edit, Trash2, Bell, MoreVertical, Mail, Calendar, Shield, Wallet } from 'lucide-react';
 import { isAdmin, isOwner } from '@/lib/rbac-utils';
 import type { User } from '@/entities/user';
 import { handleError } from '@/lib/error-handler';
+import { enhancedApi } from '@/shared/api/enhanced-client';
+import { getUsers } from '@/entities/user';
+import { useAuthContext } from '@/contexts/auth-context';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -133,13 +136,13 @@ const UserItem = React.memo(({
             {canEdit && (
               <Button
                 variant="ghost"
-                size="sm"
-                className="h-8 px-2 text-xs"
+                size="icon"
+                className="h-8 w-8"
                 onClick={() => onTopup(user.id)}
                 disabled={loading}
                 title="Top up balance"
               >
-                Balance
+                <Wallet className="h-4 w-4" />
               </Button>
             )}
             {canDelete && (
@@ -249,13 +252,13 @@ const MobileUserCard = React.memo(({
             {canEdit && (
               <Button
                 variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs"
+                size="icon"
+                className="h-7 w-7"
                 onClick={() => onTopup(user.id)}
                 disabled={loading}
                 title="Top up balance"
               >
-                Balance
+                <Wallet className="h-3.5 w-3.5" />
               </Button>
             )}
             {canDelete && (
@@ -425,6 +428,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   deleteExistingUser,
   employeeRolesFilter = ['admin', 'seller', 'developer', 'moderator']
 }) => {
+  const { user: currentUser } = useAuthContext()
   const isMobile = useMediaQuery('(max-width: 768px)');
   const activeRolesFilter = employeeRolesFilter || ['admin', 'seller', 'developer', 'moderator'];
 
@@ -457,6 +461,60 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     }
     return null;
   }, [])
+
+  // Clean up invalid user IDs when users list changes or dialog opens
+  useEffect(() => {
+    if (notificationForm.targetUsers.length > 0 && users.length > 0) {
+      // Create a set of valid user IDs from current users list
+      const validUserIds = new Set(
+        users.map(u => {
+          const userId = typeof u.id === 'string' ? parseInt(u.id, 10) : u.id
+          return !isNaN(userId) && userId > 0 ? userId : null
+        }).filter((id): id is number => id !== null)
+      )
+      
+      // Filter out invalid user IDs
+      const validSelectedIds = notificationForm.targetUsers.filter(id => {
+        const normalizedId = typeof id === 'string' ? parseInt(id, 10) : id
+        return !isNaN(normalizedId) && normalizedId > 0 && validUserIds.has(normalizedId)
+      })
+      
+      // Update form if some IDs were removed
+      if (validSelectedIds.length !== notificationForm.targetUsers.length) {
+        setNotificationForm(prev => ({
+          ...prev,
+          targetUsers: validSelectedIds
+        }))
+      }
+    }
+  }, [users, notificationForm.targetUsers])
+
+  // Clean up invalid user IDs when notification dialog opens
+  const handleNotificationDialogOpenChange = useCallback((open: boolean) => {
+    setIsNotificationDialogOpen(open)
+    
+    if (open && users.length > 0 && notificationForm.targetUsers.length > 0) {
+      // Validate and clean up user IDs when dialog opens
+      const validUserIds = new Set(
+        users.map(u => {
+          const userId = typeof u.id === 'string' ? parseInt(u.id, 10) : u.id
+          return !isNaN(userId) && userId > 0 ? userId : null
+        }).filter((id): id is number => id !== null)
+      )
+      
+      const validSelectedIds = notificationForm.targetUsers.filter(id => {
+        const normalizedId = typeof id === 'string' ? parseInt(id, 10) : id
+        return !isNaN(normalizedId) && normalizedId > 0 && validUserIds.has(normalizedId)
+      })
+      
+      if (validSelectedIds.length !== notificationForm.targetUsers.length) {
+        setNotificationForm(prev => ({
+          ...prev,
+          targetUsers: validSelectedIds
+        }))
+      }
+    }
+  }, [users, notificationForm.targetUsers])
 
 
   const handleDeleteUser = useCallback(async (userId: number) => {
@@ -509,6 +567,8 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
 
   const handleSendNotification = useCallback(async () => {
     let targetUserIds: number[] = []
+    let finalTargetUserIds: number[] = []
+    let userMap: Map<number, User> | null = null
 
     try {
       if (!notificationForm.title || !notificationForm.message) {
@@ -526,51 +586,241 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
         return
       }
 
+      // Fetch all users in the project (without role filtering) to ensure we have valid IDs
+      // The backend validates against all project users, not just those with specific roles
+      // Fetch all pages if needed to get complete user list
+      let allUsers: User[] = []
+      let currentPage = 1
+      let hasMorePages = true
+      const perPage = 1000 // Fetch in chunks to avoid timeout
+      
+      while (hasMorePages) {
+        const response = await getUsers({
+          per_page: perPage,
+          page: currentPage
+          // Don't pass roles parameter - we need all project users for validation
+      })
+      
+        const pageUsers = response.users || []
+        allUsers = [...allUsers, ...pageUsers]
+        
+        // Check if there are more pages
+        const totalFetched = allUsers.length
+        const totalAvailable = response.total || 0
+        
+        if (totalAvailable <= totalFetched || pageUsers.length < perPage) {
+          hasMorePages = false
+        } else {
+          currentPage++
+        }
+      }
+      
+      // Log if we got fewer users than expected
+      if (allUsers.length === 0) {
+        console.warn('No users fetched for validation. This might indicate a problem.')
+      }
+      
+      // Create a map of normalized user IDs to user objects for fast lookup
+      // Also validate that all users belong to the current project
+      userMap = new Map<number, User>()
+      const currentProjectId = currentUser?.project_id
+      const wrongProjectUserIds: number[] = []
+      
+      for (const u of allUsers) {
+        const userId = typeof u.id === 'string' ? parseInt(u.id, 10) : u.id
+        if (!isNaN(userId) && userId > 0) {
+          // Strict project_id validation: enforce project isolation
+          // If current user has a project_id, only include users with the same project_id (not null/undefined)
+          // If current user has no project_id, only include users with no project_id
+          if (currentProjectId !== null && currentProjectId !== undefined) {
+            // Current user has a project_id - only include users with matching project_id
+            if (u.project_id === null || u.project_id === undefined || u.project_id !== currentProjectId) {
+              wrongProjectUserIds.push(userId)
+              console.warn(`User ID ${userId} has project_id ${u.project_id}, but current project is ${currentProjectId}. Excluding from userMap.`)
+              continue // Skip users from different projects or with null project_id
+            }
+          } else {
+            // Current user has no project_id - only include users with no project_id
+            if (u.project_id !== null && u.project_id !== undefined) {
+              wrongProjectUserIds.push(userId)
+              console.warn(`User ID ${userId} has project_id ${u.project_id}, but current user has no project. Excluding from userMap.`)
+              continue // Skip users with project_id when current user has none
+            }
+          }
+          userMap.set(userId, u)
+        }
+      }
+      
+      // Warn if we found users from different projects
+      if (wrongProjectUserIds.length > 0) {
+        console.warn(`Found ${wrongProjectUserIds.length} user(s) from different projects. These were excluded:`, wrongProjectUserIds)
+      }
+      
+      // Ensure userMap was created successfully
+      if (!userMap || userMap.size === 0) {
+        console.error('Failed to create user map or no users found')
+        toast.error('Failed to load user list. Please refresh and try again.')
+        return
+      }
+      
+      // Normalize selected user IDs to numbers - be more strict about validation
+      const normalizedSelectedIds = notificationForm.targetUsers
+        .map(id => {
+          // Handle both string and number IDs
+          if (typeof id === 'string') {
+            const parsed = parseInt(id, 10)
+            return isNaN(parsed) ? null : parsed
+          }
+          if (typeof id === 'number') {
+            return isNaN(id) || id <= 0 ? null : id
+          }
+          return null
+        })
+        .filter((id): id is number => id !== null && id > 0)
+      
+      // Early validation: if no valid normalized IDs, stop here
+      if (normalizedSelectedIds.length === 0 && notificationForm.targetUsers.length > 0) {
+        toast.error('Selected user IDs are invalid. Please select users again.')
+        return
+      }
+      
       if (notificationForm.sendToAll) {
-        targetUserIds = users
-          .filter(u => !isAdmin(u) && !isOwner(u))
-          .map(u => u.id)
+        // Get all non-admin/owner users from the fetched list, excluding current user
+        targetUserIds = Array.from(userMap!.values())
+          .filter(u => {
+            const isAdminOrOwner = isAdmin(u) || isOwner(u);
+            // Normalize IDs for comparison (handle both string and number)
+            const userId = typeof u.id === 'string' ? parseInt(u.id, 10) : u.id;
+            const currentUserId = currentUser?.id ? (typeof currentUser.id === 'string' ? parseInt(currentUser.id, 10) : currentUser.id) : null;
+            const isCurrentUser = currentUserId && userId === currentUserId;
+            return !isAdminOrOwner && !isCurrentUser;
+          })
+          .map(u => {
+            const userId = typeof u.id === 'string' ? parseInt(u.id, 10) : u.id
+            return userId
+          })
+          .filter((id): id is number => !isNaN(id) && id > 0)
 
         if (targetUserIds.length === 0) {
           toast.error('No workers found to send notifications to. Admin and owner users are excluded.')
           return
         }
       } else {
-        targetUserIds = notificationForm.targetUsers.filter(userId => {
-          const user = users.find(u => u.id === userId)
-          return user && !isAdmin(user) && !isOwner(user)
-        })
+        // Validate selected user IDs against fetched users
+        const invalidUserIds: number[] = []
+        const adminOwnerUserIds: number[] = []
+        
+        targetUserIds = normalizedSelectedIds
+          .filter(userId => {
+            // Check if user exists in the map
+            const user = userMap!.get(userId)
+            
+            if (!user) {
+              invalidUserIds.push(userId)
+              console.warn(`User ID ${userId} not found in project users`)
+              return false
+            }
+            
+            // Exclude admin/owner users
+            if (isAdmin(user) || isOwner(user)) {
+              adminOwnerUserIds.push(userId)
+              return false
+            }
+            
+            // Exclude current user (normalize IDs for comparison)
+            if (currentUser?.id) {
+              const userId = typeof user.id === 'string' ? parseInt(user.id, 10) : user.id;
+              const currentUserId = typeof currentUser.id === 'string' ? parseInt(currentUser.id, 10) : currentUser.id;
+              if (userId === currentUserId) {
+                return false
+              }
+            }
+            
+            return true
+          })
 
         if (targetUserIds.length === 0) {
-          toast.error('Selected users include only admin/owner. Admin and owner users cannot receive notifications.')
+          let errorMsg = 'Selected users cannot receive notifications. '
+          if (invalidUserIds.length > 0) {
+            errorMsg += `${invalidUserIds.length} user(s) not found or invalid. `
+          }
+          if (adminOwnerUserIds.length > 0) {
+            errorMsg += `${adminOwnerUserIds.length} user(s) are admin/owner and excluded.`
+          }
+          toast.error(errorMsg.trim())
           return
+        }
+        
+        // Warn if some selected users were filtered out
+        if (targetUserIds.length < notificationForm.targetUsers.length) {
+          const filteredCount = notificationForm.targetUsers.length - targetUserIds.length
+          let warningMsg = `${filteredCount} selected user(s) were filtered out. `
+          if (invalidUserIds.length > 0) {
+            warningMsg += `${invalidUserIds.length} user(s) not found. `
+          }
+          if (adminOwnerUserIds.length > 0) {
+            warningMsg += `${adminOwnerUserIds.length} admin/owner user(s) excluded.`
+          }
+          toast.warning(warningMsg.trim())
         }
       }
 
+      // Final validation - ensure all IDs are valid numbers and exist in the user map
+      // This is a critical safety check - we must never send IDs that aren't in the userMap
+      finalTargetUserIds = targetUserIds
+        .map(id => {
+          // Normalize ID to number
+          if (typeof id === 'string') {
+            const parsed = parseInt(id, 10)
+            return isNaN(parsed) ? null : parsed
+          }
+          if (typeof id === 'number') {
+            return isNaN(id) || id <= 0 ? null : id
+          }
+          return null
+        })
+        .filter((id): id is number => {
+          if (id === null || id <= 0) {
+            console.error(`Filtered out invalid/null user ID: ${id}`)
+            return false
+          }
+          // Final check: user must exist in the map
+          if (!userMap!.has(id)) {
+            console.error(`Filtered out invalid user ID before sending: ${id} (not in user map)`)
+            console.error(`User map size: ${userMap!.size}, Available user IDs in map: ${Array.from(userMap!.keys()).slice(0, 20).join(', ')}...`)
+            return false
+          }
+          return true
+        })
+
+      // Critical safety check: Never proceed if we have no valid user IDs
+      if (finalTargetUserIds.length === 0) {
+        if (notificationForm.targetUsers.length > 0) {
+          toast.error('Selected user IDs are invalid or do not belong to this project. Please refresh the user list and try again.')
+        } else {
+          toast.error('No valid users selected. Please select users and try again.')
+        }
+        return
+      }
+
+      // Additional safety check: Verify all IDs are still in the userMap (defensive programming)
+      const invalidIds = finalTargetUserIds.filter(id => !userMap!.has(id))
+      if (invalidIds.length > 0) {
+        console.error('CRITICAL: Found invalid user IDs after validation:', invalidIds)
+        console.error('This should never happen. Available user IDs:', Array.from(userMap!.keys()).slice(0, 20))
+        toast.error(`Validation error: ${invalidIds.length} user ID(s) are invalid. Please refresh and try again.`)
+        return
+      }
+      
       const notificationData = {
         title: notificationForm.title,
         message: notificationForm.message,
         type: notificationForm.type,
-        target_users: targetUserIds,
+        target_users: finalTargetUserIds,
         repeat_count: notificationForm.repeatCount
       }
 
-      const { getApiUrl } = await import('@/shared/api');
-      const response = await fetch(getApiUrl('/api/notifications/send'), {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(notificationData)
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to send notification')
-      }
-
-      const result = await response.json()
+      const result = await enhancedApi.post('/api/notifications/send', notificationData).then(res => res.data)
 
       setNotificationForm({
         title: '',
@@ -583,14 +833,46 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
       setIsNotificationDialogOpen(false)
 
       toast.success(`Notification sent successfully to ${result.notifications_created} workers`)
-    } catch (error) {
+    } catch (error: any) {
+      // Parse backend error message for better user feedback
+      let errorMessage = 'Failed to send notification'
+      const backendError = error?.response?.data?.error
+      
+      if (backendError) {
+        // Check if error mentions specific user IDs
+        if (backendError.includes('User IDs') && backendError.includes('not found')) {
+          // Extract user IDs from error message if possible
+          const userIdMatch = backendError.match(/\[([^\]]+)\]/)
+          const failedUserIds = userIdMatch ? userIdMatch[1] : 'unknown'
+          errorMessage = `Cannot send notification: User ID(s) ${failedUserIds} not found or do not belong to this project. Please refresh the user list and try again.`
+        } else if (backendError.includes('not found or do not belong')) {
+          errorMessage = backendError + ' The selected users may have been removed or moved to a different project. Please refresh and try again.'
+        } else {
+          errorMessage = backendError
+        }
+      }
+      
+      console.error('Notification send error:', {
+        error,
+        targetUserIds: finalTargetUserIds.length > 0 ? finalTargetUserIds : targetUserIds,
+        selectedUserIds: notificationForm.targetUsers,
+        backendError
+      })
+      
+      toast.error(errorMessage)
+      
       await handleError(error, {
         category: 'client',
-        userMessage: 'Failed to send notification',
-        metadata: { action: 'send_notification', targetUsers: targetUserIds.length }
+        userMessage: errorMessage,
+        metadata: { 
+          action: 'send_notification', 
+          targetUsers: finalTargetUserIds.length > 0 ? finalTargetUserIds.length : targetUserIds.length,
+          selectedUserIds: notificationForm.targetUsers,
+          failedUserIds: finalTargetUserIds.length > 0 ? finalTargetUserIds : targetUserIds
+        }
       })
     }
-  }, [notificationForm, users])
+  }, [notificationForm, users, employeeRolesFilter, total, currentUser])
 
   return (
     <div className="space-y-4">
@@ -694,12 +976,13 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
 
       <NotificationDialog
         open={isNotificationDialogOpen}
-        onOpenChange={setIsNotificationDialogOpen}
+        onOpenChange={handleNotificationDialogOpenChange}
         onSend={handleSendNotification}
         loading={loading}
         form={notificationForm}
         onFormChange={setNotificationForm}
         users={users}
+        currentUserId={currentUser?.id}
       />
 
       {selectedUserIdForTopup && (

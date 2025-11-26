@@ -1,5 +1,5 @@
-import React from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import React, { useMemo, useCallback, useState, useEffect } from 'react'
+import { useNavigate, useLocation, type Location } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   LayoutDashboard,
@@ -16,6 +16,9 @@ import {
   User,
   ChevronsUpDown,
 } from 'lucide-react'
+import { NotificationList } from '@/components/animate-ui/components/community/notification-list'
+import { getUserNotifications, incrementNotificationShowCount } from '@/entities/notification'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuthContext } from '@/contexts/auth-context'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -117,6 +120,37 @@ function convertNavigationItemsToSidebarItems(navigationItems: NavigationItem[])
     .filter((item): item is SidebarItem => item !== null)
 }
 
+interface AppSidebarNavigationItemProps {
+  item: SidebarItem;
+  isCollapsed: boolean;
+  location: Location;
+  onNavigate: (href: string) => void;
+}
+
+const AppSidebarNavigationItem = React.memo<AppSidebarNavigationItemProps>(({
+  item,
+  isCollapsed,
+  location,
+  onNavigate,
+}) => {
+  const isActive = location.pathname === item.href || location.pathname.startsWith(`${item.href}/`);
+
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        onClick={() => onNavigate(item.href)}
+        isActive={isActive}
+        tooltip={isCollapsed ? item.title : undefined}
+      >
+        {item.icon}
+        <span>{item.title}</span>
+        {item.badge && <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>}
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+});
+AppSidebarNavigationItem.displayName = 'AppSidebarNavigationItem';
+
 function AppSidebarContent() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -126,23 +160,27 @@ function AppSidebarContent() {
 
   const { navigation: navigationConfig } = useNavigationQuery({
     enabled: isInitialized && !!user,
-    staleTime: 5 * 60 * 1000,
+    // Use default staleTime from query defaults (15 minutes)
   })
 
   const userRole = user?.roles?.[0]
 
-  const allSidebarItems = navigationConfig?.navigation
-    ? convertNavigationItemsToSidebarItems(navigationConfig.navigation)
-    : []
-
-  const sidebarItems = allSidebarItems.filter(item => canAccessNavigationItem(item, user, userRole))
+  // Memoize sidebar items to avoid recalculation on every render
+  const sidebarItems = useMemo(() => {
+    if (!navigationConfig?.navigation) {
+      return []
+    }
+    const allSidebarItems = convertNavigationItemsToSidebarItems(navigationConfig.navigation)
+    return allSidebarItems.filter(item => canAccessNavigationItem(item, user, userRole))
+  }, [navigationConfig?.navigation, user, userRole])
 
   const { data: currentProject } = useQuery({
     queryKey: projectKeys.detail(String(user?.project_id)),
     queryFn: () => getProject(user!.project_id!),
     enabled: !!user?.project_id && isInitialized,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: 10 * 60 * 1000, // 10 minutes - project data doesn't change often
+    gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
+    refetchOnWindowFocus: false, // Don't refetch on window focus
     retry: (failureCount, error: any) => {
       if (error?.response?.status === 401 || error?.response?.status === 403 || error?.response?.status === 404) {
         return false
@@ -158,13 +196,79 @@ function AppSidebarContent() {
     logout()
   }
 
-  const handleNavigation = (href: string) => {
+  const handleNavigation = useCallback((href: string) => {
     navigate(href)
-  }
+  }, [navigate])
+
+  const queryClient = useQueryClient()
+
+  const handleNotificationClick = useCallback(async (notificationId: number) => {
+    try {
+      await incrementNotificationShowCount(notificationId)
+      // Invalidate notifications query to refetch and update the list
+      queryClient.invalidateQueries({ queryKey: ['notifications', 'sidebar', user?.id] })
+    } catch (error) {
+      console.error('Failed to mark notification as viewed:', error)
+    }
+  }, [queryClient, user?.id])
+
+  const { data: notificationsData } = useQuery({
+    queryKey: ['notifications', 'sidebar', user?.id],
+    queryFn: () => getUserNotifications({ page: 1, per_page: 10, unread_only: true }),
+    enabled: isInitialized && !!user,
+    staleTime: 30 * 1000, // 30 seconds
+    refetchInterval: 60 * 1000, // Refetch every minute
+    refetchOnWindowFocus: true,
+  })
+
+  // Filter to show only:
+  // 1. "Send Notification" notifications (exclude product and agent notifications)
+  // 2. Only notifications for current user (backend already filters)
+  // 3. Only unread notifications (backend already filters with unread_only=true)
+  // 4. Hide "Send Notification" type notifications after first show (show_count >= 1)
+  const notifications = useMemo(() => {
+    const allNotifications = notificationsData?.notifications || []
+    
+    return allNotifications.filter(notification => {
+      const message = notification.message || ''
+      // Exclude notifications that start with "[" (product/agent notifications)
+      if (message.trim().startsWith('[')) {
+        return false
+      }
+      
+      // Hide "Send Notification" notifications after first show
+      // If show_count >= 1, don't show it anymore (user already saw it once)
+      if (notification.show_count !== undefined && notification.show_count >= 1) {
+        return false
+      }
+      
+      // Only show unread notifications (backend already filters, but extra safety check)
+      if (notification.is_read === true) {
+        return false
+      }
+      return true
+    })
+  }, [notificationsData?.notifications])
 
   // На мобильных устройствах состояние 'collapsed' обычно не используется так же, как на десктопе
   // (там сайдбар просто скрыт или открыт полностью), но проверка не помешает.
   const isCollapsed = state === 'collapsed'
+  
+  // Показываем уведомления только после полного раскрытия сайдбара
+  const [showNotifications, setShowNotifications] = useState(false)
+  
+  useEffect(() => {
+    if (!isCollapsed) {
+      // Задержка для завершения анимации раскрытия сайдбара
+      const timer = setTimeout(() => {
+        setShowNotifications(true)
+      }, 300) // 300ms - время анимации сайдбара
+      return () => clearTimeout(timer)
+    } else {
+      // Сразу скрываем при сворачивании
+      setShowNotifications(false)
+    }
+  }, [isCollapsed])
 
   return (
     <>
@@ -195,30 +299,30 @@ function AppSidebarContent() {
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {sidebarItems.map((item) => {
-                const isActive = location.pathname === item.href || location.pathname.startsWith(item.href + '/')
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      onClick={() => handleNavigation(item.href)}
-                      isActive={isActive}
-                      tooltip={isCollapsed ? item.title : undefined}
-                    >
-                      {item.icon}
-                      <span>{item.title}</span>
-                      {item.badge && (
-                        <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>
-                      )}
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )
-              })}
+              {sidebarItems.map((item) => (
+                <AppSidebarNavigationItem
+                  key={item.href}
+                  item={item}
+                  isCollapsed={isCollapsed}
+                  location={location}
+                  onNavigate={handleNavigation}
+                />
+              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter>
+        {showNotifications && notifications.length > 0 && (
+          <div className="mb-2">
+            <NotificationList
+              notifications={notifications}
+              limit={3}
+              onNotificationClick={handleNotificationClick}
+            />
+          </div>
+        )}
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>

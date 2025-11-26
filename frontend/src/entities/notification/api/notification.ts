@@ -82,3 +82,33 @@ export async function sendAgentNotification(agentId: number, data: {
   const response = await api.post(`/api/notifications/agents/${agentId}/notifications`, requestData)
   return response.data;
 }
+
+export interface UserNotification {
+  id: number;
+  message: string;
+  type: 'info' | 'warning' | 'error' | 'success';
+  is_read: boolean;
+  created_at: string;
+  user_id?: number | null;
+  project_id?: number | null;
+  show_count?: number;
+  repeat_count?: number;
+}
+
+export interface UserNotificationsResponse {
+  notifications: UserNotification[];
+  total: number;
+  page: number;
+  per_page: number;
+  pages: number;
+}
+
+export async function getUserNotifications(params?: {
+  page?: number;
+  per_page?: number;
+  unread_only?: boolean;
+  type?: string;
+}): Promise<UserNotificationsResponse> {
+  const response = await api.get(API_ENDPOINTS.NOTIFICATIONS, { params })
+  return response.data;
+}

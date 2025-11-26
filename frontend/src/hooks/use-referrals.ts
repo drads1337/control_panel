@@ -3,6 +3,13 @@ import { enhancedApi as api } from '@/shared/api/enhanced-client'
 import { useAuthContext } from '@/contexts/auth-context'
 import { toast } from 'sonner'
 
+export interface ReferralCodeRole {
+  id: number
+  name: string
+  description?: string
+  is_system_role?: boolean
+}
+
 export interface ReferralCode {
   id: number
   code: string
@@ -10,12 +17,13 @@ export interface ReferralCode {
   work_duration_days?: number
   product_ids?: number[]
   rbac_role_ids?: number[]
+  roles?: ReferralCodeRole[]
   token_balance?: number
   used?: boolean
   is_expired?: boolean
   created_at: string
   expires_at?: string
-  role?: string
+  role?: string // Legacy field, use roles array instead
 }
 
 export interface CreateReferralCodeData {
@@ -88,9 +96,28 @@ export function useCreateReferralCode() {
   })
 }
 
+export function useDeleteReferralCode() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (codeId: number): Promise<void> => {
+      await api.delete(`/api/users/refcodes/${codeId}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: referralKeys.codes() })
+      toast.success('Referral code deleted successfully')
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.response?.data?.error || error?.message || 'Failed to delete referral code'
+      toast.error(errorMessage)
+    },
+  })
+}
+
 export function useReferrals() {
   const codesQuery = useReferralCodes()
   const createCodeMutation = useCreateReferralCode()
+  const deleteCodeMutation = useDeleteReferralCode()
 
   return {
 
@@ -100,6 +127,9 @@ export function useReferrals() {
 
     createCode: createCodeMutation.mutateAsync,
     isCreating: createCodeMutation.isPending,
+
+    deleteCode: deleteCodeMutation.mutateAsync,
+    isDeleting: deleteCodeMutation.isPending,
 
     refetch: codesQuery.refetch,
   }

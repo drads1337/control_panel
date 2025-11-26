@@ -119,7 +119,7 @@ class CodeValidator:
     """Code validation utilities (invite codes, referral codes, etc.)"""
 
     @staticmethod
-    def validate_code(code: str, min_length: int = 6, max_length: int = 20) -> str:
+    def validate_code(code: str, min_length: int = 6, max_length: int = 64) -> str:
         """Validate and normalize code"""
         if not code:
             raise ValueError("Code is required")

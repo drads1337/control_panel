@@ -58,7 +58,7 @@ export function useTasks(options: UseTasksOptions = {}) {
       }
       return failureCount < 2
     },
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false, // Disabled - data refreshes via refetchInterval
     refetchOnReconnect: true,
   })
 
@@ -205,7 +205,7 @@ export function useTask(taskId: string | null, options: { autoRefresh?: boolean;
       }
       return failureCount < 2
     },
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false, // Disabled - data refreshes via refetchInterval
     refetchOnReconnect: true,
   })
 

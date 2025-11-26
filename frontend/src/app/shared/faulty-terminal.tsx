@@ -434,7 +434,6 @@ function FaultyTerminalComponent({
 
     const handleContextRestored = () => {
       contextLostRef.current = false;
-      console.log('WebGL context restored');
       // Пересоздаем программу и меш после восстановления контекста
       try {
         const geometry = new Triangle(gl);
@@ -654,7 +653,6 @@ function FaultyTerminalComponent({
       const now = performance.now();
       // Если прошло больше 2 секунд без обновления, перезапускаем анимацию
       if (now - lastRenderTime > 2000) {
-        console.log('Animation stalled, restarting...');
         cancelAnimationFrame(rafRef.current);
         contextLostRef.current = false;
         lastRenderTime = now;

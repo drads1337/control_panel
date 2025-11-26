@@ -87,6 +87,18 @@ def api_connect():
 
             security_checker = SecurityChecker()
             security_checker.log_suspicious_activity(ip, "IP_RATE_LIMIT_CONNECT", "")
+            
+            # Update trigger count for Rate Limiting Protection rule
+            try:
+                from ...services.security import security_service
+                # Try to get project_id from request if available
+                # Note: project_id might not be available yet at this point
+                # This is best-effort update
+                if project_id:
+                    security_service._update_rule_trigger("Rate Limiting Protection", project_id)
+            except Exception as e:
+                logger.debug(f"Could not update rate limit rule trigger: {e}")
+            
             response_builder = ResponseBuilder()
             error_response = response_builder.build_error_response("Rate limit exceeded")
             encrypted_response = response_builder.encrypt_response(error_response, True)

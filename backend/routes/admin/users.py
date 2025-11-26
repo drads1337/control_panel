@@ -27,6 +27,7 @@ from ...models import (
     UserProductPermission,
     UserRole,
 )
+from ...models.rbac import UserPermission
 from ...services.activity import activity_service
 from ...services.rbac import rbac_service
 from ...utils.service_helpers import get_service
@@ -194,6 +195,7 @@ def bulk_action(current_user, project_id=None):
                 UserActivity.query.filter_by(user_id=user.id).delete()
 
                 UserRole.query.filter_by(user_id=user.id).delete()
+                UserPermission.query.filter_by(user_id=user.id).delete()
 
                 ProjectUserRole.query.filter_by(user_id=user.id).delete()
 

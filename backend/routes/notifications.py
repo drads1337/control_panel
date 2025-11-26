@@ -107,22 +107,12 @@ def get_notifications():
 
     query = Notification.query.filter_by(is_deleted=False)
 
-    from ..services.rbac import rbac_service
-
-    can_view_all = rbac_service.check_permission(
-        user.id, "employees.view"
-    ) or rbac_service.check_permission(user.id, "clients.view")
-    if can_view_all:
-        query = query.filter(
-            (Notification.user_id == user_id)
-            | (Notification.user_id.is_(None))
-            | (Notification.project_id == user.project_id)
-        )
-    else:
-
-        query = query.filter(Notification.project_id == user.project_id).filter(
-            (Notification.user_id == user_id) | (Notification.user_id.is_(None))
-        )
+    # Always filter by user_id to show only notifications sent to this specific user
+    # This ensures that even owners/admins only see their own notifications in sidebar
+    # Project-wide notifications (user_id is None) are excluded for personal notification list
+    query = query.filter(Notification.project_id == user.project_id).filter(
+        Notification.user_id == user_id
+    )
 
     if unread_only:
         query = query.filter_by(is_read=False)
@@ -387,7 +377,9 @@ def send_notification(current_user, project_id=None, validated_data=None):
     )
 
     if error:
-        status_code = 400 if "No workers found" in error else 404
+        # Return 400 for validation/business logic errors, not 404
+        # 404 should only be used for actual resource not found errors
+        status_code = 400
         return jsonify({"error": error}), status_code
 
     activity_service.log_activity(

@@ -94,6 +94,7 @@ export const API_ENDPOINTS = {
   SETTINGS_KEYS: '/api/settings/keys',
   SETTINGS_REGENERATE_MASTER_KEY: '/api/settings/regenerate-master-key',
 
+  NOTIFICATIONS: '/api/notifications',
   NOTIFICATIONS_PRODUCT_UPDATE: '/api/notifications/product-update',
   NOTIFICATIONS_PRODUCTS: '/api/notifications/products',
 

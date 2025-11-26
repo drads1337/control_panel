@@ -11,6 +11,7 @@ from ...middleware.auth import (
     enforce_project_scope,
     require_project_isolation,
     require_project_with_grace_period,
+    require_any_permission,
     require_role,
     require_user,
 )
@@ -31,12 +32,38 @@ from ...utils.user_creation_helper import create_user_with_roles_and_products
 
 management_bp = Blueprint("users_management", __name__)
 
+def find_user_by_id_or_unique_id(user_identifier, project_id=None):
+    """
+    Helper function to find a user by either id (int) or unique_id (string)
+    
+    Args:
+        user_identifier: Either an integer id or string unique_id
+        project_id: Optional project_id for additional filtering
+    
+    Returns:
+        User object or None if not found
+    """
+    # Try as integer id (primary key) first
+    if isinstance(user_identifier, int) or (isinstance(user_identifier, str) and user_identifier.isdigit()):
+        user = User.query.get(int(user_identifier))
+        if user:
+            if project_id is None or user.project_id == project_id:
+                return user
+    
+    # Try as unique_id (string)
+    user = User.query.filter_by(unique_id=str(user_identifier)).first()
+    if user:
+        if project_id is None or user.project_id == project_id:
+            return user
+    
+    return None
+
 @management_bp.route("", methods=["GET"])
 @jwt_required()
 @require_user
 @require_project_with_grace_period
 @enforce_project_scope
-@require_role(RolePermissions.ADMIN_ROLES)
+@require_any_permission(['employees.view', 'clients.view'])
 def get_users(current_user, project_id=None):
     """Get users with optimized key counts"""
     import logging
@@ -212,23 +239,34 @@ def update_user(user_id, current_user, validated_data=None):
         logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": f"Failed to update user: {str(e)}"}), 500
 
-@management_bp.route("/<int:user_id>", methods=["DELETE"])
+@management_bp.route("/<user_id>", methods=["DELETE"])
 @jwt_required()
 @require_user
 @enforce_project_scope
-@require_role(RolePermissions.ADMIN_ROLES)
+@require_any_permission(['employees.delete', 'clients.delete'])
 def delete_user(user_id, current_user, project_id=None):
     """Delete a user safely"""
+    
+    # Find user by id or unique_id
+    target_user = find_user_by_id_or_unique_id(user_id, project_id)
+    if not target_user:
+        return jsonify({"error": "User not found"}), 404
 
     # Use DI container to get service
     user_crud_service = get_user_crud_service()
-    success, error = user_crud_service.delete_user_safely(current_user, user_id, project_id=project_id)
+    success, error = user_crud_service.delete_user_safely(current_user, target_user.id, project_id=project_id)
 
     if not success:
-        return jsonify({"error": error}), 400 if "not found" in error.lower() else 403
+        # Return 404 for not found, 403 for access denied, 400 for other errors
+        if "not found" in error.lower():
+            return jsonify({"error": error}), 404
+        elif "access denied" in error.lower() or "cannot delete" in error.lower():
+            return jsonify({"error": error}), 403
+        else:
+            return jsonify({"error": error}), 400
 
     activity_service.log_activity(
-        current_user, "delete_user", details=f"Deleted user ID: {user_id}", ip=request.remote_addr
+        current_user, "delete_user", details=f"Deleted user ID: {target_user.id}", ip=request.remote_addr
     )
 
     return jsonify({"message": "User deleted successfully"})
@@ -270,6 +308,7 @@ def bulk_action(current_user, project_id=None):
     if action == "delete":
         try:
             from ...models import Key, UserProductPermission, DeveloperProductPermission, UserActivity, UserRole, ProjectUserRole
+            from ...models.rbac import UserPermission
 
             for user in users:
 
@@ -284,6 +323,7 @@ def bulk_action(current_user, project_id=None):
                 UserActivity.query.filter_by(user_id=user.id).delete()
 
                 UserRole.query.filter_by(user_id=user.id).delete()
+                UserPermission.query.filter_by(user_id=user.id).delete()
 
                 ProjectUserRole.query.filter_by(user_id=user.id).delete()
 

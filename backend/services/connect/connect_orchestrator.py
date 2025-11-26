@@ -160,6 +160,7 @@ class ConnectOrchestrator:
                 )
                 return encrypted_response, 403
 
+            # Check automated security rules (this updates triggers automatically)
             is_blocked, block_reason = self.security_checker.enhanced_fingerprint_security_check(
                 fields.get("fingerprint"), ip, user_agent, user_key, project_id
             )

@@ -140,7 +140,7 @@ class KeyBulkOperationsService:
             if duration_hours:
                 expires_at = datetime.utcnow() + timedelta(hours=duration_hours)
 
-            # Deduct balance for bulk key creation (except for admin/owner)
+            # Deduct balance for bulk key creation (except for admin/owner) - BEFORE creating keys
             is_owner = RBACManager.is_owner(user)
             is_admin = RBACManager.is_admin(user)
             
@@ -157,17 +157,22 @@ class KeyBulkOperationsService:
                 total_price = key_price * count
                 
                 if total_price > 0:
+                    # Refresh user to get latest balance
+                    from ...core.extensions import db
+                    db.session.refresh(user)
+                    
                     # Check if user has sufficient balance
                     if user.token_balance < total_price:
                         return 0, f"Insufficient balance. Required: {total_price} tokens for {count} keys, Available: {user.token_balance} tokens", None
                     
-                    # Deduct balance
+                    # Deduct balance without committing (we're inside a transaction)
                     success, error_msg, _ = balance_service.deduct_balance(
                         current_user=user,
                         target_user_id=user.id,
                         amount=total_price,
                         reason=f"Bulk key creation: {count} keys × {duration_hours} hours for product {product.name}",
-                        ip_address=None
+                        ip_address=None,
+                        commit=False  # Don't commit, we're inside a transaction
                     )
                     
                     if not success:

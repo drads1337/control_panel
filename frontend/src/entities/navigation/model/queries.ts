@@ -22,7 +22,7 @@ interface UseNavigationQueryReturn {
 export function useNavigationQuery(options: UseNavigationQueryOptions = {}): UseNavigationQueryReturn {
   const {
     enabled = true,
-    staleTime = 5 * 60 * 1000,
+    staleTime = 15 * 60 * 1000, // Default to 15 minutes (matches query defaults)
   } = options
 
   const {
@@ -36,7 +36,9 @@ export function useNavigationQuery(options: UseNavigationQueryOptions = {}): Use
     queryFn: () => getNavigationConfig(),
     enabled,
     staleTime,
-    gcTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000, // Keep in cache for 1 hour
+    refetchOnWindowFocus: false, // Navigation doesn't need to refetch on focus
+    refetchOnReconnect: false, // Navigation doesn't need to refetch on reconnect
     retry: (failureCount, error: any) => {
       if (error?.response?.status === 401 || error?.response?.status === 403) {
         return false

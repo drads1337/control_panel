@@ -285,16 +285,11 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
                                   </p>
                                   <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
                                     <span>{formatDate(notification.created_at)}</span>
-                                    {typeof notification.show_count !== 'undefined' && 
-                                     typeof notification.repeat_count !== 'undefined' && (
+                                    {typeof notification.repeat_count !== 'undefined' && (
                                       <span className="flex items-center gap-1">
-                                        <span>Views:</span>
-                                        <span className={`font-medium ${
-                                          notification.show_count >= notification.repeat_count 
-                                            ? 'text-green-600' 
-                                            : 'text-orange-600'
-                                        }`}>
-                                          {notification.show_count}/{notification.repeat_count}
+                                        <span>Repeats:</span>
+                                        <span className="font-medium">
+                                          {notification.repeat_count}
                                         </span>
                                       </span>
                                     )}
@@ -384,16 +379,11 @@ const NotificationsDialog: React.FC<NotificationsDialogProps> = ({
                                   <Clock className="h-3 w-3" />
                                   {formatDate(notification.created_at)}
                                 </div>
-                                {typeof notification.show_count !== 'undefined' && 
-                                 typeof notification.repeat_count !== 'undefined' && (
+                                {typeof notification.repeat_count !== 'undefined' && (
                                   <span className="flex items-center gap-1">
-                                    <span>Views:</span>
-                                    <span className={`font-medium ${
-                                      notification.show_count >= notification.repeat_count 
-                                        ? 'text-green-600' 
-                                        : 'text-orange-600'
-                                    }`}>
-                                      {notification.show_count}/{notification.repeat_count}
+                                    <span>Repeats:</span>
+                                    <span className="font-medium">
+                                      {notification.repeat_count}
                                     </span>
                                   </span>
                                 )}
