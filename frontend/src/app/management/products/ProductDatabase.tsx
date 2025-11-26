@@ -280,6 +280,9 @@ const ProductDatabase: React.FC<ProductDatabaseProps> = ({
              </div>
            )}
         </div>
+        <div className="mt-2 pt-2 border-t text-xs">
+          <span className="font-medium text-foreground">ID:</span> <span className="font-mono opacity-70">{product.id}</span>
+        </div>
       </div>
     );
   };

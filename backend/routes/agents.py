@@ -123,7 +123,13 @@ def get_loaders():
             }
 
             assignments = AgentProductAssignment.query.filter_by(agent_id=agent.id).all()
-            agent_data["assigned_products"] = [assignment.product_id for assignment in assignments]
+            # Get product unique_ids instead of internal ids
+            assigned_product_ids = [assignment.product_id for assignment in assignments]
+            if assigned_product_ids:
+                products = Product.query.filter(Product.id.in_(assigned_product_ids)).all()
+                agent_data["assigned_products"] = [product.unique_id for product in products]
+            else:
+                agent_data["assigned_products"] = []
 
             result.append(agent_data)
 
@@ -567,25 +573,42 @@ def assign_products_to_agent(agent_identifier):
         current_assignments = AgentProductAssignment.query.filter_by(
             agent_id=agent.id, project_id=user.project_id
         ).all()
-        current_product_ids = {assignment.product_id for assignment in current_assignments}
+        # Get current assigned product unique_ids for comparison
+        current_assigned_product_ids = [assignment.product_id for assignment in current_assignments]
+        current_assigned_products = Product.query.filter(Product.id.in_(current_assigned_product_ids)).all() if current_assigned_product_ids else []
+        current_product_unique_ids = {product.unique_id for product in current_assigned_products}
 
-        for product_id in product_ids:
-            if product_id in current_product_ids:
-
+        for product_identifier in product_ids:
+            # Find product by id or unique_id
+            product = None
+            if isinstance(product_identifier, int) or (isinstance(product_identifier, str) and product_identifier.isdigit()):
+                try:
+                    product_id_int = int(product_identifier)
+                    product = Product.query.filter_by(id=product_id_int, project_id=user.project_id).first()
+                except (ValueError, TypeError):
+                    pass
+            
+            if not product:
+                product = Product.query.filter_by(unique_id=str(product_identifier), project_id=user.project_id).first()
+            
+            if not product:
+                continue  # Skip invalid products
+            
+            # Check if already assigned to this agent
+            if product.unique_id in current_product_unique_ids:
                 continue
 
+            # Check if assigned to another agent
             existing_assignment = AgentProductAssignment.query.filter_by(
-                product_id=product_id, project_id=user.project_id
+                product_id=product.id, project_id=user.project_id
             ).first()
 
             if existing_assignment and existing_assignment.agent_id != agent.id:
-
                 other_agent = Agent.query.get(existing_assignment.agent_id)
                 agent_name = (
                     other_agent.name if other_agent else f"Agent {existing_assignment.agent_id}"
                 )
-                product = Product.query.get(product_id)
-                product_name = product.name if product else f"Product {product_id}"
+                product_name = product.name if product else f"Product {product_identifier}"
                 return (
                     jsonify(
                         {
@@ -600,12 +623,25 @@ def assign_products_to_agent(agent_identifier):
             agent_id=agent.id, project_id=user.project_id
         ).delete()
 
-        for product_id in product_ids:
-            product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
+        for product_identifier in product_ids:
+            # Find product by id or unique_id (frontend sends unique_id)
+            product = None
+            # Try as integer id first
+            if isinstance(product_identifier, int) or (isinstance(product_identifier, str) and product_identifier.isdigit()):
+                try:
+                    product_id_int = int(product_identifier)
+                    product = Product.query.filter_by(id=product_id_int, project_id=user.project_id).first()
+                except (ValueError, TypeError):
+                    pass
+            
+            # Try as unique_id if not found
+            if not product:
+                product = Product.query.filter_by(unique_id=str(product_identifier), project_id=user.project_id).first()
+            
             if product:
                 assignment = AgentProductAssignment(
                     agent_id=agent.id,
-                    product_id=product_id,
+                    product_id=product.id,  # Use internal id for database
                     assigned_by=user.id,
                     project_id=user.project_id,
                 )

@@ -759,7 +759,10 @@ def enforce_project_scope(f):
             project_id = user.project_id
             project = Project.query.get(project_id)
             if not project:
-                return jsonify({"error": "Project not found"}), 404
+                # Project was deleted, clear the user's project_id
+                user.project_id = None
+                db.session.commit()
+                return jsonify({"error": "User has no project"}), 403
         else:
 
             try:

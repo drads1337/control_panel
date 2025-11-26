@@ -180,7 +180,7 @@ class Config:
     MAX_CONTENT_LENGTH = 100 * 1024 * 1024 * 1024
     JWT_ACCESS_TOKEN_EXPIRES = 604800
 
-    JWT_TOKEN_LOCATION = ["cookies"]
+    JWT_TOKEN_LOCATION = ["cookies", "headers"]
 
     FLASK_ENV = os.environ.get("FLASK_ENV", "development")
     JWT_COOKIE_SECURE = FLASK_ENV == "production"

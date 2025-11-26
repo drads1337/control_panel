@@ -15,7 +15,7 @@ from ...config.config import Config
 from ...core.extensions import db
 from ...models.core import Project, User
 from ...models.keys import Key
-from ...services.auth import challenge_service
+from ...services.auth.challenge_service import challenge_service
 from ...services.keys import KeyValidator
 from .analytics_tracker import AnalyticsTracker
 from .challenge_validation_service import ChallengeValidationService

@@ -286,6 +286,36 @@ def create_custom_key(current_user, project_id=None, validated_data=None):
         # For owners, use the product's project_id
         key_project_id = product.project_id
 
+    # Deduct balance for custom key creation (except for admin/owner)
+    is_admin = RBACManager.is_admin(current_user)
+    
+    if not is_owner and not is_admin and product and key_project_id:
+        from ...services.products.price_calculation_service import price_calculation_service
+        from ...services.balance import balance_service
+        
+        key_price = price_calculation_service.calculate_key_price(
+            product_id=product.id,
+            duration_hours=duration_hours,
+            project_id=key_project_id
+        )
+        
+        if key_price > 0:
+            # Check if user has sufficient balance
+            if current_user.token_balance < key_price:
+                return jsonify({"error": f"Insufficient balance. Required: {key_price} tokens, Available: {current_user.token_balance} tokens"}), 400
+            
+            # Deduct balance
+            success, error_msg, _ = balance_service.deduct_balance(
+                current_user=current_user,
+                target_user_id=current_user.id,
+                amount=key_price,
+                reason=f"Custom key creation: {duration_hours} hours for product {product.name}",
+                ip_address=request.remote_addr
+            )
+            
+            if not success:
+                return jsonify({"error": f"Failed to deduct balance: {error_msg}"}), 400
+
     # Create the key
     key_metadata = {
         "type": "custom",
@@ -464,6 +494,37 @@ def reset_key(key_id, current_user, project_id=None):
         return jsonify({"error": "You do not have permission to reset this key"}), 403
 
     try:
+        # Deduct balance for reset (except for admin/owner)
+        from ...utils.rbac_utils import RBACManager
+        from ...services.products.price_calculation_service import price_calculation_service
+        from ...services.balance import balance_service
+        
+        is_owner = RBACManager.is_owner(current_user)
+        is_admin = RBACManager.is_admin(current_user)
+        
+        if not is_owner and not is_admin and key.product_id and current_user.project_id:
+            reset_price = price_calculation_service.get_key_price_for_reset(
+                product_id=key.product_id,
+                project_id=current_user.project_id
+            )
+            
+            if reset_price > 0:
+                # Check if user has sufficient balance
+                if current_user.token_balance < reset_price:
+                    return jsonify({"error": f"Insufficient balance. Required: {reset_price} tokens, Available: {current_user.token_balance} tokens"}), 400
+                
+                # Deduct balance
+                success, error_msg, _ = balance_service.deduct_balance(
+                    current_user=current_user,
+                    target_user_id=current_user.id,
+                    amount=reset_price,
+                    reason=f"Reset PC binding for key {key.key[:8]}...",
+                    ip_address=request.remote_addr
+                )
+                
+                if not success:
+                    return jsonify({"error": f"Failed to deduct balance: {error_msg}"}), 400
+
         key.devices = ""
         key.fingerprint = None
         key.activated_at = None

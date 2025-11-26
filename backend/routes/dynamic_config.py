@@ -30,7 +30,7 @@ from ..models.security import BlockedFingerprint
 from ..middleware import require_mtls
 from ..middleware.auth import enforce_project_scope, require_project_isolation, require_role
 from ..middleware.validation import validate_request
-from ..services.auth import challenge_service
+from ..services.auth.challenge_service import challenge_service
 from ..services.dynamic_config import dynamic_config_service
 from ..services.heartbeat import heartbeat_service
 from ..utils.rbac_utils import RBACManager

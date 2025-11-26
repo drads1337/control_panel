@@ -9,10 +9,10 @@ import { ConditionalRender } from '@/components/rbac/conditional-render';
 import CreateUserDialog from './create-user-dialog';
 import EditUserDialog from './edit-user-dialog';
 import NotificationDialog from './notification-dialog';
-import UserTokensDialog from './user-tokens-dialog';
+import { TopupBalanceDialog } from './topup-balance-dialog';
 import { usePermissions } from '@/hooks/use-permissions';
 import { toast } from 'sonner';
-import { Plus, RefreshCw, Users, Edit, Trash2, Bell, Key, MoreVertical, Mail, Calendar, Shield, Coins } from 'lucide-react';
+import { Plus, RefreshCw, Users, Edit, Trash2, Bell, MoreVertical, Mail, Calendar, Shield } from 'lucide-react';
 import { isAdmin, isOwner } from '@/lib/rbac-utils';
 import type { User } from '@/entities/user';
 import { handleError } from '@/lib/error-handler';
@@ -46,7 +46,7 @@ const UserItem = React.memo(({
   loading,
   onDelete,
   onEdit,
-  onTokens,
+  onTopup,
   getStatusBadge,
   canEdit,
   canDelete,
@@ -55,7 +55,7 @@ const UserItem = React.memo(({
   loading: boolean;
   onDelete: (userId: number) => void;
   onEdit: (userId: number) => void;
-  onTokens: (userId: number) => void;
+  onTopup: (userId: number) => void;
   getStatusBadge: (user: User) => React.ReactElement | null;
   canEdit: boolean;
   canDelete: boolean;
@@ -133,12 +133,13 @@ const UserItem = React.memo(({
             {canEdit && (
               <Button
                 variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => onTokens(user.id)}
+                size="sm"
+                className="h-8 px-2 text-xs"
+                onClick={() => onTopup(user.id)}
                 disabled={loading}
+                title="Top up balance"
               >
-                <Key className="h-4 w-4" />
+                Balance
               </Button>
             )}
             {canDelete && (
@@ -166,7 +167,7 @@ const MobileUserCard = React.memo(({
   loading,
   onDelete,
   onEdit,
-  onTokens,
+  onTopup,
   getStatusBadge,
   canEdit,
   canDelete,
@@ -175,7 +176,7 @@ const MobileUserCard = React.memo(({
   loading: boolean;
   onDelete: (userId: number) => void;
   onEdit: (userId: number) => void;
-  onTokens: (userId: number) => void;
+  onTopup: (userId: number) => void;
   getStatusBadge: (user: User) => React.ReactElement | null;
   canEdit: boolean;
   canDelete: boolean;
@@ -248,12 +249,13 @@ const MobileUserCard = React.memo(({
             {canEdit && (
               <Button
                 variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => onTokens(user.id)}
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => onTopup(user.id)}
                 disabled={loading}
+                title="Top up balance"
               >
-                <Key className="h-3.5 w-3.5" />
+                Balance
               </Button>
             )}
             {canDelete && (
@@ -283,7 +285,7 @@ interface EmployeesListProps {
   loading: boolean;
   onDelete: (userId: number) => void;
   onEdit: (userId: number) => void;
-  onTokens: (userId: number) => void;
+  onTopup: (userId: number) => void;
   getStatusBadge: (user: User) => React.ReactElement | null;
   canEdit: boolean;
   canDelete: boolean;
@@ -295,7 +297,7 @@ const EmployeesList: React.FC<EmployeesListProps> = ({
   loading,
   onDelete,
   onEdit,
-  onTokens,
+  onTopup,
   getStatusBadge,
   canEdit,
   canDelete,
@@ -330,7 +332,7 @@ const EmployeesList: React.FC<EmployeesListProps> = ({
             loading={loading}
             onDelete={onDelete}
             onEdit={onEdit}
-            onTokens={onTokens}
+            onTopup={onTopup}
             getStatusBadge={getStatusBadge}
             canEdit={canEdit}
             canDelete={canDelete}
@@ -346,7 +348,7 @@ const EmployeesList: React.FC<EmployeesListProps> = ({
           loading={loading}
           onDelete={onDelete}
           onEdit={onEdit}
-          onTokens={onTokens}
+          onTopup={onTopup}
           getStatusBadge={getStatusBadge}
           canEdit={canEdit}
           canDelete={canDelete}
@@ -435,9 +437,10 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
   const [selectedUserForEdit, setSelectedUserForEdit] = useState<User | null>(null);
   const [isNotificationDialogOpen, setIsNotificationDialogOpen] = useState(false);
-  const [isTokensDialogOpen, setIsTokensDialogOpen] = useState(false);
-  const [selectedUserIdForTokens, setSelectedUserIdForTokens] = useState<number | null>(null);
-  const [selectedUserNameForTokens, setSelectedUserNameForTokens] = useState<string>('');
+  const [isTopupDialogOpen, setIsTopupDialogOpen] = useState(false);
+  const [selectedUserIdForTopup, setSelectedUserIdForTopup] = useState<number | null>(null);
+  const [selectedUserNameForTopup, setSelectedUserNameForTopup] = useState<string>('');
+  const [selectedUserBalanceForTopup, setSelectedUserBalanceForTopup] = useState<number>(0);
 
   const [notificationForm, setNotificationForm] = useState({
     title: '',
@@ -489,16 +492,18 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     }
   }, [users]);
 
-  const handleTokens = useCallback((userId: number) => {
+
+  const handleTopupBalance = useCallback((userId: number) => {
     const user = users.find(u => u.id === userId);
     if (user) {
-      setSelectedUserIdForTokens(userId);
-      setSelectedUserNameForTokens(
+      setSelectedUserIdForTopup(userId);
+      setSelectedUserNameForTopup(
         user.first_name && user.last_name
           ? `${user.first_name} ${user.last_name}`
           : user.username || `User ${userId}`
       );
-      setIsTokensDialogOpen(true);
+      setSelectedUserBalanceForTopup(user.token_balance || 0);
+      setIsTopupDialogOpen(true);
     }
   }, [users]);
 
@@ -653,7 +658,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
               loading={loading}
               onDelete={handleDeleteUser}
               onEdit={handleEditUser}
-              onTokens={handleTokens}
+              onTopup={handleTopupBalance}
               getStatusBadge={getStatusBadge}
               canEdit={canEditUsers}
               canDelete={canDeleteUsers}
@@ -697,12 +702,18 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
         users={users}
       />
 
-      {selectedUserIdForTokens !== null && (
-        <UserTokensDialog
-          open={isTokensDialogOpen}
-          onOpenChange={setIsTokensDialogOpen}
-          userId={selectedUserIdForTokens}
-          userName={selectedUserNameForTokens}
+      {selectedUserIdForTopup && (
+        <TopupBalanceDialog
+          open={isTopupDialogOpen}
+          onOpenChange={setIsTopupDialogOpen}
+          userId={selectedUserIdForTopup}
+          userName={selectedUserNameForTopup}
+          currentBalance={selectedUserBalanceForTopup}
+          onSuccess={() => {
+            fetchUsersWithTracking({
+              roles: activeRolesFilter
+            });
+          }}
         />
       )}
     </div>

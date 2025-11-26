@@ -177,6 +177,15 @@ export class AuthService {
     } catch (error: unknown) {
       const { getErrorStatus, isAxiosError } = await import('@/lib/error-utils')
       const status = getErrorStatus(error)
+      
+      // Check if this is a PROJECT_INACTIVE error - don't try CLASSIC_CONNECT for this
+      if (isAxiosError(error) && error.response?.data && typeof error.response.data === 'object') {
+        const errorData = error.response.data as { error_code?: string; error?: string }
+        if (errorData.error_code === 'PROJECT_INACTIVE' || errorData.error === 'PROJECT_INACTIVE') {
+          throw error
+        }
+      }
+      
       if (status !== 401 && status !== 403) {
         throw error
       }

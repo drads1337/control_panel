@@ -116,7 +116,12 @@ def api_connect():
     project_id = req_json.get("project_id")
 
     if not enc_data:
-        logger.warning(f"NO_BLOB ip={ip}")
+        # Log more context for debugging
+        request_keys = list(req_json.keys()) if req_json else []
+        logger.warning(
+            f"NO_BLOB ip={ip} user_agent={user_agent} "
+            f"project_id={project_id} request_keys={request_keys}"
+        )
         from ...services.connect import ResponseBuilder
 
         response_builder = ResponseBuilder()

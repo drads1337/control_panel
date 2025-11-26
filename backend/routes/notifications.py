@@ -413,13 +413,52 @@ def send_notification(current_user, project_id=None, validated_data=None):
 @require_project_with_grace_period
 @require_project_isolation
 def delete_notification(notification_id, current_user, project_id=None):
-    """Delete a notification (soft delete)"""
+    """Delete a notification (soft delete for regular notifications, hard delete for agent notifications)"""
 
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
     if not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
+
+    from ..models.agents import AgentNotification
+    from ..services.rbac import rbac_service
+
+    # First check if it's an AgentNotification
+    agent_notification = AgentNotification.query.filter_by(
+        id=notification_id, project_id=current_user.project_id
+    ).first()
+
+    if agent_notification:
+        # Check permissions for agent notifications
+        can_delete = rbac_service.check_permission(
+            current_user.id, "agents.notifications_delete"
+        ) or rbac_service.check_permission(current_user.id, "products.notifications_delete")
+        
+        if not can_delete:
+            return jsonify({"error": "Insufficient permissions"}), 403
+
+        # Hard delete agent notification (no soft delete field)
+        db.session.delete(agent_notification)
+        db.session.commit()
+
+        activity_service.log_activity(
+            current_user,
+            "delete_notification",
+            details=f"Deleted agent notification {notification_id}",
+            ip=request.remote_addr,
+        )
+
+        return jsonify({"message": "Notification deleted successfully"})
+
+    # Otherwise, try as a regular Notification (soft delete)
+    # Check permissions for product notifications
+    can_delete = rbac_service.check_permission(
+        current_user.id, "products.notifications_delete"
+    )
+    
+    if not can_delete:
+        return jsonify({"error": "Insufficient permissions"}), 403
 
     success, error = notification_service.delete_notification(current_user, notification_id)
 
@@ -1036,6 +1075,14 @@ def get_loader_notifications(agent_identifier):
     if not user.project_id:
         return jsonify({"error": "No project associated"}), 400
 
+    from ..services.rbac import rbac_service
+
+    can_view = rbac_service.check_permission(
+        user.id, "agents.notifications_view"
+    )
+    if not can_view:
+        return jsonify({"error": "Insufficient permissions"}), 403
+
     try:
         agent = find_agent_by_id_or_unique_id(agent_identifier, user.project_id)
         if not agent:
@@ -1100,10 +1147,10 @@ def get_product_notifications(product_identifier):
 
     from ..services.rbac import rbac_service
 
-    can_send = rbac_service.check_permission(
-        user.id, "employees.send_notification"
-    ) or rbac_service.check_permission(user.id, "clients.send_notification")
-    if not can_send:
+    can_view = rbac_service.check_permission(
+        user.id, "products.notifications_view"
+    )
+    if not can_view:
         return jsonify({"error": "Insufficient permissions"}), 403
 
     try:
@@ -1237,10 +1284,10 @@ def create_product_notification(product_identifier):
 
     from ..services.rbac import rbac_service
 
-    can_send = rbac_service.check_permission(
-        user.id, "employees.send_notification"
-    ) or rbac_service.check_permission(user.id, "clients.send_notification")
-    if not can_send:
+    can_create = rbac_service.check_permission(
+        user.id, "products.notifications_create"
+    )
+    if not can_create:
         return jsonify({"error": "Insufficient permissions"}), 403
 
     try:
@@ -1350,10 +1397,10 @@ def create_loader_notification(agent_identifier):
 
     from ..services.rbac import rbac_service
 
-    can_send = rbac_service.check_permission(
-        user.id, "employees.send_notification"
-    ) or rbac_service.check_permission(user.id, "clients.send_notification")
-    if not can_send:
+    can_create = rbac_service.check_permission(
+        user.id, "agents.notifications_create"
+    ) or rbac_service.check_permission(user.id, "products.notifications_create")
+    if not can_create:
         return jsonify({"error": "Insufficient permissions"}), 403
 
     try:

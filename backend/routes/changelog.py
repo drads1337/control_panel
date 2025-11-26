@@ -142,10 +142,10 @@ def create_changelog_entry(product_identifier):
 
     from ..services.rbac import rbac_service
 
-    can_manage_changelog = rbac_service.check_permission(
-        user.id, "products.manage_changelog"
-    ) or rbac_service.check_permission(user.id, "agents.manage_changelog")
-    if not can_manage_changelog:
+    can_create_changelog = rbac_service.check_permission(
+        user.id, "products.changelog_create"
+    ) or rbac_service.check_permission(user.id, "agents.changelog_create")
+    if not can_create_changelog:
         return jsonify({"error": "Insufficient permissions"}), 403
 
     try:
@@ -241,10 +241,10 @@ def update_changelog_entry(entry_id):
 
     from ..services.rbac import rbac_service
 
-    can_manage_changelog = rbac_service.check_permission(
-        user.id, "products.manage_changelog"
-    ) or rbac_service.check_permission(user.id, "agents.manage_changelog")
-    if not can_manage_changelog:
+    can_edit_changelog = rbac_service.check_permission(
+        user.id, "products.changelog_edit"
+    ) or rbac_service.check_permission(user.id, "agents.changelog_edit")
+    if not can_edit_changelog:
         return jsonify({"error": "Insufficient permissions"}), 403
 
     try:
@@ -262,6 +262,11 @@ def update_changelog_entry(entry_id):
 
         data = request.get_json()
 
+        version_changed = False
+        if "version" in data and data["version"] != entry.version:
+            entry.version = data["version"]
+            version_changed = True
+
         if "title" in data:
             entry.title = data["title"]
         if "description" in data:
@@ -278,6 +283,22 @@ def update_changelog_entry(entry_id):
                 agent_entry.change_type = data["change_type"]
             if "custom_type_name" in data:
                 agent_entry.custom_type_name = data.get("custom_type_name")
+            
+            # Sync version with agent if version changed
+            if version_changed:
+                from ..models.agents import Agent
+                agent = Agent.query.filter_by(id=agent_entry.agent_id, project_id=user.project_id).first()
+                if agent:
+                    agent.version = entry.version
+                    agent.updated_at = datetime.utcnow()
+        else:
+            # Sync version with product if version changed
+            if version_changed:
+                from ..models.products import Product
+                product = Product.query.filter_by(id=entry.product_id, project_id=user.project_id).first()
+                if product:
+                    product.version = entry.version
+                    product.updated_at = datetime.utcnow()
 
         db.session.commit()
 
@@ -341,20 +362,34 @@ def delete_changelog_entry(entry_id):
 
     from ..services.rbac import rbac_service
 
-    can_manage_changelog = rbac_service.check_permission(
-        user.id, "products.manage_changelog"
-    ) or rbac_service.check_permission(user.id, "agents.manage_changelog")
-    if not can_manage_changelog:
+    can_delete_changelog = rbac_service.check_permission(
+        user.id, "products.changelog_delete"
+    ) or rbac_service.check_permission(user.id, "agents.changelog_delete")
+    if not can_delete_changelog:
         return jsonify({"error": "Insufficient permissions"}), 403
 
     try:
         entry = ChangelogEntry.query.filter_by(id=entry_id, project_id=user.project_id).first()
+        is_agent_entry = False
+        
+        if not entry:
+            agent_entry = AgentChangelog.query.filter_by(id=entry_id, project_id=user.project_id).first()
+            if agent_entry:
+                entry = agent_entry
+                is_agent_entry = True
 
         if not entry:
             return jsonify({"error": "Changelog entry not found"}), 404
 
-        product_name = entry.product.name
         version = entry.version
+        
+        # Get entity info for logging before deletion
+        if is_agent_entry:
+            entity_id = getattr(entry, 'agent_id', None)
+            entity_type = "agent"
+        else:
+            entity_id = getattr(entry, 'product_id', None)
+            entity_type = "product"
 
         db.session.delete(entry)
         db.session.commit()
@@ -362,7 +397,7 @@ def delete_changelog_entry(entry_id):
         activity_service.log_activity(
             user,
             "delete_changelog_entry",
-            details=f"Deleted changelog entry {version} for product: {entry.product_id}",
+            details=f"Deleted changelog entry {version} for {entity_type}: {entity_id}",
             ip=request.remote_addr,
         )
 
@@ -637,10 +672,23 @@ def create_loader_changelog_entry(agent_identifier):
 
     from ..services.rbac import rbac_service
 
-    can_manage_changelog = rbac_service.check_permission(
-        user.id, "products.manage_changelog"
-    ) or rbac_service.check_permission(user.id, "agents.manage_changelog")
-    if not can_manage_changelog:
+    # For agent changelog, check agent permissions first, then fallback to product permissions
+    has_agent_permission = rbac_service.check_permission(
+        user.id, "agents.changelog_create"
+    )
+    has_product_permission = rbac_service.check_permission(
+        user.id, "products.changelog_create"
+    )
+    can_create_changelog = has_agent_permission or has_product_permission
+    
+    logger = logging.getLogger(__name__)
+    logger.debug(
+        f"Agent changelog create permission check: user_id={user.id}, "
+        f"agent_identifier={agent_identifier}, has_agent_permission={has_agent_permission}, "
+        f"has_product_permission={has_product_permission}, can_create={can_create_changelog}"
+    )
+    
+    if not can_create_changelog:
         return jsonify({"error": "Insufficient permissions"}), 403
 
     try:

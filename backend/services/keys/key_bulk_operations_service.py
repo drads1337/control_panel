@@ -140,6 +140,39 @@ class KeyBulkOperationsService:
             if duration_hours:
                 expires_at = datetime.utcnow() + timedelta(hours=duration_hours)
 
+            # Deduct balance for bulk key creation (except for admin/owner)
+            is_owner = RBACManager.is_owner(user)
+            is_admin = RBACManager.is_admin(user)
+            
+            if not is_owner and not is_admin and product and user.project_id:
+                from ...services.products.price_calculation_service import price_calculation_service
+                from ...services.balance import balance_service
+                
+                key_price = price_calculation_service.calculate_key_price(
+                    product_id=product.id,
+                    duration_hours=duration_hours,
+                    project_id=user.project_id
+                )
+                
+                total_price = key_price * count
+                
+                if total_price > 0:
+                    # Check if user has sufficient balance
+                    if user.token_balance < total_price:
+                        return 0, f"Insufficient balance. Required: {total_price} tokens for {count} keys, Available: {user.token_balance} tokens", None
+                    
+                    # Deduct balance
+                    success, error_msg, _ = balance_service.deduct_balance(
+                        current_user=user,
+                        target_user_id=user.id,
+                        amount=total_price,
+                        reason=f"Bulk key creation: {count} keys × {duration_hours} hours for product {product.name}",
+                        ip_address=None
+                    )
+                    
+                    if not success:
+                        return 0, f"Failed to deduct balance: {error_msg}", None
+
             for i in range(count):
                 try:
                     key_string = self.generation_service.generate_key_string(

@@ -262,7 +262,7 @@ def create_app() -> Flask:
 
     app.config["JWT_SECRET_KEY"] = Config.JWT_SECRET_KEY
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = False
-    app.config["JWT_TOKEN_LOCATION"] = ["cookies"]
+    app.config["JWT_TOKEN_LOCATION"] = ["cookies", "headers"]
     app.config["JWT_COOKIE_SECURE"] = Config.JWT_COOKIE_SECURE
 
     app.config["JWT_COOKIE_CSRF_PROTECT"] = Config.JWT_COOKIE_CSRF_PROTECT

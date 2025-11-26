@@ -139,7 +139,9 @@ class ProjectService:
                             "per_page": per_page,
                         }
                 else:
-                    self.logger.info(f"[FETCH] User is owner, showing all {total_projects_count} projects")
+                    # For owners, exclude system project used for owner roles
+                    query = query.filter(Project.name != "__SYSTEM_OWNER_ROLES__")
+                    self.logger.info(f"[FETCH] User is owner, showing all projects except system project")
 
                 if search:
                     self.logger.info(f"[FETCH] Applying full-text search filter: {search}")
@@ -511,7 +513,7 @@ class ProjectService:
 
     def update_project(
         self,
-        project_id: int,
+        project_id,
         user_id: int,
         name: Optional[str] = None,
         description: Optional[str] = None,
@@ -525,7 +527,7 @@ class ProjectService:
         Update project with all business logic
 
         Args:
-            project_id: ID of the project to update
+            project_id: ID or unique_id of the project to update (can be int or string)
             user_id: ID of the user updating the project
             name: New project name (optional)
             description: New project description (optional)
@@ -554,13 +556,17 @@ class ProjectService:
 
             is_owner = RBACManager.is_owner(user)
 
-            if not is_owner:
-                if not user.project_id or user.project_id != project_id:
-                    return {"error": "Access denied"}
-
-            project = Project.query.get(project_id)
+            # Find project by either id or unique_id
+            project = self._find_project_by_id_or_unique_id(project_id)
             if not project:
                 return {"error": "Project not found"}
+
+            # Use the actual database id for access checks
+            actual_project_id = project.id
+
+            if not is_owner:
+                if not user.project_id or user.project_id != actual_project_id:
+                    return {"error": "Access denied"}
 
             if name is not None:
                 name = name.strip()
@@ -568,7 +574,7 @@ class ProjectService:
                     return {"error": "Project name cannot be empty"}
 
                 existing_project = Project.query.filter(
-                    and_(Project.name == name, Project.id != project_id)
+                    and_(Project.name == name, Project.id != actual_project_id)
                 ).first()
                 if existing_project:
                     return {"error": "Project with this name already exists"}
@@ -606,10 +612,10 @@ class ProjectService:
                 self.logger.warning(f"Failed to log project update activity: {e}")
 
             try:
-                self.invalidate_project_cache(project_id)
+                self.invalidate_project_cache(actual_project_id)
                 from ...services.cache import cache_service
                 cache_service.invalidate_pattern("projects:*")
-                self.logger.info(f"Cache invalidated after project update: {project_id}")
+                self.logger.info(f"Cache invalidated after project update: {actual_project_id}")
             except Exception as e:
                 self.logger.warning(f"Failed to invalidate cache after project update: {e}")
 
@@ -659,6 +665,10 @@ class ProjectService:
             if not project:
                 return {"error": "Project not found"}
 
+            # Prevent deletion of system project for owner roles
+            if project.name == "__SYSTEM_OWNER_ROLES__":
+                return {"error": "Cannot delete system project for owner roles"}
+
             # Use the actual database id for all deletion operations
             actual_project_id = project.id
             project_name = project.name
@@ -684,8 +694,25 @@ class ProjectService:
                 Product.query.filter_by(project_id=actual_project_id).delete()
                 Server.query.filter_by(project_id=actual_project_id).delete()
                 
-                # Users and activities
-                User.query.filter_by(project_id=actual_project_id).delete()
+                # Clear project_id for owner users (they shouldn't be deleted)
+                # Get owner users before deleting and clear their project_id
+                from ...utils.rbac_utils import RBACManager
+                all_users_with_project = User.query.filter_by(project_id=actual_project_id).all()
+                owner_user_ids = []
+                for u in all_users_with_project:
+                    if RBACManager.is_owner(u):
+                        u.project_id = None
+                        owner_user_ids.append(u.id)
+                
+                # Delete non-owner users (exclude owners from deletion)
+                if owner_user_ids:
+                    User.query.filter(
+                        User.project_id == actual_project_id,
+                        ~User.id.in_(owner_user_ids)
+                    ).delete(synchronize_session=False)
+                else:
+                    User.query.filter_by(project_id=actual_project_id).delete()
+                
                 UserActivity.query.filter_by(project_id=actual_project_id).delete()
                 
                 # Project invite codes and encryption keys
@@ -749,6 +776,15 @@ class ProjectService:
                 db.session.delete(project)
 
                 db.session.commit()
+
+                # Invalidate cache after project deletion
+                try:
+                    self.invalidate_project_cache(actual_project_id)
+                    from ...services.cache import cache_service
+                    cache_service.invalidate_pattern("projects:*")
+                    self.logger.info(f"Cache invalidated after project deletion: {actual_project_id}")
+                except Exception as e:
+                    self.logger.warning(f"Failed to invalidate cache after project deletion: {e}")
 
                 try:
                     activity_service.log_activity(

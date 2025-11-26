@@ -288,6 +288,10 @@ def init_services(app):
     from ..services.analytics.analytics_service import AnalyticsService
     container.register('analytics_service', lambda: AnalyticsService(), scope=ServiceScope.SINGLETON)
     
+    # Register analytics buffer service (singleton - stateless)
+    from ..services.analytics.analytics_buffer_service import AnalyticsBufferService
+    container.register('analytics_buffer_service', lambda: AnalyticsBufferService(), scope=ServiceScope.SINGLETON)
+    
     # Setup request cleanup handler
     @app.teardown_request
     def cleanup_services(exception):

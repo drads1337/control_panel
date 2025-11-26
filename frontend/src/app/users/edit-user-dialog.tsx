@@ -258,8 +258,8 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
                                 <div className="text-xs text-muted-foreground truncate max-w-[200px]">{product.description ? sanitizeString(product.description) : 'No description'}</div>
                               </div>
                               {hasAccess && (
-                                <span className="text-[10px] text-green-600 font-medium bg-green-50 px-1.5 py-0.5 rounded border border-green-100 shrink-0 w-fit">
-                                  Access Granted
+                                <span className="text-xs text-green-600 shrink-0">
+                                  ✓
                                 </span>
                               )}
                             </div>

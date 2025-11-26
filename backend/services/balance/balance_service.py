@@ -29,6 +29,7 @@ class BalanceService:
     ) -> Tuple[bool, Optional[str], Optional[Dict[str, Any]]]:
         """
         Top up user balance with transaction logging
+        If current_user has billing permission, deduct amount from their balance
 
         Args:
             current_user: User performing the top-up
@@ -48,6 +49,38 @@ class BalanceService:
             target_user = User.query.get(target_user_id)
             if not target_user:
                 return False, "User not found", None
+
+            # Check if current_user has billing permission and should pay from their balance
+            from ...utils.rbac_utils import RBACManager
+            from ...services.rbac import rbac_service
+            
+            is_owner = RBACManager.is_owner(current_user)
+            is_admin = RBACManager.is_admin(current_user)
+            has_billing_permission = rbac_service.check_permission(
+                current_user.id, "billing.top_up_balance"
+            ) or rbac_service.check_permission(
+                current_user.id, "billing.deduct_balance"
+            )
+            
+            # If user has billing permission (and is not admin/owner), deduct from their balance
+            if not is_owner and not is_admin and has_billing_permission:
+                if current_user.token_balance < amount:
+                    return False, f"Insufficient balance. Required: {amount} tokens, Available: {current_user.token_balance} tokens", None
+                
+                # Deduct from current_user's balance
+                current_user_old_balance = current_user.token_balance
+                current_user.token_balance -= amount
+                
+                # Create transaction for current_user (deduction)
+                current_user_transaction = TokenTransaction(
+                    user_id=current_user.id,
+                    amount=amount,
+                    type="debit",
+                    description=f"Balance top-up for user {target_user.username} (ID: {target_user.id})",
+                    project_id=current_user.project_id,
+                    created_at=datetime.utcnow(),
+                )
+                db.session.add(current_user_transaction)
 
             old_balance = target_user.token_balance
 
@@ -292,7 +325,7 @@ class BalanceService:
             Tuple of (has_access, error_message)
         """
         try:
-            from .rbac_service import rbac_service
+            from ...services.rbac import rbac_service
 
             can_manage_balance = (
                 rbac_service.check_permission(current_user.id, "billing.view_balance")

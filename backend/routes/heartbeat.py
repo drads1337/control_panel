@@ -30,7 +30,7 @@ from ..models.products import Product
 from ..models.keys import DeviceInfo, Key, KeyAnalytics
 from ..models.security import BlockedFingerprint
 from ..middleware import require_mtls
-from ..services.auth import challenge_service
+from ..services.auth.challenge_service import challenge_service
 from ..services.heartbeat import heartbeat_service
 from ..utils.redis_client import get_redis_client
 from ..utils.secure_crypto import MasterKeyManager

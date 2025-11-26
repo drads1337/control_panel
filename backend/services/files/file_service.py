@@ -753,7 +753,7 @@ class FileService:
 
     def get_product_file_path(self, product: Product, file_type: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
         """
-        Get product file path (logo, banner, agent)
+        Get product file path (logo, banner, agent, background)
 
         Returns:
             Tuple of (file_path, filename, error_message)
@@ -767,6 +767,21 @@ class FileService:
         elif file_type == "agent" and product.loader_file:
             file_path = os.path.join(self.get_upload_path(), product.loader_file)
             filename = f"{product.name}_loader.exe"
+        elif file_type == "background" and product.backgrounds:
+            # Backgrounds stored as JSON array, get first one
+            try:
+                import json
+                backgrounds_list = json.loads(product.backgrounds)
+                if isinstance(backgrounds_list, list) and len(backgrounds_list) > 0:
+                    background_file = backgrounds_list[0] if isinstance(backgrounds_list[0], str) else str(backgrounds_list[0])
+                    file_path = os.path.join(self.get_upload_path(), background_file)
+                    filename = f"{product.name}_background.png"
+                else:
+                    return None, None, "File not found"
+            except:
+                # If not JSON, treat as direct path
+                file_path = os.path.join(self.get_upload_path(), product.backgrounds)
+                filename = f"{product.name}_background.png"
         else:
             return None, None, "File not found"
 

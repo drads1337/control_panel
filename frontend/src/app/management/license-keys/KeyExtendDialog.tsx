@@ -11,10 +11,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Spinner } from '@/components/ui/spinner';
 import { usePermissions } from '@/hooks/use-permissions';
 import { extendLicenseKey } from '@/entities/key';
 import { toast } from 'sonner';
-import { Clock, Plus, X } from 'lucide-react';
 import type { LicenseKey } from '@/entities/key';
 import { durationOptions } from './hooks/use-duration';
 
@@ -73,6 +73,11 @@ const KeyExtendDialog: React.FC<KeyExtendDialogProps> = ({ open, onOpenChange, k
       return;
     }
 
+    if (hours > 8760) {
+      toast.error('Hours must be 8760 or less (maximum 1 year)');
+      return;
+    }
+
     setLoading(true);
     try {
       await extendLicenseKey(keyData.id, hours);
@@ -100,107 +105,130 @@ const KeyExtendDialog: React.FC<KeyExtendDialogProps> = ({ open, onOpenChange, k
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
+      <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-hidden">
+        <DialogHeader className="flex-shrink-0 text-left">
+          <DialogTitle className="text-base">
             Extend License Key
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="mt-1 text-xs truncate pr-4">
             Add more time to license key #{keyData.id}
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label>Current Duration</Label>
-            <p className="text-sm text-muted-foreground">
-              Current duration: {keyData.duration_hours} hours
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Extension Type</Label>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant={extendType === 'hours' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setExtendType('hours')}
-              >
-                Custom Hours
-              </Button>
-              <Button
-                type="button"
-                variant={extendType === 'duration' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setExtendType('duration')}
-              >
-                Preset Duration
-              </Button>
-            </div>
-          </div>
-
-          {extendType === 'hours' ? (
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 space-y-4 mt-2">
+          {/* Scrollable Content */}
+          <div className="flex-1 overflow-y-auto pr-1 space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="customHours">Custom Hours</Label>
-              <Input
-                id="customHours"
-                type="number"
-                value={customHours}
-                onChange={(e) => setCustomHours(e.target.value)}
-                placeholder="Enter number of hours"
-                min="1"
-                required
-              />
+              <Label className="text-sm font-medium">Current Duration</Label>
+              <div className="p-2 bg-muted/20 rounded-md border">
+                <p className="text-sm text-muted-foreground">
+                  Current duration: <span className="font-medium text-foreground">{keyData.duration_hours} hours</span>
+                </p>
+              </div>
             </div>
-          ) : (
-            <div className="space-y-2">
-              <Label htmlFor="duration">Select Duration</Label>
-              <Select
-                value={selectedDuration}
-                onValueChange={setSelectedDuration}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select duration" />
-                </SelectTrigger>
-                <SelectContent>
-                  {extendDurationOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
 
-          <div className="p-3 bg-muted rounded-lg">
-            <div className="flex items-center gap-2 text-sm">
-              <Plus className="h-4 w-4" />
-              <span>Total extension: <strong>{getTotalHours()} hours</strong></span>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Extension Type</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={extendType === 'hours' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setExtendType('hours')}
+                  disabled={loading}
+                  className="h-9 flex-1"
+                >
+                  Custom Hours
+                </Button>
+                <Button
+                  type="button"
+                  variant={extendType === 'duration' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setExtendType('duration')}
+                  disabled={loading}
+                  className="h-9 flex-1"
+                >
+                  Preset Duration
+                </Button>
+              </div>
             </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              New total duration: {keyData.duration_hours + getTotalHours()} hours
+
+            {extendType === 'hours' ? (
+              <div className="space-y-2">
+                <Label htmlFor="customHours" className="text-sm font-medium">Custom Hours</Label>
+                <Input
+                  id="customHours"
+                  type="number"
+                  value={customHours}
+                  onChange={(e) => setCustomHours(e.target.value)}
+                  placeholder="Enter number of hours"
+                  min="1"
+                  max="8760"
+                  required
+                  disabled={loading}
+                  className="text-base sm:text-sm h-10 sm:h-9"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Maximum: 8760 hours (1 year)
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="duration" className="text-sm font-medium">Select Duration</Label>
+                <Select
+                  value={selectedDuration}
+                  onValueChange={setSelectedDuration}
+                  disabled={loading}
+                >
+                  <SelectTrigger className="h-10 sm:h-9 text-base sm:text-sm">
+                    <SelectValue placeholder="Select duration" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {extendDurationOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="p-3 bg-muted/50 rounded-lg border">
+              <div className="text-sm">
+                <span className="text-muted-foreground">
+                  Total extension: <strong className="text-foreground">{getTotalHours()} hours</strong>
+                </span>
+              </div>
+              <div className="text-xs text-muted-foreground mt-2">
+                New total duration: <span className="font-medium">{keyData.duration_hours + getTotalHours()} hours</span>
+              </div>
             </div>
           </div>
 
-          <DialogFooter className="flex gap-2">
+          <DialogFooter className="flex-shrink-0 flex-col-reverse sm:flex-row gap-2 sm:gap-0 mt-2">
             <Button
               type="button"
               variant="outline"
               onClick={handleCancel}
               disabled={loading}
+              className="w-full sm:w-auto"
             >
-              <X className="h-4 w-4 mr-2" />
               Cancel
             </Button>
             <Button
               type="submit"
-              disabled={loading || getTotalHours() <= 0}
+              disabled={loading || getTotalHours() <= 0 || getTotalHours() > 8760}
+              className="w-full sm:w-auto"
             >
-              <Clock className="h-4 w-4 mr-2" />
-              {loading ? 'Extending...' : 'Extend Key'}
+              {loading ? (
+                <>
+                  <Spinner className="h-4 w-4 mr-2" />
+                  Extending...
+                </>
+              ) : (
+                'Extend Key'
+              )}
             </Button>
           </DialogFooter>
         </form>

@@ -13,6 +13,37 @@ from werkzeug.exceptions import BadRequest
 
 logger = logging.getLogger(__name__)
 
+def _sanitize_validation_errors(errors: list) -> list:
+    """
+    Sanitize validation errors to ensure they are JSON serializable.
+    Converts any non-serializable objects (like ValueError) to strings.
+    
+    Args:
+        errors: List of error dictionaries from Pydantic ValidationError
+        
+    Returns:
+        List of sanitized error dictionaries
+    """
+    def _make_serializable(obj):
+        """Recursively convert object to JSON-serializable format"""
+        if obj is None:
+            return None
+        elif isinstance(obj, (str, int, float, bool)):
+            return obj
+        elif isinstance(obj, (list, tuple)):
+            return [_make_serializable(item) for item in obj]
+        elif isinstance(obj, dict):
+            return {str(k): _make_serializable(v) for k, v in obj.items()}
+        else:
+            # Convert any other type (like ValueError, Exception) to string
+            try:
+                # Try to get a meaningful string representation
+                return str(obj)
+            except Exception:
+                return repr(obj)
+    
+    return [_make_serializable(error) for error in errors]
+
 class ValidationMiddleware:
     """Middleware for validating request data using Pydantic schemas"""
 
@@ -99,7 +130,7 @@ class ValidationMiddleware:
                                         {
                                             "error": "VALIDATION_ERROR",
                                             "message": "Request validation failed",
-                                            "details": e.errors(),
+                                            "details": _sanitize_validation_errors(e.errors()),
                                         }
                                     ),
                                     400,
@@ -173,7 +204,7 @@ class ValidationMiddleware:
                                 {
                                     "error": "VALIDATION_ERROR",
                                     "message": "Query parameter validation failed",
-                                    "details": e.errors(),
+                                    "details": _sanitize_validation_errors(e.errors()),
                                 }
                             ),
                             400,
@@ -236,7 +267,7 @@ class ValidationMiddleware:
                                 {
                                     "error": "VALIDATION_ERROR",
                                     "message": "Form data validation failed",
-                                    "details": e.errors(),
+                                    "details": _sanitize_validation_errors(e.errors()),
                                 }
                             ),
                             400,

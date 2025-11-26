@@ -13,7 +13,7 @@ from typing import Any, Dict, Optional, Tuple
 import redis
 
 from ...config.config import Config
-from ...services.auth import challenge_service
+from ...services.auth.challenge_service import challenge_service
 from ...utils.redis_client import get_redis_client
 
 logger = logging.getLogger(__name__)

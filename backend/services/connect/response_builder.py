@@ -28,6 +28,8 @@ class ResponseBuilder:
         notifications: list,
         heartbeat_session: Optional[Dict] = None,
         offline_ticket: Optional[str] = None,
+        access_token: Optional[str] = None,
+        product_obj: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """
         Build success response for connect endpoint
@@ -41,6 +43,8 @@ class ResponseBuilder:
             notifications: List of notifications
             heartbeat_session: Heartbeat session data (optional)
             offline_ticket: Offline authentication ticket (JWT) (optional)
+            access_token: JWT access token for API authentication (optional)
+            product_obj: Product object (optional) - includes product info in response
 
         Returns:
             Response dictionary
@@ -76,6 +80,35 @@ class ResponseBuilder:
 
         if offline_ticket:
             response["offline_ticket"] = offline_ticket
+
+        if access_token:
+            response["access_token"] = access_token
+
+        # Add product information if available
+        if product_obj:
+            # Handle backgrounds - it's stored as JSON string, return first item or string
+            background_value = ""
+            if product_obj.backgrounds:
+                try:
+                    backgrounds_list = json.loads(product_obj.backgrounds)
+                    if isinstance(backgrounds_list, list) and len(backgrounds_list) > 0:
+                        background_value = backgrounds_list[0] if isinstance(backgrounds_list[0], str) else str(backgrounds_list[0])
+                    else:
+                        background_value = product_obj.backgrounds
+                except:
+                    background_value = product_obj.backgrounds
+            
+            response["product"] = {
+                "id": product_obj.id,
+                "unique_id": product_obj.unique_id or "",
+                "name": product_obj.name or "",
+                "description": product_obj.description or "",
+                "version": product_obj.version or "1.0.0",
+                "logo": product_obj.logo or "",
+                "banner": product_obj.banner or "",
+                "background": background_value,
+                "file": product_obj.loader_file or "",
+            }
 
         return response
 

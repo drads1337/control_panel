@@ -27,7 +27,7 @@ const ProductItem = React.memo<{
         id={`${prefix}-product-${product.id}`}
         checked={isSelected}
         onCheckedChange={() => onToggle(product.id)}
-        className="h-5 w-5 border-muted-foreground/40"
+        className="border-muted-foreground/40"
       />
       <div className="flex-1 min-w-0">
         <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
@@ -73,7 +73,6 @@ const SectionHeader: React.FC<{
         id={checkboxId}
         checked={isChecked}
         onCheckedChange={onToggle}
-        className="h-4 w-4"
       />
       <Label htmlFor={checkboxId} className="text-sm font-medium cursor-pointer">
         {title} ({count})

@@ -299,6 +299,17 @@ class ConnectOrchestrator:
                 key_obj=key_obj,
             )
 
+            # Generate JWT access token for API authentication
+            access_token = None
+            if key_obj.user_id:
+                try:
+                    user = User.query.get(key_obj.user_id)
+                    if user:
+                        from flask_jwt_extended import create_access_token
+                        access_token = create_access_token(identity=str(user.id))
+                except Exception as e:
+                    logger.warning(f"Failed to generate JWT access token for user {key_obj.user_id}: {e}")
+
             response = self.response_builder.build_success_response(
                 token,
                 project_id,
@@ -308,6 +319,8 @@ class ConnectOrchestrator:
                 notifications,
                 heartbeat_session,
                 offline_ticket=offline_ticket,
+                access_token=access_token,
+                product_obj=product_obj,
             )
 
             logger.info(

@@ -103,7 +103,7 @@ export const ProductRow: React.FC<ProductRowProps> = React.memo(({
             {/* ID - Hidden on tablets, visible on large screens */}
             <span className="hidden xl:inline-flex items-center gap-2">
                <span>•</span>
-               <span className="font-mono text-[10px] opacity-70">ID: {product.unique_id}</span>
+               <span className="font-mono text-[10px] opacity-70">ID: {product.id}</span>
             </span>
 
             {/* Stats - Hidden on smaller laptops/tablets, visible on XL screens */}

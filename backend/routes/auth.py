@@ -33,10 +33,11 @@ from ..schemas.auth import (
 )
 from ..utils.service_helpers import get_service
 from ..schemas.user import UserProfileUpdateSchema
-from ..services.users import invite_service
+from ..services.users.invite_service import invite_service
 from ..utils.rbac_utils import RBACManager
 from ..utils.role_constants import UserRoles
 from ..utils.validators import AuthValidator, InviteValidator, UserValidator
+from ..utils.service_exceptions import SecurityError, ValidationError, ConflictError, ServiceError
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
@@ -170,6 +171,17 @@ def _handle_simple_login(data: dict, ip: str, user_agent: str):
 
         return response
 
+    except SecurityError as e:
+        # Handle project inactive error with user-friendly message
+        if hasattr(e, 'error_code') and e.error_code == "PROJECT_INACTIVE":
+            logger.warning(f"User attempted to login to inactive project: {ip}")
+            return jsonify({
+                "error": "PROJECT_INACTIVE",
+                "error_code": "PROJECT_INACTIVE",
+                "message": "Project is paused. Please contact the administrator for additional information."
+            }), 403
+        # Re-raise other SecurityErrors to be handled by global handler
+        raise
     except Exception as e:
         import traceback
 
@@ -234,7 +246,6 @@ def register(validated_data=None):
         if not validated_data:
             return jsonify({"error": "REGISTRATION_FAILED", "message": "Invalid request data"}), 400
 
-        from ...utils.service_helpers import get_service
         user_crud_service = get_service('user_crud_service')
         # Exceptions are handled by global handler
         user = user_crud_service.create_user(
@@ -341,12 +352,16 @@ def register_with_invite():
                 invite.project_id = project_id
                 db.session.commit()
 
-        from ...utils.service_helpers import get_service
         user_crud_service = get_service('user_crud_service')
         # Exceptions are handled by global handler
-        user = user_crud_service.create_user(
-            username, None, password, project_id, UserRoles.ADMIN.value
-        )
+        try:
+            user = user_crud_service.create_user(
+                username, None, password, project_id, UserRoles.ADMIN.value
+            )
+        except (ValidationError, ConflictError, ServiceError):
+            # Let global error handler deal with these, but ensure rollback
+            db.session.rollback()
+            raise
 
         success, error = invite_service.use_invite_code(invite_code, user.id)
         if not success:
@@ -365,8 +380,14 @@ def register_with_invite():
             201,
         )
 
+    except (ValidationError, ConflictError, ServiceError):
+        # Let global error handler deal with these
+        raise
     except Exception as e:
+        import traceback
         logger.error(f"Error in invite registration: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        db.session.rollback()
         return jsonify({"error": "REGISTRATION_FAILED", "message": "Registration failed"}), 500
 
 @auth_bp.route("/me", methods=["GET"])
@@ -806,5 +827,7 @@ def validate_invite_code():
         return jsonify(response_data), 200
 
     except Exception as e:
+        import traceback
         logger.error(f"Error validating invite code: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": "Failed to validate invite code"}), 500

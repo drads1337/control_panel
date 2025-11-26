@@ -466,7 +466,7 @@ interface AgentManagerProps {
 const AgentManager: React.FC<AgentManagerProps> = ({ onCreateAgentRequested, onCreateAgentRequestHandled }) => {
   const isMobile = useMediaQuery('(max-width: 768px)');
   const { isAuthenticated, user } = useAuth();
-  const { hasPermission } = usePermissions();
+  const { hasPermission, hasAnyPermission } = usePermissions();
 
   const canViewAgents = hasPermission('agents.view');
   const canCreateAgents = hasPermission('agents.create');
@@ -484,6 +484,26 @@ const AgentManager: React.FC<AgentManagerProps> = ({ onCreateAgentRequested, onC
   const canManageStatus = hasPermission('agents.status');
   const canAssignProducts = hasPermission('agents.assign_products');
   const canConfigurationSettings = hasPermission('agents.configuration_settings');
+
+  // Check if user has any permission related to agents
+  const hasAnyAgentPermission = hasAnyPermission([
+    'agents.view',
+    'agents.create',
+    'agents.edit',
+    'agents.delete',
+    'agents.upload_files',
+    'agents.notifications_view',
+    'agents.notifications_create',
+    'agents.notifications_edit',
+    'agents.notifications_delete',
+    'agents.changelog_view',
+    'agents.changelog_create',
+    'agents.changelog_edit',
+    'agents.changelog_delete',
+    'agents.status',
+    'agents.assign_products',
+    'agents.configuration_settings',
+  ]);
 
   const {
     agents,
@@ -517,12 +537,12 @@ const AgentManager: React.FC<AgentManagerProps> = ({ onCreateAgentRequested, onC
   const [notificationsDialogOpen, setNotificationsDialogOpen] = useState(false);
   const [changelogDialogOpen, setChangelogDialogOpen] = useState(false);
 
-  if (!canViewAgents) {
+  if (!hasAnyAgentPermission) {
     return (
       <Card className="text-center p-8">
         <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-red-500" />
         <h3 className="text-lg font-semibold mb-2">Access Denied</h3>
-        <p className="text-muted-foreground">You don't have permission to view agents.</p>
+        <p className="text-muted-foreground">You don't have permission to access agents.</p>
       </Card>
     );
   }

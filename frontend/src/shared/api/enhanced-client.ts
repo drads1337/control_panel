@@ -639,7 +639,10 @@ export function getErrorMessage(error: unknown): string {
           }
           return errorMessage || 'Your session has expired. Please log in again.'
         case 403:
-
+          // Check for PROJECT_INACTIVE error
+          if (parsedError && 'error_code' in parsedError && (parsedError as { error_code?: string }).error_code === 'PROJECT_INACTIVE') {
+            return errorMessage || 'Project is paused. Please contact the administrator for additional information.'
+          }
           if (parsedError && 'error' in parsedError && parsedError.error === 'CSRF_ERROR') {
             return errorMessage || 'CSRF token missing or invalid. Please refresh the page and try again.'
           }

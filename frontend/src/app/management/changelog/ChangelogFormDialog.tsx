@@ -537,9 +537,9 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
               Cancel
             </Button>
             <ConditionalRender 
-              permission={isEditMode 
-                ? (isAgent ? 'agents.changelog_edit' : 'products.changelog_edit')
-                : (isAgent ? 'agents.changelog_create' : 'products.changelog_create')
+              permissions={isEditMode 
+                ? (isAgent ? ['agents.changelog_edit', 'products.changelog_edit'] : ['products.changelog_edit'])
+                : (isAgent ? ['agents.changelog_create', 'products.changelog_create'] : ['products.changelog_create'])
               } 
               fallback={null}
             >

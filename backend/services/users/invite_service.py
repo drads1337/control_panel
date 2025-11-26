@@ -168,7 +168,7 @@ class InviteService:
             if not invite:
                 return None, "Invalid invite code"
 
-            if invite.is_expired or invite.expires_at < datetime.utcnow():
+            if invite.is_expired or (invite.expires_at and invite.expires_at < datetime.utcnow()):
                 return None, "Invite code has expired"
 
             if invite.is_used:

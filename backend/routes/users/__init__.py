@@ -24,7 +24,7 @@ users_bp = Blueprint("users", __name__)
 
 users_bp.register_blueprint(management_bp)
 users_bp.register_blueprint(profile_bp)
-users_bp.register_blueprint(balance_bp)
+users_bp.register_blueprint(balance_bp, url_prefix="/balance")
 users_bp.register_blueprint(tokens_bp)
 users_bp.register_blueprint(referral_codes_bp)
 users_bp.register_blueprint(clients_user_bp)

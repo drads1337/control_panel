@@ -141,14 +141,16 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToProductData
               <p className="text-muted-foreground mb-8 max-w-md mx-auto leading-relaxed">
                 Get started by creating your first product. You can manage settings, upload files, and track usage.
               </p>
-              <Button 
-                onClick={() => onSwitchToProductDatabase?.()}
-                className="gap-2"
-                size="lg"
-              >
-                <Plus className="h-5 w-5" />
-                Create Your First Product
-              </Button>
+              <ConditionalRender permission="products.create" fallback={null}>
+                <Button 
+                  onClick={() => onSwitchToProductDatabase?.()}
+                  className="gap-2"
+                  size="lg"
+                >
+                  <Plus className="h-5 w-5" />
+                  Create Your First Product
+                </Button>
+              </ConditionalRender>
             </div>
           </CardContent>
         </Card>

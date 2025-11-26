@@ -58,8 +58,11 @@ class KeyUpdateSchema(BaseSchema):
 
     @validator("duration")
     def validate_duration(cls, v):
-        if v is not None and v < 1:
-            raise ValueError("Duration must be at least 1 hour")
+        if v is not None:
+            if not isinstance(v, int):
+                raise ValueError("Duration must be an integer")
+            if v < 1:
+                raise ValueError("Duration must be a positive integer")
         return v
 
 class KeyMoveSchema(BaseSchema):

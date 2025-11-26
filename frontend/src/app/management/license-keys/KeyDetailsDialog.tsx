@@ -9,20 +9,12 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { getStatusClasses, getStatusText, type StatusType } from '@/lib/status-utils';
 import {
   Key,
-  Clock,
-  Users,
-  Database,
-  Calendar,
-  Shield,
   Copy,
-  ExternalLink,
-  Activity,
   Monitor,
   Eye,
   BarChart2,
@@ -198,24 +190,23 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Key className="h-5 w-5" />
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] w-[90vw] overflow-hidden flex flex-col">
+        <DialogHeader className="pb-4 flex-shrink-0">
+          <DialogTitle className="text-base">
             License Key Details
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="mt-1 text-xs">
             Detailed information about the key and its usage.
           </DialogDescription>
         </DialogHeader>
 
-        {}
-        <div className="flex space-x-1 bg-muted p-1 rounded-lg">
+        {/* Tabs */}
+        <div className="flex items-center gap-1 mb-4 border-b flex-shrink-0">
           <Button
             variant={activeTab === 'details' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setActiveTab('details')}
-            className="flex-1"
+            className="flex-1 h-9 text-sm"
           >
             <Eye className="h-4 w-4 mr-2" />
             Details
@@ -229,167 +220,174 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
                 loadKeyAnalytics();
               }
             }}
-            className="flex-1"
+            className="flex-1 h-9 text-sm"
           >
             <BarChart2 className="h-4 w-4 mr-2" />
             Analytics
           </Button>
         </div>
 
-        <div className="space-y-6">
+        {/* Scrollable Content */}
+        <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-2">
           {activeTab === 'details' ? (
             loadingDetails ? (
-              <div className="text-center py-12">
-                <Spinner message="Loading details..." />
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <Spinner className="h-6 w-6 mb-2" />
+                <span className="text-xs">Loading details...</span>
               </div>
             ) : (keyDetails || keyData) ? (
-              <div className="space-y-6">
-                {}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm font-medium">Key</Label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <p className="font-mono text-sm bg-secondary p-2 rounded flex-1">
-                        {(keyDetails?.key || keyData)?.key}
-                      </p>
-                      {(keyDetails?.key?.key_masked || isMaskedKey((keyDetails?.key || keyData)?.key || '')) && keyId ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={async () => {
-                            try {
-                              const revealResponse = await revealLicenseKey(keyId);
-                              if (revealResponse.key && !revealResponse.key_masked) {
-
-                                await loadKeyDetails();
-                                toast.success('Key revealed');
-                              } else {
-                                toast.error('You do not have permission to view full keys. Contact your administrator.');
+              <div className="space-y-4">
+                <div className="border rounded-lg p-4">
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="key" className="text-sm">Key</Label>
+                        <div className="flex items-center gap-2">
+                          <p className="font-mono text-xs bg-secondary p-2 rounded flex-1 break-all">
+                            {(keyDetails?.key || keyData)?.key}
+                          </p>
+                          {(keyDetails?.key?.key_masked || isMaskedKey((keyDetails?.key || keyData)?.key || '')) && keyId ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={async () => {
+                                try {
+                                  const revealResponse = await revealLicenseKey(keyId);
+                                  if (revealResponse.key && !revealResponse.key_masked) {
+                                    await loadKeyDetails();
+                                    toast.success('Key revealed');
+                                  } else {
+                                    toast.error('You do not have permission to view full keys. Contact your administrator.');
+                                  }
+                                } catch (error: unknown) {
+                                  const { getErrorStatus } = await import('@/lib/error-utils')
+                                  const status = getErrorStatus(error)
+                                  if (status === 403) {
+                                    toast.error('You do not have permission to view full keys. Contact your administrator.');
+                                  } else {
+                                    toast.error('Failed to reveal key. Please try again.');
+                                  }
+                                }
+                              }}
+                              title="Reveal full key (requires keys.see_analytics or keys.copy permission)"
+                              className="h-9 w-9 p-0 flex-shrink-0"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          ) : null}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const keyToCopy = keyDetails?.key?.key || keyData?.key;
+                              if (keyToCopy) {
+                                handleCopyText(keyToCopy);
                               }
-                            } catch (error: unknown) {
-                              const { getErrorStatus } = await import('@/lib/error-utils')
-                              const status = getErrorStatus(error)
-                              if (status === 403) {
-                                toast.error('You do not have permission to view full keys. Contact your administrator.');
-                              } else {
-                                toast.error('Failed to reveal key. Please try again.');
-                              }
-                            }
-                          }}
-                          title="Reveal full key (requires keys.see_analytics or keys.copy permission)"
-                        >
-                          <Eye className="h-3 w-3" />
-                        </Button>
-                      ) : null}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-
-                          const keyToCopy = keyDetails?.key?.key || keyData?.key;
-                          if (keyToCopy) {
-                            handleCopyText(keyToCopy);
+                            }}
+                            className="h-9 w-9 p-0 flex-shrink-0"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        {(keyDetails?.key?.key_masked || isMaskedKey((keyDetails?.key || keyData)?.key || '')) && (
+                          <p className="text-xs text-muted-foreground">
+                            Key is masked. Click the eye icon to reveal (requires keys.see_analytics or keys.copy permission).
+                          </p>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm">Status</Label>
+                        <div>
+                          {getStatusBadge(getStatus(keyDetails?.key || keyData))}
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm">Product</Label>
+                        <p className="text-sm text-muted-foreground">{(keyDetails?.key || keyData)?.product_name || 'Not specified'}</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm">Target Type</Label>
+                        <div>
+                          <Badge variant={(keyDetails?.key || keyData)?.agent_id ? "default" : "secondary"} className="text-xs">
+                            {(keyDetails?.key || keyData)?.agent_id ? 'Agent' : 'Product'}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm">Project</Label>
+                        <p className="text-sm text-muted-foreground">ID: {(keyDetails?.key || keyData)?.project_id}</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm">Created</Label>
+                        <p className="text-sm text-muted-foreground">
+                          {(keyDetails?.key || keyData)?.created_at ? new Date((keyDetails?.key || keyData)?.created_at).toLocaleString('en-US') : 'Not specified'}
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm">Activated</Label>
+                        <p className="text-sm text-muted-foreground">
+                          {(keyDetails?.key || keyData)?.activated_at ? new Date((keyDetails?.key || keyData)?.activated_at).toLocaleString('en-US') : 'Not activated'}
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm">Expires</Label>
+                        <p className="text-sm text-muted-foreground">
+                          {(keyDetails?.key || keyData)?.expires_at && (keyDetails?.key || keyData)?.activated_at ? 
+                            new Date((keyDetails?.key || keyData)?.expires_at).toLocaleString('en-US') : 
+                            (keyDetails?.key || keyData)?.activated_at ? 'Permanent' : 'Not activated'
                           }
-                        }}
-                      >
-                        <Copy className="h-3 w-3" />
-                      </Button>
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm">Duration</Label>
+                        <p className="text-sm text-muted-foreground">{(keyDetails?.key || keyData)?.duration_hours} hours</p>
+                      </div>
                     </div>
-                    {(keyDetails?.key?.key_masked || isMaskedKey((keyDetails?.key || keyData)?.key || '')) && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Key is masked. Click the eye icon to reveal (requires keys.see_analytics or keys.copy permission).
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Status</Label>
-                    <div className="mt-1">
-                      {getStatusBadge(getStatus(keyDetails?.key || keyData))}
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Product</Label>
-                    <p className="mt-1">{(keyDetails?.key || keyData)?.product_name || 'Not specified'}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Target Type</Label>
-                    <div className="mt-1">
-                      <Badge variant={(keyDetails?.key || keyData)?.agent_id ? "default" : "secondary"} className="text-xs">
-                        {(keyDetails?.key || keyData)?.agent_id ? 'Agent' : 'Product'}
-                      </Badge>
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Project</Label>
-                    <p className="mt-1">ID: {(keyDetails?.key || keyData)?.project_id}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Created</Label>
-                    <p className="mt-1">
-                      {(keyDetails?.key || keyData)?.created_at ? new Date((keyDetails?.key || keyData)?.created_at).toLocaleString('en-US') : 'Not specified'}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Activated</Label>
-                    <p className="mt-1">
-                      {(keyDetails?.key || keyData)?.activated_at ? new Date((keyDetails?.key || keyData)?.activated_at).toLocaleString('en-US') : 'Not activated'}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Expires</Label>
-                    <p className="mt-1">
-                      {(keyDetails?.key || keyData)?.expires_at && (keyDetails?.key || keyData)?.activated_at ? 
-                        new Date((keyDetails?.key || keyData)?.expires_at).toLocaleString('en-US') : 
-                        (keyDetails?.key || keyData)?.activated_at ? 'Permanent' : 'Not activated'
-                      }
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Duration</Label>
-                    <p className="mt-1">{(keyDetails?.key || keyData)?.duration_hours} hours</p>
                   </div>
                 </div>
 
-                {}
-                <div>
-                  <Label className="text-sm font-medium">Devices ({(keyDetails?.key || keyData)?.device_count || 0} / {(keyDetails?.key || keyData)?.max_devices || 0})</Label>
+                {/* Devices Section */}
+                <div className="space-y-2">
+                  <Label className="text-sm">
+                    Devices ({(keyDetails?.key || keyData)?.device_count || 0} / {(keyDetails?.key || keyData)?.max_devices || 0})
+                  </Label>
                   {keyDetails?.devices && keyDetails.devices.length > 0 ? (
-                    <div className="mt-2 space-y-2">
+                    <div className="space-y-2">
                       {keyDetails.devices.map((device: any, index: number) => (
-                        <div key={index} className="bg-secondary p-3 rounded-lg">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                            <div>
-                              <span className="font-medium">HWID:</span>
-                              <p className="font-mono text-xs bg-background p-1 rounded mt-1">{device.device_id || device.serial || 'Not specified'}</p>
+                        <div key={index} className="p-3 rounded-lg border bg-muted/30">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                            <div className="space-y-1">
+                              <span className="text-xs font-medium text-muted-foreground">HWID:</span>
+                              <p className="font-mono text-xs bg-background p-1.5 rounded break-all">{device.device_id || device.serial || 'Not specified'}</p>
                             </div>
-                            <div>
-                              <span className="font-medium">IP Address:</span>
-                              <p className="text-xs mt-1">{device.ip_address || 'Not specified'}</p>
+                            <div className="space-y-1">
+                              <span className="text-xs font-medium text-muted-foreground">IP Address:</span>
+                              <p className="text-xs text-muted-foreground">{device.ip_address || 'Not specified'}</p>
                             </div>
-                            <div>
-                              <span className="font-medium">Device Model:</span>
-                              <p className="text-xs mt-1">
+                            <div className="space-y-1">
+                              <span className="text-xs font-medium text-muted-foreground">Device Model:</span>
+                              <p className="text-xs text-muted-foreground">
                                 {device.device_brand && device.device_model 
                                   ? `${device.device_brand} ${device.device_model}` 
                                   : device.device_model || device.device_brand || 'Not specified'
                                 }
                               </p>
                             </div>
-                            <div>
-                              <span className="font-medium">Connected:</span>
-                              <p className="text-xs mt-1">
+                            <div className="space-y-1">
+                              <span className="text-xs font-medium text-muted-foreground">Connected:</span>
+                              <p className="text-xs text-muted-foreground">
                                 {device.connected_at ? new Date(device.connected_at).toLocaleString('en-US') : 'Not specified'}
                               </p>
                             </div>
-                            <div>
-                              <span className="font-medium">Last Activity:</span>
-                              <p className="text-xs mt-1">
+                            <div className="space-y-1">
+                              <span className="text-xs font-medium text-muted-foreground">Last Activity:</span>
+                              <p className="text-xs text-muted-foreground">
                                 {device.last_seen ? new Date(device.last_seen).toLocaleString('en-US') : 'Not specified'}
                               </p>
                             </div>
-                            <div className="md:col-span-2">
-                              <span className="font-medium">User Agent:</span>
-                              <p className="text-xs bg-background p-1 rounded mt-1 break-all">
+                            <div className="sm:col-span-2 space-y-1">
+                              <span className="text-xs font-medium text-muted-foreground">User Agent:</span>
+                              <p className="text-xs bg-background p-1.5 rounded break-all">
                                 {device.user_agent || 'Not specified'}
                               </p>
                             </div>
@@ -398,29 +396,38 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
                       ))}
                     </div>
                   ) : (
-                    <div className="mt-2 p-4 bg-secondary rounded-lg text-center text-muted-foreground">
-                      <Monitor className="h-8 w-8 mx-auto mb-2" />
-                      <p>No devices connected</p>
+                    <div className="flex flex-col items-center justify-center py-8 text-muted-foreground border-2 border-dashed rounded-lg bg-background/50">
+                      <Monitor className="h-8 w-8 mb-2" />
+                      <p className="text-sm">No devices connected</p>
                     </div>
                   )}
                 </div>
 
-                {}
                 {(keyDetails?.key || keyData)?.fingerprint && (
-                  <div>
-                    <Label className="text-sm font-medium">Fingerprint</Label>
-                    <p className="font-mono text-xs bg-secondary p-2 rounded mt-1 break-all">
+                  <div className="space-y-2">
+                    <Label className="text-sm">Fingerprint</Label>
+                    <p className="font-mono text-xs bg-secondary p-2 rounded break-all">
                       {(keyDetails?.key || keyData)?.fingerprint}
                     </p>
                   </div>
                 )}
 
-                {}
                 {(keyDetails?.key || keyData)?.key_metadata && (
-                  <div>
-                    <Label className="text-sm font-medium">Metadata</Label>
-                    <pre className="text-xs bg-secondary p-2 rounded mt-1 overflow-x-auto">
-                      {JSON.stringify(JSON.parse((keyDetails?.key || keyData)?.key_metadata), null, 2)}
+                  <div className="space-y-2">
+                    <Label className="text-sm">Metadata</Label>
+                    <pre className="text-xs bg-secondary p-2 rounded overflow-x-auto">
+                      {(() => {
+                        const metadata = (keyDetails?.key || keyData)?.key_metadata;
+                        try {
+                          // If metadata is already an object, stringify it directly
+                          // If it's a string, parse it first then stringify for formatting
+                          const parsed = typeof metadata === 'string' ? JSON.parse(metadata) : metadata;
+                          return JSON.stringify(parsed, null, 2);
+                        } catch (error) {
+                          // If parsing fails, just display the raw value
+                          return typeof metadata === 'string' ? metadata : JSON.stringify(metadata);
+                        }
+                      })()}
                     </pre>
                   </div>
                 )}
@@ -438,8 +445,7 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
                 <Spinner message="Loading analytics..." />
               </div>
             ) : keyAnalytics ? (
-              <div className="space-y-6">
-                {}
+              <div className="space-y-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="bg-muted/50 p-4 rounded-lg">
                     <div className="text-2xl font-bold text-primary">
@@ -467,7 +473,6 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
                   </div>
                 </div>
 
-                {}
                 {keyAnalytics.summary.products_played.length > 0 && (
                   <div>
                     <h4 className="font-semibold mb-2">Products:</h4>
@@ -479,7 +484,6 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
                   </div>
                 )}
 
-                {}
                 {keyAnalytics.daily_analytics.length > 0 && (
                   <div>
                     <h4 className="font-semibold mb-3">Daily Statistics:</h4>
@@ -502,7 +506,6 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
                   </div>
                 )}
 
-                {}
                 <div className="text-sm text-muted-foreground">
                   {keyAnalytics.summary.first_analytics_date && keyAnalytics.summary.last_analytics_date ? (
                     <>Period: {new Date(keyAnalytics.summary.first_analytics_date).toLocaleDateString('en-US')} - {new Date(keyAnalytics.summary.last_analytics_date).toLocaleDateString('en-US')}</>
@@ -520,15 +523,19 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
           )}
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => {
-            onOpenChange(false);
-            setKeyDetails(null);
-            setKeyAnalytics(null);
-            setActiveTab('details');
-            setLoadingDetails(false);
-            setLoadingAnalytics(false);
-          }}>
+        <DialogFooter className="pt-4 border-t flex-shrink-0">
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              onOpenChange(false);
+              setKeyDetails(null);
+              setKeyAnalytics(null);
+              setActiveTab('details');
+              setLoadingDetails(false);
+              setLoadingAnalytics(false);
+            }}
+            className="h-9"
+          >
             Close
           </Button>
         </DialogFooter>

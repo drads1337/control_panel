@@ -45,6 +45,16 @@ def get_projects():
             f"user.project_id: {user.project_id}"
         )
 
+        # Check if user's project_id points to a non-existent project (project was deleted)
+        if user.project_id:
+            project_exists = Project.query.get(user.project_id)
+            if not project_exists:
+                logging.warning(
+                    f"User {user_id} has project_id {user.project_id} but project doesn't exist. Clearing project_id."
+                )
+                user.project_id = None
+                db.session.commit()
+
         if not is_owner and not user.project_id:
             logging.warning(
                 f"Access denied - user {user_id} is not owner and has no project_id"
@@ -212,7 +222,7 @@ def get_project(project_id):
         logging.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": "Failed to retrieve project"}), 500
 
-@projects_bp.route("/projects/<int:project_id>", methods=["PUT"])
+@projects_bp.route("/projects/<project_id>", methods=["PUT"])
 @jwt_required()
 @require_project_with_grace_period
 @enforce_project_scope

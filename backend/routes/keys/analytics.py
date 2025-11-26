@@ -10,7 +10,7 @@ from io import StringIO
 
 from flask import Blueprint, Response, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
-from sqlalchemy import case, func
+from sqlalchemy import case, func, or_
 
 from ...core.extensions import db
 from ...middleware.auth import require_project_isolation
@@ -191,7 +191,7 @@ def get_key_analytics(key_id, current_user, project_id=None):
 
     from datetime import date, timedelta
 
-    from ...models import Key, KeyAnalytics
+    from ...models import Key, KeyAnalytics, DeviceInfo
 
     # Try as integer id first
     key = None
@@ -222,14 +222,27 @@ def get_key_analytics(key_id, current_user, project_id=None):
 
         analytics_data = []
         total_connections_all_time = 0
-        total_unique_devices = 0
         all_products = set()
 
         for analytic in all_time_analytics:
             products_list = json.loads(analytic.products_played or "[]")
             all_products.update(products_list)
             total_connections_all_time += analytic.total_connections
-            total_unique_devices = max(total_unique_devices, analytic.unique_devices)
+
+        # Count unique devices from DeviceInfo table
+        # Use distinct count on serial (preferred) or device_id as fallback
+        # Only count devices that have at least serial or device_id
+        total_unique_devices = db.session.query(
+            func.count(func.distinct(
+                case(
+                    (DeviceInfo.serial.isnot(None), DeviceInfo.serial),
+                    else_=DeviceInfo.device_id
+                )
+            ))
+        ).filter(
+            DeviceInfo.key_id == key.id,
+            or_(DeviceInfo.serial.isnot(None), DeviceInfo.device_id.isnot(None))
+        ).scalar() or 0
 
         for analytic in analytics:
             products_list = json.loads(analytic.products_played or "[]")

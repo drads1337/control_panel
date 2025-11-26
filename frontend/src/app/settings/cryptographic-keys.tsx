@@ -16,9 +16,27 @@ export default function CryptographicKeys({ settings, isSaving }: CryptographicK
   const { regenerateKeys } = useSettingsQuery()
   const [regenerating, setRegenerating] = useState<string | null>(null)
 
-  const copyToClipboard = (text: string, type: string) => {
-    navigator.clipboard.writeText(text)
-    toast.success(`${type} copied`)
+  const copyToClipboard = async (text: string, type: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      toast.success(`${type} copied`)
+    } catch (error) {
+      // Fallback for browsers that don't support clipboard API
+      const textArea = document.createElement('textarea')
+      textArea.value = text
+      textArea.style.position = 'fixed'
+      textArea.style.opacity = '0'
+      document.body.appendChild(textArea)
+      textArea.select()
+      try {
+        document.execCommand('copy')
+        toast.success(`${type} copied`)
+      } catch (fallbackError) {
+        toast.error('Failed to copy to clipboard')
+      } finally {
+        document.body.removeChild(textArea)
+      }
+    }
   }
 
   const handleRegenerate = async (keyType: 'aes' | 'rsa' | 'all') => {

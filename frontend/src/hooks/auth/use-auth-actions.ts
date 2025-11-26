@@ -153,11 +153,19 @@ export function useAuthActions(
         return
       }
 
-      const errorMessage = error instanceof Error
-        ? (error.message === 'Request timeout'
-          ? 'Login request timed out. Please check your connection and try again.'
-          : error.message)
-        : 'An error occurred during login'
+      // Use getErrorMessage to properly extract user-friendly error messages from axios errors
+      let errorMessage: string
+      try {
+        const { getErrorMessage } = await import('@/shared/api/enhanced-client')
+        errorMessage = getErrorMessage(error)
+      } catch {
+        // Fallback if getErrorMessage is not available
+        errorMessage = error instanceof Error
+          ? (error.message === 'Request timeout'
+            ? 'Login request timed out. Please check your connection and try again.'
+            : error.message)
+          : 'An error occurred during login'
+      }
 
       setError(errorMessage)
       updateState({

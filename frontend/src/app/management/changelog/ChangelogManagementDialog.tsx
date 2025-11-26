@@ -182,7 +182,13 @@ const ChangelogManagementDialog: React.FC<ChangelogManagementDialogProps> = ({
               Entries 
               <Badge variant="secondary" className="text-xs h-5 px-1.5">{changelogEntries.length}</Badge>
             </h3>
-            <ConditionalRender permission="products.changelog_create" fallback={null}>
+            <ConditionalRender 
+              permissions={isAgent 
+                ? ['agents.changelog_create', 'products.changelog_create']
+                : ['products.changelog_create']
+              } 
+              fallback={null}
+            >
               <Button 
                 onClick={() => setShowCreateDialog(true)} 
                 size="sm"
@@ -239,7 +245,13 @@ const ChangelogManagementDialog: React.FC<ChangelogManagementDialogProps> = ({
                     </div>
 
                     <div className="flex flex-col gap-1">
-                      <ConditionalRender permission="products.changelog_edit" fallback={null}>
+                      <ConditionalRender 
+                        permissions={isAgent 
+                          ? ['agents.changelog_edit', 'products.changelog_edit']
+                          : ['products.changelog_edit']
+                        } 
+                        fallback={null}
+                      >
                         <Button
                           variant="ghost"
                           size="icon"
@@ -251,7 +263,13 @@ const ChangelogManagementDialog: React.FC<ChangelogManagementDialogProps> = ({
                           <Pencil className="h-4 w-4" />
                         </Button>
                       </ConditionalRender>
-                      <ConditionalRender permission="products.changelog_delete" fallback={null}>
+                      <ConditionalRender 
+                        permissions={isAgent 
+                          ? ['agents.changelog_delete', 'products.changelog_delete']
+                          : ['products.changelog_delete']
+                        } 
+                        fallback={null}
+                      >
                         <Button
                           variant="ghost"
                           size="icon"
