@@ -174,6 +174,9 @@ class ResponseBuilder:
                     )
                 return encrypted_blob
             elif project_id:
+                # SECURITY: No fallback to global MASTER_KEY
+                # If project encryption fails, raise error instead of using global key
+                # This ensures data isolation - each project MUST use its own encryption key
                 try:
                     encrypted_blob = encrypt_data_with_project_key(response, project_id)
                     logging.info(
@@ -181,50 +184,56 @@ class ResponseBuilder:
                     )
                     return encrypted_blob
                 except Exception as e:
-                    logging.info(f"Failed to encrypt with project key, falling back to global: {e}")
-
-                    encrypted_blob = MasterKeyManager.encrypt_with_master_key_legacy(
-                        json.dumps(response), Config.MASTER_KEY
+                    logging.error(
+                        f"[ENCRYPT_RESPONSE] SECURITY: Failed to encrypt with project {project_id} key: {e}. "
+                        f"Global MASTER_KEY fallback is disabled for security. "
+                        f"Project {project_id} must configure its own encryption key."
                     )
-                    return encrypted_blob
+                    # Raise error instead of falling back to global key
+                    raise ValueError(
+                        f"Encryption failed for project {project_id}. "
+                        f"Project must configure its own encryption key. "
+                        f"Global MASTER_KEY fallback is disabled for security (prevents data isolation breach)."
+                    ) from e
             else:
-
-                if project_id:
-                    try:
-                        project_keys = ProjectEncryptionKeys.query.filter_by(
-                            project_id=project_id
-                        ).first()
-                        if project_keys and project_keys.aes_key:
-                            logging.info(
-                                f"[ENCRYPT_RESPONSE] Using AES Key from ProjectEncryptionKeys for project {project_id}"
-                            )
-                            encrypted_blob = MasterKeyManager.encrypt_with_master_key_legacy(
-                                json.dumps(response), project_keys.aes_key
-                            )
-                            logging.info(
-                                f"[ENCRYPT_RESPONSE] Encrypted response with project {project_id} AES Key, data_length={len(json.dumps(response))}, encrypted_length={len(encrypted_blob)}"
-                            )
-                            return encrypted_blob
-                    except Exception as e:
-                        logging.warning(
-                            f"[ENCRYPT_RESPONSE] Failed to use project {project_id} AES Key, falling back to global: {e}"
-                        )
-
-                encrypted_blob = MasterKeyManager.encrypt_with_master_key_legacy(
-                    json.dumps(response), Config.MASTER_KEY
+                # No project_id provided - this should not happen in multi-tenant architecture
+                # But if it does, we cannot use global key as fallback for security
+                logging.error(
+                    "[ENCRYPT_RESPONSE] SECURITY: No project_id provided for encryption. "
+                    "Global MASTER_KEY fallback is disabled for security."
                 )
-                logging.info(
-                    f"[DEBUG] Encrypted response with AES-256-GCM (fallback), data_length={len(json.dumps(response))}"
+                raise ValueError(
+                    "Project ID is required for encryption. "
+                    "Global MASTER_KEY fallback is disabled for security (prevents data isolation breach)."
                 )
-                return encrypted_blob
 
         except Exception as e:
             logging.error(f"Error encrypting response: {e}")
-
+            # SECURITY: Even for error responses, we should not use global MASTER_KEY
+            # if project_id is available. However, for critical errors where encryption
+            # completely fails, we need to return something. In this case, we'll return
+            # an unencrypted error response (which is acceptable for critical failures).
+            # The client should handle this gracefully.
             error_response = {"error": "Internal server error", "r": os.urandom(16).hex()}
-            return MasterKeyManager.encrypt_with_master_key_legacy(
-                json.dumps(error_response), Config.MASTER_KEY
-            )
+            # Only use global key for error responses if we truly have no project context
+            # This is a last resort for critical system errors
+            if not project_id:
+                logging.warning(
+                    "[ENCRYPT_RESPONSE] Using global MASTER_KEY for error response (no project_id). "
+                    "This should only happen for critical system errors."
+                )
+                return MasterKeyManager.encrypt_with_master_key_legacy(
+                    json.dumps(error_response), Config.MASTER_KEY
+                )
+            else:
+                # If we have project_id but encryption failed, try one more time with project key
+                # If that also fails, we cannot use global key - return unencrypted error
+                logging.error(
+                    f"[ENCRYPT_RESPONSE] Critical: Cannot encrypt error response for project {project_id}. "
+                    "Returning unencrypted error (client should handle gracefully)."
+                )
+                # Return as JSON string (unencrypted) - client should detect this
+                return json.dumps(error_response)
 
     def build_classic_connect_response(
         self, token: str, project_id: int, notifications: list, login_type: str = "classic"

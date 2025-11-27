@@ -106,6 +106,15 @@ def make_celery(app=None):
                 "queue": "default",
                 "priority": 3,
             },
+            "backend.tasks.chat_tasks.*": {"queue": "default"},
+            "backend.tasks.chat_tasks.send_telegram_message": {
+                "queue": "default",
+                "priority": 2,
+            },
+            "backend.tasks.chat_tasks.send_discord_message": {
+                "queue": "default",
+                "priority": 2,
+            },
         },
 
         beat_schedule={

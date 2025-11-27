@@ -312,6 +312,8 @@ def send_message(project_id=None):
             if not product_settings.discord_enabled:
                 discord_allowed = False
 
+        # SECURITY FIX: Use async tasks for Telegram/Discord to prevent blocking
+        # If Telegram/Discord API is slow or down, it won't block the user's request
         if telegram_bot and telegram_allowed:
             sender_name = (
                 user.username
@@ -321,35 +323,63 @@ def send_message(project_id=None):
             formatted_message = bot_manager.format_message(sender_type, sender_name, message_text)
 
             try:
-                # OPTIMIZATION: Use synchronous HTTP API instead of async event loop
-                telegram_message_id = bot_manager.send_message(
-                    telegram_bot.bot_token, telegram_bot.chat_id, formatted_message
+                # Use async Celery task instead of synchronous call
+                from ...tasks.chat_tasks import send_telegram_message_task
+                
+                send_telegram_message_task.delay(
+                    bot_token=telegram_bot.bot_token,
+                    chat_id=telegram_bot.chat_id,
+                    message=formatted_message,
+                    chat_message_id=chat_message.id,
+                    project_id=project_id,
                 )
-
-                if telegram_message_id:
-                    chat_message.telegram_message_id = str(telegram_message_id)
-                    chat_message.is_sent_to_telegram = True
-                    db.session.commit()
+                logger.debug(f"Queued Telegram message task for chat_message_id={chat_message.id}")
+            except ImportError:
+                # Fallback to synchronous if Celery is not available (development only)
+                logger.warning("Celery not available, using synchronous Telegram send (not recommended for production)")
+                try:
+                    telegram_message_id = bot_manager.send_message(
+                        telegram_bot.bot_token, telegram_bot.chat_id, formatted_message
+                    )
+                    if telegram_message_id:
+                        chat_message.telegram_message_id = str(telegram_message_id)
+                        chat_message.is_sent_to_telegram = True
+                        db.session.commit()
+                except Exception as e:
+                    logger.error(f"Error sending to Telegram: {e}")
             except Exception as e:
-                logger.error(f"Error sending to Telegram: {e}")
+                logger.error(f"Error queueing Telegram message task: {e}")
 
         try:
             discord_hooks = DiscordWebhook.query.filter_by(
                 project_id=project_id, is_active=True
             ).all()
             if discord_hooks and discord_allowed:
-                payload = {
-                    "content": f"[{sender_type.upper()}] {user.username if user and user.username else 'User'}: {message_text}"
-                }
+                message_content = f"[{sender_type.upper()}] {user.username if user and user.username else 'User'}: {message_text}"
                 for hook in discord_hooks:
                     try:
-                        import requests
-
-                        requests.post(hook.webhook_url, json=payload, timeout=5)
+                        # Use async Celery task instead of synchronous call
+                        from ...tasks.chat_tasks import send_discord_message_task
+                        
+                        send_discord_message_task.delay(
+                            webhook_url=hook.webhook_url,
+                            message_content=message_content,
+                            project_id=project_id,
+                        )
+                        logger.debug(f"Queued Discord message task for webhook_id={hook.id}")
+                    except ImportError:
+                        # Fallback to synchronous if Celery is not available (development only)
+                        logger.warning("Celery not available, using synchronous Discord send (not recommended for production)")
+                        try:
+                            import requests
+                            payload = {"content": message_content}
+                            requests.post(hook.webhook_url, json=payload, timeout=5)
+                        except Exception as e:
+                            logger.error(f"Error sending to Discord webhook {hook.id}: {e}")
                     except Exception as e:
-                        logger.error(f"Error sending to Discord webhook {hook.id}: {e}")
+                        logger.error(f"Error queueing Discord message task for webhook_id={hook.id}: {e}")
         except Exception as e:
-            logger.error(f"Error sending to Discord: {e}")
+            logger.error(f"Error processing Discord webhooks: {e}")
 
         response_data = {
             "id": chat_message.id,
@@ -605,41 +635,70 @@ def send_client_message():
 
         telegram_bot = TelegramBot.query.filter_by(project_id=project.id, is_active=True).first()
 
+        # SECURITY FIX: Use async tasks for Telegram/Discord to prevent blocking
         if telegram_bot and ("telegram" in platforms_set):
             sender_name = f"Client ({client_key[-4:]})"
             formatted_message = bot_manager.format_message("client", sender_name, message_text)
 
             try:
-                # OPTIMIZATION: Use synchronous HTTP API instead of async event loop
-                telegram_message_id = bot_manager.send_message(
-                    telegram_bot.bot_token, telegram_bot.chat_id, formatted_message
+                # Use async Celery task instead of synchronous call
+                from ...tasks.chat_tasks import send_telegram_message_task
+                
+                send_telegram_message_task.delay(
+                    bot_token=telegram_bot.bot_token,
+                    chat_id=telegram_bot.chat_id,
+                    message=formatted_message,
+                    chat_message_id=chat_message.id,
+                    project_id=project.id,
                 )
-
-                if telegram_message_id:
-                    chat_message.telegram_message_id = str(telegram_message_id)
-                    chat_message.is_sent_to_telegram = True
-                    db.session.commit()
+                logger.debug(f"Queued Telegram message task for chat_message_id={chat_message.id}")
+            except ImportError:
+                # Fallback to synchronous if Celery is not available (development only)
+                logger.warning("Celery not available, using synchronous Telegram send (not recommended for production)")
+                try:
+                    telegram_message_id = bot_manager.send_message(
+                        telegram_bot.bot_token, telegram_bot.chat_id, formatted_message
+                    )
+                    if telegram_message_id:
+                        chat_message.telegram_message_id = str(telegram_message_id)
+                        chat_message.is_sent_to_telegram = True
+                        db.session.commit()
+                except Exception as e:
+                    logger.error(f"Error sending to Telegram: {e}")
             except Exception as e:
-                logger.error(f"Error sending to Telegram: {e}")
+                logger.error(f"Error queueing Telegram message task: {e}")
 
         try:
             discord_hooks = DiscordWebhook.query.filter_by(
                 project_id=project.id, is_active=True
             ).all()
             if discord_hooks and ("discord" in platforms_set):
-                payload = {
-                    "content": f"[CLIENT] {client_key[-4:] if client_key else ''}: {message_text}"
-                }
+                message_content = f"[CLIENT] {client_key[-4:] if client_key else ''}: {message_text}"
                 for hook in discord_hooks:
                     try:
-                        import requests
-
-                        requests.post(hook.webhook_url, json=payload, timeout=5)
+                        # Use async Celery task instead of synchronous call
+                        from ...tasks.chat_tasks import send_discord_message_task
+                        
+                        send_discord_message_task.delay(
+                            webhook_url=hook.webhook_url,
+                            message_content=message_content,
+                            project_id=project.id,
+                        )
+                        logger.debug(f"Queued Discord message task for webhook_id={hook.id}")
+                    except ImportError:
+                        # Fallback to synchronous if Celery is not available (development only)
+                        logger.warning("Celery not available, using synchronous Discord send (not recommended for production)")
+                        try:
+                            import requests
+                            payload = {"content": message_content}
+                            requests.post(hook.webhook_url, json=payload, timeout=5)
+                        except Exception as e:
+                            logger.error(f"Error sending to Discord webhook {hook.id}: {e}")
                     except Exception as e:
-                        logger.error(f"Error sending to Discord webhook {hook.id}: {e}")
+                        logger.error(f"Error queueing Discord message task for webhook_id={hook.id}: {e}")
 
         except Exception as e:
-            logger.error(f"Error sending to Discord: {e}")
+            logger.error(f"Error processing Discord webhooks: {e}")
 
         return jsonify({"message": "Message sent successfully"}), 201
 

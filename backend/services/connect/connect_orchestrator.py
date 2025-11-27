@@ -346,8 +346,8 @@ class ConnectOrchestrator:
                 exc_info=True
             )
             self.security_checker.log_suspicious_activity(ip, "LOGICAL_ERROR", str(e))
-            error_response = self.response_builder.build_error_response("Invalid request data")
-            encrypted_response = self._encrypt_error_response_safe(error_response, ip)
+            error_response = self.response_builder.build_error_response("Invalid request data", project_id=int(project_id) if project_id else None)
+            encrypted_response = self._encrypt_error_response_safe(error_response, ip, project_id=int(project_id) if project_id else None)
             return encrypted_response, 400
 
         except Exception as e:
@@ -359,10 +359,10 @@ class ConnectOrchestrator:
             )
             self.security_checker.log_suspicious_activity(ip, "FATAL", str(e))
             error_response = self.response_builder.build_error_response("Internal server error")
-            encrypted_response = self._encrypt_error_response_safe(error_response, ip)
+            encrypted_response = self._encrypt_error_response_safe(error_response, ip, project_id=None)
             return encrypted_response, 500
 
-    def _encrypt_error_response_safe(self, error_response: dict, ip: str) -> str:
+    def _encrypt_error_response_safe(self, error_response: dict, ip: str, project_id: Optional[int] = None) -> str:
         """
         Safely encrypt error response with fallback mechanisms
         
@@ -387,30 +387,52 @@ class ConnectOrchestrator:
             # Last resort: use MasterKeyManager directly
             try:
                 import json
+                # SECURITY: For error responses, we should use project-specific encryption if project_id is available
+                # Only use global MASTER_KEY as last resort for critical system errors with no project context
                 from ...utils.secure_crypto import MasterKeyManager
                 from ...config.config import Config
 
                 error_json = json.dumps(error_response)
-                encrypted_response = MasterKeyManager.encrypt_with_master_key_legacy(
-                    error_json, Config.MASTER_KEY
-                )
-                logger.info("Used MasterKeyManager directly as fallback for error encryption")
-                return encrypted_response
+                # Only use global key if we truly have no project context (critical system error)
+                if project_id:
+                    logger.warning(
+                        f"SECURITY: Attempting to encrypt error response with project {project_id} key. "
+                        "Global MASTER_KEY fallback should not be used for project-specific errors."
+                    )
+                    # Try to use project key first
+                    try:
+                        from ...utils.secure_crypto import encrypt_data_with_project_key
+                        encrypted_response = encrypt_data_with_project_key(
+                            error_response, project_id
+                        )
+                        return encrypted_response
+                    except Exception as project_encrypt_error:
+                        logger.error(
+                            f"SECURITY: Failed to encrypt error response with project {project_id} key: {project_encrypt_error}. "
+                            "Cannot use global MASTER_KEY fallback for project-specific errors."
+                        )
+                        # Return unencrypted error - client should handle gracefully
+                        return error_json
+                else:
+                    # No project context - this is a critical system error
+                    # Using global key is acceptable only in this extreme case
+                    logger.warning(
+                        "SECURITY: Using global MASTER_KEY for error encryption (no project_id). "
+                        "This should only happen for critical system errors."
+                    )
+                    encrypted_response = MasterKeyManager.encrypt_with_master_key_legacy(
+                        error_json, Config.MASTER_KEY
+                    )
+                    return encrypted_response
             except Exception as final_error:
                 logger.critical(
                     f"CRITICAL: Failed to encrypt error response ip={ip} error={final_error}",
                     exc_info=True
                 )
-                # This should never happen, but if it does, return a minimal encrypted response
-                import json
-                from ...utils.secure_crypto import MasterKeyManager
-                from ...config.config import Config
-
+                # This should never happen, but if it does, return a minimal unencrypted error
+                # SECURITY: We cannot use global MASTER_KEY here as we don't know the project context
                 minimal_error = {"error": "Internal server error", "r": "0000000000000000"}
-                encrypted_response = MasterKeyManager.encrypt_with_master_key_legacy(
-                    json.dumps(minimal_error), Config.MASTER_KEY
-                )
-                return encrypted_response
+                return json.dumps(minimal_error)
 
     def _build_error_response(
         self,
