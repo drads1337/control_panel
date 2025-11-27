@@ -74,13 +74,14 @@ def get_user_tokens(user_id, current_user):
 
     return jsonify({"tokens": tokens_data})
 
+@validate_request(APITokenCreateSchema)
 @tokens_bp.route("/<int:user_id>/tokens", methods=["POST"])
 @jwt_required()
 @require_user
 @require_project_with_grace_period
 @enforce_project_scope
 @require_role(RolePermissions.ADMIN_ROLES)
-def create_user_token(user_id, current_user):
+def create_user_token(user_id, current_user, validated_data=None):
     """Create a new API token for a user"""
     target_user = User.query.get(user_id)
 
@@ -96,17 +97,6 @@ def create_user_token(user_id, current_user):
         if current_user.project_id != target_user.project_id:
             return jsonify({"error": "Access denied"}), 403
 
-    # Note: This endpoint will be migrated to use validate_request in next iteration
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-    
-    try:
-        schema_data = APITokenCreateSchema(**data)
-        name = schema_data.name
-        permissions = schema_data.permissions
-    except Exception as e:
-        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
     try:
 
@@ -154,14 +144,17 @@ def create_user_token(user_id, current_user):
         logger.error(f"Error creating API token: {str(e)}", exc_info=True)
         return jsonify({"error": "Failed to create API token"}), 500
 
+@validate_request(APITokenUpdateSchema)
 @tokens_bp.route("/<int:user_id>/tokens/<int:token_id>", methods=["PUT"])
 @jwt_required()
 @require_user
 @require_project_with_grace_period
 @enforce_project_scope
 @require_role(RolePermissions.ADMIN_ROLES)
-def update_user_token(user_id, token_id, current_user):
+def update_user_token(user_id, token_id, current_user, validated_data=None):
     """Update an API token"""
+    if not validated_data:
+        return jsonify({"error": "No data provided"}), 400
     target_user = User.query.get(user_id)
 
     if not target_user:
@@ -180,26 +173,17 @@ def update_user_token(user_id, token_id, current_user):
     if not api_key:
         return jsonify({"error": "API token not found"}), 404
 
-    # Note: This endpoint will be migrated to use validate_request in next iteration
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-    
-    try:
-        schema_data = APITokenUpdateSchema(**data)
-    except Exception as e:
-        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
     try:
 
-        if schema_data.name is not None:
-            api_key.name = schema_data.name
+        if validated_data.name is not None:
+            api_key.name = validated_data.name
 
-        if schema_data.is_active is not None:
-            api_key.is_active = schema_data.is_active
+        if validated_data.is_active is not None:
+            api_key.is_active = validated_data.is_active
 
-        if schema_data.permissions is not None:
-            api_key.permissions = json.dumps(schema_data.permissions) if schema_data.permissions else None
+        if validated_data.permissions is not None:
+            api_key.permissions = json.dumps(validated_data.permissions) if validated_data.permissions else None
 
         db.session.commit()
 

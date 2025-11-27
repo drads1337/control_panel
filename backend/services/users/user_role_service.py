@@ -211,7 +211,10 @@ class UserRoleService:
         """
         try:
             from ...utils.role_constants import RolePermissions
-            from ...services.rbac import rbac_service
+            from ...utils.service_helpers import get_service
+            
+            # Use ServiceContainer to avoid circular imports
+            rbac_service = get_service('rbac_service')
 
             if new_role not in RolePermissions.ASSIGNABLE_ROLES:
                 return 0, f'Invalid role. Allowed: {", ".join(RolePermissions.ASSIGNABLE_ROLES)}'

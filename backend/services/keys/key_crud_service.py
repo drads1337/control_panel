@@ -27,6 +27,7 @@ from .key_validation_service import key_validation_service
 from ...utils.data_masking import mask_license_key
 from ...utils.rbac_utils import RBACManager
 from ...utils.structured_logging import get_logger
+from ...utils.service_helpers import get_service
 from .key_filter_specification import KeyFilterSpecification
 
 
@@ -147,7 +148,9 @@ class KeyCRUDService:
         agent = None
 
         if key_data.get("product_id"):
-            from ...services.products import product_service
+            from ...utils.service_helpers import get_service
+            # Use ServiceContainer to avoid circular imports
+            product_service = get_service('product_service')
             # get_product now raises exceptions
             product = product_service.get_product(user, key_data["product_id"])
 
@@ -168,8 +171,10 @@ class KeyCRUDService:
         is_admin = RBACManager.is_admin(user)
         
         if not is_owner and not is_admin and product and user.project_id:
-            from ...services.products.price_calculation_service import price_calculation_service
-            from ...services.balance import balance_service
+            from ...utils.service_helpers import get_service
+            # Use ServiceContainer to avoid circular imports
+            price_calculation_service = get_service('price_calculation_service')
+            balance_service = get_service('balance_service')
             
             key_price = price_calculation_service.calculate_key_price(
                 product_id=product.id,
@@ -227,13 +232,13 @@ class KeyCRUDService:
         db.session.flush()
 
         # Use cache invalidation instead of deprecated counter functions to avoid race conditions
-        from ...services.statistics import cached_statistics_service
+        from ...utils.service_helpers import get_service
+        cached_statistics_service = get_service('cached_statistics_service')
         cached_statistics_service.invalidate_on_key_change(user.id, user.project_id)
 
         try:
-            from ...services.webhooks import get_webhook_service
-
-            webhook_service = get_webhook_service()
+            # Use ServiceContainer to avoid circular imports
+            webhook_service = get_service('webhook_service')
 
             webhook_data = {
                 "key_id": key.id,
@@ -285,7 +290,8 @@ class KeyCRUDService:
 
             my_keys_only = filters.get("my_keys", False)
 
-            from ...services.rbac import rbac_service
+            # Use ServiceContainer to avoid circular imports
+            rbac_service = get_service('rbac_service')
 
             if not RBACManager.is_owner(user) and not RBACManager.is_admin(user):
                 has_keys_view = rbac_service.check_permission(user.id, "keys.view")
@@ -435,7 +441,8 @@ class KeyCRUDService:
                 for device in devices
             ]
 
-            from ...services.rbac import rbac_service
+            # Use ServiceContainer to avoid circular imports
+            rbac_service = get_service('rbac_service')
 
             can_view_full_key = RBACManager.is_owner(user) or RBACManager.is_admin(user)
 

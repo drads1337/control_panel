@@ -138,7 +138,7 @@ from .project_user import (
 )
 
 from .notifications import Notification
-from .webhooks import Webhook, WebhookLog
+from .webhooks import Webhook, WebhookLog, WebhookPendingTask
 from .servers import Billing, ProjectAPIKey, Server
 from .chat import (
     ChatGroup,
@@ -228,6 +228,7 @@ __all__ = [
     "Notification",
     "Webhook",
     "WebhookLog",
+    "WebhookPendingTask",
     "Billing",
     "ProjectAPIKey",
     "Server",

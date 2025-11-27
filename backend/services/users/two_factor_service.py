@@ -19,7 +19,7 @@ from ...core.extensions import db
 from ...models.core import User
 from ...models.security import TwoFactorAuth, TwoFactorBackupCode, TwoFactorSession
 from ...services.activity import activity_service
-from ...services.rbac import rbac_service
+from ...utils.service_helpers import get_service
 
 class TwoFactorService:
     """Service for managing two-factor authentication"""
@@ -331,7 +331,8 @@ class TwoFactorService:
 
     def is_2fa_required(self, user: User) -> bool:
         """Check if 2FA is required for a user"""
-
+        rbac_service = get_service('rbac_service')
+        
         if rbac_service.check_permission(user.id, "system.manage_all_projects"):
             return True
 

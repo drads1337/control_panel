@@ -18,6 +18,7 @@ from .key_validation_service import key_validation_service
 from ...utils.rbac_utils import RBACManager
 from ...utils.role_constants import UserRoles
 from ...utils.structured_logging import get_logger
+from ...utils.service_helpers import get_service
 from .key_crud_service import key_crud_service
 from .key_filter_specification import KeyFilterSpecification
 from .key_status_service import key_status_service
@@ -125,7 +126,8 @@ class KeyBulkOperationsService:
             Tuple of (created_count, error_message, list of created keys)
         """
         try:
-            from ...services.products import product_service
+            # Use ServiceContainer to avoid circular imports
+            product_service = get_service('product_service')
             # get_product now raises exceptions
             product = product_service.get_product(user, product_id)
 
@@ -145,8 +147,9 @@ class KeyBulkOperationsService:
             is_admin = RBACManager.is_admin(user)
             
             if not is_owner and not is_admin and product and user.project_id:
-                from ...services.products.price_calculation_service import price_calculation_service
-                from ...services.balance import balance_service
+                # Use ServiceContainer to avoid circular imports
+                price_calculation_service = get_service('price_calculation_service')
+                balance_service = get_service('balance_service')
                 
                 key_price = price_calculation_service.calculate_key_price(
                     product_id=product.id,
@@ -213,6 +216,7 @@ class KeyBulkOperationsService:
                     db.session.flush()
 
                     # Use cache invalidation instead of deprecated counter functions to avoid race conditions
+                    # Note: cached_statistics_service is imported from module-level singleton
                     from ...services.statistics import cached_statistics_service
                     cached_statistics_service.invalidate_on_key_change(user.id, user.project_id)
 
@@ -404,7 +408,8 @@ class KeyBulkOperationsService:
     ) -> Tuple[int, Optional[str], Optional[str]]:
         """Bulk pause keys by product"""
         try:
-            from ...services.products import product_service
+            # Use ServiceContainer to avoid circular imports
+            product_service = get_service('product_service')
             # get_product now raises exceptions
             product = product_service.get_product(user, product_id)
 
@@ -429,7 +434,8 @@ class KeyBulkOperationsService:
     ) -> Tuple[int, Optional[str], Optional[str]]:
         """Bulk resume keys by product"""
         try:
-            from ...services.products import product_service
+            # Use ServiceContainer to avoid circular imports
+            product_service = get_service('product_service')
             # get_product now raises exceptions
             product = product_service.get_product(user, product_id)
 
@@ -451,7 +457,8 @@ class KeyBulkOperationsService:
     ) -> Tuple[int, Optional[str], Optional[str]]:
         """Bulk reset keys by product"""
         try:
-            from ...services.products import product_service
+            # Use ServiceContainer to avoid circular imports
+            product_service = get_service('product_service')
             # get_product now raises exceptions
             product = product_service.get_product(user, product_id)
 
@@ -473,7 +480,8 @@ class KeyBulkOperationsService:
     ) -> Tuple[int, Optional[str], Optional[str]]:
         """Bulk add hours to keys by product"""
         try:
-            from ...services.products import product_service
+            # Use ServiceContainer to avoid circular imports
+            product_service = get_service('product_service')
             # get_product now raises exceptions
             product = product_service.get_product(user, product_id)
 

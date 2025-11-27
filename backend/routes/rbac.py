@@ -412,14 +412,18 @@ def create_permission():
         logging.error(f"RBAC_PERMISSION_CREATION_ERROR user_id={current_user.id} error={e}")
         return jsonify({"error": "Failed to create permission"}), 500
 
+@validate_request(PermissionUpdateSchema)
 @rbac_bp.route("/permissions/<int:permission_id>", methods=["PUT"])
 @jwt_required()
-def update_permission(permission_id):
+def update_permission(permission_id, validated_data=None):
     """Update an existing permission"""
     try:
         current_user = get_current_user()
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
+
+        if not validated_data:
+            return jsonify({"error": "No data provided"}), 400
 
         from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
@@ -427,17 +431,7 @@ def update_permission(permission_id):
         if not rbac_service.check_permission(current_user.id, "rbac.view"):
             return jsonify({"error": "Admin access required"}), 403
 
-        # Note: This endpoint will be migrated to use validate_request in next iteration
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-        
-        try:
-            schema_data = PermissionUpdateSchema(**data)
-            update_data = schema_data.model_dump(exclude_none=True)
-        except Exception as e:
-            return jsonify({"error": f"Validation error: {str(e)}"}), 400
-
+        update_data = validated_data.dict(exclude_unset=True)
         updated_permission = rbac_service.update_permission(
             permission_id, current_user.project_id, **update_data
         )
@@ -723,11 +717,12 @@ def get_user_permissions(user_id, current_user):
 
         return jsonify({"success": True, "user_id": user_id, "permissions": [], "error": str(e)})
 
+@validate_request(UserPermissionsAssignSchema)
 @rbac_bp.route("/users/<user_id>/permissions", methods=["PUT"])
 @jwt_required()
 @token_required
 @require_project_isolation
-def update_user_permissions(user_id, current_user):
+def update_user_permissions(user_id, current_user, validated_data=None):
     """Update individual permissions for a user (overrides role permissions)"""
 
     try:
@@ -758,16 +753,10 @@ def update_user_permissions(user_id, current_user):
             )
             return jsonify({"error": "Static roles cannot manage RBAC"}), 403
 
-        # Note: This endpoint will be migrated to use validate_request in next iteration
-        data = request.get_json()
-        if not data:
+        if not validated_data:
             return jsonify({"error": "No data provided"}), 400
-        
-        try:
-            schema_data = UserPermissionsAssignSchema(**data)
-            permissions = schema_data.permissions
-        except Exception as e:
-            return jsonify({"error": f"Validation error: {str(e)}"}), 400
+
+        permissions = validated_data.permissions
 
         if len(permissions) == 0:
             logging.warning(
@@ -835,25 +824,20 @@ def update_user_permissions(user_id, current_user):
         )
         return jsonify({"error": "Failed to update user permissions"}), 500
 
+@validate_request(PermissionCheckSchema)
 @rbac_bp.route("/check-permission", methods=["POST"])
 @jwt_required()
 @token_required
-def check_permission(current_user):
+def check_permission(current_user, validated_data=None):
     """Check if current user has a specific permission"""
     try:
-        # Note: This endpoint will be migrated to use validate_request in next iteration
-        data = request.get_json()
-        if not data:
+        if not validated_data:
             return jsonify({"error": "No data provided"}), 400
-        
-        try:
-            schema_data = PermissionCheckSchema(**data)
-            permission = schema_data.permission
-            resource_type = schema_data.resource_type
-            resource_id = schema_data.resource_id
-            context = schema_data.context
-        except Exception as e:
-            return jsonify({"error": f"Validation error: {str(e)}"}), 400
+
+        permission = validated_data.permission
+        resource_type = validated_data.resource_type
+        resource_id = validated_data.resource_id
+        context = validated_data.context
 
         has_permission = rbac_service.check_permission(
             current_user.id, permission, resource_type=resource_type, resource_id=resource_id, context=context
@@ -1646,25 +1630,20 @@ def set_resource_attribute(resource_type, resource_id):
         )
         return jsonify({"error": "Failed to set resource attribute"}), 500
 
+@validate_request(PermissionCheckSchema)
 @rbac_bp.route("/abac/check-permission", methods=["POST"])
 @jwt_required()
 @token_required
-def check_abac_permission(current_user):
+def check_abac_permission(current_user, validated_data=None):
     """Check permission with ABAC context"""
     try:
-        # Note: This endpoint will be migrated to use validate_request in next iteration
-        data = request.get_json()
-        if not data:
+        if not validated_data:
             return jsonify({"error": "No data provided"}), 400
-        
-        try:
-            schema_data = PermissionCheckSchema(**data)
-            permission = schema_data.permission
-            resource_type = schema_data.resource_type
-            resource_id = schema_data.resource_id
-            context = schema_data.context
-        except Exception as e:
-            return jsonify({"error": f"Validation error: {str(e)}"}), 400
+
+        permission = validated_data.permission
+        resource_type = validated_data.resource_type
+        resource_id = validated_data.resource_id
+        context = validated_data.context
 
         has_permission = rbac_service.check_permission(
             user_id=current_user.id,

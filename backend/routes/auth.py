@@ -61,68 +61,6 @@ def health_check():
     """Health check endpoint"""
     return jsonify({"status": "healthy", "service": "auth"})
 
-def _register_test_endpoints():
-    """Register test endpoints only in development mode"""
-    from ..config.config import Config
-
-    if Config.FLASK_ENV != "production":
-        @auth_bp.route("/test-login", methods=["POST"])
-        def test_login():
-            """Test login endpoint for debugging (development only)"""
-            try:
-                data = request.get_json() or {}
-                username = data.get("username")
-                password = data.get("password")
-
-                if not username or not password:
-                    return jsonify({"error": "Missing username or password"}), 400
-
-                auth_service = get_service('auth_service')
-                user, error = auth_service.validate_simple_login(username, password)
-                if not user:
-                    return jsonify({"error": "Authentication failed", "details": error}), 401
-
-                is_allowed, security_error = auth_service.check_project_security(
-                    user, request.remote_addr, request.headers.get("User-Agent", "")
-                )
-                if not is_allowed:
-                    return jsonify({"error": "Security check failed", "details": security_error}), 403
-
-                from flask_jwt_extended import create_access_token
-
-                access_token = create_access_token(identity=str(user.id))
-
-                from ..utils.rbac_utils import RBACManager
-                user_roles = RBACManager.get_user_role_names(user)
-                primary_role = user_roles[0] if user_roles else UserRoles.CLIENT.value
-
-                return jsonify(
-                    {
-                        "success": True,
-                        "user": {"id": user.unique_id, "username": user.username, "role": primary_role},
-                        "token_created": True,
-                        "token_length": len(access_token),
-                    }
-                )
-
-            except Exception as e:
-                import traceback
-
-                from flask import current_app
-
-                current_app.logger.error(f"Test endpoint error: {str(e)}\n{traceback.format_exc()}")
-
-                return (
-                    jsonify(
-                        {
-                            "error": "Test failed",
-                            "message": "An error occurred while processing the test request",
-                        }
-                    ),
-                    500,
-                )
-
-_register_test_endpoints()
 
 @auth_bp.route("/login", methods=["POST"])
 @csrf.exempt
@@ -447,23 +385,11 @@ def register(validated_data=None):
         logger.error(f"Error in registration: {str(e)}")
         return jsonify({"error": "REGISTRATION_FAILED", "message": "Registration failed"}), 500
 
+@validate_request(RegisterRequestSchema)
 @auth_bp.route("/register-with-invite", methods=["POST"])
-def register_with_invite():
+def register_with_invite(validated_data=None):
     """User registration with invite code"""
     try:
-        # Note: This endpoint will be migrated to use validate_request in next iteration
-        data = request.get_json() or {}
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-        
-        try:
-            schema_data = RegisterRequestSchema(**data)
-            username = schema_data.username.strip()
-            password = schema_data.password
-            invite_code = schema_data.invite_code.strip() if schema_data.invite_code else ""
-            project_name = schema_data.project_name.strip() if schema_data.project_name else None
-        except Exception as e:
-            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
         if not all([username, password, invite_code]):
             return jsonify({"error": "MISSING_FIELDS", "message": "All fields are required"}), 400
@@ -801,10 +727,11 @@ def validate_access_code():
         logger.error(f"Error validating access code: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
 
+@validate_request(AccessCodeRegisterSchema)
 @auth_bp.route("/activate-code", methods=["POST"])
 @jwt_required()
 @require_project_isolation
-def activate_access_code():
+def activate_access_code(validated_data=None):
     """Activate access code for user"""
     try:
         user_id = get_jwt_identity()
@@ -816,17 +743,6 @@ def activate_access_code():
         if not user.project_id and not RBACManager.is_owner(user):
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        # Note: This endpoint will be migrated to use validate_request in next iteration
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-        
-        try:
-            schema_data = AccessCodeRegisterSchema(**data)
-            access_code = schema_data.access_code
-            product_name = schema_data.product_name
-        except Exception as e:
-            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
         from ..models.core import UserProductPermission
         from ..models.products import Product
@@ -896,23 +812,11 @@ def activate_access_code():
         db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
 
+@validate_request(ClassicLoginRegisterSchema)
 @auth_bp.route("/register-with-code", methods=["POST"])
-def register_with_code():
+def register_with_code(validated_data=None):
     """Register user with invite code for Classic Login products"""
     try:
-        # Note: This endpoint will be migrated to use validate_request in next iteration
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-        
-        try:
-            schema_data = ClassicLoginRegisterSchema(**data)
-            username = schema_data.username.strip()
-            password = schema_data.password
-            email = schema_data.email.strip() if schema_data.email else ""
-            invite_code = schema_data.invite_code.strip()
-        except Exception as e:
-            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
         existing_user = User.query.filter_by(username=username).first()
         if existing_user:

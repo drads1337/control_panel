@@ -67,3 +67,42 @@ class WebhookLog(db.Model):
         return (
             f"<WebhookLog webhook_id={self.webhook_id} event={self.event} success={self.success}>"
         )
+
+class WebhookPendingTask(db.Model):
+    """
+    Model for storing webhook tasks that failed to be queued in Celery.
+    
+    SECURITY: This prevents blocking API workers when Celery/Redis is unavailable.
+    Tasks stored here should be processed by a separate cron job/worker.
+    """
+    
+    id = db.Column(db.Integer, primary_key=True)
+    webhook_id = db.Column(
+        db.Integer, db.ForeignKey("webhook.id", ondelete="CASCADE"), nullable=False
+    )
+    webhook = db.relationship("Webhook", backref="pending_tasks")
+    
+    project_id = db.Column(
+        db.Integer, db.ForeignKey("project.id", ondelete="CASCADE"), nullable=False
+    )
+    project = db.relationship("Project", backref="webhook_pending_tasks")
+    
+    # Task data stored as JSON
+    event = db.Column(db.String(100), nullable=False)
+    webhook_data = db.Column(db.Text, nullable=False)  # JSON string of webhook_data dict
+    
+    # Status tracking
+    status = db.Column(db.String(20), nullable=False, default="pending")  # pending, processing, failed, completed
+    retry_count = db.Column(db.Integer, default=0, nullable=False)
+    error_message = db.Column(db.Text, nullable=True)
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    processed_at = db.Column(db.DateTime, nullable=True)
+    next_retry_at = db.Column(db.DateTime, nullable=True)
+    
+    def __repr__(self):
+        return (
+            f"<WebhookPendingTask id={self.id} webhook_id={self.webhook_id} "
+            f"event={self.event} status={self.status}>"
+        )

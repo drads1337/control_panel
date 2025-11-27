@@ -402,9 +402,26 @@ def init_services(app):
     from ..services.validation.request_validation_pipeline import RequestValidationPipeline
     container.register('request_validation_pipeline', lambda: RequestValidationPipeline(), scope=ServiceScope.SINGLETON)
     
-    # Register webhook service (singleton - stateless)
+    # Register webhook services (singleton - stateless)
     from ..services.webhooks.webhook_service import WebhookService
+    from ..services.webhooks.webhook_management_service import WebhookManagementService
+    from ..services.webhooks.webhook_validation_service import WebhookValidationService
+    from ..services.webhooks.webhook_execution_service import WebhookExecutionService
+    from ..services.webhooks.webhook_formatting_service import WebhookFormattingService
+    from ..services.webhooks.webhook_logging_service import WebhookLoggingService
+    from ..services.webhooks.webhook_testing_service import WebhookTestingService
+    from ..services.webhooks.webhook_pending_task_service import WebhookPendingTaskService
+    from ..services.webhooks.webhook_crypto_service import WebhookCryptoService
+    
     container.register('webhook_service', lambda: WebhookService(), scope=ServiceScope.SINGLETON)
+    container.register('webhook_management_service', lambda: WebhookManagementService(), scope=ServiceScope.SINGLETON)
+    container.register('webhook_validation_service', lambda: WebhookValidationService(), scope=ServiceScope.SINGLETON)
+    container.register('webhook_execution_service', lambda: WebhookExecutionService(), scope=ServiceScope.SINGLETON)
+    container.register('webhook_formatting_service', lambda: WebhookFormattingService(), scope=ServiceScope.SINGLETON)
+    container.register('webhook_logging_service', lambda: WebhookLoggingService(), scope=ServiceScope.SINGLETON)
+    container.register('webhook_testing_service', lambda: WebhookTestingService(), scope=ServiceScope.SINGLETON)
+    container.register('webhook_pending_task_service', lambda: WebhookPendingTaskService(), scope=ServiceScope.SINGLETON)
+    container.register('webhook_crypto_service', lambda: WebhookCryptoService(), scope=ServiceScope.SINGLETON)
     
     # Setup request cleanup handler
     @app.teardown_request

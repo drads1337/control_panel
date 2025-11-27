@@ -233,11 +233,12 @@ def get_available_products_for_agents():
         current_app.logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": f"Failed to get available products: {str(e)}", "success": False}), 500
 
+@validate_request(AgentCreateSchema)
 @agents_bp.route("", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def create_loader():
+def create_loader(validated_data=None):
     """Create a new agent"""
     try:
         user_id = get_jwt_identity()
@@ -254,35 +255,26 @@ def create_loader():
         if not user.project_id:
             return jsonify({"error": "No project associated"}), 400
 
-        # Note: This endpoint will be migrated to use validate_request in next iteration
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "No data provided", "success": False}), 400
-        
-        try:
-            schema_data = AgentCreateSchema(**data)
-        except Exception as e:
-            return jsonify({"error": f"Validation error: {str(e)}", "success": False}), 400
 
         existing_agent = Agent.query.filter_by(
-            name=schema_data.name, project_id=user.project_id
+            name=validated_data.name, project_id=user.project_id
         ).first()
         if existing_agent:
             return jsonify({"error": "Agent with this name already exists", "success": False}), 400
 
         new_agent = Agent(
-            name=schema_data.name,
-            description=schema_data.description,
-            status=schema_data.status,
-            logo=schema_data.logo,
-            banner=schema_data.banner,
-            background=schema_data.background,
-            file=schema_data.file or f"{schema_data.name.lower().replace(' ', '_')}_loader.exe",
-            changelog=schema_data.changelog or "Initial version",
-            notifications=schema_data.notifications or "New agent added!",
-            version=schema_data.version,
-            downloads=schema_data.downloads,
-            active_users=schema_data.active_users,
+            name=validated_data.name,
+            description=validated_data.description,
+            status=validated_data.status,
+            logo=validated_data.logo,
+            banner=validated_data.banner,
+            background=validated_data.background,
+            file=validated_data.file or f"{validated_data.name.lower().replace(' ', '_')}_loader.exe",
+            changelog=validated_data.changelog or "Initial version",
+            notifications=validated_data.notifications or "New agent added!",
+            version=validated_data.version,
+            downloads=validated_data.downloads,
+            active_users=validated_data.active_users,
             created_by=user.id,
             project_id=user.project_id,
         )
@@ -552,19 +544,23 @@ def delete_loader(agent_identifier):
         db.session.rollback()
         return jsonify({"error": "Failed to delete agent", "success": False}), 500
 
+@validate_request(AgentProductAssignSchema)
 @agents_bp.route("/<agent_identifier>/assign-products", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def assign_products_to_agent(agent_identifier):
+def assign_products_to_agent(agent_identifier, validated_data=None):
     """Assign products to an agent"""
     try:
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
 
         if not user:
-
             return jsonify({"error": "User not found"}), 404
+
+        if not validated_data:
+            return jsonify({"error": "No data provided"}), 400
+
 
         if not user.project_id:
 
@@ -577,16 +573,6 @@ def assign_products_to_agent(agent_identifier):
         if not agent:
             return jsonify({"error": "Agent not found", "success": False}), 404
 
-        # Note: This endpoint will be migrated to use validate_request in next iteration
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "No data provided", "success": False}), 400
-        
-        try:
-            schema_data = AgentProductAssignSchema(**data)
-            product_ids = schema_data.product_ids
-        except Exception as e:
-            return jsonify({"error": f"Validation error: {str(e)}", "success": False}), 400
 
         current_assignments = AgentProductAssignment.query.filter_by(
             agent_id=agent.id, project_id=user.project_id
@@ -791,11 +777,12 @@ def upload_loader_files(agent_identifier):
         db.session.rollback()
         return jsonify({"error": "Failed to upload files", "success": False}), 500
 
+@validate_request(AgentStatusUpdateSchema)
 @agents_bp.route("/<agent_identifier>/status", methods=["PUT"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def update_loader_status(agent_identifier):
+def update_loader_status(agent_identifier, validated_data=None):
     """Update agent status"""
     try:
         user_id = get_jwt_identity()
@@ -811,16 +798,6 @@ def update_loader_status(agent_identifier):
         if not agent:
             return jsonify({"error": "Agent not found", "success": False}), 404
 
-        # Note: This endpoint will be migrated to use validate_request in next iteration
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "No data provided", "success": False}), 400
-        
-        try:
-            schema_data = AgentStatusUpdateSchema(**data)
-            new_status = schema_data.status
-        except Exception as e:
-            return jsonify({"error": f"Validation error: {str(e)}", "success": False}), 400
 
         agent.status = new_status
         agent.updated_at = datetime.utcnow()
@@ -970,11 +947,12 @@ def get_loader_stats():
         current_app.logger.error(f"Error getting agent stats: {str(e)}")
         return jsonify({"error": "Failed to get agent stats", "success": False}), 500
 
+@validate_request(AgentLoginTypeUpdateSchema)
 @agents_bp.route("/<agent_identifier>/config", methods=["PUT"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def update_loader_config(agent_identifier):
+def update_loader_config(agent_identifier, validated_data=None):
     """Update agent configuration (login type, multi-login, invite code requirements, key prefix)"""
     try:
         user_id = get_jwt_identity()
@@ -982,6 +960,10 @@ def update_loader_config(agent_identifier):
 
         if not user:
             return jsonify({"error": "User not found"}), 404
+
+        if not validated_data:
+            return jsonify({"error": "No data provided"}), 400
+
 
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
@@ -994,16 +976,6 @@ def update_loader_config(agent_identifier):
         if not agent:
             return jsonify({"error": "Agent not found", "success": False}), 404
 
-        # Note: This endpoint will be migrated to use validate_request in next iteration
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "No data provided", "success": False}), 400
-        
-        try:
-            schema_data = AgentLoginTypeUpdateSchema(**data)
-            login_type = schema_data.login_type
-        except Exception as e:
-            return jsonify({"error": f"Validation error: {str(e)}", "success": False}), 400
 
         agent.login_type = login_type
 

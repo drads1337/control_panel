@@ -21,11 +21,12 @@ from ...utils.rbac_utils import RBACManager
 bulk_operations_bp = Blueprint("products_bulk", __name__)
 logger = logging.getLogger(__name__)
 
+@validate_request(ProductBulkStatusUpdateSchema)
 @bulk_operations_bp.route("/bulk-status", methods=["PUT"])
 @jwt_required()
 @require_project_with_grace_period
 @enforce_project_scope
-def bulk_update_product_status():
+def bulk_update_product_status(validated_data=None):
     """Bulk update product status"""
     try:
         user_id = get_jwt_identity()
@@ -33,6 +34,12 @@ def bulk_update_product_status():
 
         if not user:
             return jsonify({"error": "User not found"}), 404
+
+        if not validated_data:
+            return jsonify({"error": "No data provided"}), 400
+
+        product_ids = validated_data.product_ids
+        new_status = validated_data.status
 
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
@@ -51,17 +58,6 @@ def bulk_update_product_status():
                 403,
             )
 
-        # Note: This endpoint will be migrated to use validate_request in next iteration
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-        
-        try:
-            schema_data = ProductBulkStatusUpdateSchema(**data)
-            product_ids = schema_data.product_ids
-            new_status = schema_data.status
-        except Exception as e:
-            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
         products = Product.query.filter(
             Product.id.in_(product_ids),
@@ -109,11 +105,12 @@ def bulk_update_product_status():
         logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": f"Failed to update product status: {str(e)}"}), 500
 
+@validate_request(ProductBulkDeleteSchema)
 @bulk_operations_bp.route("/bulk-delete", methods=["DELETE"])
 @jwt_required()
 @require_project_with_grace_period
 @enforce_project_scope
-def bulk_delete_products():
+def bulk_delete_products(validated_data=None):
     """Bulk delete products"""
     try:
         user_id = get_jwt_identity()
@@ -144,16 +141,10 @@ def bulk_delete_products():
                 403,
             )
 
-        # Note: This endpoint will be migrated to use validate_request in next iteration
-        data = request.get_json()
-        if not data:
+        if not validated_data:
             return jsonify({"error": "No data provided"}), 400
-        
-        try:
-            schema_data = ProductBulkDeleteSchema(**data)
-            product_ids = schema_data.product_ids
-        except Exception as e:
-            return jsonify({"error": f"Validation error: {str(e)}"}), 400
+
+        product_ids = validated_data.product_ids
 
         products = Product.query.filter(
             Product.id.in_(product_ids),

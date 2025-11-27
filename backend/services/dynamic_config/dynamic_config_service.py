@@ -466,7 +466,10 @@ class DynamicConfigService:
             # Apply RBAC-based feature restrictions
             user = User.query.get(key_obj.user_id) if key_obj.user_id else None
             if user:
-                from ...services.rbac import rbac_service
+                from ...utils.service_helpers import get_service
+                
+                # Use ServiceContainer to avoid circular imports
+                rbac_service = get_service('rbac_service')
 
                 is_owner = rbac_service.check_permission(user.id, "system.manage_all_projects")
                 is_admin = rbac_service.check_permission(

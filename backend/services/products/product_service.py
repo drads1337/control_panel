@@ -19,6 +19,7 @@ from ...models.keys import Key
 from ...models.agents import Agent, AgentProductAssignment, AgentDownloadLog
 from ...services.cache import cache_service
 from ...utils.service_exceptions import NotFoundError, PermissionDeniedError, ConflictError, ServiceError
+from ...utils.service_helpers import get_service
 
 class ProductService:
     """Service for managing product data with caching"""
@@ -469,7 +470,10 @@ class ProductService:
                 from ...utils.rbac_utils import RBACManager
 
                 user = User.query.get(user_id) if user_id else None
-                from ...services.rbac import rbac_service
+                from ...utils.service_helpers import get_service
+                
+                # Use ServiceContainer to avoid circular imports
+                rbac_service = get_service('rbac_service')
 
                 can_view_all = user and (
                     RBACManager.is_owner(user)
@@ -661,8 +665,11 @@ class ProductService:
             try:
                 from ...models.core import UserProductPermission
                 from ...models.rbac import UserRole, Role
-                from ...services.rbac import rbac_service
                 from ...utils.rbac_utils import RBACManager
+                from ...utils.service_helpers import get_service
+                
+                # Use ServiceContainer to avoid circular imports
+                rbac_service = get_service('rbac_service')
 
                 self.logger.info(
                     f"Fetching product count from database for project {project_id}, type: {product_type}"

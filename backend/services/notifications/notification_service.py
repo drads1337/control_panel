@@ -281,8 +281,10 @@ class NotificationService:
                 return False, "Notification not found"
 
             if notification.user_id and notification.user_id != user.id:
-
-                from ...services.rbac import rbac_service
+                from ...utils.service_helpers import get_service
+                
+                # Use ServiceContainer to avoid circular imports
+                rbac_service = get_service('rbac_service')
 
                 can_view_all = rbac_service.check_permission(
                     user.id, "employees.view"
@@ -335,8 +337,10 @@ class NotificationService:
                 return False, "Access denied"
 
             if notification_user_id and notification_user_id != user.id:
-
-                from ...services.rbac import rbac_service
+                from ...utils.service_helpers import get_service
+                
+                # Use ServiceContainer to avoid circular imports
+                rbac_service = get_service('rbac_service')
 
                 can_delete_all = rbac_service.check_permission(
                     user.id, "employees.send_notification"

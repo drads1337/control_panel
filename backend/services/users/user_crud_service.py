@@ -353,7 +353,10 @@ class UserCRUDService:
             Tuple of (success, error_message)
         """
         try:
-            from ...services.rbac import rbac_service
+            from ...utils.service_helpers import get_service
+            
+            # Use ServiceContainer to avoid circular imports
+            rbac_service = get_service('rbac_service')
 
             target_user = User.query.get(target_user_id)
             if not target_user:
@@ -424,7 +427,10 @@ class UserCRUDService:
             Tuple of (deleted_count, error_message)
         """
         try:
-            from ...services.rbac import rbac_service
+            from ...utils.service_helpers import get_service
+            
+            # Use ServiceContainer to avoid circular imports
+            rbac_service = get_service('rbac_service')
 
             query = User.query.filter(User.id.in_(user_ids))
 

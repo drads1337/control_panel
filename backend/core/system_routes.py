@@ -82,14 +82,6 @@ def register_system_routes(app: Flask) -> None:
     In production, use Nginx/CDN to serve static files directly from filesystem.
     """
 
-    from ..middleware.production_guard import development_only
-
-    @app.route("/test-cors", methods=["GET", "POST"])
-    @development_only
-    def test_cors():
-        """Test CORS configuration"""
-
-        return jsonify({"message": "CORS test successful", "origin": request.headers.get("Origin")})
 
     # Avatar route is always enabled (even in production) because avatars require
     # authorization checks to ensure users can only access their own avatars

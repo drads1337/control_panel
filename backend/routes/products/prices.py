@@ -84,11 +84,12 @@ def get_product_prices(product_identifier):
         current_app.logger.error(f"Error fetching product prices: {str(e)}")
         return jsonify({"error": f"Failed to fetch prices: {str(e)}"}), 500
 
+@validate_request(ProductPricesUpdateSchema)
 @prices_bp.route("/<product_identifier>/prices", methods=["PUT"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def update_product_prices(product_identifier):
+def update_product_prices(product_identifier, validated_data=None):
     """Update prices for a product"""
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
@@ -119,16 +120,10 @@ def update_product_prices(product_identifier):
         if not product:
             return jsonify({"error": "Product not found"}), 404
 
-        # Note: This endpoint will be migrated to use validate_request in next iteration
-        data = request.get_json()
-        if not data:
+        if not validated_data:
             return jsonify({"error": "No data provided"}), 400
-        
-        try:
-            schema_data = ProductPricesUpdateSchema(**data)
-            prices_data = schema_data.prices
-        except Exception as e:
-            return jsonify({"error": f"Validation error: {str(e)}"}), 400
+
+        prices_data = validated_data.prices
 
         for period, price_value in prices_data.items():
             # Skip custom periods (they have their own endpoint)
@@ -247,11 +242,12 @@ def get_custom_periods(product_identifier):
         current_app.logger.error(f"Error fetching custom periods: {str(e)}")
         return jsonify({"error": f"Failed to fetch custom periods: {str(e)}"}), 500
 
+@validate_request(CustomPriceCreateSchema)
 @prices_bp.route("/<product_identifier>/custom-periods", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def add_custom_period(product_identifier):
+def add_custom_period(product_identifier, validated_data=None):
     """Add custom period for a product"""
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
@@ -282,18 +278,12 @@ def add_custom_period(product_identifier):
         if not product:
             return jsonify({"error": "Product not found"}), 404
 
-        # Note: This endpoint will be migrated to use validate_request in next iteration
-        data = request.get_json()
-        if not data:
+        if not validated_data:
             return jsonify({"error": "No data provided"}), 400
-        
-        try:
-            schema_data = CustomPriceCreateSchema(**data)
-            period_name = schema_data.period_name
-            price_value = schema_data.price
-            meta_data = schema_data.meta_data
-        except Exception as e:
-            return jsonify({"error": f"Validation error: {str(e)}"}), 400
+
+        period_name = validated_data.period_name
+        price_value = validated_data.price
+        meta_data = validated_data.meta_data
 
         existing_price = ProductKeyPrice.query.filter_by(
             product_id=product.id, period=period_name, project_id=user.project_id

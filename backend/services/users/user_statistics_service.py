@@ -17,7 +17,7 @@ from ...models.core import (
 )
 from ...models.keys import Key, TokenTransaction
 from ...models.rbac import Role, UserRole
-from ...services.rbac import rbac_service
+from ...utils.service_helpers import get_service
 from ...utils.rbac_utils import RBACManager
 from ...utils.structured_logging import get_logger
 
@@ -46,6 +46,7 @@ class UserStatisticsService:
 
             query = User.query
 
+            rbac_service = get_service('rbac_service')
             can_view_all = rbac_service.check_permission(
                 current_user.id, "employees.view"
             ) or rbac_service.check_permission(current_user.id, "clients.view")
@@ -104,6 +105,7 @@ class UserStatisticsService:
             if not target_user:
                 return None, "User not found"
 
+            rbac_service = get_service('rbac_service')
             can_view_all = rbac_service.check_permission(
                 current_user.id, "employees.view"
             ) or rbac_service.check_permission(current_user.id, "clients.view")
@@ -206,6 +208,7 @@ class UserStatisticsService:
             if not target_user:
                 return None, "User not found"
 
+            rbac_service = get_service('rbac_service')
             can_view_all = rbac_service.check_permission(
                 current_user.id, "employees.view"
             ) or rbac_service.check_permission(current_user.id, "clients.view")
@@ -266,6 +269,7 @@ class UserStatisticsService:
             if not target_user:
                 return None, "User not found"
 
+            rbac_service = get_service('rbac_service')
             can_view_all = rbac_service.check_permission(
                 current_user.id, "employees.view"
             ) or rbac_service.check_permission(current_user.id, "clients.view")

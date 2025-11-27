@@ -181,8 +181,11 @@ class WebhookValidationService:
             Tuple of (has_access, error_message)
         """
         try:
-            from ...services.rbac import rbac_service
             from ...utils.rbac_utils import RBACManager
+            from ...utils.service_helpers import get_service
+            
+            # Use ServiceContainer to avoid circular imports
+            rbac_service = get_service('rbac_service')
 
             user = User.query.get(user_id)
             if not user:
@@ -301,9 +304,10 @@ class WebhookValidationService:
 
             if events:
                 if valid_events is None:
-                    # Import here to avoid circular dependency
-                    from .webhook_formatting_service import webhook_formatting_service
-                    valid_events = webhook_formatting_service.get_valid_events()
+                    # Use service container to avoid circular dependency
+                    from ...utils.service_helpers import get_service
+                    formatting_service = get_service('webhook_formatting_service')
+                    valid_events = formatting_service.get_valid_events()
                 
                 for event in events:
                     if event not in valid_events:

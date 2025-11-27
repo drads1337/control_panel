@@ -52,7 +52,10 @@ class BalanceService:
 
             # Check if current_user has billing permission and should pay from their balance
             from ...utils.rbac_utils import RBACManager
-            from ...services.rbac import rbac_service
+            from ...utils.service_helpers import get_service
+            
+            # Use ServiceContainer to avoid circular imports
+            rbac_service = get_service('rbac_service')
             
             is_owner = RBACManager.is_owner(current_user)
             is_admin = RBACManager.is_admin(current_user)
@@ -332,7 +335,10 @@ class BalanceService:
             Tuple of (has_access, error_message)
         """
         try:
-            from ...services.rbac import rbac_service
+            from ...utils.service_helpers import get_service
+            
+            # Use ServiceContainer to avoid circular imports
+            rbac_service = get_service('rbac_service')
 
             can_manage_balance = (
                 rbac_service.check_permission(current_user.id, "billing.view_balance")

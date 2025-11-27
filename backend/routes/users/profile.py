@@ -153,25 +153,15 @@ def get_me(current_user):
 
     return user
 
+@validate_request(UserProfileUpdateSchema)
 @profile_bp.route("/profile", methods=["PUT"])
 @jwt_required()
 @require_user
 @require_project_assignment
-def update_profile(current_user):
+def update_profile(current_user, validated_data=None):
     """Update user profile"""
 
     user = current_user
-    # Note: This endpoint will be migrated to use validate_request in next iteration
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-    
-    try:
-        schema_data = UserProfileUpdateSchema(**data)
-        # Convert Pydantic model to dict for service
-        update_data = schema_data.model_dump(exclude_none=True)
-    except Exception as e:
-        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
     # Use DI container to get service
     user_profile_service = get_user_profile_service()

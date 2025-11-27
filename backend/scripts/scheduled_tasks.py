@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from ..config.config import Config
 from ..services.logs import log_cleanup_service
+from ..services.webhooks import get_webhook_service
 from ..utils.structured_logging import get_logger
 
 logging.basicConfig(
@@ -91,18 +92,20 @@ class ScheduledTaskProcessor:
             from ..models.keys import Key
             from ..services.webhooks import get_webhook_service
 
-            one_hour_ago = datetime.utcnow() - timedelta(hours=1)
-            now = datetime.utcnow()
+            session = self.Session()
+            try:
+                one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+                now = datetime.utcnow()
 
-            expired_keys = (
-                session.query(Key)
-                .filter(
-                    Key.expires_at <= now,
-                    Key.expires_at > one_hour_ago,
-                    Key.status == 1,
+                expired_keys = (
+                    session.query(Key)
+                    .filter(
+                        Key.expires_at <= now,
+                        Key.expires_at > one_hour_ago,
+                        Key.status == 1,
+                    )
+                    .all()
                 )
-                .all()
-            )
 
             if expired_keys:
                 self.logger.info(f"Found {len(expired_keys)} expired keys")
@@ -143,8 +146,10 @@ class ScheduledTaskProcessor:
                         self.logger.error(
                             f"Failed to trigger webhook for expired key {key.id}: {e}"
                         )
-            else:
-                self.logger.info("No expired keys found")
+                else:
+                    self.logger.info("No expired keys found")
+            finally:
+                session.close()
 
         except Exception as e:
             self.logger.error(f"Error during key expiration check: {e}")
@@ -171,6 +176,42 @@ class ScheduledTaskProcessor:
         except Exception as e:
             self.logger.error(f"Error ensuring user_activity partitions: {e}")
 
+    def process_pending_webhook_tasks(self):
+        """Process pending webhook tasks from database"""
+        try:
+            self.logger.info("Processing pending webhook tasks")
+            
+            webhook_service = get_webhook_service()
+            stats = webhook_service.process_pending_webhook_tasks(batch_size=50)
+            
+            if stats["processed"] > 0:
+                self.logger.info(
+                    f"Pending webhook tasks processed: "
+                    f"processed={stats['processed']}, queued={stats['queued']}, "
+                    f"failed={stats['failed']}, retry_later={stats['retry_later']}"
+                )
+            else:
+                self.logger.debug("No pending webhook tasks to process")
+                
+        except Exception as e:
+            self.logger.error(f"Error processing pending webhook tasks: {e}")
+
+    def cleanup_old_webhook_tasks(self):
+        """Clean up old completed/failed webhook pending tasks"""
+        try:
+            self.logger.info("Cleaning up old webhook pending tasks")
+            
+            webhook_service = get_webhook_service()
+            deleted_count = webhook_service.cleanup_old_pending_tasks(days_old=7)
+            
+            if deleted_count > 0:
+                self.logger.info(f"Cleaned up {deleted_count} old webhook pending tasks")
+            else:
+                self.logger.debug("No old webhook pending tasks to clean up")
+                
+        except Exception as e:
+            self.logger.error(f"Error cleaning up old webhook tasks: {e}")
+
     def setup_schedule(self):
         """Setup scheduled tasks"""
 
@@ -183,12 +224,21 @@ class ScheduledTaskProcessor:
         # Ensure user_activity partitions exist for next 3 months
         # Run on the 25th of each month to create next month's partition
         schedule.every().day.at("03:00").do(self.ensure_user_activity_partitions)
+        
+        # Process pending webhook tasks every 5 minutes
+        # These are tasks that couldn't be queued in Celery and were stored in DB
+        schedule.every(5).minutes.do(self.process_pending_webhook_tasks)
+        
+        # Clean up old completed/failed webhook tasks daily
+        schedule.every().day.at("01:00").do(self.cleanup_old_webhook_tasks)
 
         self.logger.info("Scheduled tasks configured:")
         self.logger.info("- Log cleanup: Daily at 02:00")
         self.logger.info("- Health check: Every 6 hours")
         self.logger.info("- Key expiration check: Every hour")
         self.logger.info("- User activity partitions: Daily at 03:00")
+        self.logger.info("- Pending webhook tasks: Every 5 minutes")
+        self.logger.info("- Cleanup old webhook tasks: Daily at 01:00")
 
     def run(self):
         """Main loop for scheduled tasks"""

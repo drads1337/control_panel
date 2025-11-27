@@ -13,7 +13,6 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ..core.extensions import db
 from ..middleware.auth import require_project_isolation, require_project_with_grace_period
-from ..middleware.production_guard import development_only
 from ..middleware.validation import validate_request
 from ..models.core import Project, User
 from ..models.webhooks import Webhook, WebhookLog
@@ -23,118 +22,6 @@ from ..utils.rbac_utils import RBACManager
 from ..utils.role_constants import RolePermissions
 
 webhooks_bp = Blueprint("webhooks", __name__)
-
-@webhooks_bp.route("/debug-simple", methods=["GET"])
-@development_only
-@jwt_required()
-@require_project_isolation
-def debug_user_simple():
-    """
-    Simple debug endpoint without middleware
-    """
-    try:
-        user_id = get_jwt_identity()
-        user = User.query.get(user_id)
-
-        if not user:
-            return jsonify({"error": "User not found"}), 404
-
-        user_roles = RBACManager.get_user_role_names(user)
-        is_admin = RBACManager.is_admin(user)
-
-        return jsonify(
-            {
-                "status": "success",
-                "user_info": {
-                    "id": user.id,
-                    "username": user.username,
-                    "roles": user_roles,
-                    "is_admin": is_admin,
-                    "project_id": user.project_id,
-                },
-            }
-        )
-
-    except Exception as e:
-        logging.error(f"WEBHOOKS_DEBUG_SIMPLE_ERROR: {e}")
-        return jsonify({"error": "Internal server error"}), 500
-
-@webhooks_bp.route("/debug", methods=["GET"])
-@development_only
-@jwt_required()
-@require_project_isolation
-def debug_user_info():
-    """
-    Debug endpoint to check user information
-    """
-    try:
-        user_id = get_jwt_identity()
-        user = User.query.get(user_id)
-
-        if not user:
-            return jsonify({"error": "User not found"}), 404
-
-        user_roles = RBACManager.get_user_role_names(user)
-        from ..services.rbac import rbac_service
-
-        has_webhook_access = rbac_service.check_permission(user.id, "webhooks.view")
-
-        is_admin = RBACManager.is_admin(user)
-
-        debug_info = {
-            "user_id": user.id,
-            "username": user.username,
-            "roles": user_roles,
-            "is_admin": is_admin,
-            "project_id": user.project_id,
-            "has_webhook_access": has_webhook_access,
-            "project_exists": bool(user.project_id and Project.query.get(user.project_id)),
-        }
-
-        return jsonify({"status": "success", "debug_info": debug_info})
-
-    except Exception as e:
-        logging.error(f"WEBHOOKS_DEBUG_ERROR user_id={user_id} error={e}")
-        return jsonify({"error": "Internal server error"}), 500
-
-@webhooks_bp.route("/test", methods=["GET"])
-@development_only
-@jwt_required()
-@require_project_isolation
-def test_webhooks_access():
-    """
-    Test endpoint without middleware to check basic access
-    """
-    try:
-        user_id = get_jwt_identity()
-        user = User.query.get(user_id)
-
-        if not user:
-            return jsonify({"error": "User not found"}), 404
-
-        user_roles = RBACManager.get_user_role_names(user)
-        from ..services.rbac import rbac_service
-
-        has_webhook_access = rbac_service.check_permission(user.id, "webhooks.view")
-
-        return jsonify(
-            {
-                "status": "success",
-                "message": "Basic webhook access test passed",
-                "user_info": {
-                    "id": user.id,
-                    "username": user.username,
-                    "roles": user_roles,
-                    "is_admin": RBACManager.is_admin(user),
-                    "project_id": user.project_id,
-                    "has_webhook_access": has_webhook_access,
-                },
-            }
-        )
-
-    except Exception as e:
-        logging.error(f"WEBHOOKS_TEST_ERROR: {e}")
-        return jsonify({"error": "Internal server error"}), 500
 
 @webhooks_bp.route("/user-info", methods=["GET"])
 @jwt_required()
@@ -172,37 +59,6 @@ def get_user_info():
 
     except Exception as e:
         logging.error(f"USER_INFO_ERROR: {e}")
-        return jsonify({"error": "Internal server error"}), 500
-
-@webhooks_bp.route("/test-create", methods=["POST"])
-@development_only
-@jwt_required()
-def test_create_webhook():
-    """
-    Test endpoint for creating webhook without any checks
-    """
-    try:
-        user_id = get_jwt_identity()
-        user = User.query.get(user_id)
-
-        if not user:
-            return jsonify({"error": "User not found"}), 404
-
-        data = request.get_json()
-        logging.info(f"TEST_CREATE_WEBHOOK: user_id={user.id}, data={data}")
-
-        return jsonify(
-            {
-                "status": "success",
-                "message": "Test webhook creation successful",
-                "user_id": user.id,
-                "project_id": user.project_id,
-                "data_received": data,
-            }
-        )
-
-    except Exception as e:
-        logging.error(f"TEST_CREATE_WEBHOOK_ERROR: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
 @webhooks_bp.route("/", methods=["GET"])
@@ -413,41 +269,6 @@ def delete_webhook(webhook_id):
 
     except Exception as e:
         logging.error(f"WEBHOOKS_DELETE_ERROR user_id={user_id} webhook_id={webhook_id} error={e}")
-        return jsonify({"error": "Internal server error"}), 500
-
-@webhooks_bp.route("/<int:webhook_id>/test", methods=["POST"])
-@development_only
-@jwt_required()
-@require_project_with_grace_period
-@require_project_isolation
-def test_webhook(webhook_id):
-    """
-    Test a webhook with a test payload
-    """
-    try:
-        user_id = get_jwt_identity()
-        user = User.query.get(user_id)
-
-        if not user:
-            return jsonify({"error": "User not found"}), 404
-
-        webhook_service = get_webhook_service()
-
-        has_access, error, webhook = webhook_service.validate_webhook_ownership(user_id, webhook_id)
-        if not has_access:
-            status_code = 403 if error in [
-                "User must be assigned to a project to manage webhooks",
-                "Insufficient permissions",
-                "Access denied to this webhook"
-            ] else 404
-            return jsonify({"error": error}), status_code
-
-        test_result = webhook_service.test_webhook(webhook_id)
-
-        return jsonify({"status": "success", "data": test_result})
-
-    except Exception as e:
-        logging.error(f"WEBHOOKS_TEST_ERROR user_id={user_id} webhook_id={webhook_id} error={e}")
         return jsonify({"error": "Internal server error"}), 500
 
 @webhooks_bp.route("/<int:webhook_id>/logs", methods=["GET"])
@@ -673,66 +494,4 @@ def trigger_webhook():
 
     except Exception as e:
         logging.error(f"WEBHOOKS_TRIGGER_ERROR user_id={user_id} error={e}")
-        return jsonify({"error": "Internal server error"}), 500
-
-@webhooks_bp.route("/test-trigger", methods=["POST"])
-@development_only
-@jwt_required()
-@require_project_with_grace_period
-@require_project_isolation
-def test_trigger_webhook():
-    """
-    Test endpoint to manually trigger a webhook event with provided data.
-    All data must be provided by the client - no hardcoded defaults.
-    """
-    try:
-        user_id = get_jwt_identity()
-        user = User.query.get(user_id)
-
-        if not user:
-            return jsonify({"error": "User not found"}), 404
-
-        if not user.project_id:
-            return jsonify({"error": "User must be assigned to a project"}), 403
-
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "Request data required"}), 400
-
-        event = data.get("event")
-        webhook_data = data.get("data")
-
-        if not event:
-            return jsonify({"error": "Event type is required"}), 400
-
-        if not webhook_data:
-            return jsonify({"error": "Webhook data is required"}), 400
-
-        if not isinstance(webhook_data, dict):
-            return jsonify({"error": "Webhook data must be a dictionary"}), 400
-
-        if "user_id" in webhook_data and webhook_data["user_id"] != user.id:
-            logging.warning(
-                f"WEBHOOKS_TEST_TRIGGER_USER_MISMATCH user_id={user_id} provided_user_id={webhook_data.get('user_id')}"
-            )
-
-            webhook_data["user_id"] = user.id
-
-        if "created_at" not in webhook_data:
-            webhook_data["created_at"] = datetime.utcnow().isoformat()
-
-        webhook_service = get_webhook_service()
-        success = webhook_service.trigger_webhook(event, webhook_data, user.project_id)
-
-        return jsonify(
-            {
-                "status": "success",
-                "message": f"Webhook triggered for event: {event}",
-                "success": success,
-                "data": webhook_data,
-            }
-        )
-
-    except Exception as e:
-        logging.error(f"WEBHOOKS_TEST_TRIGGER_ERROR user_id={user_id} error={e}")
         return jsonify({"error": "Internal server error"}), 500

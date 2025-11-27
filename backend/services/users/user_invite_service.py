@@ -11,7 +11,7 @@ from typing import Any, Dict, Optional, Tuple
 from ...core.extensions import db
 from ...models.core import User
 from ...models.keys import ReferralCode
-from ...services.rbac import rbac_service
+from ...utils.service_helpers import get_service
 from ...utils.role_constants import RolePermissions
 from ...utils.structured_logging import get_logger
 
@@ -42,6 +42,7 @@ class UserInviteService:
                 return None, "Email is required"
 
             allowed_roles = RolePermissions.ASSIGNABLE_ROLES.copy()
+            rbac_service = get_service('rbac_service')
             can_view_all = rbac_service.check_permission(
                 current_user.id, "employees.view"
             ) or rbac_service.check_permission(current_user.id, "clients.view")

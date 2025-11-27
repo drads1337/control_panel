@@ -244,7 +244,10 @@ class UserProfileService:
 
         user_permissions = []
         try:
-            from ...services.rbac import rbac_service
+            from ...utils.service_helpers import get_service
+            
+            # Use ServiceContainer to avoid circular imports
+            rbac_service = get_service('rbac_service')
 
             permissions_set = rbac_service.get_user_permissions(user.id)
             user_permissions = list(permissions_set) if permissions_set else []

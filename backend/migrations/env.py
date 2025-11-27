@@ -89,7 +89,7 @@ from backend.models import (
     SecurityRule, Server, SystemBackup, SystemSettings, TelegramBot,
     TokenTransaction, TwoFactorAuth, TwoFactorBackupCode, TwoFactorSession,
     User, UserActionLog, UserActivity, UserAttribute, UserProductPermission,
-    UserRole, UserPermission, Webhook, WebhookLog
+    UserRole, UserPermission, Webhook, WebhookLog, WebhookPendingTask
 )
 # Импортируем модели, чтобы они зарегистрировались в метаданных SQLAlchemy
 _ = [APIKey, Agent, Product, User, Project]

@@ -41,7 +41,9 @@ class KeyValidationService:
         agent = None
 
         if key_data.get("product_id"):
-            from ...services.products import product_service
+            from ...utils.service_helpers import get_service
+            # Use ServiceContainer to avoid circular imports
+            product_service = get_service('product_service')
             # get_product now raises exceptions instead of returning tuples
             try:
                 product = product_service.get_product(user, key_data["product_id"])

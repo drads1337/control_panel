@@ -65,11 +65,12 @@ def get_servers():
 
     return jsonify(result)
 
+@validate_request(ServerCreateSchema)
 @servers_bp.route("", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def create_server():
+def create_server(validated_data=None):
     current_user_id = get_jwt_identity()
     current_user = server_service.get_user_by_id(current_user_id)
 
@@ -80,27 +81,17 @@ def create_server():
     ):
         return jsonify({"error": "Access denied"}), 403
 
-    # Note: This endpoint will be migrated to use validate_request in next iteration
-    data = request.get_json()
-    if not data:
+    if not validated_data:
         return jsonify({"error": "No data provided"}), 400
-    
-    try:
-        schema_data = ServerCreateSchema(**data)
-        name = schema_data.name
-        ip_address = str(schema_data.ip_address)
-        username = schema_data.username
-        password = schema_data.password
-        port = schema_data.port
-        description = schema_data.description
-        is_active = schema_data.is_active
-        project_id = (
-            current_user.project_id
-            if not RBACManager.is_owner(current_user)
-            else schema_data.project_id
-        )
-    except Exception as e:
-        return jsonify({"error": f"Validation error: {str(e)}"}), 400
+
+    name = validated_data.name
+    ip_address = validated_data.ip_address
+    username = validated_data.username
+    password = validated_data.password
+    port = validated_data.port
+    description = validated_data.description
+    is_active = validated_data.is_active
+    project_id = validated_data.project_id
 
     server, error = server_service.create_server(
         user=current_user,
@@ -341,28 +332,22 @@ def get_server_status(server_id):
         }
     )
 
+@validate_request(ServerBulkDeleteSchema)
 @servers_bp.route("/bulk/status", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def bulk_check_status():
+def bulk_check_status(validated_data=None):
     current_user_id = get_jwt_identity()
     current_user = server_service.get_user_by_id(current_user_id)
 
     if not current_user:
         return jsonify({"error": "Access denied"}), 403
 
-    # Note: This endpoint will be migrated to use validate_request in next iteration
-    data = request.get_json()
-    if not data:
+    if not validated_data:
         return jsonify({"error": "No data provided"}), 400
-    
-    try:
-        schema_data = ServerBulkDeleteSchema(**data)
-        server_ids = schema_data.server_ids
-    except Exception as e:
-        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
+    server_ids = validated_data.server_ids
     servers = server_service.get_servers_by_ids(server_ids, current_user)
 
     task_ids = []

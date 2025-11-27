@@ -5,7 +5,6 @@ Handles CRUD operations for webhooks
 
 import json
 import logging
-import secrets
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
@@ -38,8 +37,10 @@ class WebhookManagementService:
     ) -> Dict:
         """Create a new webhook"""
         try:
+            from .webhook_crypto_service import webhook_crypto_service
+            
             if not secret:
-                secret = self._generate_secret()
+                secret = webhook_crypto_service.generate_secret()
 
             webhook = Webhook(
                 project_id=project_id,
@@ -325,10 +326,6 @@ class WebhookManagementService:
 
         except Exception as e:
             logging.error(f"WEBHOOK_LOG_ERROR webhook_id={webhook_id} error={e}")
-
-    def _generate_secret(self) -> str:
-        """Generate a random webhook secret"""
-        return secrets.token_urlsafe(32)
 
 
 webhook_management_service = WebhookManagementService()

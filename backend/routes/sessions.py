@@ -262,33 +262,6 @@ def calculate_session_duration(last_login, last_activity):
     """Calculate session duration"""
     return calculate_session_duration_new(last_login, last_activity)
 
-from ..middleware.production_guard import development_only
-
-@sessions_bp.route("/test-duration", methods=["GET"])
-@development_only
-def test_duration():
-    """Test duration calculation"""
-    from datetime import datetime, timedelta, timezone
-
-    from ..services.activity import activity_service
-
-    now = datetime.now(timezone.utc)
-    one_hour_ago = now - timedelta(hours=1, minutes=30)
-    two_hours_ago = now - timedelta(hours=2, minutes=45)
-
-    test_cases = [
-        ("1.5 hours ago", one_hour_ago, now),
-        ("2.75 hours ago", two_hours_ago, now),
-        ("No activity", one_hour_ago, None),
-        ("No login", None, now),
-    ]
-
-    results = []
-    for name, login, activity in test_cases:
-        duration = calculate_session_duration(login, activity)
-        results.append(f"{name}: {duration}")
-
-    return jsonify({"test_results": results})
 
 @sessions_bp.route("/stats", methods=["GET"])
 @jwt_required()
@@ -531,11 +504,12 @@ def terminate_session(user_id):
         logging.debug(f"Error in terminate_session: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
+@validate_request(SessionBulkTerminateSchema)
 @sessions_bp.route("/bulk/terminate", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def bulk_terminate_sessions():
+def bulk_terminate_sessions(validated_data=None):
     """Bulk terminate sessions"""
     try:
         current_user_id = get_jwt_identity()
@@ -552,16 +526,10 @@ def bulk_terminate_sessions():
         if not current_user or not can_manage_sessions:
             return jsonify({"error": "Access denied"}), 403
 
-        # Note: This endpoint will be migrated to use validate_request in next iteration
-        data = request.get_json()
-        if not data:
+        if not validated_data:
             return jsonify({"error": "No data provided"}), 400
-        
-        try:
-            schema_data = SessionBulkTerminateSchema(**data)
-            user_ids = schema_data.user_ids
-        except Exception as e:
-            return jsonify({"error": f"Validation error: {str(e)}"}), 400
+
+        user_ids = validated_data.user_ids
 
         try:
             terminated_count = 0
@@ -864,11 +832,12 @@ def terminate_user_session(user_id):
         logging.error(f"Error terminating session: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
+@validate_request(SessionBulkLogoutSchema)
 @sessions_bp.route("/terminate-multiple", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def terminate_multiple_sessions():
+def terminate_multiple_sessions(validated_data=None):
     """Terminate multiple user sessions"""
     try:
         current_user_id = get_jwt_identity()
@@ -876,6 +845,10 @@ def terminate_multiple_sessions():
 
         if not current_user:
             return jsonify({"error": "User not found"}), 404
+
+        if not validated_data:
+            return jsonify({"error": "No data provided"}), 400
+
 
         if not current_user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
@@ -891,16 +864,10 @@ def terminate_multiple_sessions():
         if not can_view_all:
             return jsonify({"error": "Insufficient permissions"}), 403
 
-        # Note: This endpoint will be migrated to use validate_request in next iteration
-        data = request.get_json()
-        if not data:
+        if not validated_data:
             return jsonify({"error": "No data provided"}), 400
-        
-        try:
-            schema_data = SessionBulkLogoutSchema(**data)
-            user_ids = schema_data.user_ids
-        except Exception as e:
-            return jsonify({"error": f"Validation error: {str(e)}"}), 400
+
+        user_ids = validated_data.user_ids
 
         terminated_count = 0
         results = []

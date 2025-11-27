@@ -278,26 +278,15 @@ def delete_user(user_id, current_user, project_id=None):
 
     return jsonify({"message": "User deleted successfully"})
 
+@validate_request(UserBulkActionSchema)
 @management_bp.route("/bulk", methods=["POST"])
 @jwt_required()
 @require_user
 @enforce_project_scope
 @require_role(RolePermissions.USER_CREATION_ROLES)
-def bulk_action(current_user, project_id=None):
+def bulk_action(current_user, project_id=None, validated_data=None):
     """Perform bulk actions on users"""
 
-    # Note: This endpoint will be migrated to use validate_request in next iteration
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-    
-    try:
-        schema_data = UserBulkActionSchema(**data)
-        action = schema_data.action
-        user_ids = schema_data.user_ids
-        new_role = schema_data.new_role
-    except Exception as e:
-        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
     query = User.query.filter(User.id.in_(user_ids))
 
@@ -501,27 +490,16 @@ def export_users(current_user, project_id=None):
         headers={"Content-Disposition": "attachment; filename=users_export.csv"},
     )
 
+@validate_request(UserInviteSchema)
 @management_bp.route("/invite", methods=["POST"])
 @jwt_required()
 @require_user
 @require_role(RolePermissions.USER_CREATION_ROLES)
-def invite_user(current_user):
+def invite_user(current_user, validated_data=None):
     """Create an invitation for a new user"""
     from datetime import datetime, timedelta
     import secrets
     import string
-    # Note: This endpoint will be migrated to use validate_request in next iteration
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-    
-    try:
-        schema_data = UserInviteSchema(**data)
-        email = schema_data.email
-        role = schema_data.role
-        message = schema_data.message or ""
-    except Exception as e:
-        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
     allowed_roles = RolePermissions.ASSIGNABLE_ROLES.copy()
     from ...services.rbac import rbac_service

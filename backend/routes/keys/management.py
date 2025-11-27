@@ -151,17 +151,17 @@ def create_key(current_user, project_id=None, validated_data=None):
         return jsonify({"error": "No data provided"}), 400
 
     key_data = {
-        "product_id": validated_data.product_id,
-        "duration_hours": validated_data.duration_hours,
-        "max_devices": validated_data.max_devices,
-        "length": validated_data.length or 32,
+        "product_id": validated_data["product_id"],
+        "duration_hours": validated_data["duration_hours"],
+        "max_devices": validated_data["max_devices"],
+        "length": validated_data.get("length") or 32,
     }
 
     product = None
-    if validated_data.product_id:
+    if validated_data.get("product_id"):
         from ...services.products import product_service
         # Exceptions are handled by global handler
-        product = product_service.get_product(current_user, validated_data.product_id)
+        product = product_service.get_product(current_user, validated_data["product_id"])
 
         is_access_code = product.login_type == "classic_login"
         generation_type = "access_code" if is_access_code else "license_key"
@@ -255,10 +255,10 @@ def create_custom_key(current_user, project_id=None, validated_data=None):
     if not validated_data:
         return jsonify({"error": "No data provided"}), 400
 
-    custom_key = validated_data.custom_key
-    product_id = validated_data.product_id
-    duration_hours = validated_data.duration_hours
-    max_devices = validated_data.max_devices
+    custom_key = validated_data["custom_key"]
+    product_id = validated_data["product_id"]
+    duration_hours = validated_data["duration_hours"]
+    max_devices = validated_data["max_devices"]
 
     # Check if key already exists
     if current_user.project_id:
@@ -425,8 +425,8 @@ def update_key(key_id, current_user, project_id=None, validated_data=None):
     if not can_manage_key(current_user, key, "keys.edit"):
         return jsonify({"error": "You do not have permission to edit this key"}), 403
 
-    # Convert Pydantic model to dict for service
-    update_data = validated_data.model_dump(exclude_none=True) if hasattr(validated_data, 'model_dump') else validated_data
+    # validated_data is already a dict from the validation middleware
+    update_data = {k: v for k, v in validated_data.items() if v is not None}
 
     key_crud_service = get_service('key_crud_service')
     key, error = key_crud_service.update_key(current_user, key.id, update_data)
@@ -434,7 +434,7 @@ def update_key(key_id, current_user, project_id=None, validated_data=None):
         return jsonify({"error": error}), 400
 
     activity_service = get_service('activity_service')
-    duration_str = f"{validated_data.duration}h" if validated_data.duration else "unchanged"
+    duration_str = f"{validated_data.get('duration')}h" if validated_data.get("duration") else "unchanged"
     activity_service.log_activity(
         current_user,
         "update_key",
@@ -688,7 +688,7 @@ def extend_key(key_id, current_user, project_id=None, validated_data=None):
     if not validated_data:
         return jsonify({"error": "No data provided"}), 400
 
-    hours = validated_data.hours
+    hours = validated_data["hours"]
 
     key = find_key_by_id_or_unique_id(key_id, current_user.project_id)
 
@@ -805,7 +805,7 @@ def move_key(key_id, current_user, project_id=None, validated_data=None):
     if not validated_data:
         return jsonify({"error": "No data provided"}), 400
 
-    new_user_id = validated_data.user_id
+    new_user_id = validated_data["user_id"]
 
     key = find_key_by_id_or_unique_id(key_id, current_user.project_id)
 

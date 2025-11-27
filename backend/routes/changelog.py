@@ -129,11 +129,12 @@ def get_product_changelog(product_identifier):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch changelog: {str(e)}"}), 500
 
+@validate_request(ChangelogEntryCreateSchema)
 @changelog_bp.route("/products/<product_identifier>/changelog", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def create_changelog_entry(product_identifier):
+def create_changelog_entry(product_identifier, validated_data=None):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -159,20 +160,14 @@ def create_changelog_entry(product_identifier):
         if not product:
             return jsonify({"error": "Product not found"}), 404
 
-        # Note: This endpoint will be migrated to use validate_request in next iteration
-        data = request.get_json()
-        if not data:
+        if not validated_data:
             return jsonify({"error": "No data provided"}), 400
-        
-        try:
-            schema_data = ChangelogEntryCreateSchema(**data)
-            version = schema_data.version
-            title = schema_data.title
-            changes = schema_data.changes
-            description = schema_data.description
-            release_date = schema_data.release_date or datetime.utcnow()
-        except Exception as e:
-            return jsonify({"error": f"Validation error: {str(e)}"}), 400
+
+        version = validated_data.version
+        title = validated_data.title
+        changes = validated_data.changes
+        description = validated_data.description
+        release_date = validated_data.release_date or datetime.utcnow()
 
         existing_entry = ChangelogEntry.query.filter_by(
             product_id=product.id, version=version, project_id=user.project_id
@@ -659,11 +654,12 @@ def get_loader_changelog(agent_identifier):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch changelog: {str(e)}"}), 500
 
+@validate_request(AgentChangelogEntryCreateSchema)
 @changelog_bp.route("/agents/<agent_identifier>/changelog", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def create_loader_changelog_entry(agent_identifier):
+def create_loader_changelog_entry(agent_identifier, validated_data=None):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -709,22 +705,16 @@ def create_loader_changelog_entry(agent_identifier):
             )
             return jsonify({"error": "Agent not found"}), 404
 
-        # Note: This endpoint will be migrated to use validate_request in next iteration
-        data = request.get_json()
-        if not data:
+        if not validated_data:
             return jsonify({"error": "No data provided"}), 400
-        
-        try:
-            schema_data = AgentChangelogEntryCreateSchema(**data)
-            version = schema_data.version
-            title = schema_data.title
-            changes = schema_data.changes
-            change_type = schema_data.change_type
-            custom_type_name = schema_data.custom_type_name
-            description = schema_data.description
-            release_date = schema_data.release_date or datetime.utcnow()
-        except Exception as e:
-            return jsonify({"error": f"Validation error: {str(e)}"}), 400
+
+        version = validated_data.version
+        title = validated_data.title
+        changes = validated_data.changes
+        change_type = validated_data.change_type
+        custom_type_name = validated_data.custom_type_name
+        description = validated_data.description
+        release_date = validated_data.release_date or datetime.utcnow()
 
         existing_entry = AgentChangelog.query.filter_by(
             agent_id=agent.id, version=version, project_id=user.project_id

@@ -157,10 +157,11 @@ def delete_file(filename):
 
     return jsonify({"message": "File deleted successfully"})
 
+@validate_request(FileBulkActionSchema)
 @files_bp.route("/bulk", methods=["POST"])
 @jwt_required()
 @enforce_project_scope
-def bulk_action():
+def bulk_action(validated_data=None):
     user_id = get_jwt_identity()
     user = file_service.get_user_by_id(user_id)
 
@@ -173,17 +174,11 @@ def bulk_action():
     if not is_valid:
         return jsonify({"error": error}), 403
 
-    # Note: This endpoint will be migrated to use validate_request in next iteration
-    data = request.get_json()
-    if not data:
+    if not validated_data:
         return jsonify({"error": "No data provided"}), 400
-    
-    try:
-        schema_data = FileBulkActionSchema(**data)
-        action = schema_data.action
-        filenames = schema_data.filenames
-    except Exception as e:
-        return jsonify({"error": f"Validation error: {str(e)}"}), 400
+
+    action = validated_data.action
+    filenames = validated_data.filenames
 
     if action == "delete":
         deleted_count, error = file_service.bulk_delete_files(user, filenames)
@@ -640,10 +635,11 @@ def download_product_extra_file(file_id):
     except Exception as e:
         return jsonify({"error": f"Failed to download extra file: {str(e)}"}), 500
 
+@validate_request(FileStatusUpdateSchema)
 @files_bp.route("/products/extra-files/<int:file_id>/status", methods=["PUT"])
 @jwt_required()
 @enforce_project_scope
-def update_file_status(file_id):
+def update_file_status(file_id, validated_data=None):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -655,16 +651,6 @@ def update_file_status(file_id):
         return jsonify({"error": "Access denied"}), 403
 
     try:
-        # Note: This endpoint will be migrated to use validate_request in next iteration
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-        
-        try:
-            schema_data = FileStatusUpdateSchema(**data)
-            new_status = schema_data.status
-        except Exception as e:
-            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
         extra_file = (
             ProductExtraFile.query.join(Product)
@@ -674,6 +660,10 @@ def update_file_status(file_id):
         if not extra_file:
             return jsonify({"error": "File not found"}), 404
 
+        if not validated_data:
+            return jsonify({"error": "No data provided"}), 400
+
+        new_status = validated_data.status
         old_status = extra_file.status
         extra_file.status = new_status
         db.session.commit()
@@ -812,10 +802,11 @@ def get_public_product_configs(product_identifier):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch public configs: {str(e)}"}), 500
 
+@validate_request(FileConfigUpdateSchema)
 @files_bp.route("/products/configs/<int:config_id>/update", methods=["PUT"])
 @jwt_required()
 @enforce_project_scope
-def update_product_config(config_id):
+def update_product_config(config_id, validated_data=None):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -846,20 +837,15 @@ def update_product_config(config_id):
         ):
             return jsonify({"error": "Access denied"}), 403
 
-        # Note: This endpoint will be migrated to use validate_request in next iteration
-        data = request.get_json()
-        if not data:
+        if not validated_data:
             return jsonify({"error": "No data provided"}), 400
-        
-        try:
-            schema_data = FileConfigUpdateSchema(**data)
-        except Exception as e:
-            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
-        if schema_data.name is not None:
-            config.name = schema_data.name
-        if schema_data.description is not None:
-            config.description = schema_data.description
+        data = request.get_json() or {}
+
+        if validated_data.name is not None:
+            config.name = validated_data.name
+        if validated_data.description is not None:
+            config.description = validated_data.description
         # Note: version and is_public are not in schema yet, keeping for backward compatibility
         if "version" in data:
             config.version = data["version"]
@@ -891,16 +877,20 @@ def update_product_config(config_id):
     except Exception as e:
         return jsonify({"error": f"Failed to update config: {str(e)}"}), 500
 
+@validate_request(FileRatingSchema)
 @files_bp.route("/products/configs/<int:config_id>/rate", methods=["POST"])
 @jwt_required()
 @enforce_project_scope
-def rate_product_config(config_id):
+def rate_product_config(config_id, validated_data=None):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
     if not user:
-
         return jsonify({"error": "User not found"}), 404
+
+    if not validated_data:
+        return jsonify({"error": "No data provided"}), 400
+
 
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
@@ -917,17 +907,7 @@ def rate_product_config(config_id):
         if config.uploaded_by == user.id:
             return jsonify({"error": "Cannot rate your own config"}), 400
 
-        # Note: This endpoint will be migrated to use validate_request in next iteration
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-        
-        try:
-            schema_data = FileRatingSchema(**data)
-            rating = schema_data.rating
-        except Exception as e:
-            return jsonify({"error": f"Validation error: {str(e)}"}), 400
-
+        rating = validated_data.rating
         current_total = config.rating * config.rating_count
         config.rating_count += 1
         config.rating = (current_total + rating) / config.rating_count
@@ -1435,10 +1415,11 @@ def delete_product_file(product_identifier, file_type):
     except Exception as e:
         return jsonify({"error": f"Failed to delete product file: {str(e)}"}), 500
 
+@validate_request(FolderCreateSchema)
 @files_bp.route("/folders", methods=["POST"])
 @jwt_required()
 @enforce_project_scope
-def create_folder():
+def create_folder(validated_data=None):
     user_id = get_jwt_identity()
     user = file_service.get_user_by_id(user_id)
 
@@ -1446,18 +1427,12 @@ def create_folder():
     if not is_valid:
         return jsonify({"error": error}), 404 if error == "User not found" else 403
 
-    # Note: This endpoint will be migrated to use validate_request in next iteration
-    data = request.get_json()
-    if not data:
+    if not validated_data:
         return jsonify({"error": "No data provided"}), 400
-    
-    try:
-        schema_data = FolderCreateSchema(**data)
-        folder_name = schema_data.name
-        parent_path = schema_data.parent_path
-        product_id = schema_data.product_id
-    except Exception as e:
-        return jsonify({"error": f"Validation error: {str(e)}"}), 400
+
+    folder_name = validated_data.name
+    parent_path = validated_data.parent_path
+    product_id = validated_data.product_id
 
     success, error, folder_data = file_service.create_folder(folder_name, parent_path, product_id)
     if not success:

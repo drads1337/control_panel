@@ -110,12 +110,22 @@ def get_refcodes(current_user, project_id=None):
         logger.error(f"Error getting referral codes: {str(e)}", exc_info=True)
         return jsonify({"error": "Failed to get referral codes"}), 500
 
+@validate_request(ReferralCodeCreateSchema)
 @referral_codes_bp.route("/refcodes", methods=["POST"])
 @jwt_required()
 @require_user
 @require_role(RolePermissions.ADMIN_ROLES)
-def create_refcode(current_user, project_id=None):
+def create_refcode(current_user, project_id=None, validated_data=None):
     """Create a new referral code"""
+    if not validated_data:
+        return jsonify({"error": "No data provided"}), 400
+
+    code = validated_data.code.strip() if validated_data.code else None
+    token_balance = validated_data.token_balance
+    work_duration_days = validated_data.work_duration_days
+    product_ids = validated_data.product_ids
+    rbac_role_ids = validated_data.rbac_role_ids
+    expires_days = validated_data.expires_days or validated_data.expires_in_days or 90
     try:
 
         if project_id is None:
@@ -124,21 +134,6 @@ def create_refcode(current_user, project_id=None):
         if not project_id:
             return jsonify({"error": "Project ID is required"}), 400
 
-        # Note: This endpoint will be migrated to use validate_request in next iteration
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-        
-        try:
-            schema_data = ReferralCodeCreateSchema(**data)
-            code = schema_data.code.strip() if schema_data.code else None
-            token_balance = schema_data.token_balance
-            work_duration_days = schema_data.work_duration_days
-            product_ids = schema_data.product_ids
-            rbac_role_ids = schema_data.rbac_role_ids
-            expires_days = schema_data.expires_days or schema_data.expires_in_days or 90
-        except Exception as e:
-            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
         from datetime import datetime, timedelta
         import secrets

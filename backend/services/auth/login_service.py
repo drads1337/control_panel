@@ -337,9 +337,8 @@ class LoginService:
             session_id: Session identifier
         """
         try:
-            from ...services.webhooks import get_webhook_service
-
-            webhook_service = get_webhook_service()
+            # Use ServiceContainer to avoid circular imports
+            webhook_service = get_service('webhook_service')
 
             from ...utils.rbac_utils import RBACManager
             from ...utils.role_constants import UserRoles
