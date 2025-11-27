@@ -14,9 +14,11 @@ from ...middleware.auth import enforce_project_scope, require_project_with_grace
 from ...middleware.validation import validate_request
 from ...models import Product, User
 from ...models.agents import AgentProductAssignment
+from ...models.core import UserProductPermission
 from ...schemas.product import ProductCreateSchema, ProductStatusUpdateSchema, ProductUpdateSchema
 from ...utils.service_helpers import get_service
 from ...utils.rbac_utils import RBACManager
+from sqlalchemy.orm import joinedload
 
 management_bp = Blueprint("products_management", __name__)
 
@@ -607,3 +609,62 @@ def delete_product(product_identifier):
 
         current_app.logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": f"Failed to delete product: {str(e)}"}), 500
+
+@management_bp.route("/<product_identifier>/classic-users", methods=["GET"])
+@jwt_required()
+@require_project_with_grace_period
+@require_project_isolation
+def get_classic_users_for_product(product_identifier, current_user=None):
+    """
+    Get users who have permissions for a specific product.
+    
+    Replaces legacy endpoint: GET /api/clients/<product_id>/classic-users
+    """
+    from ...services.rbac import rbac_service
+    
+    user_id = get_jwt_identity()
+    user = current_user or User.query.get(user_id)
+
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    if not user.project_id:
+        return jsonify({"error": "User must be assigned to a project"}), 403
+
+    product = find_product_by_id_or_unique_id(product_identifier, user.project_id)
+    if not product:
+        return jsonify({"error": "Product not found"}), 404
+
+    can_view_all = rbac_service.check_permission(user.id, "clients.view")
+    if not can_view_all and product.project_id != user.project_id:
+        return jsonify({"error": "Access denied"}), 403
+
+    try:
+        user_permissions = (
+            UserProductPermission.query.filter_by(product_id=product.id, project_id=product.project_id)
+            .options(joinedload(UserProductPermission.user))
+            .all()
+        )
+
+        users = []
+        for permission in user_permissions:
+            user_obj = permission.user
+
+            if not user_obj or not user_obj.project_id or user_obj.project_id != user.project_id:
+                continue
+
+            users.append(
+                {
+                    "id": user_obj.unique_id,
+                    "username": user_obj.username,
+                    "has_access": permission.has_access,
+                    "can_generate_keys": permission.can_generate_keys,
+                }
+            )
+
+        return jsonify({"users": users, "product_id": product.id, "product_name": product.name})
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error getting classic users for product: {str(e)}", exc_info=True)
+        return jsonify({"error": "Failed to get users for product"}), 500

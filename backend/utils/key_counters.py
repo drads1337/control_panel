@@ -1,13 +1,9 @@
 """
 Utility functions for maintaining denormalized key counters in User model.
-These functions update the total_keys and active_keys fields when keys are created,
-deleted, or their status changes.
+These functions recalculate counters by querying the Key table directly.
 
-DEPRECATED: The increment_* and decrement_* functions are deprecated due to race conditions.
-Use CachedStatisticsService instead, which uses cached COUNT queries for better data consistency.
-
-For migration, use:
-- CachedStatisticsService.invalidate_on_key_change(user_id, project_id) instead of increment_user_key_counters/decrement_user_key_counters
+NOTE: For cache invalidation when keys change, use CachedStatisticsService.invalidate_on_key_change()
+instead of manually updating counters. This prevents race conditions and ensures data consistency.
 
 See: backend/services/statistics/cached_statistics_service.py
 """
@@ -46,76 +42,6 @@ def update_user_key_counters(user_id: Optional[int], project_id: Optional[int] =
 
     user.total_keys = total_keys
     user.active_keys = active_keys
-
-    db.session.flush()
-
-def increment_user_key_counters(user_id: Optional[int], is_active: bool = True):
-    """
-    DEPRECATED: This function is deprecated due to race conditions.
-    Use CachedStatisticsService.invalidate_on_key_change() instead.
-    
-    Increment key counters when a new key is created.
-
-    Args:
-        user_id: ID of the user who owns the key
-        is_active: Whether the new key is active (status == 1)
-    
-    Deprecated:
-        This function causes race conditions under high concurrency.
-        Use CachedStatisticsService.invalidate_on_key_change(user_id, project_id) instead.
-    """
-    import warnings
-    warnings.warn(
-        "increment_user_key_counters is deprecated. "
-        "Use CachedStatisticsService.invalidate_on_key_change() instead.",
-        DeprecationWarning,
-        stacklevel=2
-    )
-    if not user_id:
-        return
-
-    user = User.query.get(user_id)
-    if not user:
-        return
-
-    user.total_keys = (user.total_keys or 0) + 1
-    if is_active:
-        user.active_keys = (user.active_keys or 0) + 1
-
-    db.session.flush()
-
-def decrement_user_key_counters(user_id: Optional[int], was_active: bool = True):
-    """
-    DEPRECATED: This function is deprecated due to race conditions.
-    Use CachedStatisticsService.invalidate_on_key_change() instead.
-    
-    Decrement key counters when a key is deleted.
-
-    Args:
-        user_id: ID of the user who owned the key
-        was_active: Whether the deleted key was active (status == 1)
-    
-    Deprecated:
-        This function causes race conditions under high concurrency.
-        Use CachedStatisticsService.invalidate_on_key_change(user_id, project_id) instead.
-    """
-    import warnings
-    warnings.warn(
-        "decrement_user_key_counters is deprecated. "
-        "Use CachedStatisticsService.invalidate_on_key_change() instead.",
-        DeprecationWarning,
-        stacklevel=2
-    )
-    if not user_id:
-        return
-
-    user = User.query.get(user_id)
-    if not user:
-        return
-
-    user.total_keys = max(0, (user.total_keys or 0) - 1)
-    if was_active:
-        user.active_keys = max(0, (user.active_keys or 0) - 1)
 
     db.session.flush()
 

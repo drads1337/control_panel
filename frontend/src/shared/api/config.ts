@@ -46,11 +46,6 @@ export const API_ENDPOINTS = {
   AGENTS: '/api/agents',
   AGENTS_AVAILABLE_PRODUCTS: '/api/agents/available-products',
   AGENTS_STATS: '/api/agents/stats',
-  
-  // DEPRECATED: Backward compatibility endpoint
-  // Migration plan: See backend/docs/API_MIGRATION_PLAN.md
-  // TODO: Remove after migration period
-  PRODUCTS_CLASSIC_USERS: '/api/clients',
 
   KEYS: '/api/keys',
   KEYS_CUSTOM: '/api/keys/custom',

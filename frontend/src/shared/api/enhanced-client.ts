@@ -477,7 +477,7 @@ enhancedApi.interceptors.request.use(
     
     // Log requests to problematic endpoints
     const isRbacPermissionsEndpoint = url.includes('/api/rbac/users/') && url.includes('/permissions')
-    const isClientsProductsEndpoint = url.includes('/api/clients/') && url.includes('/products')
+    const isClientsProductsEndpoint = url.includes('/api/users/') && url.includes('/products')
     
     if (isRbacPermissionsEndpoint || isClientsProductsEndpoint) {
       const userIdMatch = url.match(/\/(\d+)\/(?:permissions|products)/)
@@ -536,7 +536,7 @@ enhancedApi.interceptors.response.use(
   (response) => {
     const url = response.config?.url || ''
     const isRbacPermissionsEndpoint = url.includes('/api/rbac/users/') && url.includes('/permissions')
-    const isClientsProductsEndpoint = url.includes('/api/clients/') && url.includes('/products')
+    const isClientsProductsEndpoint = url.includes('/api/users/') && url.includes('/products')
     
     if (isRbacPermissionsEndpoint || isClientsProductsEndpoint) {
       const userIdMatch = url.match(/\/(\d+)\/(?:permissions|products)/)
@@ -549,7 +549,7 @@ enhancedApi.interceptors.response.use(
   (error) => {
     const url = error.config?.url || ''
     const isRbacPermissionsEndpoint = url.includes('/api/rbac/users/') && url.includes('/permissions')
-    const isClientsProductsEndpoint = url.includes('/api/clients/') && url.includes('/products')
+    const isClientsProductsEndpoint = url.includes('/api/users/') && url.includes('/products')
     
     if (isRbacPermissionsEndpoint || isClientsProductsEndpoint) {
       const userIdMatch = url.match(/\/(\d+)\/(?:permissions|products)/)

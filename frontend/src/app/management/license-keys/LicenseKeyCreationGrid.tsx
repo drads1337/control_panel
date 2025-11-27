@@ -38,7 +38,7 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ product
   const loadUserProductAccess = async () => {
     if (!user?.id) return;
 
-    const url = `/api/clients/${user.id}/products`
+    const url = `/api/users/${user.id}/products`
 
     try {
       setProductAccessLoading(true);

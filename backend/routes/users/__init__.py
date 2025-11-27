@@ -17,6 +17,7 @@ from .balance import balance_bp
 from .clients import clients_user_bp
 from .management import management_bp
 from .profile import profile_bp
+from .products import products_bp
 from .referral_codes import referral_codes_bp
 from .tokens import tokens_bp
 
@@ -28,5 +29,6 @@ users_bp.register_blueprint(balance_bp, url_prefix="/balance")
 users_bp.register_blueprint(tokens_bp)
 users_bp.register_blueprint(referral_codes_bp)
 users_bp.register_blueprint(clients_user_bp)
+users_bp.register_blueprint(products_bp)
 
 __all__ = ["users_bp"]

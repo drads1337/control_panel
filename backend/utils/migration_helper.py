@@ -1,9 +1,11 @@
 """
 Migration Helper
-Utilities to help migrate from deprecated counter functions to CachedStatisticsService.
+Utilities to help identify any remaining usages of removed counter functions.
 
-This module provides helper functions and scripts to identify and replace
-old counter increment/decrement calls with the new CachedStatisticsService approach.
+NOTE: Deprecated increment/decrement counter functions have been removed.
+All code should now use CachedStatisticsService.invalidate_on_*_change() methods.
+
+This helper can still be used to verify no legacy code remains.
 """
 
 import re
@@ -13,7 +15,10 @@ from pathlib import Path
 
 def find_deprecated_counter_usage(codebase_path: str = "backend") -> List[Tuple[str, int, str]]:
     """
-    Find all usages of deprecated counter functions in the codebase.
+    Find any remaining usages of removed counter functions in the codebase.
+    
+    These functions have been removed due to race conditions. If any are found,
+    they should be replaced with CachedStatisticsService.invalidate_on_*_change().
     
     Args:
         codebase_path: Root path of the codebase to search
@@ -21,7 +26,8 @@ def find_deprecated_counter_usage(codebase_path: str = "backend") -> List[Tuple[
     Returns:
         List of tuples: (file_path, line_number, function_name)
     """
-    deprecated_functions = [
+    # These functions have been REMOVED - any usage is an error
+    removed_functions = [
         "increment_project_user_counters",
         "decrement_project_user_counters",
         "increment_project_key_counters",
@@ -40,7 +46,7 @@ def find_deprecated_counter_usage(codebase_path: str = "backend") -> List[Tuple[
     # Pattern to match function calls (but not definitions)
     call_patterns = {
         func: re.compile(rf"\b{func}\s*\(")
-        for func in deprecated_functions
+        for func in removed_functions
     }
     
     # Search Python files
@@ -72,9 +78,9 @@ def generate_migration_suggestions(usage: List[Tuple[str, int, str]]) -> str:
         Formatted string with migration suggestions
     """
     if not usage:
-        return "✅ No deprecated counter functions found in the codebase!"
+        return "✅ No removed counter functions found in the codebase! Migration complete."
     
-    suggestions = ["\n🔍 Found deprecated counter function usages:\n"]
+    suggestions = ["\n⚠️  ERROR: Found usages of REMOVED counter functions:\n"]
     
     # Group by file
     by_file = {}
@@ -92,11 +98,12 @@ def generate_migration_suggestions(usage: List[Tuple[str, int, str]]) -> str:
                 f" → Use {replacement} instead"
             )
     
-    suggestions.append("\n📝 Migration guide:")
+    suggestions.append("\n📝 Fix guide:")
     suggestions.append("  1. Import: from backend.services.statistics import cached_statistics_service")
     suggestions.append("  2. Replace increment_* with: cached_statistics_service.invalidate_on_*_change()")
     suggestions.append("  3. Replace decrement_* with: cached_statistics_service.invalidate_on_*_change()")
     suggestions.append("  4. The cache invalidation triggers recalculation on next access")
+    suggestions.append("\n⚠️  These functions have been REMOVED due to race conditions.")
     
     return "\n".join(suggestions)
 
@@ -119,8 +126,11 @@ def _get_replacement_function(deprecated_func: str) -> str:
 
 
 if __name__ == "__main__":
-    """Run migration helper to find deprecated usages."""
-    print("🔍 Scanning codebase for deprecated counter functions...")
+    """Run migration helper to find any remaining usages of removed functions."""
+    print("🔍 Scanning codebase for removed counter functions...")
     usages = find_deprecated_counter_usage()
-    print(generate_migration_suggestions(usages))
+    result = generate_migration_suggestions(usages)
+    print(result)
+    if usages:
+        exit(1)  # Exit with error if any found
 

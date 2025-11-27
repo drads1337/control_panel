@@ -182,7 +182,7 @@ export function useEditUserDialog(user: User | null, open: boolean, onSuccess: (
       return [];
     }
     
-    const url = `/api/clients/${numericUserId}/products`
+    const url = `/api/users/${numericUserId}/products`
 
     try {
       const response = await enhancedApi.get(url)
@@ -419,7 +419,7 @@ export function useEditUserDialog(user: User | null, open: boolean, onSuccess: (
             if (!productIdStr || productIdStr === 'undefined' || productIdStr === 'null') {
               continue;
             }
-            await enhancedApi.post(`/api/clients/${numericUserId}/products/${productIdStr}/toggle`);
+            await enhancedApi.post(`/api/users/${numericUserId}/products/${productIdStr}/toggle`);
           } catch (error) {
           }
         }
@@ -430,7 +430,7 @@ export function useEditUserDialog(user: User | null, open: boolean, onSuccess: (
             if (!productIdStr || productIdStr === 'undefined' || productIdStr === 'null') {
               continue;
             }
-            await enhancedApi.post(`/api/clients/${numericUserId}/products/${productIdStr}/toggle`);
+            await enhancedApi.post(`/api/users/${numericUserId}/products/${productIdStr}/toggle`);
           } catch (error) {
           }
         }

@@ -16,11 +16,17 @@ The project is in a transition period from old terminology to new terminology:
 - `/api/products` - Product management (replaces `/api/clients`)
 - `/api/agents` - Agent management (replaces `/api/loaders`)
 
-#### Legacy Endpoints (Deprecated)
+#### Legacy Endpoints (Removed & Migrated)
 - `/api/clients` - Legacy client management endpoint
-  - **Status**: DEPRECATED
-  - **Migration Target**: Use `/api/products` instead
-  - **Removal Date**: TBD (after frontend migration complete)
+  - **Status**: ✅ **FULLY MIGRATED** - Backend and frontend migrated
+  - **Migration Target**: 
+    - `GET /api/clients` → `GET /api/users/clients`
+    - `GET /api/clients/<user_id>/products` → `GET /api/users/<user_id>/products`
+    - `POST /api/clients/<user_id>/products/<product_id>/toggle` → `POST /api/users/<user_id>/products/<product_id>/toggle`
+    - `GET /api/clients/<product_id>/classic-users` → `GET /api/products/<product_id>/classic-users`
+  - **Removal Date**: Current release
+  - **Migration Status**: ✅ Complete
+  - **Details**: See `backend/docs/BREAKING_CHANGES.md`
 
 ### Migration Plan
 
