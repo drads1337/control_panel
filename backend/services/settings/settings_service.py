@@ -17,10 +17,6 @@ from typing import Any, Dict, Optional
 from .settings_manager import SettingsManager
 from .settings_repository import SettingsRepository
 
-try:
-except ImportError:
-    cache_service = None
-
 logger = logging.getLogger(__name__)
 
 

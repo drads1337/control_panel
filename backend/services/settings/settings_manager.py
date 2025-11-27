@@ -13,11 +13,6 @@ from ...models.core import User
 from ...utils.rbac_utils import RBACManager
 from ...utils.service_exceptions import BusinessLogicError
 from ...utils.service_helpers import get_service
-
-try:
-except ImportError:
-    cache_service = None
-
 from .settings_repository import SettingsRepository
 
 logger = logging.getLogger(__name__)
@@ -38,7 +33,12 @@ class SettingsManager:
     @property
     def _cache_service(self):
         """Get cache service instance"""
-        return self.cache_service if self.cache_service is not None else cache_service
+        if self.cache_service is not None:
+            return self.cache_service
+        try:
+            return get_service('cache_service')
+        except Exception:
+            return None
 
     def resolve_project_id(
         self, user: User, project_id: Optional[int] = None

@@ -3,8 +3,8 @@ Products services package
 Contains business logic for product management
 """
 
-from .product_service import ProductService, product_service
-from .price_calculation_service import PriceCalculationService, price_calculation_service
+from .product_service import ProductService
+from .price_calculation_service import PriceCalculationService
 
 import sys
 _current_module = sys.modules[__name__]

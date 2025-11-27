@@ -478,8 +478,6 @@ class ProductService:
 
                 can_view_all = user and (
                     RBACManager.is_owner(user)
-                    rbac_service = get_service('rbac_service')
-                    rbac_service = get_service('rbac_service')
                     or rbac_service.check_permission(user.id, "products.view")
                 )
                 if can_view_all and RBACManager.is_owner(user):

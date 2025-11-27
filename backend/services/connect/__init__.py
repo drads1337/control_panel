@@ -8,7 +8,7 @@ Refactored to follow Single Responsibility Principle
 from .analytics_tracker import AnalyticsTracker
 from .challenge_validation_service import ChallengeValidationService
 from .connect_orchestrator import ConnectOrchestrator
-from .connect_service import connect_service
+from .connect_service import ConnectService
 from .decryption_service import DecryptionService
 from .device_manager import DeviceManager
 from .key_lookup_service import KeyLookupService

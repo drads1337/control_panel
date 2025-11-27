@@ -39,7 +39,6 @@ class AnalyticsTracker:
             # HyperLogLog is used for efficient unique device counting
             analytics_buffer_service = get_service('analytics_buffer_service')
             success = analytics_buffer_service.buffer_key_analytics_update(
-                analytics_buffer_service = get_service('analytics_buffer_service')
                 key_id=key_id,
                 product=product,
                 ip_address=ip_address,
@@ -223,8 +222,6 @@ class AnalyticsTracker:
             ip: IP address
         """
         try:
-            activity_service = get_service('activity_service')
-            activity_service = get_service('activity_service')
             activity_service = get_service('activity_service')
             activity_service.log_activity(user, action, details=details, ip=ip)
         except Exception as e:

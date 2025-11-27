@@ -3,7 +3,7 @@ Tasks services package
 Contains business logic for task management
 """
 
-from .task_service import TaskService, task_service
+from .task_service import TaskService
 
 import sys
 _current_module = sys.modules[__name__]

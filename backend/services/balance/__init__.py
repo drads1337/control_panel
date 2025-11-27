@@ -3,7 +3,7 @@ Balance services package
 Contains business logic for balance management
 """
 
-from .balance_service import BalanceService, balance_service
+from .balance_service import BalanceService
 
 import sys
 _current_module = sys.modules[__name__]

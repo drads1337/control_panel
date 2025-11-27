@@ -19,6 +19,7 @@ from ...core.extensions import db
 from ...models.core import User
 from ...models.security import TwoFactorAuth, TwoFactorBackupCode, TwoFactorSession
 from ...utils.service_helpers import get_service
+from ...utils.service_helpers import get_service
 
 class TwoFactorService:
     """Service for managing two-factor authentication"""
@@ -149,7 +150,6 @@ class TwoFactorService:
 
             activity_service = get_service('activity_service')
             activity_service.log_activity(
-                activity_service = get_service('activity_service')
                 user,
                 "2fa_enabled",
                 details="Two-factor authentication enabled",
@@ -176,6 +176,7 @@ class TwoFactorService:
 
         db.session.commit()
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "2fa_disabled",
@@ -309,6 +310,7 @@ class TwoFactorService:
 
         db.session.commit()
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "2fa_backup_codes_regenerated",

@@ -13,6 +13,7 @@ from typing import Any, Dict, List
 
 from ...core.extensions import db
 from ...models.security import SecurityRule
+from ...utils.service_helpers import get_service
 from .security_types import SecurityContext
 
 
@@ -50,9 +51,9 @@ class SecurityRulesService:
         for rule in rules:
             try:
                 if self._evaluate_rule(rule, context):
-                    # Import here to avoid circular dependency
-                    from .security_audit_service import security_audit_service
-                    from .security_monitoring_service import security_monitoring_service
+                    # Get services via DI to avoid circular dependency
+                    security_audit_service = get_service('security_audit_service')
+                    security_monitoring_service = get_service('security_monitoring_service')
                     
                     action_result = self._execute_rule_action(rule, context, security_audit_service, security_monitoring_service)
                     triggered_rules.append(
@@ -204,8 +205,8 @@ class SecurityRulesService:
 
             if "min_threat_score" in conditions:
                 min_score = conditions["min_threat_score"]
-                # Import here to avoid circular dependency
-                from .security_monitoring_service import security_monitoring_service
+                # Get service via DI to avoid circular dependency
+                security_monitoring_service = get_service('security_monitoring_service')
                 threat_assessment = security_monitoring_service.assess_threat(context)
                 if threat_assessment.score >= min_score:
                     return True
@@ -345,14 +346,14 @@ class SecurityRulesService:
         """Evaluate threat score conditions for auto-blocking suspicious IPs"""
         try:
             min_threat_score = conditions.get("min_threat_score", 70)
-            # Import here to avoid circular dependency
-            from .security_monitoring_service import security_monitoring_service
+            # Get services via DI to avoid circular dependency
+            security_monitoring_service = get_service('security_monitoring_service')
             threat_assessment = security_monitoring_service.assess_threat(context)
             
             if threat_assessment.score >= min_threat_score:
                 # Auto-block IP if threat score is high
                 from ...models.security import BlockedIP
-                from .security_audit_service import security_audit_service
+                security_audit_service = get_service('security_audit_service')
                 
                 existing_block = BlockedIP.query.filter_by(
                     ip_address=context.ip_address,
@@ -396,8 +397,8 @@ class SecurityRulesService:
         """Evaluate VPN detection conditions"""
         try:
             from ...utils.vpn_detection import vpn_detector
-            from .security_monitoring_service import security_monitoring_service
-            from .security_audit_service import security_audit_service
+            security_monitoring_service = get_service('security_monitoring_service')
+            security_audit_service = get_service('security_audit_service')
             
             check_vpn = conditions.get("check_vpn", True)
             if not check_vpn:

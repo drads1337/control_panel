@@ -12,6 +12,7 @@ from ...core.extensions import db, redis_ext
 from ...models.core import User
 from ...config.config import Config
 from ...utils.validators import AuthValidator
+from ...utils.service_helpers import get_service
 
 logger = logging.getLogger(__name__)
 
@@ -173,8 +174,8 @@ class PasswordResetService:
                 frontend_url = Config.FRONTEND_URL
                 reset_url = f"{frontend_url}/reset-password?token={token}"
                 
+                email_service = get_service('email_service')
                 email_service.send_email(
-                    email_service = get_service('email_service')
                     to_email=user.email,
                     subject="Password Reset Request",
                     html_body=f"""

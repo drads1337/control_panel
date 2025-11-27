@@ -3,7 +3,7 @@ Dynamic config services package
 Contains business logic for dynamic configuration
 """
 
-from .dynamic_config_service import DynamicConfigService, dynamic_config_service
+from .dynamic_config_service import DynamicConfigService
 
 import sys
 _current_module = sys.modules[__name__]

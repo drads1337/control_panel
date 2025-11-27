@@ -214,7 +214,6 @@ class ChallengeValidationService:
 
             challenge_service = get_service('challenge_service')
             is_valid, validation_message = challenge_service.validate_challenge_response(
-                challenge_service = get_service('challenge_service')
                 challenge_data, response_data, user_key, fingerprint
             )
 

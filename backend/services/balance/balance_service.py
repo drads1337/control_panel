@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from ...core.extensions import db
 from ...models.core import User
 from ...models.keys import TokenTransaction
+from ...utils.service_helpers import get_service
 
 class BalanceService:
     """Service for handling balance management operations"""
@@ -58,9 +59,7 @@ class BalanceService:
             
             is_owner = RBACManager.is_owner(current_user)
             is_admin = RBACManager.is_admin(current_user)
-            rbac_service = get_service('rbac_service')
             has_billing_permission = rbac_service.check_permission(
-                rbac_service = get_service('rbac_service')
                 current_user.id, "billing.top_up_balance"
             ) or rbac_service.check_permission(
                 current_user.id, "billing.deduct_balance"
@@ -102,7 +101,6 @@ class BalanceService:
             db.session.add(transaction)
             db.session.commit()
 
-            activity_service = get_service('activity_service')
             activity_service = get_service('activity_service')
             activity_service.log_activity(
                 current_user,
@@ -180,6 +178,7 @@ class BalanceService:
                 db.session.commit()
 
             if commit:
+                activity_service = get_service('activity_service')
                 activity_service.log_activity(
                     current_user,
                     "deduct_balance",

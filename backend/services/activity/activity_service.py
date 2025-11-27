@@ -99,8 +99,8 @@ class ActivityService:
 
             # Default: use buffering to reduce database write pressure
             try:
+                analytics_buffer_service = get_service('analytics_buffer_service')
                 success = analytics_buffer_service.buffer_user_activity(
-                    analytics_buffer_service = get_service('analytics_buffer_service')
                     user_id=user.id,
                     action=action,
                     ip=ip,

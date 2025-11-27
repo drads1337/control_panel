@@ -15,6 +15,7 @@ from ...models.products import Product
 from ...models.keys import Key, ReferralCode
 from ...models.rbac import Role, UserRole
 from ...utils.rbac_utils import RBACManager
+from ...utils.service_helpers import get_service
 
 class AdminService:
     """Service for handling administrative operations"""
@@ -55,8 +56,8 @@ class AdminService:
                 deactivated_count += 1
 
                 try:
+                    activity_service = get_service('activity_service')
                     activity_service.log_activity(
-                        activity_service = get_service('activity_service')
                         admin_user,
                         "project_deactivated",
                         details=f"Project {project.name} deactivated due to expired subscription",
@@ -119,6 +120,7 @@ class AdminService:
                     deleted_project_names.append(project_name)
 
                     try:
+                        activity_service = get_service('activity_service')
                         activity_service.log_activity(
                             admin_user,
                             "project_deleted",
@@ -262,7 +264,8 @@ class AdminService:
                 Project.status.in_(["active", "expired"]),
             ).all()
 
-            from ...services.projects import project_relationships_service
+            from ...utils.service_helpers import get_service
+            project_relationships_service = get_service('project_relationships_service')
 
             projects_info = []
             for project in expired_projects:
@@ -325,6 +328,7 @@ class AdminService:
             db.session.commit()
 
             try:
+                activity_service = get_service('activity_service')
                 activity_service.log_activity(
                     admin_user,
                     "project_suspended",
@@ -384,6 +388,7 @@ class AdminService:
             db.session.commit()
 
             try:
+                activity_service = get_service('activity_service')
                 activity_service.log_activity(
                     admin_user,
                     "project_reactivated",

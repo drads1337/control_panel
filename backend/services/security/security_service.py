@@ -13,9 +13,7 @@ import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from .security_audit_service import security_audit_service
-from .security_monitoring_service import security_monitoring_service
-from .security_rules_service import security_rules_service
+from ...utils.service_helpers import get_service
 from .security_types import SecurityContext, ThreatAssessment
 
 if TYPE_CHECKING:
@@ -38,6 +36,7 @@ class SecurityService:
         
         Delegates to SecurityMonitoringService (SRP principle).
         """
+        security_monitoring_service = get_service('security_monitoring_service')
         return security_monitoring_service.assess_threat(context)
     def create_enhanced_block(
         self,
@@ -54,6 +53,7 @@ class SecurityService:
         
         Delegates to SecurityAuditService (SRP principle).
         """
+        security_audit_service = get_service('security_audit_service')
         return security_audit_service.create_enhanced_block(
             context, reason, block_type, severity, threat_score, expires_at, blocked_by_user_id
         )
@@ -64,6 +64,7 @@ class SecurityService:
         
         Delegates to SecurityRulesService (SRP principle).
         """
+        security_rules_service = get_service('security_rules_service')
         return security_rules_service.check_automated_rules(context)
     def get_security_analytics(self, project_id: int, days: int = 30) -> Dict[str, Any]:
         """
@@ -71,6 +72,7 @@ class SecurityService:
         
         Delegates to SecurityMonitoringService (SRP principle).
         """
+        security_monitoring_service = get_service('security_monitoring_service')
         return security_monitoring_service.get_security_analytics(project_id, days)
     def is_ip_blocked(self, ip_address: str, project_id: int) -> bool:
         """
@@ -85,6 +87,7 @@ class SecurityService:
         Returns:
             True if IP is blocked, False otherwise
         """
+        security_audit_service = get_service('security_audit_service')
         return security_audit_service.is_ip_blocked(ip_address, project_id)
     def check_session_limit(self, user_id: int, project_id: int) -> bool:
         """
@@ -99,6 +102,7 @@ class SecurityService:
         Returns:
             True if session limit exceeded, False otherwise
         """
+        security_audit_service = get_service('security_audit_service')
         return security_audit_service.check_session_limit(user_id, project_id)
     def record_login_attempt(
         self,
@@ -120,12 +124,7 @@ class SecurityService:
             project_id: Project ID
             user_agent: Client user agent string
         """
+        security_monitoring_service = get_service('security_monitoring_service')
         return security_monitoring_service.record_login_attempt(
             ip_address, username, success, project_id, user_agent
         )
-
-
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   security_service = get_service('security_service')

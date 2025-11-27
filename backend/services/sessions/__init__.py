@@ -3,7 +3,7 @@ Sessions services package
 Contains business logic for session management
 """
 
-from .session_service import SessionService, session_service
+from .session_service import SessionService
 
 import sys
 _current_module = sys.modules[__name__]

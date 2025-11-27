@@ -3,7 +3,7 @@ Notifications services package
 Contains business logic for notification management
 """
 
-from .notification_service import NotificationService, notification_service
+from .notification_service import NotificationService
 
 import sys
 _current_module = sys.modules[__name__]

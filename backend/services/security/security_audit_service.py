@@ -14,6 +14,7 @@ from typing import Optional
 from ...core.extensions import db
 from ...models.security import BlockedFingerprint, BlockedIP, LoginAttempt
 from ...utils.ip_utils import get_location_from_ip
+from ...utils.service_helpers import get_service
 from .security_types import SecurityContext
 
 
@@ -120,7 +121,6 @@ class SecurityAuditService:
                 # Log security event
                 security_monitoring_service = get_service('security_monitoring_service')
                 security_monitoring_service.log_security_event(
-                    security_monitoring_service = get_service('security_monitoring_service')
                     event_type="fingerprint_blocked",
                     context=context,
                     description=f"Fingerprint blocked: {reason}",
@@ -265,11 +265,9 @@ class SecurityAuditService:
                     )
                     db.session.add(blocked_ip)
                     
-                    security_rules_service = get_service('security_rules_service')
                     # Update trigger count for "Failed Login Protection" rule
                     security_rules_service = get_service('security_rules_service')
                     security_rules_service._update_rule_trigger("Failed Login Protection", project_id)
-                    security_rules_service = get_service('security_rules_service')
                     
                     db.session.commit()
                     self.logger.warning(

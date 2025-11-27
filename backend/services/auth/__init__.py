@@ -4,18 +4,15 @@ Contains business logic for authentication and challenges
 """
 
 from .auth_service import AuthService
-from .auth_token_service import AuthTokenService, auth_token_service
-from .login_service import LoginService, login_service
+from .auth_token_service import AuthTokenService
+from .login_service import LoginService
 from .challenge_service import ChallengeService
-from .password_reset_service import PasswordResetService, password_reset_service
+from .password_reset_service import PasswordResetService
 
 __all__ = [
     "AuthService", 
     "AuthTokenService", 
-    "auth_token_service", 
     "LoginService", 
-    "login_service", 
     "ChallengeService",
-    "PasswordResetService",
-    "password_reset_service"
+    "PasswordResetService"
 ]

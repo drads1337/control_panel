@@ -263,9 +263,17 @@ def init_services(app):
     from ..services.auth.auth_service import AuthService
     container.register('auth_service', lambda: AuthService(), scope=ServiceScope.SINGLETON)
     
-    # Register security service (singleton - stateless)
+    # Register security services (singleton - stateless)
     from ..services.security.security_service import SecurityService
+    from ..services.security.security_audit_service import SecurityAuditService
+    from ..services.security.security_monitoring_service import SecurityMonitoringService
+    from ..services.security.security_rules_service import SecurityRulesService
+    from ..services.security.security_rules_init import SecurityRulesInitService
     container.register('security_service', lambda: SecurityService(), scope=ServiceScope.SINGLETON)
+    container.register('security_audit_service', lambda: SecurityAuditService(), scope=ServiceScope.SINGLETON)
+    container.register('security_monitoring_service', lambda: SecurityMonitoringService(), scope=ServiceScope.SINGLETON)
+    container.register('security_rules_service', lambda: SecurityRulesService(), scope=ServiceScope.SINGLETON)
+    container.register('security_rules_init_service', lambda: SecurityRulesInitService(), scope=ServiceScope.SINGLETON)
     
     # Register settings services (singleton - stateless)
     from ..services.settings.settings_repository import SettingsRepository
@@ -392,7 +400,11 @@ def init_services(app):
     
     # Register auth services (singleton - stateless)
     from ..services.auth.challenge_service import ChallengeService
+    from ..services.auth.login_service import LoginService
+    from ..services.auth.auth_token_service import AuthTokenService
     container.register('challenge_service', lambda: ChallengeService(), scope=ServiceScope.SINGLETON)
+    container.register('login_service', lambda: LoginService(), scope=ServiceScope.SINGLETON)
+    container.register('auth_token_service', lambda: AuthTokenService(), scope=ServiceScope.SINGLETON)
     
     # Register monitoring service (singleton - stateless)
     from ..services.monitoring.prometheus_metrics_reader import PrometheusMetricsReader

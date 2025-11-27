@@ -10,11 +10,10 @@ Architecture:
 
 from .settings_repository import SettingsRepository
 from .settings_manager import SettingsManager
-from .settings_service import SettingsService, settings_service
+from .settings_service import SettingsService
 
 __all__ = [
     "SettingsRepository",
     "SettingsManager",
     "SettingsService",
-    "settings_service",
 ]

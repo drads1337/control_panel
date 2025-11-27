@@ -3,7 +3,7 @@ Cache services package
 Contains business logic for caching operations
 """
 
-from .cache_service import CacheService, cache_service
+from .cache_service import CacheService
 
 import sys
 _current_module = sys.modules[__name__]

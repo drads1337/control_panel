@@ -3,7 +3,7 @@ Files services package
 Contains business logic for file management
 """
 
-from .file_service import FileService, file_service
+from .file_service import FileService
 
 import sys
 _current_module = sys.modules[__name__]

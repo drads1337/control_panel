@@ -3,7 +3,7 @@ Logs services package
 Contains business logic for log cleanup
 """
 
-from .log_cleanup_service import LogCleanupService, log_cleanup_service
+from .log_cleanup_service import LogCleanupService
 
 import sys
 _current_module = sys.modules[__name__]

@@ -3,7 +3,7 @@ Servers services package
 Contains business logic for server management
 """
 
-from .server_service import ServerService, server_service
+from .server_service import ServerService
 
 import sys
 _current_module = sys.modules[__name__]
