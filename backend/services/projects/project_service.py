@@ -1,47 +1,40 @@
 """
 Project Service
-Provides cached access to project data and operations
+Facade service for project operations - delegates to specialized services
+
+Single Responsibility: Provide unified interface for project operations
+This service maintains backward compatibility while delegating to:
+- ProjectCRUDService: CRUD operations
+- ProjectCacheService: Caching operations
+- ProjectInviteService: Invite code management
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
-from sqlalchemy import and_, func
-
-from ...core.extensions import db
-from ...models.core import (
-    Project, ProjectEncryptionKeys, ProjectInviteCode, User, UserActivity,
-    ProjectSecuritySettings, ProjectSystemSettings, ProjectEncryptionSettings,
-    ProjectBackupSettings, ProjectChatSettings, ProjectOfflineAuthSettings,
-    ProjectAppearanceSettings, ProjectInviteSettings, ProjectSettings
-)
-from ...models.products import Product, ProductKeyPrice
-from ...models.keys import Key
-from ...models.servers import Server
-from ...models.project_user import ProjectAdmin, ProjectUserRole
-from ...models.rbac import Role, Permission, UserRole, RolePermission
-from ...models.webhooks import Webhook
-from ...utils.fulltext_search import fulltext_search_filter
-from ...utils.rbac_utils import RBACManager
-from ...utils.role_constants import UserRoles
-from ...utils.service_exceptions import ValidationError, NotFoundError, ConflictError, ServiceError
-from ...services.cache import cache_service
+from ...models.core import Project
+from .project_crud_service import project_crud_service
+from .project_cache_service import project_cache_service
+from .project_invite_service import project_invite_service
 
 class ProjectService:
-    """Service for managing project data with caching"""
+    """
+    Facade service for managing project operations.
+    
+    Single Responsibility: Provide unified interface and maintain backward compatibility.
+    Delegates to specialized services following SRP principle.
+    """
 
     def __init__(self, cache_service=None, logger=None):
-        self.cache_service = cache_service
         self.logger = logger or logging.getLogger(__name__)
-
-    @property
-    def _cache_service(self):
-        """Get cache service instance"""
-        return self.cache_service if self.cache_service is not None else cache_service
+        # Store cache_service for backward compatibility, but use specialized services
+        self.cache_service = cache_service
 
     def _find_project_by_id_or_unique_id(self, project_identifier):
         """
-        Helper function to find a project by either id (int) or unique_id (string)
+        Helper function to find a project by either id (int) or unique_id (string).
+        
+        Delegates to ProjectCRUDService (SRP principle).
         
         Args:
             project_identifier: Either an integer id or string unique_id
@@ -49,391 +42,49 @@ class ProjectService:
         Returns:
             Project object or None if not found
         """
-        # Try as integer id (primary key) first
-        if isinstance(project_identifier, int) or (isinstance(project_identifier, str) and project_identifier.isdigit()):
-            try:
-                project_id_int = int(project_identifier)
-                project = Project.query.get(project_id_int)
-                if project:
-                    return project
-            except (ValueError, TypeError):
-                pass
-        
-        # Try as unique_id (string)
-        project = Project.query.filter_by(unique_id=str(project_identifier)).first()
-        return project
+        return project_crud_service._find_project_by_id_or_unique_id(project_identifier)
 
     def get_projects_cached(
         self, user_id: int, page: int = 1, per_page: int = 20, search: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Get projects with caching support"""
-
-        self.logger.info(
-            f"get_projects_cached called - user_id: {user_id}, page: {page}, "
-            f"per_page: {per_page}, search: {search}"
-        )
-
-        def fetch_projects():
-            """Fetch projects from database"""
-            try:
-                self.logger.info(f"[FETCH] Fetching projects from database for user {user_id}")
-
-                user = User.query.get(user_id)
-                if not user:
-                    self.logger.error(f"[FETCH] User {user_id} not found in database!")
-                    return {
-                        "projects": [],
-                        "total": 0,
-                        "pages": 0,
-                        "current_page": page,
-                        "per_page": per_page,
-                    }
-
-                user_roles_log = RBACManager.get_user_role_names(user)
-                primary_role_log = user_roles_log[0] if user_roles_log else UserRoles.CLIENT.value
-                self.logger.info(
-                    f"[FETCH] User found - id: {user.id}, username: {user.username}, "
-                    f"roles: {user_roles_log}, primary_role: {primary_role_log}, project_id: {user.project_id}"
-                )
-
-                is_owner = RBACManager.is_owner(user)
-
-                self.logger.info(
-                    f"get_projects_cached - user_id: {user_id}, "
-                    f"is_owner: {is_owner}, "
-                    f"user.project_id: {user.project_id}"
-                )
-
-                total_projects_count = Project.query.count()
-                self.logger.info(f"[FETCH] Total projects in database: {total_projects_count}")
-
-                if total_projects_count > 0:
-                    all_projects = Project.query.all()
-                    project_info = [(p.id, p.name, p.status) for p in all_projects]
-                    self.logger.info(f"[FETCH] All projects in DB: {project_info}")
-
-                query = Project.query
-                self.logger.info(f"[FETCH] Starting base query: {query}")
-
-                if not is_owner:
-                    if user.project_id:
-                        self.logger.info(f"[FETCH] User is NOT owner, filtering by project_id: {user.project_id}")
-
-                        project_exists = Project.query.filter(Project.id == user.project_id).first()
-                        if project_exists:
-                            self.logger.info(f"[FETCH] Project {user.project_id} exists: {project_exists.name}")
-                        else:
-                            self.logger.warning(f"[FETCH] Project {user.project_id} does NOT exist in database!")
-                        query = query.filter(Project.id == user.project_id)
-                    else:
-
-                        self.logger.warning(
-                            f"[FETCH] User {user_id} is not owner and has no project_id, "
-                            f"returning empty list"
-                        )
-                        return {
-                            "projects": [],
-                            "total": 0,
-                            "pages": 0,
-                            "current_page": page,
-                            "per_page": per_page,
-                        }
-                else:
-                    # For owners, exclude system project used for owner roles
-                    query = query.filter(Project.name != "__SYSTEM_OWNER_ROLES__")
-                    self.logger.info(f"[FETCH] User is owner, showing all projects except system project")
-
-                if search:
-                    self.logger.info(f"[FETCH] Applying full-text search filter: {search}")
-
-                    query = fulltext_search_filter(query, search, "search_vector")
-
-                self.logger.info("[FETCH] Using denormalized counters from Project model")
-
-                try:
-                    query_count = query.count()
-                    self.logger.info(f"[FETCH] Query count: {query_count}")
-                except Exception as e:
-                    self.logger.error(f"[FETCH] Error counting query: {e}")
-
-                self.logger.info(f"[FETCH] Applying pagination: page={page}, per_page={per_page}")
-                pagination = query.order_by(Project.created_at.desc()).paginate(
-                    page=page, per_page=per_page, error_out=False
-                )
-
-                self.logger.info(
-                    f"[FETCH] Pagination result - total: {pagination.total}, "
-                    f"pages: {pagination.pages}, "
-                    f"items on page: {len(pagination.items)}, "
-                    f"has_next: {pagination.has_next}, "
-                    f"has_prev: {pagination.has_prev}, "
-                    f"search: {search}, "
-                    f"is_owner: {is_owner}, "
-                    f"user.project_id: {user.project_id}"
-                )
-
-                if is_owner and pagination.total == 0:
-                    all_projects = Project.query.all()
-                    self.logger.warning(
-                        f"[FETCH] WARNING: Owner user {user_id} sees 0 projects, "
-                        f"but database has {len(all_projects)} projects: "
-                        f"{[p.id for p in all_projects]}"
-                    )
-
-                if not is_owner and user.project_id and pagination.total == 0:
-                    project_check = Project.query.filter(Project.id == user.project_id).first()
-                    self.logger.warning(
-                        f"[FETCH] WARNING: Non-owner user {user_id} with project_id {user.project_id} "
-                        f"sees 0 projects. Project exists: {project_check is not None}"
-                    )
-
-                projects = []
-                self.logger.info(f"[FETCH] Processing {len(pagination.items)} project items")
-
-                for idx, project in enumerate(pagination.items):
-                    self.logger.info(
-                        f"[FETCH] Processing project {idx+1}/{len(pagination.items)}: "
-                        f"id={project.id}, name={project.name}, status={project.status}"
-                    )
-                    projects.append(
-                        {
-                            "id": project.unique_id,
-                            "name": project.name,
-                            "description": project.description,
-                            "admin_id": project.admin_id,
-                            "created_at": (
-                                project.created_at.isoformat() if project.created_at else None
-                            ),
-                            "status": project.status,
-                            "subscription_status": project.subscription_status,
-                            "subscription_expires_at": (
-                                project.subscription_expires_at.isoformat()
-                                if project.subscription_expires_at
-                                else None
-                            ),
-                            "days_until_expiry": project.days_until_expiry,
-                            "is_active": project.is_active,
-                            "subscription_status_display": project.subscription_status_display,
-                            "storage_limit_gb": project.storage_limit_gb,
-                            "stats": {
-                                "users": project.total_users or 0,
-                                "keys": project.total_keys or 0,
-                                "products": project.total_products or 0,
-                                "servers": project.total_servers or 0,
-                            },
-                        }
-                    )
-
-                result = {
-                    "projects": projects,
-                    "total": pagination.total,
-                    "pages": pagination.pages,
-                    "current_page": page,
-                    "per_page": per_page,
-                }
-
-                self.logger.info(
-                    f"[FETCH] Returning result with {len(projects)} projects, "
-                    f"total: {pagination.total}, pages: {pagination.pages}"
-                )
-
-                return result
-
-            except Exception as e:
-                import traceback
-                self.logger.error(f"[FETCH] ERROR fetching projects: {str(e)}")
-                self.logger.error(f"[FETCH] Traceback: {traceback.format_exc()}")
-                return {
-                    "projects": [],
-                    "total": 0,
-                    "pages": 0,
-                    "current_page": page,
-                    "per_page": per_page,
-                    "error": str(e),
-                }
-
-        cache_key_params = {"user_id": user_id, "page": page, "per_page": per_page}
-
-        if search:
-            cache_key_params["search"] = search
-
-        self.logger.info(f"[CACHE] Cache key params: {cache_key_params}")
-
-        cached_result = self._cache_service.get_or_set(
-            cache_type="projects", fetch_func=fetch_projects, **cache_key_params
-        )
-
-        if cached_result:
-            self.logger.info(
-                f"[CACHE] Cache hit or set - returning {len(cached_result.get('projects', []))} projects"
-            )
-        else:
-            self.logger.warning("[CACHE] Cache returned None, returning empty result")
-
-        return cached_result or {
-            "projects": [],
-            "total": 0,
-            "pages": 0,
-            "current_page": page,
-            "per_page": per_page,
-        }
+        """
+        Get projects with caching support.
+        
+        Delegates to ProjectCacheService (SRP principle).
+        """
+        return project_cache_service.get_projects_cached(user_id, page, per_page, search)
 
     def get_project_cached(self, project_id: int, user_id: int) -> Dict[str, Any]:
-        """Get single project with caching support"""
-
-        def fetch_project():
-            """Fetch single project from database"""
-            try:
-                self.logger.info(f"Fetching project {project_id} from database")
-
-                user = User.query.get(user_id)
-                if not user:
-                    return {"error": "User not found"}
-
-                try:
-                    user_roles = RBACManager.get_user_role_names(user)
-                except Exception as e:
-                    self.logger.error(f"Failed to get RBAC roles for user {user.id}: {e}")
-
-                    user_roles = [UserRoles.CLIENT.value]
-
-                if user.project_id and user.project_id == project_id:
-                    self.logger.info(
-                        f"TEMPORARY FIX: Allowing access for user {user_id} to project {project_id} (matching project_id)"
-                    )
-                else:
-                    self.logger.warning(
-                        f"TEMPORARY FIX: Access denied - user {user_id} project_id {user.project_id} does not match requested project_id {project_id}"
-                    )
-                    return {"error": "Access denied"}
-
-                project = Project.query.get(project_id)
-                if not project:
-                    return {"error": "Project not found"}
-
-                return {
-                    "id": project.unique_id,
-                    "name": project.name,
-                    "description": project.description,
-                    "admin_id": project.admin_id,
-                    "created_at": project.created_at.isoformat() if project.created_at else None,
-                    "status": project.status,
-                    "subscription_status": project.subscription_status,
-                    "subscription_expires_at": (
-                        project.subscription_expires_at.isoformat()
-                        if project.subscription_expires_at
-                        else None
-                    ),
-                    "days_until_expiry": project.days_until_expiry,
-                    "is_active": project.is_active,
-                    "subscription_status_display": project.subscription_status_display,
-                    "storage_limit_gb": project.storage_limit_gb,
-                }
-
-            except Exception as e:
-                self.logger.error(f"Error fetching project {project_id}: {str(e)}")
-                return {"error": f"Failed to retrieve project: {str(e)}"}
-
-        cache_key_params = {"project_id": project_id, "user_id": user_id}
-
-        cached_result = self._cache_service.get_or_set(
-            cache_type="projects", fetch_func=fetch_project, **cache_key_params
-        )
-
-        return cached_result or {"error": "Failed to retrieve project"}
+        """
+        Get single project with caching support.
+        
+        Delegates to ProjectCacheService (SRP principle).
+        """
+        return project_cache_service.get_project_cached(project_id, user_id)
 
     def get_project_stats_cached(self, project_id: int, user_id: int) -> Dict[str, Any]:
-        """Get project statistics with caching support"""
-
-        def fetch_project_stats():
-            """Fetch project statistics from database"""
-            try:
-                self.logger.info(f"Fetching project stats for project {project_id}")
-
-                user = User.query.get(user_id)
-                if not user:
-                    return {"error": "User not found"}
-
-                is_owner = RBACManager.is_owner(user)
-
-                if not is_owner:
-                    if not user.project_id or user.project_id != project_id:
-                        return {"error": "Access denied"}
-
-                project = Project.query.get(project_id)
-                if not project:
-                    return {"error": "Project not found"}
-
-                stats = (
-                    db.session.query(
-                        func.count(User.id).label("total_users"),
-                        func.count(Key.id).label("total_keys"),
-                        func.count(Product.id).label("total_products"),
-                        func.count(Server.id).label("total_servers"),
-                        func.count(func.distinct(User.id))
-                        .filter(User.is_active == True)
-                        .label("active_users"),
-                        func.count(func.distinct(Key.id))
-                        .filter(Key.is_active == True)
-                        .label("active_keys"),
-                    )
-                    .outerjoin(User, User.project_id == project_id)
-                    .outerjoin(Key, Key.project_id == project_id)
-                    .outerjoin(Product, Product.project_id == project_id)
-                    .outerjoin(Server, Server.project_id == project_id)
-                    .first()
-                )
-
-                top_products = (
-                    db.session.query(Product.name, func.count(Key.id).label("key_count"))
-                    .outerjoin(Key, and_(Key.product_id == Product.id, Key.project_id == project_id))
-                    .filter(Product.project_id == project_id)
-                    .group_by(Product.id, Product.name)
-                    .order_by(func.count(Key.id).desc())
-                    .limit(5)
-                    .all()
-                )
-
-                return {
-                    "project_id": project_id,
-                    "stats": {
-                        "total_users": stats.total_users or 0,
-                        "total_keys": stats.total_keys or 0,
-                        "total_products": stats.total_products or 0,
-                        "total_servers": stats.total_servers or 0,
-                        "active_users": stats.active_users or 0,
-                        "active_keys": stats.active_keys or 0,
-                    },
-                    "top_products": [{"product": product, "keys": count} for product, count in top_products],
-                }
-
-            except Exception as e:
-                self.logger.error(f"Error fetching project stats {project_id}: {str(e)}")
-                return {"error": f"Failed to retrieve project statistics: {str(e)}"}
-
-        cache_key_params = {"project_id": project_id, "user_id": user_id}
-
-        cached_result = self._cache_service.get_or_set(
-            cache_type="stats", fetch_func=fetch_project_stats, **cache_key_params
-        )
-
-        return cached_result or {"error": "Failed to retrieve project statistics"}
+        """
+        Get project statistics with caching support.
+        
+        Delegates to ProjectCacheService (SRP principle).
+        """
+        return project_cache_service.get_project_stats_cached(project_id, user_id)
 
     def invalidate_project_cache(self, project_id: int) -> bool:
-        """Invalidate project cache"""
-        try:
-            self._cache_service.invalidate_project_cache(project_id)
-            self.logger.info(f"Project cache invalidated for project {project_id}")
-            return True
-        except Exception as e:
-            self.logger.error(f"Error invalidating project cache: {e}")
-            return False
-
+        """
+        Invalidate project cache.
+        
+        Delegates to ProjectCacheService (SRP principle).
+        """
+        return project_cache_service.invalidate_project_cache(project_id)
     def create_project(
         self, user_id: int, name: str, description: str = "", ip_address: str = None, user_agent: str = None
     ) -> Project:
         """
-        Create a new project with all business logic
+        Create a new project with all business logic.
+        
+        Delegates to ProjectCRUDService (SRP principle).
+        After creation, invalidates cache via ProjectCacheService.
 
         Args:
             user_id: ID of the user creating the project
@@ -451,73 +102,15 @@ class ProjectService:
             ConflictError: If project with this name already exists
             ServiceError: If database operation fails
         """
+        project = project_crud_service.create_project(user_id, name, description, ip_address, user_agent)
+        
+        # Invalidate cache after creation
         try:
-            from datetime import datetime, timedelta
-            import uuid
-            from ..activity import activity_service
-
-            user = User.query.get(user_id)
-            if not user:
-                raise NotFoundError("User", resource_id=str(user_id))
-
-            name = name.strip()
-            if not name:
-                raise ValidationError("Project name is required", field="name")
-
-            existing_project = Project.query.filter_by(name=name).first()
-            if existing_project:
-                raise ConflictError("Project with this name already exists", resource_type="project")
-
-            project = Project(
-                name=name,
-                description=description.strip(),
-                admin_id=user.id,
-                status="active",
-                subscription_status="trial",
-                subscription_expires_at=datetime.utcnow() + timedelta(days=30),
-                is_active=True,
-                storage_limit_gb=10,
-            )
-
-            db.session.add(project)
-            db.session.commit()
-
-            try:
-                activity_service.log_activity(
-                    user,
-                    "project_created",
-                    ip=ip_address,
-                    details=f"Created project: {name}",
-                    user_agent=user_agent,
-                )
-            except Exception as e:
-                self.logger.warning(f"Failed to log project creation activity: {e}")
-
-            try:
-                self.invalidate_project_cache(project.id)
-                from ...services.cache import cache_service
-                cache_service.invalidate_pattern("projects:*")
-                self.logger.info(f"Cache invalidated after project creation: {project.id}")
-            except Exception as e:
-                self.logger.warning(f"Failed to invalidate cache after project creation: {e}")
-
-            # Initialize default security rules for the project
-            try:
-                from ...services.security.security_rules_init import security_rules_init_service
-                security_rules_init_service.initialize_default_rules(project.id, user_id)
-                self.logger.info(f"Initialized default security rules for project {project.id}")
-            except Exception as e:
-                self.logger.warning(f"Failed to initialize security rules for project {project.id}: {e}")
-
-            return project
-
-        except (NotFoundError, ValidationError, ConflictError):
-            db.session.rollback()
-            raise
+            project_cache_service.invalidate_project_cache(project.id)
         except Exception as e:
-            db.session.rollback()
-            self.logger.error(f"Error creating project: {str(e)}", exc_info=True)
-            raise ServiceError("Failed to create project", status_code=500) from e
+            self.logger.warning(f"Failed to invalidate cache after project creation: {e}")
+        
+        return project
 
     def update_project(
         self,
@@ -532,7 +125,10 @@ class ProjectService:
         user_agent: str = None,
     ) -> Dict[str, Any]:
         """
-        Update project with all business logic
+        Update project with all business logic.
+        
+        Delegates to ProjectCRUDService (SRP principle).
+        After update, invalidates cache via ProjectCacheService.
 
         Args:
             project_id: ID or unique_id of the project to update (can be int or string)
@@ -548,109 +144,29 @@ class ProjectService:
         Returns:
             Dictionary with updated project data or error
         """
-        try:
-            from ..activity import activity_service
-            from ...utils.rbac_utils import RBACManager
-            from ...utils.role_constants import UserRoles
-
-            user = User.query.get(user_id)
-            if not user:
-                return {"error": "User not found"}
-
+        result = project_crud_service.update_project(
+            project_id, user_id, name, description, status, subscription_status, storage_limit_gb, ip_address, user_agent
+        )
+        
+        # Invalidate cache after update
+        if "error" not in result:
             try:
-                user_roles = RBACManager.get_user_role_names(user)
-            except Exception as e:
-                self.logger.warning(f"Failed to get user roles for user {user.id}: {e}")
-
-            is_owner = RBACManager.is_owner(user)
-
-            # Find project by either id or unique_id
-            project = self._find_project_by_id_or_unique_id(project_id)
-            if not project:
-                return {"error": "Project not found"}
-
-            # Use the actual database id for access checks
-            actual_project_id = project.id
-
-            if not is_owner:
-                if not user.project_id or user.project_id != actual_project_id:
-                    return {"error": "Access denied"}
-
-            if name is not None:
-                name = name.strip()
-                if not name:
-                    return {"error": "Project name cannot be empty"}
-
-                existing_project = Project.query.filter(
-                    and_(Project.name == name, Project.id != actual_project_id)
-                ).first()
-                if existing_project:
-                    return {"error": "Project with this name already exists"}
-
-                project.name = name
-
-            if description is not None:
-                project.description = description.strip()
-
-            if status is not None:
-                if status not in ["active", "inactive", "expired"]:
-                    return {"error": f"Invalid status: {status}"}
-                project.status = status
-
-            if subscription_status is not None and is_owner:
-                project.subscription_status = subscription_status
-
-            if storage_limit_gb is not None and is_owner:
-                if isinstance(storage_limit_gb, (int, float)) and storage_limit_gb >= 0:
-                    project.storage_limit = int(storage_limit_gb * (1024**3))
-                else:
-                    return {"error": "Invalid storage_limit_gb value"}
-
-            db.session.commit()
-
-            try:
-                activity_service.log_activity(
-                    user,
-                    "project_updated",
-                    ip=ip_address,
-                    details=f"Updated project: {project.name}",
-                    user_agent=user_agent,
-                )
-            except Exception as e:
-                self.logger.warning(f"Failed to log project update activity: {e}")
-
-            try:
-                self.invalidate_project_cache(actual_project_id)
-                from ...services.cache import cache_service
-                cache_service.invalidate_pattern("projects:*")
-                self.logger.info(f"Cache invalidated after project update: {actual_project_id}")
+                project = project_crud_service._find_project_by_id_or_unique_id(project_id)
+                if project:
+                    project_cache_service.invalidate_project_cache(project.id)
             except Exception as e:
                 self.logger.warning(f"Failed to invalidate cache after project update: {e}")
-
-            return {
-                "message": "Project updated successfully",
-                "project": {
-                    "id": project.unique_id,
-                    "name": project.name,
-                    "description": project.description,
-                    "status": project.status,
-                    "subscription_status": project.subscription_status,
-                    "storage_limit_gb": project.storage_limit_gb,
-                },
-            }
-
-        except Exception as e:
-            db.session.rollback()
-            self.logger.error(f"Error updating project {project_id}: {str(e)}")
-            import traceback
-            self.logger.error(f"Traceback: {traceback.format_exc()}")
-            return {"error": "Failed to update project", "message": str(e)}
+        
+        return result
 
     def delete_project(
         self, project_id, user_id: int, ip_address: str = None, user_agent: str = None
     ) -> Dict[str, Any]:
         """
-        Delete project and all related data with all business logic
+        Delete project and all related data with all business logic.
+        
+        Delegates to ProjectCRUDService (SRP principle).
+        After deletion, invalidates cache via ProjectCacheService.
 
         Args:
             project_id: ID or unique_id of the project to delete (can be int or string)
@@ -661,161 +177,18 @@ class ProjectService:
         Returns:
             Dictionary with success message or error
         """
-        try:
-            from ..activity import activity_service
-
-            user = User.query.get(user_id)
-            if not user:
-                return {"error": "User not found"}
-
-            # Find project by either id or unique_id
-            project = self._find_project_by_id_or_unique_id(project_id)
-            if not project:
-                return {"error": "Project not found"}
-
-            # Prevent deletion of system project for owner roles
-            if project.name == "__SYSTEM_OWNER_ROLES__":
-                return {"error": "Cannot delete system project for owner roles"}
-
-            # Use the actual database id for all deletion operations
-            actual_project_id = project.id
-            project_name = project.name
-
-            db.session.begin_nested()
-
+        result = project_crud_service.delete_project(project_id, user_id, ip_address, user_agent)
+        
+        # Invalidate cache after deletion
+        if "error" not in result:
             try:
-
-                affected_user_ids = db.session.query(Key.user_id).filter_by(project_id=actual_project_id).distinct().all()
-                affected_user_ids = [uid[0] for uid in affected_user_ids if uid[0] is not None]
-
-                # Delete all related data before deleting the project
-                # This ensures proper cleanup and avoids foreign key constraint violations
-                
-                # Keys and related data
-                Key.query.filter_by(project_id=actual_project_id).delete()
-                
-                from ...utils.key_counters import update_user_key_counters
-                for affected_user_id in affected_user_ids:
-                    update_user_key_counters(affected_user_id, project_id=actual_project_id)
-                
-                # Products and servers
-                Product.query.filter_by(project_id=actual_project_id).delete()
-                Server.query.filter_by(project_id=actual_project_id).delete()
-                
-                # Clear project_id for owner users (they shouldn't be deleted)
-                # Get owner users before deleting and clear their project_id
-                from ...utils.rbac_utils import RBACManager
-                all_users_with_project = User.query.filter_by(project_id=actual_project_id).all()
-                owner_user_ids = []
-                for u in all_users_with_project:
-                    if RBACManager.is_owner(u):
-                        u.project_id = None
-                        owner_user_ids.append(u.id)
-                
-                # Delete non-owner users (exclude owners from deletion)
-                if owner_user_ids:
-                    User.query.filter(
-                        User.project_id == actual_project_id,
-                        ~User.id.in_(owner_user_ids)
-                    ).delete(synchronize_session=False)
-                else:
-                    User.query.filter_by(project_id=actual_project_id).delete()
-                
-                UserActivity.query.filter_by(project_id=actual_project_id).delete()
-                
-                # Project invite codes and encryption keys
-                ProjectInviteCode.query.filter_by(project_id=actual_project_id).delete()
-                ProjectEncryptionKeys.query.filter_by(project_id=actual_project_id).delete()
-                
-                # Project settings (all variants)
-                ProjectSecuritySettings.query.filter_by(project_id=actual_project_id).delete()
-                ProjectSystemSettings.query.filter_by(project_id=actual_project_id).delete()
-                ProjectEncryptionSettings.query.filter_by(project_id=actual_project_id).delete()
-                ProjectBackupSettings.query.filter_by(project_id=actual_project_id).delete()
-                ProjectChatSettings.query.filter_by(project_id=actual_project_id).delete()
-                ProjectOfflineAuthSettings.query.filter_by(project_id=actual_project_id).delete()
-                ProjectAppearanceSettings.query.filter_by(project_id=actual_project_id).delete()
-                ProjectInviteSettings.query.filter_by(project_id=actual_project_id).delete()
-                ProjectSettings.query.filter_by(project_id=actual_project_id).delete()
-                
-                # Project-user relationships
-                ProjectAdmin.query.filter_by(project_id=actual_project_id).delete()
-                ProjectUserRole.query.filter_by(project_id=actual_project_id).delete()
-                
-                # RBAC (roles and permissions)
-                # Get all role IDs for this project first
-                role_ids = db.session.query(Role.id).filter_by(project_id=actual_project_id).all()
-                role_ids = [r[0] for r in role_ids]
-                
-                if role_ids:
-                    # Delete role-permission relationships
-                    RolePermission.query.filter(RolePermission.role_id.in_(role_ids)).delete()
-                    # Delete user-role relationships
-                    UserRole.query.filter(UserRole.role_id.in_(role_ids)).delete()
-                
-                # Delete roles and permissions
-                Permission.query.filter_by(project_id=actual_project_id).delete()
-                Role.query.filter_by(project_id=actual_project_id).delete()
-                
-                # Webhooks
-                Webhook.query.filter_by(project_id=actual_project_id).delete()
-                
-                # Remote control (if exists)
-                try:
-                    from ...models.remote_control import RemoteControlCategory, RemoteControlFeature, RemoteControlFeatureCategory
-                    # Get all feature IDs for this project first
-                    feature_ids = db.session.query(RemoteControlFeature.id).filter_by(project_id=actual_project_id).all()
-                    feature_ids = [f[0] for f in feature_ids]
-                    
-                    if feature_ids:
-                        # Delete feature-category relationships
-                        RemoteControlFeatureCategory.query.filter(
-                            RemoteControlFeatureCategory.feature_id.in_(feature_ids)
-                        ).delete()
-                    
-                    # Delete features and categories
-                    RemoteControlFeature.query.filter_by(project_id=actual_project_id).delete()
-                    RemoteControlCategory.query.filter_by(project_id=actual_project_id).delete()
-                except ImportError:
-                    # Remote control models might not exist in all versions
-                    pass
-
-                # Finally, delete the project itself
-                db.session.delete(project)
-
-                db.session.commit()
-
-                # Invalidate cache after project deletion
-                try:
-                    self.invalidate_project_cache(actual_project_id)
-                    from ...services.cache import cache_service
-                    cache_service.invalidate_pattern("projects:*")
-                    self.logger.info(f"Cache invalidated after project deletion: {actual_project_id}")
-                except Exception as e:
-                    self.logger.warning(f"Failed to invalidate cache after project deletion: {e}")
-
-                try:
-                    activity_service.log_activity(
-                        user,
-                        "project_deleted",
-                        ip=ip_address,
-                        details=f"Deleted project: {project_name}",
-                        user_agent=user_agent,
-                    )
-                except Exception as e:
-                    self.logger.warning(f"Failed to log project deletion activity: {e}")
-
-                return {"message": "Project deleted successfully"}
-
+                project = project_crud_service._find_project_by_id_or_unique_id(project_id)
+                if project:
+                    project_cache_service.invalidate_project_cache(project.id)
             except Exception as e:
-
-                db.session.rollback()
-                raise e
-
-        except Exception as e:
-            db.session.rollback()
-            self.logger.error(f"Error deleting project {project_id}: {str(e)}")
-            return {"error": "Failed to delete project"}
+                self.logger.warning(f"Failed to invalidate cache after project deletion: {e}")
+        
+        return result
 
     def create_project_invite_code(
         self,
@@ -825,7 +198,9 @@ class ProjectService:
         user_agent: str = None,
     ) -> Dict[str, Any]:
         """
-        Create a new project invite code with all business logic
+        Create a new project invite code with all business logic.
+        
+        Delegates to ProjectInviteService (SRP principle).
 
         Args:
             user_id: ID of the user creating the invite code
@@ -836,135 +211,32 @@ class ProjectService:
         Returns:
             Dictionary with invite code data or error
         """
-        try:
-            import random
-            import string
-            from datetime import datetime, timedelta
-            from ..activity import activity_service
-
-            user = User.query.get(user_id)
-            if not user:
-                return {"error": "User not found"}
-
-            from ...utils.rbac_utils import RBACManager
-            is_owner = RBACManager.is_owner(user)
-
-            if not user.project_id and not is_owner:
-                return {"error": "User must be assigned to a project"}
-
-            project_id = user.project_id if user.project_id else None
-
-            def generate_invite_code():
-                """Generate a unique 8-character alphanumeric code"""
-                while True:
-                    code = "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
-                    existing = ProjectInviteCode.query.filter_by(code=code).first()
-                    if not existing:
-                        return code
-
-            invite_code = generate_invite_code()
-
-            expires_at = (
-                datetime.utcnow() + timedelta(days=expires_in_days) if expires_in_days > 0 else None
-            )
-
-            new_code = ProjectInviteCode(
-                code=invite_code,
-                project_id=project_id,
-                created_by=user_id,
-                expires_at=expires_at,
-                is_used=False,
-                is_expired=False,
-            )
-
-            db.session.add(new_code)
-            db.session.commit()
-
-            try:
-                activity_service.log_activity(
-                    user,
-                    "project_invite_code_created",
-                    ip=ip_address,
-                    details=f"Created project invite code: {invite_code}",
-                    user_agent=user_agent,
-                )
-            except Exception as e:
-                self.logger.warning(f"Failed to log invite code creation activity: {e}")
-
-            return {
-                "id": new_code.id,
-                "code": new_code.code,
-                "created_at": new_code.created_at.isoformat() if new_code.created_at else None,
-                "expires_at": new_code.expires_at.isoformat() if new_code.expires_at else None,
-                "used": new_code.is_used,
-                "is_expired": new_code.is_expired,
-            }
-
-        except Exception as e:
-            db.session.rollback()
-            self.logger.error(f"Error creating project invite code: {str(e)}")
-            return {"error": "Failed to create project invite code"}
+        return project_invite_service.create_project_invite_code(user_id, None, expires_in_days)
 
     def delete_project_invite_code(
         self, code_id: int, user_id: int, ip_address: str = None, user_agent: str = None
     ) -> Dict[str, Any]:
         """
-        Delete a project invite code with all business logic
+        Delete a project invite code with all business logic.
+        
+        Delegates to ProjectInviteService (SRP principle).
 
         Args:
             code_id: ID of the invite code to delete
             user_id: ID of the user deleting the code
-            ip_address: IP address for activity logging
-            user_agent: User agent for activity logging
+            ip_address: IP address for activity logging (not used in delegate)
+            user_agent: User agent for activity logging (not used in delegate)
 
         Returns:
             Dictionary with success message or error
         """
-        try:
-            from ..activity import activity_service
-
-            user = User.query.get(user_id)
-            if not user:
-                return {"error": "User not found"}
-
-            if not user.project_id:
-                return {"error": "User must be assigned to a project"}
-
-            project_id = user.project_id
-
-            invite_code = ProjectInviteCode.query.filter_by(id=code_id, project_id=project_id).first()
-            if not invite_code:
-                return {"error": "Invite code not found"}
-
-            if invite_code.is_used:
-                return {"error": "Cannot delete used invite code"}
-
-            code_value = invite_code.code
-
-            db.session.delete(invite_code)
-            db.session.commit()
-
-            try:
-                activity_service.log_activity(
-                    user,
-                    "project_invite_code_deleted",
-                    ip=ip_address,
-                    details=f"Deleted project invite code: {code_value}",
-                    user_agent=user_agent,
-                )
-            except Exception as e:
-                self.logger.warning(f"Failed to log invite code deletion activity: {e}")
-
-            return {"message": "Invite code deleted successfully"}
-
-        except Exception as e:
-            db.session.rollback()
-            self.logger.error(f"Error deleting project invite code: {str(e)}")
-            return {"error": "Failed to delete project invite code"}
+        return project_invite_service.delete_project_invite_code(code_id, user_id)
 
     def get_project_invite_codes(self, user_id: int) -> Dict[str, Any]:
         """
-        Get all project invite codes for the current user's project
+        Get all project invite codes for the current user's project.
+        
+        Delegates to ProjectInviteService (SRP principle).
 
         Args:
             user_id: ID of the user requesting codes
@@ -972,58 +244,13 @@ class ProjectService:
         Returns:
             Dictionary with list of invite codes or error
         """
-        try:
-            from sqlalchemy import desc
-            from ...utils.rbac_utils import RBACManager
-
-            user = User.query.get(user_id)
-            if not user:
-                return {"error": "User not found"}
-
-            is_owner = RBACManager.is_owner(user)
-
-            if not user.project_id and not is_owner:
-                return {"error": "User must be assigned to a project"}
-
-            if user.project_id:
-                project_id = user.project_id
-                invite_codes = (
-                    ProjectInviteCode.query.filter_by(project_id=project_id)
-                    .order_by(desc(ProjectInviteCode.created_at))
-                    .all()
-                )
-            else:
-
-                invite_codes = (
-                    ProjectInviteCode.query.filter_by(project_id=None)
-                    .order_by(desc(ProjectInviteCode.created_at))
-                    .all()
-                )
-
-            codes_data = []
-            for code in invite_codes:
-                from datetime import datetime
-                codes_data.append(
-                    {
-                        "id": code.id,
-                        "code": code.code,
-                        "created_at": code.created_at.isoformat() if code.created_at else None,
-                        "expires_at": code.expires_at.isoformat() if code.expires_at else None,
-                        "used": code.is_used,
-                        "is_expired": code.is_expired
-                        or (code.expires_at and code.expires_at < datetime.utcnow()),
-                    }
-                )
-
-            return {"codes": codes_data}
-
-        except Exception as e:
-            self.logger.error(f"Error getting project invite codes: {str(e)}")
-            return {"error": "Failed to retrieve project invite codes"}
+        return project_invite_service.get_project_invite_codes(user_id)
 
     def get_latest_project_invite_code(self, user_id: int) -> Dict[str, Any]:
         """
-        Get the latest project invite code for the current user's project
+        Get the latest project invite code for the current user's project.
+        
+        Delegates to ProjectInviteService (SRP principle).
 
         Args:
             user_id: ID of the user requesting the code
@@ -1031,55 +258,6 @@ class ProjectService:
         Returns:
             Dictionary with latest invite code or error
         """
-        try:
-            from sqlalchemy import desc
-            from datetime import datetime
-            from ...utils.rbac_utils import RBACManager
-
-            user = User.query.get(user_id)
-            if not user:
-                return {"error": "User not found"}
-
-            is_owner = RBACManager.is_owner(user)
-
-            if not user.project_id and not is_owner:
-                return {"error": "User must be assigned to a project"}
-
-            if user.project_id:
-                project_id = user.project_id
-                latest_code = (
-                    ProjectInviteCode.query.filter_by(project_id=project_id)
-                    .order_by(desc(ProjectInviteCode.created_at))
-                    .first()
-                )
-            else:
-
-                latest_code = (
-                    ProjectInviteCode.query.filter_by(project_id=None)
-                    .order_by(desc(ProjectInviteCode.created_at))
-                    .first()
-                )
-
-            if latest_code:
-                code_data = {
-                    "id": latest_code.id,
-                    "code": latest_code.code,
-                    "created_at": (
-                        latest_code.created_at.isoformat() if latest_code.created_at else None
-                    ),
-                    "expires_at": (
-                        latest_code.expires_at.isoformat() if latest_code.expires_at else None
-                    ),
-                    "used": latest_code.is_used,
-                    "is_expired": latest_code.is_expired
-                    or (latest_code.expires_at and latest_code.expires_at < datetime.utcnow()),
-                }
-                return {"invite_code": code_data}
-            else:
-                return {"invite_code": None}
-
-        except Exception as e:
-            self.logger.error(f"Error getting latest project invite code: {str(e)}")
-            return {"error": "Failed to retrieve latest project invite code"}
+        return project_invite_service.get_latest_project_invite_code(user_id)
 
 project_service = ProjectService()
