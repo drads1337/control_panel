@@ -4,6 +4,7 @@ Handles periodic flushing of analytics buffer to database
 """
 
 import logging
+from ...utils.service_helpers import get_service
 
 try:
     from celery import Task
@@ -120,6 +121,7 @@ def flush_analytics_buffer_task(self, activity_batch_size: int = None):
             # Fallback for Celery tasks that may run outside Flask context
             analytics_buffer_service = AnalyticsBufferService()
         
+        analytics_buffer_service = get_service('analytics_buffer_service')
         if not analytics_buffer_service.enabled:
             logger.debug("Analytics buffer is disabled, skipping flush")
             return {"success": True, "skipped": True, "reason": "buffer_disabled"}

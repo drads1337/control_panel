@@ -362,6 +362,8 @@ class UserCRUDService:
             if not target_user:
                 return False, "User not found"
 
+            rbac_service = get_service('rbac_service')
+            rbac_service = get_service('rbac_service')
             can_delete_all = rbac_service.check_permission(
                 current_user.id, "employees.delete"
             ) or rbac_service.check_permission(current_user.id, "clients.delete")
@@ -399,6 +401,8 @@ class UserCRUDService:
             if project_id:
                 # Invalidate statistics cache instead of using deprecated counters
                 from ...utils.service_helpers import get_service
+                cache_service = get_service('cache_service')
+                cache_service = get_service('cache_service')
                 cache_service = get_service('cache_service')
                 cache_service.invalidate_pattern(f"stats:project_id={project_id}:*")
 

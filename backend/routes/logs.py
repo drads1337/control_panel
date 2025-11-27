@@ -6,13 +6,13 @@ from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import joinedload
 
 from ..core.extensions import db
+from ..utils.service_helpers import get_service
 from ..middleware.auth import (
     enforce_project_scope,
     require_project_isolation,
     require_project_with_grace_period,
 )
 from ..models.core import User, UserActivity
-from ..services.activity import activity_service
 from ..utils.service_helpers import get_service
 from ..utils.fulltext_search import fulltext_search_filter
 from ..utils.rbac_utils import RBACManager
@@ -54,7 +54,9 @@ def _get_logs_query_filter(user, user_id, project_id_param=None, project_id=None
     
     # Check permission - try multiple methods to ensure we get the correct result
     rbac_service = get_service('rbac_service')
+    rbac_service = get_service('rbac_service')
     has_logs_view_check = rbac_service.check_permission(user_id, "logs.view")
+    rbac_service = get_service('rbac_service')
     user_permissions = rbac_service.get_user_permissions(user_id)
     has_logs_view_direct = "logs.view" in user_permissions
     
@@ -943,6 +945,8 @@ def cleanup_logs():
 
         db.session.commit()
 
+        activity_service = get_service('activity_service')
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "cleanup_logs",
@@ -982,8 +986,8 @@ def trigger_auto_cleanup():
         return jsonify({"error": "Access denied"}), 403
 
     try:
-        from ..services.logs import log_cleanup_service
 
+        log_cleanup_service = get_service('log_cleanup_service')
         result = log_cleanup_service.cleanup_old_logs(user.project_id)
 
         if result["success"]:

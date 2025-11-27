@@ -38,8 +38,8 @@ function LoginFormComponent({
   }, [navigate])
 
   const handleForgotPassword = useCallback(() => {
-
-  }, [])
+    navigate("/forgot-password")
+  }, [navigate])
 
   const handleTermsClick = useCallback(() => {
 
@@ -90,8 +90,15 @@ function LoginFormComponent({
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center">
+                <div className="flex items-center justify-between">
                   <Label htmlFor="password">Password</Label>
+                  <button
+                    type="button"
+                    className="text-sm text-muted-foreground hover:text-primary cursor-pointer border-none bg-transparent p-0 underline underline-offset-4"
+                    onClick={handleForgotPassword}
+                  >
+                    Forgot password?
+                  </button>
                 </div>
                 <Input
                   id="password"

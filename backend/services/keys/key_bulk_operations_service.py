@@ -13,15 +13,11 @@ from ...models.products import Product
 from ...models.keys import DeviceInfo, Key
 from ...models.agents import Agent
 from ...utils.service_exceptions import NotFoundError, PermissionDeniedError
-from .key_generation_service import key_generation_service
-from .key_validation_service import key_validation_service
 from ...utils.rbac_utils import RBACManager
 from ...utils.role_constants import UserRoles
 from ...utils.structured_logging import get_logger
 from ...utils.service_helpers import get_service
-from .key_crud_service import key_crud_service
 from .key_filter_specification import KeyFilterSpecification
-from .key_status_service import key_status_service
 
 
 class KeyBulkOperationsService:
@@ -30,8 +26,7 @@ class KeyBulkOperationsService:
     def __init__(self):
         self.logger = get_logger("key_bulk_operations_service")
         self.max_bulk_operations = 1000
-        self.generation_service = key_generation_service
-        self.validation_service = key_validation_service
+        # Services will be obtained lazily when needed to avoid application context issues
 
     def _get_keys_by_ids(self, user: User, key_ids: List[int]) -> List[Key]:
         """
@@ -78,7 +73,8 @@ class KeyBulkOperationsService:
         Returns:
             Tuple of (created_count, list_of_errors)
         """
-        is_valid, error_msg = self.validation_service.validate_bulk_operation(
+        validation_service = get_service('key_validation_service')
+        is_valid, error_msg = validation_service.validate_bulk_operation(
             len(keys_data), self.max_bulk_operations
         )
         if not is_valid:
@@ -91,6 +87,7 @@ class KeyBulkOperationsService:
             try:
                 # create_key now raises exceptions instead of returning tuples
                 key = key_crud_service.create_key(user, key_data)
+                key_crud_service = get_service('key_crud_service')
                 created_count += 1
             except Exception as e:
                 try:
@@ -169,6 +166,7 @@ class KeyBulkOperationsService:
                         return 0, f"Insufficient balance. Required: {total_price} tokens for {count} keys, Available: {user.token_balance} tokens", None
                     
                     # Deduct balance without committing (we're inside a transaction)
+                    balance_service = get_service('balance_service')
                     success, error_msg, _ = balance_service.deduct_balance(
                         current_user=user,
                         target_user_id=user.id,
@@ -181,9 +179,10 @@ class KeyBulkOperationsService:
                     if not success:
                         return 0, f"Failed to deduct balance: {error_msg}", None
 
+            key_generation_service = get_service('key_generation_service')
             for i in range(count):
                 try:
-                    key_string = self.generation_service.generate_key_string(
+                    key_string = key_generation_service.generate_key_string(
                         length=32, product=product, duration_hours=duration_hours, project_id=user.project_id
                     )
 
@@ -251,6 +250,7 @@ class KeyBulkOperationsService:
             if not keys:
                 return 0, "No keys found or access denied"
 
+            key_status_service = get_service('key_status_service')
             affected_count = 0
             for key in keys:
                 success, error = key_status_service.pause_key(user, key.id)
@@ -270,6 +270,7 @@ class KeyBulkOperationsService:
             if not keys:
                 return 0, "No keys found or access denied"
 
+            key_status_service = get_service('key_status_service')
             affected_count = 0
             for key in keys:
                 success, error = key_status_service.resume_key(user, key.id)
@@ -334,6 +335,7 @@ class KeyBulkOperationsService:
             if not keys:
                 return 0, "No keys found or access denied"
 
+            key_status_service = get_service('key_status_service')
             affected_count = 0
             for key in keys:
                 success, error = key_status_service.extend_key(user, key.id, hours)
@@ -549,6 +551,11 @@ class KeyBulkOperationsService:
             return 0, f"Failed to bulk delete expired agent keys: {str(e)}"
 
 
-# Singleton instance
-key_bulk_operations_service = KeyBulkOperationsService()
-
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   key_bulk_operations_service = get_service('key_bulk_operations_service')
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   key_bulk_operations_service = get_service('key_bulk_operations_service')

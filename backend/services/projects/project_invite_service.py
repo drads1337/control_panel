@@ -267,5 +267,8 @@ class ProjectInviteService:
 
 
 # Singleton instance
-project_invite_service = ProjectInviteService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   project_invite_service = get_service('project_invite_service')
 

@@ -7,7 +7,6 @@ from typing import Any, Dict, Optional
 
 from ...core.extensions import db
 from ...models.core import User, UserActivity
-from ...services.analytics import analytics_buffer_service
 from ...utils.data_masking import mask_username
 from ...utils.fulltext_search import fulltext_search_filter
 from ...utils.ip_utils import get_location_from_ip
@@ -101,6 +100,7 @@ class ActivityService:
             # Default: use buffering to reduce database write pressure
             try:
                 success = analytics_buffer_service.buffer_user_activity(
+                    analytics_buffer_service = get_service('analytics_buffer_service')
                     user_id=user.id,
                     action=action,
                     ip=ip,
@@ -369,4 +369,11 @@ class ActivityService:
             self.logger.error(f"Failed to get activity statistics: {e}")
             return {}
 
-activity_service = ActivityService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   activity_service = get_service('activity_service')
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   activity_service = get_service('activity_service')

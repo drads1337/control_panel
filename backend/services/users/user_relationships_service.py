@@ -235,5 +235,8 @@ class UserRelationshipsService:
 
 
 # Singleton instance
-user_relationships_service = UserRelationshipsService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   user_relationships_service = get_service('user_relationships_service')
 

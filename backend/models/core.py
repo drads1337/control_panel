@@ -12,6 +12,7 @@ from ..core.extensions import SensitiveDataMixin, db
 # This is safe because project_user.py doesn't import from core.py,
 # it only uses string references in SQLAlchemy relationships
 from .project_user import ProjectAdmin
+from ..utils.service_helpers import get_service
 
 def generate_unique_project_id():
     """Generate a unique 10-digit project ID"""
@@ -134,10 +135,10 @@ class Project(db.Model):
         Get the project admin user
         
         NOTE: This property is kept for backward compatibility.
+        project_relationships_service = get_service('project_relationships_service')
         For new code, use project_relationships_service.get_admin_user(project_id) instead.
         """
         # Use service to avoid code duplication
-        from ..services.projects import project_relationships_service
         return project_relationships_service.get_admin_user(self.id)
 
     def set_admin(self, user_id):
@@ -147,7 +148,6 @@ class Project(db.Model):
         NOTE: This method is kept for backward compatibility.
         For new code, use project_relationships_service.set_admin(project_id, user_id) instead.
         """
-        from ..services.projects import project_relationships_service
         return project_relationships_service.set_admin(self.id, user_id)
 
     def get_admin_id(self):
@@ -157,7 +157,6 @@ class Project(db.Model):
         NOTE: This method is kept for backward compatibility.
         For new code, use project_relationships_service.get_admin_id(project_id) instead.
         """
-        from ..services.projects import project_relationships_service
         return project_relationships_service.get_admin_id(self.id)
 
 class ProjectEncryptionKeys(db.Model):

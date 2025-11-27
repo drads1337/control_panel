@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Set
 from ...core.extensions import db
 from ...models.core import User
 from ...models.rbac import Permission, RolePermission, UserRole
-from ...services.cache import cache_service
+from ...utils.service_helpers import get_service
 from ...utils.rbac_utils import RBACManager
 
 class PermissionService:
@@ -72,6 +72,9 @@ class PermissionService:
             db.session.add(permission)
             db.session.commit()
 
+            cache_service = get_service('cache_service')
+            cache_service = get_service('cache_service')
+            cache_service = get_service('cache_service')
             cache_service.invalidate_rbac_permission_instantly(permission.id, project_id)
             cache_service.invalidate_rbac_project_instantly(project_id)
 
@@ -135,6 +138,7 @@ class PermissionService:
 
             db.session.commit()
 
+            cache_service = get_service('cache_service')
             cache_service.invalidate_rbac_permission_instantly(permission.id, project_id)
             cache_service.invalidate_rbac_project_instantly(project_id)
 
@@ -175,6 +179,7 @@ class PermissionService:
             db.session.delete(permission)
             db.session.commit()
 
+            cache_service = get_service('cache_service')
             cache_service.invalidate_rbac_permission_instantly(permission.id, project_id)
             cache_service.invalidate_rbac_project_instantly(project_id)
 
@@ -190,6 +195,7 @@ class PermissionService:
         """Get all permissions for a project"""
         try:
 
+            cache_service = get_service('cache_service')
             cached_data = cache_service.get("rbac:permissions", project_id=project_id)
             if cached_data:
                 return cached_data.get("data", {})
@@ -227,6 +233,7 @@ class PermissionService:
                     }
                 )
 
+            cache_service = get_service('cache_service')
             cache_service.set("rbac:permissions", grouped_permissions, project_id=project_id)
 
             return grouped_permissions
@@ -239,6 +246,7 @@ class PermissionService:
         """Get all permissions for a user (from all their roles including inherited)"""
         try:
 
+            cache_service = get_service('cache_service')
             cached_data = cache_service.get("rbac:user_permissions", user_id=user_id)
             if cached_data:
                 data = cached_data.get("data", {})
@@ -263,6 +271,7 @@ class PermissionService:
                 )
                 result = set(all_permissions)
 
+                cache_service = get_service('cache_service')
                 cache_service.set("rbac:user_permissions", {"permissions": list(result)}, user_id=user_id)
                 return result
 
@@ -275,6 +284,7 @@ class PermissionService:
                 )
                 result = set(all_permissions)
 
+                cache_service = get_service('cache_service')
                 cache_service.set("rbac:user_permissions", {"permissions": list(result)}, user_id=user_id)
                 return result
 
@@ -291,6 +301,7 @@ class PermissionService:
                         )
                         result = set(all_permissions)
 
+                        cache_service = get_service('cache_service')
                         cache_service.set("rbac:user_permissions", {"permissions": list(result)}, user_id=user_id)
                         return result
 
@@ -300,6 +311,7 @@ class PermissionService:
                 )
                 result = set()
 
+                cache_service = get_service('cache_service')
                 cache_service.set("rbac:user_permissions", {"permissions": list(result)}, user_id=user_id)
                 return result
 
@@ -349,6 +361,7 @@ class PermissionService:
                     f"RBAC_USER_PERMISSIONS user_id={user_id} roles={[ur.role.name for ur in user_roles]} permissions_count={len(final_permissions)}"
                 )
 
+            cache_service = get_service('cache_service')
             cache_service.set("rbac:user_permissions", {"permissions": list(final_permissions)}, user_id=user_id)
 
             return final_permissions
@@ -556,6 +569,7 @@ class PermissionService:
                 user_ids.update({ur.user_id for ur in user_roles})
 
             for user_id in user_ids:
+                cache_service = get_service('cache_service')
                 cache_service.invalidate_rbac_user_instantly(user_id)
 
             logging.debug(f"Invalidated cache for {len(user_ids)} users with permission_id={permission_id}")
@@ -581,4 +595,7 @@ class PermissionService:
 
         return {"allow": allow_permissions, "deny": deny_permissions}
 
-permission_service = PermissionService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   permission_service = get_service('permission_service')

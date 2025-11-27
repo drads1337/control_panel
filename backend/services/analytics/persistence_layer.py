@@ -125,7 +125,11 @@ class PersistenceLayer:
                 except (RuntimeError, ValueError):
                     # Fallback for contexts without Flask app
                     from ...services.analytics.analytics_buffer_service import AnalyticsBufferService
-                    analytics_buffer_service = AnalyticsBufferService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   analytics_buffer_service = get_service('analytics_buffer_service')
+                analytics_buffer_service = get_service('analytics_buffer_service')
                 success = analytics_buffer_service.buffer_user_activity(
                     user_id=user_id,
                     action=action,
@@ -239,7 +243,10 @@ class PersistenceLayer:
                 except (RuntimeError, ValueError):
                     # Fallback for contexts without Flask app
                     from ...services.analytics.analytics_buffer_service import AnalyticsBufferService
-                    analytics_buffer_service = AnalyticsBufferService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   analytics_buffer_service = get_service('analytics_buffer_service')
                 success = analytics_buffer_service.buffer_key_analytics_update(
                     key_id=key_id,
                     product=product,

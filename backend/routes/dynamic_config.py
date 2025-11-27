@@ -18,7 +18,7 @@ import requests
 from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
 from Crypto.Util.Padding import pad, unpad
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request
 from flask_cors import cross_origin
 
 from ..config.config import Config
@@ -30,14 +30,12 @@ from ..models.security import BlockedFingerprint
 from ..middleware import require_mtls
 from ..middleware.auth import enforce_project_scope, require_project_isolation, require_role
 from ..middleware.validation import validate_request
-from ..services.auth.challenge_service import challenge_service
-from ..services.dynamic_config import dynamic_config_service
-from ..services.heartbeat import heartbeat_service
 from ..utils.rbac_utils import RBACManager
 from ..utils.redis_client import get_redis_client
 from ..utils.role_constants import RolePermissions
 from ..utils.secure_crypto import MasterKeyManager
 from flask_jwt_extended import get_jwt_identity, jwt_required
+from ..utils.service_helpers import get_service
 from .settings import decrypt_data_with_project_key, encrypt_data_with_project_key
 
 dynamic_config_bp = Blueprint("dynamic_config", __name__)
@@ -186,6 +184,7 @@ def api_config_request():
 
     # Validate session if provided
     if session_id:
+        heartbeat_service = get_service('heartbeat_service')
         is_valid, message, status_data = heartbeat_service.check_session_status(session_id)
         if not is_valid:
             logging.warning(
@@ -222,6 +221,7 @@ def api_config_request():
         return jsonify({"error": f"Product is {product.status}"}), 403
 
     # Generate configuration
+    dynamic_config_service = get_service('dynamic_config_service')
     config_data = dynamic_config_service.generate_dynamic_config(
         user_key=user_key, product_name=product_name, project_id=project_id
     )
@@ -352,6 +352,7 @@ def api_config_validate():
         return jsonify({"error": "Missing required parameters"}), 400
 
     # Validate configuration
+    dynamic_config_service = get_service('dynamic_config_service')
     is_valid = dynamic_config_service.validate_config_request(
         user_key=user_key,
         product_name=product_name,
@@ -402,6 +403,7 @@ def api_config_statistics():
     Returns:
         JSON response with configuration statistics or error
     """
+    dynamic_config_service = get_service('dynamic_config_service')
     stats = dynamic_config_service.get_config_statistics()
     return jsonify({"status": "success", "statistics": stats, "timestamp": int(time.time())})
 

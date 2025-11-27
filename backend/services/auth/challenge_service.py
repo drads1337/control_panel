@@ -18,7 +18,6 @@ from flask import current_app
 from ...core.extensions import db
 from ...models.core import User
 from ...models.keys import Key
-from ...services.activity import activity_service
 
 class ChallengeService:
     """Service for generating and validating complex challenges"""
@@ -517,4 +516,11 @@ class ChallengeService:
             logging.error(f"Error checking challenge replay: {e}")
             return True
 
-challenge_service = ChallengeService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   challenge_service = get_service('challenge_service')
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   challenge_service = get_service('challenge_service')

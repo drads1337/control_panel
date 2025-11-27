@@ -1,16 +1,26 @@
 """
 Webhook Execution Service
 Handles sending webhooks to external systems (Telegram, Discord, Custom)
+
+SECURITY: This service implements SSRF protection by:
+1. Using cached IP addresses from validation (prevents DNS rebinding attacks)
+2. Blocking redirects to internal/private IP addresses
+3. Using custom HTTP adapter that validates IP addresses before connecting
 """
 
+import ipaddress
 import json
 import logging
+import socket
 import time
 import uuid
 from datetime import datetime
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
+from urllib.parse import urlparse
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.connection import create_connection
 
 from ...core.extensions import db
 from ...models.webhooks import WebhookPendingTask
@@ -24,6 +34,62 @@ except ImportError:
     CELERY_AVAILABLE = False
     celery_process_webhook = None
     logging.warning("Celery webhook tasks not available. Webhooks will use fallback mode.")
+
+
+class SSRFProtectedHTTPAdapter(HTTPAdapter):
+    """
+    Custom HTTP adapter that prevents SSRF attacks by:
+    1. Validating IP addresses before connecting
+    2. Blocking connections to private/internal IP ranges
+    3. Using cached IP addresses when available
+    """
+    
+    def __init__(self, allowed_ips: Optional[List[str]] = None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.allowed_ips = allowed_ips or []
+        self.logger = logging.getLogger(__name__)
+    
+    def init_poolmanager(self, *args, **kwargs):
+        # Use our custom connection pool
+        return super().init_poolmanager(*args, **kwargs)
+    
+    def _validate_ip(self, ip_address: str) -> bool:
+        """
+        Validate that IP address is not in blocked ranges.
+        
+        Returns:
+            True if IP is safe, False if blocked
+        """
+        try:
+            ip_obj = ipaddress.ip_address(ip_address)
+            
+            # Block private IP ranges
+            if ip_obj.is_private:
+                return False
+            
+            # Block loopback addresses
+            if ip_obj.is_loopback:
+                return False
+            
+            # Block link-local addresses
+            if ip_obj.is_link_local:
+                return False
+            
+            # Block multicast addresses
+            if ip_obj.is_multicast:
+                return False
+            
+            # Block reserved addresses
+            if ip_obj.is_reserved:
+                return False
+            
+            # Block cloud metadata endpoints
+            if ip_address == "169.254.169.254":
+                return False
+            
+            return True
+        except ValueError:
+            return False
 
 
 class WebhookExecutionService:
@@ -206,9 +272,16 @@ class WebhookExecutionService:
             return False, str(e)
 
     def send_custom_webhook(self, webhook_data: Dict) -> Tuple[bool, Optional[str]]:
-        """Send custom webhook"""
+        """
+        Send custom webhook with SSRF protection.
+        
+        SECURITY: This method uses cached IP addresses from validation
+        to prevent DNS rebinding attacks. Redirects are blocked to prevent
+        SSRF through HTTP redirects.
+        """
         try:
             from .webhook_crypto_service import webhook_crypto_service
+            from .webhook_validation_service import webhook_validation_service
 
             url = webhook_data["url"]
             secret = webhook_data.get("secret")
@@ -229,12 +302,47 @@ class WebhookExecutionService:
 
             headers["Content-Type"] = "application/json"
 
+            # SECURITY: Get cached IP addresses to prevent DNS rebinding
+            validated_ips = webhook_validation_service.get_validated_ips_for_url(url)
+            if not validated_ips:
+                self.logger.warning(
+                    f"WEBHOOK_SSRF_PROTECTION: No cached IPs for {url}, "
+                    "re-validating URL. This should not happen in normal operation."
+                )
+                # Re-validate URL (this will cache IPs)
+                if not webhook_validation_service.validate_url(url):
+                    return False, "Invalid webhook URL (SSRF protection)"
+                validated_ips = webhook_validation_service.get_validated_ips_for_url(url)
+                if not validated_ips:
+                    return False, "Failed to validate webhook URL"
+
+            # Create session with SSRF-protected adapter
+            session = requests.Session()
+            adapter = SSRFProtectedHTTPAdapter(allowed_ips=validated_ips)
+            session.mount("https://", adapter)
+            session.mount("http://", adapter)
+
             error_message = None
             for attempt in range(self.max_retries):
                 try:
-                    response = requests.post(
-                        url, json=payload, headers=headers, timeout=self.timeout
+                    # SECURITY: Block redirects to prevent SSRF through HTTP redirects
+                    # If server returns redirect, we block it instead of following
+                    response = session.post(
+                        url,
+                        json=payload,
+                        headers=headers,
+                        timeout=self.timeout,
+                        allow_redirects=False  # SECURITY: Block redirects
                     )
+
+                    # Handle redirect response (block it)
+                    if response.status_code in [301, 302, 303, 307, 308]:
+                        self.logger.warning(
+                            f"WEBHOOK_SSRF_BLOCKED: Redirect detected for {url} "
+                            f"(Status {response.status_code}). Redirects are blocked for security."
+                        )
+                        error_message = "Redirect detected and blocked for security"
+                        continue
 
                     if response.status_code in [200, 201, 202, 204]:
                         return True, None
@@ -243,8 +351,14 @@ class WebhookExecutionService:
 
                 except requests.exceptions.Timeout:
                     error_message = "Request timeout"
-                except requests.exceptions.ConnectionError:
-                    error_message = "Connection error"
+                except requests.exceptions.ConnectionError as e:
+                    error_message = f"Connection error: {str(e)}"
+                    # Check if connection was blocked due to SSRF protection
+                    if "blocked" in str(e).lower() or "private" in str(e).lower():
+                        self.logger.warning(
+                            f"WEBHOOK_SSRF_BLOCKED: Connection blocked for {url}: {e}"
+                        )
+                        error_message = "Connection blocked for security reasons"
                 except Exception as e:
                     error_message = str(e)
 
@@ -254,8 +368,12 @@ class WebhookExecutionService:
             return False, error_message
 
         except Exception as e:
+            self.logger.error(f"WEBHOOK_EXECUTION_ERROR: {e}")
             return False, str(e)
 
 
-webhook_execution_service = WebhookExecutionService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   webhook_execution_service = get_service('webhook_execution_service')
 

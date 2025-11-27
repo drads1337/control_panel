@@ -40,7 +40,12 @@ class RedisIntegrityProtection:
     
     def __init__(self):
         self.signing_key = self._get_signing_key()
-        self.protection_enabled = True
+        # SECURITY: Redis Integrity Protection is optional.
+        # If Redis uses TLS inside VPC (e.g., AWS ElastiCache with TLS),
+        # HMAC adds CPU overhead without significant security benefit.
+        # Disable if Redis traffic is already encrypted via TLS.
+        from ..config.config import Config
+        self.protection_enabled = getattr(Config, 'REDIS_INTEGRITY_ENABLED', False)
         
     def _get_signing_key(self) -> bytes:
         """

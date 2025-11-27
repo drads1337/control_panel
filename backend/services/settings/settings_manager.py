@@ -12,9 +12,9 @@ from typing import Any, Dict, Optional
 from ...models.core import User
 from ...utils.rbac_utils import RBACManager
 from ...utils.service_exceptions import BusinessLogicError
+from ...utils.service_helpers import get_service
 
 try:
-    from ...services.cache import cache_service
 except ImportError:
     cache_service = None
 

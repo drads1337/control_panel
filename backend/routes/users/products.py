@@ -18,7 +18,6 @@ from ...middleware.auth import (
 from ...models import User
 from ...models.core import UserProductPermission
 from ...models.products import Product
-from ...services.activity import activity_service
 from ...utils.rbac_utils import RBACManager
 from ...utils.role_constants import RolePermissions
 
@@ -182,8 +181,8 @@ def toggle_user_product_access(user_identifier, product_identifier, current_user
     if not product:
         return jsonify({"error": "Product not found"}), 404
 
-    from ...services.rbac import rbac_service
 
+    rbac_service = get_service('rbac_service')
     if not rbac_service.check_permission(current_user.id, "clients.view"):
         if (
             current_user.project_id != target_user.project_id
@@ -217,10 +216,10 @@ def toggle_user_product_access(user_identifier, product_identifier, current_user
         try:
             from ...utils.service_helpers import get_service
             cache_service = get_service('cache_service')
-            from ...services.products import product_service
 
             product_service.invalidate_product_cache(target_user.project_id, actual_product_id)
 
+            cache_service = get_service('cache_service')
             cache_service.invalidate_product_instantly(target_user.project_id, actual_product_id)
 
             all_user_product_cache_patterns = [
@@ -244,6 +243,7 @@ def toggle_user_product_access(user_identifier, product_identifier, current_user
         except Exception as cache_error:
             logger.warning(f"Failed to invalidate product cache: {cache_error}")
 
+        activity_service = get_service('activity_service')
         action = "granted" if new_status else "revoked"
         activity_service.log_activity(
             current_user,

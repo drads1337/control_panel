@@ -4,6 +4,7 @@ import { enhancedApi as api } from '@/shared/api/enhanced-client'
 
 interface SignUpFormData {
   username: string
+  email: string
   password: string
   inviteCode: string
   projectName: string
@@ -11,6 +12,7 @@ interface SignUpFormData {
 
 interface SignUpFormErrors {
   username?: string
+  email?: string
   password?: string
   inviteCode?: string
   projectName?: string
@@ -32,6 +34,7 @@ export function useSignUpForm() {
   const { registerWithInvite, isLoading: authIsLoading, error: authError } = useAuthContext()
   const [formData, setFormData] = useState<SignUpFormData>({
     username: '',
+    email: '',
     password: '',
     inviteCode: '',
     projectName: ''
@@ -52,6 +55,14 @@ export function useSignUpForm() {
       newErrors.username = 'Username is required'
     } else if (formData.username.length < 3) {
       newErrors.username = 'Username must be at least 3 characters'
+    }
+
+    // Email is optional but validate if provided
+    if (formData.email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(formData.email.trim())) {
+        newErrors.email = 'Please enter a valid email address'
+      }
     }
 
     if (!formData.password) {
@@ -138,6 +149,7 @@ export function useSignUpForm() {
         formData.username.trim(),
         formData.password,
         formData.inviteCode.trim(),
+        formData.email.trim() || undefined,
         inviteCodeInfo?.code_type === 'project_invite' && formData.projectName.trim()
           ? formData.projectName.trim()
           : undefined

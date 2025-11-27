@@ -9,6 +9,7 @@ from flask import Flask
 from backend.models.core import User, Project
 from backend.models.keys import Key
 from backend.models.products import Product
+from ...utils.service_helpers import get_service
 
 
 @pytest.mark.integration
@@ -18,6 +19,8 @@ class TestKeysRoutes:
     def test_get_keys_uses_crud_service(self, app: Flask, client, test_user, test_project, test_product):
         """Test that GET /api/keys uses key_crud_service"""
         # This test verifies the route works after migration
+        key_crud_service = get_service('key_crud_service')
+        key_crud_service = get_service('key_crud_service')
         # The actual implementation uses key_crud_service.get_keys()
         response = client.get(
             "/api/keys",

@@ -330,6 +330,7 @@ class PolicyEngine:
         
         # Audit the authorization decision
         authorization_audit_service = get_service('authorization_audit_service')
+        authorization_audit_service = get_service('authorization_audit_service')
         authorization_audit_service.audit_authorization_decision(
             user_id=user_id,
             permission=permission,
@@ -423,6 +424,8 @@ class PolicyEngine:
             )
         
         # Get user permissions through RBAC
+        rbac_service = get_service('rbac_service')
+        rbac_service = get_service('rbac_service')
         rbac_service = get_service('rbac_service')
         user_permissions = rbac_service.get_user_permissions(user.id)
         
@@ -578,8 +581,9 @@ class PolicyEngine:
         
         # Delegate to ABAC service
         from .abac_service import ABACService
-        abac_service = ABACService()
+        from ...utils.service_helpers import get_service
         
+        abac_service = get_service('abac_service')
         abac_result = abac_service.check_abac_rules(
             user_id=user.id,
             permission=permission,

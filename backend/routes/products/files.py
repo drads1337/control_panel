@@ -14,8 +14,8 @@ from werkzeug.utils import secure_filename
 from ...core.extensions import db
 from ...middleware.auth import require_project_with_grace_period
 from ...models import Product, User
-from ...services.activity import activity_service
 from ...config.config import Config
+from ...utils.service_helpers import get_service
 
 files_bp = Blueprint("products_files", __name__)
 

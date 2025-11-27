@@ -260,4 +260,7 @@ class ProjectService:
         """
         return project_invite_service.get_latest_project_invite_code(user_id)
 
-project_service = ProjectService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   project_service = get_service('project_service')

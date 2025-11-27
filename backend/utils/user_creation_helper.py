@@ -13,6 +13,7 @@ from ..models.core import User
 from ..models.keys import TokenTransaction
 from ..utils.service_exceptions import ValidationError, ConflictError, NotFoundError, BusinessLogicError, ServiceError
 from .service_helpers import (
+    get_service,
     get_user_crud_service,
     get_user_role_service,
     get_user_permission_service,

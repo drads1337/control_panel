@@ -22,8 +22,6 @@ from ...schemas.responses.service_responses import (
     DeviceInfo as DeviceInfoSchema,
 )
 from ...utils.service_exceptions import ValidationError, NotFoundError, PermissionDeniedError, ServiceError
-from .key_generation_service import key_generation_service
-from .key_validation_service import key_validation_service
 from ...utils.data_masking import mask_license_key
 from ...utils.rbac_utils import RBACManager
 from ...utils.structured_logging import get_logger
@@ -36,8 +34,7 @@ class KeyCRUDService:
 
     def __init__(self):
         self.logger = get_logger("key_crud_service")
-        self.generation_service = key_generation_service
-        self.validation_service = key_validation_service
+        # Services will be obtained lazily when needed to avoid application context issues
 
     def _parse_key_metadata(self, key_metadata_value):
         """
@@ -142,7 +139,8 @@ class KeyCRUDService:
             PermissionDeniedError: If access denied
         """
         # validation_service now raises exceptions
-        self.validation_service.validate_key_data(user, key_data)
+        validation_service = get_service('key_validation_service')
+        validation_service.validate_key_data(user, key_data)
 
         product = None
         agent = None
@@ -154,6 +152,7 @@ class KeyCRUDService:
             # get_product now raises exceptions
             product = product_service.get_product(user, key_data["product_id"])
 
+        product_service = get_service('product_service')
         if key_data.get("agent_id"):
             agent = Agent.query.filter_by(
                 id=key_data["agent_id"], project_id=user.project_id
@@ -191,6 +190,7 @@ class KeyCRUDService:
                     raise ValidationError(f"Insufficient balance. Required: {key_price} tokens, Available: {user.token_balance} tokens")
                 
                 # Deduct balance without committing (we're inside a transaction)
+                balance_service = get_service('balance_service')
                 success, error_msg, _ = balance_service.deduct_balance(
                     current_user=user,
                     target_user_id=user.id,
@@ -203,7 +203,8 @@ class KeyCRUDService:
                 if not success:
                     raise ValidationError(f"Failed to deduct balance: {error_msg}")
 
-        key_string = self.generation_service.generate_key_string(
+        key_generation_service = get_service('key_generation_service')
+        key_string = key_generation_service.generate_key_string(
             length=key_data.get("length", 32),
             product=product,
             agent=agent,
@@ -292,7 +293,6 @@ class KeyCRUDService:
 
             # Use ServiceContainer to avoid circular imports
             rbac_service = get_service('rbac_service')
-
             if not RBACManager.is_owner(user) and not RBACManager.is_admin(user):
                 has_keys_view = rbac_service.check_permission(user.id, "keys.view")
                 if not has_keys_view:
@@ -567,9 +567,8 @@ class KeyCRUDService:
 
             db.session.delete(key)
 
-            # Invalidate statistics cache instead of using deprecated counters
-            from ...utils.service_helpers import get_service
             cache_service = get_service('cache_service')
+            # Invalidate statistics cache instead of using deprecated counters
             if user_id:
                 cache_service.invalidate_pattern(f"stats:user_id={user_id}:*")
             if project_id:
@@ -615,5 +614,12 @@ class KeyCRUDService:
 
 
 # Singleton instance
-key_crud_service = KeyCRUDService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   key_crud_service = get_service('key_crud_service')
 
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   key_crud_service = get_service('key_crud_service')

@@ -10,6 +10,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 
 from ..core.extensions import db
+from ..utils.service_helpers import get_service
 from ..middleware.auth import (
     enforce_project_scope,
     require_any_permission,
@@ -27,7 +28,6 @@ from ..schemas.remote_control import (
     RemoteFeatureCreateSchema,
     RemoteFeatureUpdateSchema,
 )
-from ..services.activity import activity_service
 from ..utils.role_constants import RolePermissions
 
 remote_control_bp = Blueprint("remote_control", __name__)
@@ -146,6 +146,7 @@ def create_category(current_user, project_id=None, validated_data=None):
         db.session.add(category)
         db.session.commit()
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user,
             "remote_category_created",

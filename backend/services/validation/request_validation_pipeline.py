@@ -159,6 +159,9 @@ class RequestValidationPipeline:
         # Check if IP is blocked
         try:
             security_service = get_service('security_service')
+            security_service = get_service('security_service')
+            security_service = get_service('security_service')
+            security_service = get_service('security_service')
             if security_service.is_ip_blocked(ip, project_id):
                 return False, "IP_BLOCKED"
         except (ConnectionError, TimeoutError) as e:

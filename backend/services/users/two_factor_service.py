@@ -18,7 +18,6 @@ from flask import current_app
 from ...core.extensions import db
 from ...models.core import User
 from ...models.security import TwoFactorAuth, TwoFactorBackupCode, TwoFactorSession
-from ...services.activity import activity_service
 from ...utils.service_helpers import get_service
 
 class TwoFactorService:
@@ -148,7 +147,9 @@ class TwoFactorService:
             two_factor.updated_at = datetime.utcnow()
             db.session.commit()
 
+            activity_service = get_service('activity_service')
             activity_service.log_activity(
+                activity_service = get_service('activity_service')
                 user,
                 "2fa_enabled",
                 details="Two-factor authentication enabled",
@@ -333,10 +334,19 @@ class TwoFactorService:
         """Check if 2FA is required for a user"""
         rbac_service = get_service('rbac_service')
         
+        rbac_service = get_service('rbac_service')
+        rbac_service = get_service('rbac_service')
         if rbac_service.check_permission(user.id, "system.manage_all_projects"):
             return True
 
         admin_permissions = ["rbac.view", "employees.view", "system.view_health"]
         return any(rbac_service.check_permission(user.id, perm) for perm in admin_permissions)
 
-two_factor_service = TwoFactorService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   two_factor_service = get_service('two_factor_service')
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   two_factor_service = get_service('two_factor_service')

@@ -14,8 +14,7 @@ from ...middleware.auth import enforce_project_scope, require_project_with_grace
 from ...middleware.validation import validate_request
 from ...models import Product, User
 from ...schemas.product import ProductBulkDeleteSchema, ProductBulkStatusUpdateSchema
-from ...services.activity import activity_service
-from ...services.products import product_service
+from ...utils.service_helpers import get_service
 from ...utils.rbac_utils import RBACManager
 
 bulk_operations_bp = Blueprint("products_bulk", __name__)
@@ -79,9 +78,11 @@ def bulk_update_product_status(validated_data=None):
 
         db.session.commit()
 
+        product_service = get_service('product_service')
         for product in products:
             product_service.invalidate_product_cache(user.project_id, product.id)
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "bulk_update_product_status",
@@ -169,9 +170,11 @@ def bulk_delete_products(validated_data=None):
 
         db.session.commit()
 
+        product_service = get_service('product_service')
         for product_id in product_ids_deleted:
             product_service.invalidate_product_cache(user.project_id, product_id)
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "bulk_delete_products",

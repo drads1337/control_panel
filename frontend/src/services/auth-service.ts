@@ -318,6 +318,7 @@ export class AuthService {
     username: string,
     password: string,
     inviteCode: string,
+    email?: string,
     projectName?: string,
     abortController?: AbortController
   ): Promise<{
@@ -330,6 +331,10 @@ export class AuthService {
       username: username.trim(),
       password,
       invite_code: inviteCode.trim()
+    }
+
+    if (email?.trim()) {
+      registerData.email = email.trim().toLowerCase()
     }
 
     if (projectName?.trim()) {
@@ -353,6 +358,69 @@ export class AuthService {
       if (isAxiosError(error) && error.response?.data && typeof error.response.data === 'object') {
         const errorData = error.response.data as { error?: string; msg?: string }
         throw new Error(errorData.error || errorData.msg || getErrorMessage(error))
+      }
+      throw new Error(getErrorMessage(error))
+    }
+  }
+
+  async forgotPassword(
+    email: string,
+    abortController?: AbortController
+  ): Promise<{
+    message?: string
+    error?: string
+  }> {
+    try {
+      const response = await api.post(
+        API_ENDPOINTS.FORGOT_PASSWORD,
+        { email: email.trim().toLowerCase() },
+        {
+          timeout: 5000,
+          signal: abortController?.signal
+        }
+      )
+      return response.data
+    } catch (error: unknown) {
+      if (error instanceof Error && (error.name === 'AbortError' || error.name === 'CanceledError')) {
+        throw error
+      }
+
+      const { isAxiosError, getErrorMessage } = await import('@/lib/error-utils')
+      if (isAxiosError(error) && error.response?.data && typeof error.response.data === 'object') {
+        const errorData = error.response.data as { error?: string; message?: string }
+        throw new Error(errorData.error || errorData.message || getErrorMessage(error))
+      }
+      throw new Error(getErrorMessage(error))
+    }
+  }
+
+  async resetPassword(
+    token: string,
+    newPassword: string,
+    abortController?: AbortController
+  ): Promise<{
+    message?: string
+    error?: string
+  }> {
+    try {
+      const response = await api.post(
+        API_ENDPOINTS.RESET_PASSWORD,
+        { token: token.trim(), new_password: newPassword },
+        {
+          timeout: 5000,
+          signal: abortController?.signal
+        }
+      )
+      return response.data
+    } catch (error: unknown) {
+      if (error instanceof Error && (error.name === 'AbortError' || error.name === 'CanceledError')) {
+        throw error
+      }
+
+      const { isAxiosError, getErrorMessage } = await import('@/lib/error-utils')
+      if (isAxiosError(error) && error.response?.data && typeof error.response.data === 'object') {
+        const errorData = error.response.data as { error?: string; message?: string }
+        throw new Error(errorData.error || errorData.message || getErrorMessage(error))
       }
       throw new Error(getErrorMessage(error))
     }

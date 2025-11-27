@@ -278,12 +278,7 @@ class WebhookService:
         pending_task_service = get_service('webhook_pending_task_service')
         pending_task_service.store_pending_webhook_task(webhook_id, project_id, event, webhook_data, error_reason)
 
-
-webhook_service = None
-
 def get_webhook_service():
     """Get webhook service instance"""
-    global webhook_service
-    if webhook_service is None:
-        webhook_service = WebhookService()
-    return webhook_service
+    from ...utils.service_helpers import get_service
+    return get_service('webhook_service')

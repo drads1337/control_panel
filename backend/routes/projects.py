@@ -4,6 +4,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ..core.extensions import db
+from ..utils.service_helpers import get_service
 from ..middleware.auth import (
     enforce_project_scope,
     require_auth,
@@ -81,17 +82,21 @@ def get_projects():
             all_project_ids = [p.id for p in Project.query.all()]
             logging.info(f"DEBUG: All project IDs in database: {all_project_ids}")
 
-        from ..services.projects import project_service
 
         if force_refresh:
             try:
                 from ..utils.service_helpers import get_service
                 cache_service = get_service('cache_service')
+                cache_service = get_service('cache_service')
                 cache_service.invalidate_pattern("projects:*")
+                cache_service = get_service('cache_service')
                 logging.info("Cache invalidated due to force_refresh parameter")
             except Exception as e:
                 logging.warning(f"Failed to invalidate cache: {e}")
 
+        project_service = get_service('project_service')
+        project_service = get_service('project_service')
+        project_service = get_service('project_service')
         logging.info(f"Calling project_service.get_projects_cached for user_id={user_id}")
         result = project_service.get_projects_cached(
             user_id=user_id, page=page, per_page=per_page, search=search
@@ -162,7 +167,6 @@ def create_project(current_user, validated_data=None):
         name = data.name.strip()
         description = data.description.strip() if data.description else ""
 
-        from ..services.projects import project_service
         # Exceptions are handled by global handler
         project = project_service.create_project(
             user_id=user.id,
@@ -203,7 +207,6 @@ def get_project(project_id):
         if not user:
             return jsonify({"error": "Access denied"}), 403
 
-        from ..services.projects import project_service
 
         result = project_service.get_project_cached(project_id=project_id, user_id=user_id)
 
@@ -247,7 +250,6 @@ def update_project(project_id, validated_data=None):
         data = ProjectUpdateSchema(**validated_data)
         update_data = data.model_dump(exclude_none=True)
 
-        from ..services.projects import project_service
         result = project_service.update_project(
             project_id=project_id,
             user_id=user_id,
@@ -286,7 +288,6 @@ def delete_project(project_id, current_user):
     try:
         user = current_user
 
-        from ..services.projects import project_service
         result = project_service.delete_project(
             project_id=project_id,
             user_id=user.id,
@@ -317,7 +318,6 @@ def get_project_stats(project_id):
         if not user:
             return jsonify({"error": "Access denied"}), 403
 
-        from ..services.projects import project_service
 
         result = project_service.get_project_stats_cached(project_id=project_id, user_id=user_id)
 
@@ -342,7 +342,6 @@ def get_project_invite_codes(current_user):
     """Get all project invite codes for the current user's project"""
     try:
 
-        from ..services.projects import project_service
         result = project_service.get_project_invite_codes(user_id=current_user.id)
 
         if "error" in result:
@@ -365,7 +364,6 @@ def get_latest_project_invite_code(current_user):
     """Get the latest project invite code for the current user's project"""
     try:
 
-        from ..services.projects import project_service
         result = project_service.get_latest_project_invite_code(user_id=current_user.id)
 
         if "error" in result:
@@ -394,7 +392,6 @@ def create_project_invite_code(current_user, validated_data=None):
         data = ProjectInviteCodeCreateSchema(**validated_data)
         expires_in_days = data.expires_in_days
 
-        from ..services.projects import project_service
         result = project_service.create_project_invite_code(
             user_id=current_user.id,
             expires_in_days=expires_in_days,
@@ -422,7 +419,6 @@ def delete_project_invite_code(code_id, current_user):
     """Delete a project invite code"""
     try:
 
-        from ..services.projects import project_service
         result = project_service.delete_project_invite_code(
             code_id=code_id,
             user_id=current_user.id,

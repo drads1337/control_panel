@@ -17,7 +17,7 @@ from typing import Optional
 from ...core.extensions import db
 from ...models import Key, User
 from ...models.core import Project
-from ...services.cache import cache_service
+from ...utils.service_helpers import get_service
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +31,15 @@ class CachedStatisticsService:
     on the next read using COUNT queries.
     """
 
-    def __init__(self):
+    def __init__(self, cache_service=None):
         self.cache_service = cache_service
+
+    @property
+    def _cache_service(self):
+        """Get cache service instance via DI container"""
+        if self.cache_service is not None:
+            return self.cache_service
+        return get_service('cache_service')
 
     def invalidate_on_key_change(self, user_id: Optional[int], project_id: Optional[int] = None):
         """
@@ -53,7 +60,7 @@ class CachedStatisticsService:
                     f"user_stats:{user_id}*",
                 ]
                 for pattern in cache_patterns:
-                    self.cache_service.invalidate_pattern(pattern)
+                    self._cache_service.invalidate_pattern(pattern)
             
             # Invalidate project-level statistics cache
             if project_id:
@@ -62,13 +69,13 @@ class CachedStatisticsService:
                     f"project_stats:{project_id}*",
                 ]
                 for pattern in cache_patterns:
-                    self.cache_service.invalidate_pattern(pattern)
+                    self._cache_service.invalidate_pattern(pattern)
             
             # Also invalidate user and project model caches
             if user_id:
-                self.cache_service.delete("user_data", user_id=user_id)
+                self._cache_service.delete("user_data", user_id=user_id)
             if project_id:
-                self.cache_service.delete("projects", project_id=project_id)
+                self._cache_service.delete("projects", project_id=project_id)
             
             logger.debug(
                 f"Invalidated statistics cache for user_id={user_id}, project_id={project_id}"
@@ -90,8 +97,8 @@ class CachedStatisticsService:
                     f"project_stats:{project_id}*",
                 ]
                 for pattern in cache_patterns:
-                    self.cache_service.invalidate_pattern(pattern)
-                self.cache_service.delete("projects", project_id=project_id)
+                    self._cache_service.invalidate_pattern(pattern)
+                self._cache_service.delete("projects", project_id=project_id)
             
             logger.debug(f"Invalidated statistics cache for project_id={project_id}")
         except Exception as e:
@@ -111,9 +118,9 @@ class CachedStatisticsService:
                     f"project_stats:{project_id}*",
                 ]
                 for pattern in cache_patterns:
-                    self.cache_service.invalidate_pattern(pattern)
-                self.cache_service.delete("projects", project_id=project_id)
-                self.cache_service.delete("products", project_id=project_id)
+                    self._cache_service.invalidate_pattern(pattern)
+                self._cache_service.delete("projects", project_id=project_id)
+                self._cache_service.delete("products", project_id=project_id)
             
             logger.debug(f"Invalidated statistics cache for project_id={project_id}")
         except Exception as e:
@@ -133,8 +140,8 @@ class CachedStatisticsService:
                     f"project_stats:{project_id}*",
                 ]
                 for pattern in cache_patterns:
-                    self.cache_service.invalidate_pattern(pattern)
-                self.cache_service.delete("projects", project_id=project_id)
+                    self._cache_service.invalidate_pattern(pattern)
+                self._cache_service.delete("projects", project_id=project_id)
             
             logger.debug(f"Invalidated statistics cache for project_id={project_id}")
         except Exception as e:
@@ -142,5 +149,8 @@ class CachedStatisticsService:
 
 
 # Singleton instance
-cached_statistics_service = CachedStatisticsService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   cached_statistics_service = get_service('cached_statistics_service')
 

@@ -16,6 +16,7 @@ from ..services.monitoring.prometheus_metrics_reader import prometheus_metrics_r
 from ..utils.rbac_utils import RBACManager
 from ..utils.role_constants import UserRoles
 from ..utils.slow_query_monitor import get_slow_query_monitor
+from ..utils.service_helpers import get_service
 
 dashboard_bp = Blueprint("dashboard", __name__)
 
@@ -50,9 +51,9 @@ def get_dashboard_stats(project_id=None):
             )
 
         if project_filter:
-            from ..services.projects import project_relationships_service
             
             total_users = project_relationships_service.get_user_count(project_filter)
+            project_relationships_service = get_service('project_relationships_service')
             total_keys = Key.query.filter(Key.project_id == project_filter).count()
             total_products = Product.query.filter(Product.project_id == project_filter).count()
             total_servers = Server.query.filter(Server.project_id == project_filter).count()

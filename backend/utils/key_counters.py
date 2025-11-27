@@ -12,7 +12,9 @@ from typing import Optional
 from sqlalchemy import func, case
 from ..core.extensions import db
 from ..models import Key, User
+from ...utils.service_helpers import get_service
 
+cached_statistics_service = get_service('cached_statistics_service')
 def update_user_key_counters(user_id: Optional[int], project_id: Optional[int] = None):
     """
     Recalculate and update key counters for a user.

@@ -28,4 +28,7 @@ class WebhookCryptoService:
         ).hexdigest()
 
 
-webhook_crypto_service = WebhookCryptoService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   webhook_crypto_service = get_service('webhook_crypto_service')

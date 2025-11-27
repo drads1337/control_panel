@@ -17,7 +17,6 @@ from ...models.core import Project, ProjectInviteCode, User
 from ...models.keys import ReferralCode
 from ...models.rbac import Role, UserRole
 from ...utils.rbac_utils import RBACManager
-from ...services.activity import activity_service
 
 class InviteService:
     """Service for handling invitation and referral code operations"""
@@ -478,4 +477,11 @@ class InviteService:
             self.logger.error(f"Error deleting unused codes: {str(e)}")
             return 0, 0
 
-invite_service = InviteService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   invite_service = get_service('invite_service')
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   invite_service = get_service('invite_service')

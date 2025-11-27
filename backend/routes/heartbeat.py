@@ -30,10 +30,9 @@ from ..models.products import Product
 from ..models.keys import DeviceInfo, Key, KeyAnalytics
 from ..models.security import BlockedFingerprint
 from ..middleware import require_mtls
-from ..services.auth.challenge_service import challenge_service
-from ..services.heartbeat import heartbeat_service
 from ..utils.redis_client import get_redis_client
 from ..utils.secure_crypto import MasterKeyManager
+from ..utils.service_helpers import get_service
 from .settings import decrypt_data_with_project_key, encrypt_data_with_project_key
 
 heartbeat_bp = Blueprint("heartbeat", __name__)
@@ -196,6 +195,9 @@ def api_heartbeat():
                 logging.warning(f"HEARTBEAT_NO_SESSION_ID ip={ip}")
                 return jsonify({"error": "Session ID required"}), 400
 
+            # Get heartbeat service
+            heartbeat_service = get_service('heartbeat_service')
+
             # Run heartbeat processing
             is_valid, message, response_data = heartbeat_service.process_heartbeat(
                 session_id,
@@ -316,6 +318,9 @@ def api_heartbeat_status():
                 logging.warning(f"HEARTBEAT_STATUS_NO_SESSION_ID ip={ip}")
                 return jsonify({"error": "Session ID required"}), 400
 
+            # Get heartbeat service
+            heartbeat_service = get_service('heartbeat_service')
+
             # Run session status check
             is_valid, message, status_data = heartbeat_service.check_session_status(
                 session_id
@@ -354,7 +359,6 @@ def api_heartbeat_status():
     except Exception as e:
         import traceback
 
-        from ..services.activity import activity_service
 
         logging.error(
             f"Exception in api_heartbeat_status: {str(e)}\n{traceback.format_exc()} ip={ip} user_agent={user_agent}"

@@ -14,8 +14,8 @@ from models.core import User
 
 from ..config import Config
 from ..middleware.auth import require_project_isolation
-from ..services.tasks import task_service
 from ..utils.redis_client import get_redis_client
+from ..utils.service_helpers import get_service
 
 websocket_bp = Blueprint("websocket", __name__)
 
@@ -99,6 +99,7 @@ def get_task_status(task_id):
     """Get task status via HTTP (fallback for WebSocket)"""
     try:
         current_user_id = get_jwt_identity()
+        task_service = get_service('task_service')
         task_info = task_service.get_task_status(task_id)
 
         if not task_info:
@@ -119,6 +120,7 @@ def get_user_tasks():
     """Get user's recent tasks"""
     try:
         current_user_id = get_jwt_identity()
+        task_service = get_service('task_service')
         tasks = task_service.get_user_tasks(current_user_id)
 
         return {"tasks": tasks}

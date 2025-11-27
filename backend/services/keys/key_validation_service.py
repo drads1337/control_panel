@@ -46,6 +46,7 @@ class KeyValidationService:
             product_service = get_service('product_service')
             # get_product now raises exceptions instead of returning tuples
             try:
+                product_service = get_service('product_service')
                 product = product_service.get_product(user, key_data["product_id"])
             except NotFoundError:
                 raise NotFoundError("Product", resource_id=str(key_data["product_id"]))
@@ -83,5 +84,8 @@ class KeyValidationService:
         if count <= 0:
             raise ValidationError("Count must be greater than 0", field="count")
 
-key_validation_service = KeyValidationService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   key_validation_service = get_service('key_validation_service')
 

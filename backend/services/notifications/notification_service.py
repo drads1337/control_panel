@@ -286,6 +286,8 @@ class NotificationService:
                 # Use ServiceContainer to avoid circular imports
                 rbac_service = get_service('rbac_service')
 
+                rbac_service = get_service('rbac_service')
+                rbac_service = get_service('rbac_service')
                 can_view_all = rbac_service.check_permission(
                     user.id, "employees.view"
                 ) or rbac_service.check_permission(user.id, "clients.view")
@@ -408,4 +410,7 @@ class NotificationService:
             self.logger.error(f"Error cleaning up notifications: {str(e)}")
             return 0, f"Failed to cleanup notifications: {str(e)}"
 
-notification_service = NotificationService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   notification_service = get_service('notification_service')

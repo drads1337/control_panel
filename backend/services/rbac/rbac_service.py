@@ -11,7 +11,6 @@ from typing import Any, Dict, List, Optional, Set
 from ...core.extensions import db
 from ...models.core import User
 from ...models.rbac import Permission, Role, UserRole
-from ...services.cache import cache_service
 from ...utils.rbac_utils import RBACManager
 from .abac_service import ABACService
 from .permission_service import PermissionService
@@ -919,5 +918,3 @@ class RBACService:
         except Exception as e:
             logging.error(f"RBAC_STATISTICS_ERROR project_id={project_id} error={e}")
             return {}
-
-rbac_service = RBACService()

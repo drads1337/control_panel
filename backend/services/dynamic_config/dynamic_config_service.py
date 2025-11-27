@@ -471,6 +471,8 @@ class DynamicConfigService:
                 # Use ServiceContainer to avoid circular imports
                 rbac_service = get_service('rbac_service')
 
+                rbac_service = get_service('rbac_service')
+                rbac_service = get_service('rbac_service')
                 is_owner = rbac_service.check_permission(user.id, "system.manage_all_projects")
                 is_admin = rbac_service.check_permission(
                     user.id, "products.edit"
@@ -538,4 +540,7 @@ class DynamicConfigService:
                     self._disable_all_features({"feature_flags": feature_value})
 
 
-dynamic_config_service = DynamicConfigService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   dynamic_config_service = get_service('dynamic_config_service')

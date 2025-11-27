@@ -175,4 +175,7 @@ class SecurityRulesInitService:
         return SecurityRule.query.filter_by(project_id=project_id).all()
 
 
-security_rules_init_service = SecurityRulesInitService() 
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   security_rules_init_service = get_service('security_rules_init_service')

@@ -42,6 +42,16 @@ Create `.env` file:
 DATABASE_URL=postgresql://user:password@localhost/dbname
 SECRET_KEY=your-secret-key
 REDIS_URL=redis://localhost:6379/0
+
+# Email Configuration (for password reset)
+MAIL_SERVER=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USE_TLS=true
+MAIL_USERNAME=your-email@gmail.com
+MAIL_PASSWORD=your-app-password  # Gmail App Password, not regular password!
+MAIL_FROM=your-email@gmail.com
+MAIL_FROM_NAME=Panel
+FRONTEND_URL=http://localhost:3000
 ```
 
 Run migrations and start server:
@@ -119,5 +129,20 @@ backend/
 ## Authentication
 
 HTTP-only cookies with CSRF protection enabled.
+
+### Password Reset
+
+The application supports password reset via email. Configure email settings in `.env`:
+
+**Gmail Setup:**
+1. Enable 2-Step Verification in your Google Account
+2. Generate an App Password: Google Account > Security > App passwords
+3. Use the App Password (not your regular password) in `MAIL_PASSWORD`
+
+**Other Email Providers:**
+- **SendGrid:** `MAIL_SERVER=smtp.sendgrid.net`, `MAIL_USERNAME=apikey`, `MAIL_PASSWORD=your-api-key`
+- **Mailgun:** `MAIL_SERVER=smtp.mailgun.org`, use your Mailgun credentials
+
+**Important:** For password reset emails to work, Celery workers must be running (see Production section).
 
 Added alias for product and change to the product 

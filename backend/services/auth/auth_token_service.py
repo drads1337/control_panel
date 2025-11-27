@@ -114,5 +114,8 @@ class AuthTokenService:
 
 
 # Singleton instance
-auth_token_service = AuthTokenService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   auth_token_service = get_service('auth_token_service')
 

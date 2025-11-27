@@ -10,6 +10,8 @@ export const API_ENDPOINTS = {
   LOGIN: '/api/auth/login',
   REGISTER: '/api/auth/register',
   REGISTER_WITH_INVITE: '/api/auth/register-with-invite',
+  FORGOT_PASSWORD: '/api/auth/forgot-password',
+  RESET_PASSWORD: '/api/auth/reset-password',
   CLASSIC_CONNECT: '/api/classic_connect',
   LOGOUT: '/api/auth/logout',
 

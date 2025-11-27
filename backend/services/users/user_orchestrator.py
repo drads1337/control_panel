@@ -14,6 +14,7 @@ from ...models.core import User
 
 logger = logging.getLogger(__name__)
 
+
 class UserOrchestrator:
     """
     Orchestrates complex user management operations
@@ -77,6 +78,8 @@ class UserOrchestrator:
                 raise BusinessLogicError(f"Failed to create user: {str(e)}")
 
             try:
+                activity_service = get_service('activity_service')
+                activity_service = get_service('activity_service')
                 self.activity_service.log_activity(
                     current_user,
                     "create_user",
@@ -125,7 +128,10 @@ class UserOrchestrator:
         # Check permissions (raises PermissionDeniedError if not allowed)
         self._check_update_permissions(current_user, target_user)
 
+        user_profile_service = get_service('user_profile_service')
+        user_profile_service = get_service('user_profile_service')
         # Update profile (user_profile_service still returns tuple, will be migrated later)
+        user_profile_service = get_service('user_profile_service')
         success, error = self.user_profile_service.update_user_profile(target_user, user_data)
         if not success:
             raise BusinessLogicError(error or "Failed to update user profile")
@@ -215,6 +221,8 @@ class UserOrchestrator:
         rbac_role_ids = user_data.get("rbac_role_ids", [])
 
         if not rbac_role_ids:
+            rbac_service = get_service('rbac_service')
+            rbac_service = get_service('rbac_service')
             raise ValidationError("At least one RBAC role must be selected", field="rbac_role_ids")
 
         has_employee_permission = self.rbac_service.check_permission(
@@ -446,7 +454,8 @@ class UserOrchestrator:
 
             # Assign roles
             if rbac_role_ids and project_id:
-                self.user_role_service.assign_roles_to_user(user.id, project_id, rbac_role_ids)
+                user_role_service = get_service('user_role_service')
+                user_role_service.assign_roles_to_user(user.id, project_id, rbac_role_ids)
 
             # Update project counters
             if project_id:

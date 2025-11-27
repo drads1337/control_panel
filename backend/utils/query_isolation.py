@@ -16,6 +16,7 @@ Key Features:
 
 Usage:
     from ..utils.query_isolation import init_query_isolation, disable_project_isolation
+from ...utils.service_helpers import get_service
     
     # In app initialization:
     init_query_isolation(app)
@@ -382,13 +383,14 @@ def disable_project_isolation(reason: Optional[str] = None, require_owner: bool 
         try:
             from flask_jwt_extended import get_jwt_identity
             from ..models.core import User
-            from ..services.rbac import rbac_service
             
             user_id = get_jwt_identity()
             if user_id:
                 user = User.query.get(user_id)
                 if user:
+                    rbac_service = get_service('rbac_service')
                     is_owner = rbac_service.check_permission(user.id, "system.manage_all_projects")
+                    rbac_service = get_service('rbac_service')
                     if not is_owner:
                         logger.error(
                             f"[SECURITY_VIOLATION] Non-owner user {user.username} (ID: {user.id}) "

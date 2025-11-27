@@ -73,5 +73,5 @@ export function usePageConfig(): PageConfig {
     }
   }
 
-  return configs[location.pathname] || { title: 'Panel' }
+  return configs[location.pathname] || { title: 'Users ' }
 }

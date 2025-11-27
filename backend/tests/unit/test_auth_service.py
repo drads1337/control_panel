@@ -8,6 +8,7 @@ from werkzeug.security import generate_password_hash
 from backend.models.core import Project, User
 from backend.services.auth_service import AuthService
 from backend.utils.role_constants import UserRoles
+from ...utils.service_helpers import get_service
 
 @pytest.mark.unit
 @pytest.mark.auth
@@ -21,6 +22,9 @@ class TestAuthService:
 
     def test_validate_simple_login_success_username(self, auth_service, test_user):
         """Test successful login with username"""
+        auth_service = get_service('auth_service')
+        auth_service = get_service('auth_service')
+        auth_service = get_service('auth_service')
         user, error = auth_service.validate_simple_login(
             test_user.username, "test_password_123"
         )
@@ -202,6 +206,7 @@ class TestAuthService:
 
         mock_webhook_service = mocker.Mock()
         mock_webhook_service.trigger_webhook = mocker.Mock()
+        webhook_service = get_service('webhook_service')
         mocker.patch(
             "backend.services.webhook_service.get_webhook_service",
             return_value=mock_webhook_service

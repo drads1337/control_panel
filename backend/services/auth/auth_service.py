@@ -9,7 +9,8 @@ from typing import Any, Dict
 from ...models.core import User
 from ...utils.service_exceptions import AuthenticationError, SecurityError, NotFoundError, ServiceError
 from .auth_token_service import auth_token_service
-from .login_service import login_service
+from ...utils.service_helpers import get_service
+
 
 class AuthService:
     """Service for handling authentication operations"""
@@ -36,6 +37,7 @@ class AuthService:
             AuthenticationError: If credentials are invalid
             ServiceError: If database operation fails
         """
+        login_service = get_service('login_service')
         return login_service.validate_credentials(username, password)
 
     def create_login_response(self, user: User, include_token: bool = False) -> Dict[str, Any]:
@@ -146,4 +148,11 @@ class AuthService:
         """
         return login_service.process_login(username, password, ip, user_agent)
 
-auth_service = AuthService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   auth_service = get_service('auth_service')
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   auth_service = get_service('auth_service')

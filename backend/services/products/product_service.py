@@ -17,7 +17,6 @@ from ...models.core import User
 from ...models.products import Product, ProductExtraFile, ProductFileConfig, ProductFileDownload, ProductKeyPrice
 from ...models.keys import Key
 from ...models.agents import Agent, AgentProductAssignment, AgentDownloadLog
-from ...services.cache import cache_service
 from ...utils.service_exceptions import NotFoundError, PermissionDeniedError, ConflictError, ServiceError
 from ...utils.service_helpers import get_service
 
@@ -30,8 +29,10 @@ class ProductService:
 
     @property
     def _cache_service(self):
-        """Get cache service instance"""
-        return self.cache_service if self.cache_service is not None else cache_service
+        """Get cache service instance via DI container"""
+        if self.cache_service is not None:
+            return self.cache_service
+        return get_service('cache_service')
 
     def get_products_cached(
         self, project_id: int, product_type: str = "all", user_id: Optional[int] = None
@@ -477,6 +478,8 @@ class ProductService:
 
                 can_view_all = user and (
                     RBACManager.is_owner(user)
+                    rbac_service = get_service('rbac_service')
+                    rbac_service = get_service('rbac_service')
                     or rbac_service.check_permission(user.id, "products.view")
                 )
                 if can_view_all and RBACManager.is_owner(user):
@@ -783,4 +786,11 @@ class ProductService:
             "count": 0,
         }
 
-product_service = ProductService()
+# Global instance for backward compatibility
+# Prefer using DI pattern via ServiceContainer:
+#   from ...utils.service_helpers import get_service
+#   product_service = get_service('product_service')
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   product_service = get_service('product_service')

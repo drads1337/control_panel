@@ -12,7 +12,6 @@ from typing import Any, Dict, Optional
 from ...core.extensions import db
 from ...models.core import Project, User
 from ...utils.service_exceptions import ValidationError, NotFoundError, ConflictError, ServiceError
-from ...services.activity import activity_service
 
 
 class ProjectCRUDService:
@@ -101,7 +100,9 @@ class ProjectCRUDService:
             db.session.commit()
 
             try:
+                activity_service = get_service('activity_service')
                 activity_service.log_activity(
+                    activity_service = get_service('activity_service')
                     user,
                     "project_created",
                     ip=ip_address,
@@ -113,8 +114,8 @@ class ProjectCRUDService:
 
             # Initialize default security rules for the project
             try:
-                from ...services.security.security_rules_init import security_rules_init_service
                 security_rules_init_service.initialize_default_rules(project.id, user_id)
+                security_rules_init_service = get_service('security_rules_init_service')
                 self.logger.info(f"Initialized default security rules for project {project.id}")
             except Exception as e:
                 self.logger.warning(f"Failed to initialize security rules for project {project.id}: {e}")
@@ -320,5 +321,12 @@ class ProjectCRUDService:
 
 
 # Singleton instance
-project_crud_service = ProjectCRUDService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   project_crud_service = get_service('project_crud_service')
 
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   project_crud_service = get_service('project_crud_service')

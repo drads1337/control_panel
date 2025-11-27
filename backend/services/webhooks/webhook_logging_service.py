@@ -190,5 +190,8 @@ class WebhookLoggingService:
             return {}
 
 
-webhook_logging_service = WebhookLoggingService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   webhook_logging_service = get_service('webhook_logging_service')
 

@@ -7,5 +7,15 @@ from .auth_service import AuthService
 from .auth_token_service import AuthTokenService, auth_token_service
 from .login_service import LoginService, login_service
 from .challenge_service import ChallengeService
+from .password_reset_service import PasswordResetService, password_reset_service
 
-__all__ = ["AuthService", "AuthTokenService", "auth_token_service", "LoginService", "login_service", "ChallengeService"]
+__all__ = [
+    "AuthService", 
+    "AuthTokenService", 
+    "auth_token_service", 
+    "LoginService", 
+    "login_service", 
+    "ChallengeService",
+    "PasswordResetService",
+    "password_reset_service"
+]

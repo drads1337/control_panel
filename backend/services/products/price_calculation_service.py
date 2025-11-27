@@ -117,4 +117,7 @@ class PriceCalculationService:
             return 0.0
 
 
-price_calculation_service = PriceCalculationService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   price_calculation_service = get_service('price_calculation_service')

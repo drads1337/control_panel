@@ -99,6 +99,8 @@ class KeyExportService:
                 rbac_service = get_service('rbac_service')
                 is_own_key = key.user_id == user.id
                 if is_own_key:
+                    rbac_service = get_service('rbac_service')
+                    rbac_service = get_service('rbac_service')
                     can_download_full_key = rbac_service.check_permission(user.id, "keys.view")
                 else:
                     can_download_full_key = rbac_service.check_permission(user.id, "keys.view")
@@ -206,5 +208,8 @@ class KeyExportService:
 
 
 # Singleton instance
-key_export_service = KeyExportService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   key_export_service = get_service('key_export_service')
 

@@ -18,8 +18,6 @@ from werkzeug.utils import secure_filename
 from ...core.extensions import db
 from ...utils.service_helpers import get_service
 from ...models import Key, User, UserActivity
-from ...services.activity import activity_service
-from ...services.users import user_profile_service
 from ...utils.service_helpers import get_user_profile_service
 from ...middleware.auth import (
     require_project_assignment,
@@ -164,12 +162,13 @@ def update_profile(current_user, validated_data=None):
     user = current_user
 
     # Use DI container to get service
-    user_profile_service = get_user_profile_service()
+    user_profile_service = get_service('user_profile_service')
     success, error = user_profile_service.update_user_profile(user, update_data)
 
     if not success:
         return jsonify({"error": error}), 400
 
+    activity_service = get_service('activity_service')
     activity_service.log_activity(
         user,
         "profile_update",
@@ -236,12 +235,13 @@ def change_password(current_user):
         return jsonify({"error": error_msg}), 400
 
     # Use DI container to get service
-    user_profile_service = get_user_profile_service()
+    user_profile_service = get_service('user_profile_service')
     success, error = user_profile_service.change_password(user, current_password, new_password)
 
     if not success:
         return jsonify({"error": error}), 400
 
+    activity_service = get_service('activity_service')
     activity_service.log_activity(
         user,
         "password_change",

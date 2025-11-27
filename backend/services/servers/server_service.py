@@ -242,6 +242,8 @@ class ServerService:
                 # Invalidate statistics cache instead of using deprecated counters
                 from ...utils.service_helpers import get_service
                 cache_service = get_service('cache_service')
+                cache_service = get_service('cache_service')
+                cache_service = get_service('cache_service')
                 cache_service.invalidate_pattern(f"stats:project_id={project_id}:*")
 
             db.session.delete(server)
@@ -346,4 +348,7 @@ class ServerService:
             self.logger.error(f"Error getting project settings for project {project_id}: {str(e)}")
             return None
 
-server_service = ServerService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   server_service = get_service('server_service')

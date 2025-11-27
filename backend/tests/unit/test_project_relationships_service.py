@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 from backend.services.projects.project_relationships_service import ProjectRelationshipsService
 from backend.models.core import Project, User
 from backend.models.project_user import ProjectAdmin
+from ...utils.service_helpers import get_service
 
 
 class TestProjectRelationshipsService:
@@ -47,6 +48,7 @@ class TestProjectRelationshipsService:
 
     def test_get_admin_user_success(self, service, mock_admin_record, mock_user):
         """Test getting admin user successfully"""
+        project_relationships_service = get_service('project_relationships_service')
         with patch('backend.services.projects.project_relationships_service.ProjectAdmin') as mock_admin_model:
             mock_admin_model.query.filter_by.return_value.first.return_value = mock_admin_record
             

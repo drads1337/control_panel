@@ -20,9 +20,7 @@ from ...schemas.key import (
     CustomLoaderKeyCreateSchema,
     LoaderKeyCreateSchema,
 )
-from ...services.activity import activity_service
-from ...services.keys.key_generation_service import key_generation_service
-from ...services.keys.key_bulk_operations_service import key_bulk_operations_service
+from ...utils.service_helpers import get_service
 from ...utils.rbac_utils import RBACManager
 
 loader_bp = Blueprint("keys_loader", __name__)
@@ -56,6 +54,7 @@ def create_loader_key(current_user, project_id=None, validated_data=None):
     if len(products) != len(product_ids):
         return jsonify({"error": "Some products not found or access denied"}), 404
 
+    key_generation_service = get_service('key_generation_service')
     unified_key_string = key_generation_service.generate_key_string(
         32, agent=agent, duration_hours=duration_hours, project_id=current_user.project_id
     )
@@ -108,6 +107,7 @@ def create_loader_key(current_user, project_id=None, validated_data=None):
 
         db.session.commit()
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user,
             "create_agent_key",
@@ -348,9 +348,11 @@ def bulk_create_loader_keys(current_user, project_id=None, validated_data=None):
     else:
 
         try:
-            from ...services.tasks import task_service
             from ...tasks.key_tasks import bulk_create_loader_keys_task
 
+            # Get task service
+            task_service = get_service('task_service')
+            
             task_id = task_service.create_task(
                 task_type="bulk_create_loader_keys",
                 task_data={
@@ -665,6 +667,7 @@ def bulk_delete_unused_loader_keys(current_user, project_id=None, validated_data
     if not agent:
         return jsonify({"error": "Agent not found or access denied"}), 404
 
+    key_bulk_operations_service = get_service('key_bulk_operations_service')
     deleted_count, error = key_bulk_operations_service.bulk_delete_unused_loader_keys(current_user, agent_id)
 
     if error:
@@ -706,6 +709,7 @@ def bulk_delete_expired_loader_keys(current_user, project_id=None, validated_dat
     if not agent:
         return jsonify({"error": "Agent not found or access denied"}), 404
 
+    key_bulk_operations_service = get_service('key_bulk_operations_service')
     deleted_count, error = key_bulk_operations_service.bulk_delete_expired_loader_keys(current_user, agent_id)
 
     if error:

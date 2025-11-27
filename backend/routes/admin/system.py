@@ -27,6 +27,8 @@ def require_owner_role(f):
             return jsonify({"error": "Access denied"}), 403
 
         rbac_service = get_service('rbac_service')
+        rbac_service = get_service('rbac_service')
+        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_all_projects"):
             return (
                 jsonify(

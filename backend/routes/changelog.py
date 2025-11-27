@@ -17,7 +17,7 @@ from ..schemas.changelog import (
     ChangelogEntryCreateSchema,
     ChangelogEntryUpdateSchema,
 )
-from ..services.activity import activity_service
+from ..utils.service_helpers import get_service
 from ..utils.fulltext_search import fulltext_search_filter
 from ..utils.rbac_utils import RBACManager
 from ..routes.agents import find_agent_by_id_or_unique_id
@@ -147,8 +147,8 @@ def create_changelog_entry(product_identifier, validated_data=None):
     if not user.project_id:
         return jsonify({"error": "No project associated"}), 400
 
-    from ..services.rbac import rbac_service
 
+    rbac_service = get_service('rbac_service')
     can_create_changelog = rbac_service.check_permission(
         user.id, "products.changelog_create"
     ) or rbac_service.check_permission(user.id, "agents.changelog_create")
@@ -195,6 +195,7 @@ def create_changelog_entry(product_identifier, validated_data=None):
 
         db.session.commit()
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "create_changelog_entry",
@@ -242,8 +243,7 @@ def update_changelog_entry(entry_id):
     if not user.project_id:
         return jsonify({"error": "No project associated"}), 400
 
-    from ..services.rbac import rbac_service
-
+    rbac_service = get_service('rbac_service')
     can_edit_changelog = rbac_service.check_permission(
         user.id, "products.changelog_edit"
     ) or rbac_service.check_permission(user.id, "agents.changelog_edit")
@@ -313,6 +313,7 @@ def update_changelog_entry(entry_id):
             entity_id = getattr(entry, 'product_id', None)
             entity_type = "product"
         
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "update_changelog_entry",
@@ -363,8 +364,7 @@ def delete_changelog_entry(entry_id):
     if not user.project_id:
         return jsonify({"error": "No project associated"}), 400
 
-    from ..services.rbac import rbac_service
-
+    rbac_service = get_service('rbac_service')
     can_delete_changelog = rbac_service.check_permission(
         user.id, "products.changelog_delete"
     ) or rbac_service.check_permission(user.id, "agents.changelog_delete")
@@ -397,6 +397,7 @@ def delete_changelog_entry(entry_id):
         db.session.delete(entry)
         db.session.commit()
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "delete_changelog_entry",
@@ -674,8 +675,7 @@ def create_loader_changelog_entry(agent_identifier, validated_data=None):
     if not user.project_id:
         return jsonify({"error": "No project associated"}), 400
 
-    from ..services.rbac import rbac_service
-
+    rbac_service = get_service('rbac_service')
     # For agent changelog, check agent permissions first, then fallback to product permissions
     has_agent_permission = rbac_service.check_permission(
         user.id, "agents.changelog_create"
@@ -745,6 +745,7 @@ def create_loader_changelog_entry(agent_identifier, validated_data=None):
         agent.updated_at = datetime.utcnow()
         db.session.commit()
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "loader_changelog_created",

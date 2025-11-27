@@ -11,6 +11,7 @@ This helper can still be used to verify no legacy code remains.
 import re
 from typing import List, Tuple, Optional
 from pathlib import Path
+from ...utils.service_helpers import get_service
 
 
 def find_deprecated_counter_usage(codebase_path: str = "backend") -> List[Tuple[str, int, str]]:
@@ -99,8 +100,8 @@ def generate_migration_suggestions(usage: List[Tuple[str, int, str]]) -> str:
             )
     
     suggestions.append("\n📝 Fix guide:")
-    suggestions.append("  1. Import: from backend.services.statistics import cached_statistics_service")
     suggestions.append("  2. Replace increment_* with: cached_statistics_service.invalidate_on_*_change()")
+    cached_statistics_service = get_service('cached_statistics_service')
     suggestions.append("  3. Replace decrement_* with: cached_statistics_service.invalidate_on_*_change()")
     suggestions.append("  4. The cache invalidation triggers recalculation on next access")
     suggestions.append("\n⚠️  These functions have been REMOVED due to race conditions.")

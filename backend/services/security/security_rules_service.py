@@ -587,5 +587,8 @@ class SecurityRulesService:
 
 
 # Singleton instance
-security_rules_service = SecurityRulesService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   security_rules_service = get_service('security_rules_service')
 

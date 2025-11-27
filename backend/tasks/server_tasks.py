@@ -5,6 +5,7 @@ Handles SSH operations asynchronously with proper error handling and retries
 
 import logging
 import time
+from ...utils.service_helpers import get_service
 
 try:
     from celery import Task
@@ -28,7 +29,6 @@ from ..config.config import Config
 from ..models.core import db
 from ..models.servers import Server
 from ..utils.project_settings_migration import ProjectSettingsHelper
-from ..services.tasks import task_service
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +119,7 @@ def server_status_check(self, server_id, task_id=None, project_id=None):
             logger.error(error_msg)
             if task_id:
                 task_service.update_task_status(task_id, "failed", error=error_msg)
+            task_service = get_service('task_service')
             return {"status": "error", "error": error_msg}
         self._db_session = Session()
     session = self._db_session

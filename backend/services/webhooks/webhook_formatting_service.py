@@ -463,5 +463,8 @@ class WebhookFormattingService:
         return embed
 
 
-webhook_formatting_service = WebhookFormattingService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   webhook_formatting_service = get_service('webhook_formatting_service')
 

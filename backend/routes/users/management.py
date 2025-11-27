@@ -15,6 +15,7 @@ from ...middleware.auth import (
     require_role,
     require_user,
 )
+from ...utils.service_helpers import get_service
 from ...middleware.validation import validate_request
 from ...middleware.serialization import serialize_response
 from ...models import User
@@ -25,9 +26,6 @@ from ...schemas.user import (
     UserInviteSchema,
     UserUpdateSchema,
 )
-from ...services.activity import activity_service
-from ...services.rbac import rbac_service
-from ...services.users import user_profile_service
 from ...utils.rbac_utils import RBACManager
 from ...utils.role_constants import RolePermissions
 from ...utils.service_helpers import (
@@ -130,6 +128,7 @@ def add_user(current_user, validated_data=None, project_id=None):
         user = create_user_with_roles_and_products(current_user, data, project_id=project_id)
 
         try:
+            activity_service = get_service('activity_service')
             activity_service.log_activity(
                 current_user,
                 "add_user",
@@ -186,6 +185,7 @@ def update_user(user_id, current_user, validated_data=None):
         if not target_user:
             return jsonify({"error": "User not found"}), 404
 
+        rbac_service = get_service('rbac_service')
         can_view_all = rbac_service.check_permission(
             current_user.id, "employees.view"
         ) or rbac_service.check_permission(current_user.id, "clients.view")
@@ -200,8 +200,7 @@ def update_user(user_id, current_user, validated_data=None):
             if project_id and target_user.project_id != project_id:
                 return jsonify({"error": "Access denied"}), 403
 
-        # Use DI container to get service
-        user_profile_service = get_user_profile_service()
+        user_profile_service = get_service('user_profile_service')
         success, error = user_profile_service.update_user_profile(target_user, data)
         if not success:
             return jsonify({"error": error}), 400
@@ -210,6 +209,7 @@ def update_user(user_id, current_user, validated_data=None):
 
         role_names = []
         try:
+            rbac_service = get_service('rbac_service')
             rbac_roles = rbac_service.get_user_roles(target_user.id)
             role_names = [role["name"] for role in rbac_roles] if rbac_roles else []
         except Exception as e:
@@ -290,9 +290,9 @@ def bulk_action(current_user, project_id=None, validated_data=None):
 
     query = User.query.filter(User.id.in_(user_ids))
 
-    from ...services.rbac import rbac_service
     from ...utils.rbac_utils import RBACManager
 
+    rbac_service = get_service('rbac_service')
     can_view_all = rbac_service.check_permission(
         current_user.id, "employees.view"
     ) or rbac_service.check_permission(current_user.id, "clients.view")
@@ -394,7 +394,6 @@ def export_users(current_user, project_id=None):
 
     query = User.query
 
-    from ...services.rbac import rbac_service
     from ...utils.rbac_utils import RBACManager
 
     can_view_all = rbac_service.check_permission(
@@ -502,9 +501,9 @@ def invite_user(current_user, validated_data=None):
     import string
 
     allowed_roles = RolePermissions.ASSIGNABLE_ROLES.copy()
-    from ...services.rbac import rbac_service
     from ...utils.rbac_utils import RBACManager
 
+    rbac_service = get_service('rbac_service')
     can_view_all = rbac_service.check_permission(
         current_user.id, "employees.view"
     ) or rbac_service.check_permission(current_user.id, "clients.view")
@@ -559,7 +558,6 @@ def get_users_stats(current_user, project_id=None):
 
     query = User.query
 
-    from ...services.rbac import rbac_service
     from ...utils.rbac_utils import RBACManager
 
     can_view_all = rbac_service.check_permission(
@@ -610,7 +608,6 @@ def get_user_stats(user_id, current_user, project_id=None):
     if not target_user:
         return jsonify({"error": "User not found"}), 404
 
-    from ...services.rbac import rbac_service
     from ...utils.rbac_utils import RBACManager
 
     can_view_all = rbac_service.check_permission(
@@ -713,7 +710,6 @@ def get_user_activities(user_id, current_user):
     if not target_user:
         return jsonify({"error": "User not found"}), 404
 
-    from ...services.rbac import rbac_service
     from ...utils.rbac_utils import RBACManager
 
     can_view_all = rbac_service.check_permission(
@@ -774,7 +770,6 @@ def get_user_transactions(user_id, current_user):
     if not target_user:
         return jsonify({"error": "User not found"}), 404
 
-    from ...services.rbac import rbac_service
     from ...utils.rbac_utils import RBACManager
 
     can_view_all = rbac_service.check_permission(

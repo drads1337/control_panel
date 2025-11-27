@@ -165,6 +165,26 @@ function SignUpFormComponent({
 
               {}
               <div className="grid gap-3">
+                <Label htmlFor="email">Email (optional, recommended for password reset)</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="Enter your email"
+                  value={formData.email}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
+                  className={errors.email ? "border-red-500" : ""}
+                  disabled={isLoading}
+                />
+                {errors.email && (
+                  <p className="text-sm text-red-500">{errors.email}</p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  We&apos;ll use this to send you password reset links if needed
+                </p>
+              </div>
+
+              {}
+              <div className="grid gap-3">
                 <Label htmlFor="password">Password *</Label>
                 <Input 
                   id="password" 

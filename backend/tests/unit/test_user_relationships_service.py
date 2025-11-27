@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 from backend.services.users.user_relationships_service import UserRelationshipsService
 from backend.models.core import User, UserActivity, UserActionLog
 from backend.models.keys import Key
+from ...utils.service_helpers import get_service
 
 
 class TestUserRelationshipsService:
@@ -47,6 +48,7 @@ class TestUserRelationshipsService:
 
     def test_get_activities(self, service, mock_activity):
         """Test getting user activities"""
+        user_relationships_service = get_service('user_relationships_service')
         with patch('backend.services.users.user_relationships_service.UserActivity') as mock_activity_model:
             mock_query = Mock()
             mock_query.order_by.return_value = mock_query

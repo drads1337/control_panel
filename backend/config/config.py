@@ -221,6 +221,13 @@ class Config:
     REDIS_PERSISTENT_SSL_CERT_REQS = os.environ.get("REDIS_PERSISTENT_SSL_CERT_REQS", "required")  # none, optional, required
     REDIS_PERSISTENT_SSL_CA_CERTS = os.environ.get("REDIS_PERSISTENT_SSL_CA_CERTS", None)  # Path to CA certificate
     
+    # SECURITY: Redis Integrity Protection (HMAC signing)
+    # If Redis uses TLS inside VPC (e.g., AWS ElastiCache with TLS),
+    # HMAC adds CPU overhead without significant security benefit.
+    # Disable if Redis traffic is already encrypted via TLS.
+    # Default: disabled (False) - enable only if Redis is not using TLS
+    REDIS_INTEGRITY_ENABLED = os.environ.get("REDIS_INTEGRITY_ENABLED", "false").lower() == "true"
+    
     # Backward compatibility: default Redis config (uses persistent instance)
     REDIS_HOST = REDIS_PERSISTENT_HOST
     REDIS_PORT = REDIS_PERSISTENT_PORT
@@ -457,3 +464,14 @@ class Config:
     # HTTP headers (X-SSL-Client-*) can be spoofed if Nginx is misconfigured
     # Set to True to strictly require WSGI variables (recommended for production)
     MTLS_REQUIRE_WSGI_VARS = os.environ.get("MTLS_REQUIRE_WSGI_VARS", "true").lower() == "true"
+    
+    # Email Configuration (for password reset)
+    MAIL_SERVER = os.environ.get("MAIL_SERVER", "smtp.gmail.com")
+    MAIL_PORT = int(os.environ.get("MAIL_PORT", 587))
+    MAIL_USE_TLS = os.environ.get("MAIL_USE_TLS", "true").lower() == "true"
+    MAIL_USE_SSL = os.environ.get("MAIL_USE_SSL", "false").lower() == "true"
+    MAIL_USERNAME = os.environ.get("MAIL_USERNAME")
+    MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD")
+    MAIL_FROM = os.environ.get("MAIL_FROM", MAIL_USERNAME)
+    MAIL_FROM_NAME = os.environ.get("MAIL_FROM_NAME", "Panel")
+    FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")

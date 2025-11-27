@@ -168,8 +168,11 @@ def update_product_prices(product_identifier, validated_data=None):
         db.session.commit()
 
         product_service = get_service('product_service')
+        product_service = get_service('product_service')
         product_service.invalidate_product_cache(user.project_id, product.id)
 
+        activity_service = get_service('activity_service')
+        activity_service = get_service('activity_service')
         activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,

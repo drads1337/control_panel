@@ -11,7 +11,6 @@ from typing import Dict, List, Optional
 from ...core.extensions import db
 from ...utils.service_helpers import get_service
 from ...models import DeviceInfo, KeyAnalytics, Notification, User
-from ...services.heartbeat import heartbeat_service
 
 class AnalyticsTracker:
     """Handles analytics tracking and related functionality"""
@@ -40,6 +39,7 @@ class AnalyticsTracker:
             # HyperLogLog is used for efficient unique device counting
             analytics_buffer_service = get_service('analytics_buffer_service')
             success = analytics_buffer_service.buffer_key_analytics_update(
+                analytics_buffer_service = get_service('analytics_buffer_service')
                 key_id=key_id,
                 product=product,
                 ip_address=ip_address,
@@ -194,6 +194,7 @@ class AnalyticsTracker:
             Heartbeat session data or None if failed
         """
         try:
+            heartbeat_service = get_service('heartbeat_service')
             heartbeat_session = heartbeat_service.create_session(
                 user_key=user_key,
                 fingerprint=fingerprint,
@@ -222,6 +223,8 @@ class AnalyticsTracker:
             ip: IP address
         """
         try:
+            activity_service = get_service('activity_service')
+            activity_service = get_service('activity_service')
             activity_service = get_service('activity_service')
             activity_service.log_activity(user, action, details=details, ip=ip)
         except Exception as e:

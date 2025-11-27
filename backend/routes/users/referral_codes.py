@@ -168,6 +168,8 @@ def create_refcode(current_user, project_id=None, validated_data=None):
         db.session.commit()
 
         activity_service = get_service('activity_service')
+        activity_service = get_service('activity_service')
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user,
             "create_referral_code",
@@ -215,8 +217,9 @@ def delete_refcode(code_id, current_user, project_id=None):
 
         if not project_id or referral_code.project_id != project_id:
 
-            from ...services.rbac import rbac_service
 
+            rbac_service = get_service('rbac_service')
+            rbac_service = get_service('rbac_service')
             can_view_all = rbac_service.check_permission(
                 current_user.id, "employees.view"
             ) or rbac_service.check_permission(current_user.id, "clients.view")

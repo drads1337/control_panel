@@ -13,7 +13,6 @@ from ..middleware.validation import validate_request
 from ..models.core import User, UserActivity
 from ..models.rbac import Role, UserRole
 from ..schemas.session import SessionBulkLogoutSchema, SessionBulkTerminateSchema
-from ..services.activity import activity_service
 from ..utils.service_helpers import get_service
 from ..utils.rbac_utils import RBACManager
 
@@ -69,9 +68,10 @@ def get_sessions():
             User.id, User.username, User.last_login, User.last_ip, User.last_country, User.last_city
         )
 
-        from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
+        from ..utils.service_helpers import get_service
 
+        rbac_service = get_service('rbac_service')
         can_view_all = (
             RBACManager.is_owner(user)
             or rbac_service.check_permission(user.id, "employees.view")
@@ -294,7 +294,6 @@ def get_session_stats():
             func.max(UserActivity.created_at).label("last_activity"),
         ).join(UserActivity, User.id == UserActivity.user_id)
 
-        from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
 
         can_view_all = (
@@ -337,7 +336,6 @@ def get_session_stats():
             func.extract("hour", UserActivity.created_at).label("hour"), func.count(UserActivity.id)
         ).join(User, UserActivity.user_id == User.id)
 
-        from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
 
         can_view_all = (
@@ -379,7 +377,6 @@ def get_session_stats():
             func.count(UserActivity.id),
         ).join(User, UserActivity.user_id == User.id)
 
-        from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
 
         can_view_all = (
@@ -458,7 +455,6 @@ def terminate_session(user_id):
         if not current_user or not target_user:
             return jsonify({"error": "User not found"}), 404
 
-        from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
 
         can_manage_sessions = (
@@ -482,12 +478,14 @@ def terminate_session(user_id):
         else:
             return jsonify({"error": "Access denied"}), 403
 
+        activity_service = get_service('activity_service')
         try:
             activity_service.log_activity(
                 current_user,
                 "terminate_session",
                 details=f"Terminated session for user: {target_user.username}",
                 ip=request.remote_addr,
+            activity_service = get_service('activity_service')
             )
 
             return jsonify(
@@ -515,7 +513,6 @@ def bulk_terminate_sessions(validated_data=None):
         current_user_id = get_jwt_identity()
         current_user = User.query.get(current_user_id)
 
-        from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
 
         can_manage_sessions = (
@@ -539,7 +536,6 @@ def bulk_terminate_sessions(validated_data=None):
                 if target_user and target_user.id != current_user.id:
                     can_terminate = False
 
-                    from ..services.rbac import rbac_service
                     from ..utils.rbac_utils import RBACManager
 
                     if RBACManager.is_owner(current_user):
@@ -591,7 +587,6 @@ def get_session_details(user_id):
         if not current_user or not target_user:
             return jsonify({"error": "User not found"}), 404
 
-        from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
 
         can_view_all = (
@@ -714,7 +709,6 @@ def get_realtime_sessions():
             func.max(UserActivity.created_at).label("last_activity"),
         ).join(UserActivity, User.id == UserActivity.user_id)
 
-        from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
 
         can_view_all = (
@@ -792,7 +786,6 @@ def terminate_user_session(user_id):
         if not current_user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
 
         can_view_all = (
@@ -853,7 +846,6 @@ def terminate_multiple_sessions(validated_data=None):
         if not current_user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
 
         can_view_all = (
@@ -942,7 +934,6 @@ def get_suspicious_activity(user_id):
         if not current_user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
 
         can_view_all = (

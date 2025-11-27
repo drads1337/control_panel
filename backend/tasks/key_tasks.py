@@ -6,6 +6,7 @@ Handles bulk key creation asynchronously to prevent blocking HTTP requests
 import json
 import logging
 from datetime import datetime, timedelta
+from ...utils.service_helpers import get_service
 
 try:
     from celery import Task
@@ -26,9 +27,6 @@ from ..models.core import User
 from ..models.products import Product
 from ..models.keys import Key
 from ..models.agents import Agent
-from ..services.activity import activity_service
-from ..services.keys.key_generation_service import key_generation_service
-from ..services.tasks import task_service
 from ..utils.rbac_utils import RBACManager
 
 logger = logging.getLogger(__name__)
@@ -138,6 +136,7 @@ def bulk_create_keys_task(
                 task_service.update_task_status(task_id, "failed", error=error_msg)
             return {"status": "error", "error": error_msg}
         self._db_session = Session()
+    task_service = get_service('task_service')
     session = self._db_session
 
     try:
@@ -217,6 +216,7 @@ def bulk_create_keys_task(
 
                 key_string = key_generation_service.generate_key_string(
                     length=32, product=product, duration_hours=duration_hours, project_id=project_id
+                key_generation_service = get_service('key_generation_service')
                 )
 
                 key_metadata = {
@@ -247,9 +247,9 @@ def bulk_create_keys_task(
                 session.flush()
 
                 # Use cache invalidation instead of deprecated counter functions to avoid race conditions
-                from ...services.statistics import cached_statistics_service
                 cached_statistics_service.invalidate_on_key_change(user.id, project_id)
 
+                cached_statistics_service = get_service('cached_statistics_service')
                 created_keys.append(key)
                 logger.debug(f"🔑 Created key {i+1}/{count}: {key_string[:8]}...")
 
@@ -310,7 +310,9 @@ def bulk_create_keys_task(
             pass
 
         item_type = "access codes" if is_access_code else "license keys"
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
+            activity_service = get_service('activity_service')
             user,
             "bulk_create_keys",
             details=f"Created {created_count} production {item_type} for product: {product.name}",

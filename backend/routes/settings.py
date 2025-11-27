@@ -18,6 +18,7 @@ from ..middleware.validation import validate_request
 from ..models.core import Project, ProjectEncryptionKeys, User
 from ..utils.project_settings_migration import ProjectSettingsHelper
 from ..models.security import BlockedFingerprint, LoginAttempt
+from ..utils.service_helpers import get_service
 from ..schemas.settings import (
     BlockFingerprintSchema,
     BlockIPSchema,
@@ -27,7 +28,6 @@ from ..schemas.settings import (
     EncryptionKeysUpdateSchema,
     RegenerateKeysActionSchema,
 )
-from ..services.security import security_service
 from ..utils.rbac_utils import RBACManager
 from ..utils.secure_crypto import MasterKeyManager, decrypt_with_master_key, encrypt_with_master_key
 from ..utils.structured_logging import get_logger
@@ -165,6 +165,7 @@ def is_ip_blocked(ip_address, project_id):
         True if IP is blocked, False otherwise
     """
 
+    security_service = get_service('security_service')
     return security_service.is_ip_blocked(ip_address, project_id)
 
 def record_login_attempt(ip_address, username, success, project_id, user_agent=None):
@@ -178,7 +179,7 @@ def record_login_attempt(ip_address, username, success, project_id, user_agent=N
         project_id: Project ID
         user_agent: Client user agent string
     """
-
+    security_service = get_service('security_service')
     security_service.record_login_attempt(ip_address, username, success, project_id, user_agent)
 
 def check_session_limit(user_id, project_id):
@@ -196,7 +197,7 @@ def check_session_limit(user_id, project_id):
     Returns:
         True if session limit exceeded, False otherwise
     """
-
+    security_service = get_service('security_service')
     return security_service.check_session_limit(user_id, project_id)
 
 def get_or_create_project_keys(project_id):
@@ -250,6 +251,8 @@ def get_settings(current_user=None, project_id=None):
     from ..utils.service_helpers import get_service
     settings_service = get_service('settings_service')
 
+    settings_service = get_service('settings_service')
+    settings_service = get_service('settings_service')
     result = settings_service.get_settings_cached(user_id=user_id, project_id=project_id)
 
     if result is None:
@@ -347,8 +350,8 @@ def update_settings():
         else "client" if user else "User not found"
     )
     logger.debug("User role", user_id=user_id, project_id=project_id, role=user_role)
-    from ..services.rbac import rbac_service
 
+    rbac_service = get_service('rbac_service')
     if not rbac_service.check_permission(user.id, "system.manage"):
         logger.debug(
             "Access denied for user",
@@ -588,8 +591,7 @@ def regenerate_master_key():
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    from ..services.rbac import rbac_service
-
+    rbac_service = get_service('rbac_service')
     if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
         return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -602,7 +604,9 @@ def regenerate_master_key():
 
     from ..utils.service_helpers import get_service
     cache_service = get_service('cache_service')
+    cache_service = get_service('cache_service')
 
+    cache_service = get_service('cache_service')
     cache_service.invalidate_user_cache(user_id)
 
     return jsonify(
@@ -640,8 +644,7 @@ def regenerate_keys(validated_data=None):
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    from ..services.rbac import rbac_service
-
+    rbac_service = get_service('rbac_service')
     if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
         return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -721,15 +724,12 @@ def update_keys(validated_data=None):
     if not validated_data:
         return jsonify({"error": "No data provided"}), 400
 
-
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    from ..services.rbac import rbac_service
-
+    rbac_service = get_service('rbac_service')
     if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
         return jsonify({"error": "Insufficient permissions"}), 403
-
 
     keys = get_or_create_project_keys(project_id)
 
@@ -777,8 +777,7 @@ def get_fingerprint_lists():
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    from ..services.rbac import rbac_service
-
+    rbac_service = get_service('rbac_service')
     if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
         return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -848,11 +847,9 @@ def add_to_fingerprint_blacklist(validated_data=None):
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    from ..services.rbac import rbac_service
-
+    rbac_service = get_service('rbac_service')
     if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
         return jsonify({"error": "Insufficient permissions"}), 403
-
 
     existing = BlockedFingerprint.query.filter_by(
         fingerprint=validated_data.fingerprint, project_id=project_id, is_active=True
@@ -907,8 +904,7 @@ def remove_from_fingerprint_blacklist(fp_id):
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    from ..services.rbac import rbac_service
-
+    rbac_service = get_service('rbac_service')
     if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
         return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -944,7 +940,6 @@ def get_blocked_ips():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.rbac import rbac_service
 
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
@@ -1006,15 +1001,12 @@ def block_ip(validated_data=None):
         if not validated_data:
             return jsonify({"error": "No data provided"}), 400
 
-
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.rbac import rbac_service
-
+        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
-
 
         from ..models.security import BlockedIP
 
@@ -1069,8 +1061,7 @@ def unblock_ip(ip_id):
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.rbac import rbac_service
-
+        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1112,8 +1103,7 @@ def get_blocked_hwids():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.rbac import rbac_service
-
+        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1177,15 +1167,12 @@ def block_hwid(validated_data=None):
         if not validated_data:
             return jsonify({"error": "No data provided"}), 400
 
-
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.rbac import rbac_service
-
+        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
-
 
         from ..models.security import BlockedHWID
 
@@ -1239,8 +1226,7 @@ def unblock_hwid(hwid_id):
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.rbac import rbac_service
-
+        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1282,14 +1268,12 @@ def get_security_analytics():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.rbac import rbac_service
-
+        rbac_service = get_service('rbac_service')
+        security_service = get_service('security_service')
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
         days = request.args.get("days", 30, type=int)
-
-        from ..services.security import security_service
 
         analytics = security_service.get_security_analytics(project_id, days)
 
@@ -1318,13 +1302,12 @@ def get_security_rules():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.rbac import rbac_service
-
+        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
         # Ensure default rules exist
-        from ..services.security.security_rules_init import security_rules_init_service
+        security_rules_init_service = get_service('security_rules_init_service')
         security_rules_init_service.ensure_default_rules(project_id)
 
         from ..models.security import SecurityRule
@@ -1419,11 +1402,9 @@ def create_security_rule(validated_data=None):
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.rbac import rbac_service
-
+        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
-
 
         from ..models.security import SecurityRule
 
@@ -1470,8 +1451,7 @@ def get_security_events():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.rbac import rbac_service
-
+        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1538,13 +1518,11 @@ def toggle_security_rule(rule_id):
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.rbac import rbac_service
-
+        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
         from ..models.security import SecurityRule
-        from ..services.activity import activity_service
         from ..utils.ip_utils import get_real_ip
 
         rule = SecurityRule.query.filter_by(id=rule_id, project_id=project_id).first()
@@ -1559,6 +1537,7 @@ def toggle_security_rule(rule_id):
         db.session.commit()
 
         # Log the activity
+        activity_service = get_service('activity_service')
         try:
             action = "security_rule_enabled" if rule.is_active else "security_rule_disabled"
             details = f'Security rule "{rule.name}" (ID: {rule.id}) {"enabled" if rule.is_active else "disabled"}'
@@ -1623,8 +1602,7 @@ def update_security_rule(rule_id, validated_data=None):
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.rbac import rbac_service
-
+        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1633,7 +1611,6 @@ def update_security_rule(rule_id, validated_data=None):
         rule = SecurityRule.query.filter_by(id=rule_id, project_id=project_id).first()
         if not rule:
             return jsonify({"error": "Security rule not found"}), 404
-
 
         if validated_data.name is not None:
             rule.name = validated_data.name
@@ -1698,8 +1675,7 @@ def delete_security_rule(rule_id):
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.rbac import rbac_service
-
+        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1741,8 +1717,7 @@ def reset_security_rules():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.rbac import rbac_service
-
+        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 

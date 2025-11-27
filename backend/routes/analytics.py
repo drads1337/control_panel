@@ -41,8 +41,8 @@ def get_dashboard_overview(current_user=None, project_id=None):
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        from ..services.rbac import rbac_service
 
+        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "analytics.view"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -145,8 +145,7 @@ def get_sales_trends():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.rbac import rbac_service
-
+        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "analytics.view"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -215,8 +214,7 @@ def get_user_insights():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.rbac import rbac_service
-
+        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "analytics.view"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -263,8 +261,7 @@ def get_geography_activations():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.rbac import rbac_service
-
+        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "analytics.view"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -311,8 +308,7 @@ def get_popular_products():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.rbac import rbac_service
-
+        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "analytics.view"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -367,8 +363,7 @@ def get_security_overview():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.rbac import rbac_service
-
+        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "analytics.view"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -414,8 +409,7 @@ def get_system_health():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.rbac import rbac_service
-
+        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "analytics.view"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -458,8 +452,7 @@ def generate_analytics_report():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.rbac import rbac_service
-
+        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "analytics.view"):
             return jsonify({"error": "Insufficient permissions"}), 403
 

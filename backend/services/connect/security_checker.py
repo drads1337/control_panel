@@ -15,6 +15,7 @@ from ...core.extensions import db
 from ...models import BlockedFingerprint, User
 from ...services.security import SecurityContext, security_service
 from ...services.validation import request_validation_pipeline
+from ...utils.service_helpers import get_service
 
 class SecurityChecker:
     """Handles security validations and checks"""
@@ -149,6 +150,9 @@ class SecurityChecker:
                 timestamp=datetime.utcnow(),
             )
 
+            security_service = get_service('security_service')
+            security_service = get_service('security_service')
+            security_service = get_service('security_service')
             threat_assessment = security_service.assess_threat(context)
             triggered_rules = security_service.check_automated_rules(context)
 

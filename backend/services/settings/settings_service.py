@@ -18,7 +18,6 @@ from .settings_manager import SettingsManager
 from .settings_repository import SettingsRepository
 
 try:
-    from ...services.cache import cache_service
 except ImportError:
     cache_service = None
 
@@ -90,4 +89,11 @@ class SettingsService:
 # Service instance should be obtained via ServiceContainer:
 #   from ...utils.service_helpers import get_service
 #   service = get_service('settings_service')
-settings_service = SettingsService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   settings_service = get_service('settings_service')
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   settings_service = get_service('settings_service')

@@ -15,7 +15,6 @@ from ...models.products import Product
 from ...models.keys import Key, ReferralCode
 from ...models.rbac import Role, UserRole
 from ...utils.rbac_utils import RBACManager
-from ...services.activity import activity_service
 
 class AdminService:
     """Service for handling administrative operations"""
@@ -57,6 +56,7 @@ class AdminService:
 
                 try:
                     activity_service.log_activity(
+                        activity_service = get_service('activity_service')
                         admin_user,
                         "project_deactivated",
                         details=f"Project {project.name} deactivated due to expired subscription",
@@ -400,4 +400,11 @@ class AdminService:
             self.logger.error(f"Error reactivating project: {str(e)}")
             return False, f"Failed to reactivate project: {str(e)}"
 
-admin_service = AdminService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   admin_service = get_service('admin_service')
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   admin_service = get_service('admin_service')

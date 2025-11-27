@@ -43,6 +43,8 @@ class UserInviteService:
 
             allowed_roles = RolePermissions.ASSIGNABLE_ROLES.copy()
             rbac_service = get_service('rbac_service')
+            rbac_service = get_service('rbac_service')
+            rbac_service = get_service('rbac_service')
             can_view_all = rbac_service.check_permission(
                 current_user.id, "employees.view"
             ) or rbac_service.check_permission(current_user.id, "clients.view")
@@ -103,5 +105,8 @@ class UserInviteService:
 
 
 # Singleton instance
-user_invite_service = UserInviteService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   user_invite_service = get_service('user_invite_service')
 

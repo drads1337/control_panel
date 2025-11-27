@@ -125,4 +125,7 @@ class SecurityService:
         )
 
 
-security_service = SecurityService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   security_service = get_service('security_service')

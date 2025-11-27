@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 from ...core.extensions import db
 from ...models.webhooks import Webhook, WebhookLog
 from ...utils.data_masking import mask_key
+from ...utils.service_helpers import get_service
 
 
 class WebhookManagementService:
@@ -37,7 +38,7 @@ class WebhookManagementService:
     ) -> Dict:
         """Create a new webhook"""
         try:
-            from .webhook_crypto_service import webhook_crypto_service
+            webhook_crypto_service = get_service('webhook_crypto_service')
             
             if not secret:
                 secret = webhook_crypto_service.generate_secret()
@@ -328,5 +329,11 @@ class WebhookManagementService:
             logging.error(f"WEBHOOK_LOG_ERROR webhook_id={webhook_id} error={e}")
 
 
-webhook_management_service = WebhookManagementService()
-
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   webhook_management_service = get_service('webhook_management_service')
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   webhook_management_service = get_service('webhook_management_service')

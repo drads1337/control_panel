@@ -47,6 +47,8 @@ class UserStatisticsService:
             query = User.query
 
             rbac_service = get_service('rbac_service')
+            rbac_service = get_service('rbac_service')
+            rbac_service = get_service('rbac_service')
             can_view_all = rbac_service.check_permission(
                 current_user.id, "employees.view"
             ) or rbac_service.check_permission(current_user.id, "clients.view")
@@ -324,5 +326,8 @@ class UserStatisticsService:
 
 
 # Singleton instance
-user_statistics_service = UserStatisticsService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   user_statistics_service = get_service('user_statistics_service')
 

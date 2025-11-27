@@ -10,8 +10,8 @@ from typing import Dict, List, Optional
 from ...core.extensions import db
 from ...models.core import User
 from ...models.rbac import Permission, Role, RolePermission, UserRole
-from ...services.cache import cache_service
 from ...utils.rbac_utils import RBACManager
+from ...utils.service_helpers import get_service
 from ...utils.role_constants import UserRoles
 
 class RoleService:
@@ -93,6 +93,9 @@ class RoleService:
 
             db.session.commit()
 
+            cache_service = get_service('cache_service')
+            cache_service = get_service('cache_service')
+            cache_service = get_service('cache_service')
             cache_service.invalidate_rbac_role_instantly(role.id, project_id)
             cache_service.invalidate_rbac_project_instantly(project_id)
 
@@ -187,6 +190,7 @@ class RoleService:
             role.updated_at = datetime.utcnow()
             db.session.commit()
 
+            cache_service = get_service('cache_service')
             cache_service.invalidate_rbac_role_instantly(role.id, project_id)
             cache_service.invalidate_rbac_project_instantly(project_id)
 
@@ -279,11 +283,13 @@ class RoleService:
             db.session.delete(role)
             db.session.commit()
 
+            cache_service = get_service('cache_service')
             cache_service.invalidate_rbac_role_instantly(role.id, project_id)
             cache_service.invalidate_rbac_project_instantly(project_id)
 
             for user_id in user_ids_to_invalidate:
 
+                cache_service = get_service('cache_service')
                 cache_service.invalidate_rbac_user_instantly(user_id)
 
             logging.info(f"RBAC_ROLE_DELETED role_id={role_id}")
@@ -298,6 +304,7 @@ class RoleService:
         """Get all roles for a project (excluding system roles from RBAC management)"""
         try:
 
+            cache_service = get_service('cache_service')
             cached_data = cache_service.get("rbac:roles", project_id=project_id)
             if cached_data:
                 return cached_data.get("data", [])
@@ -320,6 +327,7 @@ class RoleService:
                 if role.name not in ["owner", "admin"]
             ]
 
+            cache_service = get_service('cache_service')
             cache_service.set("rbac:roles", result, project_id=project_id)
 
             return result
@@ -431,6 +439,7 @@ class RoleService:
         """Get all roles assigned to a user"""
         try:
 
+            cache_service = get_service('cache_service')
             cached_data = cache_service.get("rbac:user_roles", user_id=user_id)
             if cached_data:
                 return cached_data.get("data", [])
@@ -450,6 +459,7 @@ class RoleService:
                 for ur in user_roles
             ]
 
+            cache_service = get_service('cache_service')
             cache_service.set("rbac:user_roles", result, user_id=user_id)
 
             return result
@@ -610,4 +620,7 @@ class RoleService:
         except Exception as e:
             logging.error(f"Error invalidating users cache for role_id={role_id}: {e}")
 
-role_service = RoleService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   role_service = get_service('role_service')

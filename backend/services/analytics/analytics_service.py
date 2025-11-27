@@ -996,4 +996,7 @@ class AnalyticsService:
             logging.error(f"ANALYTICS_SYSTEM_SECURITY_ANALYTICS_ERROR error={e}")
             return {}
 
-analytics_service = AnalyticsService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   analytics_service = get_service('analytics_service')

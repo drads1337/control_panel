@@ -12,7 +12,7 @@ from flask_wtf.csrf import CSRFProtect
 from ...config.config import Config
 from ...middleware import require_mtls
 from ...middleware.rate_limiting import connect_rate_limit
-from ...services.connect import connect_service
+from ...utils.service_helpers import get_service
 
 connect_bp = Blueprint("connect", __name__)
 
@@ -35,6 +35,7 @@ def get_challenge():
         return jsonify({"error": "Missing user_key or fingerprint"}), 400
 
     ip = request.remote_addr
+    connect_service = get_service('connect_service')
     response, status_code = connect_service.handle_challenge_request(
         user_key=user_key,
         fingerprint=fingerprint,
@@ -90,11 +91,11 @@ def api_connect():
             
             # Update trigger count for Rate Limiting Protection rule
             try:
-                from ...services.security import security_service
                 # Try to get project_id from request if available
                 # Note: project_id might not be available yet at this point
                 # This is best-effort update
                 if project_id:
+                    security_service = get_service('security_service')
                     security_service._update_rule_trigger("Rate Limiting Protection", project_id)
             except Exception as e:
                 logger.debug(f"Could not update rate limit rule trigger: {e}")
@@ -151,6 +152,7 @@ def api_connect():
         encrypted_response = response_builder.encrypt_response(error_response, True)
         return encrypted_response, 400
 
+    connect_service = get_service('connect_service')
     encrypted_response, status_code = connect_service.handle_connect_request(
         enc_data=enc_data,
         ip=ip,
@@ -191,6 +193,7 @@ def classic_connect():
     username = req_json.get("username")
     password = req_json.get("password")
 
+    connect_service = get_service('connect_service')
     response_data, status_code = connect_service.handle_classic_connect_request(
         token=token,
         username=username,

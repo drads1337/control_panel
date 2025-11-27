@@ -13,8 +13,8 @@ from typing import Any, Dict, Optional, Tuple
 import redis
 
 from ...config.config import Config
-from ...services.auth.challenge_service import challenge_service
 from ...utils.redis_client import get_redis_client
+from ...utils.service_helpers import get_service
 
 logger = logging.getLogger(__name__)
 
@@ -212,7 +212,9 @@ class ChallengeValidationService:
             else:
                 response_data = challenge_response
 
+            challenge_service = get_service('challenge_service')
             is_valid, validation_message = challenge_service.validate_challenge_response(
+                challenge_service = get_service('challenge_service')
                 challenge_data, response_data, user_key, fingerprint
             )
 

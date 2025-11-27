@@ -8,6 +8,7 @@ from ..core.extensions import db
 from ..middleware.auth import require_project_isolation, require_project_with_grace_period
 from ..middleware.validation import validate_request
 from ..models.core import User
+from ..utils.service_helpers import get_service
 from ..schemas.notification import (
     ProductUpdateNotificationSchema,
     LoaderNotificationCreateSchema,
@@ -22,8 +23,6 @@ from ..models.products import Product
 from ..models.agents import Agent, AgentNotification
 from ..models.notifications import Notification
 from ..models.rbac import Role, UserRole
-from ..services.activity import activity_service
-from ..services.notifications import notification_service
 from ..utils.rbac_utils import RBACManager
 
 notifications_bp = Blueprint("notifications", __name__)
@@ -174,9 +173,11 @@ def mark_as_read(notification_id):
 
     success, error = notification_service.mark_notification_read(user, notification_id)
 
+    notification_service = get_service('notification_service')
     if not success:
         return jsonify({"error": error or "Failed to mark notification as read"}), 400
 
+    activity_service = get_service('activity_service')
     activity_service.log_activity(
         user,
         "mark_notification_read",
@@ -205,8 +206,7 @@ def increment_show_count(notification_id, current_user, project_id=None):
     if not current_user or not notification:
         return jsonify({"error": "Notification not found"}), 404
 
-    from ..services.rbac import rbac_service
-
+    rbac_service = get_service('rbac_service')
     can_view_all = rbac_service.check_permission(
         current_user.id, "employees.view"
     ) or rbac_service.check_permission(current_user.id, "clients.view")
@@ -253,7 +253,6 @@ def mark_all_as_read():
         return jsonify({"error": "User must be assigned to a project"}), 403
 
     try:
-        from ..services.rbac import rbac_service
         from ..utils.rbac_utils import RBACManager
 
         if RBACManager.is_owner(user):
@@ -289,7 +288,6 @@ def create_notification(current_user, project_id=None, validated_data=None):
 
     if not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
-    from ..services.rbac import rbac_service
 
     can_send = rbac_service.check_permission(
         current_user.id, "employees.send_notification"
@@ -354,7 +352,6 @@ def send_notification(current_user, project_id=None, validated_data=None):
     if not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    from ..services.rbac import rbac_service
 
     can_send = rbac_service.check_permission(
         current_user.id, "employees.send_notification"
@@ -419,7 +416,6 @@ def delete_notification(notification_id, current_user, project_id=None):
         return jsonify({"error": "User must be assigned to a project"}), 403
 
     from ..models.agents import AgentNotification
-    from ..services.rbac import rbac_service
 
     # First check if it's an AgentNotification
     agent_notification = AgentNotification.query.filter_by(
@@ -496,7 +492,6 @@ def bulk_action(current_user, project_id=None, validated_data=None):
 
     query = Notification.query.filter(Notification.id.in_(notification_ids))
 
-    from ..services.rbac import rbac_service
 
     can_view_all = rbac_service.check_permission(
         current_user.id, "employees.view"
@@ -585,7 +580,6 @@ def get_notification_stats(current_user, project_id=None):
 
     query = Notification.query
 
-    from ..services.rbac import rbac_service
     from ..utils.rbac_utils import RBACManager
 
     can_view_all = (
@@ -653,7 +647,6 @@ def get_unread_count(current_user, project_id=None):
 
     query = Notification.query.filter_by(is_read=False)
 
-    from ..services.rbac import rbac_service
 
     can_view_all = rbac_service.check_permission(
         current_user.id, "employees.view"
@@ -679,7 +672,6 @@ def create_system_notification(validated_data=None):
 
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
-    from ..services.rbac import rbac_service
 
     can_send = rbac_service.check_permission(
         user.id, "employees.send_notification"
@@ -714,7 +706,6 @@ def create_bulk_notifications(validated_data=None):
 
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
-    from ..services.rbac import rbac_service
 
     can_send = rbac_service.check_permission(
         user.id, "employees.send_notification"
@@ -724,7 +715,8 @@ def create_bulk_notifications(validated_data=None):
 
 
     try:
-        from ..services.projects import project_relationships_service
+        # Get project relationships service
+        project_relationships_service = get_service('project_relationships_service')
         
         # Get users for the project using service
         project_users = project_relationships_service.get_users(user.project_id)
@@ -805,7 +797,6 @@ def create_product_update_notification(validated_data=None):
 
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
-    from ..services.rbac import rbac_service
 
     can_send = rbac_service.check_permission(
         user.id, "employees.send_notification"
@@ -819,7 +810,6 @@ def create_product_update_notification(validated_data=None):
         if not product:
             return jsonify({"error": "Product not found"}), 404
 
-        from ..services.projects import project_relationships_service
         project_users = project_relationships_service.get_users(user.project_id)
 
         from ..utils.rbac_utils import RBACManager
@@ -901,7 +891,6 @@ def cleanup_old_notifications(validated_data=None):
 
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
-    from ..services.rbac import rbac_service
 
     can_send = rbac_service.check_permission(
         user.id, "employees.send_notification"
@@ -953,7 +942,6 @@ def create_loader_update_notification(validated_data=None):
     if not user.project_id:
         return jsonify({"error": "No project associated"}), 400
 
-    from ..services.rbac import rbac_service
 
     can_send = rbac_service.check_permission(
         user.id, "employees.send_notification"
@@ -980,7 +968,6 @@ def create_loader_update_notification(validated_data=None):
 
         db.session.add(loader_notification)
 
-        from ..services.projects import project_relationships_service
         project_users = project_relationships_service.get_users(user.project_id)
 
         from ..utils.rbac_utils import RBACManager
@@ -1044,7 +1031,6 @@ def get_loader_notifications(agent_identifier):
     if not user.project_id:
         return jsonify({"error": "No project associated"}), 400
 
-    from ..services.rbac import rbac_service
 
     can_view = rbac_service.check_permission(
         user.id, "agents.notifications_view"
@@ -1114,7 +1100,6 @@ def get_product_notifications(product_identifier):
     if not user.project_id:
         return jsonify({"error": "No project associated"}), 400
 
-    from ..services.rbac import rbac_service
 
     can_view = rbac_service.check_permission(
         user.id, "products.notifications_view"
@@ -1255,7 +1240,6 @@ def create_product_notification(product_identifier, validated_data=None):
     if not user.project_id:
         return jsonify({"error": "No project associated"}), 400
 
-    from ..services.rbac import rbac_service
 
     can_create = rbac_service.check_permission(
         user.id, "products.notifications_create"
@@ -1269,7 +1253,6 @@ def create_product_notification(product_identifier, validated_data=None):
             return jsonify({"error": "Product not found"}), 404
 
 
-        from ..services.projects import project_relationships_service
         project_users = project_relationships_service.get_users(user.project_id)
 
         from ..utils.rbac_utils import RBACManager
@@ -1359,7 +1342,6 @@ def create_loader_notification(agent_identifier, validated_data=None):
     if not user.project_id:
         return jsonify({"error": "No project associated"}), 400
 
-    from ..services.rbac import rbac_service
 
     can_create = rbac_service.check_permission(
         user.id, "agents.notifications_create"
@@ -1388,7 +1370,6 @@ def create_loader_notification(agent_identifier, validated_data=None):
         db.session.add(loader_notification)
 
         if not is_scheduled:
-            from ..services.projects import project_relationships_service
             project_users = project_relationships_service.get_users(user.project_id)
 
             from ..utils.rbac_utils import RBACManager

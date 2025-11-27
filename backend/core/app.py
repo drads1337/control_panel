@@ -280,6 +280,10 @@ def create_app() -> Flask:
     setup_cors(app)
     setup_redis_and_limiter(app)
     
+    # Setup security headers (defense-in-depth, works even if nginx is bypassed)
+    from ..config.security_headers import setup_security_headers
+    setup_security_headers(app)
+    
     with app.app_context():
         check_redis_security()
     

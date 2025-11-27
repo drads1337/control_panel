@@ -20,6 +20,7 @@ from ..schemas.agent import (
     AgentStatusUpdateSchema,
     AgentUpdateSchema,
 )
+from ..utils.service_helpers import get_service
 from ..config.config import Config
 
 agents_bp = Blueprint("agents", __name__)
@@ -168,8 +169,7 @@ def get_available_products_for_agents():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        from ..services.products import product_service
-
+        product_service = get_service('product_service')
         product_service.invalidate_product_cache(user.project_id)
 
         result = product_service.get_products_cached(
@@ -313,6 +313,8 @@ def create_loader(validated_data=None):
             from ..utils.service_helpers import get_service
             cache_service = get_service('cache_service')
 
+            cache_service = get_service('cache_service')
+            cache_service = get_service('cache_service')
             cache_service.invalidate_pattern(f"agents:project_id={user.project_id}:*")
         except ImportError:
             pass
@@ -716,7 +718,6 @@ def upload_loader_files(agent_identifier):
 
                     # SECURITY: Validate file signature (magic bytes) to prevent file type spoofing
                     # This prevents attackers from uploading executable files with image extensions
-                    from ..services.files.file_service import file_service
                     
                     # Determine expected extensions based on file type
                     expected_extensions = None
@@ -726,6 +727,7 @@ def upload_loader_files(agent_identifier):
                         if ext and ext in ["png", "jpg", "jpeg", "gif", "webp"]:
                             expected_extensions = [ext]
                     
+                    file_service = get_service('file_service')
                     is_valid, validation_error = file_service.validate_file_signature(file_path, expected_extensions)
                     if not is_valid:
                         # Remove the invalid file
@@ -813,8 +815,9 @@ def update_loader_status(agent_identifier, validated_data=None):
             pass
 
         try:
-            from ..services.activity import activity_service
 
+            activity_service = get_service('activity_service')
+            activity_service = get_service('activity_service')
             activity_service.log_activity(
                 user,
                 "agent_status_updated",
@@ -845,7 +848,6 @@ def refresh_loader_cache():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project", "success": False}), 403
 
-        from ..services.cache import cache_service
 
         success = cache_service.force_refresh_loader_cache(user.project_id)
 

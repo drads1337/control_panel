@@ -191,5 +191,8 @@ class WebhookTestingService:
             }
 
 
-webhook_testing_service = WebhookTestingService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   webhook_testing_service = get_service('webhook_testing_service')
 

@@ -118,8 +118,9 @@ class SecurityAuditService:
                 db.session.commit()
 
                 # Log security event
-                from .security_monitoring_service import security_monitoring_service
+                security_monitoring_service = get_service('security_monitoring_service')
                 security_monitoring_service.log_security_event(
+                    security_monitoring_service = get_service('security_monitoring_service')
                     event_type="fingerprint_blocked",
                     context=context,
                     description=f"Fingerprint blocked: {reason}",
@@ -264,9 +265,11 @@ class SecurityAuditService:
                     )
                     db.session.add(blocked_ip)
                     
+                    security_rules_service = get_service('security_rules_service')
                     # Update trigger count for "Failed Login Protection" rule
-                    from .security_rules_service import security_rules_service
+                    security_rules_service = get_service('security_rules_service')
                     security_rules_service._update_rule_trigger("Failed Login Protection", project_id)
+                    security_rules_service = get_service('security_rules_service')
                     
                     db.session.commit()
                     self.logger.warning(
@@ -294,5 +297,12 @@ class SecurityAuditService:
 
 
 # Singleton instance
-security_audit_service = SecurityAuditService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   security_audit_service = get_service('security_audit_service')
 
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   security_audit_service = get_service('security_audit_service')

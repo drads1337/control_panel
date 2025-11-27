@@ -186,4 +186,7 @@ class LogCleanupService:
                 "total_old_logs": 0,
             }
 
-log_cleanup_service = LogCleanupService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   log_cleanup_service = get_service('log_cleanup_service')

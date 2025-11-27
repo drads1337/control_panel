@@ -23,6 +23,7 @@ from flask import current_app
 from ...core.extensions import db
 from ...utils.redis_client import get_redis_cache_client, RedisClient
 
+
 class CacheService:
     """Service for managing application-level caching with smart invalidation"""
 
@@ -676,23 +677,41 @@ class CacheService:
             return False
 
     def cleanup_expired_cache(self) -> int:
-        """Clean up expired cache entries"""
+        """
+        Clean up expired cache entries using SCAN (production-safe).
+        
+        SECURITY: Uses SCAN instead of KEYS to avoid blocking Redis.
+        KEYS() blocks Redis and is not suitable for production.
+        """
         try:
-
             pattern = f"{self.cache_prefix}:*"
             cache_wrapper = self._get_cache_client()
-            keys = cache_wrapper.keys(pattern)
-
+            
+            # Use SCAN instead of KEYS to avoid blocking Redis
+            cursor = 0
+            scanned_keys = set()
+            
+            while True:
+                result = cache_wrapper.scan(cursor, match=pattern, count=100)
+                cursor, keys = result
+                
+                if keys:
+                    scanned_keys.update(keys)
+                
+                if cursor == 0:
+                    break
+            
             cleaned_count = 0
-            for key in keys:
+            for key in scanned_keys:
                 try:
-
+                    # Check if key exists (expired keys are automatically removed by Redis)
+                    # This is mainly for logging purposes
                     if not cache_wrapper.client.exists(key):
                         cleaned_count += 1
                 except:
                     pass
 
-            logging.info(f"Cache cleanup completed: {cleaned_count} expired keys removed")
+            logging.info(f"Cache cleanup completed: {cleaned_count} expired keys removed (scanned {len(scanned_keys)} keys)")
             return cleaned_count
 
         except Exception as e:
@@ -700,15 +719,34 @@ class CacheService:
             return 0
 
     def clear_all_cache(self) -> int:
-        """Clear all cache entries"""
+        """
+        Clear all cache entries using SCAN (production-safe).
+        
+        SECURITY: Uses SCAN instead of KEYS to avoid blocking Redis.
+        KEYS() blocks Redis and is not suitable for production.
+        """
         try:
             pattern = f"{self.cache_prefix}:*"
             cache_wrapper = self._get_cache_client()
-            keys = cache_wrapper.keys(pattern)
-
-            if keys:
-                deleted_count = cache_wrapper.client.delete(*keys)
-                logging.info(f"Cleared all cache: {deleted_count} keys deleted")
+            
+            # Use SCAN instead of KEYS to avoid blocking Redis
+            cursor = 0
+            scanned_keys = set()
+            
+            while True:
+                result = cache_wrapper.scan(cursor, match=pattern, count=100)
+                cursor, keys = result
+                
+                if keys:
+                    scanned_keys.update(keys)
+                
+                if cursor == 0:
+                    break
+            
+            if scanned_keys:
+                keys_list = [k.decode() if isinstance(k, bytes) else k for k in scanned_keys]
+                deleted_count = cache_wrapper.delete(*keys_list)
+                logging.info(f"Cleared all cache: {deleted_count} keys deleted (scanned {len(scanned_keys)} keys)")
                 return deleted_count
             else:
                 logging.info("No cache keys to clear")
@@ -724,8 +762,7 @@ class CacheService:
 
             self.invalidate_product_instantly(project_id, product_id)
 
-            from ..products import product_service
-
+            product_service = get_service('product_service')
             product_service.get_product_simple_cached(project_id)
 
             logging.info(f"Force refreshed product cache for project {project_id}, product {product_id}")
@@ -811,17 +848,35 @@ class CacheService:
         return self.get_or_set(cache_type, fetch_func, ttl=ttl, force_refresh=force_refresh, **kwargs)
 
     def get_cache_stats(self) -> Dict[str, Any]:
-        """Get cache statistics"""
+        """
+        Get cache statistics using SCAN (production-safe).
+        
+        SECURITY: Uses SCAN instead of KEYS to avoid blocking Redis.
+        KEYS() blocks Redis and is not suitable for production.
+        """
         try:
-
             pattern = f"{self.cache_prefix}:*"
             cache_wrapper = self._get_cache_client()
-            keys = cache_wrapper.keys(pattern)
-
+            
+            # Use SCAN instead of KEYS to avoid blocking Redis
+            cursor = 0
+            scanned_keys = set()
+            
+            while True:
+                result = cache_wrapper.scan(cursor, match=pattern, count=100)
+                cursor, keys = result
+                
+                if keys:
+                    scanned_keys.update(keys)
+                
+                if cursor == 0:
+                    break
+            
             total_memory = 0
-            for key in keys:
+            for key in scanned_keys:
                 try:
-                    memory_usage = cache_wrapper.client.memory_usage(key)
+                    key_str = key.decode() if isinstance(key, bytes) else key
+                    memory_usage = cache_wrapper.client.memory_usage(key_str)
                     total_memory += memory_usage
                 except:
                     pass
@@ -830,7 +885,7 @@ class CacheService:
                 "cache_prefix": self.cache_prefix,
                 "default_ttl": self.default_ttl,
                 "cache_types": list(self.cache_ttl_config.keys()),
-                "total_keys": len(keys),
+                "total_keys": len(scanned_keys),
                 "total_memory_bytes": total_memory,
                 "total_memory_mb": round(total_memory / 1024 / 1024, 2),
                 "smart_cache_enabled": self.smart_cache_enabled,
@@ -841,8 +896,16 @@ class CacheService:
             logging.error(f"Cache stats error: {e}")
             return {}
 
-# Singleton instance for backward compatibility
-# Service instance should be obtained via ServiceContainer:
+
+# Global instance for backward compatibility
+# New code should use DI pattern via ServiceContainer:
 #   from ...utils.service_helpers import get_service
-#   service = get_service('cache_service')
-cache_service = CacheService()
+#   cache_service = get_service('cache_service')
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   cache_service = get_service('cache_service')
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   cache_service = get_service('cache_service')

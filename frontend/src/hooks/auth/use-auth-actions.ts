@@ -235,6 +235,7 @@ export function useAuthActions(
     username: string,
     password: string,
     inviteCode: string,
+    email?: string,
     projectName?: string
   ) => {
     if (isLoggingIn.current) {
@@ -255,7 +256,7 @@ export function useAuthActions(
     setError(null)
 
     try {
-      await authService.registerWithInvite(username, password, inviteCode, projectName, controller)
+      await authService.registerWithInvite(username, password, inviteCode, email, projectName, controller)
       await login(username, password)
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'AbortError') {

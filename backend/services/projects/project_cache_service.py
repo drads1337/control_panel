@@ -16,7 +16,7 @@ from ...models.core import Project, User
 from ...utils.fulltext_search import fulltext_search_filter
 from ...utils.rbac_utils import RBACManager
 from ...utils.role_constants import UserRoles
-from ...services.cache import cache_service
+from ...utils.service_helpers import get_service
 
 
 class ProjectCacheService:
@@ -27,13 +27,15 @@ class ProjectCacheService:
     """
 
     def __init__(self, cache_service=None, logger=None):
-        self.cache_service = cache_service if cache_service is not None else cache_service
+        self.cache_service = cache_service
         self.logger = logger or logging.getLogger(__name__)
 
     @property
     def _cache_service(self):
-        """Get cache service instance"""
-        return self.cache_service if self.cache_service is not None else cache_service
+        """Get cache service instance via DI container"""
+        if self.cache_service is not None:
+            return self.cache_service
+        return get_service('cache_service')
 
     def get_projects_cached(
         self, user_id: int, page: int = 1, per_page: int = 20, search: Optional[str] = None
@@ -242,9 +244,10 @@ class ProjectCacheService:
         def fetch_project():
             """Fetch project from database"""
             try:
-                from .project_crud_service import project_crud_service
                 
+                project_crud_service = get_service('project_crud_service')
                 project = project_crud_service._find_project_by_id_or_unique_id(project_id)
+                project_crud_service = get_service('project_crud_service')
                 if not project:
                     return {"error": "Project not found"}
 
@@ -315,7 +318,6 @@ class ProjectCacheService:
         def fetch_project_stats():
             """Fetch project statistics from database"""
             try:
-                from .project_crud_service import project_crud_service
                 
                 project = project_crud_service._find_project_by_id_or_unique_id(project_id)
                 if not project:
@@ -404,5 +406,12 @@ class ProjectCacheService:
 
 
 # Singleton instance
-project_cache_service = ProjectCacheService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   project_cache_service = get_service('project_cache_service')
 
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   project_cache_service = get_service('project_cache_service')

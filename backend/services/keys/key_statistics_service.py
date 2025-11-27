@@ -71,5 +71,8 @@ class KeyStatisticsService:
 
 
 # Singleton instance
-key_statistics_service = KeyStatisticsService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   key_statistics_service = get_service('key_statistics_service')
 

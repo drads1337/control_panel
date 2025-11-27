@@ -15,7 +15,6 @@ from werkzeug.utils import secure_filename
 from ...core.extensions import db
 from ...models.core import User
 from ...config.config import Config
-from ...services.activity import activity_service
 from ...utils.rbac_utils import RBACManager
 
 class UserProfileService:
@@ -250,6 +249,7 @@ class UserProfileService:
             rbac_service = get_service('rbac_service')
 
             permissions_set = rbac_service.get_user_permissions(user.id)
+            rbac_service = get_service('rbac_service')
             user_permissions = list(permissions_set) if permissions_set else []
         except Exception as e:
             self.logger.warning(f"Failed to get user permissions for user {user.id}: {e}")
@@ -328,6 +328,7 @@ class UserProfileService:
                 self.logger.warning(f"Failed to get device info: {e}")
 
             try:
+                activity_service = get_service('activity_service')
                 recent_activities = activity_service.get_user_activities(user.id, limit=10)
                 dashboard_data["recent_activity"] = [
                     {
@@ -367,4 +368,11 @@ class UserProfileService:
             self.logger.error(f"Error getting user dashboard data: {str(e)}")
             return {"error": "Failed to load dashboard data"}
 
-user_profile_service = UserProfileService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   user_profile_service = get_service('user_profile_service')
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   user_profile_service = get_service('user_profile_service')

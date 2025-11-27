@@ -24,12 +24,15 @@ def get_cache_stats():
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    from ..services.rbac import rbac_service
 
+    rbac_service = get_service('rbac_service')
     if not rbac_service.check_permission(user.id, "system.view_logs"):
+        rbac_service = get_service('rbac_service')
         return jsonify({"error": "Access denied"}), 403
 
     try:
+        cache_service = get_service('cache_service')
+        cache_service = get_service('cache_service')
         cache_service = get_service('cache_service')
         stats = cache_service.get_cache_stats()
         return jsonify({"success": True, "stats": stats})
@@ -107,8 +110,8 @@ def invalidate_cache_type(cache_type):
             project_id = user.project_id
 
         if cache_type == "products" and project_id:
-            from ..services.products import product_service
 
+            product_service = get_service('product_service')
             deleted_count = product_service.invalidate_product_cache(project_id)
         else:
 

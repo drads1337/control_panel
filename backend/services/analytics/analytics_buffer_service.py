@@ -765,4 +765,7 @@ class AnalyticsBufferService:
                 logger.error(f"Sync flush also failed: {sync_error}")
 
 
-analytics_buffer_service = AnalyticsBufferService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   analytics_buffer_service = get_service('analytics_buffer_service')

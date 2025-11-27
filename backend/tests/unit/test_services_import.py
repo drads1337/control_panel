@@ -7,6 +7,7 @@ def test_project_relationships_service_import():
     """Test that ProjectRelationshipsService can be imported"""
     try:
         from backend.services.projects.project_relationships_service import (
+from ...utils.service_helpers import get_service
             ProjectRelationshipsService,
             project_relationships_service,
         )
@@ -40,13 +41,11 @@ def test_services_from_init():
     """Test that services can be imported from package __init__"""
     try:
         # Try importing projects service first (should work)
-        from backend.services.projects import project_relationships_service
         assert project_relationships_service is not None
         print("✅ project_relationships_service imported from package __init__")
         
         # Try importing users service directly (may fail due to dependencies)
         try:
-            from backend.services.users import user_relationships_service
             assert user_relationships_service is not None
             print("✅ user_relationships_service imported from package __init__")
             return True

@@ -19,9 +19,7 @@ from ...models.core import Project, User
 from ...utils.ip_utils import get_location_from_ip, get_real_ip
 from ...utils.service_helpers import get_service
 from ...utils.service_exceptions import AuthenticationError, SecurityError, NotFoundError, ServiceError
-from ...services.activity import activity_service
 from ...services.validation import request_validation_pipeline
-from .auth_token_service import auth_token_service
 
 
 class LoginService:
@@ -295,6 +293,7 @@ class LoginService:
             session_id: Session identifier
             details: Activity details
         """
+        activity_service = get_service('activity_service')
         try:
             activity_service.log_activity(
                 user, "login", ip=ip, user_agent=user_agent, details=details, session_id=session_id
@@ -359,6 +358,7 @@ class LoginService:
             }
 
             if user.project_id:
+                webhook_service = get_service('webhook_service')
                 webhook_service.trigger_webhook("user.login", webhook_data, user.project_id)
                 self.logger.info(f"Triggered webhook for user login: {user.id}")
         except Exception as e:
@@ -404,6 +404,7 @@ class LoginService:
             # Update user login info
             self.update_user_login_info(user, ip, user_agent)
 
+            auth_token_service = get_service('auth_token_service')
             # Create login response with token (via AuthTokenService)
             response_data = auth_token_service.create_login_response(user, include_token=True)
             session_id = response_data.get("session_id", "")
@@ -427,5 +428,12 @@ class LoginService:
 
 
 # Singleton instance
-login_service = LoginService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   login_service = get_service('login_service')
 
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   login_service = get_service('login_service')

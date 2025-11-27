@@ -19,11 +19,8 @@ from werkzeug.utils import secure_filename
 from ..core.extensions import db
 from ..models.core import User, UserActivity
 from ..models.keys import Key
-from ..services.activity import activity_service
 
-from ..services.users import user_profile_service
-from ..services.rbac import rbac_service
-from ..utils.service_helpers import get_user_profile_service
+from ..utils.service_helpers import get_user_profile_service, get_service
 from ..middleware.auth import (
     require_project_assignment,
     require_project_isolation,
@@ -153,6 +150,7 @@ def get_me(current_user):
 
     user_permissions = []
     try:
+        rbac_service = get_service('rbac_service')
         permissions_set = rbac_service.get_user_permissions(user.id)
         user_permissions = list(permissions_set) if permissions_set else []
         logging.debug(
@@ -192,6 +190,7 @@ def update_profile(current_user):
     if not success:
         return jsonify({"error": error}), 400
 
+    activity_service = get_service('activity_service')
     activity_service.log_activity(
         user,
         "profile_update",
@@ -305,7 +304,6 @@ def upload_avatar(current_user):
     try:
         # SECURITY: Validate file signature (magic bytes) before processing
         # This prevents file type spoofing attacks (e.g., executable files with image extensions)
-        from ..services.files.file_service import file_service
         
         # Save file temporarily to validate signature
         import tempfile
@@ -318,6 +316,7 @@ def upload_avatar(current_user):
             # Validate file signature - expect image extensions
             expected_extensions = [ext.lstrip('.').lower() for ext in ALLOWED_EXTENSIONS]
             is_valid, validation_error = file_service.validate_file_signature(temp_file_path, expected_extensions)
+            file_service = get_service('file_service')
             
             if not is_valid:
                 os.unlink(temp_file_path)

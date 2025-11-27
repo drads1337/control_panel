@@ -225,5 +225,8 @@ class ProjectRelationshipsService:
 
 
 # Singleton instance
-project_relationships_service = ProjectRelationshipsService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   project_relationships_service = get_service('project_relationships_service')
 

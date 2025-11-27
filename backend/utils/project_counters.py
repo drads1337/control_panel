@@ -21,7 +21,9 @@ from ..models.core import Project, User
 from ..models.keys import Key
 from ..models.products import Product
 from ..models.servers import Server
+from ...utils.service_helpers import get_service
 
+cached_statistics_service = get_service('cached_statistics_service')
 def update_project_counters(project_id: Optional[int]):
     """
     Recalculate and update all statistics counters for a project.

@@ -229,11 +229,11 @@ class SecurityMonitoringService:
             if not success:
                 # Check and block IP if needed (Failed Login Protection rule)
                 # Import here to avoid circular dependency
-                from .security_audit_service import security_audit_service
-                from .security_rules_service import security_rules_service
                 
+                security_audit_service = get_service('security_audit_service')
                 security_audit_service._check_and_block_ip_if_needed(ip_address, project_id)
                 
+                security_audit_service = get_service('security_audit_service')
                 # Also check brute force protection rule
                 try:
                     context = SecurityContext(
@@ -254,8 +254,11 @@ class SecurityMonitoringService:
                         is_active=True
                     ).first()
                     if brute_force_rule:
+                        security_rules_service = get_service('security_rules_service')
                         conditions = json.loads(brute_force_rule.conditions)
+                        security_rules_service = get_service('security_rules_service')
                         if security_rules_service._evaluate_brute_force_conditions(conditions, context):
+                            security_rules_service = get_service('security_rules_service')
                             # Rule already updates trigger in _evaluate_brute_force_conditions
                             self.logger.info(f"Brute force protection triggered for IP {ip_address}")
                 except Exception as e:
@@ -356,5 +359,12 @@ class SecurityMonitoringService:
 
 
 # Singleton instance
-security_monitoring_service = SecurityMonitoringService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   security_monitoring_service = get_service('security_monitoring_service')
 
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   security_monitoring_service = get_service('security_monitoring_service')

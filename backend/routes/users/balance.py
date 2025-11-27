@@ -8,11 +8,11 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 
 from ...models import User
-from ...services.balance import balance_service
 from ...middleware.auth import require_project_isolation, require_role, require_user
 from ...middleware.validation import validate_request
 from ...schemas.balance import BalanceTopupSchema, BalanceDeductSchema, BalanceTransactionsQuerySchema
 from ...utils.role_constants import RolePermissions
+from ...utils.service_helpers import get_service
 
 logger = logging.getLogger(__name__)
 balance_bp = Blueprint("users_balance", __name__)
@@ -69,7 +69,9 @@ def topup_user_balance(current_user, validated_data=None):
     # Use numeric id for balance operations
     user_id = target_user.id
 
+    balance_service = get_service('balance_service')
     has_access, error_msg = balance_service.check_balance_access(current_user, target_user)
+    balance_service = get_service('balance_service')
     if not has_access:
         return jsonify({"error": error_msg or "Access denied"}), 403
 

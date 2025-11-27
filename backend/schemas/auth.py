@@ -152,6 +152,36 @@ class ClassicLoginRegisterSchema(BaseSchema):
             raise ValueError("Invite code cannot be empty")
         return v.strip()
 
+class RegisterWithInviteSchema(BaseSchema):
+    """User registration with invite code request schema"""
+
+    username: str = Field(..., min_length=3, max_length=50, description="Username")
+    email: Optional[str] = Field(default=None, description="Email address (optional but recommended for password reset)")
+    password: str = Field(..., min_length=8, max_length=128, description="Password")
+    invite_code: str = Field(..., min_length=1, description="Invite code")
+    project_name: Optional[str] = Field(default=None, max_length=255, description="Project name (if creating new project)")
+
+    @validator("username")
+    def validate_username(cls, v):
+        return UsernameValidator.validate_username(v)
+
+    @validator("email")
+    def validate_email(cls, v):
+        if v:
+            from .common import EmailValidator
+            return EmailValidator.validate_email(v)
+        return v
+
+    @validator("password")
+    def validate_password(cls, v):
+        return PasswordValidator.validate_password(v, min_length=8)
+
+    @validator("invite_code")
+    def validate_invite_code(cls, v):
+        if not v or not v.strip():
+            raise ValueError("Invite code cannot be empty")
+        return v.strip()
+
 class InviteCodeValidateSchema(BaseSchema):
     """Invite code validation request schema"""
 

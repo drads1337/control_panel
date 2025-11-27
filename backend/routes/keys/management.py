@@ -159,8 +159,8 @@ def create_key(current_user, project_id=None, validated_data=None):
 
     product = None
     if validated_data.get("product_id"):
-        from ...services.products import product_service
         # Exceptions are handled by global handler
+        product_service = get_service('product_service')
         product = product_service.get_product(current_user, validated_data["product_id"])
 
         is_access_code = product.login_type == "classic_login"
@@ -271,7 +271,6 @@ def create_custom_key(current_user, project_id=None, validated_data=None):
         return jsonify({"error": "Key already exists"}), 400
 
     # Get product - exceptions are handled by global handler
-    from ...services.products import product_service
     product = product_service.get_product(current_user, product_id)
 
     is_access_code = product.login_type == "classic_login"
@@ -306,8 +305,8 @@ def create_custom_key(current_user, project_id=None, validated_data=None):
         is_admin = RBACManager.is_admin(current_user)
         
         if not is_owner and not is_admin and product and key_project_id:
-            from ...services.products.price_calculation_service import price_calculation_service
-            from ...services.balance import balance_service
+            # Get price calculation service
+            price_calculation_service = get_service('price_calculation_service')
             
             key_price = price_calculation_service.calculate_key_price(
                 product_id=product.id,
@@ -323,6 +322,7 @@ def create_custom_key(current_user, project_id=None, validated_data=None):
                 if current_user.token_balance < key_price:
                     return jsonify({"error": f"Insufficient balance. Required: {key_price} tokens, Available: {current_user.token_balance} tokens"}), 400
                 
+                balance_service = get_service('balance_service')
                 # Deduct balance without committing (we're inside a transaction)
                 success, error_msg, _ = balance_service.deduct_balance(
                     current_user=current_user,
@@ -510,8 +510,6 @@ def reset_key(key_id, current_user, project_id=None):
     try:
         # Deduct balance for reset (except for admin/owner)
         from ...utils.rbac_utils import RBACManager
-        from ...services.products.price_calculation_service import price_calculation_service
-        from ...services.balance import balance_service
         
         is_owner = RBACManager.is_owner(current_user)
         is_admin = RBACManager.is_admin(current_user)
@@ -1160,10 +1158,8 @@ def download_key(key_id, current_user, project_id=None):
             is_own_key = key.user_id == current_user.id
             rbac_service = get_service('rbac_service')
             if is_own_key:
-
                 can_download_full_key = rbac_service.check_permission(current_user.id, "keys.view")
             else:
-
                 can_download_full_key = rbac_service.check_permission(current_user.id, "keys.view")
 
         key_value = key.key if can_download_full_key else mask_license_key(key.key)
@@ -1333,15 +1329,13 @@ def reveal_key(key_id, current_user, project_id=None):
         if not can_reveal_key:
 
             is_own_key = key.user_id == current_user.id
+            rbac_service = get_service('rbac_service')
             if is_own_key:
-
-                rbac_service = get_service('rbac_service')
                 can_reveal_key = (
                     rbac_service.check_permission(current_user.id, "keys.see_analytics") or
                     rbac_service.check_permission(current_user.id, "keys.copy")
                 )
             else:
-                rbac_service = get_service('rbac_service')
                 can_reveal_key = (
                     rbac_service.check_permission(current_user.id, "keys.see_analytics") or
                     rbac_service.check_permission(current_user.id, "keys.copy")

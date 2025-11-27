@@ -16,6 +16,7 @@ from ...core.extensions import db
 from ...middleware.auth import require_project_isolation
 from ...models import Product, Key, User
 from ...utils.rbac_utils import RBACManager
+from ...utils.service_helpers import get_service
 
 analytics_bp = Blueprint("keys_analytics", __name__)
 
@@ -36,8 +37,8 @@ def get_keys_usage():
     query = Key.query.filter_by(project_id=user.project_id)
 
     if not RBACManager.is_owner(user) and not RBACManager.is_admin(user):
-        from ...services.rbac import rbac_service
 
+        rbac_service = get_service('rbac_service')
         has_keys_view = rbac_service.check_permission(user.id, "keys.view")
         if not has_keys_view:
             query = query.filter_by(user_id=user.id)
@@ -288,8 +289,7 @@ def get_keys_stats():
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    from ...services.keys.key_statistics_service import key_statistics_service
-
+    key_statistics_service = get_service('key_statistics_service')
     stats = key_statistics_service.get_key_stats(user)
 
     return jsonify(
@@ -334,7 +334,6 @@ def export_keys():
     query = Key.query.filter_by(project_id=user.project_id)
 
     if not RBACManager.is_owner(user) and not RBACManager.is_admin(user):
-        from ...services.rbac import rbac_service
 
         has_keys_view = rbac_service.check_permission(user.id, "keys.view")
         if not has_keys_view:

@@ -13,6 +13,7 @@ from ...models.core import Project, User
 from ...models.products import Product
 from ...models.keys import Key
 from ...utils.rbac_utils import RBACManager
+from ...utils.service_helpers import get_service
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +77,7 @@ class KeyValidator:
                     "expires_at": key_obj.expires_at.isoformat() if key_obj.expires_at else None,
                 }
 
+                webhook_service = get_service('webhook_service')
                 webhook_service.trigger_webhook("key.activated", webhook_data, key_obj.project_id)
                 logger.info(f"Triggered webhook for key activation: {key_obj.id}")
 

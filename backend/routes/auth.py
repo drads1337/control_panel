@@ -28,16 +28,18 @@ from ..schemas.auth import (
     AccessCodeValidateSchema,
     ChangePasswordRequestSchema,
     ClassicLoginRegisterSchema,
+    ForgotPasswordRequestSchema,
     InviteCodeValidateSchema,
     LoginRequestSchema,
     RegisterRequestSchema,
+    RegisterWithInviteSchema,
+    ResetPasswordRequestSchema,
     TwoFactorDisableRequestSchema,
     TwoFactorSetupRequestSchema,
     TwoFactorVerifyRequestSchema,
 )
 from ..utils.service_helpers import get_service
 from ..schemas.user import UserProfileUpdateSchema
-from ..services.users.invite_service import invite_service
 from ..utils.rbac_utils import RBACManager
 from ..utils.role_constants import UserRoles
 from ..utils.validators import AuthValidator, InviteValidator, UserValidator
@@ -244,8 +246,11 @@ def _handle_simple_login(data: dict, ip: str, user_agent: str):
 
         auth_service = get_service('auth_service')
         # Exceptions are handled by global handler
+        auth_service = get_service('auth_service')
+        auth_service = get_service('auth_service')
         response_data = auth_service.process_simple_login(username, password, ip, user_agent)
 
+        auth_service = get_service('auth_service')
         # Log suspicious activity for authentication errors (handled by exception handler)
         from ..utils.data_masking import mask_username
         masked_username = mask_username(username) if username else "unknown"
@@ -364,6 +369,7 @@ def register(validated_data=None):
             }
 
             webhook_service.trigger_webhook("user.registered", webhook_data, user.project_id)
+            webhook_service = get_service('webhook_service')
             logging.info(f"Triggered webhook for user registration: {user.id}")
 
         except Exception as e:
@@ -385,23 +391,25 @@ def register(validated_data=None):
         logger.error(f"Error in registration: {str(e)}")
         return jsonify({"error": "REGISTRATION_FAILED", "message": "Registration failed"}), 500
 
-@validate_request(RegisterRequestSchema)
+@validate_request(RegisterWithInviteSchema)
 @auth_bp.route("/register-with-invite", methods=["POST"])
 def register_with_invite(validated_data=None):
     """User registration with invite code"""
     try:
+        if not validated_data:
+            return jsonify({"error": "INVALID_REQUEST", "message": "Invalid request data"}), 400
 
-        if not all([username, password, invite_code]):
-            return jsonify({"error": "MISSING_FIELDS", "message": "All fields are required"}), 400
+        username = validated_data.get("username", "").strip()
+        password = validated_data.get("password", "")
+        invite_code = validated_data.get("invite_code", "").strip()
+        email = validated_data.get("email", "").strip().lower() if validated_data.get("email") else None
+        project_name = validated_data.get("project_name", "").strip() if validated_data.get("project_name") else None
 
-        username_valid, username_error = AuthValidator.validate_username(username)
-        if not username_valid:
-            return jsonify({"error": "INVALID_USERNAME", "message": username_error}), 400
+        if not username or not password or not invite_code:
+            return jsonify({"error": "MISSING_FIELDS", "message": "Username, password, and invite code are required"}), 400
 
-        password_valid, password_error = AuthValidator.validate_password(password, min_length=8)
-        if not password_valid:
-            return jsonify({"error": "INVALID_PASSWORD", "message": password_error}), 400
-
+        invite_service = get_service('invite_service')
+        invite_service = get_service('invite_service')
         code_info, error = invite_service.validate_invite_code(invite_code)
         if not code_info:
             return jsonify({"error": "INVALID_INVITE_CODE", "message": error}), 400
@@ -427,6 +435,8 @@ def register_with_invite(validated_data=None):
 
             from ..services.rbac import RBACService
 
+            rbac_service = get_service('rbac_service')
+            rbac_service = get_service('rbac_service')
             rbac_service = RBACService()
             rbac_service.initialize_default_data(project_id)
 
@@ -465,10 +475,20 @@ def register_with_invite(validated_data=None):
                 if User.query.filter_by(username=username).first():
                     raise ConflictError("Username already exists", resource_type="user")
                 
+                # Validate email if provided
+                if email:
+                    email_valid, email_error = AuthValidator.validate_email(email)
+                    if not email_valid:
+                        return jsonify({"error": "INVALID_EMAIL", "message": email_error}), 400
+                    
+                    # Check if email already exists
+                    if User.query.filter_by(email=email).first():
+                        raise ConflictError("Email already exists", resource_type="user")
+                
                 # Create user without legacy role field (roles are managed via RBAC)
                 user = User(
                     username=username,
-                    email=None,
+                    email=email,
                     password=generate_password_hash(password),
                     project_id=project_id,
                     created_at=datetime.utcnow(),
@@ -477,11 +497,13 @@ def register_with_invite(validated_data=None):
                 db.session.flush()
                 
                 # Assign RBAC roles if provided
+                user_role_service = get_service('user_role_service')
                 if rbac_role_ids and project_id:
                     user_role_service = get_user_role_service()
                     user_role_service.assign_roles_to_user(user.id, project_id, rbac_role_ids)
                 
                 # Assign product permissions - always try to assign if product_ids provided
+                user_permission_service = get_service('user_permission_service')
                 if project_id:
                     user_permission_service = get_user_permission_service()
                     # Process product_ids to filter out invalid values like 0
@@ -509,7 +531,7 @@ def register_with_invite(validated_data=None):
                 # Default behavior for project invite codes
                 default_role = UserRoles.ADMIN.value
                 user = user_crud_service.create_user(
-                    username, None, password, project_id, default_role
+                    username, email, password, project_id, default_role
                 )
                 
                 # Mark invite code as used
@@ -553,9 +575,12 @@ def get_current_user():
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
 
+        user_profile_service = get_service('user_profile_service')
         if not user:
+            user_profile_service = get_service('user_profile_service')
             return jsonify({"error": "USER_NOT_FOUND"}), 404
 
+        user_profile_service = get_service('user_profile_service')
         user_profile_service = get_service('user_profile_service')
         profile_data = user_profile_service.get_user_profile(user)
         return jsonify(profile_data)
@@ -998,3 +1023,152 @@ def validate_invite_code():
         logger.error(f"Error validating invite code: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": "Failed to validate invite code"}), 500
+
+@auth_bp.route("/forgot-password", methods=["POST"])
+@csrf.exempt
+@validate_request(ForgotPasswordRequestSchema)
+def forgot_password(validated_data=None):
+    """
+    Request password reset
+    
+    ---
+    tags:
+      - Authentication
+    summary: Request password reset
+    description: |
+      Send password reset email to user.
+      Always returns success to prevent email enumeration.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - email
+            properties:
+              email:
+                type: string
+                format: email
+                description: User email address
+                example: "user@example.com"
+    responses:
+      200:
+        description: Success (always returns success for security)
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "If an account with that email exists, a password reset link has been sent."
+    security: []
+    """
+    try:
+        if not validated_data:
+            return jsonify({"error": "INVALID_REQUEST", "message": "Email is required"}), 400
+        
+        password_reset_service = get_service('password_reset_service')
+        email = validated_data.get("email", "").lower().strip()
+        password_reset_service = get_service('password_reset_service')
+        
+        if not email:
+            return jsonify({"error": "INVALID_REQUEST", "message": "Email is required"}), 400
+        
+        success, error = password_reset_service.request_password_reset(email)
+        
+        # Always return success to prevent email enumeration
+        return jsonify({
+            "message": "If an account with that email exists, a password reset link has been sent."
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error in forgot_password: {str(e)}")
+        return jsonify({
+            "message": "If an account with that email exists, a password reset link has been sent."
+        }), 200
+
+@auth_bp.route("/reset-password", methods=["POST"])
+@csrf.exempt
+@validate_request(ResetPasswordRequestSchema)
+def reset_password(validated_data=None):
+    """
+    Reset password using token
+    
+    ---
+    tags:
+      - Authentication
+    summary: Reset password
+    description: |
+      Reset user password using reset token from email.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - token
+              - new_password
+            properties:
+              token:
+                type: string
+                description: Password reset token from email
+                example: "abc123..."
+              new_password:
+                type: string
+                format: password
+                description: New password
+                minLength: 8
+                maxLength: 128
+                example: "NewSecurePassword123!"
+    responses:
+      200:
+        description: Password reset successful
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "Password reset successfully"
+      400:
+        description: Invalid request or token
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                error:
+                  type: string
+                  example: "RESET_FAILED"
+                message:
+                  type: string
+                  example: "Invalid or expired token"
+    security: []
+    """
+    try:
+        if not validated_data:
+            return jsonify({"error": "INVALID_REQUEST", "message": "Token and password are required"}), 400
+        
+        token = validated_data.get("token", "").strip()
+        new_password = validated_data.get("new_password", "")
+        
+        if not token:
+            return jsonify({"error": "INVALID_REQUEST", "message": "Token is required"}), 400
+        
+        if not new_password:
+            return jsonify({"error": "INVALID_REQUEST", "message": "New password is required"}), 400
+        
+        success, error = password_reset_service.reset_password(token, new_password)
+        
+        if not success:
+            return jsonify({"error": "RESET_FAILED", "message": error or "Failed to reset password"}), 400
+        
+        return jsonify({"message": "Password reset successfully"}), 200
+        
+    except Exception as e:
+        logger.error(f"Error in reset_password: {str(e)}")
+        return jsonify({"error": "RESET_FAILED", "message": "Failed to reset password"}), 500

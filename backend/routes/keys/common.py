@@ -3,8 +3,8 @@ Common utilities and helper functions for keys routes
 """
 
 from ...models import Key, User
-from ...services.rbac import rbac_service
 from ...utils.rbac_utils import RBACManager
+from ...utils.service_helpers import get_service
 
 def can_manage_key(user: User, key: Key, action_permission: str) -> bool:
     """
@@ -24,6 +24,7 @@ def can_manage_key(user: User, key: Key, action_permission: str) -> bool:
 
     is_own_key = key.user_id == user.id
 
+    rbac_service = get_service('rbac_service')
     if is_own_key:
         return rbac_service.check_permission(user.id, action_permission)
 

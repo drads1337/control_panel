@@ -195,5 +195,8 @@ class UserPermissionService:
 
 
 # Singleton instance
-user_permission_service = UserPermissionService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   user_permission_service = get_service('user_permission_service')
 

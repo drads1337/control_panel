@@ -12,6 +12,7 @@ from flask import g, jsonify
 from ..core.extensions import db
 from ..models.core import User
 from ..models.rbac import Permission, Role, RolePermission, UserRole
+from .service_helpers import get_service
 
 class RBACManager:
     """Centralized RBAC management"""
@@ -80,8 +81,8 @@ class RBACManager:
             True if user has permission, False otherwise
         """
         try:
-            from ..services.rbac import rbac_service
             # Use rbac_service as single source of truth for all permission checks
+            rbac_service = get_service('rbac_service')
             return rbac_service.check_permission(user_id, permission)
         except Exception as e:
             logging.error(

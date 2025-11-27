@@ -20,6 +20,7 @@ from ..schemas.webhook import WebhookCreateSchema, WebhookUpdateSchema
 from ..services.webhooks import get_webhook_service
 from ..utils.rbac_utils import RBACManager
 from ..utils.role_constants import RolePermissions
+from ..utils.service_helpers import get_service
 
 webhooks_bp = Blueprint("webhooks", __name__)
 
@@ -38,8 +39,8 @@ def get_user_info():
             return jsonify({"error": "User not found"}), 404
 
         user_roles = RBACManager.get_user_role_names(user)
-        from ..services.rbac import rbac_service
 
+        rbac_service = get_service('rbac_service')
         has_webhook_access = rbac_service.check_permission(user.id, "webhooks.view")
 
         return jsonify(
@@ -82,6 +83,7 @@ def get_webhooks():
 
         webhook_service = get_webhook_service()
 
+        webhook_service = get_service('webhook_service')
         has_access, error = webhook_service.validate_webhook_access(user_id)
         if not has_access:
             status_code = 403 if error in [

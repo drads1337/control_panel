@@ -19,10 +19,10 @@ from ...middleware.auth import (
     require_role,
     require_user,
 )
+from ...utils.service_helpers import get_service
 from ...middleware.validation import validate_request
 from ...models import APIKey, User
 from ...schemas.token import APITokenCreateSchema, APITokenUpdateSchema
-from ...services.activity import activity_service
 from ...utils.role_constants import RolePermissions
 
 tokens_bp = Blueprint("users_tokens", __name__)
@@ -41,8 +41,8 @@ def get_user_tokens(user_id, current_user):
     if not target_user:
         return jsonify({"error": "User not found"}), 404
 
-    from ...services.rbac import rbac_service
 
+    rbac_service = get_service('rbac_service')
     can_view_all = rbac_service.check_permission(
         current_user.id, "employees.view"
     ) or rbac_service.check_permission(current_user.id, "clients.view")
@@ -88,7 +88,6 @@ def create_user_token(user_id, current_user, validated_data=None):
     if not target_user:
         return jsonify({"error": "User not found"}), 404
 
-    from ...services.rbac import rbac_service
 
     can_view_all = rbac_service.check_permission(
         current_user.id, "employees.view"
@@ -118,6 +117,7 @@ def create_user_token(user_id, current_user, validated_data=None):
         db.session.add(api_key)
         db.session.commit()
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user,
             "create_api_token",
@@ -160,7 +160,6 @@ def update_user_token(user_id, token_id, current_user, validated_data=None):
     if not target_user:
         return jsonify({"error": "User not found"}), 404
 
-    from ...services.rbac import rbac_service
 
     can_view_all = rbac_service.check_permission(
         current_user.id, "employees.view"
@@ -233,7 +232,6 @@ def delete_user_token(user_id, token_id, current_user):
     if not target_user:
         return jsonify({"error": "User not found"}), 404
 
-    from ...services.rbac import rbac_service
 
     can_view_all = rbac_service.check_permission(
         current_user.id, "employees.view"

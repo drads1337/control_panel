@@ -61,6 +61,8 @@ def get_products_count(current_user, project_id=None):
 
     # Allow users with clients.view permission to access products even if they don't have a project_id
     rbac_service = get_service('rbac_service')
+    rbac_service = get_service('rbac_service')
+    rbac_service = get_service('rbac_service')
     has_clients_view = rbac_service.check_permission(user.id, "clients.view")
     
     if not user.project_id and not has_clients_view:
@@ -74,6 +76,7 @@ def get_products_count(current_user, project_id=None):
 
     try:
         product_type = request.args.get("type", "all")
+        product_service = get_service('product_service')
         product_service = get_service('product_service')
         
         result = product_service.get_products_count(
@@ -620,7 +623,6 @@ def get_classic_users_for_product(product_identifier, current_user=None):
     
     Replaces legacy endpoint: GET /api/clients/<product_id>/classic-users
     """
-    from ...services.rbac import rbac_service
     
     user_id = get_jwt_identity()
     user = current_user or User.query.get(user_id)
@@ -635,6 +637,7 @@ def get_classic_users_for_product(product_identifier, current_user=None):
     if not product:
         return jsonify({"error": "Product not found"}), 404
 
+    rbac_service = get_service('rbac_service')
     can_view_all = rbac_service.check_permission(user.id, "clients.view")
     if not can_view_all and product.project_id != user.project_id:
         return jsonify({"error": "Access denied"}), 403

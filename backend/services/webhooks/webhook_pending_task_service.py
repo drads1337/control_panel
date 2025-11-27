@@ -251,5 +251,8 @@ class WebhookPendingTaskService:
             return 0
 
 
-webhook_pending_task_service = WebhookPendingTaskService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   webhook_pending_task_service = get_service('webhook_pending_task_service')
 

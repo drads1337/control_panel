@@ -419,5 +419,8 @@ class AuthorizationAuditService:
 
 
 # Global instance
-authorization_audit_service = AuthorizationAuditService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   authorization_audit_service = get_service('authorization_audit_service')
 

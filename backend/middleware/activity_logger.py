@@ -7,8 +7,8 @@ from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
 
 from ..core.extensions import db
 from ..models.core import User
-from ..services.activity import activity_service
 from ..utils.data_masking import create_safe_log_details, mask_username
+from ..utils.service_helpers import get_service
 
 class ActivityLoggerMiddleware:
 
@@ -237,6 +237,7 @@ class ActivityLoggerMiddleware:
                             details=details,
                         )
 
+                        activity_service = get_service('activity_service')
                         activity_service.log_activity(
                             user=user,
                             action=action,

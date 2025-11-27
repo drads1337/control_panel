@@ -15,7 +15,6 @@ from ...config.config import Config
 from ...core.extensions import db
 from ...models.core import Project, User
 from ...models.keys import Key
-from ...services.auth.challenge_service import challenge_service
 from ...services.keys import KeyValidator
 from .analytics_tracker import AnalyticsTracker
 from .challenge_validation_service import ChallengeValidationService
@@ -152,7 +151,9 @@ class ConnectService:
                     "message": "Your device fingerprint has been blocked",
                 }, 403
 
+            challenge_service = get_service('challenge_service')
             enhanced_challenge = challenge_service.create_enhanced_challenge(user_key, fingerprint)
+            challenge_service = get_service('challenge_service')
             logger.debug(
                 f"ENHANCED_CHALLENGE_GENERATED successfully, keys={list(enhanced_challenge.keys())}"
             )
@@ -271,6 +272,9 @@ class ConnectService:
                 from ...utils.service_helpers import get_service
 
                 auth_service = get_service('auth_service')
+                auth_service = get_service('auth_service')
+                auth_service = get_service('auth_service')
+                auth_service = get_service('auth_service')
                 response_data, error_code, error_message = auth_service.process_simple_login(
                     username, password, ip, user_agent
                 )
@@ -376,4 +380,7 @@ class ConnectService:
             logger.error(f"CLASSIC_CONNECT_ERROR_TRACEBACK: {traceback.format_exc()}")
             return {"error": "Internal server error"}, 500
 
-connect_service = ConnectService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   connect_service = get_service('connect_service')

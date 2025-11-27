@@ -115,6 +115,26 @@ class PhoneValidator:
 
         return phone
 
+class EmailValidator:
+    """Email validation utilities"""
+
+    @staticmethod
+    def validate_email(email: str) -> str:
+        """Validate and normalize email address"""
+        if not email:
+            raise ValueError("Email is required")
+
+        email = email.strip().lower()
+
+        if len(email) > 254:
+            raise ValueError("Email is too long")
+
+        email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+        if not re.match(email_pattern, email):
+            raise ValueError("Invalid email format")
+
+        return email
+
 class CodeValidator:
     """Code validation utilities (invite codes, referral codes, etc.)"""
 

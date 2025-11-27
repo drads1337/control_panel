@@ -47,13 +47,23 @@ class SessionService:
         user_agent: str,
         device_fingerprint: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Create a new user session"""
+        """
+        Create a new user session with atomic session limit checking.
+        
+        SECURITY: This method uses distributed locking to prevent race conditions
+        when multiple concurrent logins try to create sessions simultaneously.
+        The session limit check and session creation are atomic within the lock.
+        """
         try:
             user = User.query.get(user_id)
             if not user:
                 raise ValueError("User not found")
 
-            if self._check_session_limit(user_id):
+            # SECURITY: Check session limit atomically before creating session
+            # This prevents race conditions where multiple concurrent requests
+            # could all pass the limit check before any session is created
+            limit_exceeded, decremented_count = self._check_and_enforce_session_limit_atomic(user_id)
+            if limit_exceeded:
                 raise ValueError("Maximum number of sessions reached")
 
             session_id = self._generate_session_id(user_id, ip_address, user_agent)
@@ -71,6 +81,26 @@ class SessionService:
             }
 
             self._store_session(session_data)
+            
+            # SECURITY: Record login activity after successful session creation
+            # This must be done atomically to keep count accurate
+            try:
+                from ...models.core import UserActivity
+                login_activity = UserActivity(
+                    user_id=user_id,
+                    action="login",
+                    ip_address=ip_address,
+                    user_agent=user_agent,
+                    details=f"Session created: {session_id}",
+                )
+                db.session.add(login_activity)
+                db.session.commit()
+                
+                # Update cache with new count (increment by 1)
+                self._increment_session_count_cache(user_id, decremented_count)
+            except Exception as e:
+                self.logger.warning(f"Failed to record login activity: {e}")
+                # Don't fail session creation if activity logging fails
 
             self.logger.info(
                 f"Session created for user {user_id}",
@@ -435,15 +465,21 @@ class SessionService:
 
         return []
 
-    def _check_session_limit(self, user_id: int) -> bool:
+    def _check_and_enforce_session_limit_atomic(self, user_id: int) -> Tuple[bool, int]:
         """
-        Check if user has reached session limit and enforce first-device logout.
+        Atomically check session limit and enforce it if needed.
         
-        Uses Redis distributed lock to prevent hot rows in database during concurrent logins.
-        Optimized to reduce database contention by:
-        1. Using Redis for distributed locking
-        2. Caching session count in Redis
-        3. Minimizing database queries and locks
+        SECURITY: This method combines limit checking and enforcement in a single
+        atomic operation to prevent race conditions. It returns both whether the
+        limit is exceeded AND the current count after enforcement (used for cache).
+        
+        Args:
+            user_id: User ID to check
+            
+        Returns:
+            Tuple of (limit_exceeded: bool, current_count_after_enforcement: int)
+            - limit_exceeded: True if limit reached and couldn't free space, False otherwise
+            - current_count_after_enforcement: Current session count after any cleanup
         """
         lock_key = f"session_limit_lock:{user_id}"
         cache_key = f"session_count:{user_id}"
@@ -455,7 +491,7 @@ class SessionService:
         except Exception as e:
             self.logger.warning(f"Redis unavailable for session limit check, falling back to DB: {e}")
             # Fallback to database-only approach if Redis is unavailable
-            return self._check_session_limit_db_only(user_id)
+            return self._check_session_limit_db_only_atomic(user_id)
         
         # Try to acquire distributed lock
         lock_acquired = False
@@ -479,7 +515,7 @@ class SessionService:
                 f"Could not acquire lock for session limit check for user {user_id} after {self.LOCK_MAX_RETRIES} attempts"
             )
             # Fallback to database-only approach if lock cannot be acquired
-            return self._check_session_limit_db_only(user_id)
+            return self._check_session_limit_db_only_atomic(user_id)
         
         try:
             # Check cached session count first
@@ -508,10 +544,10 @@ class SessionService:
                 # Cache the count for 60 seconds to reduce database queries
                 redis_client.setex(cache_key, 60, str(session_count))
             
-            # Check if limit reached
+            # SECURITY: Check limit BEFORE incrementing (atomic check-and-enforce)
+            # If limit reached, try to free space by terminating oldest session
             if session_count >= self.MAX_SESSIONS_PER_USER:
                 # Need to terminate oldest session
-                # Use a lightweight query to get only the oldest session ID
                 cutoff_time = datetime.utcnow() - timedelta(hours=24)
                 oldest_session = (
                     UserActivity.query.filter(
@@ -535,17 +571,19 @@ class SessionService:
                     oldest_session.details = "Session terminated due to session limit enforcement"
                     db.session.commit()
                     
-                    # Invalidate cache and decrement count
-                    redis_client.delete(cache_key)
-                    # Decrement cached count if it exists
+                    # Decrement count (now we have space for new session)
                     new_count = session_count - 1
                     redis_client.setex(cache_key, 60, str(new_count))
                     
-                    return new_count >= self.MAX_SESSIONS_PER_USER
-                
-                return True  # Limit reached but couldn't find oldest session
+                    # Return False (limit not exceeded) and new count
+                    # New session will be created, bringing count back to MAX_SESSIONS_PER_USER
+                    return False, new_count
+                else:
+                    # Limit reached but couldn't find oldest session to terminate
+                    return True, session_count
             
-            return False
+            # Limit not reached - return current count (will be incremented after session creation)
+            return False, session_count
             
         finally:
             # Release lock using Lua script to ensure we only delete our own lock
@@ -561,6 +599,82 @@ class SessionService:
             except Exception as e:
                 self.logger.warning(f"Failed to release lock for user {user_id}: {e}")
                 # Lock will expire automatically after LOCK_TIMEOUT
+    
+    def _increment_session_count_cache(self, user_id: int, base_count: int):
+        """
+        Increment session count in cache after successful session creation.
+        
+        Args:
+            user_id: User ID
+            base_count: Base count before increment (from atomic check)
+        """
+        try:
+            cache_key = f"session_count:{user_id}"
+            redis_client = get_redis_client()
+            new_count = base_count + 1
+            redis_client.setex(cache_key, 60, str(new_count))
+        except Exception as e:
+            self.logger.warning(f"Failed to update session count cache: {e}")
+    
+    def _check_session_limit_db_only_atomic(self, user_id: int) -> Tuple[bool, int]:
+        """
+        Fallback method for atomic session limit checking when Redis is unavailable.
+        Uses database-only approach with transaction-level locking.
+        
+        Returns:
+            Tuple of (limit_exceeded: bool, current_count_after_enforcement: int)
+        """
+        cutoff_time = datetime.utcnow() - timedelta(hours=24)
+        
+        # Use COUNT query to minimize data transfer and lock time
+        session_count = (
+            UserActivity.query.filter(
+                UserActivity.user_id == user_id,
+                UserActivity.action == "login",
+                UserActivity.created_at >= cutoff_time,
+            )
+            .count()
+        )
+        
+        if session_count >= self.MAX_SESSIONS_PER_USER:
+            # Get only the oldest session ID to minimize lock time
+            oldest_session = (
+                UserActivity.query.filter(
+                    UserActivity.user_id == user_id,
+                    UserActivity.action == "login",
+                    UserActivity.created_at >= cutoff_time,
+                )
+                .order_by(UserActivity.created_at.asc())
+                .first()
+            )
+            
+            if oldest_session:
+                self.logger.info(
+                    f"Session limit reached for user {user_id}, terminating oldest session (DB-only mode)",
+                    user_id=user_id,
+                    oldest_session_id=oldest_session.id,
+                )
+                
+                oldest_session.action = "logout_forced"
+                oldest_session.details = "Session terminated due to session limit enforcement"
+                db.session.commit()
+                
+                new_count = session_count - 1
+                return False, new_count  # Space freed, can create new session
+            
+            return True, session_count  # Limit reached, couldn't free space
+        
+        return False, session_count  # Limit not reached
+    
+    def _check_session_limit(self, user_id: int) -> bool:
+        """
+        DEPRECATED: Use _check_and_enforce_session_limit_atomic instead.
+        
+        This method is kept for backward compatibility but is not atomic.
+        The new method combines checking and enforcement in a single atomic operation.
+        """
+        limit_exceeded, _ = self._check_and_enforce_session_limit_atomic(user_id)
+        return limit_exceeded
     
     def _check_session_limit_db_only(self, user_id: int) -> bool:
         """
@@ -648,4 +762,7 @@ class SessionService:
 # Service instance should be obtained via ServiceContainer:
 #   from ...utils.service_helpers import get_service
 #   service = get_service('session_service')
-session_service = SessionService()
+# DEPRECATED: Global instance removed for DI pattern
+# Use ServiceContainer instead:
+#   from ...utils.service_helpers import get_service
+#   session_service = get_service('session_service')

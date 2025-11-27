@@ -9,9 +9,8 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ..core.extensions import db
-from ..utils.service_helpers import get_service
+from ..utils.service_helpers import get_service, get_user_crud_service
 from ..models.core import User
-from ..utils.service_helpers import get_user_crud_service
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 

@@ -8,9 +8,8 @@ from flask_jwt_extended import get_jwt_identity, jwt_required, verify_jwt_in_req
 from ..core.extensions import db
 from ..models.core import User
 from ..models.products import Product, ProductExtraFile, ProductFileConfig, ProductFileDownload
-from ..services.activity import activity_service
-from ..services.files import file_service
 from ..middleware.validation import validate_request
+from ..utils.service_helpers import get_service, get_rbac_service
 from ..schemas.file import (
     FileBulkActionSchema,
     FileStatusUpdateSchema,
@@ -57,6 +56,7 @@ def get_files():
     user_id = get_jwt_identity()
     user = file_service.get_user_by_id(user_id)
 
+    file_service = get_service('file_service')
     is_valid, error = file_service.validate_user_project(user)
     if not is_valid:
         return jsonify({"error": error}), 404 if error == "User not found" else 403
@@ -91,6 +91,7 @@ def upload_file():
     if error:
         return jsonify({"error": error}), 400
 
+    activity_service = get_service('activity_service')
     activity_service.log_activity(
         user,
         "upload_file",
@@ -132,9 +133,8 @@ def delete_file(filename):
     user_id = get_jwt_identity()
     user = file_service.get_user_by_id(user_id)
 
-    from ..services.rbac import rbac_service
 
-    if not user or not rbac_service.check_permission(user.id, "products.edit"):
+    if not user or not get_rbac_service().check_permission(user.id, "products.edit"):
         return jsonify({"error": "Access denied"}), 403
 
     is_valid, error = file_service.validate_user_project(user)
@@ -165,9 +165,8 @@ def bulk_action(validated_data=None):
     user_id = get_jwt_identity()
     user = file_service.get_user_by_id(user_id)
 
-    from ..services.rbac import rbac_service
 
-    if not user or not rbac_service.check_permission(user.id, "products.edit"):
+    if not user or not get_rbac_service().check_permission(user.id, "products.edit"):
         return jsonify({"error": "Access denied"}), 403
 
     is_valid, error = file_service.validate_user_project(user)
@@ -303,9 +302,7 @@ def get_products():
         return jsonify({"error": "User not associated with any project"}), 400
 
     try:
-
-        from ..services.products import product_service
-
+        product_service = get_service('product_service')
         result = product_service.get_products_cached(
             project_id=user.project_id, product_type="all", user_id=user_id
         )
@@ -645,7 +642,6 @@ def update_file_status(file_id, validated_data=None):
 
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
-    from ..services.rbac import rbac_service
 
     if not user or not rbac_service.check_permission(user.id, "products.edit"):
         return jsonify({"error": "Access denied"}), 403
@@ -830,7 +826,6 @@ def update_product_config(config_id, validated_data=None):
         if not product:
             return jsonify({"error": "Product not found"}), 404
 
-        from ..services.rbac import rbac_service
 
         if config.uploaded_by != user.id and not rbac_service.check_permission(
             user.id, "products.edit"
@@ -1383,7 +1378,6 @@ def delete_product_file(product_identifier, file_type):
     user_id = get_jwt_identity()
     user = file_service.get_user_by_id(user_id)
 
-    from ..services.rbac import rbac_service
 
     if not user or not rbac_service.check_permission(user.id, "products.edit"):
         return jsonify({"error": "Access denied"}), 403
@@ -1465,7 +1459,6 @@ def delete_folder(folder_path):
     if not is_valid:
         return jsonify({"error": error}), 404 if error == "User not found" else 403
 
-    from ..services.rbac import rbac_service
 
     if not user or not rbac_service.check_permission(user.id, "products.edit"):
         return jsonify({"error": "Access denied"}), 403
@@ -1672,7 +1665,6 @@ def delete_product_config(config_id):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
-    from ..services.rbac import rbac_service
 
     if not user or not rbac_service.check_permission(user.id, "products.edit"):
         return jsonify({"error": "Access denied"}), 403
@@ -1712,7 +1704,6 @@ def delete_product_extra_file(file_id):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
-    from ..services.rbac import rbac_service
 
     if not user or not rbac_service.check_permission(user.id, "products.edit"):
         return jsonify({"error": "Access denied"}), 403

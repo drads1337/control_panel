@@ -5,6 +5,7 @@ Unit tests for ConnectService
 import pytest
 
 from backend.services.connect_service import ConnectService
+from ...utils.service_helpers import get_service
 
 @pytest.mark.unit
 @pytest.mark.connect
@@ -26,7 +27,6 @@ class TestConnectService:
             return_value=mock_redis
         )
 
-        from backend.services.challenge_service import challenge_service
         mocker.patch.object(
             challenge_service,
             "create_enhanced_challenge",
