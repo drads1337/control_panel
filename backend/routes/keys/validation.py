@@ -29,10 +29,12 @@ def validate_key(current_user, project_id=None, validated_data=None):
     if not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    data = validated_data or request.get_json()
-    key_value = data.get("key")
-    device_id = data.get("device_id")
-    product_id = data.get("product_id")
+    if not validated_data:
+        return jsonify({"error": "No data provided"}), 400
+
+    key_value = validated_data.key
+    device_id = validated_data.device_id
+    product_id = validated_data.product_id
 
     key = Key.query.filter_by(key=key_value, project_id=current_user.project_id).first()
     if not key:

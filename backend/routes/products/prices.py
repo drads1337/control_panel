@@ -10,7 +10,9 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ...core.extensions import db
 from ...middleware.auth import require_project_isolation, require_project_with_grace_period
+from ...middleware.validation import validate_request
 from ...models import Product, ProductKeyPrice, User
+from ...schemas.price import CustomPriceCreateSchema, ProductPricesUpdateSchema
 from ...utils.service_helpers import get_service
 from ...utils.rbac_utils import RBACManager
 
@@ -117,13 +119,16 @@ def update_product_prices(product_identifier):
         if not product:
             return jsonify({"error": "Product not found"}), 404
 
+        # Note: This endpoint will be migrated to use validate_request in next iteration
         data = request.get_json()
         if not data:
             return jsonify({"error": "No data provided"}), 400
-
-        prices_data = data.get("prices", {})
-        if not isinstance(prices_data, dict):
-            return jsonify({"error": "Prices must be a dictionary"}), 400
+        
+        try:
+            schema_data = ProductPricesUpdateSchema(**data)
+            prices_data = schema_data.prices
+        except Exception as e:
+            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
         for period, price_value in prices_data.items():
             # Skip custom periods (they have their own endpoint)
@@ -277,22 +282,18 @@ def add_custom_period(product_identifier):
         if not product:
             return jsonify({"error": "Product not found"}), 404
 
+        # Note: This endpoint will be migrated to use validate_request in next iteration
         data = request.get_json()
         if not data:
             return jsonify({"error": "No data provided"}), 400
-
-        period_name = data.get("period_name")
-        price_value = data.get("price")
-        meta_data = data.get("meta_data")
-
-        if not period_name:
-            return jsonify({"error": "period_name is required"}), 400
-
-        if price_value is None:
-            return jsonify({"error": "price is required"}), 400
-
-        if not period_name.startswith("custom_"):
-            period_name = f"custom_{period_name}"
+        
+        try:
+            schema_data = CustomPriceCreateSchema(**data)
+            period_name = schema_data.period_name
+            price_value = schema_data.price
+            meta_data = schema_data.meta_data
+        except Exception as e:
+            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
         existing_price = ProductKeyPrice.query.filter_by(
             product_id=product.id, period=period_name, project_id=user.project_id
@@ -301,12 +302,7 @@ def add_custom_period(product_identifier):
         if existing_price:
             return jsonify({"error": "Custom period already exists"}), 400
 
-        try:
-            price_float = float(price_value)
-            if price_float < 0:
-                return jsonify({"error": "Price cannot be negative"}), 400
-        except (ValueError, TypeError):
-            return jsonify({"error": "Invalid price value"}), 400
+        price_float = float(price_value)
 
         new_price = ProductKeyPrice(
             product_id=product.id,

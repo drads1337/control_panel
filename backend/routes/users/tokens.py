@@ -19,7 +19,9 @@ from ...middleware.auth import (
     require_role,
     require_user,
 )
+from ...middleware.validation import validate_request
 from ...models import APIKey, User
+from ...schemas.token import APITokenCreateSchema, APITokenUpdateSchema
 from ...services.activity import activity_service
 from ...utils.role_constants import RolePermissions
 
@@ -94,15 +96,17 @@ def create_user_token(user_id, current_user):
         if current_user.project_id != target_user.project_id:
             return jsonify({"error": "Access denied"}), 403
 
+    # Note: This endpoint will be migrated to use validate_request in next iteration
     data = request.get_json()
     if not data:
         return jsonify({"error": "No data provided"}), 400
-
-    name = data.get("name")
-    permissions = data.get("permissions", [])
-
-    if not name:
-        return jsonify({"error": "Token name is required"}), 400
+    
+    try:
+        schema_data = APITokenCreateSchema(**data)
+        name = schema_data.name
+        permissions = schema_data.permissions
+    except Exception as e:
+        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
     try:
 
@@ -176,20 +180,26 @@ def update_user_token(user_id, token_id, current_user):
     if not api_key:
         return jsonify({"error": "API token not found"}), 404
 
+    # Note: This endpoint will be migrated to use validate_request in next iteration
     data = request.get_json()
     if not data:
         return jsonify({"error": "No data provided"}), 400
+    
+    try:
+        schema_data = APITokenUpdateSchema(**data)
+    except Exception as e:
+        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
     try:
 
-        if "name" in data:
-            api_key.name = data["name"]
+        if schema_data.name is not None:
+            api_key.name = schema_data.name
 
-        if "is_active" in data:
-            api_key.is_active = data["is_active"]
+        if schema_data.is_active is not None:
+            api_key.is_active = schema_data.is_active
 
-        if "permissions" in data:
-            api_key.permissions = json.dumps(data["permissions"]) if data["permissions"] else None
+        if schema_data.permissions is not None:
+            api_key.permissions = json.dumps(schema_data.permissions) if schema_data.permissions else None
 
         db.session.commit()
 

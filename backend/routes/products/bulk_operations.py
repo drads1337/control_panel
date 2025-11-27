@@ -11,7 +11,9 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ...core.extensions import db
 from ...middleware.auth import enforce_project_scope, require_project_with_grace_period
+from ...middleware.validation import validate_request
 from ...models import Product, User
+from ...schemas.product import ProductBulkDeleteSchema, ProductBulkStatusUpdateSchema
 from ...services.activity import activity_service
 from ...services.products import product_service
 from ...utils.rbac_utils import RBACManager
@@ -49,18 +51,17 @@ def bulk_update_product_status():
                 403,
             )
 
+        # Note: This endpoint will be migrated to use validate_request in next iteration
         data = request.get_json()
-        product_ids = data.get("product_ids", [])
-        new_status = data.get("status")
-
-        if not product_ids:
-            return jsonify({"error": "product_ids is required"}), 400
-
-        if not new_status:
-            return jsonify({"error": "status is required"}), 400
-
-        if new_status not in ["active", "inactive", "maintenance"]:
-            return jsonify({"error": "Invalid status. Must be 'active', 'inactive', or 'maintenance'"}), 400
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        try:
+            schema_data = ProductBulkStatusUpdateSchema(**data)
+            product_ids = schema_data.product_ids
+            new_status = schema_data.status
+        except Exception as e:
+            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
         products = Product.query.filter(
             Product.id.in_(product_ids),
@@ -143,11 +144,16 @@ def bulk_delete_products():
                 403,
             )
 
+        # Note: This endpoint will be migrated to use validate_request in next iteration
         data = request.get_json()
-        product_ids = data.get("product_ids", [])
-
-        if not product_ids:
-            return jsonify({"error": "product_ids is required"}), 400
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        try:
+            schema_data = ProductBulkDeleteSchema(**data)
+            product_ids = schema_data.product_ids
+        except Exception as e:
+            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
         products = Product.query.filter(
             Product.id.in_(product_ids),

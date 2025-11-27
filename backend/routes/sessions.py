@@ -9,8 +9,10 @@ from sqlalchemy.orm import selectinload
 from ..core.extensions import db
 from ..middleware.auth import require_project_isolation, require_project_with_grace_period
 from ..middleware.production_guard import development_only
+from ..middleware.validation import validate_request
 from ..models.core import User, UserActivity
 from ..models.rbac import Role, UserRole
+from ..schemas.session import SessionBulkLogoutSchema, SessionBulkTerminateSchema
 from ..services.activity import activity_service
 from ..utils.service_helpers import get_service
 from ..utils.rbac_utils import RBACManager
@@ -550,11 +552,16 @@ def bulk_terminate_sessions():
         if not current_user or not can_manage_sessions:
             return jsonify({"error": "Access denied"}), 403
 
+        # Note: This endpoint will be migrated to use validate_request in next iteration
         data = request.get_json()
-        user_ids = data.get("user_ids", [])
-
-        if not user_ids:
-            return jsonify({"error": "user_ids is required"}), 400
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        try:
+            schema_data = SessionBulkTerminateSchema(**data)
+            user_ids = schema_data.user_ids
+        except Exception as e:
+            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
         try:
             terminated_count = 0
@@ -884,13 +891,16 @@ def terminate_multiple_sessions():
         if not can_view_all:
             return jsonify({"error": "Insufficient permissions"}), 403
 
+        # Note: This endpoint will be migrated to use validate_request in next iteration
         data = request.get_json()
-        if not data or "user_ids" not in data:
-            return jsonify({"error": "User IDs are required"}), 400
-
-        user_ids = data["user_ids"]
-        if not isinstance(user_ids, list):
-            return jsonify({"error": "User IDs must be a list"}), 400
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        try:
+            schema_data = SessionBulkLogoutSchema(**data)
+            user_ids = schema_data.user_ids
+        except Exception as e:
+            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
         terminated_count = 0
         results = []

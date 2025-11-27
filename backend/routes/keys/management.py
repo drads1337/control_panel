@@ -147,20 +147,21 @@ def create_key(current_user, project_id=None, validated_data=None):
     if not is_owner and not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    data = validated_data or request.get_json()
+    if not validated_data:
+        return jsonify({"error": "No data provided"}), 400
 
     key_data = {
-        "product_id": data.get("product_id"),
-        "duration_hours": data.get("duration_hours", 24),
-        "max_devices": data.get("max_devices", 1),
-        "length": data.get("length", 32),
+        "product_id": validated_data.product_id,
+        "duration_hours": validated_data.duration_hours,
+        "max_devices": validated_data.max_devices,
+        "length": validated_data.length or 32,
     }
 
     product = None
-    if data.get("product_id"):
+    if validated_data.product_id:
         from ...services.products import product_service
         # Exceptions are handled by global handler
-        product = product_service.get_product(current_user, data["product_id"])
+        product = product_service.get_product(current_user, validated_data.product_id)
 
         is_access_code = product.login_type == "classic_login"
         generation_type = "access_code" if is_access_code else "license_key"
@@ -251,12 +252,13 @@ def create_custom_key(current_user, project_id=None, validated_data=None):
     if not is_owner and not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    data = validated_data or request.get_json()
+    if not validated_data:
+        return jsonify({"error": "No data provided"}), 400
 
-    custom_key = data.get("custom_key", "").strip()
-    product_id = data.get("product_id")
-    duration_hours = data.get("duration_hours", 24)
-    max_devices = data.get("max_devices", 1)
+    custom_key = validated_data.custom_key
+    product_id = validated_data.product_id
+    duration_hours = validated_data.duration_hours
+    max_devices = validated_data.max_devices
 
     # Check if key already exists
     if current_user.project_id:
@@ -413,8 +415,7 @@ def update_key(key_id, current_user, project_id=None, validated_data=None):
     if not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    data = validated_data or request.get_json()
-    if not data:
+    if not validated_data:
         return jsonify({"error": "No data provided"}), 400
 
     key = find_key_by_id_or_unique_id(key_id, current_user.project_id)
@@ -424,16 +425,20 @@ def update_key(key_id, current_user, project_id=None, validated_data=None):
     if not can_manage_key(current_user, key, "keys.edit"):
         return jsonify({"error": "You do not have permission to edit this key"}), 403
 
+    # Convert Pydantic model to dict for service
+    update_data = validated_data.model_dump(exclude_none=True) if hasattr(validated_data, 'model_dump') else validated_data
+
     key_crud_service = get_service('key_crud_service')
-    key, error = key_crud_service.update_key(current_user, key.id, data)
+    key, error = key_crud_service.update_key(current_user, key.id, update_data)
     if error:
         return jsonify({"error": error}), 400
 
     activity_service = get_service('activity_service')
+    duration_str = f"{validated_data.duration}h" if validated_data.duration else "unchanged"
     activity_service.log_activity(
         current_user,
         "update_key",
-        details=f'Updated key: {key.key[:8]}... (max_devices: {key.max_devices}, duration: {data.get("duration", "unchanged")}h)',
+        details=f'Updated key: {key.key[:8]}... (max_devices: {key.max_devices}, duration: {duration_str})',
         ip=request.remote_addr,
     )
 
@@ -680,8 +685,10 @@ def extend_key(key_id, current_user, project_id=None, validated_data=None):
     if not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    data = validated_data or request.get_json()
-    hours = data.get("hours", 0) if data else 0
+    if not validated_data:
+        return jsonify({"error": "No data provided"}), 400
+
+    hours = validated_data.hours
 
     key = find_key_by_id_or_unique_id(key_id, current_user.project_id)
 
@@ -795,11 +802,10 @@ def move_key(key_id, current_user, project_id=None, validated_data=None):
     if not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    data = validated_data or request.get_json()
-    new_user_id = data.get("user_id")
+    if not validated_data:
+        return jsonify({"error": "No data provided"}), 400
 
-    if not new_user_id:
-        return jsonify({"error": "user_id is required"}), 400
+    new_user_id = validated_data.user_id
 
     key = find_key_by_id_or_unique_id(key_id, current_user.project_id)
 

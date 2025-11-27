@@ -42,6 +42,8 @@ class ProjectUpdateSchema(BaseSchema):
         default=None, max_length=500, description="Project description"
     )
     status: Optional[str] = Field(default=None, description="Project status")
+    subscription_status: Optional[str] = Field(default=None, description="Subscription status")
+    storage_limit_gb: Optional[int] = Field(default=None, ge=0, description="Storage limit in GB")
     settings: Optional[dict] = Field(default=None, description="Project settings")
 
     @validator("name")
@@ -125,3 +127,8 @@ class ProjectReactivationSchema(BaseSchema):
         if v is not None and v <= datetime.utcnow():
             raise ValueError("New expiry date must be in the future")
         return v
+
+class ProjectInviteCodeCreateSchema(BaseSchema):
+    """Schema for creating project invite code"""
+
+    expires_in_days: int = Field(default=7, ge=1, le=365, description="Invite code expiration in days")

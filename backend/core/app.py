@@ -36,8 +36,6 @@ logger = get_logger(__name__)
 def check_redis_connection():
     """Check Redis connection at startup"""
     try:
-        from ..config.config import Config
-
         redis_config = {
             "host": Config.REDIS_HOST,
             "port": Config.REDIS_PORT,
@@ -304,7 +302,6 @@ def create_app() -> Flask:
     register_system_routes(app)
     
     # Initialize Swagger documentation (only in non-production)
-    from ..config.config import Config
     if Config.FLASK_ENV != "production":
         try:
             swagger = init_swagger(app)

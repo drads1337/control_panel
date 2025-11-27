@@ -14,9 +14,19 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ..core.extensions import db
 from ..middleware.auth import require_project_isolation, require_project_with_grace_period
+from ..middleware.validation import validate_request
 from ..models.core import Project, ProjectEncryptionKeys, User
 from ..utils.project_settings_migration import ProjectSettingsHelper
 from ..models.security import BlockedFingerprint, LoginAttempt
+from ..schemas.settings import (
+    BlockFingerprintSchema,
+    BlockIPSchema,
+    BlockHWIDSchema,
+    SecurityRuleCreateSchema,
+    SecurityRuleUpdateSchema,
+    EncryptionKeysUpdateSchema,
+    RegenerateKeysActionSchema,
+)
 from ..services.security import security_service
 from ..utils.rbac_utils import RBACManager
 from ..utils.secure_crypto import MasterKeyManager, decrypt_with_master_key, encrypt_with_master_key
@@ -634,7 +644,14 @@ def regenerate_keys():
     if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
         return jsonify({"error": "Insufficient permissions"}), 403
 
-    action = request.get_json().get("action", "all")
+    # Note: This endpoint will be migrated to use validate_request in next iteration
+    data = request.get_json() or {}
+    try:
+        schema_data = RegenerateKeysActionSchema(**data)
+        action = schema_data.action
+    except Exception as e:
+        # Fallback for backward compatibility
+        action = data.get("action", "all")
 
     keys = get_or_create_project_keys(project_id)
 
@@ -709,24 +726,23 @@ def update_keys():
     if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
         return jsonify({"error": "Insufficient permissions"}), 403
 
+    # Note: This endpoint will be migrated to use validate_request in next iteration
     data = request.get_json()
     if not data:
         return jsonify({"error": "No data provided"}), 400
+    
+    try:
+        schema_data = EncryptionKeysUpdateSchema(**data)
+    except Exception as e:
+        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
     keys = get_or_create_project_keys(project_id)
 
-    if "aes_key" in data:
-        aes_key = data["aes_key"].strip()
-        if len(aes_key) != 64:
-            return jsonify({"error": "AES key must be 64 characters long (32 bytes)"}), 400
-        try:
-            int(aes_key, 16)
-        except ValueError:
-            return jsonify({"error": "AES key must be valid hexadecimal"}), 400
-        keys.aes_key = aes_key
+    if schema_data.aes_key:
+        keys.aes_key = schema_data.aes_key
 
-    if "public_key" in data:
-        public_key = data["public_key"].strip()
+    if schema_data.public_key:
+        public_key = schema_data.public_key.strip()
         if not public_key.startswith("-----BEGIN PUBLIC KEY-----"):
             return jsonify({"error": "Invalid public key format"}), 400
         keys.public_key_cert = public_key
@@ -837,35 +853,34 @@ def add_to_fingerprint_blacklist():
     if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
         return jsonify({"error": "Insufficient permissions"}), 403
 
+    # Note: This endpoint will be migrated to use validate_request in next iteration
+    # For now, keeping manual validation for backward compatibility
     data = request.get_json()
-    fingerprint = data.get("fingerprint")
-    reason = data.get("reason", "Manual block")
-    expires_at = data.get("expires_at")
-
-    if not fingerprint:
-        return jsonify({"error": "Fingerprint is required"}), 400
+    if not data:
+        return jsonify({"error": "Request data required"}), 400
+    
+    try:
+        schema_data = BlockFingerprintSchema(**data)
+    except Exception as e:
+        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
     existing = BlockedFingerprint.query.filter_by(
-        fingerprint=fingerprint, project_id=project_id, is_active=True
+        fingerprint=schema_data.fingerprint, project_id=project_id, is_active=True
     ).first()
 
     if existing:
         return jsonify({"error": "Fingerprint is already blocked"}), 400
 
     blocked_fingerprint = BlockedFingerprint(
-        fingerprint=fingerprint,
+        fingerprint=schema_data.fingerprint,
         project_id=project_id,
-        reason=reason,
+        reason=schema_data.reason,
         blocked_by=user_id,
         is_active=True,
     )
 
-    if expires_at:
-        from datetime import datetime
-
-        blocked_fingerprint.expires_at = datetime.fromisoformat(
-            expires_at.replace("Z", "+00:00")
-        )
+    if schema_data.expires_at:
+        blocked_fingerprint.expires_at = schema_data.expires_at
 
     db.session.add(blocked_fingerprint)
     db.session.commit()
@@ -1005,43 +1020,39 @@ def block_ip():
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
+        # Note: This endpoint will be migrated to use validate_request in next iteration
         data = request.get_json()
-        ip_address = data.get("ip_address")
-        reason = data.get("reason", "Manual block")
-        expires_at = data.get("expires_at")
-        block_type = data.get("block_type", "manual")
-        category = data.get("category", "general")
-        severity = data.get("severity", "medium")
-        threat_score = data.get("threat_score", 0)
-
-        if not ip_address:
-            return jsonify({"error": "IP address is required"}), 400
+        if not data:
+            return jsonify({"error": "Request data required"}), 400
+        
+        try:
+            schema_data = BlockIPSchema(**data)
+        except Exception as e:
+            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
         from ..models.security import BlockedIP
 
         existing = BlockedIP.query.filter_by(
-            ip_address=ip_address, project_id=project_id, is_active=True
+            ip_address=schema_data.ip_address, project_id=project_id, is_active=True
         ).first()
 
         if existing:
             return jsonify({"error": "IP address is already blocked"}), 400
 
         blocked_ip = BlockedIP(
-            ip_address=ip_address,
+            ip_address=schema_data.ip_address,
             project_id=project_id,
-            reason=reason,
+            reason=schema_data.reason,
             blocked_by_user_id=user_id,
             is_active=True,
-            block_type=block_type,
-            category=category,
-            severity=severity,
-            threat_score=threat_score,
+            block_type=schema_data.block_type,
+            category=schema_data.category,
+            severity=schema_data.severity,
+            threat_score=schema_data.threat_score,
         )
 
-        if expires_at:
-            from datetime import datetime
-
-            blocked_ip.expires_at = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+        if schema_data.expires_at:
+            blocked_ip.expires_at = schema_data.expires_at
 
         db.session.add(blocked_ip)
         db.session.commit()
@@ -1184,41 +1195,38 @@ def block_hwid():
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
+        # Note: This endpoint will be migrated to use validate_request in next iteration
         data = request.get_json()
-        hwid = data.get("hwid")
-        reason = data.get("reason", "Manual block")
-        expires_at = data.get("expires_at")
-        block_type = data.get("block_type", "manual")
-        severity = data.get("severity", "medium")
-        threat_score = data.get("threat_score", 0)
-
-        if not hwid:
-            return jsonify({"error": "HWID is required"}), 400
+        if not data:
+            return jsonify({"error": "Request data required"}), 400
+        
+        try:
+            schema_data = BlockHWIDSchema(**data)
+        except Exception as e:
+            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
         from ..models.security import BlockedHWID
 
         existing = BlockedHWID.query.filter_by(
-            hwid=hwid, project_id=project_id, is_active=True
+            hwid=schema_data.hwid, project_id=project_id, is_active=True
         ).first()
 
         if existing:
             return jsonify({"error": "HWID is already blocked"}), 400
 
         blocked_hwid = BlockedHWID(
-            hwid=hwid,
+            hwid=schema_data.hwid,
             project_id=project_id,
-            reason=reason,
+            reason=schema_data.reason,
             blocked_by_user_id=user_id,
             is_active=True,
-            block_type=block_type,
-            severity=severity,
-            threat_score=threat_score,
+            block_type=schema_data.block_type,
+            severity=schema_data.severity,
+            threat_score=schema_data.threat_score,
         )
 
-        if expires_at:
-            from datetime import datetime
-
-            blocked_hwid.expires_at = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+        if schema_data.expires_at:
+            blocked_hwid.expires_at = schema_data.expires_at
 
         db.session.add(blocked_hwid)
         db.session.commit()
@@ -1429,20 +1437,28 @@ def create_security_rule():
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
+        # Note: This endpoint will be migrated to use validate_request in next iteration
         data = request.get_json()
+        if not data:
+            return jsonify({"error": "Request data required"}), 400
+        
+        try:
+            schema_data = SecurityRuleCreateSchema(**data)
+        except Exception as e:
+            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
         from ..models.security import SecurityRule
 
         rule = SecurityRule(
-            name=data.get("name"),
-            description=data.get("description"),
-            rule_type=data.get("rule_type"),
-            conditions=data.get("conditions"),
-            action_type=data.get("action_type"),
-            action_params=data.get("action_params"),
-            is_active=data.get("is_active", True),
-            priority=data.get("priority", 100),
-            cooldown_minutes=data.get("cooldown_minutes", 60),
+            name=schema_data.name,
+            description=schema_data.description,
+            rule_type=schema_data.rule_type,
+            conditions=schema_data.conditions,
+            action_type=schema_data.action_type,
+            action_params=schema_data.action_params,
+            is_active=schema_data.is_active,
+            priority=schema_data.priority,
+            cooldown_minutes=schema_data.cooldown_minutes,
             created_by_user_id=user_id,
             project_id=project_id,
         )
@@ -1635,25 +1651,33 @@ def update_security_rule(rule_id):
         if not rule:
             return jsonify({"error": "Security rule not found"}), 404
 
+        # Note: This endpoint will be migrated to use validate_request in next iteration
         data = request.get_json()
+        if not data:
+            return jsonify({"error": "Request data required"}), 400
+        
+        try:
+            schema_data = SecurityRuleUpdateSchema(**data)
+        except Exception as e:
+            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
-        if "name" in data:
-            rule.name = data["name"]
-        if "description" in data:
-            rule.description = data["description"]
-        if "priority" in data:
-            rule.priority = data["priority"]
-        if "cooldown_minutes" in data:
-            rule.cooldown_minutes = data["cooldown_minutes"]
-        if "conditions" in data:
-            rule.conditions = json.dumps(data["conditions"])
-        if "action_params" in data:
-            rule.action_params = json.dumps(data["action_params"])
+        if schema_data.name is not None:
+            rule.name = schema_data.name
+        if schema_data.description is not None:
+            rule.description = schema_data.description
+        if schema_data.priority is not None:
+            rule.priority = schema_data.priority
+        if schema_data.cooldown_minutes is not None:
+            rule.cooldown_minutes = schema_data.cooldown_minutes
+        if schema_data.conditions is not None:
+            rule.conditions = json.dumps(schema_data.conditions)
+        if schema_data.action_params is not None:
+            rule.action_params = json.dumps(schema_data.action_params)
 
-        if "is_active" in data:
-            if rule.name == "Rapid Request Detection" and not data["is_active"]:
+        if schema_data.is_active is not None:
+            if rule.name == "Rapid Request Detection" and not schema_data.is_active:
                 return jsonify({"error": "Rapid Request Detection rule cannot be disabled"}), 400
-            rule.is_active = data["is_active"]
+            rule.is_active = schema_data.is_active
 
         rule.updated_at = datetime.utcnow()
         db.session.commit()

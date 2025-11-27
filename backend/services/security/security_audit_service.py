@@ -14,7 +14,7 @@ from typing import Optional
 from ...core.extensions import db
 from ...models.security import BlockedFingerprint, BlockedIP, LoginAttempt
 from ...utils.ip_utils import get_location_from_ip
-from .security_service import SecurityContext
+from .security_types import SecurityContext
 
 
 class SecurityAuditService:

@@ -24,7 +24,11 @@ from ..middleware.auth import require_project_isolation
 from ..middleware.validation import validate_request
 from ..models.core import Project, ProjectInviteCode, User
 from ..schemas.auth import (
+    AccessCodeRegisterSchema,
+    AccessCodeValidateSchema,
     ChangePasswordRequestSchema,
+    ClassicLoginRegisterSchema,
+    InviteCodeValidateSchema,
     LoginRequestSchema,
     RegisterRequestSchema,
     TwoFactorDisableRequestSchema,
@@ -447,11 +451,19 @@ def register(validated_data=None):
 def register_with_invite():
     """User registration with invite code"""
     try:
+        # Note: This endpoint will be migrated to use validate_request in next iteration
         data = request.get_json() or {}
-
-        username = data.get("username", "").strip()
-        password = data.get("password", "")
-        invite_code = data.get("invite_code", "").strip()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        try:
+            schema_data = RegisterRequestSchema(**data)
+            username = schema_data.username.strip()
+            password = schema_data.password
+            invite_code = schema_data.invite_code.strip() if schema_data.invite_code else ""
+            project_name = schema_data.project_name.strip() if schema_data.project_name else None
+        except Exception as e:
+            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
         if not all([username, password, invite_code]):
             return jsonify({"error": "MISSING_FIELDS", "message": "All fields are required"}), 400
@@ -471,7 +483,6 @@ def register_with_invite():
         project_id = code_info["project_id"]
         if not project_id:
 
-            project_name = data.get("project_name", "").strip()
             if not project_name:
                 return (
                     jsonify(
@@ -805,12 +816,17 @@ def activate_access_code():
         if not user.project_id and not RBACManager.is_owner(user):
             return jsonify({"error": "User must be assigned to a project"}), 403
 
+        # Note: This endpoint will be migrated to use validate_request in next iteration
         data = request.get_json()
-        access_code = data.get("access_code")
-        product_name = data.get("product_name")
-
-        if not access_code or not product_name:
-            return jsonify({"error": "Access code and product name are required"}), 400
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        try:
+            schema_data = AccessCodeRegisterSchema(**data)
+            access_code = schema_data.access_code
+            product_name = schema_data.product_name
+        except Exception as e:
+            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
         from ..models.core import UserProductPermission
         from ..models.products import Product
@@ -884,17 +900,19 @@ def activate_access_code():
 def register_with_code():
     """Register user with invite code for Classic Login products"""
     try:
+        # Note: This endpoint will be migrated to use validate_request in next iteration
         data = request.get_json()
-        username = data.get("username", "").strip()
-        password = data.get("password", "")
-        email = data.get("email", "").strip()
-        invite_code = data.get("invite_code", "").strip()
-
-        if not username or not password:
-            return jsonify({"error": "Username and password are required"}), 400
-
-        if not invite_code:
-            return jsonify({"error": "Invite code is required"}), 400
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        try:
+            schema_data = ClassicLoginRegisterSchema(**data)
+            username = schema_data.username.strip()
+            password = schema_data.password
+            email = schema_data.email.strip() if schema_data.email else ""
+            invite_code = schema_data.invite_code.strip()
+        except Exception as e:
+            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
         existing_user = User.query.filter_by(username=username).first()
         if existing_user:

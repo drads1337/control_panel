@@ -358,43 +358,23 @@ class Config:
 
     OFFLINE_TICKET_SECRET = os.environ.get("OFFLINE_TICKET_SECRET")
     if not OFFLINE_TICKET_SECRET:
+        raise RuntimeError(
+            "CRITICAL SECURITY ERROR: OFFLINE_TICKET_SECRET environment variable is not set!\n"
+            "This must be set explicitly to prevent ticket invalidation on application restart.\n"
+            "Please set OFFLINE_TICKET_SECRET with a secure random string.\n"
+            "Example: export OFFLINE_TICKET_SECRET=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+        )
 
-        flask_env_check = os.environ.get("FLASK_ENV", "development")
-        if flask_env_check == "production":
-            raise RuntimeError(
-                "CRITICAL SECURITY ERROR: OFFLINE_TICKET_SECRET environment variable is not set!\n"
-                "In production, this must be set explicitly to prevent ticket invalidation on application restart.\n"
-                "Please set OFFLINE_TICKET_SECRET with a secure random string.\n"
-                "Example: export OFFLINE_TICKET_SECRET=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
-            )
-        else:
-
-            import secrets
-            OFFLINE_TICKET_SECRET = secrets.token_urlsafe(32)
-            logging.warning(
-                "OFFLINE_TICKET_SECRET not set in environment. Using auto-generated secret. "
-                "This is not secure for production! Please set OFFLINE_TICKET_SECRET in .env"
-            )
-
-    # SECURITY: Token generation static word - must be set from environment in production
+    # SECURITY: Token generation static word - must be set from environment
     # This is used in token generation and must be kept secret
     TOKEN_STATIC_WORD = os.environ.get("TOKEN_STATIC_WORD")
     if not TOKEN_STATIC_WORD:
-        flask_env_check = os.environ.get("FLASK_ENV", "development")
-        if flask_env_check == "production":
-            raise RuntimeError(
-                "CRITICAL SECURITY ERROR: TOKEN_STATIC_WORD environment variable is not set!\n"
-                "In production, this must be set explicitly to prevent token generation vulnerabilities.\n"
-                "Please set TOKEN_STATIC_WORD with a secure random string.\n"
-                "Example: export TOKEN_STATIC_WORD=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
-            )
-        else:
-            import secrets
-            TOKEN_STATIC_WORD = secrets.token_urlsafe(32)
-            logging.warning(
-                "TOKEN_STATIC_WORD not set in environment. Using auto-generated secret. "
-                "This is not secure for production! Please set TOKEN_STATIC_WORD in .env"
-            )
+        raise RuntimeError(
+            "CRITICAL SECURITY ERROR: TOKEN_STATIC_WORD environment variable is not set!\n"
+            "This must be set explicitly to prevent token generation vulnerabilities.\n"
+            "Please set TOKEN_STATIC_WORD with a secure random string.\n"
+            "Example: export TOKEN_STATIC_WORD=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+        )
 
     ALLOWED_AVATAR_EXTENSIONS = set(
         os.environ.get("ALLOWED_AVATAR_EXTENSIONS", "png,jpg,jpeg,gif,webp").split(",")

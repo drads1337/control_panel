@@ -50,20 +50,46 @@ class RedisIntegrityProtection:
         - Stored securely (environment variable or secure config)
         - Different from encryption keys
         - Rotated periodically
+        
+        In production, this MUST fail if MASTER_KEY is not available.
+        No fallback keys are allowed in production.
         """
         try:
-            from ..config.config import Config
+            from ..config.config import Config, IS_PRODUCTION
             
             # Use MASTER_KEY as base, but derive a separate key for HMAC
             # This ensures HMAC key is different from encryption keys
+            if not Config.MASTER_KEY:
+                if IS_PRODUCTION:
+                    raise RuntimeError(
+                        "CRITICAL SECURITY ERROR: MASTER_KEY is required for Redis integrity protection. "
+                        "Application cannot start without a secure signing key in production."
+                    )
+                else:
+                    raise RuntimeError(
+                        "CRITICAL SECURITY ERROR: MASTER_KEY is required for Redis integrity protection. "
+                        "Please set PANEL_MASTER_KEY environment variable."
+                    )
+            
             key_source = f"{Config.MASTER_KEY}_redis_integrity_salt"
             return hashlib.sha256(key_source.encode()).digest()
-        except Exception:
-            # Fallback for development (should not be used in production)
-            logger.warning(
-                "[REDIS_INTEGRITY] Using fallback signing key - not secure for production"
-            )
-            return hashlib.sha256("fallback_redis_integrity_key".encode()).digest()
+        except RuntimeError:
+            # Re-raise RuntimeError (our security errors)
+            raise
+        except Exception as e:
+            # For any other exception, fail in production
+            from ..config.config import IS_PRODUCTION
+            if IS_PRODUCTION:
+                raise RuntimeError(
+                    f"CRITICAL SECURITY ERROR: Failed to initialize Redis integrity signing key: {e}. "
+                    "Application cannot start without a secure signing key in production."
+                ) from e
+            else:
+                # In development, still fail but with clearer message
+                raise RuntimeError(
+                    f"CRITICAL SECURITY ERROR: Failed to initialize Redis integrity signing key: {e}. "
+                    "Please ensure PANEL_MASTER_KEY is set correctly."
+                ) from e
     
     def _get_key_pattern(self, key: str) -> str:
         """

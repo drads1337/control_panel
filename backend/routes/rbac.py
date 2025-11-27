@@ -12,6 +12,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ..core.extensions import db
 from ..middleware.auth import enforce_project_scope, require_project_isolation
+from ..middleware.validation import validate_request
 from ..models.core import Project, User
 from ..models.products import Product
 from ..models.rbac import (
@@ -23,6 +24,21 @@ from ..models.rbac import (
     UserAttribute,
     UserPermission,
     UserRole,
+)
+from ..schemas.rbac import (
+    AttributeRuleCreateSchema,
+    PermissionCheckSchema,
+    PermissionCreateSchema,
+    PermissionUpdateSchema,
+    ResourceAttributeSetSchema,
+    RoleCreateSchema,
+    RoleDeleteSchema,
+    RolePermissionAssignSchema,
+    RolePermissionsUpdateSchema,
+    RoleUpdateSchema,
+    UserAttributeSetSchema,
+    UserPermissionsAssignSchema,
+    UserRoleAssignSchema,
 )
 from ..services.rbac import rbac_service
 
@@ -411,12 +427,19 @@ def update_permission(permission_id):
         if not rbac_service.check_permission(current_user.id, "rbac.view"):
             return jsonify({"error": "Admin access required"}), 403
 
+        # Note: This endpoint will be migrated to use validate_request in next iteration
         data = request.get_json()
         if not data:
             return jsonify({"error": "No data provided"}), 400
+        
+        try:
+            schema_data = PermissionUpdateSchema(**data)
+            update_data = schema_data.model_dump(exclude_none=True)
+        except Exception as e:
+            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
         updated_permission = rbac_service.update_permission(
-            permission_id, current_user.project_id, **data
+            permission_id, current_user.project_id, **update_data
         )
 
         logging.info(
@@ -735,13 +758,16 @@ def update_user_permissions(user_id, current_user):
             )
             return jsonify({"error": "Static roles cannot manage RBAC"}), 403
 
+        # Note: This endpoint will be migrated to use validate_request in next iteration
         data = request.get_json()
         if not data:
             return jsonify({"error": "No data provided"}), 400
-
-        permissions = data.get("permissions", [])
-        if not isinstance(permissions, list):
-            return jsonify({"error": "Permissions must be a list"}), 400
+        
+        try:
+            schema_data = UserPermissionsAssignSchema(**data)
+            permissions = schema_data.permissions
+        except Exception as e:
+            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
         if len(permissions) == 0:
             logging.warning(
@@ -815,15 +841,23 @@ def update_user_permissions(user_id, current_user):
 def check_permission(current_user):
     """Check if current user has a specific permission"""
     try:
+        # Note: This endpoint will be migrated to use validate_request in next iteration
         data = request.get_json()
         if not data:
             return jsonify({"error": "No data provided"}), 400
+        
+        try:
+            schema_data = PermissionCheckSchema(**data)
+            permission = schema_data.permission
+            resource_type = schema_data.resource_type
+            resource_id = schema_data.resource_id
+            context = schema_data.context
+        except Exception as e:
+            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
-        permission = data.get("permission")
-        if not permission:
-            return jsonify({"error": "Permission is required"}), 400
-
-        has_permission = rbac_service.check_permission(current_user.id, permission)
+        has_permission = rbac_service.check_permission(
+            current_user.id, permission, resource_type=resource_type, resource_id=resource_id, context=context
+        )
 
         return jsonify(
             {"success": True, "permission": permission, "has_permission": has_permission}
@@ -1062,9 +1096,11 @@ def assign_product_permissions_to_role(role_id, product_identifier):
         if not role:
             return jsonify({"error": "Role not found"}), 404
 
-        product = Product.query.filter_by(id=product_id, project_id=current_user.project_id).first()
+        product = find_product_by_id_or_unique_id(product_identifier, current_user.project_id)
         if not product:
             return jsonify({"error": "Product not found"}), 404
+        
+        product_id = product.id
 
         data = request.get_json()
         if not data:
@@ -1616,17 +1652,19 @@ def set_resource_attribute(resource_type, resource_id):
 def check_abac_permission(current_user):
     """Check permission with ABAC context"""
     try:
+        # Note: This endpoint will be migrated to use validate_request in next iteration
         data = request.get_json()
         if not data:
             return jsonify({"error": "No data provided"}), 400
-
-        permission = data.get("permission")
-        resource_type = data.get("resource_type")
-        resource_id = data.get("resource_id")
-        context = data.get("context", {})
-
-        if not permission:
-            return jsonify({"error": "Permission is required"}), 400
+        
+        try:
+            schema_data = PermissionCheckSchema(**data)
+            permission = schema_data.permission
+            resource_type = schema_data.resource_type
+            resource_id = schema_data.resource_id
+            context = schema_data.context
+        except Exception as e:
+            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
         has_permission = rbac_service.check_permission(
             user_id=current_user.id,

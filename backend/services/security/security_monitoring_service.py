@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional
 from ...core.extensions import db
 from ...models.security import BlockedFingerprint, LoginAttempt, SecurityEvent
 from ...utils.ip_utils import get_location_from_ip
-from .security_service import SecurityContext, ThreatAssessment
+from .security_types import SecurityContext, ThreatAssessment
 
 
 class SecurityMonitoringService:

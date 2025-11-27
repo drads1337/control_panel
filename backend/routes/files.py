@@ -10,6 +10,14 @@ from ..models.core import User
 from ..models.products import Product, ProductExtraFile, ProductFileConfig, ProductFileDownload
 from ..services.activity import activity_service
 from ..services.files import file_service
+from ..middleware.validation import validate_request
+from ..schemas.file import (
+    FileBulkActionSchema,
+    FileStatusUpdateSchema,
+    FileConfigUpdateSchema,
+    FileRatingSchema,
+    FolderCreateSchema,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -165,12 +173,17 @@ def bulk_action():
     if not is_valid:
         return jsonify({"error": error}), 403
 
+    # Note: This endpoint will be migrated to use validate_request in next iteration
     data = request.get_json()
-    action = data.get("action")
-    filenames = data.get("filenames", [])
-
-    if not action or not filenames:
-        return jsonify({"error": "Action and filenames are required"}), 400
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    try:
+        schema_data = FileBulkActionSchema(**data)
+        action = schema_data.action
+        filenames = schema_data.filenames
+    except Exception as e:
+        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
     if action == "delete":
         deleted_count, error = file_service.bulk_delete_files(user, filenames)
@@ -642,11 +655,16 @@ def update_file_status(file_id):
         return jsonify({"error": "Access denied"}), 403
 
     try:
+        # Note: This endpoint will be migrated to use validate_request in next iteration
         data = request.get_json()
-        new_status = data.get("status")
-
-        if not new_status or new_status not in ["active", "inactive", "testing", "dangerous"]:
-            return jsonify({"error": "Invalid status"}), 400
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        try:
+            schema_data = FileStatusUpdateSchema(**data)
+            new_status = schema_data.status
+        except Exception as e:
+            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
         extra_file = (
             ProductExtraFile.query.join(Product)
@@ -828,12 +846,21 @@ def update_product_config(config_id):
         ):
             return jsonify({"error": "Access denied"}), 403
 
+        # Note: This endpoint will be migrated to use validate_request in next iteration
         data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        try:
+            schema_data = FileConfigUpdateSchema(**data)
+        except Exception as e:
+            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
-        if "name" in data:
-            config.name = data["name"]
-        if "description" in data:
-            config.description = data["description"]
+        if schema_data.name is not None:
+            config.name = schema_data.name
+        if schema_data.description is not None:
+            config.description = schema_data.description
+        # Note: version and is_public are not in schema yet, keeping for backward compatibility
         if "version" in data:
             config.version = data["version"]
         if "is_public" in data:
@@ -890,11 +917,16 @@ def rate_product_config(config_id):
         if config.uploaded_by == user.id:
             return jsonify({"error": "Cannot rate your own config"}), 400
 
+        # Note: This endpoint will be migrated to use validate_request in next iteration
         data = request.get_json()
-        rating = data.get("rating")
-
-        if not rating or not isinstance(rating, (int, float)) or rating < 1 or rating > 5:
-            return jsonify({"error": "Rating must be between 1 and 5"}), 400
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        try:
+            schema_data = FileRatingSchema(**data)
+            rating = schema_data.rating
+        except Exception as e:
+            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
         current_total = config.rating * config.rating_count
         config.rating_count += 1
@@ -1414,10 +1446,18 @@ def create_folder():
     if not is_valid:
         return jsonify({"error": error}), 404 if error == "User not found" else 403
 
+    # Note: This endpoint will be migrated to use validate_request in next iteration
     data = request.get_json()
-    folder_name = data.get("name")
-    parent_path = data.get("parent_path", "/")
-    product_id = data.get("product_id")
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    try:
+        schema_data = FolderCreateSchema(**data)
+        folder_name = schema_data.name
+        parent_path = schema_data.parent_path
+        product_id = schema_data.product_id
+    except Exception as e:
+        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
     success, error, folder_data = file_service.create_folder(folder_name, parent_path, product_id)
     if not success:

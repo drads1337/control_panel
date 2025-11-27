@@ -14,8 +14,10 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from ..core.extensions import db
 from ..middleware.auth import require_project_isolation, require_project_with_grace_period
 from ..middleware.production_guard import development_only
+from ..middleware.validation import validate_request
 from ..models.core import Project, User
 from ..models.webhooks import Webhook, WebhookLog
+from ..schemas.webhook import WebhookCreateSchema, WebhookUpdateSchema
 from ..services.webhooks import get_webhook_service
 from ..utils.rbac_utils import RBACManager
 from ..utils.role_constants import RolePermissions
@@ -252,7 +254,8 @@ def get_webhooks():
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def create_webhook():
+@validate_request(WebhookCreateSchema)
+def create_webhook(validated_data=None):
     """
     Create a new webhook
     """
@@ -262,10 +265,6 @@ def create_webhook():
 
         if not user:
             return jsonify({"error": "User not found"}), 404
-
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "Request data required"}), 400
 
         webhook_service = get_webhook_service()
 
@@ -278,31 +277,20 @@ def create_webhook():
             ] else 404
             return jsonify({"error": error}), status_code
 
-        name = data.get("name")
-        webhook_type = data.get("webhook_type", "custom")
-        url = data.get("url")
-        events = data.get("events", [])
-        secret = data.get("secret")
-        is_active = data.get("is_active", True)
-        headers = data.get("headers", {})
-
-        telegram_bot_token = data.get("telegram_bot_token")
-        telegram_chat_id = data.get("telegram_chat_id")
-
-        discord_webhook_url = data.get("discord_webhook_url")
-        discord_bot_token = data.get("discord_bot_token")
-        discord_channel_id = data.get("discord_channel_id")
-
+        # Parse validated data into schema object
+        data = WebhookCreateSchema(**validated_data)
+        
+        # Validate webhook-specific requirements
         is_valid, validation_error = webhook_service.validate_webhook_creation_data(
-            webhook_type=webhook_type,
-            url=url,
-            telegram_bot_token=telegram_bot_token,
-            telegram_chat_id=telegram_chat_id,
-            discord_webhook_url=discord_webhook_url,
-            discord_bot_token=discord_bot_token,
-            discord_channel_id=discord_channel_id,
-            name=name,
-            events=events,
+            webhook_type=data.webhook_type,
+            url=str(data.url) if data.url else None,
+            telegram_bot_token=data.telegram_bot_token,
+            telegram_chat_id=data.telegram_chat_id,
+            discord_webhook_url=str(data.discord_webhook_url) if data.discord_webhook_url else None,
+            discord_bot_token=data.discord_bot_token,
+            discord_channel_id=data.discord_channel_id,
+            name=data.name,
+            events=data.events,
         )
 
         if not is_valid:
@@ -312,25 +300,25 @@ def create_webhook():
         if not project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
         logging.info(
-            f"WEBHOOKS_CREATE: using project_id={project_id}, webhook_type={webhook_type}, name={name}"
+            f"WEBHOOKS_CREATE: using project_id={project_id}, webhook_type={data.webhook_type}, name={data.name}"
         )
 
         webhook_data = webhook_service.create_webhook(
             project_id=project_id,
-            name=name,
-            webhook_type=webhook_type,
-            url=url,
-            events=events,
-            secret=secret,
-            is_active=is_active,
-            headers=headers,
+            name=data.name,
+            webhook_type=data.webhook_type,
+            url=str(data.url) if data.url else None,
+            events=data.events,
+            secret=data.secret,
+            is_active=data.is_active,
+            headers=data.headers or {},
 
-            telegram_bot_token=telegram_bot_token,
-            telegram_chat_id=telegram_chat_id,
+            telegram_bot_token=data.telegram_bot_token,
+            telegram_chat_id=data.telegram_chat_id,
 
-            discord_webhook_url=discord_webhook_url,
-            discord_bot_token=discord_bot_token,
-            discord_channel_id=discord_channel_id,
+            discord_webhook_url=str(data.discord_webhook_url) if data.discord_webhook_url else None,
+            discord_bot_token=data.discord_bot_token,
+            discord_channel_id=data.discord_channel_id,
         )
 
         return jsonify({"status": "success", "data": webhook_data})
@@ -345,7 +333,8 @@ def create_webhook():
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def update_webhook(webhook_id):
+@validate_request(WebhookUpdateSchema, strict=False)
+def update_webhook(webhook_id, validated_data=None):
     """
     Update an existing webhook
     """
@@ -355,10 +344,6 @@ def update_webhook(webhook_id):
 
         if not user:
             return jsonify({"error": "User not found"}), 404
-
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "Request data required"}), 400
 
         webhook_service = get_webhook_service()
 
@@ -371,7 +356,19 @@ def update_webhook(webhook_id):
             ] else 404
             return jsonify({"error": error}), status_code
 
-        webhook_data = webhook_service.update_webhook(webhook_id, **data)
+        # Parse validated data into schema object (strict=False allows partial updates)
+        data = WebhookUpdateSchema(**validated_data)
+        
+        # Convert Pydantic model to dict, excluding None values
+        update_data = data.model_dump(exclude_none=True)
+        
+        # Convert HttpUrl objects to strings
+        if "url" in update_data and update_data["url"]:
+            update_data["url"] = str(update_data["url"])
+        if "discord_webhook_url" in update_data and update_data["discord_webhook_url"]:
+            update_data["discord_webhook_url"] = str(update_data["discord_webhook_url"])
+
+        webhook_data = webhook_service.update_webhook(webhook_id, **update_data)
 
         return jsonify({"status": "success", "data": webhook_data})
 

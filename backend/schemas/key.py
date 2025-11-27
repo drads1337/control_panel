@@ -2,7 +2,7 @@
 Key-related Pydantic schemas
 """
 
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import Field, validator
 
@@ -216,3 +216,61 @@ class KeyValidateSchema(BaseSchema):
         if not v or not v.strip():
             raise ValueError("Key is required")
         return v.strip()
+
+class KeyBulkCreateSchema(BaseSchema):
+    """Schema for bulk key creation"""
+
+    count: int = Field(..., ge=1, le=100, description="Number of keys to create")
+    product_id: int = Field(..., ge=1, description="Product ID")
+    duration_hours: int = Field(default=24, ge=1, le=8760, description="Key duration in hours")
+    max_devices: int = Field(default=1, ge=1, le=1000, description="Maximum devices")
+
+class KeyBulkActionSchema(BaseSchema):
+    """Schema for bulk key actions (delete, reset, pause, resume)"""
+
+    key_ids: List[int] = Field(..., min_items=1, description="List of key IDs")
+
+    @validator("key_ids")
+    def validate_key_ids(cls, v):
+        if not v or len(v) == 0:
+            raise ValueError("At least one key ID is required")
+        if any(kid <= 0 for kid in v):
+            raise ValueError("All key IDs must be positive integers")
+        return v
+
+class KeyBulkExtendSchema(BaseSchema):
+    """Schema for bulk key extension"""
+
+    key_ids: List[int] = Field(..., min_items=1, description="List of key IDs")
+    hours: int = Field(..., ge=1, le=8760, description="Hours to extend")
+
+    @validator("key_ids")
+    def validate_key_ids(cls, v):
+        if not v or len(v) == 0:
+            raise ValueError("At least one key ID is required")
+        if any(kid <= 0 for kid in v):
+            raise ValueError("All key IDs must be positive integers")
+        return v
+
+class KeyBulkProductActionSchema(BaseSchema):
+    """Schema for bulk key actions by product"""
+
+    product_id: int = Field(..., ge=1, description="Product ID")
+
+class KeyBulkProductExtendSchema(BaseSchema):
+    """Schema for bulk key extension by product"""
+
+    product_id: int = Field(..., ge=1, description="Product ID")
+    hours: int = Field(..., ge=1, le=8760, description="Hours to extend")
+
+class KeyBulkFilterActionSchema(BaseSchema):
+    """Schema for bulk key actions by filters"""
+
+    # Optional filters - can be empty dict
+    filters: Optional[dict] = Field(default_factory=dict, description="Filter criteria")
+
+class KeyBulkFilterExtendSchema(BaseSchema):
+    """Schema for bulk key extension by filters"""
+
+    hours: int = Field(..., ge=1, le=8760, description="Hours to extend")
+    filters: Optional[dict] = Field(default_factory=dict, description="Filter criteria")

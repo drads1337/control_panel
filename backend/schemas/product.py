@@ -142,3 +142,37 @@ class ProductStatusUpdateSchema(BaseSchema):
         if v not in allowed_statuses:
             raise ValueError(f"Status must be one of: {', '.join(allowed_statuses)}")
         return v
+
+class ProductBulkStatusUpdateSchema(BaseSchema):
+    """Schema for bulk product status update"""
+
+    product_ids: List[int] = Field(..., min_items=1, description="List of product IDs")
+    status: str = Field(..., description="New status")
+
+    @validator("product_ids")
+    def validate_product_ids(cls, v):
+        if not v or len(v) == 0:
+            raise ValueError("At least one product ID is required")
+        if any(pid <= 0 for pid in v):
+            raise ValueError("All product IDs must be positive integers")
+        return v
+
+    @validator("status")
+    def validate_status(cls, v):
+        allowed_statuses = ["active", "inactive", "maintenance"]
+        if v not in allowed_statuses:
+            raise ValueError(f"Status must be one of {allowed_statuses}")
+        return v
+
+class ProductBulkDeleteSchema(BaseSchema):
+    """Schema for bulk product deletion"""
+
+    product_ids: List[int] = Field(..., min_items=1, description="List of product IDs")
+
+    @validator("product_ids")
+    def validate_product_ids(cls, v):
+        if not v or len(v) == 0:
+            raise ValueError("At least one product ID is required")
+        if any(pid <= 0 for pid in v):
+            raise ValueError("All product IDs must be positive integers")
+        return v

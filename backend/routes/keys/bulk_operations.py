@@ -10,6 +10,16 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ...middleware.auth import require_project_isolation, require_project_with_grace_period
+from ...middleware.validation import validate_request
+from ...schemas.key import (
+    KeyBulkActionSchema,
+    KeyBulkCreateSchema,
+    KeyBulkFilterActionSchema,
+    KeyBulkFilterExtendSchema,
+    KeyBulkProductActionSchema,
+    KeyBulkProductExtendSchema,
+    KeyBulkExtendSchema,
+)
 from ...services.activity import activity_service
 from ...services.keys.key_bulk_operations_service import key_bulk_operations_service
 
@@ -29,24 +39,19 @@ def bulk_create_keys(current_user, project_id=None):
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
+    # Note: This endpoint will be migrated to use validate_request in next iteration
     data = request.get_json()
-
-    count = data.get("count", 1)
-    duration_hours = data.get("duration_hours", 24)
-    max_devices = data.get("max_devices", 1)
-    product_id = data.get("product_id")
-
-    if not product_id:
-        return jsonify({"error": "Product ID is required"}), 400
-
-    if count < 1 or count > 100:
-        return jsonify({"error": "Count must be between 1 and 100"}), 400
-
-    if max_devices < 1 or max_devices > 1000:
-        return jsonify({"error": "Max devices must be between 1 and 1000"}), 400
-
-    if duration_hours <= 0:
-        return jsonify({"error": "Duration must be greater than 0"}), 400
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    try:
+        schema_data = KeyBulkCreateSchema(**data)
+        count = schema_data.count
+        duration_hours = schema_data.duration_hours
+        max_devices = schema_data.max_devices
+        product_id = schema_data.product_id
+    except Exception as e:
+        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
     from ...services.products import product_service
     # Exceptions are handled by global handler
@@ -179,11 +184,16 @@ def bulk_delete_keys(current_user, project_id=None):
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
+    # Note: This endpoint will be migrated to use validate_request in next iteration
     data = request.get_json()
-    key_ids = data.get("key_ids", [])
-
-    if not key_ids:
-        return jsonify({"error": "key_ids is required"}), 400
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    try:
+        schema_data = KeyBulkActionSchema(**data)
+        key_ids = schema_data.key_ids
+    except Exception as e:
+        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
     deleted_count, error = key_bulk_operations_service.bulk_delete_keys(current_user, key_ids)
 
@@ -216,11 +226,16 @@ def bulk_reset_keys(current_user, project_id=None):
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
+    # Note: This endpoint will be migrated to use validate_request in next iteration
     data = request.get_json()
-    key_ids = data.get("key_ids", [])
-
-    if not key_ids:
-        return jsonify({"error": "key_ids is required"}), 400
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    try:
+        schema_data = KeyBulkActionSchema(**data)
+        key_ids = schema_data.key_ids
+    except Exception as e:
+        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
     affected_count, error = key_bulk_operations_service.bulk_reset_keys(current_user, key_ids)
 
@@ -246,11 +261,16 @@ def bulk_pause_keys(current_user, project_id=None):
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
+    # Note: This endpoint will be migrated to use validate_request in next iteration
     data = request.get_json()
-    key_ids = data.get("key_ids", [])
-
-    if not key_ids:
-        return jsonify({"error": "key_ids is required"}), 400
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    try:
+        schema_data = KeyBulkActionSchema(**data)
+        key_ids = schema_data.key_ids
+    except Exception as e:
+        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
     affected_count, error = key_bulk_operations_service.bulk_pause_keys(current_user, key_ids)
 
@@ -306,15 +326,17 @@ def bulk_add_hours(current_user, project_id=None):
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
+    # Note: This endpoint will be migrated to use validate_request in next iteration
     data = request.get_json()
-    key_ids = data.get("key_ids", [])
-    hours = data.get("hours", 0)
-
-    if not key_ids:
-        return jsonify({"error": "key_ids is required"}), 400
-
-    if hours <= 0:
-        return jsonify({"error": "hours must be positive"}), 400
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    try:
+        schema_data = KeyBulkExtendSchema(**data)
+        key_ids = schema_data.key_ids
+        hours = schema_data.hours
+    except Exception as e:
+        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
     affected_count, error = key_bulk_operations_service.bulk_extend_keys(current_user, key_ids, hours)
 
@@ -343,11 +365,16 @@ def bulk_pause_keys_by_product(current_user, project_id=None):
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
+    # Note: This endpoint will be migrated to use validate_request in next iteration
     data = request.get_json()
-    product_id = data.get("product_id")
-
-    if not product_id:
-        return jsonify({"error": "product_id is required"}), 400
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    try:
+        schema_data = KeyBulkProductActionSchema(**data)
+        product_id = schema_data.product_id
+    except Exception as e:
+        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
     affected_count, error, product_name = key_bulk_operations_service.bulk_pause_keys_by_product(current_user, product_id)
 
@@ -376,11 +403,16 @@ def bulk_resume_keys_by_product(current_user, project_id=None):
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
+    # Note: This endpoint will be migrated to use validate_request in next iteration
     data = request.get_json()
-    product_id = data.get("product_id")
-
-    if not product_id:
-        return jsonify({"error": "product_id is required"}), 400
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    try:
+        schema_data = KeyBulkProductActionSchema(**data)
+        product_id = schema_data.product_id
+    except Exception as e:
+        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
     affected_count, error, product_name = key_bulk_operations_service.bulk_resume_keys_by_product(current_user, product_id)
 
@@ -409,11 +441,16 @@ def bulk_reset_keys_by_product(current_user, project_id=None):
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
+    # Note: This endpoint will be migrated to use validate_request in next iteration
     data = request.get_json()
-    product_id = data.get("product_id")
-
-    if not product_id:
-        return jsonify({"error": "product_id is required"}), 400
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    try:
+        schema_data = KeyBulkProductActionSchema(**data)
+        product_id = schema_data.product_id
+    except Exception as e:
+        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
     affected_count, error, product_name = key_bulk_operations_service.bulk_reset_keys_by_product(current_user, product_id)
 
@@ -485,9 +522,18 @@ def bulk_delete_keys_by_filters(current_user, project_id=None):
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
+    # Note: This endpoint will be migrated to use validate_request in next iteration
     data = request.get_json()
+    if not data:
+        data = {}
+    
+    try:
+        schema_data = KeyBulkFilterActionSchema(**data)
+        filters = schema_data.filters or {}
+    except Exception as e:
+        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
-    deleted_count, error = key_bulk_operations_service.bulk_delete_keys_by_filters(current_user, data)
+    deleted_count, error = key_bulk_operations_service.bulk_delete_keys_by_filters(current_user, filters)
 
     if error:
         return jsonify({"error": error}), 500
@@ -547,13 +593,19 @@ def bulk_extend_keys_by_filters(current_user, project_id=None):
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
+    # Note: This endpoint will be migrated to use validate_request in next iteration
     data = request.get_json()
-    hours = data.get("hours", 0)
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    try:
+        schema_data = KeyBulkFilterExtendSchema(**data)
+        hours = schema_data.hours
+        filters = schema_data.filters or {}
+    except Exception as e:
+        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
-    if hours <= 0:
-        return jsonify({"error": "Hours must be positive"}), 400
-
-    extended_count, error = key_bulk_operations_service.bulk_extend_keys_by_filters(current_user, data, hours)
+    extended_count, error = key_bulk_operations_service.bulk_extend_keys_by_filters(current_user, filters, hours)
 
     if error:
         return jsonify({"error": error}), 500

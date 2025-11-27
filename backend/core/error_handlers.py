@@ -42,9 +42,10 @@ def register_error_handlers(app: Flask) -> None:
 
         error_response = {"error": "Internal server error", "type": "internal_error"}
 
-        # SECURITY: Never expose tracebacks in production, even if debug mode is accidentally enabled
+        # SECURITY: Never expose tracebacks in production
+        # Only show details in development mode (not production)
         from ..config.config import IS_PRODUCTION
-        is_safe_to_show_details = not IS_PRODUCTION and app.debug and Config.FLASK_ENV != "production"
+        is_safe_to_show_details = not IS_PRODUCTION and Config.FLASK_ENV != "production"
         
         if is_safe_to_show_details:
             error_response["traceback"] = error_details.split("\n")
@@ -52,6 +53,7 @@ def register_error_handlers(app: Flask) -> None:
             error_response["message"] = f"{type(error).__name__}: {str(error)}"
         else:
             # Production mode: never expose tracebacks or error details
+            # Even if debug mode is accidentally enabled, we don't expose internals
             error_response = {
                 "error": "Internal Server Error",
                 "message": "An unexpected error occurred. Support team has been notified.",
@@ -175,7 +177,7 @@ def register_error_handlers(app: Flask) -> None:
             
             # In development, include more details (but never in production)
             from ..config.config import IS_PRODUCTION
-            is_safe_to_show_details = not IS_PRODUCTION and app.debug and Config.FLASK_ENV != "production"
+            is_safe_to_show_details = not IS_PRODUCTION and Config.FLASK_ENV != "production"
             
             if is_safe_to_show_details:
                 error_response["exception_type"] = type(e).__name__
@@ -223,9 +225,10 @@ def register_error_handlers(app: Flask) -> None:
 
         error_response = {"error": "Internal server error", "type": "unhandled_exception"}
 
-        # SECURITY: Never expose tracebacks in production, even if debug mode is accidentally enabled
+        # SECURITY: Never expose tracebacks in production
+        # Only show details in development mode (not production)
         from ..config.config import IS_PRODUCTION
-        is_safe_to_show_details = not IS_PRODUCTION and app.debug and Config.FLASK_ENV != "production"
+        is_safe_to_show_details = not IS_PRODUCTION and Config.FLASK_ENV != "production"
         
         if is_safe_to_show_details:
             error_response["traceback"] = error_details.split("\n")
@@ -233,6 +236,7 @@ def register_error_handlers(app: Flask) -> None:
             error_response["message"] = f"{type(e).__name__}: {str(e)}"
         else:
             # Production mode: never expose tracebacks or error details
+            # Even if debug mode is accidentally enabled, we don't expose internals
             error_response = {
                 "error": "Internal Server Error",
                 "message": "An unexpected error occurred. Support team has been notified.",

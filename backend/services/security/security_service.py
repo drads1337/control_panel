@@ -10,38 +10,16 @@ This service maintains backward compatibility while delegating to:
 """
 
 import logging
-from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from .security_rules_service import security_rules_service
-from .security_monitoring_service import security_monitoring_service
 from .security_audit_service import security_audit_service
+from .security_monitoring_service import security_monitoring_service
+from .security_rules_service import security_rules_service
+from .security_types import SecurityContext, ThreatAssessment
 
 if TYPE_CHECKING:
     from ...models.security import BlockedFingerprint
-
-@dataclass
-class ThreatAssessment:
-    """Data class for threat assessment results"""
-
-    score: int
-    level: str
-    factors: List[str]
-    recommendations: List[str]
-
-@dataclass
-class SecurityContext:
-    """Data class for security context information"""
-
-    fingerprint: str
-    ip_address: str
-    user_agent: str
-    user_key: Optional[str] = None
-    project_id: Optional[int] = None
-    country: Optional[str] = None
-    city: Optional[str] = None
-    timestamp: Optional[datetime] = None
 
 class SecurityService:
     """

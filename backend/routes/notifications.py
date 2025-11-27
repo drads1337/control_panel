@@ -16,6 +16,7 @@ from ..schemas.notification import (
     NotificationCleanupSchema,
     NotificationCreateSchema,
     NotificationSendSchema,
+    SystemNotificationCreateSchema,
 )
 from ..models.products import Product
 from ..models.agents import Agent, AgentNotification
@@ -296,12 +297,14 @@ def create_notification(current_user, project_id=None, validated_data=None):
     if not can_send:
         return jsonify({"error": "Access denied"}), 403
 
-    data = validated_data or request.get_json()
+    if not validated_data:
+        return jsonify({"error": "No data provided"}), 400
 
-    message = data.get("message")
-    notification_type = data.get("type", "info")
-    target_user_id = data.get("target_user_id") or data.get("user_id")
-    repeat_count = data.get("repeat_count", 1)
+    data = NotificationCreateSchema(**validated_data)
+    message = data.message
+    notification_type = data.type
+    target_user_id = data.target_user_id or data.user_id
+    repeat_count = data.repeat_count
 
     notification, error = notification_service.create_notification(
         user=current_user,
@@ -359,13 +362,15 @@ def send_notification(current_user, project_id=None, validated_data=None):
     if not can_send:
         return jsonify({"error": "Access denied"}), 403
 
-    data = validated_data or request.get_json()
+    if not validated_data:
+        return jsonify({"error": "No data provided"}), 400
 
-    title = data.get("title", "")
-    message = data.get("message")
-    notification_type = data.get("type", "info")
-    target_users = data.get("target_users", [])
-    repeat_count = data.get("repeat_count", 1)
+    data = NotificationSendSchema(**validated_data)
+    title = data.title or ""
+    message = data.message
+    notification_type = data.type
+    target_users = data.target_users
+    repeat_count = data.repeat_count
 
     notifications_created, notification_ids, error = notification_service.send_notifications(
         user=current_user,
@@ -482,9 +487,12 @@ def bulk_action(current_user, project_id=None, validated_data=None):
     if not current_user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    data = validated_data or request.get_json()
-    action = data.get("action")
-    notification_ids = data.get("notification_ids", [])
+    if not validated_data:
+        return jsonify({"error": "No data provided"}), 400
+
+    data = NotificationBulkActionSchema(**validated_data)
+    action = data.action
+    notification_ids = data.notification_ids
 
     query = Notification.query.filter(Notification.id.in_(notification_ids))
 
@@ -678,15 +686,19 @@ def create_system_notification():
     if not user or not can_send:
         return jsonify({"error": "Access denied"}), 403
 
+    # Note: This endpoint will be migrated to use validate_request in next iteration
     data = request.get_json()
-
-    message = data.get("message")
-    notification_type = data.get("type", "info")
-    target_user_id = data.get("user_id")
-    project_id = data.get("project_id")
-
-    if not message:
-        return jsonify({"error": "Message is required"}), 400
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    try:
+        schema_data = SystemNotificationCreateSchema(**data)
+        message = schema_data.message
+        notification_type = schema_data.type
+        target_user_id = schema_data.user_id
+        project_id = schema_data.project_id
+    except Exception as e:
+        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
     notification = Notification(
         message=message,
@@ -721,14 +733,18 @@ def create_bulk_notifications():
     if not user or not can_send:
         return jsonify({"error": "Access denied"}), 403
 
+    # Note: This endpoint will be migrated to use validate_request in next iteration
     data = request.get_json()
-
-    message = data.get("message")
-    notification_type = data.get("type", "info")
-    target_roles = data.get("target_roles", [])
-
-    if not message:
-        return jsonify({"error": "Message is required"}), 400
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    try:
+        schema_data = NotificationBulkCreateSchema(**data)
+        message = schema_data.message
+        notification_type = schema_data.type
+        target_roles = schema_data.target_roles or []
+    except Exception as e:
+        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
     try:
         from ..services.projects import project_relationships_service
@@ -819,21 +835,22 @@ def create_product_update_notification():
     if not user or not can_send:
         return jsonify({"error": "Access denied"}), 403
 
+    # Note: This endpoint will be migrated to use validate_request in next iteration
     data = request.get_json()
-
-    product_id = data.get("product_id")
-    version = data.get("version")
-    update_message = data.get("message")
-    notification_type = data.get("type", "info")
-    repeat_count = data.get("repeat_count", 1)
-    is_scheduled = data.get("is_scheduled", False)
-    scheduled_at = data.get("scheduled_at")
-
-    if not all([product_id, version, update_message]):
-        return jsonify({"error": "Product ID, version and message are required"}), 400
-
-    if not isinstance(repeat_count, int) or repeat_count < 1 or repeat_count > 10:
-        return jsonify({"error": "Repeat count must be between 1 and 10"}), 400
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    try:
+        schema_data = ProductUpdateNotificationSchema(**data)
+        product_id = schema_data.product_id
+        version = schema_data.version
+        update_message = schema_data.message
+        notification_type = schema_data.type
+        repeat_count = schema_data.repeat_count
+        is_scheduled = schema_data.is_scheduled
+        scheduled_at = schema_data.scheduled_at
+    except Exception as e:
+        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
     try:
         product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()
@@ -929,8 +946,16 @@ def cleanup_old_notifications():
     if not user or not can_send:
         return jsonify({"error": "Access denied"}), 403
 
+    # Note: This endpoint will be migrated to use validate_request in next iteration
     data = request.get_json()
-    days_old = data.get("days_old", 30)
+    if not data:
+        data = {}
+    
+    try:
+        schema_data = NotificationCleanupSchema(**data)
+        days_old = schema_data.days_old
+    except Exception as e:
+        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
     deleted_count, error = notification_service.cleanup_old_notifications(user, days_old)
 
@@ -980,14 +1005,21 @@ def create_loader_update_notification():
         return jsonify({"error": "Insufficient permissions"}), 403
 
     try:
+        # Note: This endpoint will be migrated to use validate_request in next iteration
         data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        try:
+            schema_data = LoaderNotificationCreateSchema(**data)
+            agent_id = schema_data.agent_id
+            message = schema_data.message
+            notification_type = schema_data.type
+        except Exception as e:
+            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
-        agent_id = data.get("agent_id")
-        message = data.get("message")
-        notification_type = data.get("type", "info")
-
-        if not agent_id or not message:
-            return jsonify({"error": "Agent ID and message are required"}), 400
+        if not agent_id:
+            return jsonify({"error": "Agent ID is required"}), 400
 
         agent = Agent.query.filter_by(id=agent_id, project_id=user.project_id).first()
         if not agent:
@@ -1287,19 +1319,20 @@ def create_product_notification(product_identifier):
         if not product:
             return jsonify({"error": "Product not found"}), 404
 
+        # Note: This endpoint will be migrated to use validate_request in next iteration
         data = request.get_json()
-
-        message = data.get("message")
-        notification_type = data.get("type", "info")
-        repeat_count = data.get("repeat_count", 1)
-        is_scheduled = data.get("is_scheduled", False)
-        scheduled_at = data.get("scheduled_at")
-
-        if not message:
-            return jsonify({"error": "Message is required"}), 400
-
-        if not isinstance(repeat_count, int) or repeat_count < 1 or repeat_count > 10:
-            return jsonify({"error": "Repeat count must be between 1 and 10"}), 400
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        try:
+            schema_data = ProductUpdateNotificationSchema(**data)
+            message = schema_data.message
+            notification_type = schema_data.type
+            repeat_count = schema_data.repeat_count
+            is_scheduled = schema_data.is_scheduled
+            scheduled_at = schema_data.scheduled_at
+        except Exception as e:
+            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
         from ..services.projects import project_relationships_service
         project_users = project_relationships_service.get_users(user.project_id)
@@ -1400,15 +1433,19 @@ def create_loader_notification(agent_identifier):
         if not agent:
             return jsonify({"error": "Agent not found"}), 404
 
+        # Note: This endpoint will be migrated to use validate_request in next iteration
         data = request.get_json()
-
-        message = data.get("message")
-        notification_type = data.get("type", "info")
-        is_scheduled = data.get("is_scheduled", False)
-        scheduled_at = data.get("scheduled_at")
-
-        if not message:
-            return jsonify({"error": "Message is required"}), 400
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        try:
+            schema_data = LoaderNotificationCreateSchema(**data)
+            message = schema_data.message
+            notification_type = schema_data.type
+            is_scheduled = schema_data.is_scheduled
+            scheduled_at = schema_data.scheduled_at
+        except Exception as e:
+            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
         loader_notification = AgentNotification(
             agent_id=agent.id,

@@ -13,7 +13,11 @@ from ..middleware.auth import (
 )
 from ..middleware.validation import validate_request
 from ..models.core import Project, User
-from ..schemas.project import ProjectCreateSchema, ProjectUpdateSchema
+from ..schemas.project import (
+    ProjectCreateSchema,
+    ProjectUpdateSchema,
+    ProjectInviteCodeCreateSchema,
+)
 from ..utils.rbac_utils import RBACManager
 from ..utils.role_constants import UserRoles
 
@@ -151,12 +155,12 @@ def create_project(current_user, validated_data=None):
     try:
         user = current_user
 
-        data = validated_data or request.get_json()
-        if not data:
+        if not validated_data:
             return jsonify({"error": "No data provided"}), 400
 
-        name = data.get("name", "").strip()
-        description = data.get("description", "").strip()
+        data = ProjectCreateSchema(**validated_data)
+        name = data.name.strip()
+        description = data.description.strip() if data.description else ""
 
         from ..services.projects import project_service
         # Exceptions are handled by global handler
@@ -237,19 +241,21 @@ def update_project(project_id, validated_data=None):
             logging.warning(f"Update project {project_id}: User {user_id} not found")
             return jsonify({"error": "Access denied"}), 403
 
-        data = validated_data or request.get_json()
-        if not data:
+        if not validated_data:
             return jsonify({"error": "No data provided"}), 400
+
+        data = ProjectUpdateSchema(**validated_data)
+        update_data = data.model_dump(exclude_none=True)
 
         from ..services.projects import project_service
         result = project_service.update_project(
             project_id=project_id,
             user_id=user_id,
-            name=data.get("name"),
-            description=data.get("description"),
-            status=data.get("status"),
-            subscription_status=data.get("subscription_status"),
-            storage_limit_gb=data.get("storage_limit_gb"),
+            name=update_data.get("name"),
+            description=update_data.get("description"),
+            status=update_data.get("status"),
+            subscription_status=update_data.get("subscription_status"),
+            storage_limit_gb=update_data.get("storage_limit_gb"),
             ip_address=request.remote_addr,
             user_agent=request.headers.get("User-Agent", ""),
         )
@@ -378,12 +384,15 @@ def get_latest_project_invite_code(current_user):
 @projects_bp.route("/project-codes", methods=["POST"])
 @jwt_required()
 @require_owner
-def create_project_invite_code(current_user):
+@validate_request(ProjectInviteCodeCreateSchema)
+def create_project_invite_code(current_user, validated_data=None):
     """Create a new project invite code"""
     try:
-        data = request.get_json() or {}
+        if not validated_data:
+            validated_data = {}
 
-        expires_in_days = data.get("expires_in_days", 7)
+        data = ProjectInviteCodeCreateSchema(**validated_data)
+        expires_in_days = data.expires_in_days
 
         from ..services.projects import project_service
         result = project_service.create_project_invite_code(

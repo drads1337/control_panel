@@ -7,7 +7,7 @@ Extracted from ProjectService to follow SRP (Single Responsibility Principle)
 """
 
 import logging
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from ...core.extensions import db
 from ...models.core import Project, User

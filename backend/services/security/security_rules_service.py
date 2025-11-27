@@ -13,7 +13,7 @@ from typing import Any, Dict, List
 
 from ...core.extensions import db
 from ...models.security import SecurityRule
-from .security_service import SecurityContext
+from .security_types import SecurityContext
 
 
 class SecurityRulesService:

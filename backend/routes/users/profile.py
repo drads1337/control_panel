@@ -27,10 +27,12 @@ from ...middleware.auth import (
     require_user,
 )
 from ...middleware.serialization import serialize_response
+from ...middleware.validation import validate_request
 from ...utils.rbac_utils import RBACManager
 from ...utils.role_constants import UserRoles
 from ...config.config import Config
-from ...schemas.user import UserPrivateResponse
+from ...schemas.user import UserPrivateResponse, UserProfileUpdateSchema
+from ...schemas.auth import ChangePasswordRequestSchema
 
 profile_bp = Blueprint("users_profile", __name__)
 logger = logging.getLogger(__name__)
@@ -159,14 +161,21 @@ def update_profile(current_user):
     """Update user profile"""
 
     user = current_user
+    # Note: This endpoint will be migrated to use validate_request in next iteration
     data = request.get_json()
-
     if not data:
         return jsonify({"error": "No data provided"}), 400
+    
+    try:
+        schema_data = UserProfileUpdateSchema(**data)
+        # Convert Pydantic model to dict for service
+        update_data = schema_data.model_dump(exclude_none=True)
+    except Exception as e:
+        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
     # Use DI container to get service
     user_profile_service = get_user_profile_service()
-    success, error = user_profile_service.update_user_profile(user, data)
+    success, error = user_profile_service.update_user_profile(user, update_data)
 
     if not success:
         return jsonify({"error": error}), 400

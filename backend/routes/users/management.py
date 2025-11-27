@@ -18,7 +18,13 @@ from ...middleware.auth import (
 from ...middleware.validation import validate_request
 from ...middleware.serialization import serialize_response
 from ...models import User
-from ...schemas.user import UserCreateSchema, UserUpdateSchema, UserAdminResponse
+from ...schemas.user import (
+    UserAdminResponse,
+    UserBulkActionSchema,
+    UserCreateSchema,
+    UserInviteSchema,
+    UserUpdateSchema,
+)
 from ...services.activity import activity_service
 from ...services.rbac import rbac_service
 from ...services.users import user_profile_service
@@ -114,12 +120,12 @@ def add_user(current_user, validated_data=None, project_id=None):
 
     logger = logging.getLogger(__name__)
 
-    data = validated_data if validated_data is not None else request.get_json()
-
-    if not data:
+    if not validated_data:
         return jsonify({"error": "No data provided"}), 400
 
     try:
+        # Convert Pydantic model to dict for helper function
+        data = validated_data.model_dump(exclude_none=True) if hasattr(validated_data, 'model_dump') else validated_data
         # Use DI helper function - exceptions are handled by global handler
         user = create_user_with_roles_and_products(current_user, data, project_id=project_id)
 
@@ -169,11 +175,12 @@ def update_user(user_id, current_user, validated_data=None):
     logger = logging.getLogger(__name__)
 
 
-    data = validated_data if validated_data else request.get_json()
-    if not data:
+    if not validated_data:
         return jsonify({"error": "No data provided"}), 400
 
     try:
+        # Convert Pydantic model to dict for service
+        data = validated_data.model_dump(exclude_none=True) if hasattr(validated_data, 'model_dump') else validated_data
 
         target_user = User.query.get(user_id)
         if not target_user:
@@ -279,13 +286,18 @@ def delete_user(user_id, current_user, project_id=None):
 def bulk_action(current_user, project_id=None):
     """Perform bulk actions on users"""
 
+    # Note: This endpoint will be migrated to use validate_request in next iteration
     data = request.get_json()
-
-    action = data.get("action")
-    user_ids = data.get("user_ids", [])
-
-    if not action or not user_ids:
-        return jsonify({"error": "Action and user_ids are required"}), 400
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    try:
+        schema_data = UserBulkActionSchema(**data)
+        action = schema_data.action
+        user_ids = schema_data.user_ids
+        new_role = schema_data.new_role
+    except Exception as e:
+        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
     query = User.query.filter(User.id.in_(user_ids))
 
@@ -345,10 +357,7 @@ def bulk_action(current_user, project_id=None):
             return jsonify({"error": f"Failed to delete users: {str(e)}"}), 500
 
     elif action == "change_role":
-        new_role = data.get("new_role")
-        if not new_role:
-            return jsonify({"error": "new_role is required"}), 400
-
+        # new_role is already validated in schema
         if new_role not in RolePermissions.ASSIGNABLE_ROLES:
             return (
                 jsonify(
@@ -501,14 +510,18 @@ def invite_user(current_user):
     from datetime import datetime, timedelta
     import secrets
     import string
+    # Note: This endpoint will be migrated to use validate_request in next iteration
     data = request.get_json()
-
-    email = data.get("email")
-    role = data.get("role", "seller")
-    message = data.get("message", "")
-
-    if not email:
-        return jsonify({"error": "Email is required"}), 400
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    try:
+        schema_data = UserInviteSchema(**data)
+        email = schema_data.email
+        role = schema_data.role
+        message = schema_data.message or ""
+    except Exception as e:
+        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
     allowed_roles = RolePermissions.ASSIGNABLE_ROLES.copy()
     from ...services.rbac import rbac_service

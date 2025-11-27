@@ -9,9 +9,17 @@ from werkzeug.utils import secure_filename
 
 from ..core.extensions import db
 from ..middleware.auth import require_project_isolation, require_project_with_grace_period
+from ..middleware.validation import validate_request
 from ..models.core import User
 from ..models.products import Product
 from ..models.agents import Agent, AgentProductAssignment
+from ..schemas.agent import (
+    AgentCreateSchema,
+    AgentLoginTypeUpdateSchema,
+    AgentProductAssignSchema,
+    AgentStatusUpdateSchema,
+    AgentUpdateSchema,
+)
 from ..config.config import Config
 
 agents_bp = Blueprint("agents", __name__)
@@ -246,30 +254,35 @@ def create_loader():
         if not user.project_id:
             return jsonify({"error": "No project associated"}), 400
 
+        # Note: This endpoint will be migrated to use validate_request in next iteration
         data = request.get_json()
-
-        if not data or not data.get("name") or not data.get("description"):
-            return jsonify({"error": "Name and description are required", "success": False}), 400
+        if not data:
+            return jsonify({"error": "No data provided", "success": False}), 400
+        
+        try:
+            schema_data = AgentCreateSchema(**data)
+        except Exception as e:
+            return jsonify({"error": f"Validation error: {str(e)}", "success": False}), 400
 
         existing_agent = Agent.query.filter_by(
-            name=data["name"], project_id=user.project_id
+            name=schema_data.name, project_id=user.project_id
         ).first()
         if existing_agent:
             return jsonify({"error": "Agent with this name already exists", "success": False}), 400
 
         new_agent = Agent(
-            name=data["name"],
-            description=data["description"],
-            status=data.get("status", "active"),
-            logo=data.get("logo"),
-            banner=data.get("banner"),
-            background=data.get("background"),
-            file=data.get("file", f"{data['name'].lower().replace(' ', '_')}_loader.exe"),
-            changelog=data.get("changelog", "Initial version"),
-            notifications=data.get("notifications", "New agent added!"),
-            version=data.get("version", "1.0.0"),
-            downloads=data.get("downloads", 0),
-            active_users=data.get("active_users", 0),
+            name=schema_data.name,
+            description=schema_data.description,
+            status=schema_data.status,
+            logo=schema_data.logo,
+            banner=schema_data.banner,
+            background=schema_data.background,
+            file=schema_data.file or f"{schema_data.name.lower().replace(' ', '_')}_loader.exe",
+            changelog=schema_data.changelog or "Initial version",
+            notifications=schema_data.notifications or "New agent added!",
+            version=schema_data.version,
+            downloads=schema_data.downloads,
+            active_users=schema_data.active_users,
             created_by=user.id,
             project_id=user.project_id,
         )
@@ -564,11 +577,16 @@ def assign_products_to_agent(agent_identifier):
         if not agent:
             return jsonify({"error": "Agent not found", "success": False}), 404
 
+        # Note: This endpoint will be migrated to use validate_request in next iteration
         data = request.get_json()
-        product_ids = data.get("product_ids", [])
-
-        if not isinstance(product_ids, list):
-            return jsonify({"error": "product_ids must be a list", "success": False}), 400
+        if not data:
+            return jsonify({"error": "No data provided", "success": False}), 400
+        
+        try:
+            schema_data = AgentProductAssignSchema(**data)
+            product_ids = schema_data.product_ids
+        except Exception as e:
+            return jsonify({"error": f"Validation error: {str(e)}", "success": False}), 400
 
         current_assignments = AgentProductAssignment.query.filter_by(
             agent_id=agent.id, project_id=user.project_id
@@ -793,11 +811,16 @@ def update_loader_status(agent_identifier):
         if not agent:
             return jsonify({"error": "Agent not found", "success": False}), 404
 
+        # Note: This endpoint will be migrated to use validate_request in next iteration
         data = request.get_json()
-        new_status = data.get("status")
-
-        if new_status not in ["active", "inactive", "maintenance", "testing"]:
-            return jsonify({"error": "Invalid status", "success": False}), 400
+        if not data:
+            return jsonify({"error": "No data provided", "success": False}), 400
+        
+        try:
+            schema_data = AgentStatusUpdateSchema(**data)
+            new_status = schema_data.status
+        except Exception as e:
+            return jsonify({"error": f"Validation error: {str(e)}", "success": False}), 400
 
         agent.status = new_status
         agent.updated_at = datetime.utcnow()
@@ -971,21 +994,18 @@ def update_loader_config(agent_identifier):
         if not agent:
             return jsonify({"error": "Agent not found", "success": False}), 404
 
+        # Note: This endpoint will be migrated to use validate_request in next iteration
         data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided", "success": False}), 400
+        
+        try:
+            schema_data = AgentLoginTypeUpdateSchema(**data)
+            login_type = schema_data.login_type
+        except Exception as e:
+            return jsonify({"error": f"Validation error: {str(e)}", "success": False}), 400
 
-        if "login_type" in data:
-            allowed_login_types = ["license_generation", "invite_code"]
-            if data["login_type"] not in allowed_login_types:
-                return (
-                    jsonify(
-                        {
-                            "error": f'Invalid login type. Allowed: {", ".join(allowed_login_types)}',
-                            "success": False,
-                        }
-                    ),
-                    400,
-                )
-            agent.login_type = data["login_type"]
+        agent.login_type = login_type
 
         if "invite_code_required" in data:
             agent.invite_code_required = bool(data["invite_code_required"])

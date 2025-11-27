@@ -10,6 +10,8 @@ from flask_jwt_extended import jwt_required
 from ...models import User
 from ...services.balance import balance_service
 from ...middleware.auth import require_project_isolation, require_role, require_user
+from ...middleware.validation import validate_request
+from ...schemas.balance import BalanceTopupSchema, BalanceDeductSchema, BalanceTransactionsQuerySchema
 from ...utils.role_constants import RolePermissions
 
 logger = logging.getLogger(__name__)
@@ -20,27 +22,18 @@ balance_bp = Blueprint("users_balance", __name__)
 @require_user
 @require_role(RolePermissions.BALANCE_MANAGEMENT_ROLES)
 @require_project_isolation
-def topup_user_balance(current_user):
+@validate_request(BalanceTopupSchema)
+def topup_user_balance(current_user, validated_data=None):
     """Top up user balance"""
 
-    data = request.get_json()
-
-    if not data:
+    if not validated_data:
         return jsonify({"error": "No data provided"}), 400
 
-    user_id = data.get("user_id")
-    amount = data.get("amount")
+    data = BalanceTopupSchema(**validated_data)
+    user_id = data.user_id
+    amount = data.amount
 
     logger.info(f"Topup balance request: current_user_id={current_user.id}, target_user_id={user_id}, amount={amount}, project_id={current_user.project_id}")
-
-    if not user_id or amount is None:
-        return jsonify({"error": "User ID and amount are required"}), 400
-
-    try:
-        amount = float(amount)
-    except (ValueError, TypeError) as e:
-        logger.error(f"Invalid amount format in topup request: amount={amount}, error={str(e)}")
-        return jsonify({"error": f"Invalid amount format: {str(e)}"}), 400
 
     # Try to find user by id (numeric) or unique_id (string)
     # user_id can be either numeric id or unique_id string
@@ -97,26 +90,17 @@ def topup_user_balance(current_user):
 @require_user
 @require_role(RolePermissions.BALANCE_MANAGEMENT_ROLES)
 @require_project_isolation
-def deduct_user_balance(current_user):
+@validate_request(BalanceDeductSchema)
+def deduct_user_balance(current_user, validated_data=None):
     """Deduct from user balance"""
 
-    data = request.get_json()
-
-    if not data:
+    if not validated_data:
         return jsonify({"error": "No data provided"}), 400
 
-    user_id = data.get("user_id")
-    amount = data.get("amount")
-    reason = data.get("reason", "Balance deduction")
-
-    if not user_id or amount is None:
-        return jsonify({"error": "User ID and amount are required"}), 400
-
-    try:
-        amount = float(amount)
-    except (ValueError, TypeError) as e:
-        logger.error(f"Invalid amount format in deduct request: amount={amount}, error={str(e)}")
-        return jsonify({"error": f"Invalid amount format: {str(e)}"}), 400
+    data = BalanceDeductSchema(**validated_data)
+    user_id = data.user_id
+    amount = data.amount
+    reason = data.reason
 
     # Try to find user by id (numeric) or unique_id (string)
     # user_id can be either numeric id or unique_id string
@@ -174,15 +158,22 @@ def deduct_user_balance(current_user):
 @require_user
 @require_role(RolePermissions.BALANCE_MANAGEMENT_ROLES)
 @require_project_isolation
-def get_user_transactions(current_user):
+@validate_request(BalanceTransactionsQuerySchema, data_type="query")
+def get_user_transactions(current_user, validated_params=None):
     """Get transaction history for a user with pagination"""
 
-    user_id = request.args.get("user_id")
-    page = request.args.get("page", 1, type=int)
-    per_page = request.args.get("per_page", 50, type=int)
-
-    if not user_id:
-        return jsonify({"error": "User ID is required"}), 400
+    if not validated_params:
+        # Fallback for backward compatibility
+        user_id = request.args.get("user_id")
+        page = request.args.get("page", 1, type=int)
+        per_page = request.args.get("per_page", 50, type=int)
+        if not user_id:
+            return jsonify({"error": "User ID is required"}), 400
+    else:
+        data = BalanceTransactionsQuerySchema(**validated_params)
+        user_id = data.user_id
+        page = data.page
+        per_page = data.per_page
 
     logger.info(f"Get transactions request: current_user_id={current_user.id}, target_user_id={user_id}, project_id={current_user.project_id}")
 

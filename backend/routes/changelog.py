@@ -7,10 +7,16 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ..core.extensions import db
 from ..middleware.auth import require_project_isolation, require_project_with_grace_period
+from ..middleware.validation import validate_request
 from ..models.core import User
 from ..models.products import ChangelogEntry, Product
 from ..models.keys import Key
 from ..models.agents import Agent, AgentChangelog
+from ..schemas.changelog import (
+    AgentChangelogEntryCreateSchema,
+    ChangelogEntryCreateSchema,
+    ChangelogEntryUpdateSchema,
+)
 from ..services.activity import activity_service
 from ..utils.fulltext_search import fulltext_search_filter
 from ..utils.rbac_utils import RBACManager
@@ -153,14 +159,20 @@ def create_changelog_entry(product_identifier):
         if not product:
             return jsonify({"error": "Product not found"}), 404
 
+        # Note: This endpoint will be migrated to use validate_request in next iteration
         data = request.get_json()
-
-        version = data.get("version")
-        title = data.get("title")
-        changes = data.get("changes", [])
-
-        if not version or not title:
-            return jsonify({"error": "Version and title are required"}), 400
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        try:
+            schema_data = ChangelogEntryCreateSchema(**data)
+            version = schema_data.version
+            title = schema_data.title
+            changes = schema_data.changes
+            description = schema_data.description
+            release_date = schema_data.release_date or datetime.utcnow()
+        except Exception as e:
+            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
         existing_entry = ChangelogEntry.query.filter_by(
             product_id=product.id, version=version, project_id=user.project_id
@@ -173,13 +185,9 @@ def create_changelog_entry(product_identifier):
             product_id=product.id,
             version=version,
             title=title,
-            description=data.get("description"),
+            description=description,
             changes=json.dumps(changes) if changes else "[]",
-            release_date=(
-                datetime.fromisoformat(data["release_date"])
-                if data.get("release_date")
-                else datetime.utcnow()
-            ),
+            release_date=release_date,
             is_public=True,
             created_by=user_id,
             project_id=user.project_id,
@@ -701,16 +709,22 @@ def create_loader_changelog_entry(agent_identifier):
             )
             return jsonify({"error": "Agent not found"}), 404
 
+        # Note: This endpoint will be migrated to use validate_request in next iteration
         data = request.get_json()
-
-        version = data.get("version")
-        title = data.get("title")
-        changes = data.get("changes", [])
-        change_type = data.get("change_type", "release")
-        custom_type_name = data.get("custom_type_name")
-
-        if not version or not title:
-            return jsonify({"error": "Version and title are required"}), 400
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        try:
+            schema_data = AgentChangelogEntryCreateSchema(**data)
+            version = schema_data.version
+            title = schema_data.title
+            changes = schema_data.changes
+            change_type = schema_data.change_type
+            custom_type_name = schema_data.custom_type_name
+            description = schema_data.description
+            release_date = schema_data.release_date or datetime.utcnow()
+        except Exception as e:
+            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
         existing_entry = AgentChangelog.query.filter_by(
             agent_id=agent.id, version=version, project_id=user.project_id
@@ -723,15 +737,11 @@ def create_loader_changelog_entry(agent_identifier):
             agent_id=agent.id,
             version=version,
             title=title,
-            description=data.get("description"),
+            description=description,
             changes=json.dumps(changes),
             change_type=change_type,
             custom_type_name=custom_type_name,
-            release_date=(
-                datetime.fromisoformat(data.get("release_date"))
-                if data.get("release_date")
-                else datetime.utcnow()
-            ),
+            release_date=release_date,
             is_public=True,
             created_by=user.id,
             project_id=user.project_id,

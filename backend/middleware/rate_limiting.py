@@ -87,7 +87,7 @@ def check_rate_limit_for_endpoint(endpoint_name, limit_string="10 per minute"):
         logger.warning(f"Rate limit check failed for {endpoint_name}: {e}")
         return True
 
-def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10):
+def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10, fail_close: bool = True):
     """
     Enhanced rate limiting decorator for connect endpoints
     Uses Redis for distributed rate limiting
@@ -99,6 +99,8 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10):
     Args:
         rate_limit: Maximum requests per minute
         rate_limit_burst: Maximum requests in first 10 seconds
+        fail_close: If True (default), block requests when Redis fails (security-critical).
+                    If False, allow requests when Redis fails (fail-open, for non-critical endpoints).
     """
     import inspect
     import asyncio
@@ -114,9 +116,6 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10):
             security_checker = SecurityChecker()
             response_builder = ResponseBuilder()
 
-            # Use persistent Redis instance for rate limiting (must not lose data)
-            redis_client = get_redis_client()  # Already uses persistent instance by default
-
             ip = request.remote_addr
             req_json = request.get_json(silent=True) or {}
             user_key = req_json.get("user_key") or ""
@@ -124,52 +123,66 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10):
             minute_key = f"rl_min:{user_key}:{ip}"
             burst_key = f"rl_burst:{user_key}:{ip}"
 
-            burst_count = redis_client.incr(burst_key)
-            if burst_count == 1:
-                redis_client.expire(burst_key, 10)
-
-            if burst_count > rate_limit_burst:
-                security_checker.log_suspicious_activity(ip, "BURST_RATE_LIMIT", user_key)
-                error_response = response_builder.build_error_response(
-                    "Burst rate limit exceeded"
-                )
-                encrypted_response = response_builder.encrypt_response(error_response, True)
-                return encrypted_response, 429
-
-            minute_count = redis_client.incr(minute_key)
-            if minute_count == 1:
-                redis_client.expire(minute_key, 60)
-
-            # NOTE: Removed blocking time.sleep() for progressive delays
-            # Progressive delays block worker threads and degrade performance under load.
-            # Rate limiting should work by returning 429 errors, not by blocking requests.
-            # If progressive delays are needed, they should be implemented asynchronously
-            # or using non-blocking mechanisms (e.g., gevent, async/await with proper event loop).
-
-            if minute_count > rate_limit:
-                security_checker.log_suspicious_activity(ip, "RATE_LIMIT", user_key)
+            try:
+                # Use persistent Redis instance for rate limiting (must not lose data)
+                redis_client = get_redis_client()  # Already uses persistent instance by default
                 
-                # Update trigger count for Rate Limiting Protection rule
-                try:
-                    from ...services.security import security_service, SecurityContext
-                    from ...models.keys import Key
-                    # Try to get project_id from user_key if available
-                    project_id = None
-                    if user_key:
-                        key_obj = Key.query.filter_by(key=user_key).first()
-                        if key_obj:
-                            project_id = key_obj.project_id
+                # Check if Redis is available
+                if not redis_client.is_available():
+                    # Redis is marked as unavailable - raise exception to trigger fail-close
+                    raise ConnectionError("Redis is unavailable for rate limiting")
+
+                burst_count = redis_client.incr(burst_key)
+                if burst_count == 1:
+                    redis_client.expire(burst_key, 10)
+
+                if burst_count > rate_limit_burst:
+                    security_checker.log_suspicious_activity(ip, "BURST_RATE_LIMIT", user_key)
+                    error_response = response_builder.build_error_response(
+                        "Burst rate limit exceeded"
+                    )
+                    encrypted_response = response_builder.encrypt_response(error_response, True)
+                    return encrypted_response, 429
+
+                minute_count = redis_client.incr(minute_key)
+                if minute_count == 1:
+                    redis_client.expire(minute_key, 60)
+
+                # NOTE: Removed blocking time.sleep() for progressive delays
+                # Progressive delays block worker threads and degrade performance under load.
+                # Rate limiting should work by returning 429 errors, not by blocking requests.
+                # If progressive delays are needed, they should be implemented asynchronously
+                # or using non-blocking mechanisms (e.g., gevent, async/await with proper event loop).
+
+                if minute_count > rate_limit:
+                    security_checker.log_suspicious_activity(ip, "RATE_LIMIT", user_key)
                     
-                    if project_id:
-                        security_service._update_rule_trigger("Rate Limiting Protection", project_id)
-                except Exception as e:
-                    logger.debug(f"Could not update rate limit rule trigger: {e}")
-                
-                error_response = response_builder.build_error_response("Rate limit exceeded")
-                encrypted_response = response_builder.encrypt_response(error_response, True)
-                return encrypted_response, 429
+                    # Update trigger count for Rate Limiting Protection rule
+                    try:
+                        from ...services.security import security_service, SecurityContext
+                        from ...models.keys import Key
+                        # Try to get project_id from user_key if available
+                        project_id = None
+                        if user_key:
+                            key_obj = Key.query.filter_by(key=user_key).first()
+                            if key_obj:
+                                project_id = key_obj.project_id
+                        
+                        if project_id:
+                            security_service._update_rule_trigger("Rate Limiting Protection", project_id)
+                    except Exception as e:
+                        logger.debug(f"Could not update rate limit rule trigger: {e}")
+                    
+                    error_response = response_builder.build_error_response("Rate limit exceeded")
+                    encrypted_response = response_builder.encrypt_response(error_response, True)
+                    return encrypted_response, 429
 
-            return None
+                return None
+            except Exception as redis_error:
+                # Redis operation failed - re-raise to be handled by wrapper
+                # This will trigger fail-close behavior for security-critical endpoints
+                logger.error(f"Redis rate limiting error: {redis_error}")
+                raise
 
         if is_async:
             @wraps(func)
@@ -188,6 +201,18 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10):
 
                     logger.error(f"Rate limiting traceback: {traceback.format_exc()}")
 
+                    # SECURITY: Fail-close for security-critical endpoints (auth, connect)
+                    # If Redis fails, block the request instead of allowing it
+                    if fail_close:
+                        from ...services.connect import ResponseBuilder
+                        response_builder = ResponseBuilder()
+                        error_response = response_builder.build_error_response(
+                            "Rate limiting service unavailable. Request blocked for security."
+                        )
+                        encrypted_response = response_builder.encrypt_response(error_response, True)
+                        return encrypted_response, 503  # Service Unavailable
+                    
+                    # Fail-open for non-critical endpoints
                     return await func(*args, **kwargs)
 
             return async_wrapper
@@ -207,6 +232,18 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10):
 
                     logger.error(f"Rate limiting traceback: {traceback.format_exc()}")
 
+                    # SECURITY: Fail-close for security-critical endpoints (auth, connect)
+                    # If Redis fails, block the request instead of allowing it
+                    if fail_close:
+                        from ...services.connect import ResponseBuilder
+                        response_builder = ResponseBuilder()
+                        error_response = response_builder.build_error_response(
+                            "Rate limiting service unavailable. Request blocked for security."
+                        )
+                        encrypted_response = response_builder.encrypt_response(error_response, True)
+                        return encrypted_response, 503  # Service Unavailable
+                    
+                    # Fail-open for non-critical endpoints
                     return func(*args, **kwargs)
 
             return sync_wrapper

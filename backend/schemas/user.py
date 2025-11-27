@@ -151,6 +151,56 @@ class UserPrivateResponse(UserPublicResponse):
     needs_project_assignment: bool = Field(default=False, description="Flag requiring project assignment")
 
 
+class UserBulkActionSchema(BaseSchema):
+    """Schema for bulk user actions"""
+
+    action: str = Field(..., description="Action to perform")
+    user_ids: List[int] = Field(..., min_items=1, description="List of user IDs")
+    new_role: Optional[str] = Field(default=None, description="New role (for change_role action)")
+
+    @field_validator("action")
+    @classmethod
+    def validate_action(cls, v: str) -> str:
+        """Validate action"""
+        allowed_actions = ["delete", "change_role", "activate", "deactivate"]
+        if v not in allowed_actions:
+            raise ValueError(f"Action must be one of {allowed_actions}")
+        return v
+
+    @field_validator("user_ids")
+    @classmethod
+    def validate_user_ids(cls, v: List[int]) -> List[int]:
+        """Validate user IDs list"""
+        if not v or len(v) == 0:
+            raise ValueError("At least one user ID is required")
+        if any(uid <= 0 for uid in v):
+            raise ValueError("All user IDs must be positive integers")
+        return v
+
+    @field_validator("new_role")
+    @classmethod
+    def validate_new_role(cls, v: Optional[str], info) -> Optional[str]:
+        """Validate new role if action is change_role"""
+        if info.data.get("action") == "change_role" and not v:
+            raise ValueError("new_role is required for change_role action")
+        return v
+
+class UserInviteSchema(BaseSchema):
+    """Schema for inviting a user"""
+
+    email: EmailStr = Field(..., description="Email address")
+    role: str = Field(default="seller", description="User role")
+    message: Optional[str] = Field(default="", max_length=1000, description="Invitation message")
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: str) -> str:
+        """Validate role"""
+        # Note: Full validation against ASSIGNABLE_ROLES should be done in route
+        if not v or not v.strip():
+            raise ValueError("Role cannot be empty")
+        return v.strip()
+
 class UserAdminResponse(UserPrivateResponse):
     """Fields that should only be visible to admins or support staff."""
 

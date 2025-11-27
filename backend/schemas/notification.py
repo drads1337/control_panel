@@ -14,6 +14,7 @@ class NotificationCreateSchema(BaseSchema):
     message: str = Field(..., min_length=1, max_length=1000, description="Notification message")
     type: str = Field(default="info", description="Notification type")
     target_user_id: Optional[int] = Field(default=None, ge=1, description="Target user ID")
+    user_id: Optional[int] = Field(default=None, ge=1, description="User ID (alias for target_user_id)")
     repeat_count: int = Field(default=1, ge=1, le=10, description="Repeat count")
 
     @validator("type")
@@ -121,8 +122,10 @@ class ProductUpdateNotificationSchema(BaseSchema):
 class LoaderNotificationCreateSchema(BaseSchema):
     """Agent notification creation request schema"""
 
+    agent_id: Optional[int] = Field(default=None, ge=1, description="Agent ID")
     message: str = Field(..., min_length=1, max_length=1000, description="Notification message")
     type: str = Field(default="info", description="Notification type")
+    repeat_count: Optional[int] = Field(default=1, ge=1, le=10, description="Repeat count")
     is_scheduled: bool = Field(default=False, description="Is scheduled")
     scheduled_at: Optional[str] = Field(default=None, description="Scheduled at (ISO format)")
 
@@ -143,3 +146,24 @@ class NotificationCleanupSchema(BaseSchema):
     """Notification cleanup request schema"""
 
     days_old: int = Field(default=30, ge=1, le=365, description="Days old threshold")
+
+class SystemNotificationCreateSchema(BaseSchema):
+    """System notification creation request schema (admin only)"""
+
+    message: str = Field(..., min_length=1, max_length=1000, description="Notification message")
+    type: str = Field(default="info", description="Notification type")
+    user_id: Optional[int] = Field(default=None, ge=1, description="Target user ID")
+    project_id: Optional[int] = Field(default=None, ge=1, description="Project ID")
+
+    @validator("type")
+    def validate_type(cls, v):
+        allowed_types = ["info", "warning", "error", "success"]
+        if v not in allowed_types:
+            raise ValueError(f'Invalid type. Allowed: {", ".join(allowed_types)}')
+        return v
+
+    @validator("message")
+    def validate_message(cls, v):
+        if not v or not v.strip():
+            raise ValueError("Message is required")
+        return v.strip()

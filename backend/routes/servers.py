@@ -11,6 +11,8 @@ from ..middleware.auth import (
     require_project_with_grace_period,
     require_user,
 )
+from ..middleware.validation import validate_request
+from ..schemas.server import ServerBulkDeleteSchema, ServerCreateSchema
 from ..services.activity import activity_service
 from ..services.servers import server_service
 from ..services.tasks import task_service
@@ -78,21 +80,27 @@ def create_server():
     ):
         return jsonify({"error": "Access denied"}), 403
 
+    # Note: This endpoint will be migrated to use validate_request in next iteration
     data = request.get_json()
-
-    name = data.get("name")
-    ip_address = data.get("ip_address")
-    username = data.get("username")
-    password = data.get("password")
-
-    if not all([name, ip_address, username, password]):
-        return jsonify({"error": "Name, IP address, username and password are required"}), 400
-
-    project_id = (
-        current_user.project_id
-        if not RBACManager.is_owner(current_user)
-        else data.get("project_id")
-    )
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    try:
+        schema_data = ServerCreateSchema(**data)
+        name = schema_data.name
+        ip_address = str(schema_data.ip_address)
+        username = schema_data.username
+        password = schema_data.password
+        port = schema_data.port
+        description = schema_data.description
+        is_active = schema_data.is_active
+        project_id = (
+            current_user.project_id
+            if not RBACManager.is_owner(current_user)
+            else schema_data.project_id
+        )
+    except Exception as e:
+        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
     server, error = server_service.create_server(
         user=current_user,
@@ -100,9 +108,9 @@ def create_server():
         ip_address=ip_address,
         username=username,
         password=password,
-        port=data.get("port", 22),
-        description=data.get("description"),
-        is_active=data.get("is_active", True),
+        port=port,
+        description=description,
+        is_active=is_active,
         project_id=project_id,
     )
 
@@ -344,11 +352,16 @@ def bulk_check_status():
     if not current_user:
         return jsonify({"error": "Access denied"}), 403
 
+    # Note: This endpoint will be migrated to use validate_request in next iteration
     data = request.get_json()
-    server_ids = data.get("server_ids", [])
-
-    if not server_ids:
-        return jsonify({"error": "server_ids is required"}), 400
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    try:
+        schema_data = ServerBulkDeleteSchema(**data)
+        server_ids = schema_data.server_ids
+    except Exception as e:
+        return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
     servers = server_service.get_servers_by_ids(server_ids, current_user)
 

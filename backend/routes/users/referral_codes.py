@@ -12,8 +12,10 @@ from sqlalchemy import desc
 
 from ...core.extensions import db
 from ...middleware.auth import enforce_project_scope, require_role, require_user
+from ...middleware.validation import validate_request
 from ...models import ReferralCode, User
 from ...models.rbac import Role
+from ...schemas.referral import ReferralCodeCreateSchema
 from ...utils.service_helpers import get_service
 from ...utils.role_constants import RolePermissions, UserRoles
 
@@ -122,31 +124,25 @@ def create_refcode(current_user, project_id=None):
         if not project_id:
             return jsonify({"error": "Project ID is required"}), 400
 
+        # Note: This endpoint will be migrated to use validate_request in next iteration
         data = request.get_json()
         if not data:
             return jsonify({"error": "No data provided"}), 400
+        
+        try:
+            schema_data = ReferralCodeCreateSchema(**data)
+            code = schema_data.code.strip() if schema_data.code else None
+            token_balance = schema_data.token_balance
+            work_duration_days = schema_data.work_duration_days
+            product_ids = schema_data.product_ids
+            rbac_role_ids = schema_data.rbac_role_ids
+            expires_days = schema_data.expires_days or schema_data.expires_in_days or 90
+        except Exception as e:
+            return jsonify({"error": f"Validation error: {str(e)}"}), 400
 
         from datetime import datetime, timedelta
         import secrets
         import string
-
-        code = data.get("code", "").strip()
-        token_balance = data.get("token_balance", 0)
-        work_duration_days = data.get("work_duration_days")
-        product_ids_raw = data.get("product_ids", [])
-        rbac_role_ids = data.get("rbac_role_ids", [])
-        expires_days = data.get("expires_days") or data.get("expires_in_days", 90)
-
-        # Filter out invalid product IDs (0, None, negative, etc.)
-        product_ids = []
-        if isinstance(product_ids_raw, list):
-            for pid in product_ids_raw:
-                try:
-                    pid_int = int(pid)
-                    if pid_int > 0:
-                        product_ids.append(pid_int)
-                except (ValueError, TypeError):
-                    continue
 
         # Generate code if not provided
         if not code:
