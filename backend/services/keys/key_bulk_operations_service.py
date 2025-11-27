@@ -212,8 +212,9 @@ class KeyBulkOperationsService:
                     db.session.add(key)
                     db.session.flush()
 
-                    from ...utils.key_counters import increment_user_key_counters
-                    increment_user_key_counters(user.id, is_active=True)
+                    # Use cache invalidation instead of deprecated counter functions to avoid race conditions
+                    from ...services.statistics import cached_statistics_service
+                    cached_statistics_service.invalidate_on_key_change(user.id, user.project_id)
 
                     created_keys.append(key)
                 except Exception as key_error:

@@ -246,12 +246,9 @@ def bulk_create_keys_task(
                 session.add(key)
                 session.flush()
 
-                from ...utils.key_counters import increment_user_key_counters
-                increment_user_key_counters(user.id, is_active=True)
-
-                if project_id:
-                    from ...utils.project_counters import increment_project_key_counters
-                    increment_project_key_counters(project_id, is_active=True)
+                # Use cache invalidation instead of deprecated counter functions to avoid race conditions
+                from ...services.statistics import cached_statistics_service
+                cached_statistics_service.invalidate_on_key_change(user.id, project_id)
 
                 created_keys.append(key)
                 logger.debug(f"🔑 Created key {i+1}/{count}: {key_string[:8]}...")

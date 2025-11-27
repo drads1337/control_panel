@@ -11,6 +11,7 @@ Redis storage uses plain JSON (Redis is already protected by network isolation).
 import json
 import logging
 import time
+import uuid
 from typing import Any, Dict, List, Optional
 
 from ...core.extensions import db
@@ -30,6 +31,12 @@ class DynamicConfigService:
     def __init__(self):
         self.config_ttl = 3600
         self.redis_client = self._init_redis()
+        
+        # Cache stampede protection settings
+        self.LOCK_TIMEOUT = 10  # seconds - max time to hold lock while generating config
+        self.LOCK_RETRY_DELAY = 0.1  # seconds - initial delay between retries
+        self.LOCK_MAX_RETRIES = 20  # max retries when waiting for another process to generate config
+        self.LOCK_WAIT_TIMEOUT = 5  # seconds - max time to wait for another process
 
     def _init_redis(self):
         """
@@ -71,9 +78,85 @@ class DynamicConfigService:
             return None  # Return None to indicate Redis is unavailable
 
     def generate_dynamic_config(self, user_key: str, product_name: str, project_id: int) -> Dict:
-        """Generate dynamic configuration for a specific user and product"""
+        """
+        Generate dynamic configuration for a specific user and product.
+        
+        CACHE STAMPEDE PROTECTION: Uses Redis distributed locks to prevent multiple
+        processes from generating the same config simultaneously when cache misses occur.
+        This prevents DDoS on the database when Redis is unavailable or cache expires.
+        """
+        config_key = f"dynamic_config:{user_key}:{product_name}:{project_id}"
+        lock_key = f"dynamic_config_lock:{user_key}:{product_name}:{project_id}"
+        lock_identifier = str(uuid.uuid4())
+        
+        # First, try to get from cache
+        if self.redis_client:
+            try:
+                stored_config = self.redis_client.get(config_key)
+                if stored_config:
+                    if isinstance(stored_config, bytes):
+                        stored_config = stored_config.decode("utf-8")
+                    config_data = json.loads(stored_config)
+                    # Check expiration
+                    expires_at = config_data.get("metadata", {}).get("expires_at", 0)
+                    if time.time() < expires_at:
+                        logging.debug(f"DYNAMIC_CONFIG_CACHE_HIT user_key={user_key} product={product_name}")
+                        return {
+                            "config": config_data,
+                            "metadata": config_data.get("metadata", {}),
+                            "config_size": len(stored_config),
+                        }
+            except Exception as e:
+                logging.debug(f"DYNAMIC_CONFIG_CACHE_CHECK_ERROR: {e}")
+        
+        # Cache miss - need to generate config
+        # Try to acquire lock to prevent cache stampede
+        lock_acquired = False
+        if self.redis_client:
+            try:
+                # Try to acquire lock
+                lock_acquired = self.redis_client.set(
+                    lock_key,
+                    lock_identifier,
+                    nx=True,
+                    ex=self.LOCK_TIMEOUT
+                )
+                
+                if not lock_acquired:
+                    # Another process is generating config - wait for it
+                    logging.debug(f"DYNAMIC_CONFIG_WAITING_FOR_LOCK user_key={user_key} product={product_name}")
+                    wait_start = time.time()
+                    for attempt in range(self.LOCK_MAX_RETRIES):
+                        # Check if config appeared in cache (another process finished)
+                        stored_config = self.redis_client.get(config_key)
+                        if stored_config:
+                            if isinstance(stored_config, bytes):
+                                stored_config = stored_config.decode("utf-8")
+                            config_data = json.loads(stored_config)
+                            expires_at = config_data.get("metadata", {}).get("expires_at", 0)
+                            if time.time() < expires_at:
+                                logging.debug(f"DYNAMIC_CONFIG_CACHE_HIT_AFTER_WAIT user_key={user_key} product={product_name}")
+                                return {
+                                    "config": config_data,
+                                    "metadata": config_data.get("metadata", {}),
+                                    "config_size": len(stored_config),
+                                }
+                        
+                        # Check if we've waited too long
+                        if time.time() - wait_start > self.LOCK_WAIT_TIMEOUT:
+                            logging.warning(f"DYNAMIC_CONFIG_LOCK_WAIT_TIMEOUT user_key={user_key} product={product_name}")
+                            break
+                        
+                        # Wait before retry with exponential backoff
+                        time.sleep(self.LOCK_RETRY_DELAY * (2 ** min(attempt, 5)))
+                    
+                    # If we still don't have config, proceed to generate (fallback)
+                    logging.warning(f"DYNAMIC_CONFIG_LOCK_WAIT_FAILED user_key={user_key} product={product_name}, generating anyway")
+            except Exception as e:
+                logging.warning(f"DYNAMIC_CONFIG_LOCK_ERROR: {e}, proceeding without lock")
+        
+        # Generate config (either we have lock, or Redis is unavailable, or wait failed)
         try:
-
             product = Product.query.filter_by(name=product_name, project_id=project_id).first()
             if not product:
                 raise ValueError(f"Product {product_name} not found in project {project_id}")
@@ -144,11 +227,28 @@ class DynamicConfigService:
             if self.redis_client:
                 try:
                     self.redis_client.setex(config_key, self.config_ttl, config_json)
+                    # Release lock if we acquired it
+                    if lock_acquired:
+                        try:
+                            # Only delete if we still own the lock (prevent deleting someone else's lock)
+                            current_lock = self.redis_client.get(lock_key)
+                            if current_lock and current_lock.decode('utf-8') == lock_identifier:
+                                self.redis_client.delete(lock_key)
+                        except Exception as unlock_error:
+                            logging.debug(f"DYNAMIC_CONFIG_UNLOCK_ERROR: {unlock_error}")
                 except Exception as redis_error:
                     logging.warning(
                         f"[DYNAMIC_CONFIG] Failed to cache config in Redis: {redis_error}. "
                         f"Config will be generated on-the-fly for each request."
                     )
+                    # Release lock on error
+                    if lock_acquired and self.redis_client:
+                        try:
+                            current_lock = self.redis_client.get(lock_key)
+                            if current_lock and current_lock.decode('utf-8') == lock_identifier:
+                                self.redis_client.delete(lock_key)
+                        except Exception:
+                            pass
             else:
                 logging.debug(
                     "[DYNAMIC_CONFIG] Redis unavailable, skipping cache. "
