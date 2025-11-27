@@ -28,6 +28,7 @@ from ..utils.structured_logging import get_logger, setup_structured_logging
 from .blueprints import register_blueprints
 from .error_handlers import register_error_handlers, register_jwt_error_handlers
 from .extensions import db, jwt, redis_ext
+from .swagger_config import init_swagger
 from .system_routes import register_system_routes
 
 logger = get_logger(__name__)
@@ -301,6 +302,15 @@ def create_app() -> Flask:
     register_error_handlers(app)
     register_jwt_error_handlers(app)
     register_system_routes(app)
+    
+    # Initialize Swagger documentation (only in non-production)
+    from ..config.config import Config
+    if Config.FLASK_ENV != "production":
+        try:
+            swagger = init_swagger(app)
+            logger.info("Swagger documentation initialized", endpoint="/api/docs")
+        except Exception as e:
+            logger.warning(f"Failed to initialize Swagger: {e}. API documentation will not be available.")
 
     ActivityLoggerMiddleware(app)
 

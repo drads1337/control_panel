@@ -127,6 +127,152 @@ def login(validated_data=None):
     """
     Secure login endpoint with proper error handling
     All authentication data is transmitted over HTTPS which provides channel encryption
+    
+    ---
+    tags:
+      - Authentication
+    summary: User login
+    description: |
+      Authenticate user with username/email and password.
+      Returns JWT access token in cookie and response body.
+      
+      **Security:**
+      - Rate limited: 10 requests per minute per IP
+      - CSRF protection disabled for API compatibility
+      - All data transmitted over HTTPS
+      
+      **Response:**
+      - Sets HTTP-only cookie: `access_token_cookie`
+      - Returns access_token in response body (for API clients)
+      - Returns user information and roles
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - username
+              - password
+            properties:
+              username:
+                type: string
+                description: Username or email address
+                example: "admin@example.com"
+                minLength: 3
+                maxLength: 50
+              password:
+                type: string
+                format: password
+                description: User password
+                example: "SecurePassword123!"
+                minLength: 8
+                maxLength: 128
+    responses:
+      200:
+        description: Login successful
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_id:
+                  type: string
+                  description: User ID
+                  example: "123"
+                username:
+                  type: string
+                  description: Username
+                  example: "admin"
+                roles:
+                  type: array
+                  items:
+                    type: string
+                  description: User roles
+                  example: ["admin", "user"]
+                session_id:
+                  type: string
+                  description: Session identifier
+                  example: "550e8400-e29b-41d4-a716-446655440000"
+                login_success:
+                  type: boolean
+                  example: true
+                access_token:
+                  type: string
+                  description: JWT access token (also set in cookie)
+                  example: "eyJ0eXAiOiJKV1QiLCJhbGc..."
+        headers:
+          Set-Cookie:
+            description: JWT access token in HTTP-only cookie
+            schema:
+              type: string
+              example: "access_token_cookie=eyJ0eXAiOiJKV1QiLCJhbGc...; HttpOnly; Secure; SameSite=Strict"
+      400:
+        description: Invalid request format
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                error:
+                  type: string
+                  example: "INVALID_REQUEST"
+                message:
+                  type: string
+                  example: "Invalid login format"
+      401:
+        description: Authentication failed
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                error:
+                  type: string
+                  example: "AUTHENTICATION_ERROR"
+                message:
+                  type: string
+                  example: "Invalid credentials"
+      403:
+        description: Security constraint violation
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                error:
+                  type: string
+                  example: "SECURITY_ERROR"
+                message:
+                  type: string
+                  example: "Access denied due to security constraints"
+      429:
+        description: Rate limit exceeded
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                error:
+                  type: string
+                  example: "Too many requests"
+                message:
+                  type: string
+                  example: "Rate limit exceeded. Please try again later."
+      500:
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                error:
+                  type: string
+                  example: "INTERNAL_ERROR"
+                message:
+                  type: string
+                  example: "Authentication failed"
+    security: []
     """
 
     ip = request.remote_addr

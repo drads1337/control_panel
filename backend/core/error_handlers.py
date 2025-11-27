@@ -42,12 +42,16 @@ def register_error_handlers(app: Flask) -> None:
 
         error_response = {"error": "Internal server error", "type": "internal_error"}
 
-        if Config.FLASK_ENV != "production" and app.debug:
+        # SECURITY: Never expose tracebacks in production, even if debug mode is accidentally enabled
+        from ..config.config import IS_PRODUCTION
+        is_safe_to_show_details = not IS_PRODUCTION and app.debug and Config.FLASK_ENV != "production"
+        
+        if is_safe_to_show_details:
             error_response["traceback"] = error_details.split("\n")
             error_response["details"] = str(error)
             error_response["message"] = f"{type(error).__name__}: {str(error)}"
         else:
-
+            # Production mode: never expose tracebacks or error details
             error_response = {
                 "error": "Internal Server Error",
                 "message": "An unexpected error occurred. Support team has been notified.",
@@ -169,8 +173,11 @@ def register_error_handlers(app: Flask) -> None:
             if hasattr(e, "error_code") and e.error_code:
                 error_response["error_code"] = e.error_code
             
-            # In development, include more details
-            if Config.FLASK_ENV != "production" and app.debug:
+            # In development, include more details (but never in production)
+            from ..config.config import IS_PRODUCTION
+            is_safe_to_show_details = not IS_PRODUCTION and app.debug and Config.FLASK_ENV != "production"
+            
+            if is_safe_to_show_details:
                 error_response["exception_type"] = type(e).__name__
                 if e.context:
                     error_response["context"] = e.context
@@ -216,12 +223,16 @@ def register_error_handlers(app: Flask) -> None:
 
         error_response = {"error": "Internal server error", "type": "unhandled_exception"}
 
-        if Config.FLASK_ENV != "production" and app.debug:
+        # SECURITY: Never expose tracebacks in production, even if debug mode is accidentally enabled
+        from ..config.config import IS_PRODUCTION
+        is_safe_to_show_details = not IS_PRODUCTION and app.debug and Config.FLASK_ENV != "production"
+        
+        if is_safe_to_show_details:
             error_response["traceback"] = error_details.split("\n")
             error_response["details"] = str(e)
             error_response["message"] = f"{type(e).__name__}: {str(e)}"
         else:
-
+            # Production mode: never expose tracebacks or error details
             error_response = {
                 "error": "Internal Server Error",
                 "message": "An unexpected error occurred. Support team has been notified.",

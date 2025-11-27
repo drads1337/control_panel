@@ -10,7 +10,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from ...core.extensions import db
 from sqlalchemy import and_
 
-from ...middleware.auth import enforce_project_scope, require_project_with_grace_period
+from ...middleware.auth import enforce_project_scope, require_project_isolation, require_project_with_grace_period
 from ...middleware.validation import validate_request
 from ...models import Product, User
 from ...models.agents import AgentProductAssignment
