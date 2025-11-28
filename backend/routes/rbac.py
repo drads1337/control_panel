@@ -150,6 +150,8 @@ def token_required(f):
 def get_roles(current_user):
     """Get all roles for the current user's project"""
     try:
+        rbac_service = get_service('rbac_service')
+        
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
 
@@ -191,6 +193,7 @@ def get_roles(current_user):
 def create_role():
     """Create a new custom role"""
     try:
+        rbac_service = get_service('rbac_service')
         current_user = get_current_user()
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
@@ -243,6 +246,7 @@ def create_role():
 def update_role(role_id):
     """Update an existing role"""
     try:
+        rbac_service = get_service('rbac_service')
         current_user = get_current_user()
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
@@ -280,6 +284,7 @@ def update_role(role_id):
 def delete_role(role_id):
     """Delete a role"""
     try:
+        rbac_service = get_service('rbac_service')
         current_user = get_current_user()
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
@@ -325,6 +330,8 @@ def delete_role(role_id):
 def get_permissions(current_user):
     """Get all permissions for the current user's project"""
     try:
+        rbac_service = get_service('rbac_service')
+        
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
 
@@ -359,6 +366,7 @@ def get_permissions(current_user):
 def create_permission():
     """Create a new permission"""
     try:
+        rbac_service = get_service('rbac_service')
         current_user = get_current_user()
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
@@ -414,6 +422,7 @@ def create_permission():
 def update_permission(permission_id, validated_data=None):
     """Update an existing permission"""
     try:
+        rbac_service = get_service('rbac_service')
         current_user = get_current_user()
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
@@ -450,6 +459,7 @@ def update_permission(permission_id, validated_data=None):
 def delete_permission(permission_id):
     """Delete a permission"""
     try:
+        rbac_service = get_service('rbac_service')
         current_user = get_current_user()
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
@@ -489,6 +499,7 @@ def get_user_roles(user_id, current_user):
         return jsonify({"error": "Authentication required"}), 401
 
     try:
+        rbac_service = get_service('rbac_service')
 
         target_user = find_user_by_id_or_unique_id(user_id, current_user.project_id)
 
@@ -516,6 +527,7 @@ def assign_role_to_user(user_id, current_user):
     """Assign a role to a user"""
 
     try:
+        rbac_service = get_service('rbac_service')
         data = request.get_json()
         if not data:
             return jsonify({"error": "No data provided"}), 400
@@ -562,6 +574,7 @@ def remove_role_from_user(user_id, role_id, current_user):
     """Remove a role from a user"""
 
     try:
+        rbac_service = get_service('rbac_service')
 
         target_user = find_user_by_id_or_unique_id(user_id, current_user.project_id)
 
@@ -603,6 +616,7 @@ def get_user_permissions(user_id, current_user):
     )
 
     try:
+        rbac_service = get_service('rbac_service')
 
         from ..utils.rbac_utils import RBACManager
 
@@ -824,6 +838,7 @@ def update_user_permissions(user_id, current_user, validated_data=None):
 def check_permission(current_user, validated_data=None):
     """Check if current user has a specific permission"""
     try:
+        rbac_service = get_service('rbac_service')
         if not validated_data:
             return jsonify({"error": "No data provided"}), 400
 
@@ -852,6 +867,7 @@ def check_permission(current_user, validated_data=None):
 def get_role_users(current_user, role_id):
     """Get all users assigned to a role"""
     try:
+        rbac_service = get_service('rbac_service')
 
         role = Role.query.filter_by(id=role_id, project_id=current_user.project_id).first()
         if not role or role.project_id != current_user.project_id:
@@ -874,6 +890,7 @@ def get_role_users(current_user, role_id):
 def get_rbac_statistics(current_user):
     """Get RBAC statistics for the project"""
     try:
+        rbac_service = get_service('rbac_service')
         project_id = current_user.project_id
         statistics = rbac_service.get_rbac_statistics(project_id)
 
@@ -891,6 +908,7 @@ def get_rbac_statistics(current_user):
 def initialize_rbac(current_user):
     """Initialize RBAC system for the project"""
     try:
+        rbac_service = get_service('rbac_service')
         project_id = current_user.project_id
 
         existing_roles = Role.query.filter_by(project_id=project_id).count()
@@ -986,6 +1004,7 @@ def get_product_permissions(current_user, product_identifier):
 def create_product_permission(product_identifier):
     """Create a new permission for a specific product"""
     try:
+        rbac_service = get_service('rbac_service')
         current_user = get_current_user()
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
@@ -1058,6 +1077,7 @@ def create_product_permission(product_identifier):
 def assign_product_permissions_to_role(role_id, product_identifier):
     """Assign product-specific permissions to a role"""
     try:
+        rbac_service = get_service('rbac_service')
         current_user = get_current_user()
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
@@ -1150,6 +1170,7 @@ def assign_product_permissions_to_role(role_id, product_identifier):
 def get_files_for_rbac(current_user):
     """Get files for RBAC management"""
     try:
+        rbac_service = get_service('rbac_service')
 
         if not rbac_service.check_permission(current_user.id, "files.view"):
             return jsonify({"error": "Insufficient permissions"}), 403
