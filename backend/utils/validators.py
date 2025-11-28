@@ -264,15 +264,18 @@ class InviteValidator:
         if not code:
             return False, "Invite code is required"
 
-        code = code.strip().upper()
+        # Normalize code: remove common separators (hyphens, underscores, spaces)
+        # and convert to uppercase
+        code_normalized = re.sub(r'[-_\s]+', '', code.strip().upper())
 
-        if len(code) < 6:
+        if len(code_normalized) < 6:
             return False, "Invite code is too short"
 
-        if len(code) > 64:
+        if len(code_normalized) > 64:
             return False, "Invite code is too long"
 
-        if not re.match(r"^[A-Z0-9]+$", code):
+        # Check that code contains only alphanumeric characters after normalization
+        if not re.match(r"^[A-Z0-9]+$", code_normalized):
             return False, "Invite code can only contain letters and numbers"
 
         return True, None

@@ -25,12 +25,49 @@ from ...utils.service_exceptions import ValidationError, ConflictError, ServiceE
 from ...utils.structured_logging import get_logger
 from werkzeug.security import generate_password_hash
 
+# Type hints for dependencies (imported here to avoid circular imports)
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from ...services.rbac.rbac_service import RBACService
+    from ...services.cache.cache_service import CacheService
+
 
 class UserCRUDService:
     """Service for handling basic CRUD operations on users"""
 
-    def __init__(self, logger=None):
+    def __init__(
+        self,
+        rbac_service: 'RBACService' = None,
+        cache_service: 'CacheService' = None,
+        logger=None
+    ):
+        """
+        Initialize UserCRUDService with explicit dependencies.
+        
+        Args:
+            rbac_service: Service for RBAC checks
+            cache_service: Service for cache operations
+            logger: Optional logger instance
+        """
         self.logger = logger or get_logger("user_crud_service")
+        
+        # Store dependencies explicitly
+        self._rbac_service = rbac_service
+        self._cache_service = cache_service
+    
+    def _get_rbac_service(self):
+        """Get RBAC service (lazy loading for backward compatibility)"""
+        if self._rbac_service is None:
+            from ...utils.service_helpers import get_service
+            self._rbac_service = get_service('rbac_service')
+        return self._rbac_service
+    
+    def _get_cache_service(self):
+        """Get cache service (lazy loading for backward compatibility)"""
+        if self._cache_service is None:
+            from ...utils.service_helpers import get_service
+            self._cache_service = get_service('cache_service')
+        return self._cache_service
 
     def create_user(
         self,
@@ -353,17 +390,13 @@ class UserCRUDService:
             Tuple of (success, error_message)
         """
         try:
-            from ...utils.service_helpers import get_service
-            
-            # Use ServiceContainer to avoid circular imports
-            rbac_service = get_service('rbac_service')
+            # Use explicit dependency injection
+            rbac_service = self._get_rbac_service()
 
             target_user = User.query.get(target_user_id)
             if not target_user:
                 return False, "User not found"
 
-            rbac_service = get_service('rbac_service')
-            rbac_service = get_service('rbac_service')
             can_delete_all = rbac_service.check_permission(
                 current_user.id, "employees.delete"
             ) or rbac_service.check_permission(current_user.id, "clients.delete")
@@ -400,10 +433,7 @@ class UserCRUDService:
             project_id = target_user.project_id
             if project_id:
                 # Invalidate statistics cache instead of using deprecated counters
-                from ...utils.service_helpers import get_service
-                cache_service = get_service('cache_service')
-                cache_service = get_service('cache_service')
-                cache_service = get_service('cache_service')
+                cache_service = self._get_cache_service()
                 cache_service.invalidate_pattern(f"stats:project_id={project_id}:*")
 
             db.session.delete(target_user)
@@ -431,10 +461,8 @@ class UserCRUDService:
             Tuple of (deleted_count, error_message)
         """
         try:
-            from ...utils.service_helpers import get_service
-            
-            # Use ServiceContainer to avoid circular imports
-            rbac_service = get_service('rbac_service')
+            # Use explicit dependency injection
+            rbac_service = self._get_rbac_service()
 
             query = User.query.filter(User.id.in_(user_ids))
 
@@ -468,8 +496,7 @@ class UserCRUDService:
 
                 if user.project_id:
                     # Invalidate statistics cache instead of using deprecated counters
-                    from ...utils.service_helpers import get_service
-                    cache_service = get_service('cache_service')
+                    cache_service = self._get_cache_service()
                     cache_service.invalidate_pattern(f"stats:project_id={user.project_id}:*")
 
                 db.session.delete(user)

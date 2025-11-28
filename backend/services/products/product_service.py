@@ -18,21 +18,49 @@ from ...models.products import Product, ProductExtraFile, ProductFileConfig, Pro
 from ...models.keys import Key
 from ...models.agents import Agent, AgentProductAssignment, AgentDownloadLog
 from ...utils.service_exceptions import NotFoundError, PermissionDeniedError, ConflictError, ServiceError
-from ...utils.service_helpers import get_service
+
+# Type hints for dependencies (imported here to avoid circular imports)
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from ...services.cache.cache_service import CacheService
+    from ...services.rbac.rbac_service import RBACService
 
 class ProductService:
     """Service for managing product data with caching"""
 
-    def __init__(self, cache_service=None, logger=None):
+    def __init__(
+        self,
+        cache_service: 'CacheService' = None,
+        rbac_service: 'RBACService' = None,
+        logger=None
+    ):
+        """
+        Initialize ProductService with explicit dependencies.
+        
+        Args:
+            cache_service: Service for cache operations
+            rbac_service: Service for RBAC checks
+            logger: Optional logger instance
+        """
         self.cache_service = cache_service
+        self._rbac_service = rbac_service
         self.logger = logger or logging.getLogger(__name__)
 
     @property
     def _cache_service(self):
-        """Get cache service instance via DI container"""
+        """Get cache service instance (lazy loading for backward compatibility)"""
         if self.cache_service is not None:
             return self.cache_service
+        from ...utils.service_helpers import get_service
         return get_service('cache_service')
+    
+    def _get_rbac_service(self):
+        """Get RBAC service (lazy loading for backward compatibility)"""
+        if self._rbac_service is not None:
+            return self._rbac_service
+        from ...utils.service_helpers import get_service
+        self._rbac_service = get_service('rbac_service')
+        return self._rbac_service
 
     def get_products_cached(
         self, project_id: int, product_type: str = "all", user_id: Optional[int] = None
@@ -471,10 +499,8 @@ class ProductService:
                 from ...utils.rbac_utils import RBACManager
 
                 user = User.query.get(user_id) if user_id else None
-                from ...utils.service_helpers import get_service
-                
-                # Use ServiceContainer to avoid circular imports
-                rbac_service = get_service('rbac_service')
+                # Use explicit dependency injection
+                rbac_service = self._get_rbac_service()
 
                 can_view_all = user and (
                     RBACManager.is_owner(user)
@@ -530,9 +556,20 @@ class ProductService:
 
         Raises:
             ConflictError: If product with this name already exists
+            ValidationError: If tier limit is reached
             ServiceError: If database operation fails
         """
         try:
+            # Check tier limits
+            from ...models.core import Project
+            from ...utils.service_helpers import get_service
+            
+            project = Project.query.get(user.project_id)
+            if project:
+                tier_limits_service = get_service('tier_limits_service')
+                can_create, error_msg = tier_limits_service.check_product_limit(project)
+                if not can_create:
+                    raise ValidationError(error_msg, field="product")
 
             existing_product = Product.query.filter_by(
                 name=product_data["name"], project_id=user.project_id
@@ -667,10 +704,8 @@ class ProductService:
                 from ...models.core import UserProductPermission
                 from ...models.rbac import UserRole, Role
                 from ...utils.rbac_utils import RBACManager
-                from ...utils.service_helpers import get_service
-                
-                # Use ServiceContainer to avoid circular imports
-                rbac_service = get_service('rbac_service')
+                # Use explicit dependency injection
+                rbac_service = self._get_rbac_service()
 
                 self.logger.info(
                     f"Fetching product count from database for project {project_id}, type: {product_type}"

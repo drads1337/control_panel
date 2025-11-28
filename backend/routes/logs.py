@@ -99,6 +99,16 @@ def get_logs(current_user=None, project_id=None):
     if not user:
         return jsonify({"error": "User not found"}), 404
 
+    # Check tier limits
+    if user.project_id:
+        from ..models.core import Project
+        project = Project.query.get(user.project_id)
+        if project:
+            tier_limits_service = get_service('tier_limits_service')
+            enabled, error_msg = tier_limits_service.check_logs_enabled(project)
+            if not enabled:
+                return jsonify({"error": error_msg}), 403
+
     user_roles = RBACManager.get_user_role_names(user)
     is_owner = user_roles and user_roles[0] == "owner"
 

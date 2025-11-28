@@ -156,6 +156,7 @@ class ProjectCacheService:
                     projects.append(
                         {
                             "id": project.unique_id,
+                            "unique_id": project.unique_id,
                             "name": project.name,
                             "description": project.description,
                             "admin_id": project.admin_id,
@@ -259,8 +260,9 @@ class ProjectCacheService:
                 if not is_owner and user.project_id != project.id:
                     return {"error": "Access denied"}
 
-                return {
+                result = {
                     "id": project.unique_id,
+                    "unique_id": project.unique_id,
                     "name": project.name,
                     "description": project.description,
                     "admin_id": project.admin_id,
@@ -272,21 +274,36 @@ class ProjectCacheService:
                         if project.subscription_expires_at
                         else None
                     ),
+                    "days_until_expiry": project.days_until_expiry,
                     "is_active": project.is_active,
                     "storage_limit_gb": project.storage_limit_gb,
                 }
+                self.logger.info(f"[FETCH] Project data - unique_id: {project.unique_id}, result keys: {list(result.keys())}")
+                return result
             except Exception as e:
                 self.logger.error(f"Error fetching project: {e}", exc_info=True)
                 return {"error": "Failed to retrieve project"}
 
         # Try to get from cache first
-        cache_key = f"project:project_id={project_id}:user_id={user_id}"
+        # v2: Added unique_id and days_until_expiry to response
+        cache_key = f"project:v2:project_id={project_id}:user_id={user_id}"
         
         try:
             cached_result = self._cache_service.get(cache_key)
             if cached_result:
                 self.logger.info(f"[CACHE] Cache hit for project: project_id={project_id}")
-                return cached_result
+                self.logger.info(f"[CACHE] Cached result keys: {list(cached_result.keys()) if isinstance(cached_result, dict) else 'not a dict'}")
+                self.logger.info(f"[CACHE] Has unique_id? {('unique_id' in cached_result) if isinstance(cached_result, dict) else 'N/A'}")
+                # If cached result doesn't have unique_id, invalidate and fetch fresh
+                if isinstance(cached_result, dict) and 'unique_id' not in cached_result:
+                    self.logger.warning(f"[CACHE] Cached result missing unique_id, invalidating cache")
+                    try:
+                        self._cache_service.delete(cache_key)
+                    except:
+                        pass
+                    cached_result = None
+                else:
+                    return cached_result
         except Exception as e:
             self.logger.warning(f"[CACHE] Error getting from cache: {e}")
 

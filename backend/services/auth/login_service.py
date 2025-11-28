@@ -17,9 +17,16 @@ from sqlalchemy.exc import SQLAlchemyError, InvalidRequestError
 from ...core.extensions import db
 from ...models.core import Project, User
 from ...utils.ip_utils import get_location_from_ip, get_real_ip
-from ...utils.service_helpers import get_service
 from ...utils.service_exceptions import AuthenticationError, SecurityError, NotFoundError, ServiceError
 from ...services.validation import request_validation_pipeline
+
+# Type hints for dependencies (imported here to avoid circular imports)
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from ...services.security.security_service import SecurityService
+    from ...services.activity.activity_service import ActivityService
+    from ...services.webhooks.webhook_service import WebhookService
+    from ...services.auth.auth_token_service import AuthTokenService
 
 
 class LoginService:
@@ -34,8 +41,59 @@ class LoginService:
     - Webhook triggering
     """
 
-    def __init__(self):
-        self.logger = logging.getLogger(__name__)
+    def __init__(
+        self,
+        security_service: 'SecurityService' = None,
+        activity_service: 'ActivityService' = None,
+        webhook_service: 'WebhookService' = None,
+        auth_token_service: 'AuthTokenService' = None,
+        logger=None
+    ):
+        """
+        Initialize LoginService with explicit dependencies.
+        
+        Args:
+            security_service: Service for security checks
+            activity_service: Service for logging activities
+            webhook_service: Service for triggering webhooks
+            auth_token_service: Service for token operations
+            logger: Optional logger instance
+        """
+        self.logger = logger or logging.getLogger(__name__)
+        
+        # Store dependencies explicitly
+        self._security_service = security_service
+        self._activity_service = activity_service
+        self._webhook_service = webhook_service
+        self._auth_token_service = auth_token_service
+    
+    def _get_security_service(self):
+        """Get security service (lazy loading for backward compatibility)"""
+        if self._security_service is None:
+            from ...utils.service_helpers import get_service
+            self._security_service = get_service('security_service')
+        return self._security_service
+    
+    def _get_activity_service(self):
+        """Get activity service (lazy loading for backward compatibility)"""
+        if self._activity_service is None:
+            from ...utils.service_helpers import get_service
+            self._activity_service = get_service('activity_service')
+        return self._activity_service
+    
+    def _get_webhook_service(self):
+        """Get webhook service (lazy loading for backward compatibility)"""
+        if self._webhook_service is None:
+            from ...utils.service_helpers import get_service
+            self._webhook_service = get_service('webhook_service')
+        return self._webhook_service
+    
+    def _get_auth_token_service(self):
+        """Get auth token service (lazy loading for backward compatibility)"""
+        if self._auth_token_service is None:
+            from ...utils.service_helpers import get_service
+            self._auth_token_service = get_service('auth_token_service')
+        return self._auth_token_service
 
     def validate_credentials(self, username: str, password: str) -> User:
         """
@@ -239,7 +297,7 @@ class LoginService:
                     error_code=validation_result.reason or "VALIDATION_FAILED"
                 )
 
-            security_service = get_service('security_service')
+            security_service = self._get_security_service()
             if security_service.check_session_limit(user.id, user.project_id):
                 raise SecurityError("Session limit exceeded", error_code="SESSION_LIMIT_EXCEEDED")
 
@@ -293,7 +351,7 @@ class LoginService:
             session_id: Session identifier
             details: Activity details
         """
-        activity_service = get_service('activity_service')
+        activity_service = self._get_activity_service()
         try:
             activity_service.log_activity(
                 user, "login", ip=ip, user_agent=user_agent, details=details, session_id=session_id
@@ -315,7 +373,7 @@ class LoginService:
             return
 
         try:
-            security_service = get_service('security_service')
+            security_service = self._get_security_service()
             security_service.record_login_attempt(
                 ip, user.username, success, user.project_id, user_agent
             )
@@ -337,7 +395,7 @@ class LoginService:
         """
         try:
             # Use ServiceContainer to avoid circular imports
-            webhook_service = get_service('webhook_service')
+            webhook_service = self._get_webhook_service()
 
             from ...utils.rbac_utils import RBACManager
             from ...utils.role_constants import UserRoles
@@ -358,7 +416,7 @@ class LoginService:
             }
 
             if user.project_id:
-                webhook_service = get_service('webhook_service')
+                webhook_service = self._get_webhook_service()
                 webhook_service.trigger_webhook("user.login", webhook_data, user.project_id)
                 self.logger.info(f"Triggered webhook for user login: {user.id}")
         except Exception as e:
@@ -404,7 +462,7 @@ class LoginService:
             # Update user login info
             self.update_user_login_info(user, ip, user_agent)
 
-            auth_token_service = get_service('auth_token_service')
+            auth_token_service = self._get_auth_token_service()
             # Create login response with token (via AuthTokenService)
             response_data = auth_token_service.create_login_response(user, include_token=True)
             session_id = response_data.get("session_id", "")

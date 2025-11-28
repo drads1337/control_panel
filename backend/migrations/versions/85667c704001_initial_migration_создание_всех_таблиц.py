@@ -1,8 +1,8 @@
 """Initial migration - создание всех таблиц
 
-Revision ID: 8d5e8da95720
+Revision ID: 85667c704001
 Revises: 
-Create Date: 2025-11-21 19:13:30.714157
+Create Date: 2025-11-28 15:14:03.718995
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '8d5e8da95720'
+revision = '85667c704001'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -409,6 +409,7 @@ def upgrade():
     )
     op.create_table('user',
     sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('unique_id', sa.String(length=9), nullable=False),
     sa.Column('username', sa.String(length=80), nullable=False),
     sa.Column('password', sa.String(length=200), nullable=False),
     sa.Column('referral_code', sa.String(length=32), nullable=True),
@@ -433,6 +434,7 @@ def upgrade():
     sa.ForeignKeyConstraint(['project_id'], ['project.id'], ),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('referral_code'),
+    sa.UniqueConstraint('unique_id'),
     sa.UniqueConstraint('username')
     )
     op.create_table('webhook',
@@ -461,6 +463,7 @@ def upgrade():
     )
     op.create_table('agent',
     sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('unique_id', sa.String(length=8), nullable=False),
     sa.Column('name', sa.String(length=128), nullable=False),
     sa.Column('description', sa.Text(), nullable=True),
     sa.Column('status', sa.String(length=32), nullable=True),
@@ -483,7 +486,8 @@ def upgrade():
     sa.Column('key_prefix_format', sa.String(length=128), nullable=True),
     sa.ForeignKeyConstraint(['created_by'], ['user.id'], ),
     sa.ForeignKeyConstraint(['project_id'], ['project.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('unique_id')
     )
     op.create_table('announcement',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -767,6 +771,7 @@ def upgrade():
     )
     op.create_table('productextrafile',
     sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('unique_id', sa.String(length=8), nullable=False),
     sa.Column('product_id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(length=128), nullable=False),
     sa.Column('original_filename', sa.String(length=256), nullable=False),
@@ -782,10 +787,12 @@ def upgrade():
     sa.Column('is_active', sa.Boolean(), nullable=True),
     sa.ForeignKeyConstraint(['product_id'], ['product.id'], ),
     sa.ForeignKeyConstraint(['uploaded_by'], ['user.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('unique_id')
     )
     op.create_table('productfileconfig',
     sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('unique_id', sa.String(length=8), nullable=False),
     sa.Column('config_id', sa.String(length=8), nullable=True),
     sa.Column('product_id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(length=128), nullable=False),
@@ -805,7 +812,8 @@ def upgrade():
     sa.ForeignKeyConstraint(['product_id'], ['product.id'], ),
     sa.ForeignKeyConstraint(['uploaded_by'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('config_id')
+    sa.UniqueConstraint('config_id'),
+    sa.UniqueConstraint('unique_id')
     )
     op.create_table('productfiledownload',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -1137,6 +1145,22 @@ def upgrade():
     sa.ForeignKeyConstraint(['webhook_id'], ['webhook.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_table('webhook_pending_task',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('webhook_id', sa.Integer(), nullable=False),
+    sa.Column('project_id', sa.Integer(), nullable=False),
+    sa.Column('event', sa.String(length=100), nullable=False),
+    sa.Column('webhook_data', sa.Text(), nullable=False),
+    sa.Column('status', sa.String(length=20), nullable=False),
+    sa.Column('retry_count', sa.Integer(), nullable=False),
+    sa.Column('error_message', sa.Text(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('processed_at', sa.DateTime(), nullable=True),
+    sa.Column('next_retry_at', sa.DateTime(), nullable=True),
+    sa.ForeignKeyConstraint(['project_id'], ['project.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['webhook_id'], ['webhook.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('agent_product_assignment',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('agent_id', sa.Integer(), nullable=False),
@@ -1173,6 +1197,7 @@ def upgrade():
     )
     op.create_table('key',
     sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('unique_id', sa.String(length=9), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=True),
     sa.Column('key', sa.String(length=64), nullable=False),
     sa.Column('expires_at', sa.DateTime(), nullable=True),
@@ -1192,7 +1217,8 @@ def upgrade():
     sa.ForeignKeyConstraint(['project_id'], ['project.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('key')
+    sa.UniqueConstraint('key'),
+    sa.UniqueConstraint('unique_id')
     )
     op.create_table('loaderchangelog',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -1417,6 +1443,7 @@ def downgrade():
     op.drop_table('key')
     op.drop_table('chat_message')
     op.drop_table('agent_product_assignment')
+    op.drop_table('webhook_pending_task')
     op.drop_table('webhook_log')
     op.drop_table('user_role')
     op.drop_table('user_product_permission')

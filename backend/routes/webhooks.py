@@ -81,6 +81,15 @@ def get_webhooks():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
+        # Check tier limits
+        if user.project_id:
+            project = Project.query.get(user.project_id)
+            if project:
+                tier_limits_service = get_service('tier_limits_service')
+                enabled, error_msg = tier_limits_service.check_webhooks_enabled(project)
+                if not enabled:
+                    return jsonify({"error": error_msg}), 403
+
         webhook_service = get_webhook_service()
 
         webhook_service = get_service('webhook_service')
@@ -123,6 +132,15 @@ def create_webhook(validated_data=None):
 
         if not user:
             return jsonify({"error": "User not found"}), 404
+
+        # Check tier limits
+        if user.project_id:
+            project = Project.query.get(user.project_id)
+            if project:
+                tier_limits_service = get_service('tier_limits_service')
+                enabled, error_msg = tier_limits_service.check_webhooks_enabled(project)
+                if not enabled:
+                    return jsonify({"error": error_msg}), 403
 
         webhook_service = get_webhook_service()
 

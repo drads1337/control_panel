@@ -515,7 +515,7 @@ def invite_user(current_user, validated_data=None):
         return jsonify({"error": f'Invalid role. Allowed: {", ".join(allowed_roles)}'}), 400
 
     def generate_invite_code():
-        return "".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(12))
+        return "".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(10))
 
     from ...models.keys import ReferralCode
 

@@ -333,17 +333,52 @@ def get_csrf_token():
 @auth_bp.route("/register", methods=["POST"])
 @validate_request(RegisterRequestSchema)
 def register(validated_data=None):
-    """User registration endpoint"""
+    """User registration endpoint - creates user and project automatically (free tier)"""
     try:
 
         if not validated_data:
             return jsonify({"error": "REGISTRATION_FAILED", "message": "Invalid request data"}), 400
 
+        # Email is required for registration
+        if not validated_data.get("email"):
+            return jsonify({"error": "REGISTRATION_FAILED", "message": "Email is required for registration"}), 400
+
+        # Create user first (without project_id)
         user_crud_service = get_service('user_crud_service')
-        # Exceptions are handled by global handler
         user = user_crud_service.create_user(
-            validated_data["username"], validated_data["email"], validated_data["password"]
+            validated_data["username"], 
+            validated_data["email"], 
+            validated_data["password"]
         )
+        
+        # Create project with free tier (user is now available)
+        project_crud_service = get_service('project_crud_service')
+        project_name = validated_data.get("project_name") or f"Project_{validated_data['username']}"
+        
+        # Create project with free tier
+        project = project_crud_service.create_project(
+            user_id=user.id,
+            name=project_name,
+            description=f"Project for {validated_data['username']}",
+            ip_address=request.remote_addr,
+            user_agent=request.headers.get("User-Agent", "")
+        )
+        
+        # Update user with project_id
+        user.project_id = project.id
+        
+        # Initialize RBAC for the project (creates default roles including owner)
+        rbac_service = get_service('rbac_service')
+        rbac_service.initialize_default_data(project.id)
+        
+        # Assign owner role to user
+        from ..models.rbac import Role, UserRole
+        owner_role = Role.query.filter_by(name="owner", project_id=project.id).first()
+        if owner_role:
+            user_role = UserRole(user_id=user.id, role_id=owner_role.id)
+            db.session.add(user_role)
+        
+        db.session.commit()
 
         try:
             from ..services.webhooks import get_webhook_service
@@ -391,8 +426,8 @@ def register(validated_data=None):
         logger.error(f"Error in registration: {str(e)}")
         return jsonify({"error": "REGISTRATION_FAILED", "message": "Registration failed"}), 500
 
-@validate_request(RegisterWithInviteSchema)
 @auth_bp.route("/register-with-invite", methods=["POST"])
+@validate_request(RegisterWithInviteSchema)
 def register_with_invite(validated_data=None):
     """User registration with invite code"""
     try:
@@ -408,7 +443,6 @@ def register_with_invite(validated_data=None):
         if not username or not password or not invite_code:
             return jsonify({"error": "MISSING_FIELDS", "message": "Username, password, and invite code are required"}), 400
 
-        invite_service = get_service('invite_service')
         invite_service = get_service('invite_service')
         code_info, error = invite_service.validate_invite_code(invite_code)
         if not code_info:
@@ -428,22 +462,73 @@ def register_with_invite(validated_data=None):
                     400,
                 )
 
-            new_project = Project(name=project_name, created_at=datetime.utcnow(), status="active")
-            db.session.add(new_project)
+            # Create user first (without project_id, will be updated after project creation)
+            from werkzeug.security import generate_password_hash
+            from ..models.core import User
+            from ..utils.service_exceptions import ConflictError
+            
+            # Validate username doesn't exist
+            if User.query.filter_by(username=username).first():
+                return jsonify({"error": "USERNAME_EXISTS", "message": "Username already exists"}), 400
+            
+            # Validate email if provided
+            if email:
+                email_valid, email_error = AuthValidator.validate_email(email)
+                if not email_valid:
+                    return jsonify({"error": "INVALID_EMAIL", "message": email_error}), 400
+                
+                # Check if email already exists
+                if User.query.filter_by(email=email).first():
+                    return jsonify({"error": "EMAIL_EXISTS", "message": "Email already exists"}), 400
+            
+            # Create user without project_id
+            temp_user = User(
+                username=username,
+                email=email,
+                password=generate_password_hash(password),
+                created_at=datetime.utcnow(),
+            )
+            db.session.add(temp_user)
             db.session.flush()
+            
+            # Create project with pro tier (invite code = pro tier)
+            project_crud_service = get_service('project_crud_service')
+            new_project = project_crud_service.create_project(
+                user_id=temp_user.id,
+                name=project_name,
+                description=f"Project created via invite code",
+                ip_address=request.remote_addr,
+                user_agent=request.headers.get("User-Agent", ""),
+                subscription_status="pro"  # Pro tier for invite code registration
+            )
             project_id = new_project.id
+            
+            # Update user with project_id
+            temp_user.project_id = project_id
 
-            from ..services.rbac import RBACService
-
+            # Initialize RBAC
             rbac_service = get_service('rbac_service')
-            rbac_service = get_service('rbac_service')
-            rbac_service = RBACService()
             rbac_service.initialize_default_data(project_id)
+            
+            # Assign owner role to user
+            from ..models.rbac import Role, UserRole
+            owner_role = Role.query.filter_by(name="owner", project_id=project_id).first()
+            if owner_role:
+                user_role = UserRole(user_id=temp_user.id, role_id=owner_role.id)
+                db.session.add(user_role)
 
+            # Update invite code with project_id
             invite = ProjectInviteCode.query.filter_by(code=invite_code).first()
             if invite:
                 invite.project_id = project_id
-                db.session.commit()
+            
+            db.session.commit()
+            
+            # Use the created user instead of creating a new one
+            user = temp_user
+            user_already_created = True
+        else:
+            user_already_created = False
 
         # Check if this is a referral code with RBAC roles
         code_type = code_info.get("code_type", "project_invite")
@@ -463,13 +548,15 @@ def register_with_invite(validated_data=None):
         user_crud_service = get_service('user_crud_service')
         # Exceptions are handled by global handler
         try:
-            # Handle referral codes - always assign products and roles if specified
-            if code_type == "referral":
-                from werkzeug.security import generate_password_hash
-                from ..models.core import User
-                from ..utils.service_helpers import get_user_role_service, get_user_permission_service
-                from ..models.keys import ReferralCode
-                from datetime import timedelta
+            # Only create user if not already created (for new projects)
+            if not user_already_created:
+                # Handle referral codes - always assign products and roles if specified
+                if code_type == "referral":
+                    from werkzeug.security import generate_password_hash
+                    from ..models.core import User
+                    from ..utils.service_helpers import get_user_role_service, get_user_permission_service
+                    from ..models.keys import ReferralCode
+                    from datetime import timedelta
                 
                 # Validate username doesn't exist
                 if User.query.filter_by(username=username).first():
@@ -527,8 +614,19 @@ def register_with_invite(validated_data=None):
                     referral.used = True
                     referral.used_by = user.id
                     db.session.commit()
+                else:
+                    # Default behavior for project invite codes (when project already exists)
+                    default_role = UserRoles.ADMIN.value
+                    user = user_crud_service.create_user(
+                        username, email, password, project_id, default_role
+                    )
+                    
+                    # Mark invite code as used
+                    success, error = invite_service.use_invite_code(invite_code, user.id)
+                    if not success:
+                        logger.warning(f"Failed to mark invite code as used: {error}")
             else:
-                # Default behavior for project invite codes
+                # Default behavior for project invite codes (when project already exists)
                 default_role = UserRoles.ADMIN.value
                 user = user_crud_service.create_user(
                     username, email, password, project_id, default_role
@@ -752,10 +850,10 @@ def validate_access_code():
         logger.error(f"Error validating access code: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
 
-@validate_request(AccessCodeRegisterSchema)
 @auth_bp.route("/activate-code", methods=["POST"])
 @jwt_required()
 @require_project_isolation
+@validate_request(AccessCodeRegisterSchema)
 def activate_access_code(validated_data=None):
     """Activate access code for user"""
     try:
@@ -837,8 +935,8 @@ def activate_access_code(validated_data=None):
         db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
 
-@validate_request(ClassicLoginRegisterSchema)
 @auth_bp.route("/register-with-code", methods=["POST"])
+@validate_request(ClassicLoginRegisterSchema)
 def register_with_code(validated_data=None):
     """Register user with invite code for Classic Login products"""
     try:
@@ -952,18 +1050,23 @@ def register_with_code(validated_data=None):
         return jsonify({"error": "Internal server error"}), 500
 
 @auth_bp.route("/validate_invite_code", methods=["POST"])
-def validate_invite_code():
+@validate_request(InviteCodeValidateSchema)
+def validate_invite_code(validated_data=None):
     """Validate an invite code and return information about it"""
     try:
-        data = request.get_json() or {}
-        invite_code = data.get("invite_code", "").strip()
+        if not validated_data:
+            return jsonify({"error": "Invite code is required"}), 400
 
+        invite_code = validated_data.get("invite_code", "")
         if not invite_code:
             return jsonify({"error": "Invite code is required"}), 400
 
+        # Code is already normalized by InviteCodeValidateSchema
+        invite_service = get_service('invite_service')
         code_info, error = invite_service.validate_invite_code(invite_code)
         if not code_info:
-            return jsonify({"error": error}), 400
+            # Return the error message from service (could be validation error or "Invalid invite code")
+            return jsonify({"error": error or "Invalid invite code"}), 400
 
         code_type = code_info.get("code_type", "project_invite")
         project_id = code_info.get("project_id")
@@ -1004,6 +1107,19 @@ def validate_invite_code():
                 ]
             response_data["roles"] = roles
             response_data["requires_project_name"] = False
+        elif code_type == "product_invite":
+            # Product invite code specific fields
+            response_data["product_id"] = code_info.get("product_id")
+            response_data["assigned_role"] = code_info.get("assigned_role")
+            if project_id:
+                project = Project.query.get(project_id)
+                if project:
+                    response_data["project_name"] = project.name
+                    response_data["requires_project_name"] = False
+                else:
+                    response_data["requires_project_name"] = False
+            else:
+                response_data["requires_project_name"] = False
         elif project_id:
             # Project invite code with project_id
             project = Project.query.get(project_id)

@@ -12,8 +12,12 @@ from typing import Any, Dict, Optional
 from ...models.core import User
 from ...utils.rbac_utils import RBACManager
 from ...utils.service_exceptions import BusinessLogicError
-from ...utils.service_helpers import get_service
 from .settings_repository import SettingsRepository
+
+# Type hints for dependencies (imported here to avoid circular imports)
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from ...services.cache.cache_service import CacheService
 
 logger = logging.getLogger(__name__)
 
@@ -25,17 +29,31 @@ class SettingsManager:
     Single Responsibility: Business logic, caching, and response building for settings.
     """
 
-    def __init__(self, repository: Optional[SettingsRepository] = None, cache_service=None, logger=None):
+    def __init__(
+        self,
+        repository: Optional[SettingsRepository] = None,
+        cache_service: 'CacheService' = None,
+        logger=None
+    ):
+        """
+        Initialize SettingsManager with explicit dependencies.
+        
+        Args:
+            repository: Repository for settings data access
+            cache_service: Service for cache operations
+            logger: Optional logger instance
+        """
         self.repository = repository or SettingsRepository()
         self.cache_service = cache_service
         self.logger = logger or logging.getLogger(__name__)
 
     @property
     def _cache_service(self):
-        """Get cache service instance"""
+        """Get cache service instance (lazy loading for backward compatibility)"""
         if self.cache_service is not None:
             return self.cache_service
         try:
+            from ...utils.service_helpers import get_service
             return get_service('cache_service')
         except Exception:
             return None

@@ -2,6 +2,7 @@
 Authentication-related Pydantic schemas
 """
 
+import re
 from typing import Optional
 
 from pydantic import BaseModel, EmailStr, Field, validator
@@ -150,7 +151,12 @@ class ClassicLoginRegisterSchema(BaseSchema):
     def validate_invite_code(cls, v):
         if not v or not v.strip():
             raise ValueError("Invite code cannot be empty")
-        return v.strip()
+        # Normalize code: remove common separators (hyphens, underscores, spaces)
+        # and convert to uppercase
+        code_normalized = re.sub(r'[-_\s]+', '', v.strip().upper())
+        if not code_normalized:
+            raise ValueError("Invite code cannot be empty")
+        return code_normalized
 
 class RegisterWithInviteSchema(BaseSchema):
     """User registration with invite code request schema"""
@@ -180,7 +186,12 @@ class RegisterWithInviteSchema(BaseSchema):
     def validate_invite_code(cls, v):
         if not v or not v.strip():
             raise ValueError("Invite code cannot be empty")
-        return v.strip()
+        # Normalize code: remove common separators (hyphens, underscores, spaces)
+        # and convert to uppercase
+        code_normalized = re.sub(r'[-_\s]+', '', v.strip().upper())
+        if not code_normalized:
+            raise ValueError("Invite code cannot be empty")
+        return code_normalized
 
 class InviteCodeValidateSchema(BaseSchema):
     """Invite code validation request schema"""
@@ -191,7 +202,12 @@ class InviteCodeValidateSchema(BaseSchema):
     def validate_invite_code(cls, v):
         if not v or not v.strip():
             raise ValueError("Invite code cannot be empty")
-        return v.strip()
+        # Normalize code: remove common separators (hyphens, underscores, spaces)
+        # and convert to uppercase
+        code_normalized = re.sub(r'[-_\s]+', '', v.strip().upper())
+        if not code_normalized:
+            raise ValueError("Invite code cannot be empty")
+        return code_normalized
 
 class LoginResponseSchema(BaseSchema):
     """Login response schema"""

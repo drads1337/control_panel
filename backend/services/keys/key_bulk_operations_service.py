@@ -16,17 +16,107 @@ from ...utils.service_exceptions import NotFoundError, PermissionDeniedError
 from ...utils.rbac_utils import RBACManager
 from ...utils.role_constants import UserRoles
 from ...utils.structured_logging import get_logger
-from ...utils.service_helpers import get_service
 from .key_filter_specification import KeyFilterSpecification
+
+# Type hints for dependencies (imported here to avoid circular imports)
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from ...services.keys.key_validation_service import KeyValidationService
+    from ...services.keys.key_crud_service import KeyCRUDService
+    from ...services.keys.key_generation_service import KeyGenerationService
+    from ...services.keys.key_status_service import KeyStatusService
+    from ...services.products.product_service import ProductService
+    from ...services.products.price_calculation_service import PriceCalculationService
+    from ...services.balance.balance_service import BalanceService
 
 
 class KeyBulkOperationsService:
     """Service for handling bulk operations on keys"""
 
-    def __init__(self):
-        self.logger = get_logger("key_bulk_operations_service")
+    def __init__(
+        self,
+        key_validation_service: 'KeyValidationService' = None,
+        key_crud_service: 'KeyCRUDService' = None,
+        key_generation_service: 'KeyGenerationService' = None,
+        key_status_service: 'KeyStatusService' = None,
+        product_service: 'ProductService' = None,
+        price_calculation_service: 'PriceCalculationService' = None,
+        balance_service: 'BalanceService' = None,
+        logger=None
+    ):
+        """
+        Initialize KeyBulkOperationsService with explicit dependencies.
+        
+        Args:
+            key_validation_service: Service for validating key data
+            key_crud_service: Service for key CRUD operations
+            key_generation_service: Service for generating key strings
+            key_status_service: Service for key status operations
+            product_service: Service for product operations
+            price_calculation_service: Service for calculating key prices
+            balance_service: Service for balance operations
+            logger: Optional logger instance
+        """
+        self.logger = logger or get_logger("key_bulk_operations_service")
         self.max_bulk_operations = 1000
-        # Services will be obtained lazily when needed to avoid application context issues
+        
+        # Store dependencies explicitly
+        self._key_validation_service = key_validation_service
+        self._key_crud_service = key_crud_service
+        self._key_generation_service = key_generation_service
+        self._key_status_service = key_status_service
+        self._product_service = product_service
+        self._price_calculation_service = price_calculation_service
+        self._balance_service = balance_service
+    
+    def _get_key_validation_service(self):
+        """Get key validation service (lazy loading for backward compatibility)"""
+        if self._key_validation_service is None:
+            from ...utils.service_helpers import get_service
+            self._key_validation_service = get_service('key_validation_service')
+        return self._key_validation_service
+    
+    def _get_key_crud_service(self):
+        """Get key CRUD service (lazy loading for backward compatibility)"""
+        if self._key_crud_service is None:
+            from ...utils.service_helpers import get_service
+            self._key_crud_service = get_service('key_crud_service')
+        return self._key_crud_service
+    
+    def _get_key_generation_service(self):
+        """Get key generation service (lazy loading for backward compatibility)"""
+        if self._key_generation_service is None:
+            from ...utils.service_helpers import get_service
+            self._key_generation_service = get_service('key_generation_service')
+        return self._key_generation_service
+    
+    def _get_key_status_service(self):
+        """Get key status service (lazy loading for backward compatibility)"""
+        if self._key_status_service is None:
+            from ...utils.service_helpers import get_service
+            self._key_status_service = get_service('key_status_service')
+        return self._key_status_service
+    
+    def _get_product_service(self):
+        """Get product service (lazy loading for backward compatibility)"""
+        if self._product_service is None:
+            from ...utils.service_helpers import get_service
+            self._product_service = get_service('product_service')
+        return self._product_service
+    
+    def _get_price_calculation_service(self):
+        """Get price calculation service (lazy loading for backward compatibility)"""
+        if self._price_calculation_service is None:
+            from ...utils.service_helpers import get_service
+            self._price_calculation_service = get_service('price_calculation_service')
+        return self._price_calculation_service
+    
+    def _get_balance_service(self):
+        """Get balance service (lazy loading for backward compatibility)"""
+        if self._balance_service is None:
+            from ...utils.service_helpers import get_service
+            self._balance_service = get_service('balance_service')
+        return self._balance_service
 
     def _get_keys_by_ids(self, user: User, key_ids: List[int]) -> List[Key]:
         """
@@ -73,7 +163,7 @@ class KeyBulkOperationsService:
         Returns:
             Tuple of (created_count, list_of_errors)
         """
-        validation_service = get_service('key_validation_service')
+        validation_service = self._get_key_validation_service()
         is_valid, error_msg = validation_service.validate_bulk_operation(
             len(keys_data), self.max_bulk_operations
         )
@@ -86,8 +176,8 @@ class KeyBulkOperationsService:
         for i, key_data in enumerate(keys_data):
             try:
                 # create_key now raises exceptions instead of returning tuples
+                key_crud_service = self._get_key_crud_service()
                 key = key_crud_service.create_key(user, key_data)
-                key_crud_service = get_service('key_crud_service')
                 created_count += 1
             except Exception as e:
                 try:
@@ -124,7 +214,7 @@ class KeyBulkOperationsService:
         """
         try:
             # Use ServiceContainer to avoid circular imports
-            product_service = get_service('product_service')
+            product_service = self._get_product_service()
             # get_product now raises exceptions
             product = product_service.get_product(user, product_id)
 
@@ -145,8 +235,8 @@ class KeyBulkOperationsService:
             
             if not is_owner and not is_admin and product and user.project_id:
                 # Use ServiceContainer to avoid circular imports
-                price_calculation_service = get_service('price_calculation_service')
-                balance_service = get_service('balance_service')
+                price_calculation_service = self._get_price_calculation_service()
+                balance_service = self._get_balance_service()
                 
                 key_price = price_calculation_service.calculate_key_price(
                     product_id=product.id,
@@ -166,7 +256,7 @@ class KeyBulkOperationsService:
                         return 0, f"Insufficient balance. Required: {total_price} tokens for {count} keys, Available: {user.token_balance} tokens", None
                     
                     # Deduct balance without committing (we're inside a transaction)
-                    balance_service = get_service('balance_service')
+                    balance_service = self._get_balance_service()
                     success, error_msg, _ = balance_service.deduct_balance(
                         current_user=user,
                         target_user_id=user.id,
@@ -179,7 +269,7 @@ class KeyBulkOperationsService:
                     if not success:
                         return 0, f"Failed to deduct balance: {error_msg}", None
 
-            key_generation_service = get_service('key_generation_service')
+            key_generation_service = self._get_key_generation_service()
             for i in range(count):
                 try:
                     key_string = key_generation_service.generate_key_string(
@@ -250,7 +340,7 @@ class KeyBulkOperationsService:
             if not keys:
                 return 0, "No keys found or access denied"
 
-            key_status_service = get_service('key_status_service')
+            key_status_service = self._get_key_status_service()
             affected_count = 0
             for key in keys:
                 success, error = key_status_service.pause_key(user, key.id)
@@ -270,7 +360,7 @@ class KeyBulkOperationsService:
             if not keys:
                 return 0, "No keys found or access denied"
 
-            key_status_service = get_service('key_status_service')
+            key_status_service = self._get_key_status_service()
             affected_count = 0
             for key in keys:
                 success, error = key_status_service.resume_key(user, key.id)
@@ -291,6 +381,7 @@ class KeyBulkOperationsService:
                 return 0, "No keys found or access denied"
 
             affected_count = 0
+            key_crud_service = self._get_key_crud_service()
             for key in keys:
                 success, error = key_crud_service.delete_key(user, key.id)
                 if success:
@@ -335,7 +426,7 @@ class KeyBulkOperationsService:
             if not keys:
                 return 0, "No keys found or access denied"
 
-            key_status_service = get_service('key_status_service')
+            key_status_service = self._get_key_status_service()
             affected_count = 0
             for key in keys:
                 success, error = key_status_service.extend_key(user, key.id, hours)
@@ -411,7 +502,7 @@ class KeyBulkOperationsService:
         """Bulk pause keys by product"""
         try:
             # Use ServiceContainer to avoid circular imports
-            product_service = get_service('product_service')
+            product_service = self._get_product_service()
             # get_product now raises exceptions
             product = product_service.get_product(user, product_id)
 
@@ -437,7 +528,7 @@ class KeyBulkOperationsService:
         """Bulk resume keys by product"""
         try:
             # Use ServiceContainer to avoid circular imports
-            product_service = get_service('product_service')
+            product_service = self._get_product_service()
             # get_product now raises exceptions
             product = product_service.get_product(user, product_id)
 
@@ -460,7 +551,7 @@ class KeyBulkOperationsService:
         """Bulk reset keys by product"""
         try:
             # Use ServiceContainer to avoid circular imports
-            product_service = get_service('product_service')
+            product_service = self._get_product_service()
             # get_product now raises exceptions
             product = product_service.get_product(user, product_id)
 
@@ -483,7 +574,7 @@ class KeyBulkOperationsService:
         """Bulk add hours to keys by product"""
         try:
             # Use ServiceContainer to avoid circular imports
-            product_service = get_service('product_service')
+            product_service = self._get_product_service()
             # get_product now raises exceptions
             product = product_service.get_product(user, product_id)
 

@@ -10,10 +10,27 @@ import logging
 from typing import Any, Dict, Optional
 
 from ...core.extensions import db
-from ...models.core import Project, User
+from ...models.core import (
+    Project,
+    User,
+    ProjectAppearanceSettings,
+    ProjectBackupSettings,
+    ProjectChatSettings,
+    ProjectEncryptionKeys,
+    ProjectEncryptionSettings,
+    ProjectInviteSettings,
+    ProjectOfflineAuthSettings,
+    ProjectSecuritySettings,
+    ProjectSystemSettings,
+    ProjectSettings,
+)
 from ...utils.service_exceptions import ValidationError, NotFoundError, ConflictError, ServiceError
-from ...utils.service_helpers import get_service
 
+# Type hints for dependencies (imported here to avoid circular imports)
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from ...services.activity.activity_service import ActivityService
+    from ...services.security.security_rules_init import SecurityRulesInitService
 
 class ProjectCRUDService:
     """
@@ -22,8 +39,44 @@ class ProjectCRUDService:
     Single Responsibility: Create, update, and delete projects.
     """
 
-    def __init__(self, logger=None):
+    def __init__(
+        self,
+        activity_service: 'ActivityService' = None,
+        security_rules_init_service: 'SecurityRulesInitService' = None,
+        logger=None
+    ):
+        """
+        Initialize ProjectCRUDService with explicit dependencies.
+        
+        Args:
+            activity_service: Service for logging activities
+            security_rules_init_service: Service for initializing security rules
+            logger: Optional logger instance
+        """
         self.logger = logger or logging.getLogger(__name__)
+        
+        # Store dependencies explicitly
+        self._activity_service = activity_service
+        self._security_rules_init_service = security_rules_init_service
+    
+    def _get_activity_service(self):
+        """Get activity service (lazy loading for backward compatibility)"""
+        if self._activity_service is None:
+            from ...utils.service_helpers import get_service
+            self._activity_service = get_service('activity_service')
+        return self._activity_service
+    
+    def _get_security_rules_init_service(self):
+        """Get security rules init service (lazy loading for backward compatibility)"""
+        if self._security_rules_init_service is None:
+            from ...utils.service_helpers import get_service
+            self._security_rules_init_service = get_service('security_rules_init_service')
+        return self._security_rules_init_service
+    
+    def _get_tier_limits_service(self):
+        """Get tier limits service (lazy loading for backward compatibility)"""
+        from ...utils.service_helpers import get_service
+        return get_service('tier_limits_service')
 
     def _find_project_by_id_or_unique_id(self, project_identifier):
         """
@@ -50,7 +103,7 @@ class ProjectCRUDService:
         return project
 
     def create_project(
-        self, user_id: int, name: str, description: str = "", ip_address: str = None, user_agent: str = None
+        self, user_id: int, name: str, description: str = "", ip_address: str = None, user_agent: str = None, subscription_status: str = "free"
     ) -> Project:
         """
         Create a new project with all business logic
@@ -61,6 +114,7 @@ class ProjectCRUDService:
             description: Project description
             ip_address: IP address for activity logging
             user_agent: User agent for activity logging
+            subscription_status: Subscription tier ("free" or "pro"), defaults to "free"
 
         Returns:
             Project object
@@ -86,22 +140,40 @@ class ProjectCRUDService:
             if existing_project:
                 raise ConflictError("Project with this name already exists", resource_type="project")
 
+            # Set storage limit based on tier
+            if subscription_status == "free":
+                storage_limit_bytes = 500 * (1024 ** 2)  # 500 MB for free tier
+                subscription_expires_at = None  # Free tier doesn't expire
+            else:
+                # Pro tier - default 10 GB (or use project's default)
+                storage_limit_bytes = 10 * (1024 ** 3)  # 10 GB for pro tier
+                subscription_expires_at = datetime.utcnow() + timedelta(days=30)  # 30 days trial for pro
+            
             project = Project(
                 name=name,
                 description=description.strip(),
                 admin_id=user.id,
                 status="active",
-                subscription_status="trial",
-                subscription_expires_at=datetime.utcnow() + timedelta(days=30),
-                is_active=True,
-                storage_limit_gb=10,
+                subscription_status=subscription_status,
+                subscription_expires_at=subscription_expires_at,
+                storage_limit=storage_limit_bytes,
             )
 
             db.session.add(project)
+            db.session.flush()
+            
+            # Enforce storage limit for free tier only (double-check)
+            if subscription_status == "free":
+                try:
+                    tier_limits_service = self._get_tier_limits_service()
+                    tier_limits_service.enforce_storage_limit(project)
+                except Exception as e:
+                    self.logger.warning(f"Failed to enforce storage limit for project {project.id}: {e}")
+            
             db.session.commit()
 
             try:
-                activity_service = get_service('activity_service')
+                activity_service = self._get_activity_service()
                 activity_service.log_activity(
                     user,
                     "project_created",
@@ -114,7 +186,7 @@ class ProjectCRUDService:
 
             # Initialize default security rules for the project
             try:
-                security_rules_init_service = get_service('security_rules_init_service')
+                security_rules_init_service = self._get_security_rules_init_service()
                 security_rules_init_service.initialize_default_rules(project.id, user_id)
                 self.logger.info(f"Initialized default security rules for project {project.id}")
             except Exception as e:
@@ -225,7 +297,7 @@ class ProjectCRUDService:
             db.session.commit()
 
             try:
-                activity_service = get_service('activity_service')
+                activity_service = self._get_activity_service()
                 activity_service.log_activity(
                     user,
                     "project_updated",
@@ -293,7 +365,7 @@ class ProjectCRUDService:
 
             # Delete related data (cascade will handle most, but we log activity first)
             try:
-                activity_service = get_service('activity_service')
+                activity_service = self._get_activity_service()
                 activity_service.log_activity(
                     user,
                     "project_deleted",
@@ -303,6 +375,27 @@ class ProjectCRUDService:
                 )
             except Exception as e:
                 self.logger.warning(f"Failed to log project deletion activity: {e}")
+
+            # Explicitly delete all related settings and encryption keys to avoid SQLAlchemy trying to set project_id to None
+            # This prevents IntegrityError when project_id has NOT NULL constraint
+            # SQLAlchemy may try to update these records before cascade deletion, which fails with NOT NULL
+            settings_models = [
+                ProjectAppearanceSettings,
+                ProjectBackupSettings,
+                ProjectChatSettings,
+                ProjectEncryptionSettings,
+                ProjectEncryptionKeys,  # Must be deleted explicitly to avoid NOT NULL constraint violation
+                ProjectInviteSettings,
+                ProjectOfflineAuthSettings,
+                ProjectSecuritySettings,
+                ProjectSystemSettings,
+                ProjectSettings,  # Deprecated but may still exist
+            ]
+            
+            for settings_model in settings_models:
+                settings = settings_model.query.filter_by(project_id=project_id_int).first()
+                if settings:
+                    db.session.delete(settings)
 
             db.session.delete(project)
             db.session.commit()

@@ -25,12 +25,35 @@ from .connect_orchestrator import ConnectOrchestrator
 from .key_lookup_service import KeyLookupService
 from .request_validation_service import RequestValidationService
 
+# Type hints for dependencies (imported here to avoid circular imports)
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from ...services.auth.challenge_service import ChallengeService
+    from ...services.auth.auth_service import AuthService
+
 logger = logging.getLogger(__name__)
 
 class ConnectService:
     """Service for handling connect endpoint business logic"""
 
-    def __init__(self):
+    def __init__(
+        self,
+        challenge_service: 'ChallengeService' = None,
+        auth_service: 'AuthService' = None,
+        logger=None
+    ):
+        """
+        Initialize ConnectService with explicit dependencies.
+        
+        Args:
+            challenge_service: Service for challenge operations
+            auth_service: Service for authentication operations
+            logger: Optional logger instance
+        """
+        if logger:
+            self.logger = logger
+        else:
+            self.logger = logging.getLogger(__name__)
 
         self.orchestrator = ConnectOrchestrator()
 
@@ -42,6 +65,24 @@ class ConnectService:
         self.key_lookup = KeyLookupService()
         self.request_validator = RequestValidationService()
         self.challenge_validator = ChallengeValidationService()
+        
+        # Store dependencies explicitly
+        self._challenge_service = challenge_service
+        self._auth_service = auth_service
+    
+    def _get_challenge_service(self):
+        """Get challenge service (lazy loading for backward compatibility)"""
+        if self._challenge_service is None:
+            from ...utils.service_helpers import get_service
+            self._challenge_service = get_service('challenge_service')
+        return self._challenge_service
+    
+    def _get_auth_service(self):
+        """Get auth service (lazy loading for backward compatibility)"""
+        if self._auth_service is None:
+            from ...utils.service_helpers import get_service
+            self._auth_service = get_service('auth_service')
+        return self._auth_service
 
     def generate_offline_ticket(
         self,
@@ -151,9 +192,8 @@ class ConnectService:
                     "message": "Your device fingerprint has been blocked",
                 }, 403
 
-            challenge_service = get_service('challenge_service')
+            challenge_service = self._get_challenge_service()
             enhanced_challenge = challenge_service.create_enhanced_challenge(user_key, fingerprint)
-            challenge_service = get_service('challenge_service')
             logger.debug(
                 f"ENHANCED_CHALLENGE_GENERATED successfully, keys={list(enhanced_challenge.keys())}"
             )
@@ -269,12 +309,8 @@ class ConnectService:
 
             elif username and password:
 
-                from ...utils.service_helpers import get_service
-
-                auth_service = get_service('auth_service')
-                auth_service = get_service('auth_service')
-                auth_service = get_service('auth_service')
-                auth_service = get_service('auth_service')
+                # Use explicit dependency injection
+                auth_service = self._get_auth_service()
                 response_data, error_code, error_message = auth_service.process_simple_login(
                     username, password, ip, user_agent
                 )

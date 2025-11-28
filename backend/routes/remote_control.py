@@ -41,6 +41,14 @@ remote_control_bp = Blueprint("remote_control", __name__)
 def get_categories(project_id=None):
     """Get all remote control categories for the current project and product/product"""
     try:
+        # Check tier limits
+        if project_id:
+            project = Project.query.get(project_id)
+            if project:
+                tier_limits_service = get_service('tier_limits_service')
+                enabled, error_msg = tier_limits_service.check_remote_control_enabled(project)
+                if not enabled:
+                    return jsonify({"error": error_msg}), 403
 
         if project_id is None:
 
@@ -97,6 +105,15 @@ def create_category(current_user, project_id=None, validated_data=None):
     """Create a new remote control category"""
     if not validated_data:
         return jsonify({"error": "No data provided"}), 400
+
+    # Check tier limits
+    if project_id:
+        project = Project.query.get(project_id)
+        if project:
+            tier_limits_service = get_service('tier_limits_service')
+            enabled, error_msg = tier_limits_service.check_remote_control_enabled(project)
+            if not enabled:
+                return jsonify({"error": error_msg}), 403
 
     name = validated_data.name
     product_id = validated_data.product_id

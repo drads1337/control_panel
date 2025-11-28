@@ -21,6 +21,7 @@ from ..middleware import ActivityLoggerMiddleware
 from ..utils.db_replica import init_replica_binds
 from ..utils.monitoring import setup_monitoring_endpoints
 from ..utils.query_isolation import init_query_isolation
+from ..utils.postgresql_rls import init_postgresql_rls
 from ..utils.slow_query_monitor import setup_slow_query_monitoring
 from ..utils.storage_manager import init_storage_manager
 from ..utils.structured_logging import get_logger, setup_structured_logging
@@ -258,6 +259,10 @@ def create_app() -> Flask:
     # Initialize automatic query isolation for project-based data separation
     # This must be done after db.init_app() to ensure SQLAlchemy is ready
     init_query_isolation(app)
+    
+    # Initialize PostgreSQL Row Level Security (RLS) support
+    # This provides database-level security in addition to application-level filtering
+    init_postgresql_rls(app)
 
     app.config["JWT_SECRET_KEY"] = Config.JWT_SECRET_KEY
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = False

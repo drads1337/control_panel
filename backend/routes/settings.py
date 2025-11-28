@@ -223,11 +223,12 @@ def get_or_create_project_keys(project_id):
 
         keys = ProjectEncryptionKeys(
             project_id=project_id,
-            aes_key=aes_key,
             public_key_cert=public_pem,
             private_key_encrypted=private_pem,
             key_metadata=json.dumps({"algorithm": "RSA", "key_size": 2048, "aes_key_size": 256}),
         )
+        # Use set_aes_key() to automatically encrypt with Envelope Encryption if available
+        keys.set_aes_key(aes_key, use_envelope=True)
         db.session.add(keys)
         db.session.commit()
 
@@ -248,10 +249,6 @@ def get_settings(current_user=None, project_id=None):
     # Get project_id from parameter (passed by middleware)
     logger.info("Getting settings", user_id=user_id, project_id=project_id)
 
-    from ..utils.service_helpers import get_service
-    settings_service = get_service('settings_service')
-
-    settings_service = get_service('settings_service')
     settings_service = get_service('settings_service')
     result = settings_service.get_settings_cached(user_id=user_id, project_id=project_id)
 
@@ -555,7 +552,6 @@ def update_settings():
     db.session.commit()
 
     try:
-        from ..utils.service_helpers import get_service
         settings_service = get_service('settings_service')
 
         settings_service.invalidate_settings_cache(user_id)
@@ -601,10 +597,6 @@ def regenerate_master_key():
     encryption_settings.project_master_key = secrets.token_hex(32)
 
     db.session.commit()
-
-    from ..utils.service_helpers import get_service
-    cache_service = get_service('cache_service')
-    cache_service = get_service('cache_service')
 
     cache_service = get_service('cache_service')
     cache_service.invalidate_user_cache(user_id)
@@ -658,7 +650,9 @@ def regenerate_keys(validated_data=None):
     keys = get_or_create_project_keys(project_id)
 
     if action in ["aes", "all"]:
-        keys.aes_key = secrets.token_hex(32)
+        new_aes_key = secrets.token_hex(32)
+        # Use set_aes_key() to automatically encrypt with Envelope Encryption if available
+        keys.set_aes_key(new_aes_key, use_envelope=True)
 
     if action in ["rsa", "all"]:
         private_key = rsa.generate_private_key(
@@ -682,9 +676,7 @@ def regenerate_keys(validated_data=None):
 
     db.session.commit()
 
-    from ..utils.service_helpers import get_service
     cache_service = get_service('cache_service')
-
     cache_service.invalidate_user_cache(user_id)
 
     return jsonify(
@@ -734,19 +726,14 @@ def update_keys(validated_data=None):
     keys = get_or_create_project_keys(project_id)
 
     if validated_data.aes_key:
-        keys.aes_key = validated_data.aes_key
+        # Use set_aes_key() to automatically encrypt with Envelope Encryption if available
+        keys.set_aes_key(validated_data.aes_key, use_envelope=True)
 
     if validated_data.public_key:
         public_key = validated_data.public_key.strip()
         if not public_key.startswith("-----BEGIN PUBLIC KEY-----"):
             return jsonify({"error": "Invalid public key format"}), 400
         keys.public_key_cert = public_key
-
-    if "private_key" in data:
-        private_key = data["private_key"].strip()
-        if not private_key.startswith("-----BEGIN PRIVATE KEY-----"):
-            return jsonify({"error": "Invalid private key format"}), 400
-        keys.private_key_encrypted = private_key
 
     db.session.commit()
 
@@ -940,7 +927,7 @@ def get_blocked_ips():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-
+        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 

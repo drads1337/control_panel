@@ -12,6 +12,11 @@ from ...utils.fulltext_search import fulltext_search_filter
 from ...utils.ip_utils import get_location_from_ip
 from ...utils.structured_logging import get_logger
 
+# Type hints for dependencies (imported here to avoid circular imports)
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from ...services.analytics.analytics_buffer_service import AnalyticsBufferService
+
 class ActivityService:
     """
     Service for managing user activity logging with write-behind buffering.
@@ -23,11 +28,32 @@ class ActivityService:
     as recommended in the technical audit.
     """
 
-    def __init__(self):
-        self.logger = get_logger("activity_service")
+    def __init__(
+        self,
+        analytics_buffer_service: 'AnalyticsBufferService' = None,
+        logger=None
+    ):
+        """
+        Initialize ActivityService with explicit dependencies.
+        
+        Args:
+            analytics_buffer_service: Service for buffering analytics writes
+            logger: Optional logger instance
+        """
+        self.logger = logger or get_logger("activity_service")
         # OPTIMIZATION: Use buffer mode by default if enabled
         # This prevents database overload from activity logs
         self._use_buffer_by_default = True
+        
+        # Store dependencies explicitly
+        self._analytics_buffer_service = analytics_buffer_service
+    
+    def _get_analytics_buffer_service(self):
+        """Get analytics buffer service (lazy loading for backward compatibility)"""
+        if self._analytics_buffer_service is None:
+            from ...utils.service_helpers import get_service
+            self._analytics_buffer_service = get_service('analytics_buffer_service')
+        return self._analytics_buffer_service
 
     # REMOVED: _check_system_load() method
     # OPTIMIZATION: Removed adaptive load checking - use buffer by default instead.
@@ -99,7 +125,7 @@ class ActivityService:
 
             # Default: use buffering to reduce database write pressure
             try:
-                analytics_buffer_service = get_service('analytics_buffer_service')
+                analytics_buffer_service = self._get_analytics_buffer_service()
                 success = analytics_buffer_service.buffer_user_activity(
                     user_id=user.id,
                     action=action,

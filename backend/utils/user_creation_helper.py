@@ -109,6 +109,30 @@ def create_user_with_roles_and_products(
         if not can_manage_all:
             project_id = project_id or current_user.project_id
 
+        # Check tier limits for users
+        if project_id:
+            from ..models.core import Project
+            from ..utils.service_helpers import get_service
+            
+            project = Project.query.get(project_id)
+            if project:
+                tier_limits_service = get_service('tier_limits_service')
+                can_create, error_msg = tier_limits_service.check_user_limit(project)
+                if not can_create:
+                    raise BusinessLogicError(error_msg)
+                
+                # Check employee limit if creating employee
+                if rbac_role_ids:
+                    from ..models.rbac import Role
+                    employee_role = Role.query.filter_by(
+                        project_id=project_id,
+                        name="employee"
+                    ).first()
+                    if employee_role and employee_role.id in rbac_role_ids:
+                        can_create_employee, error_msg = tier_limits_service.check_employee_limit(project)
+                        if not can_create_employee:
+                            raise BusinessLogicError(error_msg)
+
         # Validate roles
         if rbac_role_ids and project_id:
             from ..models.rbac import Role

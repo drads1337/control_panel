@@ -255,6 +255,16 @@ def create_loader(validated_data=None):
         if not user.project_id:
             return jsonify({"error": "No project associated"}), 400
 
+        # Check tier limits
+        from ..models.core import Project
+        from ..utils.service_helpers import get_service
+        
+        project = Project.query.get(user.project_id)
+        if project:
+            tier_limits_service = get_service('tier_limits_service')
+            can_create, error_msg = tier_limits_service.check_agent_limit(project)
+            if not can_create:
+                return jsonify({"error": error_msg, "success": False}), 400
 
         existing_agent = Agent.query.filter_by(
             name=validated_data.name, project_id=user.project_id

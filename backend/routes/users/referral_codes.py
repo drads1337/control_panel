@@ -142,7 +142,7 @@ def create_refcode(current_user, project_id=None, validated_data=None):
         # Generate code if not provided
         if not code:
             def generate_code():
-                return "".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(12))
+                return "".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(10))
 
             code = generate_code()
             while ReferralCode.query.filter_by(code=code).first():

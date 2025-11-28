@@ -720,21 +720,37 @@ def encrypt_data_with_project_key(data: dict, project_id: int, use_gcm: bool = T
     Always uses AES-256-GCM (use_gcm parameter is kept for backward compatibility but ignored).
     First tries AES Key from ProjectEncryptionKeys (what clients use),
     then falls back to project_master_key from ProjectEncryptionSettings.
+    
+    SECURITY: Now supports Envelope Encryption - automatically uses encrypted DEK if available.
     """
     import logging
 
     from ..models.core import ProjectEncryptionKeys
+    from ..utils.envelope_encryption import get_project_key_safe
 
     try:
         encryption_keys = ProjectEncryptionKeys.query.filter_by(project_id=project_id).first()
-        if encryption_keys and encryption_keys.aes_key:
-            logging.info(
-                f"[ENCRYPT_PROJECT] Using AES Key from ProjectEncryptionKeys for project {project_id}"
-            )
+        if encryption_keys:
+            # Use new method that supports Envelope Encryption
+            try:
+                project_aes_key = encryption_keys.get_aes_key()
+                logging.info(
+                    f"[ENCRYPT_PROJECT] Using AES Key from ProjectEncryptionKeys for project {project_id} "
+                    f"(Envelope Encryption: {bool(encryption_keys.aes_key_encrypted)})"
+                )
 
-            return MasterKeyManager.encrypt_with_master_key_legacy(
-                json.dumps(data), encryption_keys.aes_key
-            )
+                return MasterKeyManager.encrypt_with_master_key_legacy(
+                    json.dumps(data), project_aes_key
+                )
+            except ValueError:
+                # Fallback to old method if get_aes_key() fails
+                if encryption_keys.aes_key:
+                    logging.info(
+                        f"[ENCRYPT_PROJECT] Using legacy AES Key from ProjectEncryptionKeys for project {project_id}"
+                    )
+                    return MasterKeyManager.encrypt_with_master_key_legacy(
+                        json.dumps(data), encryption_keys.aes_key
+                    )
     except Exception as aes_key_error:
         logging.debug(
             f"[ENCRYPT_PROJECT] AES Key from ProjectEncryptionKeys failed: {type(aes_key_error).__name__}: {str(aes_key_error)[:100]}..."
@@ -792,31 +808,40 @@ def decrypt_data_with_project_key(
     project_key = None
     key_source = None
     
-    if encryption_keys and encryption_keys.aes_key:
-        aes_key = encryption_keys.aes_key.strip()
-        
-        # Validate AES key format (must be 64 hex characters = 32 bytes)
-        if len(aes_key) != 64:
-            raise ValueError(
-                f"Invalid AES key format for project {project_id}: "
-                f"expected 64 hex characters, got {len(aes_key)}"
-            )
-        
-        # Validate that it's valid hex
+    if encryption_keys:
         try:
-            key_bytes_test = bytes.fromhex(aes_key)
-            if len(key_bytes_test) != 32:
-                raise ValueError(
-                    f"Invalid AES key format for project {project_id}: "
-                    f"key must decode to 32 bytes"
-                )
-        except ValueError as hex_error:
-            raise ValueError(
-                f"Invalid AES key format for project {project_id}: {str(hex_error)}"
-            )
-        
-        project_key = aes_key
-        key_source = "ProjectEncryptionKeys.aes_key"
+            # Use new method that supports Envelope Encryption
+            project_key = encryption_keys.get_aes_key()
+            key_source = "ProjectEncryptionKeys.aes_key (Envelope Encryption)" if encryption_keys.aes_key_encrypted else "ProjectEncryptionKeys.aes_key"
+        except ValueError:
+            # Fallback to old method if get_aes_key() fails
+            if encryption_keys.aes_key:
+                aes_key = encryption_keys.aes_key.strip()
+                
+                # Validate AES key format (must be 64 hex characters = 32 bytes)
+                if len(aes_key) != 64:
+                    raise ValueError(
+                        f"Invalid AES key format for project {project_id}: "
+                        f"expected 64 hex characters, got {len(aes_key)}"
+                    )
+                
+                # Validate that it's valid hex
+                try:
+                    key_bytes_test = bytes.fromhex(aes_key)
+                    if len(key_bytes_test) != 32:
+                        raise ValueError(
+                            f"Invalid AES key format for project {project_id}: "
+                            f"key must decode to 32 bytes"
+                        )
+                except ValueError as hex_error:
+                    raise ValueError(
+                        f"Invalid AES key format for project {project_id}: {str(hex_error)}"
+                    )
+                
+                project_key = aes_key
+                key_source = "ProjectEncryptionKeys.aes_key (legacy)"
+            else:
+                project_key = None
     else:
         # Fallback to project_master_key from ProjectEncryptionSettings
         from ..utils.project_settings_migration import ProjectSettingsHelper

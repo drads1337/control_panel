@@ -15,6 +15,6 @@ def main():
     app = create_app()
     debug_mode = os.getenv("FLASK_DEBUG", "1") == "1"
     port = int(os.getenv("PORT", "5001"))
-    app.run(debug=debug_mode, host="0.0.0.0", port=port, use_reloader=False)
+    app.run(debug=debug_mode, host="0.0.0.0", port=port, use_reloader=debug_mode)
 if __name__ == "__main__":
-    main()
+    main()

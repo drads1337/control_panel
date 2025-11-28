@@ -55,7 +55,7 @@ class UserInviteService:
                 return None, f'Invalid role. Allowed: {", ".join(allowed_roles)}'
 
             def generate_invite_code():
-                return "".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(12))
+                return "".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(10))
 
             invite_code = generate_invite_code()
 

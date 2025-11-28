@@ -11,6 +11,11 @@ from flask import current_app, jsonify, request
 from pydantic import BaseModel, ValidationError
 from werkzeug.exceptions import BadRequest
 
+try:
+    from ..utils.service_exceptions import ServiceError
+except ImportError:
+    ServiceError = None
+
 logger = logging.getLogger(__name__)
 
 def _sanitize_validation_errors(errors: list) -> list:
@@ -147,6 +152,10 @@ class ValidationMiddleware:
                         400,
                     )
                 except Exception as e:
+                    # Let ServiceError exceptions pass through to be handled by global error handler
+                    if ServiceError and isinstance(e, ServiceError):
+                        raise
+                    
                     import traceback
                     error_traceback = traceback.format_exc()
                     logger.error(f"Unexpected error in validation middleware: {str(e)}\n{error_traceback}")
@@ -215,6 +224,10 @@ class ValidationMiddleware:
                     return func(*args, **kwargs)
 
                 except Exception as e:
+                    # Let ServiceError exceptions pass through to be handled by global error handler
+                    if ServiceError and isinstance(e, ServiceError):
+                        raise
+                    
                     import traceback
                     error_traceback = traceback.format_exc()
                     logger.error(f"Unexpected error in query validation middleware: {str(e)}\n{error_traceback}")
@@ -278,6 +291,10 @@ class ValidationMiddleware:
                     return func(*args, **kwargs)
 
                 except Exception as e:
+                    # Let ServiceError exceptions pass through to be handled by global error handler
+                    if ServiceError and isinstance(e, ServiceError):
+                        raise
+                    
                     import traceback
                     error_traceback = traceback.format_exc()
                     logger.error(f"Unexpected error in form validation middleware: {str(e)}\n{error_traceback}")

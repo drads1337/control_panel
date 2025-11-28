@@ -899,6 +899,14 @@ def require_project_isolation(f):
                 g.project_id = owner_project_id
                 g.current_user = user
                 g.current_project = Project.query.get(owner_project_id) if owner_project_id else None
+                
+                # Set PostgreSQL RLS context for database-level security
+                if owner_project_id is not None:
+                    try:
+                        from ..utils.postgresql_rls import set_project_context
+                        set_project_context(project_id=owner_project_id)
+                    except Exception as e:
+                        logger.debug(f"Could not set PostgreSQL RLS context: {e}")
 
                 # Always pass parameters via kwargs for explicit dependency injection
                 sig = inspect.signature(f)
@@ -930,6 +938,14 @@ def require_project_isolation(f):
             g.project_id = user.project_id
             g.current_user = user
             g.current_project = project
+            
+            # Set PostgreSQL RLS context for database-level security
+            try:
+                from ..utils.postgresql_rls import set_project_context
+                set_project_context(project_id=user.project_id)
+            except Exception as e:
+                # Log but don't break - RLS may not be enabled yet
+                logger.debug(f"Could not set PostgreSQL RLS context: {e}")
 
             # Always pass parameters via kwargs for explicit dependency injection
             sig = inspect.signature(f)

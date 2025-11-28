@@ -15,14 +15,50 @@ from ...models.products import Product
 from ...models.keys import Key, ReferralCode
 from ...models.rbac import Role, UserRole
 from ...utils.rbac_utils import RBACManager
-from ...utils.service_helpers import get_service
+
+# Type hints for dependencies (imported here to avoid circular imports)
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from ...services.activity.activity_service import ActivityService
+    from ...services.projects.project_relationships_service import ProjectRelationshipsService
 
 class AdminService:
     """Service for handling administrative operations"""
 
-    def __init__(self):
-        self.logger = logging.getLogger(__name__)
+    def __init__(
+        self,
+        activity_service: 'ActivityService' = None,
+        project_relationships_service: 'ProjectRelationshipsService' = None,
+        logger=None
+    ):
+        """
+        Initialize AdminService with explicit dependencies.
+        
+        Args:
+            activity_service: Service for logging activities
+            project_relationships_service: Service for project relationships
+            logger: Optional logger instance
+        """
+        self.logger = logger or logging.getLogger(__name__)
         self.grace_period_days = 14
+        
+        # Store dependencies explicitly
+        self._activity_service = activity_service
+        self._project_relationships_service = project_relationships_service
+    
+    def _get_activity_service(self):
+        """Get activity service (lazy loading for backward compatibility)"""
+        if self._activity_service is None:
+            from ...utils.service_helpers import get_service
+            self._activity_service = get_service('activity_service')
+        return self._activity_service
+    
+    def _get_project_relationships_service(self):
+        """Get project relationships service (lazy loading for backward compatibility)"""
+        if self._project_relationships_service is None:
+            from ...utils.service_helpers import get_service
+            self._project_relationships_service = get_service('project_relationships_service')
+        return self._project_relationships_service
 
     def deactivate_expired_projects(self, admin_user: User) -> Tuple[int, int, Optional[str]]:
         """
@@ -56,7 +92,7 @@ class AdminService:
                 deactivated_count += 1
 
                 try:
-                    activity_service = get_service('activity_service')
+                    activity_service = self._get_activity_service()
                     activity_service.log_activity(
                         admin_user,
                         "project_deactivated",
@@ -233,8 +269,22 @@ class AdminService:
                 },
                 "referral_codes": {
                     "total": ReferralCode.query.count(),
-                    "active": ReferralCode.query.filter_by(is_active=True).count(),
-                    "inactive": ReferralCode.query.filter_by(is_active=False).count(),
+                    "active": ReferralCode.query.filter(
+                        ReferralCode.used == False,
+                        db.or_(
+                            ReferralCode.expires_at.is_(None),
+                            ReferralCode.expires_at > datetime.utcnow()
+                        )
+                    ).count(),
+                    "inactive": ReferralCode.query.filter(
+                        db.or_(
+                            ReferralCode.used == True,
+                            db.and_(
+                                ReferralCode.expires_at.isnot(None),
+                                ReferralCode.expires_at <= datetime.utcnow()
+                            )
+                        )
+                    ).count(),
                 },
             }
 
@@ -264,8 +314,8 @@ class AdminService:
                 Project.status.in_(["active", "expired"]),
             ).all()
 
-            from ...utils.service_helpers import get_service
-            project_relationships_service = get_service('project_relationships_service')
+            # Use explicit dependency injection
+            project_relationships_service = self._get_project_relationships_service()
 
             projects_info = []
             for project in expired_projects:

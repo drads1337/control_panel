@@ -13,7 +13,13 @@ import logging
 from typing import Any, Dict, Optional
 
 from ...models.core import Project
-from ...utils.service_helpers import get_service
+
+# Type hints for dependencies (imported here to avoid circular imports)
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from ...services.projects.project_crud_service import ProjectCRUDService
+    from ...services.projects.project_cache_service import ProjectCacheService
+    from ...services.projects.project_invite_service import ProjectInviteService
 
 class ProjectService:
     """
@@ -23,10 +29,56 @@ class ProjectService:
     Delegates to specialized services following SRP principle.
     """
 
-    def __init__(self, cache_service=None, logger=None):
+    def __init__(
+        self,
+        project_crud_service: 'ProjectCRUDService' = None,
+        project_cache_service: 'ProjectCacheService' = None,
+        project_invite_service: 'ProjectInviteService' = None,
+        cache_service=None,
+        logger=None
+    ):
+        """
+        Initialize ProjectService with explicit dependencies.
+        
+        Args:
+            project_crud_service: Service for project CRUD operations
+            project_cache_service: Service for project caching
+            project_invite_service: Service for project invite codes
+            cache_service: Legacy cache service (for backward compatibility)
+            logger: Optional logger instance
+        """
         self.logger = logger or logging.getLogger(__name__)
         # Store cache_service for backward compatibility, but use specialized services
         self.cache_service = cache_service
+        
+        # Store dependencies explicitly
+        self._project_crud_service = project_crud_service
+        self._project_cache_service = project_cache_service
+        self._project_invite_service = project_invite_service
+    
+    def _get_project_crud_service(self):
+        """Get project CRUD service (lazy loading for backward compatibility)"""
+        if self._project_crud_service is not None:
+            return self._project_crud_service
+        from ...utils.service_helpers import get_service
+        self._project_crud_service = get_service('project_crud_service')
+        return self._project_crud_service
+    
+    def _get_project_cache_service(self):
+        """Get project cache service (lazy loading for backward compatibility)"""
+        if self._project_cache_service is not None:
+            return self._project_cache_service
+        from ...utils.service_helpers import get_service
+        self._project_cache_service = get_service('project_cache_service')
+        return self._project_cache_service
+    
+    def _get_project_invite_service(self):
+        """Get project invite service (lazy loading for backward compatibility)"""
+        if self._project_invite_service is not None:
+            return self._project_invite_service
+        from ...utils.service_helpers import get_service
+        self._project_invite_service = get_service('project_invite_service')
+        return self._project_invite_service
 
     def _find_project_by_id_or_unique_id(self, project_identifier):
         """
@@ -40,7 +92,7 @@ class ProjectService:
         Returns:
             Project object or None if not found
         """
-        project_crud_service = get_service('project_crud_service')
+        project_crud_service = self._get_project_crud_service()
         return project_crud_service._find_project_by_id_or_unique_id(project_identifier)
 
     def get_projects_cached(
@@ -51,7 +103,7 @@ class ProjectService:
         
         Delegates to ProjectCacheService (SRP principle).
         """
-        project_cache_service = get_service('project_cache_service')
+        project_cache_service = self._get_project_cache_service()
         return project_cache_service.get_projects_cached(user_id, page, per_page, search)
 
     def get_project_cached(self, project_id: int, user_id: int) -> Dict[str, Any]:
@@ -60,7 +112,7 @@ class ProjectService:
         
         Delegates to ProjectCacheService (SRP principle).
         """
-        project_cache_service = get_service('project_cache_service')
+        project_cache_service = self._get_project_cache_service()
         return project_cache_service.get_project_cached(project_id, user_id)
 
     def get_project_stats_cached(self, project_id: int, user_id: int) -> Dict[str, Any]:
@@ -69,7 +121,7 @@ class ProjectService:
         
         Delegates to ProjectCacheService (SRP principle).
         """
-        project_cache_service = get_service('project_cache_service')
+        project_cache_service = self._get_project_cache_service()
         return project_cache_service.get_project_stats_cached(project_id, user_id)
 
     def invalidate_project_cache(self, project_id: int) -> bool:
@@ -78,7 +130,7 @@ class ProjectService:
         
         Delegates to ProjectCacheService (SRP principle).
         """
-        project_cache_service = get_service('project_cache_service')
+        project_cache_service = self._get_project_cache_service()
         return project_cache_service.invalidate_project_cache(project_id)
     def create_project(
         self, user_id: int, name: str, description: str = "", ip_address: str = None, user_agent: str = None
@@ -105,12 +157,12 @@ class ProjectService:
             ConflictError: If project with this name already exists
             ServiceError: If database operation fails
         """
-        project_crud_service = get_service('project_crud_service')
+        project_crud_service = self._get_project_crud_service()
         project = project_crud_service.create_project(user_id, name, description, ip_address, user_agent)
         
         # Invalidate cache after creation
         try:
-            project_cache_service = get_service('project_cache_service')
+            project_cache_service = self._get_project_cache_service()
             project_cache_service.invalidate_project_cache(project.id)
         except Exception as e:
             self.logger.warning(f"Failed to invalidate cache after project creation: {e}")
@@ -149,7 +201,7 @@ class ProjectService:
         Returns:
             Dictionary with updated project data or error
         """
-        project_crud_service = get_service('project_crud_service')
+        project_crud_service = self._get_project_crud_service()
         result = project_crud_service.update_project(
             project_id, user_id, name, description, status, subscription_status, storage_limit_gb, ip_address, user_agent
         )
@@ -184,7 +236,7 @@ class ProjectService:
         Returns:
             Dictionary with success message or error
         """
-        project_crud_service = get_service('project_crud_service')
+        project_crud_service = self._get_project_crud_service()
         result = project_crud_service.delete_project(project_id, user_id, ip_address, user_agent)
         
         # Invalidate cache after deletion
@@ -220,7 +272,7 @@ class ProjectService:
         Returns:
             Dictionary with invite code data or error
         """
-        project_invite_service = get_service('project_invite_service')
+        project_invite_service = self._get_project_invite_service()
         return project_invite_service.create_project_invite_code(user_id, None, expires_in_days)
 
     def delete_project_invite_code(
@@ -240,7 +292,7 @@ class ProjectService:
         Returns:
             Dictionary with success message or error
         """
-        project_invite_service = get_service('project_invite_service')
+        project_invite_service = self._get_project_invite_service()
         return project_invite_service.delete_project_invite_code(code_id, user_id)
 
     def get_project_invite_codes(self, user_id: int) -> Dict[str, Any]:
@@ -255,7 +307,7 @@ class ProjectService:
         Returns:
             Dictionary with list of invite codes or error
         """
-        project_invite_service = get_service('project_invite_service')
+        project_invite_service = self._get_project_invite_service()
         return project_invite_service.get_project_invite_codes(user_id)
 
     def get_latest_project_invite_code(self, user_id: int) -> Dict[str, Any]:
@@ -270,7 +322,7 @@ class ProjectService:
         Returns:
             Dictionary with latest invite code or error
         """
-        project_invite_service = get_service('project_invite_service')
+        project_invite_service = self._get_project_invite_service()
         return project_invite_service.get_latest_project_invite_code(user_id)
 
 # DEPRECATED: Global instance removed for DI pattern

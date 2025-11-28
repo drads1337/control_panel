@@ -160,15 +160,26 @@ class Project(db.Model):
         return project_relationships_service.get_admin_id(self.id)
 
 class ProjectEncryptionKeys(db.Model):
-    """Model for storing unique encryption keys for each project"""
-
+    """
+    Model for storing unique encryption keys for each project.
+    
+    SECURITY: Supports Envelope Encryption (DEK/KEK pattern):
+    - aes_key: Legacy plain-text key (for backward compatibility)
+    - aes_key_encrypted: New encrypted DEK (encrypted with KEK from env)
+    
+    When both are present, encrypted key takes precedence.
+    """
     id = db.Column(db.Integer, primary_key=True)
     project_id = db.Column(
         db.Integer, db.ForeignKey("project.id", ondelete="CASCADE"), nullable=False, unique=True
     )
     project = db.relationship("Project", backref="encryption_keys")
 
-    aes_key = db.Column(db.Text, nullable=False)
+    # Legacy: Plain-text key (deprecated, kept for backward compatibility)
+    aes_key = db.Column(db.Text, nullable=True)
+    
+    # New: Encrypted DEK (encrypted with KEK from PROJECT_MASTER_KEY env)
+    aes_key_encrypted = db.Column(db.Text, nullable=True)
 
     public_key_cert = db.Column(db.Text, nullable=False)
 
@@ -177,6 +188,90 @@ class ProjectEncryptionKeys(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     key_metadata = db.Column(db.Text, nullable=True)
+
+    def get_aes_key(self) -> str:
+        """
+        Get decrypted AES key (DEK) for this project.
+        
+        Uses Envelope Encryption if available, falls back to plain key for backward compatibility.
+        
+        Returns:
+            AES key as hex string (64 characters)
+            
+        Raises:
+            ValueError: If no key is available
+        """
+        from ..utils.envelope_encryption import EnvelopeKeyManager
+        
+        # Try Envelope Encryption first (new secure method)
+        if self.aes_key_encrypted:
+            try:
+                if EnvelopeKeyManager.validate_kek_set():
+                    return EnvelopeKeyManager.decrypt_dek_string(self.aes_key_encrypted)
+                else:
+                    # KEK not set, but encrypted key exists - log warning
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(
+                        f"Encrypted key exists for project {self.project_id} but PROJECT_MASTER_KEY not set. "
+                        f"Falling back to plain key if available."
+                    )
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(
+                    f"Failed to decrypt DEK for project {self.project_id}: {e}. "
+                    f"Falling back to plain key if available."
+                )
+        
+        # Fallback to plain key (legacy behavior)
+        if self.aes_key:
+            return self.aes_key
+        
+        raise ValueError(f"No encryption key available for project {self.project_id}")
+    
+    def set_aes_key(self, plain_key: str, use_envelope: bool = True):
+        """
+        Set AES key for this project.
+        
+        By default, encrypts the key using Envelope Encryption (DEK/KEK).
+        Falls back to plain storage if KEK is not available.
+        
+        Args:
+            plain_key: Plain AES key as hex string (64 characters)
+            use_envelope: Whether to use Envelope Encryption (default: True)
+        """
+        from ..utils.envelope_encryption import EnvelopeKeyManager
+        
+        # Validate key format
+        if len(plain_key) != 64:
+            raise ValueError(f"AES key must be 64 hex characters (32 bytes), got {len(plain_key)}")
+        
+        try:
+            bytes.fromhex(plain_key)  # Validate hex format
+        except ValueError as e:
+            raise ValueError(f"Invalid AES key format: {e}") from e
+        
+        # Try Envelope Encryption first
+        if use_envelope and EnvelopeKeyManager.validate_kek_set():
+            try:
+                self.aes_key_encrypted = EnvelopeKeyManager.encrypt_dek_string(plain_key)
+                # Keep plain key for backward compatibility during migration period
+                # TODO: Remove after full migration
+                self.aes_key = plain_key
+                return
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(
+                    f"Failed to encrypt DEK for project {self.project_id}: {e}. "
+                    f"Falling back to plain storage."
+                )
+        
+        # Fallback to plain storage (legacy behavior)
+        self.aes_key = plain_key
+        # Clear encrypted key if we're using plain storage
+        self.aes_key_encrypted = None
 
     def __repr__(self):
         return f"<ProjectEncryptionKeys(project_id={self.project_id})>"

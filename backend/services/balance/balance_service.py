@@ -11,13 +11,49 @@ from typing import Any, Dict, List, Optional, Tuple
 from ...core.extensions import db
 from ...models.core import User
 from ...models.keys import TokenTransaction
-from ...utils.service_helpers import get_service
+
+# Type hints for dependencies (imported here to avoid circular imports)
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from ...services.rbac.rbac_service import RBACService
+    from ...services.activity.activity_service import ActivityService
 
 class BalanceService:
     """Service for handling balance management operations"""
 
-    def __init__(self, logger=None):
+    def __init__(
+        self,
+        rbac_service: 'RBACService' = None,
+        activity_service: 'ActivityService' = None,
+        logger=None
+    ):
+        """
+        Initialize BalanceService with explicit dependencies.
+        
+        Args:
+            rbac_service: Service for RBAC checks
+            activity_service: Service for logging activities
+            logger: Optional logger instance
+        """
         self.logger = logger or logging.getLogger(__name__)
+        
+        # Store dependencies explicitly
+        self._rbac_service = rbac_service
+        self._activity_service = activity_service
+    
+    def _get_rbac_service(self):
+        """Get RBAC service (lazy loading for backward compatibility)"""
+        if self._rbac_service is None:
+            from ...utils.service_helpers import get_service
+            self._rbac_service = get_service('rbac_service')
+        return self._rbac_service
+    
+    def _get_activity_service(self):
+        """Get activity service (lazy loading for backward compatibility)"""
+        if self._activity_service is None:
+            from ...utils.service_helpers import get_service
+            self._activity_service = get_service('activity_service')
+        return self._activity_service
 
     def topup_balance(
         self,
@@ -52,10 +88,9 @@ class BalanceService:
 
             # Check if current_user has billing permission and should pay from their balance
             from ...utils.rbac_utils import RBACManager
-            from ...utils.service_helpers import get_service
             
-            # Use ServiceContainer to avoid circular imports
-            rbac_service = get_service('rbac_service')
+            # Use explicit dependency injection
+            rbac_service = self._get_rbac_service()
             
             is_owner = RBACManager.is_owner(current_user)
             is_admin = RBACManager.is_admin(current_user)
@@ -101,7 +136,7 @@ class BalanceService:
             db.session.add(transaction)
             db.session.commit()
 
-            activity_service = get_service('activity_service')
+            activity_service = self._get_activity_service()
             activity_service.log_activity(
                 current_user,
                 "topup_balance",
@@ -178,7 +213,7 @@ class BalanceService:
                 db.session.commit()
 
             if commit:
-                activity_service = get_service('activity_service')
+                activity_service = self._get_activity_service()
                 activity_service.log_activity(
                     current_user,
                     "deduct_balance",
@@ -337,10 +372,8 @@ class BalanceService:
             Tuple of (has_access, error_message)
         """
         try:
-            from ...utils.service_helpers import get_service
-            
-            # Use ServiceContainer to avoid circular imports
-            rbac_service = get_service('rbac_service')
+            # Use explicit dependency injection
+            rbac_service = self._get_rbac_service()
 
             can_manage_balance = (
                 rbac_service.check_permission(current_user.id, "billing.view_balance")

@@ -7,6 +7,8 @@ Extracted from ProjectService to follow SRP (Single Responsibility Principle)
 """
 
 import logging
+import secrets
+import string
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
@@ -48,8 +50,6 @@ class ProjectInviteService:
             ServiceError: If database operation fails
         """
         try:
-            import secrets
-
             user = User.query.get(user_id)
             if not user:
                 raise NotFoundError("User", resource_id=str(user_id))
@@ -75,8 +75,8 @@ class ProjectInviteService:
                 if not is_owner and user.project_id != project_id:
                     raise ServiceError("Permission denied", status_code=403)
 
-            # Generate unique invite code
-            code = secrets.token_urlsafe(32)
+            # Generate unique invite code (10 characters: uppercase letters and digits)
+            code = self._generate_unique_code()
             expires_at = datetime.utcnow() + timedelta(days=expires_in_days)
 
             invite_code = ProjectInviteCode(
@@ -264,6 +264,31 @@ class ProjectInviteService:
         except Exception as e:
             self.logger.error(f"Error getting latest project invite code: {str(e)}", exc_info=True)
             return {"error": "Failed to retrieve latest project invite code"}
+
+    def _generate_unique_code(self, length: int = 10) -> str:
+        """
+        Generate a unique project invite code
+        
+        Args:
+            length: Length of the code (default: 10)
+        
+        Returns:
+            Unique code string
+        """
+        from ...models.keys import ReferralCode
+        from ...models.products import ProductInviteCode
+        
+        while True:
+            characters = string.ascii_uppercase + string.digits
+            code = "".join(secrets.choice(characters) for _ in range(length))
+            
+            # Check if code is unique across all invite code tables
+            invite_exists = ProjectInviteCode.query.filter_by(code=code).first() is not None
+            referral_exists = ReferralCode.query.filter_by(code=code).first() is not None
+            product_invite_exists = ProductInviteCode.query.filter_by(code=code).first() is not None
+            
+            if not (invite_exists or referral_exists or product_invite_exists):
+                return code
 
 
 # Singleton instance

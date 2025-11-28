@@ -32,7 +32,7 @@ from backend.core.extensions import db
 from backend.models.core import User, Project
 from backend.utils.rbac_utils import RBACManager
 from backend.models.rbac import Role, UserRole
-from backend.services.rbac import rbac_service
+from backend.services.rbac.rbac_service import RBACService
 
 def create_app():
     """Create Flask application"""
@@ -203,11 +203,14 @@ def create_owner():
                 existing_roles = Role.query.filter_by(project_id=system_project.id).count()
                 if existing_roles == 0:
                     print(f"   ⚠️  RBAC не инициализирован для системного проекта. Инициализируем...")
+                    rbac_service = RBACService()
                     success = rbac_service.initialize_default_data(system_project.id)
                     if not success:
                         print("   ⚠️  Ошибка при инициализации RBAC")
                         raise Exception("Failed to initialize RBAC")
                     print("   ✅ RBAC инициализирован для системного проекта")
+                else:
+                    rbac_service = RBACService()
                 
                 # Find owner role in the system project
                 owner_role = Role.query.filter_by(
@@ -224,8 +227,10 @@ def create_owner():
                     ).first()
                 
                 if not owner_role:
-                    print("   ⚠️  Роль 'owner' не найдена в системном проекте. Создаем...")
+                    print("   ⚠️  Роль 'owner' не найдена в системном проекте. Переинициализируем RBAC...")
                     # Re-initialize RBAC to ensure owner role is created
+                    if 'rbac_service' not in locals():
+                        rbac_service = RBACService()
                     rbac_service.initialize_default_data(system_project.id)
                     owner_role = Role.query.filter_by(
                         name='owner',
@@ -235,7 +240,18 @@ def create_owner():
                 if owner_role:
                     print(f"   ℹ️  Найдена роль 'owner' в системном проекте (ID: {owner_role.id})")
                     
-                    # Check if user already has this role
+                    # Remove any existing roles (especially "client" role)
+                    existing_user_roles = UserRole.query.filter_by(user_id=owner.id).all()
+                    if existing_user_roles:
+                        print(f"   ⚠️  Найдено {len(existing_user_roles)} существующих ролей. Удаляем...")
+                        for user_role in existing_user_roles:
+                            role = Role.query.get(user_role.role_id)
+                            if role:
+                                print(f"      - Удаляем роль '{role.name}' (ID: {role.id})")
+                            db.session.delete(user_role)
+                        db.session.commit()
+                    
+                    # Check if user already has owner role
                     existing_assignment = UserRole.query.filter_by(
                         user_id=owner.id, 
                         role_id=owner_role.id

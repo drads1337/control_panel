@@ -4,6 +4,7 @@ Handles invitation codes, referral codes, and user invitation management
 """
 
 import logging
+import re
 import secrets
 import string
 from datetime import datetime, timedelta
@@ -15,6 +16,7 @@ from sqlalchemy import func
 from ...core.extensions import db
 from ...models.core import Project, ProjectInviteCode, User
 from ...models.keys import ReferralCode
+from ...models.products import ProductInviteCode
 from ...models.rbac import Role, UserRole
 from ...utils.rbac_utils import RBACManager
 
@@ -95,17 +97,21 @@ class InviteService:
             if not user:
                 return None, "User not found"
 
-            existing_code = ReferralCode.query.filter_by(user_id=user_id, is_active=True).first()
+            # Check for existing active referral code (not used and not expired)
+            existing_code = ReferralCode.query.filter_by(user_id=user_id, used=False).first()
             if existing_code:
-                return existing_code.code, None
+                # Check if it's still valid (not expired)
+                if not existing_code.expires_at or existing_code.expires_at > datetime.utcnow():
+                    return existing_code.code, None
 
-            code = self._generate_unique_code(prefix="REF")
+            # Generate referral code with "REF" prefix (3 chars) + 7 random chars = 10 total
+            code = self._generate_unique_code(length=7, prefix="REF")
 
             duration = duration_days or self.default_referral_duration_days
             expires_at = datetime.utcnow() + timedelta(days=duration)
 
             referral = ReferralCode(
-                code=code, user_id=user_id, expires_at=expires_at, is_active=True
+                code=code, user_id=user_id, expires_at=expires_at, used=False
             )
 
             db.session.add(referral)
@@ -118,10 +124,27 @@ class InviteService:
             self.logger.error(f"Error generating referral code: {str(e)}")
             return None, "Failed to generate referral code"
 
-    def _generate_unique_code(self, length: int = 8, prefix: str = "") -> str:
-        """Generate a unique code"""
+    def _generate_unique_code(self, length: int = 10, prefix: str = "") -> str:
+        """
+        Generate a unique code
+        
+        Args:
+            length: Length of random part (default: 10, max: 10)
+            prefix: Optional prefix (e.g., "REF")
+        
+        Returns:
+            Code with format: prefix + random_part (total max 10 characters)
+        """
+        # Ensure total length doesn't exceed 10 characters
+        if prefix:
+            # If prefix exists, adjust random part length to keep total <= 10
+            max_random_length = 10 - len(prefix)
+            length = min(length, max_random_length)
+        else:
+            # No prefix, use requested length but cap at 10
+            length = min(length, 10)
+        
         while True:
-
             characters = string.ascii_uppercase + string.digits
             code = prefix + "".join(secrets.choice(characters) for _ in range(length))
 
@@ -134,11 +157,12 @@ class InviteService:
         """Check if code is unique across all invite and referral codes"""
         invite_exists = ProjectInviteCode.query.filter_by(code=code).first() is not None
         referral_exists = ReferralCode.query.filter_by(code=code).first() is not None
-        return not (invite_exists or referral_exists)
+        product_invite_exists = ProductInviteCode.query.filter_by(code=code).first() is not None
+        return not (invite_exists or referral_exists or product_invite_exists)
 
     def validate_invite_code(self, code: str) -> Tuple[Optional[Dict], Optional[str]]:
         """
-        Validate an invite code (checks both ProjectInviteCode and ReferralCode)
+        Validate an invite code (checks ProjectInviteCode, ReferralCode, and ProductInviteCode)
 
         Args:
             code: Invite code to validate
@@ -151,22 +175,26 @@ class InviteService:
             if not code or not code.strip():
                 return None, "Invite code is required"
 
-            code = code.strip().upper()
+            # Normalize code: remove common separators (hyphens, underscores, spaces)
+            # and convert to uppercase
+            code_normalized = re.sub(r'[-_\s]+', '', code.strip().upper())
 
-            if len(code) < 6:
+            if len(code_normalized) < 6:
                 return None, "Invite code is too short"
 
-            if len(code) > 64:
+            if len(code_normalized) > 64:
                 return None, "Invite code is too long"
 
-            import re
-
-            if not re.match(r"^[A-Z0-9]+$", code):
+            # Check that code contains only alphanumeric characters after normalization
+            if not re.match(r"^[A-Z0-9]+$", code_normalized):
                 return None, "Invite code can only contain letters and numbers"
 
-            self.logger.debug(f"Validating invite code: '{code}' (length: {len(code)})")
+            code = code_normalized
+            code_length = len(code)
 
-            # First try ProjectInviteCode (exact match)
+            self.logger.debug(f"Validating invite code: '{code}' (length: {code_length})")
+
+            # First try ProjectInviteCode (exact match) - supports up to 64 characters
             invite = ProjectInviteCode.query.filter_by(code=code).first()
             if not invite:
                 # Try case-insensitive search as fallback
@@ -191,37 +219,72 @@ class InviteService:
                     "code_type": "project_invite",
                 }, None
 
-            # If not found, try ReferralCode (exact match)
-            referral = ReferralCode.query.filter_by(code=code).first()
-            if not referral:
-                # Try case-insensitive search as fallback
-                referral = ReferralCode.query.filter(func.upper(ReferralCode.code) == code).first()
+            # Only check ReferralCode if code length <= 32 (column max length)
+            if code_length <= 32:
+                referral = ReferralCode.query.filter_by(code=code).first()
+                if not referral:
+                    # Try case-insensitive search as fallback
+                    referral = ReferralCode.query.filter(func.upper(ReferralCode.code) == code).first()
+                    if referral:
+                        self.logger.debug(f"Found ReferralCode with case-insensitive search: '{referral.code}'")
+                
                 if referral:
-                    self.logger.debug(f"Found ReferralCode with case-insensitive search: '{referral.code}'")
-            
-            if referral:
-                if referral.expires_at and referral.expires_at < datetime.utcnow():
-                    return None, "Invite code has expired"
+                    if referral.expires_at and referral.expires_at < datetime.utcnow():
+                        return None, "Invite code has expired"
 
-                if referral.used:
-                    return None, "Invite code has already been used"
+                    if referral.used:
+                        return None, "Invite code has already been used"
 
-                return {
-                    "code": referral.code,
-                    "project_id": referral.project_id,
-                    "expires_at": referral.expires_at.isoformat() if referral.expires_at else None,
-                    "max_uses": 1,
-                    "used_count": 1 if referral.used else 0,
-                    "created_by": referral.created_by,
-                    "code_type": "referral",
-                    "token_balance": referral.token_balance,
-                    "work_duration_days": referral.work_duration_days,
-                    "product_ids": referral.product_ids_list,
-                    "rbac_role_ids": referral.rbac_role_ids if referral.rbac_role_ids else [],
-                }, None
+                    return {
+                        "code": referral.code,
+                        "project_id": referral.project_id,
+                        "expires_at": referral.expires_at.isoformat() if referral.expires_at else None,
+                        "max_uses": 1,
+                        "used_count": 1 if referral.used else 0,
+                        "created_by": referral.created_by,
+                        "code_type": "referral",
+                        "token_balance": referral.token_balance,
+                        "work_duration_days": referral.work_duration_days,
+                        "product_ids": referral.product_ids_list,
+                        "rbac_role_ids": referral.rbac_role_ids if referral.rbac_role_ids else [],
+                    }, None
 
-            # Code not found in either table
-            self.logger.warning(f"Invite code not found: '{code}' (searched in ProjectInviteCode and ReferralCode)")
+            # Only check ProductInviteCode if code length <= 32 (column max length)
+            if code_length <= 32:
+                product_invite = ProductInviteCode.query.filter_by(code=code).first()
+                if not product_invite:
+                    # Try case-insensitive search as fallback
+                    product_invite = ProductInviteCode.query.filter(func.upper(ProductInviteCode.code) == code).first()
+                    if product_invite:
+                        self.logger.debug(f"Found ProductInviteCode with case-insensitive search: '{product_invite.code}'")
+                
+                if product_invite:
+                    if not product_invite.is_active or (product_invite.expires_at and product_invite.expires_at < datetime.utcnow()):
+                        return None, "Invite code has expired"
+
+                    if product_invite.current_uses >= product_invite.max_uses:
+                        return None, "Invite code has reached maximum uses"
+
+                    return {
+                        "code": product_invite.code,
+                        "project_id": product_invite.project_id,
+                        "product_id": product_invite.product_id,
+                        "expires_at": product_invite.expires_at.isoformat() if product_invite.expires_at else None,
+                        "max_uses": product_invite.max_uses,
+                        "used_count": product_invite.current_uses,
+                        "created_by": product_invite.created_by,
+                        "code_type": "product_invite",
+                        "assigned_role": product_invite.assigned_role,
+                    }, None
+
+            # Code not found in any table
+            searched_tables = ["ProjectInviteCode"]
+            if code_length <= 32:
+                searched_tables.extend(["ReferralCode", "ProductInviteCode"])
+            self.logger.warning(
+                f"Invite code not found: '{code}' (length: {code_length}, "
+                f"searched in: {', '.join(searched_tables)})"
+            )
             return None, "Invalid invite code"
 
         except Exception as e:
@@ -421,11 +484,11 @@ class InviteService:
                 invite.is_expired = True
 
             expired_referrals = ReferralCode.query.filter(
-                ReferralCode.expires_at < datetime.utcnow(), ReferralCode.is_active == True
+                ReferralCode.expires_at < datetime.utcnow(), ReferralCode.used == False
             ).all()
 
             for referral in expired_referrals:
-                referral.is_active = False
+                referral.used = True
 
             db.session.commit()
 
@@ -460,7 +523,7 @@ class InviteService:
                 deleted_invites += 1
 
             expired_referrals = ReferralCode.query.filter(
-                ReferralCode.user_id == user_id, ReferralCode.is_active == False
+                ReferralCode.user_id == user_id, ReferralCode.used == True
             ).all()
 
             deleted_referrals = 0
