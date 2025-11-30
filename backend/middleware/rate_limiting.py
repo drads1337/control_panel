@@ -169,7 +169,6 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10, fail_cl
                                 project_id = key_obj.project_id
                         
                         if project_id:
-                            security_service = get_service('security_service')
                             security_service._update_rule_trigger("Rate Limiting Protection", project_id)
                     except Exception as e:
                         logger.debug(f"Could not update rate limit rule trigger: {e}")
@@ -250,3 +249,58 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10, fail_cl
             return sync_wrapper
 
     return decorator
+
+def require_rate_limit_fail_close(func):
+    """
+    Decorator to enforce fail-close behavior for Flask-Limiter on critical endpoints.
+    
+    SECURITY: This decorator wraps Flask-Limiter to ensure that if Redis is unavailable,
+    the request is blocked instead of allowed. This is critical for authentication
+    and other security-sensitive endpoints.
+    
+    Usage:
+        @auth_bp.route("/login", methods=["POST"])
+        @require_rate_limit_fail_close
+        @limiter.limit("5 per minute")
+        def login():
+            ...
+    
+    Args:
+        func: Function to wrap
+        
+    Returns:
+        Wrapped function with fail-close rate limiting
+    """
+    from functools import wraps
+    from flask import jsonify, request
+    from ..utils.redis_client import get_redis_client
+    
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        # Check if Redis is available before allowing Flask-Limiter to process
+        try:
+            redis_client = get_redis_client()
+            if not redis_client.is_available():
+                logger.error(
+                    f"SECURITY: Redis unavailable for rate limiting on {request.endpoint}. "
+                    f"Blocking request from {request.remote_addr}"
+                )
+                return jsonify({
+                    "error": "Rate limiting service unavailable",
+                    "message": "Request blocked for security. Please try again later."
+                }), 503  # Service Unavailable
+        except Exception as e:
+            # If we can't check Redis, fail-close (block the request)
+            logger.error(
+                f"SECURITY: Cannot verify Redis availability for rate limiting on {request.endpoint}. "
+                f"Blocking request from {request.remote_addr}: {e}"
+            )
+            return jsonify({
+                "error": "Rate limiting service unavailable",
+                "message": "Request blocked for security. Please try again later."
+            }), 503  # Service Unavailable
+        
+        # Redis is available, proceed with normal rate limiting
+        return func(*args, **kwargs)
+    
+    return wrapper
