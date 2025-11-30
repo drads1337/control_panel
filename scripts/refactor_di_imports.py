@@ -297,7 +297,11 @@ def refactor_file(info: FileRefactorInfo, dry_run: bool = False) -> bool:
     if not info.service_usages:
         return False
     
-    print(f"\n{'[DRY RUN] ' if dry_run else ''}Рефакторинг {file_path.relative_to(Path.cwd())}...")
+    try:
+        rel_path = file_path.relative_to(Path.cwd())
+    except ValueError:
+        rel_path = file_path
+    print(f"\n{'[DRY RUN] ' if dry_run else ''}Рефакторинг {rel_path}...")
     
     # Читаем файл
     with open(file_path, 'r', encoding='utf-8') as f:
