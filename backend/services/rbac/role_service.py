@@ -17,11 +17,20 @@ from ...utils.role_constants import UserRoles
 class RoleService:
     """Service for managing roles"""
 
-    def __init__(self, permission_service=None, default_roles: Dict = None, get_all_permissions_func=None, project_id: Optional[int] = None):
-        """Initialize RoleService with permission service and defaults"""
+    def __init__(self, permission_service=None, default_roles: Dict = None, get_all_permissions_func=None, project_id: Optional[int] = None, cache_service=None):
+        """Initialize RoleService with permission service and defaults
+        
+        Args:
+            permission_service: Service for permission operations
+            default_roles: Default roles definition
+            get_all_permissions_func: Function to get all permissions
+            project_id: Optional project ID
+            cache_service: Service for cache operations
+        """
         self.permission_service = permission_service
         self.default_roles = default_roles or {}
         self.get_all_permissions_func = get_all_permissions_func
+        self._cache_service = cache_service
         self.logger = logging.getLogger(__name__)
 
     def create_role(
@@ -93,9 +102,9 @@ class RoleService:
 
             db.session.commit()
 
-            cache_service = get_service('cache_service')
-            cache_service = get_service('cache_service')
-            cache_service = get_service('cache_service')
+            cache_service = self._cache_service or get_service('cache_service')
+            cache_service = self._cache_service or get_service('cache_service')
+            cache_service = self._cache_service or get_service('cache_service')
             cache_service.invalidate_rbac_role_instantly(role.id, project_id)
             cache_service.invalidate_rbac_project_instantly(project_id)
 
@@ -190,7 +199,7 @@ class RoleService:
             role.updated_at = datetime.utcnow()
             db.session.commit()
 
-            cache_service = get_service('cache_service')
+            cache_service = self._cache_service or get_service('cache_service')
             cache_service.invalidate_rbac_role_instantly(role.id, project_id)
             cache_service.invalidate_rbac_project_instantly(project_id)
 
@@ -283,13 +292,13 @@ class RoleService:
             db.session.delete(role)
             db.session.commit()
 
-            cache_service = get_service('cache_service')
+            cache_service = self._cache_service or get_service('cache_service')
             cache_service.invalidate_rbac_role_instantly(role.id, project_id)
             cache_service.invalidate_rbac_project_instantly(project_id)
 
             for user_id in user_ids_to_invalidate:
 
-                cache_service = get_service('cache_service')
+                cache_service = self._cache_service or get_service('cache_service')
                 cache_service.invalidate_rbac_user_instantly(user_id)
 
             logging.info(f"RBAC_ROLE_DELETED role_id={role_id}")
@@ -304,7 +313,7 @@ class RoleService:
         """Get all roles for a project (excluding system roles from RBAC management)"""
         try:
 
-            cache_service = get_service('cache_service')
+            cache_service = self._cache_service or get_service('cache_service')
             cached_data = cache_service.get("rbac:roles", project_id=project_id)
             if cached_data:
                 return cached_data.get("data", [])
@@ -327,7 +336,7 @@ class RoleService:
                 if role.name not in ["owner", "admin"]
             ]
 
-            cache_service = get_service('cache_service')
+            cache_service = self._cache_service or get_service('cache_service')
             cache_service.set("rbac:roles", result, project_id=project_id)
 
             return result
@@ -439,7 +448,7 @@ class RoleService:
         """Get all roles assigned to a user"""
         try:
 
-            cache_service = get_service('cache_service')
+            cache_service = self._cache_service or get_service('cache_service')
             cached_data = cache_service.get("rbac:user_roles", user_id=user_id)
             if cached_data:
                 return cached_data.get("data", [])
@@ -459,7 +468,7 @@ class RoleService:
                 for ur in user_roles
             ]
 
-            cache_service = get_service('cache_service')
+            cache_service = self._cache_service or get_service('cache_service')
             cache_service.set("rbac:user_roles", result, user_id=user_id)
 
             return result
