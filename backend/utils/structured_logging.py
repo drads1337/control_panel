@@ -164,6 +164,8 @@ class StructuredLogger:
 
     def _log_with_context(self, level: str, message: str, **kwargs):
         """Log with additional context"""
+        # Extract exc_info from kwargs if present, as it's a special parameter
+        exc_info = kwargs.pop("exc_info", None)
         extra = {
             "request_id": request_id_var.get(),
             "user_id": user_id_var.get(),
@@ -171,7 +173,10 @@ class StructuredLogger:
             "correlation_id": correlation_id_var.get(),
             **kwargs,
         }
-        getattr(self.logger, level)(message, extra=extra)
+        if exc_info is not None:
+            getattr(self.logger, level)(message, extra=extra, exc_info=exc_info)
+        else:
+            getattr(self.logger, level)(message, extra=extra)
 
     def debug(self, message: str, **kwargs):
         self._log_with_context("debug", message, **kwargs)

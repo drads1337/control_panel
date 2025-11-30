@@ -230,12 +230,14 @@ class SecurityMonitoringService:
 
             if not success:
                 # Check and block IP if needed (Failed Login Protection rule)
-                # Import here to avoid circular dependency
+                if not self._security_audit_service:
+                    from ...utils.service_exceptions import ServiceError
+                    raise ServiceError(
+                        "SecurityAuditService dependency not injected",
+                        status_code=500
+                    )
+                self._security_audit_service._check_and_block_ip_if_needed(ip_address, project_id)
                 
-                security_audit_service = get_service('security_audit_service')
-                security_audit_service._check_and_block_ip_if_needed(ip_address, project_id)
-                
-                security_audit_service = get_service('security_audit_service')
                 # Also check brute force protection rule
                 try:
                     context = SecurityContext(
@@ -256,11 +258,14 @@ class SecurityMonitoringService:
                         is_active=True
                     ).first()
                     if brute_force_rule:
-                        security_rules_service = self._security_rules_service or get_service('security_rules_service')
+                        if not self._security_rules_service:
+                            from ...utils.service_exceptions import ServiceError
+                            raise ServiceError(
+                                "SecurityRulesService dependency not injected",
+                                status_code=500
+                            )
                         conditions = json.loads(brute_force_rule.conditions)
-                        security_rules_service = self._security_rules_service or get_service('security_rules_service')
-                        if security_rules_service._evaluate_brute_force_conditions(conditions, context):
-                            security_rules_service = get_service('security_rules_service')
+                        if self._security_rules_service._evaluate_brute_force_conditions(conditions, context):
                             # Rule already updates trigger in _evaluate_brute_force_conditions
                             self.logger.info(f"Brute force protection triggered for IP {ip_address}")
                 except Exception as e:

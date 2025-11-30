@@ -1,5 +1,3 @@
-from ...utils.service_helpers import get_service
-from ...utils.service_exceptions import ServiceError
 """
 Analytics Buffer Persistence Layer
 Provides fallback persistence mechanisms for analytics data when Redis is unavailable.
@@ -37,9 +35,8 @@ from typing import Any, Dict, List, Optional
 
 from ...config.config import Config
 from ...utils.redis_client import redis_client
+from ...utils.service_exceptions import ServiceError
 
-# Lazy import to avoid circular dependencies and Flask context issues
-# get_service is imported inside methods when needed
 logger = logging.getLogger(__name__)
 
 class PersistenceLayer:
@@ -84,6 +81,20 @@ class PersistenceLayer:
             "queue_drops": 0,  # Items dropped due to queue being full
         }
     
+    def _get_analytics_buffer_service(self):
+        """
+        Get analytics buffer service - requires Dependency Injection.
+        
+        Raises:
+            ServiceError: If analytics_buffer_service is not injected
+        """
+        if self._analytics_buffer_service is None:
+            raise ServiceError(
+                "AnalyticsBufferService dependency not injected",
+                status_code=500
+            )
+        return self._analytics_buffer_service
+    
     def buffer_user_activity_with_fallback(
         self,
         user_id: int,
@@ -121,12 +132,7 @@ class PersistenceLayer:
         # Try Redis first
         if self._redis_available:
             try:
-                try:
-                    analytics_buffer_service = get_service('analytics_buffer_service')
-                except (RuntimeError, ValueError):
-                    # Fallback for contexts without Flask app
-                    from ...services.analytics.analytics_buffer_service import AnalyticsBufferService
-                analytics_buffer_service = get_service('analytics_buffer_service')
+                analytics_buffer_service = self._get_analytics_buffer_service()
                 success = analytics_buffer_service.buffer_user_activity(
                     user_id=user_id,
                     action=action,
@@ -234,11 +240,7 @@ class PersistenceLayer:
         # Try Redis first
         if self._redis_available:
             try:
-                try:
-                    analytics_buffer_service = get_service('analytics_buffer_service')
-                except (RuntimeError, ValueError):
-                    # Fallback for contexts without Flask app
-                    from ...services.analytics.analytics_buffer_service import AnalyticsBufferService
+                analytics_buffer_service = self._get_analytics_buffer_service()
                 success = analytics_buffer_service.buffer_key_analytics_update(
                     key_id=key_id,
                     product=product,
@@ -471,7 +473,7 @@ class PersistenceLayer:
                         
                         # Try to write to Redis first
                         try:
-                            analytics_buffer_service = get_service('analytics_buffer_service')
+                            analytics_buffer_service = self._get_analytics_buffer_service()
                             success = analytics_buffer_service.buffer_user_activity(
                                 user_id=data.get("user_id"),
                                 action=data.get("action"),
@@ -510,7 +512,7 @@ class PersistenceLayer:
                         
                         # Try to write to Redis first
                         try:
-                            analytics_buffer_service = get_service('analytics_buffer_service')
+                            analytics_buffer_service = self._get_analytics_buffer_service()
                             success = analytics_buffer_service.buffer_key_analytics_update(
                                 key_id=data.get("key_id"),
                                 product=data.get("product"),

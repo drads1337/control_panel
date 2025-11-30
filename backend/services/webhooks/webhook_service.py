@@ -8,13 +8,13 @@ import logging
 from typing import Dict, List, Optional, Tuple
 
 from ...models.webhooks import Webhook
-from ...utils.service_helpers import get_service
+# get_service removed - using DI
 from ...utils.service_exceptions import ServiceError
 
 class WebhookService:
     """Main service for managing webhook notifications - coordinates specialized services"""
 
-    def __init__(self, webhook_crypto_service=None, webhook_execution_service=None, webhook_formatting_service=None, webhook_logging_service=None, webhook_management_service=None, webhook_pending_task_service=None, webhook_testing_service=None, webhook_validation_service=None):
+    def __init__(self, webhook_crypto_service, webhook_execution_service, webhook_formatting_service, webhook_logging_service, webhook_management_service, webhook_pending_task_service, webhook_testing_service, webhook_validation_service):
         self._webhook_validation_service = webhook_validation_service
         self._webhook_testing_service = webhook_testing_service
         self._webhook_pending_task_service = webhook_pending_task_service
@@ -440,6 +440,4 @@ class WebhookService:
         pending_task_service = self._webhook_pending_task_service
         pending_task_service.store_pending_webhook_task(webhook_id, project_id, event, webhook_data, error_reason)
 
-def get_webhook_service():
-    """Get webhook service instance"""
-    return get_service('webhook_service')
+# get_webhook_service removed - use DI container instead

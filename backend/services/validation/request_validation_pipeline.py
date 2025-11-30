@@ -12,7 +12,7 @@ from typing import Optional, Tuple
 
 from flask import request
 
-from ...utils.service_helpers import get_service
+# get_service removed - using DI
 from ...utils.service_exceptions import ServiceError
 from ...utils.ip_utils import get_real_ip
 
@@ -176,8 +176,12 @@ class RequestValidationPipeline:
                     status_code=500
                 )
             security_service = self._security_service
-            security_service = get_service('security_service')
-            if security_service.is_ip_blocked(ip, project_id):
+            if not self._security_service:
+                raise ServiceError(
+                    "SecurityService dependency not injected",
+                    status_code=500
+                )
+            if self._security_service.is_ip_blocked(ip, project_id):
                 return False, "IP_BLOCKED"
         except (ConnectionError, TimeoutError) as e:
             # Infrastructure errors - log but don't block requests

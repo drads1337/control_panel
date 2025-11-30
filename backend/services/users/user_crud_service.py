@@ -36,8 +36,8 @@ class UserCRUDService:
 
     def __init__(
         self,
-        rbac_service: 'RBACService' = None,
-        cache_service: 'CacheService' = None,
+        rbac_service: 'RBACService',
+        cache_service: 'CacheService',
         logger=None
     ):
         """

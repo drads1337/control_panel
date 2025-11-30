@@ -35,13 +35,13 @@ class KeyBulkOperationsService:
 
     def __init__(
         self,
-        key_validation_service: 'KeyValidationService' = None,
-        key_crud_service: 'KeyCRUDService' = None,
-        key_generation_service: 'KeyGenerationService' = None,
-        key_status_service: 'KeyStatusService' = None,
-        product_service: 'ProductService' = None,
-        price_calculation_service: 'PriceCalculationService' = None,
-        balance_service: 'BalanceService' = None,
+        key_validation_service: 'KeyValidationService',
+        key_crud_service: 'KeyCRUDService',
+        key_generation_service: 'KeyGenerationService',
+        key_status_service: 'KeyStatusService',
+        product_service: 'ProductService',
+        price_calculation_service: 'PriceCalculationService',
+        balance_service: 'BalanceService',
         logger=None
     ):
         """

@@ -24,7 +24,7 @@ from urllib3.util.connection import create_connection
 
 from ...core.extensions import db
 from ...models.webhooks import WebhookPendingTask
-from ...utils.service_helpers import get_service
+# get_service removed - using DI
 from ...utils.service_exceptions import ServiceError
 
 # Try to import Celery task for webhook processing
@@ -94,7 +94,7 @@ class SSRFProtectedHTTPAdapter(HTTPAdapter):
 class WebhookExecutionService:
     """Service for executing webhook deliveries"""
 
-    def __init__(self, webhook_pending_task_service=None):
+    def __init__(self, webhook_pending_task_service):
         self._webhook_pending_task_service = webhook_pending_task_service
         self.logger = logging.getLogger(__name__)
         self.max_retries = 3
@@ -151,15 +151,23 @@ class WebhookExecutionService:
                     except Exception as e:
                         self.logger.error(f"WEBHOOK_CELERY_ERROR webhook_id={webhook.id} error={e}")
                         # If Celery fails, store task in database for later processing
-                        pending_task_service = get_service('webhook_pending_task_service')
-                        pending_task_service.store_pending_webhook_task(
+                        if not self._webhook_pending_task_service:
+                            raise ServiceError(
+                                "WebhookPendingTaskService dependency not injected",
+                                status_code=500
+                            )
+                        self._webhook_pending_task_service.store_pending_webhook_task(
                             webhook.id, project_id, event, webhook_data, str(e)
                         )
                 else:
                     # If Celery is not available, store task in database for later processing
                     self.logger.warning(f"Celery not available, storing webhook task in database for later processing (webhook_id={webhook.id})")
-                    pending_task_service = get_service('webhook_pending_task_service')
-                    pending_task_service.store_pending_webhook_task(
+                    if not self._webhook_pending_task_service:
+                        raise ServiceError(
+                            "WebhookPendingTaskService dependency not injected",
+                            status_code=500
+                        )
+                    self._webhook_pending_task_service.store_pending_webhook_task(
                         webhook.id, project_id, event, webhook_data, "Celery not available"
                     )
 
@@ -370,4 +378,3 @@ class WebhookExecutionService:
         except Exception as e:
             self.logger.error(f"WEBHOOK_EXECUTION_ERROR: {e}")
             return False, str(e)
-

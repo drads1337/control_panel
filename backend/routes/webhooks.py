@@ -17,7 +17,7 @@ from ..middleware.validation import validate_request
 from ..models.core import Project, User
 from ..models.webhooks import Webhook, WebhookLog
 from ..schemas.webhook import WebhookCreateSchema, WebhookUpdateSchema
-from ..services.webhooks import get_webhook_service
+from ..utils.route_helpers import get_webhook_service
 from ..utils.rbac_utils import RBACManager
 from ..utils.role_constants import RolePermissions
 from ..utils.service_helpers import get_service

@@ -12,12 +12,12 @@ from ...core.extensions import db
 from ...models.webhooks import Webhook, WebhookLog
 from ...utils.data_masking import mask_key
 from ...utils.service_exceptions import ServiceError
-from ...utils.service_helpers import get_service
+# get_service removed - using DI
 
 class WebhookManagementService:
     """Service for managing webhook CRUD operations"""
 
-    def __init__(self, webhook_crypto_service=None):
+    def __init__(self, webhook_crypto_service):
         self._webhook_crypto_service = webhook_crypto_service
         self.logger = logging.getLogger(__name__)
 
@@ -39,10 +39,13 @@ class WebhookManagementService:
     ) -> Dict:
         """Create a new webhook"""
         try:
-            webhook_crypto_service = get_service('webhook_crypto_service')
-            
+            if not self._webhook_crypto_service:
+                raise ServiceError(
+                    "WebhookCryptoService dependency not injected",
+                    status_code=500
+                )
             if not secret:
-                secret = webhook_crypto_service.generate_secret()
+                secret = self._webhook_crypto_service.generate_secret()
 
             webhook = Webhook(
                 project_id=project_id,

@@ -63,7 +63,14 @@ def create_user_with_roles_and_products(
         user_role_service = get_user_role_service()
         user_permission_service = get_user_permission_service()
         rbac_service = get_rbac_service()
-        tier_limits_service = get_service('tier_limits_service')
+        # Get service through app context (DI pattern) - requires app context
+        from flask import current_app
+        if not hasattr(current_app, 'service_container'):
+            raise RuntimeError(
+                "Service container not initialized. Cannot get 'tier_limits_service'. "
+                "Make sure init_services() was called during app initialization."
+            )
+        tier_limits_service = current_app.service_container.get('tier_limits_service')
 
         # Extract data
         username = data.get("username")

@@ -238,7 +238,14 @@ class ActivityLoggerMiddleware:
                             details=details,
                         )
 
-                        activity_service = get_service('activity_service')
+                        if not self._activity_service:
+                            # ActivityService is required - raise error if not injected
+                            from ...utils.service_exceptions import ServiceError
+                            raise ServiceError(
+                                "ActivityService dependency not injected",
+                                status_code=500
+                            )
+                        activity_service = self._activity_service
                         activity_service.log_activity(
                             user=user,
                             action=action,

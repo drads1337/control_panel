@@ -21,7 +21,6 @@ export default function ManagementPage() {
     canViewFiles,
     canViewProducts,
     canViewAgents,
-    canViewNotifications,
   } = useManagementData();
 
   const { stats, isLoading: statsLoading } = useManagementStats();
@@ -126,15 +125,6 @@ export default function ManagementPage() {
                     />
                   </TabsContent>
                 )}
-
-                {canViewNotifications && (
-                  <TabsContent value="notifications" className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4 md:mt-0">
-                    <ManagementTabContent 
-                      tabValue="notifications"
-                      wrapInTabsContent={false}
-                    />
-                  </TabsContent>
-                )}
               </TabsContents>
             </Tabs>
           ) : (
@@ -167,14 +157,6 @@ export default function ManagementPage() {
                 <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4">
                   <ManagementTabContent 
                     tabValue="agent-manager"
-                    wrapInTabsContent={false}
-                  />
-                </div>
-              )}
-              {canViewNotifications && activeTab === 'notifications' && (
-                <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4">
-                  <ManagementTabContent 
-                    tabValue="notifications"
                     wrapInTabsContent={false}
                   />
                 </div>

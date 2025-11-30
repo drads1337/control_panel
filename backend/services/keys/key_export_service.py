@@ -10,7 +10,7 @@ from ...core.extensions import db
 from ...models.core import User
 from ...models.products import Product
 from ...models.keys import Key
-from ...utils.service_helpers import get_service
+# get_service removed - using DI
 from ...utils.service_exceptions import ServiceError
 from ...utils.data_masking import mask_license_key
 from ...utils.rbac_utils import RBACManager
@@ -19,7 +19,7 @@ from ...utils.structured_logging import get_logger
 class KeyExportService:
     """Service for handling key export operations"""
 
-    def __init__(self, rbac_service=None):
+    def __init__(self, rbac_service):
         self._rbac_service = rbac_service
         self.logger = get_logger("key_export_service")
 
@@ -96,20 +96,16 @@ class KeyExportService:
             can_download_full_key = RBACManager.is_owner(user) or RBACManager.is_admin(user)
 
             if not can_download_full_key:
-                # Use ServiceContainer to avoid circular imports
-                rbac_service = get_service('rbac_service')
+                if not self._rbac_service:
+                    raise ServiceError(
+                        "RBACService dependency not injected",
+                        status_code=500
+                    )
                 is_own_key = key.user_id == user.id
                 if is_own_key:
-                    if not self._rbac_service:
-                        raise ServiceError(
-                            "Rbac Service dependency not injected",
-                            status_code=500
-                        )
-                    rbac_service = self._rbac_service
-                    rbac_service = get_service('rbac_service')
-                    can_download_full_key = rbac_service.check_permission(user.id, "keys.view")
+                    can_download_full_key = self._rbac_service.check_permission(user.id, "keys.view")
                 else:
-                    can_download_full_key = rbac_service.check_permission(user.id, "keys.view")
+                    can_download_full_key = self._rbac_service.check_permission(user.id, "keys.view")
 
             key_value = key.key if can_download_full_key else mask_license_key(key.key)
 
@@ -169,27 +165,22 @@ class KeyExportService:
             can_reveal_key = RBACManager.is_owner(user) or RBACManager.is_admin(user)
 
             if not can_reveal_key:
-                # Use ServiceContainer to avoid circular imports
-                rbac_service = get_service('rbac_service')
+                if not self._rbac_service:
+                    raise ServiceError(
+                        "RBACService dependency not injected",
+                        status_code=500
+                    )
                 is_own_key = key.user_id == user.id
-                if is_own_key:
-                    can_reveal_key = (
-                        rbac_service.check_permission(user.id, "keys.see_analytics") or
-                        rbac_service.check_permission(user.id, "keys.copy")
-                    )
-                else:
-                    can_reveal_key = (
-                        rbac_service.check_permission(user.id, "keys.see_analytics") or
-                        rbac_service.check_permission(user.id, "keys.copy")
-                    )
+                can_reveal_key = (
+                    self._rbac_service.check_permission(user.id, "keys.see_analytics") or
+                    self._rbac_service.check_permission(user.id, "keys.copy")
+                )
 
             if not can_reveal_key:
-                # Use ServiceContainer to avoid circular imports
-                rbac_service = get_service('rbac_service')
                 self.logger.warning(
                     f"Unauthorized key reveal attempt: user_id={user.id}, key_id={key_id}, "
-                    f"key_owner={key.user_id}, has_keys_see_analytics={rbac_service.check_permission(user.id, 'keys.see_analytics')}, "
-                    f"has_keys_copy={rbac_service.check_permission(user.id, 'keys.copy')}"
+                    f"key_owner={key.user_id}, has_keys_see_analytics={self._rbac_service.check_permission(user.id, 'keys.see_analytics')}, "
+                    f"has_keys_copy={self._rbac_service.check_permission(user.id, 'keys.copy')}"
                 )
                 return {
                     "key": mask_license_key(key.key),

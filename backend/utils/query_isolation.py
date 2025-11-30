@@ -338,8 +338,14 @@ def disable_project_isolation(reason: Optional[str] = None, require_owner: bool 
     Context manager to temporarily disable project isolation.
     
     SECURITY WARNING: This function disables automatic project isolation filtering,
-    # Get services once at the start (DI pattern)
-    rbac_service = get_service('rbac_service')
+    # Get service through app context (DI pattern) - requires app context
+    from flask import current_app
+    if not hasattr(current_app, 'service_container'):
+        raise RuntimeError(
+            "Service container not initialized. Cannot get 'rbac_service'. "
+            "Make sure init_services() was called during app initialization."
+        )
+    rbac_service = current_app.service_container.get('rbac_service')
     which can lead to data leakage between projects if used incorrectly.
     
     SECURITY REQUIREMENTS:

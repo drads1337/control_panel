@@ -3,7 +3,7 @@ Webhooks services package
 Contains business logic for webhook management
 """
 
-from .webhook_service import WebhookService, get_webhook_service
+from .webhook_service import WebhookService
 from .webhook_management_service import WebhookManagementService
 from .webhook_validation_service import WebhookValidationService
 from .webhook_execution_service import WebhookExecutionService

@@ -76,7 +76,13 @@ class BalanceService:
 
             # Check if current_user has billing permission and should pay from their balance
             # Use explicit dependency injection
-            rbac_service = self._rbac_service or get_service('rbac_service')
+            if not self._rbac_service:
+                from ...utils.service_exceptions import ServiceError
+                raise ServiceError(
+                    "RBACService dependency not injected",
+                    status_code=500
+                )
+            rbac_service = self._rbac_service
             
             is_owner = RBACManager.is_owner(current_user)
             is_admin = RBACManager.is_admin(current_user)
@@ -121,7 +127,13 @@ class BalanceService:
             db.session.add(transaction)
             db.session.commit()
 
-            activity_service = self._activity_service or get_service('activity_service')
+            if not self._activity_service:
+                from ...utils.service_exceptions import ServiceError
+                raise ServiceError(
+                    "ActivityService dependency not injected",
+                    status_code=500
+                )
+            activity_service = self._activity_service
             activity_service.log_activity(
                 current_user,
                 "topup_balance",
@@ -198,7 +210,13 @@ class BalanceService:
                 db.session.commit()
 
             if commit:
-                activity_service = self._activity_service or get_service('activity_service')
+                if not self._activity_service:
+                    from ...utils.service_exceptions import ServiceError
+                    raise ServiceError(
+                        "ActivityService dependency not injected",
+                        status_code=500
+                    )
+                activity_service = self._activity_service
                 activity_service.log_activity(
                     current_user,
                     "deduct_balance",
@@ -358,7 +376,13 @@ class BalanceService:
         """
         try:
             # Use explicit dependency injection
-            rbac_service = self._rbac_service or get_service('rbac_service')
+            if not self._rbac_service:
+                from ...utils.service_exceptions import ServiceError
+                raise ServiceError(
+                    "RBACService dependency not injected",
+                    status_code=500
+                )
+            rbac_service = self._rbac_service
 
             can_manage_balance = (
                 rbac_service.check_permission(current_user.id, "billing.view_balance")

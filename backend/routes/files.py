@@ -168,10 +168,10 @@ def delete_file(filename):
 
     return jsonify({"message": "File deleted successfully"})
 
-@validate_request(FileBulkActionSchema)
 @files_bp.route("/bulk", methods=["POST"])
 @jwt_required()
 @enforce_project_scope
+@validate_request(FileBulkActionSchema)
 def bulk_action(validated_data=None):
     user_id = get_jwt_identity()
     user = file_service.get_user_by_id(user_id)
@@ -218,14 +218,14 @@ def bulk_action(validated_data=None):
 @jwt_required()
 @enforce_project_scope
 def get_file_stats():
+    # Get services once at the start (DI pattern)
+    file_service = get_service('file_service')
+    
     user_id = get_jwt_identity()
     user = file_service.get_user_by_id(user_id)
 
     is_valid, error = file_service.validate_user_project(user)
     if not is_valid:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
-        file_service = get_service('file_service')
         return jsonify({"error": error}), 404 if error == "User not found" else 403
 
     stats = file_service.get_file_stats(user)
@@ -671,10 +671,10 @@ def download_product_extra_file(file_id):
     except Exception as e:
         return jsonify({"error": f"Failed to download extra file: {str(e)}"}), 500
 
-@validate_request(FileStatusUpdateSchema)
 @files_bp.route("/products/extra-files/<int:file_id>/status", methods=["PUT"])
 @jwt_required()
 @enforce_project_scope
+@validate_request(FileStatusUpdateSchema)
 def update_file_status(file_id, validated_data=None):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
@@ -844,10 +844,10 @@ def get_public_product_configs(product_identifier):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch public configs: {str(e)}"}), 500
 
-@validate_request(FileConfigUpdateSchema)
 @files_bp.route("/products/configs/<int:config_id>/update", methods=["PUT"])
 @jwt_required()
 @enforce_project_scope
+@validate_request(FileConfigUpdateSchema)
 def update_product_config(config_id, validated_data=None):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
@@ -921,10 +921,10 @@ def update_product_config(config_id, validated_data=None):
     except Exception as e:
         return jsonify({"error": f"Failed to update config: {str(e)}"}), 500
 
-@validate_request(FileRatingSchema)
 @files_bp.route("/products/configs/<int:config_id>/rate", methods=["POST"])
 @jwt_required()
 @enforce_project_scope
+@validate_request(FileRatingSchema)
 def rate_product_config(config_id, validated_data=None):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
@@ -1468,10 +1468,10 @@ def delete_product_file(product_identifier, file_type):
     except Exception as e:
         return jsonify({"error": f"Failed to delete product file: {str(e)}"}), 500
 
-@validate_request(FolderCreateSchema)
 @files_bp.route("/folders", methods=["POST"])
 @jwt_required()
 @enforce_project_scope
+@validate_request(FolderCreateSchema)
 def create_folder(validated_data=None):
     # CRITICAL: This should never be None if validation middleware ran correctly
     # If it's None, the validation middleware failed to catch an error condition

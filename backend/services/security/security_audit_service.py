@@ -121,8 +121,12 @@ class SecurityAuditService:
                 db.session.commit()
 
                 # Log security event
-                security_monitoring_service = get_service('security_monitoring_service')
-                security_monitoring_service.log_security_event(
+                if not self._security_monitoring_service:
+                    raise ServiceError(
+                        "SecurityMonitoringService dependency not injected",
+                        status_code=500
+                    )
+                self._security_monitoring_service.log_security_event(
                     event_type="fingerprint_blocked",
                     context=context,
                     description=f"Fingerprint blocked: {reason}",
@@ -268,8 +272,12 @@ class SecurityAuditService:
                     db.session.add(blocked_ip)
                     
                     # Update trigger count for "Failed Login Protection" rule
-                    security_rules_service = get_service('security_rules_service')
-                    security_rules_service._update_rule_trigger("Failed Login Protection", project_id)
+                    if not self._security_rules_service:
+                        raise ServiceError(
+                            "SecurityRulesService dependency not injected",
+                            status_code=500
+                        )
+                    self._security_rules_service._update_rule_trigger("Failed Login Protection", project_id)
                     
                     db.session.commit()
                     self.logger.warning(

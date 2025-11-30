@@ -25,12 +25,13 @@ analytics_bp = Blueprint("keys_analytics", __name__)
 @require_project_isolation
 def get_keys_usage():
     """Get key usage statistics"""
+    # Get services once at the start (DI pattern)
+    rbac_service = get_service('rbac_service')
+    
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
     if not user:
-        # Get services once at the start (DI pattern)
-        rbac_service = get_service('rbac_service')
         return jsonify({"error": "User not found"}), 404
 
     if not user.project_id:
@@ -281,12 +282,13 @@ def get_key_analytics(key_id, current_user, project_id=None):
 @require_project_isolation
 def get_keys_stats():
     """Get key statistics"""
+    # Get services once at the start (DI pattern)
+    key_statistics_service = get_service('key_statistics_service')
+    
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
     if not user:
-        # Get services once at the start (DI pattern)
-        key_statistics_service = get_service('key_statistics_service')
         return jsonify({"error": "User not found"}), 404
 
     if not user.project_id:
@@ -312,6 +314,9 @@ def get_keys_stats():
 @require_project_isolation
 def export_keys():
     """Export keys to CSV"""
+    # Get services once at the start (DI pattern)
+    rbac_service = get_service('rbac_service')
+    
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 

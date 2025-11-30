@@ -47,16 +47,16 @@ class KeyCRUDService:
 
     def __init__(
         self,
-        key_validation_service: 'KeyValidationService' = None,
-        key_generation_service: 'KeyGenerationService' = None,
-        product_service: 'ProductService' = None,
-        price_calculation_service: 'PriceCalculationService' = None,
-        balance_service: 'BalanceService' = None,
-        cached_statistics_service: 'CachedStatisticsService' = None,
-        webhook_service: 'WebhookService' = None,
-        rbac_service: 'RBACService' = None,
-        cache_service: 'CacheService' = None,
-        tier_limits_service: 'TierLimitsService' = None,
+        key_validation_service: 'KeyValidationService',
+        key_generation_service: 'KeyGenerationService',
+        product_service: 'ProductService',
+        price_calculation_service: 'PriceCalculationService',
+        balance_service: 'BalanceService',
+        cached_statistics_service: 'CachedStatisticsService',
+        webhook_service: 'WebhookService',
+        rbac_service: 'RBACService',
+        cache_service: 'CacheService',
+        tier_limits_service: 'TierLimitsService',
         logger=None
     ):
         """

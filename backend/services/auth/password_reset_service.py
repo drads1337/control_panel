@@ -13,7 +13,7 @@ from ...models.core import User
 from ...config.config import Config
 from ...utils.validators import AuthValidator
 from ...utils.service_exceptions import ServiceError
-from ...utils.service_helpers import get_service
+# get_service removed - using DI
 
 logger = logging.getLogger(__name__)
 
@@ -176,8 +176,13 @@ class PasswordResetService:
                 frontend_url = Config.FRONTEND_URL
                 reset_url = f"{frontend_url}/reset-password?token={token}"
                 
-                email_service = get_service('email_service')
-                email_service.send_email(
+                # Use injected dependency instead of Service Locator
+                if not self._email_service:
+                    raise ServiceError(
+                        "EmailService dependency not injected",
+                        status_code=500
+                    )
+                self._email_service.send_email(
                     to_email=user.email,
                     subject="Password Reset Request",
                     html_body=f"""

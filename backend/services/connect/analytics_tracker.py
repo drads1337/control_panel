@@ -9,7 +9,7 @@ from datetime import date, datetime
 from typing import Dict, List, Optional
 
 from ...core.extensions import db
-from ...utils.service_helpers import get_service
+# get_service removed - using DI
 from ...utils.service_exceptions import ServiceError
 from ...models import DeviceInfo, KeyAnalytics, Notification, User
 
@@ -43,8 +43,12 @@ class AnalyticsTracker:
         try:
             # Use write-behind buffer instead of direct DB write
             # HyperLogLog is used for efficient unique device counting
-            analytics_buffer_service = get_service('analytics_buffer_service')
-            success = analytics_buffer_service.buffer_key_analytics_update(
+            if not self._analytics_buffer_service:
+                # Fallback to direct write if service not injected
+                logging.warning(f"AnalyticsBufferService not injected, using direct DB write for key_id={key_id}")
+                self._update_key_analytics_direct(key_id, product, ip_address, serial)
+                return
+            success = self._analytics_buffer_service.buffer_key_analytics_update(
                 key_id=key_id,
                 product=product,
                 ip_address=ip_address,
@@ -199,8 +203,12 @@ class AnalyticsTracker:
             Heartbeat session data or None if failed
         """
         try:
-            heartbeat_service = get_service('heartbeat_service')
-            heartbeat_session = heartbeat_service.create_session(
+            if not self._heartbeat_service:
+                raise ServiceError(
+                    "HeartbeatService dependency not injected",
+                    status_code=500
+                )
+            heartbeat_session = self._heartbeat_service.create_session(
                 user_key=user_key,
                 fingerprint=fingerprint,
                 product=product,
@@ -228,8 +236,12 @@ class AnalyticsTracker:
             ip: IP address
         """
         try:
-            activity_service = get_service('activity_service')
-            activity_service.log_activity(user, action, details=details, ip=ip)
+            if not self._activity_service:
+                raise ServiceError(
+                    "ActivityService dependency not injected",
+                    status_code=500
+                )
+            self._activity_service.log_activity(user, action, details=details, ip=ip)
         except Exception as e:
             logging.error(f"Error logging user activity: {e}")
 

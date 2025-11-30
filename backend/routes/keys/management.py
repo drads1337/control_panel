@@ -53,12 +53,13 @@ def find_key_by_id_or_unique_id(key_identifier, project_id):
 @require_project_isolation
 def get_keys(current_user, project_id=None):
     """Get list of keys with filtering and pagination"""
+    # Get services once at the start (DI pattern)
+    key_crud_service = get_service('key_crud_service')
+    
     import logging
     logger = logging.getLogger(__name__)
 
     if not current_user:
-        # Get services once at the start (DI pattern)
-        key_crud_service = get_service('key_crud_service')
         return jsonify({"error": "Access denied"}), 403
 
     if not current_user.project_id:

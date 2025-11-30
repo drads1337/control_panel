@@ -12,6 +12,16 @@ from datetime import datetime, timedelta
 from ...utils.service_helpers import get_service
 from ...utils.celery_db_session import celery_db_session
 
+def _get_service(service_name):
+    """Get service through app context (DI pattern) - requires app context"""
+    from flask import current_app
+    if not hasattr(current_app, 'service_container'):
+        raise RuntimeError(
+            f"Service container not initialized. Cannot get '{service_name}'. "
+            "Make sure init_services() was called during app initialization."
+        )
+    return current_app.service_container.get(service_name)
+
 try:
     from celery import Task
 
@@ -91,13 +101,24 @@ def bulk_create_keys_task(
     activity_service = None
     
     try:
-        if task_id:
-            task_service = get_service('task_service')
-            task_service.update_task_status(task_id, "in_progress", progress=5)
-        # Get services that will be used in the task
-        key_generation_service = get_service('key_generation_service')
-        cached_statistics_service = get_service('cached_statistics_service')
-        activity_service = get_service('activity_service')
+        # Get services through app context (DI pattern)
+        from flask import current_app
+        if hasattr(current_app, 'service_container'):
+            container = current_app.service_container
+            if task_id:
+                task_service = container.get('task_service')
+                task_service.update_task_status(task_id, "in_progress", progress=5)
+            key_generation_service = container.get('key_generation_service')
+            cached_statistics_service = container.get('cached_statistics_service')
+            activity_service = container.get('activity_service')
+        else:
+            # Fallback for backward compatibility
+            if task_id:
+                task_service = _get_service('task_service')
+                task_service.update_task_status(task_id, "in_progress", progress=5)
+            key_generation_service = _get_service('key_generation_service')
+            cached_statistics_service = _get_service('cached_statistics_service')
+            activity_service = _get_service('activity_service')
     except Exception as e:
         logger.warning(f"Failed to get services: {e}")
 
@@ -174,7 +195,7 @@ def bulk_create_keys_task(
                         task_service.update_task_status(task_id, "in_progress", progress=progress)
 
                     if not key_generation_service:
-                        key_generation_service = get_service('key_generation_service')
+                        key_generation_service = _get_service('key_generation_service')
                     key_string = key_generation_service.generate_key_string(
                         length=32, product=product, duration_hours=duration_hours, project_id=project_id
                     )
@@ -208,7 +229,7 @@ def bulk_create_keys_task(
 
                     # Use cache invalidation instead of deprecated counter functions to avoid race conditions
                     if not cached_statistics_service:
-                        cached_statistics_service = get_service('cached_statistics_service')
+                        cached_statistics_service = _get_service('cached_statistics_service')
                     cached_statistics_service.invalidate_on_key_change(user.id, project_id)
                     created_keys.append(key)
                     logger.debug(f"🔑 Created key {i+1}/{count}: {key_string[:8]}...")
@@ -271,7 +292,7 @@ def bulk_create_keys_task(
             item_type = "access codes" if is_access_code else "license_key"
             try:
                 if not activity_service:
-                    activity_service = get_service('activity_service')
+                    activity_service = _get_service('activity_service')
                 activity_service.log_activity(
                     user,
                     "bulk_create_keys",
@@ -350,11 +371,11 @@ def bulk_create_loader_keys_task(
     
     try:
         if task_id:
-            task_service = get_service('task_service')
+            task_service = _get_service('task_service')
             task_service.update_task_status(task_id, "in_progress", progress=5)
         # Get services that will be used in the task
-        key_generation_service = get_service('key_generation_service')
-        activity_service = get_service('activity_service')
+        key_generation_service = _get_service('key_generation_service')
+        activity_service = _get_service('activity_service')
     except Exception as e:
         logger.warning(f"Failed to get services: {e}")
 
@@ -404,7 +425,7 @@ def bulk_create_loader_keys_task(
                         task_service.update_task_status(task_id, "in_progress", progress=progress)
 
                     if not key_generation_service:
-                        key_generation_service = get_service('key_generation_service')
+                        key_generation_service = _get_service('key_generation_service')
                     key_string = key_generation_service.generate_key_string(
                         length=32, agent=agent, duration_hours=duration_hours, project_id=project_id
                     )
@@ -449,7 +470,7 @@ def bulk_create_loader_keys_task(
 
                 try:
                     if not activity_service:
-                        activity_service = get_service('activity_service')
+                        activity_service = _get_service('activity_service')
                     activity_service.log_activity(
                         user,
                         "bulk_create_loader_keys",

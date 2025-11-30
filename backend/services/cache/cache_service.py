@@ -763,8 +763,13 @@ class CacheService:
 
             self.invalidate_product_instantly(project_id, product_id)
 
-            product_service = get_service('product_service')
-            product_service.get_product_simple_cached(project_id)
+            # Use injected dependency instead of Service Locator
+            # Note: This creates a circular dependency, but it's optional (only for cache refresh)
+            # If product_service is not injected, skip the refresh (cache invalidation is enough)
+            if self._product_service:
+                self._product_service.get_product_simple_cached(project_id)
+            else:
+                logging.debug(f"Skipping product cache refresh - ProductService not injected (optional dependency)")
 
             logging.info(f"Force refreshed product cache for project {project_id}, product {product_id}")
             return True

@@ -11,6 +11,16 @@ import time
 from ...utils.service_helpers import get_service
 from ...utils.celery_db_session import celery_db_session
 
+def _get_service(service_name):
+    """Get service through app context (DI pattern) - requires app context"""
+    from flask import current_app
+    if not hasattr(current_app, 'service_container'):
+        raise RuntimeError(
+            f"Service container not initialized. Cannot get '{service_name}'. "
+            "Make sure init_services() was called during app initialization."
+        )
+    return current_app.service_container.get(service_name)
+
 try:
     from celery import Task
 
@@ -73,7 +83,7 @@ def server_status_check(self, server_id, task_id=None, project_id=None):
     task_service = None
     if task_id:
         try:
-            task_service = get_service('task_service')
+            task_service = _get_service('task_service')
             task_service.update_task_status(task_id, "in_progress", progress=10)
         except Exception as e:
             logger.warning(f"Failed to update task status: {e}")
@@ -195,7 +205,7 @@ def server_start(self, server_id, task_id=None, project_id=None):
     task_service = None
     if task_id:
         try:
-            task_service = get_service('task_service')
+            task_service = _get_service('task_service')
             task_service.update_task_status(task_id, "in_progress", progress=10)
         except Exception as e:
             logger.warning(f"Failed to update task status: {e}")
@@ -320,7 +330,7 @@ def server_stop(self, server_id, task_id=None, project_id=None):
     task_service = None
     if task_id:
         try:
-            task_service = get_service('task_service')
+            task_service = _get_service('task_service')
             task_service.update_task_status(task_id, "in_progress", progress=10)
         except Exception as e:
             logger.warning(f"Failed to update task status: {e}")
@@ -458,7 +468,7 @@ def server_restart(self, server_id, task_id=None, project_id=None):
     task_service = None
     if task_id:
         try:
-            task_service = get_service('task_service')
+            task_service = _get_service('task_service')
             task_service.update_task_status(task_id, "in_progress", progress=10)
         except Exception as e:
             logger.warning(f"Failed to update task status: {e}")

@@ -2187,14 +2187,6 @@ def get_navigation_config(current_user):
                     "permission": "analytics.view"
                 },
                 {
-                    "href": "/projects",
-                    "roles": ["owner"]
-                },
-                {
-                    "href": "/servers",
-                    "roles": ["owner"]
-                },
-                {
                     "href": "/management-page",
                     "permissionPrefixes": ["keys.", "files.", "products.", "agents."]
                 },
@@ -2204,19 +2196,19 @@ def get_navigation_config(current_user):
                 },
                 {
                     "href": "/remote-control",
-                    "permissionPrefix": "remote_control."
+                    "permissionPrefixes": ["remote_control."]
                 },
                 {
                     "href": "/security",
-                    "permissionPrefix": "security."
+                    "permissionPrefixes": ["security."]
                 },
                 {
                     "href": "/webhooks",
-                    "permissionPrefix": "webhooks."
+                    "permissionPrefixes": ["webhooks."]
                 },
                 {
                     "href": "/logs",
-                    "permissionPrefix": "logs."
+                    "permissionPrefixes": ["logs."]
                 }
             ]
 

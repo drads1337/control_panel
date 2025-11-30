@@ -469,19 +469,14 @@ class DynamicConfigService:
             # Apply RBAC-based feature restrictions
             user = User.query.get(key_obj.user_id) if key_obj.user_id else None
             if user:
-                
-                # Use ServiceContainer to avoid circular imports
-                rbac_service = get_service('rbac_service')
-
+                # Use injected dependency instead of Service Locator
                 if not self._rbac_service:
                     raise ServiceError(
-                        "Rbac Service dependency not injected",
+                        "RBACService dependency not injected",
                         status_code=500
                     )
-                rbac_service = self._rbac_service
-                rbac_service = get_service('rbac_service')
-                is_owner = rbac_service.check_permission(user.id, "system.manage_all_projects")
-                is_admin = rbac_service.check_permission(
+                is_owner = self._rbac_service.check_permission(user.id, "system.manage_all_projects")
+                is_admin = self._rbac_service.check_permission(
                     user.id, "products.edit"
                 ) or rbac_service.check_permission(user.id, "products.view")
                 is_seller = rbac_service.check_permission(user.id, "products.view")
@@ -545,4 +540,3 @@ class DynamicConfigService:
                     config["feature_flags"][feature_name] = False
                 elif isinstance(feature_value, dict):
                     self._disable_all_features({"feature_flags": feature_value})
-

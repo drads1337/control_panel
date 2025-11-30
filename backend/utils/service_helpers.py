@@ -38,70 +38,86 @@ def get_service(service_name: str) -> Any:
 
 
 # Convenience functions for commonly used services
+# These functions are kept for backward compatibility
+# New code should use get_service() directly or DI through constructors
+# These functions use DI directly through current_app.service_container
+
 def get_user_crud_service():
     """Get UserCRUDService instance."""
-    return get_service('user_crud_service')
+    if not hasattr(current_app, 'service_container'):
+        raise RuntimeError(
+            "Service container not initialized. "
+            "Make sure init_services() was called during app initialization."
+        )
+    return current_app.service_container.get('user_crud_service')
 
 
 def get_user_role_service():
-    # Get services once at the start (DI pattern)
-    # Get services once at the start (DI pattern)
-    user_crud_service = get_service('user_crud_service')
     """Get UserRoleService instance."""
-    return get_service('user_role_service')
+    if not hasattr(current_app, 'service_container'):
+        raise RuntimeError(
+            "Service container not initialized. "
+            "Make sure init_services() was called during app initialization."
+        )
+    return current_app.service_container.get('user_role_service')
 
 
 def get_user_permission_service():
-    # Get services once at the start (DI pattern)
-    # Get services once at the start (DI pattern)
-    user_crud_service = get_service('user_crud_service')
-    user_role_service = get_service('user_role_service')
     """Get UserPermissionService instance."""
-    return get_service('user_permission_service')
+    if not hasattr(current_app, 'service_container'):
+        raise RuntimeError(
+            "Service container not initialized. "
+            "Make sure init_services() was called during app initialization."
+        )
+    return current_app.service_container.get('user_permission_service')
 
 
 def get_user_statistics_service():
-    # Get services once at the start (DI pattern)
-    # Get services once at the start (DI pattern)
-    user_permission_service = get_service('user_permission_service')
-    user_role_service = get_service('user_role_service')
     """Get UserStatisticsService instance."""
-    return get_service('user_statistics_service')
+    if not hasattr(current_app, 'service_container'):
+        raise RuntimeError(
+            "Service container not initialized. "
+            "Make sure init_services() was called during app initialization."
+        )
+    return current_app.service_container.get('user_statistics_service')
 
 
 def get_user_invite_service():
-    # Get services once at the start (DI pattern)
-    # Get services once at the start (DI pattern)
-    user_permission_service = get_service('user_permission_service')
-    user_statistics_service = get_service('user_statistics_service')
     """Get UserInviteService instance."""
-    return get_service('user_invite_service')
+    if not hasattr(current_app, 'service_container'):
+        raise RuntimeError(
+            "Service container not initialized. "
+            "Make sure init_services() was called during app initialization."
+        )
+    return current_app.service_container.get('user_invite_service')
 
 
 def get_user_profile_service():
-    # Get services once at the start (DI pattern)
-    # Get services once at the start (DI pattern)
-    user_invite_service = get_service('user_invite_service')
-    user_statistics_service = get_service('user_statistics_service')
     """Get UserProfileService instance."""
-    return get_service('user_profile_service')
+    if not hasattr(current_app, 'service_container'):
+        raise RuntimeError(
+            "Service container not initialized. "
+            "Make sure init_services() was called during app initialization."
+        )
+    return current_app.service_container.get('user_profile_service')
 
 
 def get_rbac_service():
-    # Get services once at the start (DI pattern)
-    # Get services once at the start (DI pattern)
-    user_invite_service = get_service('user_invite_service')
-    user_profile_service = get_service('user_profile_service')
     """Get RBACService instance."""
-    return get_service('rbac_service')
+    if not hasattr(current_app, 'service_container'):
+        raise RuntimeError(
+            "Service container not initialized. "
+            "Make sure init_services() was called during app initialization."
+        )
+    return current_app.service_container.get('rbac_service')
 
 
 def get_activity_service():
-    # Get services once at the start (DI pattern)
-    # Get services once at the start (DI pattern)
-    rbac_service = get_service('rbac_service')
-    user_profile_service = get_service('user_profile_service')
-    rbac_service = get_service('rbac_service')
     """Get ActivityService instance."""
-    return get_service('activity_service')
+    if not hasattr(current_app, 'service_container'):
+        raise RuntimeError(
+            "Service container not initialized. "
+            "Make sure init_services() was called during app initialization."
+        )
+    return current_app.service_container.get('activity_service')
 

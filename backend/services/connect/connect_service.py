@@ -39,8 +39,8 @@ class ConnectService:
 
     def __init__(
         self,
-        challenge_service: 'ChallengeService' = None,
-        auth_service: 'AuthService' = None,
+        challenge_service: 'ChallengeService',
+        auth_service: 'AuthService',
         logger=None
     ):
         """

@@ -382,7 +382,7 @@ def register(validated_data=None):
         db.session.commit()
 
         try:
-            from ..services.webhooks import get_webhook_service
+            from ..utils.route_helpers import get_webhook_service
 
             webhook_service = get_webhook_service()
 

@@ -14,7 +14,16 @@ from ..core.extensions import db
 from ..models import Key, User
 from ...utils.service_helpers import get_service
 
-cached_statistics_service = get_service('cached_statistics_service')
+def _get_cached_statistics_service():
+    """Get cached_statistics_service through app context (DI pattern) - requires app context"""
+    from flask import current_app
+    if not hasattr(current_app, 'service_container'):
+        raise RuntimeError(
+            "Service container not initialized. Cannot get 'cached_statistics_service'. "
+            "Make sure init_services() was called during app initialization."
+        )
+    return current_app.service_container.get('cached_statistics_service')
+
 def update_user_key_counters(user_id: Optional[int], project_id: Optional[int] = None):
     """
     Recalculate and update key counters for a user.

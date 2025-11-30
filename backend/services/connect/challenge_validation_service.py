@@ -15,7 +15,7 @@ import redis
 from ...config.config import Config
 from ...utils.redis_client import get_redis_client
 from ...utils.service_exceptions import ServiceError
-from ...utils.service_helpers import get_service
+# get_service removed - using DI
 
 logger = logging.getLogger(__name__)
 
@@ -216,8 +216,12 @@ class ChallengeValidationService:
             else:
                 response_data = challenge_response
 
-            challenge_service = get_service('challenge_service')
-            is_valid, validation_message = challenge_service.validate_challenge_response(
+            if not self._challenge_service:
+                raise ServiceError(
+                    "ChallengeService dependency not injected",
+                    status_code=500
+                )
+            is_valid, validation_message = self._challenge_service.validate_challenge_response(
                 challenge_data, response_data, user_key, fingerprint
             )
 

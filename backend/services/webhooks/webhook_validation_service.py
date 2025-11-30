@@ -1,4 +1,3 @@
-from ...utils.service_helpers import get_service
 from ...utils.service_exceptions import ServiceError
 """
 Webhook Validation Service
@@ -16,13 +15,11 @@ from urllib.parse import urlparse
 from ...models.core import User
 from ...models.webhooks import Webhook
 from ...utils.redis_client import get_redis_client_for_db
-# Note: get_service and RBACManager are imported inside functions to avoid circular dependencies
-# These imports are safe because they use lazy loading via service container
 
 class WebhookValidationService:
     """Service for validating webhook URLs, access, and creation data"""
 
-    def __init__(self, rbac_service=None, webhook_formatting_service=None):
+    def __init__(self, rbac_service, webhook_formatting_service):
         self._webhook_formatting_service = webhook_formatting_service
         self._rbac_service = rbac_service
         self.logger = logging.getLogger(__name__)
@@ -209,13 +206,16 @@ class WebhookValidationService:
             Tuple of (has_access, error_message)
         """
         try:
-            # Lazy import to avoid circular dependencies
-            # These are imported inside the function to break potential import cycles
+            # Import RBACManager (no circular dependency - it's a utility)
             from ...utils.rbac_utils import RBACManager
             
-            # Use ServiceContainer to avoid circular imports
-            rbac_service = get_service('rbac_service')
-
+            # Use injected dependency instead of Service Locator pattern
+            if not self._rbac_service:
+                raise ServiceError(
+                    "Rbac dependency not injected",
+                    status_code=500
+                )
+            
             user = User.query.get(user_id)
             if not user:
                 return False, "User not found"
@@ -226,14 +226,7 @@ class WebhookValidationService:
                 )
                 return False, "User must be assigned to a project to manage webhooks"
 
-            if not self._rbac:
-                raise ServiceError(
-                    "Rbac dependency not injected",
-                    status_code=500
-                )
-            rbac_service = self._rbac
-            rbac_service = get_service('rbac_service')
-            if not rbac_service.check_permission(user.id, "webhooks.view"):
+            if not self._rbac_service.check_permission(user.id, "webhooks.view"):
                 logging.warning(f"WEBHOOK_ACCESS_BLOCKED: user_id={user.id} insufficient permissions")
                 return False, "Insufficient permissions"
 
@@ -340,10 +333,13 @@ class WebhookValidationService:
 
             if events:
                 if valid_events is None:
-                    # Lazy import to avoid circular dependencies
-                    # Imported inside function to break potential import cycles
-                    formatting_service = get_service('webhook_formatting_service')
-                    valid_events = formatting_service.get_valid_events()
+                    # Use injected dependency instead of Service Locator pattern
+                    if not self._webhook_formatting_service:
+                        raise ServiceError(
+                            "Webhook formatting service dependency not injected",
+                            status_code=500
+                        )
+                    valid_events = self._webhook_formatting_service.get_valid_events()
                 
                 for event in events:
                     if event not in valid_events:

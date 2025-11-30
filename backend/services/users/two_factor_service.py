@@ -18,9 +18,7 @@ from flask import current_app
 from ...core.extensions import db
 from ...models.core import User
 from ...models.security import TwoFactorAuth, TwoFactorBackupCode, TwoFactorSession
-from ...utils.service_helpers import get_service
 from ...utils.service_exceptions import ServiceError
-from ...utils.service_helpers import get_service
 
 class TwoFactorService:
     """Service for managing two-factor authentication"""
@@ -151,8 +149,12 @@ class TwoFactorService:
             two_factor.updated_at = datetime.utcnow()
             db.session.commit()
 
-            activity_service = get_service('activity_service')
-            activity_service.log_activity(
+            if not self._activity_service:
+                raise ServiceError(
+                    "ActivityService dependency not injected",
+                    status_code=500
+                )
+            self._activity_service.log_activity(
                 user,
                 "2fa_enabled",
                 details="Two-factor authentication enabled",
@@ -179,8 +181,12 @@ class TwoFactorService:
 
         db.session.commit()
 
-        activity_service = get_service('activity_service')
-        activity_service.log_activity(
+        if not self._activity_service:
+            raise ServiceError(
+                "ActivityService dependency not injected",
+                status_code=500
+            )
+        self._activity_service.log_activity(
             user,
             "2fa_disabled",
             details="Two-factor authentication disabled",
@@ -313,8 +319,12 @@ class TwoFactorService:
 
         db.session.commit()
 
-        activity_service = get_service('activity_service')
-        activity_service.log_activity(
+        if not self._activity_service:
+            raise ServiceError(
+                "ActivityService dependency not injected",
+                status_code=500
+            )
+        self._activity_service.log_activity(
             user,
             "2fa_backup_codes_regenerated",
             details="Backup codes regenerated",
@@ -337,16 +347,12 @@ class TwoFactorService:
 
     def is_2fa_required(self, user: User) -> bool:
         """Check if 2FA is required for a user"""
-        rbac_service = self._rbac_service or get_service('rbac_service')
-        
-        if not self._rbac:
+        if not self._rbac_service:
             raise ServiceError(
-                "Rbac dependency not injected",
+                "RBACService dependency not injected",
                 status_code=500
             )
-        rbac_service = self._rbac
-        rbac_service = get_service('rbac_service')
-        if rbac_service.check_permission(user.id, "system.manage_all_projects"):
+        if self._rbac_service.check_permission(user.id, "system.manage_all_projects"):
             return True
 
         admin_permissions = ["rbac.view", "employees.view", "system.view_health"]

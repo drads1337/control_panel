@@ -13,7 +13,6 @@ from typing import Any, Dict, List
 
 from ...core.extensions import db
 from ...models.security import SecurityRule
-from ...utils.service_helpers import get_service
 from ...utils.service_exceptions import ServiceError
 from .security_types import SecurityContext
 
@@ -53,11 +52,18 @@ class SecurityRulesService:
         for rule in rules:
             try:
                 if self._evaluate_rule(rule, context):
-                    # Get services via DI to avoid circular dependency
-                    security_audit_service = get_service('security_audit_service')
-                    security_monitoring_service = get_service('security_monitoring_service')
-                    
-                    action_result = self._execute_rule_action(rule, context, security_audit_service, security_monitoring_service)
+                    # Use injected dependencies instead of Service Locator
+                    if not self._security_audit_service:
+                        raise ServiceError(
+                            "SecurityAuditService dependency not injected",
+                            status_code=500
+                        )
+                    if not self._security_monitoring_service:
+                        raise ServiceError(
+                            "SecurityMonitoringService dependency not injected",
+                            status_code=500
+                        )
+                    action_result = self._execute_rule_action(rule, context, self._security_audit_service, self._security_monitoring_service)
                     triggered_rules.append(
                         {"rule_id": rule.id, "rule_name": rule.name, "action_result": action_result}
                     )
@@ -139,7 +145,7 @@ class SecurityRulesService:
             action_params = json.loads(rule.action_params or "{}")
 
             if rule.action_type == "block":
-                block = security_audit_service.create_enhanced_block(
+                block = self._security_audit_service.create_enhanced_block(
                     context=context,
                     reason=f"Automated block by rule: {rule.name}",
                     block_type="automatic",
@@ -151,7 +157,7 @@ class SecurityRulesService:
                 return {"action": "blocked", "block_id": block.id}
 
             elif rule.action_type == "warn":
-                security_monitoring_service.log_security_event(
+                self._security_monitoring_service.log_security_event(
                     event_type="security_warning",
                     context=context,
                     description=f"Security warning from rule: {rule.name}",
@@ -162,7 +168,7 @@ class SecurityRulesService:
 
             elif rule.action_type == "log":
                 log_severity = action_params.get("log_severity", "low")
-                security_monitoring_service.log_security_event(
+                self._security_monitoring_service.log_security_event(
                     event_type="rule_triggered",
                     context=context,
                     description=f"Rule triggered: {rule.name}",
@@ -173,7 +179,7 @@ class SecurityRulesService:
 
             elif rule.action_type == "monitor":
                 log_severity = action_params.get("log_severity", "medium")
-                security_monitoring_service.log_security_event(
+                self._security_monitoring_service.log_security_event(
                     event_type="rule_monitored",
                     context=context,
                     description=f"Rule monitoring: {rule.name}",
@@ -207,9 +213,13 @@ class SecurityRulesService:
 
             if "min_threat_score" in conditions:
                 min_score = conditions["min_threat_score"]
-                # Get service via DI to avoid circular dependency
-                security_monitoring_service = get_service('security_monitoring_service')
-                threat_assessment = security_monitoring_service.assess_threat(context)
+                # Use injected dependency instead of Service Locator
+                if not self._security_monitoring_service:
+                    raise ServiceError(
+                        "SecurityMonitoringService dependency not injected",
+                        status_code=500
+                    )
+                threat_assessment = self._security_monitoring_service.assess_threat(context)
                 if threat_assessment.score >= min_score:
                     return True
 
@@ -348,14 +358,22 @@ class SecurityRulesService:
         """Evaluate threat score conditions for auto-blocking suspicious IPs"""
         try:
             min_threat_score = conditions.get("min_threat_score", 70)
-            # Get services via DI to avoid circular dependency
-            security_monitoring_service = get_service('security_monitoring_service')
-            threat_assessment = security_monitoring_service.assess_threat(context)
+            # Use injected dependencies instead of Service Locator
+            if not self._security_monitoring_service:
+                raise ServiceError(
+                    "SecurityMonitoringService dependency not injected",
+                    status_code=500
+                )
+            threat_assessment = self._security_monitoring_service.assess_threat(context)
             
             if threat_assessment.score >= min_threat_score:
                 # Auto-block IP if threat score is high
                 from ...models.security import BlockedIP
-                security_audit_service = get_service('security_audit_service')
+                if not self._security_audit_service:
+                    raise ServiceError(
+                        "SecurityAuditService dependency not injected",
+                        status_code=500
+                    )
                 
                 existing_block = BlockedIP.query.filter_by(
                     ip_address=context.ip_address,
@@ -399,8 +417,17 @@ class SecurityRulesService:
         """Evaluate VPN detection conditions"""
         try:
             from ...utils.vpn_detection import vpn_detector
-            security_monitoring_service = get_service('security_monitoring_service')
-            security_audit_service = get_service('security_audit_service')
+            # Use injected dependencies instead of Service Locator
+            if not self._security_monitoring_service:
+                raise ServiceError(
+                    "SecurityMonitoringService dependency not injected",
+                    status_code=500
+                )
+            if not self._security_audit_service:
+                raise ServiceError(
+                    "SecurityAuditService dependency not injected",
+                    status_code=500
+                )
             
             check_vpn = conditions.get("check_vpn", True)
             if not check_vpn:
@@ -411,7 +438,7 @@ class SecurityRulesService:
             
             if is_vpn:
                 # Log VPN detection
-                security_monitoring_service.log_security_event(
+                self._security_monitoring_service.log_security_event(
                     event_type="vpn_detected",
                     context=context,
                     description=f"VPN/Proxy detected: {vpn_result.get('provider', 'Unknown')}",

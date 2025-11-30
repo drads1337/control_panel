@@ -150,8 +150,14 @@ def increment_project_product_counters(project_id: Optional[int]):
     Increment product counter for a project.
     
     NOTE: This function now uses cache invalidation instead of direct counter updates
-    # Get services once at the start (DI pattern)
-    cached_statistics_service = get_service('cached_statistics_service')
+    # Get service through app context (DI pattern) - requires app context
+    from flask import current_app
+    if not hasattr(current_app, 'service_container'):
+        raise RuntimeError(
+            "Service container not initialized. Cannot get 'cached_statistics_service'. "
+            "Make sure init_services() was called during app initialization."
+        )
+    cached_statistics_service = current_app.service_container.get('cached_statistics_service')
     to prevent race conditions. The counter will be recalculated on the next read.
     
     Args:
@@ -164,8 +170,12 @@ def increment_project_product_counters(project_id: Optional[int]):
     # The counter will be recalculated automatically when needed
     # Get service inside function (DI pattern - avoid module-level service access)
     try:
-        cached_statistics_service.invalidate_on_product_change(project_id)
-    except Exception:
+        # Get service through app context (DI pattern) - requires app context
+        from flask import current_app
+        if hasattr(current_app, 'service_container'):
+            cached_statistics_service = current_app.service_container.get('cached_statistics_service')
+            cached_statistics_service.invalidate_on_product_change(project_id)
+    except (RuntimeError, AttributeError, Exception):
         # Service might not be available in all contexts (e.g., migrations)
         pass
     

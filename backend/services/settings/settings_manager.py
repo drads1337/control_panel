@@ -1,4 +1,3 @@
-from ...utils.service_helpers import get_service
 """
 Settings Manager
 Handles business logic, caching, and response building for project settings.
@@ -12,7 +11,7 @@ from typing import Any, Dict, Optional
 
 from ...models.core import User
 from ...utils.rbac_utils import RBACManager
-from ...utils.service_exceptions import BusinessLogicError
+from ...utils.service_exceptions import BusinessLogicError, ServiceError
 from .settings_repository import SettingsRepository
 
 # Type hints for dependencies (imported here to avoid circular imports)
@@ -31,36 +30,38 @@ class SettingsManager:
 
     def __init__(
         self,
+        cache_service: 'CacheService',
         repository: Optional[SettingsRepository] = None,
-        cache_service: 'CacheService' = None,
         logger=None
     ):
         """
         Initialize SettingsManager with explicit dependencies.
         
         Args:
-            repository: Repository for settings data access
-            cache_service: Service for cache operations
+            cache_service: Service for cache operations (required)
+            repository: Repository for settings data access (optional, will create if not provided)
             logger: Optional logger instance
         """
         self.repository = repository or SettingsRepository()
         self.cache_service = cache_service
         self.logger = logger or logging.getLogger(__name__)
+        
+        # Validate required dependency
+        if self.cache_service is None:
+            raise ServiceError(
+                "CacheService dependency is required",
+                status_code=500
+            )
 
     @property
     def _cache_service(self):
-        """Get cache service instance (lazy loading for backward compatibility)"""
-        if self.cache_service is not None:
-            return self.cache_service
-        try:
-            if not self._cache_service:
-                raise ServiceError(
-                    "Cache Service dependency not injected",
-                    status_code=500
-                )
-            return self._cache_service
-        except Exception:
-            return None
+        """Get cache service instance (uses injected dependency)"""
+        if self.cache_service is None:
+            raise ServiceError(
+                "CacheService dependency not injected",
+                status_code=500
+            )
+        return self.cache_service
 
     def resolve_project_id(
         self, user: User, project_id: Optional[int] = None

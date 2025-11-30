@@ -48,49 +48,29 @@ const ViewProductDialog: React.FC<ViewProductDialogProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between py-2 border-b">
-              <span className="text-sm font-medium text-muted-foreground">Version</span>
-              <span className="text-sm">{product.version}</span>
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <span className="text-muted-foreground">Version</span>
+              <div className="font-medium mt-0.5">{product.version}</div>
             </div>
-            <div className="flex items-center justify-between py-2 border-b">
-              <span className="text-sm font-medium text-muted-foreground">Type</span>
-              <span className="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium">
-                {product.is_multi_app ? 'Multi-App' : 'Product Library'}
-              </span>
+            <div>
+              <span className="text-muted-foreground">Status</span>
+              <div className="mt-0.5">{getStatusBadge(product.status)}</div>
             </div>
-            <div className="flex items-center justify-between py-2 border-b">
-              <span className="text-sm font-medium text-muted-foreground">Login Type</span>
-              <span className="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium">
-                {product.login_type === 'classic_login' ? 'Classic Login' : 'License Generation'}
-              </span>
+            <div>
+              <span className="text-muted-foreground">Downloads</span>
+              <div className="font-medium mt-0.5">{product.downloads.toLocaleString()}</div>
             </div>
-            <div className="flex items-center justify-between py-2 border-b">
-              <span className="text-sm font-medium text-muted-foreground">Status</span>
-              {getStatusBadge(product.status)}
-            </div>
-            <div className="flex items-center justify-between py-2 border-b">
-              <span className="text-sm font-medium text-muted-foreground">Downloads</span>
-              <span className="text-sm">{product.downloads.toLocaleString()}</span>
-            </div>
-            <div className="flex items-center justify-between py-2 border-b">
-              <span className="text-sm font-medium text-muted-foreground">Active Users</span>
-              <span className="text-sm">{(product.activeUsers || product.active_users || 0).toLocaleString()}</span>
-            </div>
-            <div className="flex items-center justify-between py-2">
-              <span className="text-sm font-medium text-muted-foreground">Date Created</span>
-              <span className="text-sm">
-                {product.created_at ? new Date(product.created_at).toLocaleDateString() : 'N/A'}
-              </span>
+            <div>
+              <span className="text-muted-foreground">Users</span>
+              <div className="font-medium mt-0.5">{(product.activeUsers || product.active_users || 0).toLocaleString()}</div>
             </div>
           </div>
         </div>
 
         <DialogFooter className="flex items-center justify-between">
           <span className="text-xs text-muted-foreground">ID: {product.id}</span>
-
         </DialogFooter>
       </DialogContent>
     </Dialog>

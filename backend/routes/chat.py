@@ -336,18 +336,8 @@ def send_message(project_id=None):
                 )
                 logger.debug(f"Queued Telegram message task for chat_message_id={chat_message.id}")
             except ImportError:
-                # Fallback to synchronous if Celery is not available (development only)
-                logger.warning("Celery not available, using synchronous Telegram send (not recommended for production)")
-                try:
-                    telegram_message_id = bot_manager.send_message(
-                        telegram_bot.bot_token, telegram_bot.chat_id, formatted_message
-                    )
-                    if telegram_message_id:
-                        chat_message.telegram_message_id = str(telegram_message_id)
-                        chat_message.is_sent_to_telegram = True
-                        db.session.commit()
-                except Exception as e:
-                    logger.error(f"Error sending to Telegram: {e}")
+                # Celery is required for production - log error instead of blocking request
+                logger.error("Celery not available - Telegram message will not be sent. Celery is required for production.")
             except Exception as e:
                 logger.error(f"Error queueing Telegram message task: {e}")
 
@@ -369,14 +359,8 @@ def send_message(project_id=None):
                         )
                         logger.debug(f"Queued Discord message task for webhook_id={hook.id}")
                     except ImportError:
-                        # Fallback to synchronous if Celery is not available (development only)
-                        logger.warning("Celery not available, using synchronous Discord send (not recommended for production)")
-                        try:
-                            import requests
-                            payload = {"content": message_content}
-                            requests.post(hook.webhook_url, json=payload, timeout=5)
-                        except Exception as e:
-                            logger.error(f"Error sending to Discord webhook {hook.id}: {e}")
+                        # Celery is required for production - log error instead of blocking request
+                        logger.error(f"Celery not available - Discord message will not be sent for webhook_id={hook.id}. Celery is required for production.")
                     except Exception as e:
                         logger.error(f"Error queueing Discord message task for webhook_id={hook.id}: {e}")
         except Exception as e:
@@ -659,18 +643,8 @@ def send_client_message():
                 )
                 logger.debug(f"Queued Telegram message task for chat_message_id={chat_message.id}")
             except ImportError:
-                # Fallback to synchronous if Celery is not available (development only)
-                logger.warning("Celery not available, using synchronous Telegram send (not recommended for production)")
-                try:
-                    telegram_message_id = bot_manager.send_message(
-                        telegram_bot.bot_token, telegram_bot.chat_id, formatted_message
-                    )
-                    if telegram_message_id:
-                        chat_message.telegram_message_id = str(telegram_message_id)
-                        chat_message.is_sent_to_telegram = True
-                        db.session.commit()
-                except Exception as e:
-                    logger.error(f"Error sending to Telegram: {e}")
+                # Celery is required for production - log error instead of blocking request
+                logger.error("Celery not available - Telegram message will not be sent. Celery is required for production.")
             except Exception as e:
                 logger.error(f"Error queueing Telegram message task: {e}")
 
@@ -692,14 +666,8 @@ def send_client_message():
                         )
                         logger.debug(f"Queued Discord message task for webhook_id={hook.id}")
                     except ImportError:
-                        # Fallback to synchronous if Celery is not available (development only)
-                        logger.warning("Celery not available, using synchronous Discord send (not recommended for production)")
-                        try:
-                            import requests
-                            payload = {"content": message_content}
-                            requests.post(hook.webhook_url, json=payload, timeout=5)
-                        except Exception as e:
-                            logger.error(f"Error sending to Discord webhook {hook.id}: {e}")
+                        # Celery is required for production - log error instead of blocking request
+                        logger.error(f"Celery not available - Discord message will not be sent for webhook_id={hook.id}. Celery is required for production.")
                     except Exception as e:
                         logger.error(f"Error queueing Discord message task for webhook_id={hook.id}: {e}")
 

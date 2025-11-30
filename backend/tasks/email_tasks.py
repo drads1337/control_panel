@@ -4,7 +4,16 @@ Handles email notifications asynchronously
 """
 
 import logging
-from ...utils.service_helpers import get_service
+
+def _get_service(service_name):
+    """Get service through app context (DI pattern) - requires app context"""
+    from flask import current_app
+    if not hasattr(current_app, 'service_container'):
+        raise RuntimeError(
+            f"Service container not initialized. Cannot get '{service_name}'. "
+            "Make sure init_services() was called during app initialization."
+        )
+    return current_app.service_container.get(service_name)
 
 try:
     from celery import Task
@@ -84,8 +93,8 @@ def _send_password_reset_email_impl(
         If you didn't request this, please ignore this email.
         """
         
+        email_service = _get_service('email_service')
         success = email_service.send_email(
-            email_service = get_service('email_service')
             to_email=to_email,
             subject=subject,
             html_body=html_body,

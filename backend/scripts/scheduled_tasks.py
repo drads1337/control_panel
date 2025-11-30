@@ -17,8 +17,8 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from ..config.config import Config
+from ..core.service_container import get_service_container
 from ..services.logs import log_cleanup_service
-from ..services.webhooks import get_webhook_service
 from ..utils.structured_logging import get_logger
 
 logging.basicConfig(
@@ -90,7 +90,6 @@ class ScheduledTaskProcessor:
             from ..models.core import User
             from ..models.products import Product
             from ..models.keys import Key
-            from ..services.webhooks import get_webhook_service
 
             session = self.Session()
             try:
@@ -110,7 +109,7 @@ class ScheduledTaskProcessor:
             if expired_keys:
                 self.logger.info(f"Found {len(expired_keys)} expired keys")
 
-                webhook_service = get_webhook_service()
+                webhook_service = get_service_container().get('webhook_service')
 
                 for key in expired_keys:
                     try:
@@ -181,7 +180,7 @@ class ScheduledTaskProcessor:
         try:
             self.logger.info("Processing pending webhook tasks")
             
-            webhook_service = get_webhook_service()
+            webhook_service = get_service_container().get('webhook_service')
             stats = webhook_service.process_pending_webhook_tasks(batch_size=50)
             
             if stats["processed"] > 0:
@@ -201,7 +200,7 @@ class ScheduledTaskProcessor:
         try:
             self.logger.info("Cleaning up old webhook pending tasks")
             
-            webhook_service = get_webhook_service()
+            webhook_service = get_service_container().get('webhook_service')
             deleted_count = webhook_service.cleanup_old_pending_tasks(days_old=7)
             
             if deleted_count > 0:

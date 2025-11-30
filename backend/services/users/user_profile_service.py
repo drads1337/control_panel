@@ -1,4 +1,3 @@
-from ...utils.service_helpers import get_service
 from ...utils.service_exceptions import ServiceError
 """
 User Profile Service
@@ -22,7 +21,7 @@ from ...utils.rbac_utils import RBACManager
 class UserProfileService:
     """Service for handling user profile operations"""
 
-    def __init__(self, logger=None, upload_folder=None, activity_service=None, rbac_service=None):
+    def __init__(self, activity_service, rbac_service, logger=None, upload_folder=None):
         self._rbac_service = rbac_service
         self._activity_service = activity_service
         self.logger = logger or logging.getLogger(__name__)
@@ -247,12 +246,12 @@ class UserProfileService:
 
         user_permissions = []
         try:
-            
-            # Use ServiceContainer to avoid circular imports
-            rbac_service = get_service('rbac_service')
-
-            permissions_set = rbac_service.get_user_permissions(user.id)
-            rbac_service = get_service('rbac_service')
+            if not self._rbac_service:
+                raise ServiceError(
+                    "RBACService dependency not injected",
+                    status_code=500
+                )
+            permissions_set = self._rbac_service.get_user_permissions(user.id)
             user_permissions = list(permissions_set) if permissions_set else []
         except Exception as e:
             self.logger.warning(f"Failed to get user permissions for user {user.id}: {e}")
@@ -331,8 +330,12 @@ class UserProfileService:
                 self.logger.warning(f"Failed to get device info: {e}")
 
             try:
-                activity_service = get_service('activity_service')
-                recent_activities = activity_service.get_user_activities(user.id, limit=10)
+                if not self._activity_service:
+                    raise ServiceError(
+                        "ActivityService dependency not injected",
+                        status_code=500
+                    )
+                recent_activities = self._activity_service.get_user_activities(user.id, limit=10)
                 dashboard_data["recent_activity"] = [
                     {
                         "id": activity.id,

@@ -137,6 +137,7 @@ export function ManagementPageGuard({ children, fallbackPath = '/dashboard' }: {
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 
+  // Admin and owner have access (checked in hasManagementAccess)
   const { hasAccess } = hasManagementAccess(user)
 
   if (!hasAccess) {
@@ -204,6 +205,12 @@ export function UsersManagementGuard({ children, fallbackPath = '/dashboard' }: 
 
   if (!isAuthenticated || !user) {
     return <Navigate to="/login" state={{ from: location }} replace />
+  }
+
+  // Admin and owner have access to user management
+  const isAdmin = hasAnyRole(user, ['admin', 'owner'])
+  if (isAdmin) {
+    return <>{children}</>
   }
 
   const userPermissions = user.permissions || []
@@ -308,6 +315,12 @@ export function RemoteControlGuard({ children, fallbackPath = '/dashboard' }: { 
 
   if (!isAuthenticated || !user) {
     return <Navigate to="/login" state={{ from: location }} replace />
+  }
+
+  // Admin and owner have access to remote control
+  const isAdmin = hasAnyRole(user, ['admin', 'owner'])
+  if (isAdmin) {
+    return <>{children}</>
   }
 
   const userPermissions = user.permissions || []

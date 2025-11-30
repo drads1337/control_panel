@@ -91,10 +91,11 @@ def get_me(current_user):
 
     user = current_user
 
+    # Get services once at the start (DI pattern)
+    rbac_service = get_service('rbac_service')
+
     if not RBACManager.is_owner(user) and not user.project_id:
 
-        # Get services once at the start (DI pattern)
-        rbac_service = get_service('rbac_service')
         user_permissions = []
         try:
             permissions_set = rbac_service.get_user_permissions(user.id)

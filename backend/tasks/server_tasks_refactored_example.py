@@ -1,4 +1,3 @@
-from ..utils.service_helpers import get_service
 """
 Example of refactored Celery task using celery_db_session context manager.
 
@@ -88,7 +87,14 @@ def server_status_check(self, server_id, task_id=None, project_id=None):
     task_service = None
     if task_id:
         try:
-            task_service = get_service('task_service')
+            # Example: Get service through app context (DI pattern)
+            from flask import current_app
+            if not hasattr(current_app, 'service_container'):
+                raise RuntimeError(
+                    "Service container not initialized. Cannot get 'task_service'. "
+                    "Make sure init_services() was called during app initialization."
+                )
+            task_service = current_app.service_container.get('task_service')
             task_service.update_task_status(task_id, "in_progress", progress=10)
         except Exception as e:
             logger.warning(f"Failed to update task status: {e}")

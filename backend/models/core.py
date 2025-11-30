@@ -146,14 +146,21 @@ class Project(db.Model):
         Get the project admin user
         
         NOTE: This property is kept for backward compatibility.
-        project_relationships_service = get_service('project_relationships_service')
         For new code, use project_relationships_service.get_admin_user(project_id) instead.
+        Uses DI through app context to get project_relationships_service.
         """
         # Use service to avoid code duplication
         if self._project_relationships_service:
             return self._project_relationships_service.get_admin_user(self.id)
-        from ..utils.service_helpers import get_service
-        return get_service('project_relationships_service').get_admin_user(self.id)
+        # Get service through app context (DI pattern) - requires app context
+        from flask import current_app
+        if not hasattr(current_app, 'service_container'):
+            raise RuntimeError(
+                "Service container not initialized. Cannot get 'project_relationships_service'. "
+                "Make sure init_services() was called during app initialization."
+            )
+        service = current_app.service_container.get('project_relationships_service')
+        return service.get_admin_user(self.id)
 
     def set_admin(self, user_id):
         """
@@ -164,8 +171,15 @@ class Project(db.Model):
         """
         if self._project_relationships_service:
             return self._project_relationships_service.set_admin(self.id, user_id)
-        from ..utils.service_helpers import get_service
-        return get_service('project_relationships_service').set_admin(self.id, user_id)
+        # Get service through app context (DI pattern) - requires app context
+        from flask import current_app
+        if not hasattr(current_app, 'service_container'):
+            raise RuntimeError(
+                "Service container not initialized. Cannot get 'project_relationships_service'. "
+                "Make sure init_services() was called during app initialization."
+            )
+        service = current_app.service_container.get('project_relationships_service')
+        return service.set_admin(self.id, user_id)
 
     def get_admin_id(self):
         """
@@ -176,8 +190,15 @@ class Project(db.Model):
         """
         if self._project_relationships_service:
             return self._project_relationships_service.get_admin_id(self.id)
-        from ..utils.service_helpers import get_service
-        return get_service('project_relationships_service').get_admin_id(self.id)
+        # Get service through app context (DI pattern) - requires app context
+        from flask import current_app
+        if not hasattr(current_app, 'service_container'):
+            raise RuntimeError(
+                "Service container not initialized. Cannot get 'project_relationships_service'. "
+                "Make sure init_services() was called during app initialization."
+            )
+        service = current_app.service_container.get('project_relationships_service')
+        return service.get_admin_id(self.id)
 
 class ProjectEncryptionKeys(db.Model):
     """

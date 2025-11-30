@@ -2,7 +2,7 @@ import { useMemo, useEffect, useState } from 'react'
 import { useAuthContext } from '@/contexts/auth-context'
 import { hasManagementAccess } from '@/lib/rbac-utils'
 import { useManagementStore } from '@/stores/management-store'
-import { Key, Database, FolderOpen, Zap, Bell } from 'lucide-react'
+import { Key, Database, FolderOpen, Zap } from 'lucide-react'
 import { getProductsCount } from '@/entities/product/api/product'
 import { usePermissions } from '@/hooks/use-permissions'
 
@@ -121,16 +121,8 @@ export function useManagementData() {
         icon: Zap,
       })
     }
-    if (canViewNotifications) {
-      tabs.push({
-        value: 'notifications',
-        label: 'Notifications',
-        shortLabel: 'Notifications',
-        icon: Bell,
-      })
-    }
     return tabs
-  }, [canViewKeys, canViewFiles, effectiveCanViewProducts, canViewAgents, canViewNotifications])
+  }, [canViewKeys, canViewFiles, effectiveCanViewProducts, canViewAgents])
 
   useEffect(() => {
     if (availableTabs.length > 0 && !availableTabs.some(tab => tab.value === activeTab)) {

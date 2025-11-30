@@ -17,7 +17,6 @@ from ...models.core import (
 )
 from ...models.keys import Key, TokenTransaction
 from ...models.rbac import Role, UserRole
-from ...utils.service_helpers import get_service
 from ...utils.service_exceptions import ServiceError
 from ...utils.rbac_utils import RBACManager
 from ...utils.structured_logging import get_logger
@@ -49,20 +48,12 @@ class UserStatisticsService:
 
             if not self._rbac_service:
                 raise ServiceError(
-                    "Rbac Service dependency not injected",
+                    "RBACService dependency not injected",
                     status_code=500
                 )
-            rbac_service = self._rbac_service
-            if not self._rbac_service:
-                raise ServiceError(
-                    "Rbac Service dependency not injected",
-                    status_code=500
-                )
-            rbac_service = self._rbac_service
-            rbac_service = get_service('rbac_service')
-            can_view_all = rbac_service.check_permission(
+            can_view_all = self._rbac_service.check_permission(
                 current_user.id, "employees.view"
-            ) or rbac_service.check_permission(current_user.id, "clients.view")
+            ) or self._rbac_service.check_permission(current_user.id, "clients.view")
             if not can_view_all:
                 query = query.filter_by(project_id=current_user.project_id)
             elif project_id:
@@ -118,10 +109,14 @@ class UserStatisticsService:
             if not target_user:
                 return None, "User not found"
 
-            rbac_service = get_service('rbac_service')
-            can_view_all = rbac_service.check_permission(
+            if not self._rbac_service:
+                raise ServiceError(
+                    "RBACService dependency not injected",
+                    status_code=500
+                )
+            can_view_all = self._rbac_service.check_permission(
                 current_user.id, "employees.view"
-            ) or rbac_service.check_permission(current_user.id, "clients.view")
+            ) or self._rbac_service.check_permission(current_user.id, "clients.view")
 
             if not can_view_all:
                 if current_user.project_id != target_user.project_id:
@@ -221,10 +216,14 @@ class UserStatisticsService:
             if not target_user:
                 return None, "User not found"
 
-            rbac_service = get_service('rbac_service')
-            can_view_all = rbac_service.check_permission(
+            if not self._rbac_service:
+                raise ServiceError(
+                    "RBACService dependency not injected",
+                    status_code=500
+                )
+            can_view_all = self._rbac_service.check_permission(
                 current_user.id, "employees.view"
-            ) or rbac_service.check_permission(current_user.id, "clients.view")
+            ) or self._rbac_service.check_permission(current_user.id, "clients.view")
             if not can_view_all:
                 if current_user.project_id != target_user.project_id:
                     return None, "Access denied"
@@ -282,10 +281,14 @@ class UserStatisticsService:
             if not target_user:
                 return None, "User not found"
 
-            rbac_service = get_service('rbac_service')
-            can_view_all = rbac_service.check_permission(
+            if not self._rbac_service:
+                raise ServiceError(
+                    "RBACService dependency not injected",
+                    status_code=500
+                )
+            can_view_all = self._rbac_service.check_permission(
                 current_user.id, "employees.view"
-            ) or rbac_service.check_permission(current_user.id, "clients.view")
+            ) or self._rbac_service.check_permission(current_user.id, "clients.view")
             if not can_view_all:
                 if current_user.project_id != target_user.project_id:
                     return None, "Access denied"

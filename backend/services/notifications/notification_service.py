@@ -284,20 +284,15 @@ class NotificationService:
                 return False, "Notification not found"
 
             if notification.user_id and notification.user_id != user.id:
-                
-                # Use ServiceContainer to avoid circular imports
-                rbac_service = get_service('rbac_service')
-
+                # Use injected dependency instead of Service Locator
                 if not self._rbac_service:
                     raise ServiceError(
-                        "Rbac Service dependency not injected",
+                        "RBACService dependency not injected",
                         status_code=500
                     )
-                rbac_service = self._rbac_service
-                rbac_service = get_service('rbac_service')
-                can_view_all = rbac_service.check_permission(
+                can_view_all = self._rbac_service.check_permission(
                     user.id, "employees.view"
-                ) or rbac_service.check_permission(user.id, "clients.view")
+                ) or self._rbac_service.check_permission(user.id, "clients.view")
 
                 if not can_view_all:
                     return False, "Access denied"
@@ -346,11 +341,13 @@ class NotificationService:
                 return False, "Access denied"
 
             if notification_user_id and notification_user_id != user.id:
-                
-                # Use ServiceContainer to avoid circular imports
-                rbac_service = get_service('rbac_service')
-
-                can_delete_all = rbac_service.check_permission(
+                # Use injected dependency instead of Service Locator
+                if not self._rbac_service:
+                    raise ServiceError(
+                        "RBACService dependency not injected",
+                        status_code=500
+                    )
+                can_delete_all = self._rbac_service.check_permission(
                     user.id, "employees.send_notification"
                 ) or rbac_service.check_permission(user.id, "clients.send_notification")
 

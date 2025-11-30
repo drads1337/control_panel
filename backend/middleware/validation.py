@@ -325,6 +325,28 @@ class ValidationMiddleware:
                     
                     # Log what we're passing to help debug
                     logger.debug(f"Validation middleware passing validated_data: {validated_data} for {request.method} {request.path}")
+                    
+                    # Final safety check - this should never be None at this point
+                    if validated_data is None:
+                        logger.critical(f"CRITICAL: validated_data is None right before function call for {request.method} {request.path}")
+                        logger.critical(f"This is a critical bug - validation should have returned an error earlier")
+                        import traceback
+                        logger.critical(f"Stack trace:\n{traceback.format_stack()}")
+                        return (
+                            jsonify(
+                                {
+                                    "error": "VALIDATION_ERROR",
+                                    "message": "Request validation failed - internal validation error",
+                                    "debug_info": {
+                                        "content_type": request.headers.get('Content-Type'),
+                                        "has_body": bool(request.get_data()),
+                                        "body_preview": request.get_data(as_text=True)[:100] if request.get_data() else None,
+                                    }
+                                }
+                            ),
+                            500,
+                        )
+                    
                     kwargs["validated_data"] = validated_data
 
                     return func(*args, **kwargs)

@@ -359,7 +359,10 @@ def create_app() -> Flask:
         except Exception as e:
             logger.warning(f"Failed to initialize Swagger: {e}. API documentation will not be available.")
 
-    ActivityLoggerMiddleware(app)
+    # Initialize ActivityLoggerMiddleware with injected service
+    from ..services.activity.activity_service import ActivityService
+    activity_service = app.service_container.get('activity_service')
+    ActivityLoggerMiddleware(app, activity_service=activity_service)
 
     with app.app_context():
         init_replica_binds(app)

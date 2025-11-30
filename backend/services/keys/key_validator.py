@@ -14,7 +14,7 @@ from ...models.products import Product
 from ...models.keys import Key
 from ...utils.rbac_utils import RBACManager
 from ...utils.service_exceptions import ServiceError
-from ...utils.service_helpers import get_service
+# get_service removed - using DI
 
 logger = logging.getLogger(__name__)
 
@@ -61,29 +61,28 @@ class KeyValidator:
             logger.info(f"KEY_ACTIVATED key_id={key_obj.id} expires_at={key_obj.expires_at}")
 
             try:
-                from .webhook_service import get_webhook_service
+                if not self._webhook_service:
+                    # Webhook is optional - log warning but don't fail
+                    logger.warning(f"WebhookService not injected, skipping webhook trigger for key activation: {key_obj.id}")
+                else:
+                    product = None
+                    if key_obj.product_id:
+                        product = Product.query.get(key_obj.product_id)
 
-                webhook_service = get_webhook_service()
+                    webhook_data = {
+                        "key_id": key_obj.id,
+                        "key_value": key_obj.key,
+                        "user_id": key_obj.user_id,
+                        "product_id": key_obj.product_id,
+                        "product_name": product.name if product else None,
+                        "duration_hours": key_obj.duration_hours,
+                        "max_devices": key_obj.max_devices,
+                        "activated_at": key_obj.activated_at.isoformat(),
+                        "expires_at": key_obj.expires_at.isoformat() if key_obj.expires_at else None,
+                    }
 
-                product = None
-                if key_obj.product_id:
-                    product = Product.query.get(key_obj.product_id)
-
-                webhook_data = {
-                    "key_id": key_obj.id,
-                    "key_value": key_obj.key,
-                    "user_id": key_obj.user_id,
-                    "product_id": key_obj.product_id,
-                    "product_name": product.name if product else None,
-                    "duration_hours": key_obj.duration_hours,
-                    "max_devices": key_obj.max_devices,
-                    "activated_at": key_obj.activated_at.isoformat(),
-                    "expires_at": key_obj.expires_at.isoformat() if key_obj.expires_at else None,
-                }
-
-                webhook_service = get_service('webhook_service')
-                webhook_service.trigger_webhook("key.activated", webhook_data, key_obj.project_id)
-                logger.info(f"Triggered webhook for key activation: {key_obj.id}")
+                    self._webhook_service.trigger_webhook("key.activated", webhook_data, key_obj.project_id)
+                    logger.info(f"Triggered webhook for key activation: {key_obj.id}")
 
             except Exception as e:
                 logger.error(f"Failed to trigger webhook for key activation: {str(e)}")

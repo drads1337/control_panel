@@ -13,7 +13,6 @@ import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from ...utils.service_helpers import get_service
 from ...utils.service_exceptions import ServiceError
 from .security_types import SecurityContext, ThreatAssessment
 
@@ -40,8 +39,12 @@ class SecurityService:
         
         Delegates to SecurityMonitoringService (SRP principle).
         """
-        security_monitoring_service = get_service('security_monitoring_service')
-        return security_monitoring_service.assess_threat(context)
+        if not self._security_monitoring_service:
+            raise ServiceError(
+                "SecurityMonitoringService dependency not injected",
+                status_code=500
+            )
+        return self._security_monitoring_service.assess_threat(context)
     def create_enhanced_block(
         self,
         context: SecurityContext,
@@ -57,8 +60,12 @@ class SecurityService:
         
         Delegates to SecurityAuditService (SRP principle).
         """
-        security_audit_service = get_service('security_audit_service')
-        return security_audit_service.create_enhanced_block(
+        if not self._security_audit_service:
+            raise ServiceError(
+                "SecurityAuditService dependency not injected",
+                status_code=500
+            )
+        return self._security_audit_service.create_enhanced_block(
             context, reason, block_type, severity, threat_score, expires_at, blocked_by_user_id
         )
 
@@ -68,16 +75,24 @@ class SecurityService:
         
         Delegates to SecurityRulesService (SRP principle).
         """
-        security_rules_service = get_service('security_rules_service')
-        return security_rules_service.check_automated_rules(context)
+        if not self._security_rules_service:
+            raise ServiceError(
+                "SecurityRulesService dependency not injected",
+                status_code=500
+            )
+        return self._security_rules_service.check_automated_rules(context)
     def get_security_analytics(self, project_id: int, days: int = 30) -> Dict[str, Any]:
         """
         Get comprehensive security analytics.
         
         Delegates to SecurityMonitoringService (SRP principle).
         """
-        security_monitoring_service = get_service('security_monitoring_service')
-        return security_monitoring_service.get_security_analytics(project_id, days)
+        if not self._security_monitoring_service:
+            raise ServiceError(
+                "SecurityMonitoringService dependency not injected",
+                status_code=500
+            )
+        return self._security_monitoring_service.get_security_analytics(project_id, days)
     def is_ip_blocked(self, ip_address: str, project_id: int) -> bool:
         """
         Check if an IP address is blocked due to failed login attempts or manual blocking.
@@ -91,8 +106,12 @@ class SecurityService:
         Returns:
             True if IP is blocked, False otherwise
         """
-        security_audit_service = get_service('security_audit_service')
-        return security_audit_service.is_ip_blocked(ip_address, project_id)
+        if not self._security_audit_service:
+            raise ServiceError(
+                "SecurityAuditService dependency not injected",
+                status_code=500
+            )
+        return self._security_audit_service.is_ip_blocked(ip_address, project_id)
     def check_session_limit(self, user_id: int, project_id: int) -> bool:
         """
         Check if user has exceeded session limit.
@@ -106,8 +125,12 @@ class SecurityService:
         Returns:
             True if session limit exceeded, False otherwise
         """
-        security_audit_service = get_service('security_audit_service')
-        return security_audit_service.check_session_limit(user_id, project_id)
+        if not self._security_audit_service:
+            raise ServiceError(
+                "SecurityAuditService dependency not injected",
+                status_code=500
+            )
+        return self._security_audit_service.check_session_limit(user_id, project_id)
     def record_login_attempt(
         self,
         ip_address: str,
@@ -128,7 +151,11 @@ class SecurityService:
             project_id: Project ID
             user_agent: Client user agent string
         """
-        security_monitoring_service = get_service('security_monitoring_service')
-        return security_monitoring_service.record_login_attempt(
+        if not self._security_monitoring_service:
+            raise ServiceError(
+                "SecurityMonitoringService dependency not injected",
+                status_code=500
+            )
+        return self._security_monitoring_service.record_login_attempt(
             ip_address, username, success, project_id, user_agent
         )

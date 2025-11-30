@@ -254,9 +254,12 @@ class ServerService:
                         "Cache Service dependency not injected",
                         status_code=500
                     )
-                cache_service = self._cache_service
-                cache_service = get_service('cache_service')
-                cache_service.invalidate_pattern(f"stats:project_id={project_id}:*")
+                if not self._cache_service:
+                    raise ServiceError(
+                        "CacheService dependency not injected",
+                        status_code=500
+                    )
+                self._cache_service.invalidate_pattern(f"stats:project_id={project_id}:*")
 
             db.session.delete(server)
             db.session.commit()

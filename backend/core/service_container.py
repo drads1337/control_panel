@@ -408,6 +408,10 @@ def init_services(app):
     # UserProfileService now supports DI - dependencies will be auto-injected
     container.register('user_profile_service', UserProfileService, scope=ServiceScope.SINGLETON)
     
+    # Register project relationships service first (required by RBACService)
+    from ..services.projects.project_relationships_service import ProjectRelationshipsService
+    container.register('project_relationships_service', lambda: ProjectRelationshipsService(), scope=ServiceScope.SINGLETON)
+    
     # Register RBAC service (singleton - stateless)
     from ..services.rbac.rbac_service import RBACService
     # RBACService now supports DI - dependencies will be auto-injected
@@ -496,14 +500,18 @@ def init_services(app):
     from ..services.keys.key_validator import KeyValidator
     
     # Register key services (order matters - dependencies must be registered first)
-    # KeyValidationService now supports DI - dependencies will be auto-injected
+    # KeyValidationService now supports DI - dependencies will be auto-injected (requires product_service)
     container.register('key_validation_service', KeyValidationService, scope=ServiceScope.SINGLETON)
     container.register('key_generation_service', lambda: KeyGenerationService(), scope=ServiceScope.SINGLETON)
     
     # KeyCRUDService now supports DI - dependencies will be auto-injected
-    # The service constructor accepts optional dependencies, so it will work with or without DI
+    # Requires: key_validation_service, key_generation_service, product_service, price_calculation_service,
+    #           balance_service, cached_statistics_service, webhook_service, rbac_service, cache_service, tier_limits_service
     container.register('key_crud_service', KeyCRUDService, scope=ServiceScope.SINGLETON)
+    
     # KeyBulkOperationsService now supports DI - dependencies will be auto-injected
+    # Requires: key_validation_service, key_crud_service, key_generation_service, key_status_service,
+    #           product_service, price_calculation_service, balance_service
     container.register('key_bulk_operations_service', KeyBulkOperationsService, scope=ServiceScope.SINGLETON)
     container.register('key_status_service', lambda: KeyStatusService(), scope=ServiceScope.SINGLETON)
     container.register('key_statistics_service', lambda: KeyStatisticsService(), scope=ServiceScope.SINGLETON)
@@ -520,9 +528,14 @@ def init_services(app):
     # BalanceService now supports DI - dependencies will be auto-injected
     container.register('balance_service', BalanceService, scope=ServiceScope.SINGLETON)
     
+    # Register challenge service before connect service (ConnectService depends on it)
+    from ..services.auth.challenge_service import ChallengeService
+    container.register('challenge_service', lambda: ChallengeService(), scope=ServiceScope.SINGLETON)
+    
     # Register connect service (singleton - stateless)
     from ..services.connect.connect_service import ConnectService
     # ConnectService now supports DI - dependencies will be auto-injected
+    # Requires: challenge_service, auth_service
     container.register('connect_service', ConnectService, scope=ServiceScope.SINGLETON)
     
     # Register device update buffer (singleton - stateless)
@@ -545,7 +558,7 @@ def init_services(app):
     
     # ProjectService now supports DI - dependencies will be auto-injected
     container.register('project_service', ProjectService, scope=ServiceScope.SINGLETON)
-    container.register('project_relationships_service', lambda: ProjectRelationshipsService(), scope=ServiceScope.SINGLETON)
+    # Note: project_relationships_service is registered earlier (before rbac_service)
     
     # Register server service (singleton - stateless)
     from ..services.servers.server_service import ServerService
@@ -604,11 +617,10 @@ def init_services(app):
     container.register('invite_service', lambda: InviteService(), scope=ServiceScope.SINGLETON)
     
     # Register auth services (singleton - stateless)
-    from ..services.auth.challenge_service import ChallengeService
+    # Note: challenge_service is registered earlier (before connect_service)
     from ..services.auth.login_service import LoginService
     from ..services.auth.auth_token_service import AuthTokenService
     from ..services.auth.password_reset_service import PasswordResetService
-    container.register('challenge_service', lambda: ChallengeService(), scope=ServiceScope.SINGLETON)
     # LoginService now supports DI - dependencies will be auto-injected
     container.register('login_service', LoginService, scope=ServiceScope.SINGLETON)
     container.register('auth_token_service', lambda: AuthTokenService(), scope=ServiceScope.SINGLETON)
@@ -625,29 +637,33 @@ def init_services(app):
     container.register('request_validation_pipeline', RequestValidationPipeline, scope=ServiceScope.SINGLETON)
     
     # Register webhook services (singleton - stateless)
-    from ..services.webhooks.webhook_service import WebhookService
-    from ..services.webhooks.webhook_management_service import WebhookManagementService
-    from ..services.webhooks.webhook_validation_service import WebhookValidationService
-    from ..services.webhooks.webhook_execution_service import WebhookExecutionService
+    # Register dependencies first (order matters)
     from ..services.webhooks.webhook_formatting_service import WebhookFormattingService
     from ..services.webhooks.webhook_logging_service import WebhookLoggingService
     from ..services.webhooks.webhook_testing_service import WebhookTestingService
     from ..services.webhooks.webhook_pending_task_service import WebhookPendingTaskService
     from ..services.webhooks.webhook_crypto_service import WebhookCryptoService
     
-    # WebhookService now supports DI - dependencies will be auto-injected
-    container.register('webhook_service', WebhookService, scope=ServiceScope.SINGLETON)
+    container.register('webhook_formatting_service', lambda: WebhookFormattingService(), scope=ServiceScope.SINGLETON)
+    container.register('webhook_logging_service', lambda: WebhookLoggingService(), scope=ServiceScope.SINGLETON)
+    container.register('webhook_testing_service', lambda: WebhookTestingService(), scope=ServiceScope.SINGLETON)
+    container.register('webhook_pending_task_service', lambda: WebhookPendingTaskService(), scope=ServiceScope.SINGLETON)
+    container.register('webhook_crypto_service', lambda: WebhookCryptoService(), scope=ServiceScope.SINGLETON)
+    
+    # Register services that depend on the above (order matters)
+    from ..services.webhooks.webhook_management_service import WebhookManagementService
+    from ..services.webhooks.webhook_validation_service import WebhookValidationService
+    from ..services.webhooks.webhook_execution_service import WebhookExecutionService
+    from ..services.webhooks.webhook_service import WebhookService
+    
     # WebhookManagementService now supports DI - dependencies will be auto-injected
     container.register('webhook_management_service', WebhookManagementService, scope=ServiceScope.SINGLETON)
     # WebhookValidationService now supports DI - dependencies will be auto-injected
     container.register('webhook_validation_service', WebhookValidationService, scope=ServiceScope.SINGLETON)
     # WebhookExecutionService now supports DI - dependencies will be auto-injected
     container.register('webhook_execution_service', WebhookExecutionService, scope=ServiceScope.SINGLETON)
-    container.register('webhook_formatting_service', lambda: WebhookFormattingService(), scope=ServiceScope.SINGLETON)
-    container.register('webhook_logging_service', lambda: WebhookLoggingService(), scope=ServiceScope.SINGLETON)
-    container.register('webhook_testing_service', lambda: WebhookTestingService(), scope=ServiceScope.SINGLETON)
-    container.register('webhook_pending_task_service', lambda: WebhookPendingTaskService(), scope=ServiceScope.SINGLETON)
-    container.register('webhook_crypto_service', lambda: WebhookCryptoService(), scope=ServiceScope.SINGLETON)
+    # WebhookService now supports DI - dependencies will be auto-injected (depends on all above)
+    container.register('webhook_service', WebhookService, scope=ServiceScope.SINGLETON)
     
     # Register tier limits service (singleton - stateless)
     from ..services.tier_limits.tier_limits_service import TierLimitsService

@@ -54,13 +54,14 @@ def find_product_by_id_or_unique_id(product_identifier, project_id):
 @enforce_project_scope
 def get_products_count(current_user, project_id=None):
     """Get count of products (optimized endpoint that doesn't load full product data)"""
+    # Get services once at the start (DI pattern)
+    product_service = get_service('product_service')
+    rbac_service = get_service('rbac_service')
+    
     user_id = get_jwt_identity()
     user = current_user or User.query.get(user_id)
 
     if not user:
-        # Get services once at the start (DI pattern)
-        product_service = get_service('product_service')
-        rbac_service = get_service('rbac_service')
         return jsonify({"error": "User not found"}), 404
 
     # Allow users with clients.view permission to access products even if they don't have a project_id
@@ -101,13 +102,14 @@ def get_products_count(current_user, project_id=None):
 @enforce_project_scope
 def get_products(current_user=None, project_id=None):
     """Get list of products"""
+    # Get services once at the start (DI pattern)
+    product_service = get_service('product_service')
+    rbac_service = get_service('rbac_service')
+    
     user_id = get_jwt_identity()
     user = current_user or User.query.get(user_id)
 
     if not user:
-        # Get services once at the start (DI pattern)
-        product_service = get_service('product_service')
-        rbac_service = get_service('rbac_service')
         return jsonify({"error": "User not found"}), 404
 
     # Allow users with clients.view permission to access products even if they don't have a project_id

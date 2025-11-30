@@ -56,7 +56,6 @@ from typing import Any, Dict, List, Optional
 from flask import g, has_request_context
 
 from ...core.extensions import db
-from ...utils.service_helpers import get_service
 from ...utils.service_exceptions import ServiceError
 from ...models.core import User
 from ...models.rbac import Permission, RolePermission, UserRole
@@ -337,8 +336,12 @@ class PolicyEngine:
             outcome = DecisionOutcome.DENY
         
         # Audit the authorization decision
-        authorization_audit_service = self._authorization_audit_service or get_service('authorization_audit_service')
-        authorization_audit_service.audit_authorization_decision(
+        if not self._authorization_audit_service:
+            raise ServiceError(
+                "AuthorizationAuditService dependency not injected",
+                status_code=500
+            )
+        self._authorization_audit_service.audit_authorization_decision(
             user_id=user_id,
             permission=permission,
             outcome=outcome,
@@ -431,8 +434,12 @@ class PolicyEngine:
             )
         
         # Get user permissions through RBAC
-        rbac_service = self._rbac_service or get_service('rbac_service')
-        user_permissions = rbac_service.get_user_permissions(user.id)
+        if not self._rbac_service:
+            raise ServiceError(
+                "RBACService dependency not injected",
+                status_code=500
+            )
+        user_permissions = self._rbac_service.get_user_permissions(user.id)
         
         if permission in user_permissions:
             return Decision(
@@ -585,10 +592,12 @@ class PolicyEngine:
             )
         
         # Delegate to ABAC service
-        from .abac_service import ABACService
-        
-        abac_service = self._abac_service or get_service('abac_service')
-        abac_result = abac_service.check_abac_rules(
+        if not self._abac_service:
+            raise ServiceError(
+                "ABACService dependency not injected",
+                status_code=500
+            )
+        abac_result = self._abac_service.check_abac_rules(
             user_id=user.id,
             permission=permission,
             resource_type=resource_type,
@@ -697,8 +706,12 @@ class PolicyEngine:
             )
         
         # Check for product permission pattern: "permission.product.{product_id}"
-        rbac_service = self._rbac_service or get_service('rbac_service')
-        user_permissions = rbac_service.get_user_permissions(user.id)
+        if not self._rbac_service:
+            raise ServiceError(
+                "RBACService dependency not injected",
+                status_code=500
+            )
+        user_permissions = self._rbac_service.get_user_permissions(user.id)
         product_permission_pattern = f"{permission}.product.{product_id}"
         
         if product_permission_pattern in user_permissions:

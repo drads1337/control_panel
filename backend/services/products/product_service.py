@@ -18,7 +18,7 @@ from ...models.products import Product, ProductExtraFile, ProductFileConfig, Pro
 from ...models.keys import Key
 from ...models.agents import Agent, AgentProductAssignment, AgentDownloadLog
 from ...utils.service_exceptions import NotFoundError, PermissionDeniedError, ConflictError, ServiceError, ValidationError
-from ...utils.service_helpers import get_service
+# get_service removed - using DI
 
 # Type hints for dependencies (imported here to avoid circular imports)
 from typing import TYPE_CHECKING
@@ -50,6 +50,13 @@ class ProductService:
         self._rbac_service = rbac_service
         self._tier_limits_service = tier_limits_service
         self.logger = logger or logging.getLogger(__name__)
+        
+        # Validate required dependency
+        if not self.cache_service:
+            raise ServiceError(
+                "CacheService dependency is required",
+                status_code=500
+            )
 
     def get_products_cached(
         self, project_id: int, product_type: str = "all", user_id: Optional[int] = None
@@ -197,7 +204,13 @@ class ProductService:
         if user_id:
             cache_key_params["user_id"] = user_id
 
-        cached_result = (self.cache_service or self._cache_service or get_service('cache_service')).get_or_set(
+        # Use injected dependency instead of Service Locator
+        if not self.cache_service:
+            raise ServiceError(
+                "CacheService dependency not injected",
+                status_code=500
+            )
+        cached_result = self.cache_service.get_or_set(
             cache_type="products", fetch_func=fetch_products, **cache_key_params
         )
 
@@ -447,7 +460,12 @@ class ProductService:
     def invalidate_product_cache(self, project_id: int, product_id: Optional[int] = None) -> bool:
         """Invalidate product cache for a project or specific product - INSTANT updates"""
         try:
-            deleted_count = (self.cache_service or self._cache_service or get_service('cache_service')).invalidate_product_instantly(project_id, product_id)
+            if not self.cache_service:
+                raise ServiceError(
+                    "CacheService dependency not injected",
+                    status_code=500
+                )
+            deleted_count = self.cache_service.invalidate_product_instantly(project_id, product_id)
 
             self.logger.info(
                 f"INSTANT product cache invalidation completed: {deleted_count} keys deleted"
@@ -467,7 +485,12 @@ class ProductService:
 
                 total_deleted = 0
                 for pattern in patterns:
-                    deleted_count = (self.cache_service or self._cache_service or get_service('cache_service')).invalidate_pattern(pattern)
+                    if not self.cache_service:
+                        raise ServiceError(
+                            "CacheService dependency not injected",
+                            status_code=500
+                        )
+                    deleted_count = self.cache_service.invalidate_pattern(pattern)
                     total_deleted += deleted_count
 
                 self.logger.info(f"Fallback product cache invalidation: {total_deleted} keys deleted")
@@ -528,7 +551,13 @@ class ProductService:
         if user_id:
             cache_key_params["user_id"] = user_id
 
-        cached_result = (self.cache_service or self._cache_service or get_service('cache_service')).get_or_set(
+        # Use injected dependency instead of Service Locator
+        if not self.cache_service:
+            raise ServiceError(
+                "CacheService dependency not injected",
+                status_code=500
+            )
+        cached_result = self.cache_service.get_or_set(
             cache_type="products", fetch_func=fetch_simple_products, **cache_key_params
         )
 
@@ -811,7 +840,13 @@ class ProductService:
         if user_id:
             cache_key_params["user_id"] = user_id
 
-        cached_result = (self.cache_service or self._cache_service or get_service('cache_service')).get_or_set(
+        # Use injected dependency instead of Service Locator
+        if not self.cache_service:
+            raise ServiceError(
+                "CacheService dependency not injected",
+                status_code=500
+            )
+        cached_result = self.cache_service.get_or_set(
             cache_type="products", fetch_func=fetch_count, **cache_key_params
         )
 

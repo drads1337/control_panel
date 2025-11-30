@@ -85,7 +85,14 @@ class RBACManager:
         """
         try:
             # Use rbac_service as single source of truth for all permission checks
-            rbac_service = get_service('rbac_service')
+            # Get service through app context (DI pattern) - requires app context
+            from flask import current_app
+            if not hasattr(current_app, 'service_container'):
+                raise RuntimeError(
+                    "Service container not initialized. Cannot get 'rbac_service'. "
+                    "Make sure init_services() was called during app initialization."
+                )
+            rbac_service = current_app.service_container.get('rbac_service')
             return rbac_service.check_permission(user_id, permission)
         except Exception as e:
             logging.error(

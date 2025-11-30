@@ -114,8 +114,14 @@ class ActivityService:
 
             # Default: use buffering to reduce database write pressure
             try:
-                analytics_buffer_service = self._analytics_buffer_service or get_service('analytics_buffer_service')
-                success = analytics_buffer_service.buffer_user_activity(
+                if not self._analytics_buffer_service:
+                    # Analytics buffer is optional - log warning but don't fail
+                    self.logger.warning("AnalyticsBufferService not injected, skipping activity buffering")
+                    # Fallback to direct write
+                    return self._log_activity_direct(
+                        user, action, ip, details, user_agent, session_id, country, city
+                    )
+                success = self._analytics_buffer_service.buffer_user_activity(
                     user_id=user.id,
                     action=action,
                     ip=ip,
@@ -135,7 +141,7 @@ class ActivityService:
                     
                     # Force flush for critical actions
                     if force_flush:
-                        analytics_buffer_service._trigger_async_flush()
+                        self._analytics_buffer_service._trigger_async_flush()
                     
                     # Return a mock object to maintain compatibility
                     return UserActivity(

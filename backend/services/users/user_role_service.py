@@ -1,4 +1,3 @@
-from ...utils.service_helpers import get_service
 from ...utils.service_exceptions import ServiceError
 """
 User Role Service
@@ -19,7 +18,7 @@ from ...utils.structured_logging import get_logger
 class UserRoleService:
     """Service for handling user role operations"""
 
-    def __init__(self, rbac_service=None):
+    def __init__(self, rbac_service):
         self._rbac_service = rbac_service
         self.logger = get_logger("user_role_service")
 
@@ -214,9 +213,6 @@ class UserRoleService:
         try:
             from ...utils.role_constants import RolePermissions
             
-            # Use ServiceContainer to avoid circular imports
-            rbac_service = get_service('rbac_service')
-
             if new_role not in RolePermissions.ASSIGNABLE_ROLES:
                 return 0, f'Invalid role. Allowed: {", ".join(RolePermissions.ASSIGNABLE_ROLES)}'
 
@@ -224,14 +220,12 @@ class UserRoleService:
 
             if not self._rbac_service:
                 raise ServiceError(
-                    "Rbac Service dependency not injected",
+                    "RBACService dependency not injected",
                     status_code=500
                 )
-            rbac_service = self._rbac_service
-            rbac_service = get_service('rbac_service')
-            can_view_all = rbac_service.check_permission(
+            can_view_all = self._rbac_service.check_permission(
                 current_user.id, "employees.view"
-            ) or rbac_service.check_permission(current_user.id, "clients.view")
+            ) or self._rbac_service.check_permission(current_user.id, "clients.view")
             if not can_view_all:
                 query = query.filter_by(project_id=current_user.project_id)
             else:

@@ -10,13 +10,13 @@ from ...models.core import User
 from ...models.products import Product
 from ...models.keys import Key
 from ...models.agents import Agent
-from ...utils.service_exceptions import ValidationError, NotFoundError, PermissionDeniedError
+from ...utils.service_exceptions import ValidationError, NotFoundError, PermissionDeniedError, ServiceError
 from ...utils.structured_logging import get_logger
 
 class KeyValidationService:
     """Service for validating key data and operations"""
 
-    def __init__(self, product_service=None):
+    def __init__(self, product_service):
         self._product_service = product_service
         self.logger = get_logger("key_validation_service")
 
@@ -44,21 +44,14 @@ class KeyValidationService:
 
         if key_data.get("product_id"):
             # Use ServiceContainer to avoid circular imports
-            if not self._product:
+            if not self._product_service:
                 raise ServiceError(
                     "Product dependency not injected",
                     status_code=500
                 )
-            product_service = self._product
             # get_product now raises exceptions instead of returning tuples
             try:
-                if not self._product:
-                    raise ServiceError(
-                        "Product dependency not injected",
-                        status_code=500
-                    )
-                product_service = self._product
-                product = product_service.get_product(user, key_data["product_id"])
+                product = self._product_service.get_product(user, key_data["product_id"])
             except NotFoundError:
                 raise NotFoundError("Product", resource_id=str(key_data["product_id"]))
             except PermissionDeniedError:

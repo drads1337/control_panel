@@ -124,9 +124,14 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10, fail_cl
             user_key = req_json.get("user_key") or ""
 
             minute_key = f"rl_min:{user_key}:{ip}"
-            # Get services once at the start (DI pattern)
-            # Get services once at the start (DI pattern)
-            security_service = get_service('security_service')
+            # Get service through app context (DI pattern)
+            from flask import current_app
+            if not hasattr(current_app, 'service_container'):
+                raise RuntimeError(
+                    "Service container not initialized. "
+                    "Make sure init_services() was called during app initialization."
+                )
+            security_service = current_app.service_container.get('security_service')
             burst_key = f"rl_burst:{user_key}:{ip}"
 
             try:
