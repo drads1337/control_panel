@@ -18,7 +18,7 @@ This design is container-friendly and avoids ephemeral disk storage that would b
 on container restarts in Kubernetes/Docker environments.
 
 Usage:
-    from backend.services.analytics.persistence_layer import PersistenceLayer
+    from ...services.analytics.persistence_layer import PersistenceLayer
     
     persistence = PersistenceLayer()
     
@@ -34,6 +34,8 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from ...config.config import Config
+from ...core.extensions import db
+from ...models.core import UserActivity
 from ...utils.redis_client import redis_client
 from ...utils.service_exceptions import ServiceError
 
@@ -408,11 +410,7 @@ class PersistenceLayer:
             True if successfully written, False otherwise
         """
         try:
-            from ...core.extensions import db
-            
             if data_type == "user_activity":
-                from ...models.core import UserActivity
-                
                 # Convert created_at string back to datetime
                 created_at = datetime.fromisoformat(data.get("created_at", datetime.utcnow().isoformat()))
                 

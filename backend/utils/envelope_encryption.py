@@ -226,15 +226,13 @@ class EnvelopeKeyManager:
         cls._fernet = None
 
 
-# Backward compatibility: If PROJECT_MASTER_KEY is not set, fall back to old behavior
-# This allows gradual migration
+# SECURITY: No fallback to plain key if decryption fails
 def get_project_key_safe(project_id: int, use_envelope: bool = True) -> str:
     """
     Get project encryption key with Envelope Encryption support.
     
-    This function provides backward compatibility:
-    - If Envelope Encryption is enabled and KEK is set, returns decrypted DEK
-    - Otherwise, falls back to plain key from database (legacy behavior)
+    SECURITY: If encrypted key exists, decryption MUST succeed. No fallback to plain key.
+    If decryption fails, this is a configuration error.
     
     Args:
         project_id: Project ID
@@ -242,6 +240,9 @@ def get_project_key_safe(project_id: int, use_envelope: bool = True) -> str:
         
     Returns:
         Project encryption key as hex string
+        
+    Raises:
+        ValueError: If no key is found or decryption fails
     """
     from ..models.core import ProjectEncryptionKeys
     
@@ -249,25 +250,32 @@ def get_project_key_safe(project_id: int, use_envelope: bool = True) -> str:
     if not encryption_keys:
         raise ValueError(f"No encryption keys found for project {project_id}")
     
-    # Check if using Envelope Encryption
+    # SECURITY: If encrypted key exists, Envelope Encryption is REQUIRED
     if use_envelope and EnvelopeKeyManager.validate_kek_set():
         # Check if key is encrypted (new format)
         if hasattr(encryption_keys, 'aes_key_encrypted') and encryption_keys.aes_key_encrypted:
             try:
                 return EnvelopeKeyManager.decrypt_dek_string(encryption_keys.aes_key_encrypted)
             except Exception as e:
-                logger.warning(
-                    f"Failed to decrypt DEK for project {project_id}, falling back to plain key: {e}"
+                logger.error(
+                    f"CRITICAL: Failed to decrypt DEK for project {project_id}: {e}. "
+                    f"This is a configuration error - encrypted key exists but cannot be decrypted."
                 )
-                # Fall back to plain key if decryption fails
-                if hasattr(encryption_keys, 'aes_key') and encryption_keys.aes_key:
-                    return encryption_keys.aes_key
+                raise ValueError(
+                    f"Failed to decrypt encrypted key for project {project_id}. "
+                    f"This is a configuration error. "
+                    f"Please ensure PROJECT_MASTER_KEY is correct or contact support."
+                ) from e
         
-        # If no encrypted key, check for plain key (legacy)
+        # If no encrypted key, check for plain key (legacy projects)
         if hasattr(encryption_keys, 'aes_key') and encryption_keys.aes_key:
+            logger.warning(
+                f"Project {project_id} using plain key (legacy). "
+                f"Consider migrating to Envelope Encryption for better security."
+            )
             return encryption_keys.aes_key
     
-    # Legacy behavior: return plain key
+    # Legacy behavior: return plain key (for projects that haven't migrated)
     if hasattr(encryption_keys, 'aes_key') and encryption_keys.aes_key:
         return encryption_keys.aes_key
     

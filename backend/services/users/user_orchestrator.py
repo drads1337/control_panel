@@ -8,8 +8,7 @@ import logging
 from typing import Any, Dict, List, Optional, Tuple
 
 from ...core.extensions import db
-from ...utils.service_helpers import get_service
-from ...utils.service_exceptions import ValidationError, NotFoundError, PermissionDeniedError, BusinessLogicError
+from ...utils.service_exceptions import ValidationError, NotFoundError, PermissionDeniedError, BusinessLogicError, ServiceError
 from ...models.core import User
 
 logger = logging.getLogger(__name__)

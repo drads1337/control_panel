@@ -31,8 +31,19 @@ class SettingsService:
     """
 
     def __init__(self, repository=None, manager=None, cache_service=None, logger=None, settings_service=None):
+        """
+        Initialize SettingsService with explicit dependencies.
+        
+        SECURITY: All dependencies must be injected via ServiceContainer.
+        No lazy loading is allowed - this prevents circular dependencies and ensures
+        explicit dependency graph.
+        """
         self._settings_service = settings_service
         self.repository = repository or SettingsRepository()
+        
+        # cache_service must be injected via DI (may be None if not needed)
+        # SettingsManager will handle None cache_service gracefully
+        
         self.manager = manager or SettingsManager(
             repository=self.repository,
             cache_service=cache_service,

@@ -11,7 +11,7 @@ from typing import Dict, List, Optional
 from ...core.extensions import db
 # get_service removed - using DI
 from ...utils.service_exceptions import ServiceError
-from ...models import DeviceInfo, KeyAnalytics, Notification, User
+from ...models import DeviceInfo, Key, KeyAnalytics, Notification, User
 
 class AnalyticsTracker:
     """Handles analytics tracking and related functionality"""
@@ -311,8 +311,6 @@ class AnalyticsTracker:
         """
         try:
             from datetime import timedelta
-
-            from ...models import Key
 
             end_date = date.today()
             start_date = end_date - timedelta(days=days)

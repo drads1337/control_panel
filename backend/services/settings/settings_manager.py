@@ -9,8 +9,10 @@ import json
 import logging
 from typing import Any, Dict, Optional
 
+from ...core.extensions import db
 from ...models.core import User
 from ...utils.rbac_utils import RBACManager
+from ...utils.project_settings_migration import ProjectSettingsHelper
 from ...utils.service_exceptions import BusinessLogicError, ServiceError
 from .settings_repository import SettingsRepository
 
@@ -30,7 +32,7 @@ class SettingsManager:
 
     def __init__(
         self,
-        cache_service: 'CacheService',
+        cache_service: Optional['CacheService'] = None,
         repository: Optional[SettingsRepository] = None,
         logger=None
     ):
@@ -38,29 +40,21 @@ class SettingsManager:
         Initialize SettingsManager with explicit dependencies.
         
         Args:
-            cache_service: Service for cache operations (required)
+            cache_service: Service for cache operations (optional, injected via DI)
             repository: Repository for settings data access (optional, will create if not provided)
             logger: Optional logger instance
+            
+        SECURITY: All dependencies must be injected via ServiceContainer.
+        No lazy loading is allowed - this prevents circular dependencies and ensures
+        explicit dependency graph.
         """
         self.repository = repository or SettingsRepository()
         self.cache_service = cache_service
         self.logger = logger or logging.getLogger(__name__)
-        
-        # Validate required dependency
-        if self.cache_service is None:
-            raise ServiceError(
-                "CacheService dependency is required",
-                status_code=500
-            )
 
     @property
     def _cache_service(self):
-        """Get cache service instance (uses injected dependency)"""
-        if self.cache_service is None:
-            raise ServiceError(
-                "CacheService dependency not injected",
-                status_code=500
-            )
+        """Get cache service instance (injected via DI, may be None)"""
         return self.cache_service
 
     def resolve_project_id(
@@ -301,8 +295,6 @@ class SettingsManager:
             Dictionary with success status or error message
         """
         try:
-            from ...core.extensions import db
-
             # Get user
             user = self.repository.get_user(user_id)
             if not user:
@@ -323,7 +315,6 @@ class SettingsManager:
             return {"success": True, "message": "Settings updated successfully"}
 
         except Exception as e:
-            from ...core.extensions import db
             db.session.rollback()
             self.logger.error(f"Error updating settings: {e}", exc_info=True)
             return {"error": f"Failed to update settings: {str(e)}"}
@@ -336,8 +327,6 @@ class SettingsManager:
             project_id: Project ID
             settings_data: Dictionary with settings to update
         """
-        from ...utils.project_settings_migration import ProjectSettingsHelper
-        
         helper = ProjectSettingsHelper(project_id)
         
         if "security" in settings_data:
@@ -460,6 +449,6 @@ class SettingsManager:
             self.logger.info(f"Settings cache invalidated for user {user_id}")
             return True
         except Exception as e:
-            self.logger.error(f"Error invalidating settings cache: {e}")
+            self.logger.warning(f"Error invalidating settings cache (non-critical): {e}")
             return False
 

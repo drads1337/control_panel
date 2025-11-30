@@ -13,6 +13,7 @@ from ...core.extensions import db
 from ...models.core import User
 from ...models.rbac import Role, UserRole
 from ...utils.rbac_utils import RBACManager
+from ...utils.role_constants import RolePermissions
 from ...utils.structured_logging import get_logger
 
 class UserRoleService:
@@ -211,8 +212,6 @@ class UserRoleService:
             Tuple of (affected_count, error_message)
         """
         try:
-            from ...utils.role_constants import RolePermissions
-            
             if new_role not in RolePermissions.ASSIGNABLE_ROLES:
                 return 0, f'Invalid role. Allowed: {", ".join(RolePermissions.ASSIGNABLE_ROLES)}'
 

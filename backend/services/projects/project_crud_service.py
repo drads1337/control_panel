@@ -25,6 +25,8 @@ from ...models.core import (
     ProjectSettings,
 )
 from ...utils.service_exceptions import ValidationError, NotFoundError, ConflictError, ServiceError
+from ...utils.rbac_utils import RBACManager
+from ...utils.role_constants import UserRoles
 
 # Type hints for dependencies (imported here to avoid circular imports)
 from typing import TYPE_CHECKING
@@ -143,18 +145,8 @@ class ProjectCRUDService:
             db.session.add(project)
             db.session.flush()
             
-            # Enforce storage limit for free tier only (double-check)
-            if subscription_status == "free":
-                try:
-                    if not self._tier_limits_service:
-                        raise ServiceError(
-                            "Tier Limits Service dependency not injected",
-                            status_code=500
-                        )
-                    tier_limits_service = self._tier_limits_service
-                    tier_limits_service.enforce_storage_limit(project)
-                except Exception as e:
-                    self.logger.warning(f"Failed to enforce storage limit for project {project.id}: {e}")
+            # Storage limit is already set above based on subscription_status
+            # No need for additional enforcement here
             
             db.session.commit()
 
@@ -236,9 +228,6 @@ class ProjectCRUDService:
             ServiceError: If database operation fails
         """
         try:
-            from ...utils.rbac_utils import RBACManager
-            from ...utils.role_constants import UserRoles
-
             project = self._find_project_by_id_or_unique_id(project_id)
             if not project:
                 raise NotFoundError("Project", resource_id=str(project_id))
@@ -275,13 +264,24 @@ class ProjectCRUDService:
                 project.status = status
 
             if subscription_status is not None:
-                allowed_subscription_statuses = ["trial", "active", "expired", "cancelled"]
+                allowed_subscription_statuses = ["free", "pro", "trial", "active", "expired", "cancelled"]
                 if subscription_status not in allowed_subscription_statuses:
                     raise ValidationError(
                         f"Subscription status must be one of: {', '.join(allowed_subscription_statuses)}",
                         field="subscription_status"
                     )
                 project.subscription_status = subscription_status
+                
+                # Update storage limit based on tier when subscription status changes
+                if subscription_status == "free":
+                    # Free tier: 500 MB
+                    project.storage_limit = 500 * (1024 ** 2)
+                    subscription_expires_at = None  # Free tier doesn't expire
+                    project.subscription_expires_at = subscription_expires_at
+                elif subscription_status == "pro":
+                    # Pro tier: keep current limit or set default 10 GB
+                    if project.storage_limit < 10 * (1024 ** 3):
+                        project.storage_limit = 10 * (1024 ** 3)
 
             if storage_limit_gb is not None:
                 if storage_limit_gb < 0:
@@ -346,8 +346,6 @@ class ProjectCRUDService:
             ServiceError: If database operation fails
         """
         try:
-            from ...utils.rbac_utils import RBACManager
-
             project = self._find_project_by_id_or_unique_id(project_id)
             if not project:
                 raise NotFoundError("Project", resource_id=str(project_id))

@@ -1,4 +1,3 @@
-from ...utils.service_exceptions import ServiceError
 """
 User Profile Service
 Handles user profile operations: updates, password changes, avatar uploads, and profile data retrieval
@@ -6,17 +5,26 @@ Handles user profile operations: updates, password changes, avatar uploads, and 
 
 import logging
 import os
+import tempfile
 import uuid
 from datetime import datetime
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
 
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
 from ...core.extensions import db
-from ...models.core import User
+from ...models.core import Project, User
+from ...models.keys import DeviceInfo as Device
+from ...models.notifications import Notification
 from ...config.config import Config
 from ...utils.rbac_utils import RBACManager
+from ...utils.service_exceptions import (
+    ConflictError,
+    ServiceError,
+    ValidationError,
+)
+from ...utils.types import UserDict
 
 class UserProfileService:
     """Service for handling user profile operations"""
@@ -30,7 +38,7 @@ class UserProfileService:
         self.allowed_avatar_extensions = Config.ALLOWED_AVATAR_EXTENSIONS
         self.max_avatar_size = Config.MAX_AVATAR_SIZE
 
-    def update_user_profile(self, user: User, data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
+    def update_user_profile(self, user: User, data: Dict[str, Any]) -> UserDict:
         """
         Update user profile information
 
@@ -39,26 +47,36 @@ class UserProfileService:
             data: Dictionary with profile data
 
         Returns:
-            Tuple of (success, error_message)
+            Updated user profile dictionary
+
+        Raises:
+            ConflictError: If username or email already exists
+            ValidationError: If validation fails
+            ServiceError: If update fails
         """
         try:
             if "username" in data and data["username"]:
                 if data["username"] != user.username:
-
                     existing_user = User.query.filter_by(username=data["username"]).first()
                     if existing_user and existing_user.id != user.id:
-                        return False, "Username already exists"
+                        raise ConflictError(
+                            "Username already exists",
+                            resource_type="user",
+                            context={"username": data["username"]}
+                        )
                     user.username = data["username"]
 
             if "email" in data and data["email"]:
                 new_email = data["email"].lower()
-
                 current_email = user.email.lower() if user.email else None
                 if new_email != current_email:
-
                     existing_user = User.query.filter_by(email=new_email).first()
                     if existing_user and existing_user.id != user.id:
-                        return False, "Email already exists"
+                        raise ConflictError(
+                            "Email already exists",
+                            resource_type="user",
+                            context={"email": new_email}
+                        )
                     user.email = new_email
 
             if "first_name" in data:
@@ -76,16 +94,23 @@ class UserProfileService:
             user.updated_at = datetime.utcnow()
             db.session.commit()
 
-            return True, None
+            return self.get_user_profile(user)
 
+        except (ConflictError, ValidationError):
+            db.session.rollback()
+            raise
         except Exception as e:
             db.session.rollback()
             self.logger.error(f"Error updating user profile: {str(e)}", exc_info=True)
-            return False, f"Failed to update profile: {str(e)}"
+            raise ServiceError(
+                f"Failed to update profile: {str(e)}",
+                status_code=500,
+                context={"user_id": user.id}
+            ) from e
 
     def change_password(
         self, user: User, current_password: str, new_password: str
-    ) -> Tuple[bool, Optional[str]]:
+    ) -> None:
         """
         Change user password
 
@@ -94,29 +119,40 @@ class UserProfileService:
             current_password: Current password
             new_password: New password
 
-        Returns:
-            Tuple of (success, error_message)
+        Raises:
+            ValidationError: If current password is incorrect or new password is invalid
+            ServiceError: If password change fails
         """
         try:
-
             if not check_password_hash(user.password, current_password):
-                return False, "Current password is incorrect"
+                raise ValidationError(
+                    "Current password is incorrect",
+                    field="current_password"
+                )
 
             if len(new_password) < 8:
-                return False, "New password must be at least 8 characters long"
+                raise ValidationError(
+                    "New password must be at least 8 characters long",
+                    field="new_password"
+                )
 
             user.password = generate_password_hash(new_password)
             user.updated_at = datetime.utcnow()
             db.session.commit()
 
-            return True, None
-
+        except ValidationError:
+            db.session.rollback()
+            raise
         except Exception as e:
             db.session.rollback()
             self.logger.error(f"Error changing password: {str(e)}")
-            return False, "Failed to change password"
+            raise ServiceError(
+                "Failed to change password",
+                status_code=500,
+                context={"user_id": user.id}
+            ) from e
 
-    def upload_avatar(self, user: User, file) -> Tuple[bool, Optional[str], Optional[str]]:
+    def upload_avatar(self, user: User, file) -> str:
         """
         Upload user avatar
 
@@ -128,16 +164,18 @@ class UserProfileService:
             file: Uploaded file object
 
         Returns:
-            Tuple of (success, error_message, avatar_url)
+            Avatar URL path
+
+        Raises:
+            ValidationError: If file is invalid or validation fails
+            ServiceError: If upload fails
         """
-        import tempfile
-        
         try:
             if not file or not file.filename:
-                return False, "No file provided", None
+                raise ValidationError("No file provided", field="avatar")
 
             if not self._is_valid_avatar_file(file):
-                return False, "Invalid file type or size", None
+                raise ValidationError("Invalid file type or size", field="avatar")
 
             filename = secure_filename(file.filename)
             file_extension = filename.rsplit(".", 1)[1].lower()
@@ -159,10 +197,20 @@ class UserProfileService:
                 if not is_valid:
                     if temp_file_path and os.path.exists(temp_file_path):
                         os.unlink(temp_file_path)
-                    return False, validation_error or "Invalid file type: file signature validation failed", None
+                    raise ValidationError(
+                        validation_error or "Invalid file type: file signature validation failed",
+                        field="avatar"
+                    )
                 
                 # Reset file stream for saving
                 file.seek(0)
+            except ValidationError:
+                if temp_file_path and os.path.exists(temp_file_path):
+                    try:
+                        os.unlink(temp_file_path)
+                    except Exception:
+                        pass
+                raise
             except Exception as validation_exception:
                 if temp_file_path and os.path.exists(temp_file_path):
                     try:
@@ -170,7 +218,7 @@ class UserProfileService:
                     except Exception:
                         pass
                 self.logger.error(f"File signature validation error: {str(validation_exception)}")
-                return False, "File validation failed", None
+                raise ValidationError("File validation failed", field="avatar") from validation_exception
             finally:
                 # Clean up temp file after validation
                 if temp_file_path and os.path.exists(temp_file_path):
@@ -195,12 +243,19 @@ class UserProfileService:
             if old_avatar:
                 self._delete_avatar_file(old_avatar)
 
-            return True, None, user.avatar
+            return user.avatar
 
+        except (ValidationError, ConflictError):
+            db.session.rollback()
+            raise
         except Exception as e:
             db.session.rollback()
             self.logger.error(f"Error uploading avatar: {str(e)}")
-            return False, "Failed to upload avatar", None
+            raise ServiceError(
+                "Failed to upload avatar",
+                status_code=500,
+                context={"user_id": user.id}
+            ) from e
 
     def _is_valid_avatar_file(self, file) -> bool:
         """Validate avatar file"""
@@ -296,8 +351,6 @@ class UserProfileService:
             }
 
             if user.project_id:
-                from ...models.core import Project
-
                 project = Project.query.get(user.project_id)
                 if project:
                     dashboard_data["project"] = {
@@ -313,8 +366,6 @@ class UserProfileService:
                     }
 
             try:
-                from ...models.keys import DeviceInfo as Device
-
                 devices = Device.query.filter_by(user_id=user.id).all()
                 dashboard_data["devices"] = [
                     {
@@ -350,8 +401,6 @@ class UserProfileService:
                 self.logger.warning(f"Failed to get recent activity: {e}")
 
             try:
-                from ...models.notifications import Notification
-
                 notifications = (
                     Notification.query.filter_by(user_id=user.id, is_read=False).limit(5).all()
                 )

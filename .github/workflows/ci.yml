@@ -378,11 +378,191 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
+  # Database Migration Validation
+  migration-check:
+    name: Migration Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Check for uncommitted migrations
+        run: |
+          echo "Checking for uncommitted migration files..."
+          # Check if there are any migration files that are not committed
+          if git diff --name-only --diff-filter=A HEAD | grep -q "migrations/versions/.*\.py$"; then
+            echo "✅ New migration files detected (expected for new migrations)"
+          fi
+      
+      - name: Validate migration syntax
+        run: |
+          echo "Validating migration file syntax..."
+          python -c "
+          import sys
+          import os
+          sys.path.insert(0, '.')
+          
+          # Check all migration files for syntax errors
+          import glob
+          migrations = glob.glob('migrations/versions/*.py')
+          errors = []
+          
+          for migration_file in migrations:
+              try:
+                  with open(migration_file, 'r') as f:
+                      compile(f.read(), migration_file, 'exec')
+              except SyntaxError as e:
+                  errors.append(f'{migration_file}: {e}')
+          
+          if errors:
+              print('❌ Migration syntax errors found:')
+              for error in errors:
+                  print(f'  {error}')
+              sys.exit(1)
+          else:
+              print(f'✅ All {len(migrations)} migration files have valid syntax')
+          "
+      
+      - name: Test migration upgrade
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+          SECRET_KEY: test_secret_key_123456789012345678901234567890
+        run: |
+          echo "Testing migration upgrade..."
+          # Initialize database
+          python -m backend.scripts.setup_database || true
+          
+          # Run migrations
+          flask db upgrade || alembic upgrade head
+          
+          echo "✅ Migration upgrade test passed"
+      
+      - name: Test migration downgrade (if possible)
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+          SECRET_KEY: test_secret_key_123456789012345678901234567890
+        continue-on-error: true
+        run: |
+          echo "Testing migration downgrade..."
+          # Try to downgrade one revision and upgrade back
+          # This validates that downgrade functions work
+          CURRENT_REV=$(flask db current 2>/dev/null | grep -oP '\(.*\)' | tr -d '()' || echo "")
+          if [ -n "$CURRENT_REV" ]; then
+            echo "Current revision: $CURRENT_REV"
+            # Only test if we have a previous revision
+            flask db downgrade -1 || echo "⚠️  Cannot downgrade (may be at initial migration)"
+            flask db upgrade || echo "⚠️  Upgrade after downgrade failed"
+          fi
+      
+      - name: Check for missing down_revision
+        run: |
+          echo "Checking migration chain integrity..."
+          python -c "
+          import sys
+          import re
+          import glob
+          
+          migrations = sorted(glob.glob('migrations/versions/*.py'))
+          revisions = {}
+          
+          # Extract revision IDs and down_revisions
+          for migration_file in migrations:
+              with open(migration_file, 'r') as f:
+                  content = f.read()
+                  rev_match = re.search(r\"revision\s*=\s*['\\\"]([^'\\\"]+)['\\\"]\", content)
+                  down_match = re.search(r\"down_revision\s*=\s*['\\\"]([^'\\\"]+)['\\\"]|down_revision\s*=\s*None\", content)
+                  
+                  if rev_match:
+                      rev_id = rev_match.group(1)
+                      down_rev = down_match.group(1) if down_match and 'None' not in down_match.group(0) else None
+                      revisions[rev_id] = {
+                          'file': migration_file,
+                          'down_revision': down_rev
+                      }
+          
+          # Check for broken chain
+          broken = []
+          for rev_id, info in revisions.items():
+              if info['down_revision'] and info['down_revision'] not in revisions:
+                  broken.append(f\"{info['file']}: down_revision '{info['down_revision']}' not found\")
+          
+          if broken:
+              print('❌ Broken migration chain detected:')
+              for error in broken:
+                  print(f'  {error}')
+              sys.exit(1)
+          else:
+              print(f'✅ Migration chain is valid ({len(revisions)} migrations)')
+          "
+      
+      - name: Validate RLS policies in migrations
+        continue-on-error: true
+        run: |
+          echo "Checking for RLS policy creation in migrations..."
+          python -c "
+          import glob
+          import re
+          
+          migrations = glob.glob('migrations/versions/*.py')
+          rls_tables = []
+          
+          for migration_file in migrations:
+              with open(migration_file, 'r') as f:
+                  content = f.read()
+                  # Look for table creation
+                  table_matches = re.findall(r\"op\.create_table\(['\\\"](\w+)['\\\"]\", content)
+                  
+                  for table in table_matches:
+                      # Check if RLS is enabled
+                      if 'ENABLE ROW LEVEL SECURITY' in content or 'ALTER TABLE' in content:
+                          # Check if RLS policy is created
+                          if f'CREATE POLICY' in content or f'policy' in content.lower():
+                              continue
+                          else:
+                              rls_tables.append(f'{migration_file}: Table {table} may need RLS policies')
+          
+          if rls_tables:
+              print('⚠️  Tables created that may need RLS policies:')
+              for warning in rls_tables:
+                  print(f'  {warning}')
+          else:
+              print('✅ RLS policy check passed')
+          "
+
   # Build summary
   build-summary:
     name: Build Summary
     runs-on: ubuntu-latest
-    needs: [frontend-lint, frontend-typecheck, frontend-test, frontend-build, backend-lint, backend-typecheck, backend-test, security-scan, idor-security-audit]
+    needs: [frontend-lint, frontend-typecheck, frontend-test, frontend-build, backend-lint, backend-typecheck, backend-test, security-scan, idor-security-audit, migration-check]
     if: always()
     steps:
       - name: Check job status
@@ -396,3 +576,4 @@ jobs:
           echo "Backend Tests: ${{ needs.backend-test.result }}"
           echo "Security Scan: ${{ needs.security-scan.result }}"
           echo "IDOR Security Audit: ${{ needs.idor-security-audit.result }}"
+          echo "Migration Check: ${{ needs.migration-check.result }}"

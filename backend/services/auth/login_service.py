@@ -12,12 +12,14 @@ from typing import Any, Dict
 
 from werkzeug.security import check_password_hash
 from sqlalchemy import func
-from sqlalchemy.exc import SQLAlchemyError, InvalidRequestError
+from sqlalchemy.exc import SQLAlchemyError, InvalidRequestError, OperationalError
 
 from ...core.extensions import db
 from ...models.core import Project, User
 from ...utils.ip_utils import get_location_from_ip, get_real_ip
 from ...utils.service_exceptions import AuthenticationError, SecurityError, NotFoundError, ServiceError
+from ...utils.rbac_utils import RBACManager
+from ...utils.role_constants import UserRoles
 from ...services.validation import request_validation_pipeline
 
 # Type hints for dependencies (imported here to avoid circular imports)
@@ -206,6 +208,15 @@ class LoginService:
             except Exception:
                 pass
             raise
+        except OperationalError as e:
+            # Database connection errors should be handled separately
+            self.logger.error(f"Database connection error in validate_credentials: {str(e)}", exc_info=True)
+            # Ensure session is rolled back on database error
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            raise ServiceError("Database connection failed. Please try again later.", status_code=503) from e
         except Exception as e:
             self.logger.error(f"Error in validate_credentials: {str(e)}", exc_info=True)
             # Ensure session is rolled back on any error
@@ -279,6 +290,10 @@ class LoginService:
 
         except (SecurityError, NotFoundError):
             raise
+        except OperationalError as e:
+            # Database connection errors should be handled separately
+            self.logger.error(f"Database connection error in check_security_constraints: {str(e)}", exc_info=True)
+            raise ServiceError("Database connection failed. Please try again later.", status_code=503) from e
         except Exception as e:
             self.logger.error(f"Error checking security constraints: {str(e)}", exc_info=True)
             raise ServiceError("Security check failed", status_code=500) from e
@@ -388,8 +403,6 @@ class LoginService:
                 )
             webhook_service = self._webhook_service
 
-            from ...utils.rbac_utils import RBACManager
-            from ...utils.role_constants import UserRoles
             user_roles = RBACManager.get_user_role_names(user)
             primary_role = user_roles[0] if user_roles else UserRoles.CLIENT.value
 
@@ -481,6 +494,10 @@ class LoginService:
 
         except (AuthenticationError, SecurityError):
             raise
+        except OperationalError as e:
+            # Database connection errors should be handled separately
+            self.logger.error(f"Database connection error in process_login: {str(e)}", exc_info=True)
+            raise ServiceError("Database connection failed. Please try again later.", status_code=503) from e
         except Exception as e:
             self.logger.error(f"Error in process_login: {str(e)}", exc_info=True)
             raise ServiceError("Authentication failed", status_code=500) from e

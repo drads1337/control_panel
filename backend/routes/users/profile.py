@@ -18,7 +18,7 @@ from werkzeug.utils import secure_filename
 from ...core.extensions import db
 from ...utils.service_helpers import get_service
 from ...models import Key, User, UserActivity
-from ...utils.service_helpers import get_user_profile_service
+from ...utils.service_exceptions import ServiceError
 from ...middleware.auth import (
     require_project_assignment,
     require_project_isolation,
@@ -159,40 +159,38 @@ def get_me(current_user):
 @require_project_assignment
 def update_profile(current_user, validated_data=None):
     """Update user profile"""
+    from ...utils.service_exceptions import ServiceError
 
     user = current_user
+    update_data = validated_data or {}
 
-    # Use DI container to get service
-    success, error = user_profile_service.update_user_profile(user, update_data)
+    # Get services once at the start (DI pattern)
+    activity_service = get_service('activity_service')
+    user_profile_service = get_service('user_profile_service')
 
-    if not success:
-        # Get services once at the start (DI pattern)
-        activity_service = get_service('activity_service')
-        user_profile_service = get_service('user_profile_service')
-        return jsonify({"error": error}), 400
+    try:
+        # Service now raises exceptions instead of returning tuples
+        updated_profile = user_profile_service.update_user_profile(user, update_data)
 
-    activity_service.log_activity(
-        user,
-        "profile_update",
-        ip=request.remote_addr,
-        details="Profile updated",
-        user_agent=request.headers.get("User-Agent"),
-        session_id=request.headers.get("X-Session-ID"),
-    )
+        activity_service.log_activity(
+            user,
+            "profile_update",
+            ip=request.remote_addr,
+            details="Profile updated",
+            user_agent=request.headers.get("User-Agent"),
+            session_id=request.headers.get("X-Session-ID"),
+        )
 
-    return jsonify(
-        {
-            "message": "Profile updated successfully",
-            "user": {
-                "id": user.id,
-                "username": user.username,
-                "first_name": user.first_name,
-                "last_name": user.last_name,
-                "bio": user.bio,
-                "email": user.email,
-            },
-        }
-    )
+        return jsonify(
+            {
+                "message": "Profile updated successfully",
+                "user": updated_profile,
+            }
+        )
+    except ServiceError:
+        # ServiceError and its subclasses are handled by error_handlers.py
+        # Re-raise to let Flask error handler process it
+        raise
 
 @profile_bp.route("/change_password", methods=["POST"])
 @jwt_required()
@@ -239,22 +237,28 @@ def change_password(current_user):
     if not is_valid:
         return jsonify({"error": error_msg}), 400
 
-    # Use DI container to get service
-    success, error = user_profile_service.change_password(user, current_password, new_password)
+    # Get services once at the start (DI pattern)
+    activity_service = get_service('activity_service')
+    user_profile_service = get_service('user_profile_service')
 
-    if not success:
-        return jsonify({"error": error}), 400
+    try:
+        # Service now raises exceptions instead of returning tuples
+        user_profile_service.change_password(user, current_password, new_password)
 
-    activity_service.log_activity(
-        user,
-        "password_change",
-        ip=request.remote_addr,
-        details="Password successfully changed",
-        user_agent=request.headers.get("User-Agent"),
-        session_id=request.headers.get("X-Session-ID"),
-    )
+        activity_service.log_activity(
+            user,
+            "password_change",
+            ip=request.remote_addr,
+            details="Password successfully changed",
+            user_agent=request.headers.get("User-Agent"),
+            session_id=request.headers.get("X-Session-ID"),
+        )
 
-    return jsonify({"message": "Password changed successfully"})
+        return jsonify({"message": "Password changed successfully"})
+    except ServiceError:
+        # ServiceError and its subclasses are handled by error_handlers.py
+        # Re-raise to let Flask error handler process it
+        raise
 
 @profile_bp.route("/avatar", methods=["POST"])
 @jwt_required()

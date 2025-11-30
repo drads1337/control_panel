@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Set
 
 from ...core.extensions import db
 from ...models.core import User
-from ...models.rbac import Permission, RolePermission, UserRole
+from ...models.rbac import Permission, Role, RolePermission, UserPermission, UserRole
 from ...utils.service_exceptions import ServiceError
 from ...utils.rbac_utils import RBACManager
 
@@ -21,11 +21,20 @@ class PermissionService:
         
         Args:
             default_permissions: Default permissions definition
-            cache_service: Service for cache operations
+            cache_service: Service for cache operations (optional, injected via DI)
+            
+        SECURITY: All dependencies must be injected via ServiceContainer.
+        No lazy loading is allowed - this prevents circular dependencies and ensures
+        explicit dependency graph.
         """
         self.default_permissions = default_permissions or {}
         self._cache_service = cache_service
         self.logger = logging.getLogger(__name__)
+    
+    @property
+    def cache_service(self):
+        """Get cache service instance (injected via DI, may be None)"""
+        return self._cache_service
 
     def create_permission(
         self,
@@ -77,15 +86,10 @@ class PermissionService:
             db.session.add(permission)
             db.session.commit()
 
-            if not self._cache_service:
-                from ...utils.service_exceptions import ServiceError
-                raise ServiceError(
-                    "CacheService dependency not injected",
-                    status_code=500
-                )
-            cache_service = self._cache_service
-            cache_service.invalidate_rbac_permission_instantly(permission.id, project_id)
-            cache_service.invalidate_rbac_project_instantly(project_id)
+            cache_service = self.cache_service
+            if cache_service is not None:
+                cache_service.invalidate_rbac_permission_instantly(permission.id, project_id)
+                cache_service.invalidate_rbac_project_instantly(project_id)
 
             logging.info(
                 f"RBAC_PERMISSION_CREATED permission_id={permission.id} project_id={project_id} name={name} scope={scope}"
@@ -147,15 +151,10 @@ class PermissionService:
 
             db.session.commit()
 
-            if not self._cache_service:
-                from ...utils.service_exceptions import ServiceError
-                raise ServiceError(
-                    "CacheService dependency not injected",
-                    status_code=500
-                )
-            cache_service = self._cache_service
-            cache_service.invalidate_rbac_permission_instantly(permission.id, project_id)
-            cache_service.invalidate_rbac_project_instantly(project_id)
+            cache_service = self.cache_service
+            if cache_service is not None:
+                cache_service.invalidate_rbac_permission_instantly(permission.id, project_id)
+                cache_service.invalidate_rbac_project_instantly(project_id)
 
             self._invalidate_users_with_permission_cache(permission_id)
 
@@ -194,15 +193,10 @@ class PermissionService:
             db.session.delete(permission)
             db.session.commit()
 
-            if not self._cache_service:
-                from ...utils.service_exceptions import ServiceError
-                raise ServiceError(
-                    "CacheService dependency not injected",
-                    status_code=500
-                )
-            cache_service = self._cache_service
-            cache_service.invalidate_rbac_permission_instantly(permission.id, project_id)
-            cache_service.invalidate_rbac_project_instantly(project_id)
+            cache_service = self.cache_service
+            if cache_service is not None:
+                cache_service.invalidate_rbac_permission_instantly(permission.id, project_id)
+                cache_service.invalidate_rbac_project_instantly(project_id)
 
             logging.info(f"RBAC_PERMISSION_DELETED permission_id={permission_id}")
             return True
@@ -216,14 +210,11 @@ class PermissionService:
         """Get all permissions for a project"""
         try:
 
-            if not self._cache_service:
-                from ...utils.service_exceptions import ServiceError
-                raise ServiceError(
-                    "CacheService dependency not injected",
-                    status_code=500
-                )
-            cache_service = self._cache_service
-            cached_data = cache_service.get("rbac:permissions", project_id=project_id)
+            cache_service = self.cache_service
+            if cache_service is not None:
+                cached_data = cache_service.get("rbac:permissions", project_id=project_id)
+            else:
+                cached_data = None
             if cached_data:
                 return cached_data.get("data", {})
 
@@ -260,14 +251,9 @@ class PermissionService:
                     }
                 )
 
-            if not self._cache_service:
-                from ...utils.service_exceptions import ServiceError
-                raise ServiceError(
-                    "CacheService dependency not injected",
-                    status_code=500
-                )
-            cache_service = self._cache_service
-            cache_service.set("rbac:permissions", grouped_permissions, project_id=project_id)
+            cache_service = self.cache_service
+            if cache_service is not None:
+                cache_service.set("rbac:permissions", grouped_permissions, project_id=project_id)
 
             return grouped_permissions
 
@@ -279,14 +265,11 @@ class PermissionService:
         """Get all permissions for a user (from all their roles including inherited)"""
         try:
 
-            if not self._cache_service:
-                from ...utils.service_exceptions import ServiceError
-                raise ServiceError(
-                    "CacheService dependency not injected",
-                    status_code=500
-                )
-            cache_service = self._cache_service
-            cached_data = cache_service.get("rbac:user_permissions", user_id=user_id)
+            cache_service = self.cache_service
+            if cache_service is not None:
+                cached_data = cache_service.get("rbac:user_permissions", user_id=user_id)
+            else:
+                cached_data = None
             if cached_data:
                 data = cached_data.get("data", {})
 
@@ -310,14 +293,9 @@ class PermissionService:
                 )
                 result = set(all_permissions)
 
-                if not self._cache_service:
-                    from ...utils.service_exceptions import ServiceError
-                    raise ServiceError(
-                        "CacheService dependency not injected",
-                        status_code=500
-                    )
-                cache_service = self._cache_service
-                cache_service.set("rbac:user_permissions", {"permissions": list(result)}, user_id=user_id)
+                cache_service = self.cache_service
+                if cache_service is not None:
+                    cache_service.set("rbac:user_permissions", {"permissions": list(result)}, user_id=user_id)
                 return result
 
             if RBACManager.is_admin(user):
@@ -329,14 +307,9 @@ class PermissionService:
                 )
                 result = set(all_permissions)
 
-                if not self._cache_service:
-                    from ...utils.service_exceptions import ServiceError
-                    raise ServiceError(
-                        "CacheService dependency not injected",
-                        status_code=500
-                    )
-                cache_service = self._cache_service
-                cache_service.set("rbac:user_permissions", {"permissions": list(result)}, user_id=user_id)
+                cache_service = self.cache_service
+                if cache_service is not None:
+                    cache_service.set("rbac:user_permissions", {"permissions": list(result)}, user_id=user_id)
                 return result
 
             user_roles = UserRole.query.filter_by(user_id=user_id).all()
@@ -352,14 +325,9 @@ class PermissionService:
                         )
                         result = set(all_permissions)
 
-                        if not self._cache_service:
-                            from ...utils.service_exceptions import ServiceError
-                            raise ServiceError(
-                                "CacheService dependency not injected",
-                                status_code=500
-                            )
-                        cache_service = self._cache_service
-                        cache_service.set("rbac:user_permissions", {"permissions": list(result)}, user_id=user_id)
+                        cache_service = self.cache_service
+                        if cache_service is not None:
+                            cache_service.set("rbac:user_permissions", {"permissions": list(result)}, user_id=user_id)
                         return result
 
             if not user_roles:
@@ -368,14 +336,9 @@ class PermissionService:
                 )
                 result = set()
 
-                if not self._cache_service:
-                    from ...utils.service_exceptions import ServiceError
-                    raise ServiceError(
-                        "CacheService dependency not injected",
-                        status_code=500
-                    )
-                cache_service = self._cache_service
-                cache_service.set("rbac:user_permissions", {"permissions": list(result)}, user_id=user_id)
+                cache_service = self.cache_service
+                if cache_service is not None:
+                    cache_service.set("rbac:user_permissions", {"permissions": list(result)}, user_id=user_id)
                 return result
 
             allow_permissions = set()
@@ -399,7 +362,6 @@ class PermissionService:
 
             final_permissions = allow_permissions - deny_permissions
 
-            from ...models.rbac import UserPermission
             user_permission_records = UserPermission.query.filter_by(user_id=user_id).all()
 
             if user_permission_records:
@@ -424,14 +386,9 @@ class PermissionService:
                     f"RBAC_USER_PERMISSIONS user_id={user_id} roles={[ur.role.name for ur in user_roles]} permissions_count={len(final_permissions)}"
                 )
 
-            if not self._cache_service:
-                from ...utils.service_exceptions import ServiceError
-                raise ServiceError(
-                    "CacheService dependency not injected",
-                    status_code=500
-                )
-            cache_service = self._cache_service
-            cache_service.set("rbac:user_permissions", {"permissions": list(final_permissions)}, user_id=user_id)
+            cache_service = self.cache_service
+            if cache_service is not None:
+                cache_service.set("rbac:user_permissions", {"permissions": list(final_permissions)}, user_id=user_id)
 
             return final_permissions
 
@@ -507,8 +464,6 @@ class PermissionService:
     def get_role_permissions_detailed(self, role_id: int) -> Dict:
         """Get detailed permissions for a role including allow/deny types"""
         try:
-            from ...models.rbac import Role
-
             role = Role.query.get(role_id)
             if not role:
                 return {"allow": [], "deny": []}
@@ -638,14 +593,9 @@ class PermissionService:
                 user_ids.update({ur.user_id for ur in user_roles})
 
             for user_id in user_ids:
-                if not self._cache_service:
-                    from ...utils.service_exceptions import ServiceError
-                    raise ServiceError(
-                        "CacheService dependency not injected",
-                        status_code=500
-                    )
-                cache_service = self._cache_service
-                cache_service.invalidate_rbac_user_instantly(user_id)
+                cache_service = self.cache_service
+                if cache_service is not None:
+                    cache_service.invalidate_rbac_user_instantly(user_id)
 
             logging.debug(f"Invalidated cache for {len(user_ids)} users with permission_id={permission_id}")
         except Exception as e:

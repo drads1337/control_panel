@@ -3,9 +3,9 @@ Token Generation Service
 Handles token generation and storage
 Single Responsibility: Token generation and database storage
 
-SECURITY: This service now uses per-project secret_key from the database instead of
-a global TOKEN_STATIC_WORD. This ensures that if one project's secret is compromised,
-tokens for other projects remain secure.
+SECURITY: This service REQUIRES per-project secret_key from the database.
+No fallback to TOKEN_STATIC_WORD is allowed in production.
+This ensures that if one project's secret is compromised, tokens for other projects remain secure.
 """
 
 import hashlib
@@ -24,8 +24,9 @@ class TokenGenerationService:
     """
     Handles token generation and storage
     
-    SECURITY: Uses per-project secret_key from database for token generation.
-    Falls back to TOKEN_STATIC_WORD only for backward compatibility with legacy projects.
+    SECURITY: REQUIRES per-project secret_key from database for token generation.
+    No fallback to TOKEN_STATIC_WORD is allowed in production.
+    All projects must have secret_key set (auto-generated on creation or via migration).
     """
 
     def __init__(self, static_word: Optional[str] = None):
@@ -33,18 +34,16 @@ class TokenGenerationService:
         Initialize token generation service
 
         Args:
-            static_word: Legacy static word used as fallback (defaults to Config.TOKEN_STATIC_WORD)
+            static_word: DEPRECATED - kept only for type compatibility. Not used in production.
         
         SECURITY:
         =========
-        This service now uses project.secret_key from the database for token generation.
-        The static_word parameter is kept only for backward compatibility with legacy projects
-        that may not have secret_key set yet.
-        
-        For new projects, secret_key is automatically generated when the project is created.
+        This service REQUIRES project.secret_key from the database for token generation.
+        All projects must have secret_key set (auto-generated on creation or via migration).
+        No fallback to TOKEN_STATIC_WORD is allowed in production for security.
         """
-        # Keep static_word for backward compatibility only
-        self.static_word = static_word or Config.TOKEN_STATIC_WORD
+        # DEPRECATED: static_word is not used, kept only for backward compatibility in tests
+        self.static_word = static_word or Config.TOKEN_STATIC_WORD if static_word else None
 
     def generate_connect_token(
         self,
@@ -63,9 +62,9 @@ class TokenGenerationService:
         This function now stores tokens in the database for secure O(1) validation,
         preventing DoS attacks from token enumeration.
 
-        SECURITY: Uses per-project secret_key from database for token generation.
+        SECURITY: REQUIRES per-project secret_key from database for token generation.
         This ensures that if one project's secret is compromised, tokens for other
-        projects remain secure. Falls back to TOKEN_STATIC_WORD only for legacy projects.
+        projects remain secure. No fallbacks allowed - project.secret_key is mandatory.
 
         Args:
             product: Product name
@@ -80,38 +79,43 @@ class TokenGenerationService:
         Returns:
             Generated token (SHA256 hash)
         """
-        # SECURITY: Use project.secret_key from database for maximum security
-        # Priority: project.secret_key > user_id-based salt > static_word (legacy fallback)
-        unique_salt = None
+        # SECURITY: REQUIRES project.secret_key from database - no fallbacks allowed
+        # All projects must have secret_key set (auto-generated on creation or via migration)
+        if project_id is None:
+            raise ValueError(
+                "project_id is required for token generation. "
+                "Token generation requires project.secret_key for security isolation."
+            )
         
-        if project_id is not None:
-            # Try to get project secret_key from database
-            try:
-                project = Project.query.filter_by(id=project_id).first()
-                if project and project.secret_key:
-                    # Use project-specific secret_key (most secure)
-                    unique_salt = project.secret_key
-                    logger.debug(f"Using project {project_id} secret_key for token generation")
-                else:
-                    # Project exists but doesn't have secret_key (legacy project)
-                    # Use project_id-based salt as fallback
-                    unique_salt = f"{self.static_word}-project-{project_id}"
-                    logger.warning(
-                        f"Project {project_id} missing secret_key, using fallback salt. "
-                        f"Run migration to generate secret_key."
-                    )
-            except Exception as e:
-                # Database error - use fallback
-                logger.warning(f"Failed to get project {project_id} secret_key: {e}, using fallback")
-                unique_salt = f"{self.static_word}-project-{project_id}"
-        elif user_id is not None:
-            # Fallback to user-specific salt if project_id not available
-            unique_salt = f"{self.static_word}-user-{user_id}"
-            logger.warning("No project_id provided, using user-based salt (less secure)")
-        else:
-            # Legacy fallback: use static word only (least secure, but backward compatible)
-            unique_salt = self.static_word
-            logger.warning("No project_id or user_id provided, using global static_word (insecure)")
+        # Get project secret_key from database - REQUIRED
+        try:
+            project = Project.query.filter_by(id=project_id).first()
+            if not project:
+                raise ValueError(f"Project {project_id} not found")
+            
+            if not project.secret_key:
+                raise ValueError(
+                    f"Project {project_id} is missing secret_key. "
+                    f"This is a configuration error. "
+                    f"Please run migration to generate secret_key for all projects, "
+                    f"or ensure new projects have secret_key set during creation."
+                )
+            
+            unique_salt = project.secret_key
+            logger.debug(f"Using project {project_id} secret_key for token generation")
+        except ValueError:
+            # Re-raise ValueError as-is (configuration errors)
+            raise
+        except Exception as e:
+            # Database errors should be treated as critical failures
+            logger.error(
+                f"CRITICAL: Failed to get project {project_id} secret_key: {e}. "
+                f"This is a database error, not a configuration issue."
+            )
+            raise ValueError(
+                f"Database error retrieving project {project_id} secret_key. "
+                f"Please contact support if this persists."
+            ) from e
         
         real = f"{product}-{user_key}-{serial}-{unique_salt}"
         token = hashlib.sha256(real.encode()).hexdigest()

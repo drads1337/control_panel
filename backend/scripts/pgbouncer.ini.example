@@ -75,4 +75,3 @@ max_packet_size = 2147483647
 # Connection string for admin console (optional)
 # admin_users can use SHOW commands via psql
 # Format: postgresql://user:password@localhost:6432/pgbouncer
-

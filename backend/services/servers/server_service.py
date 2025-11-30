@@ -15,7 +15,9 @@ from sqlalchemy.orm import joinedload
 from ...core.extensions import db
 from ...models.core import Project, User
 from ...utils.project_settings_migration import ProjectSettingsHelper
+from ...utils.project_counters import increment_project_server_counters
 from ...models.servers import Server
+from ...services.settings.settings_repository import SettingsRepository
 from ...utils.fulltext_search import fulltext_search_filter
 from ...utils.rbac_utils import RBACManager
 
@@ -211,7 +213,6 @@ class ServerService:
             db.session.add(server)
 
             if project_id:
-                from ...utils.project_counters import increment_project_server_counters
                 increment_project_server_counters(project_id)
 
             db.session.commit()
@@ -356,7 +357,6 @@ class ServerService:
             Aggregated settings object or None if not found
         """
         try:
-            from ...services.settings.settings_repository import SettingsRepository
             repo = SettingsRepository()
             return repo.get_all_project_settings(project_id)
         except Exception as e:

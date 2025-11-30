@@ -443,7 +443,7 @@ def update_permission(permission_id, validated_data=None):
         if not rbac_service.check_permission(current_user.id, "rbac.view"):
             return jsonify({"error": "Admin access required"}), 403
 
-        update_data = validated_data.dict(exclude_unset=True)
+        update_data = validated_data.model_dump(exclude_unset=True)
         updated_permission = rbac_service.update_permission(
             permission_id, current_user.project_id, **update_data
         )

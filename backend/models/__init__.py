@@ -55,20 +55,38 @@ If you encounter import issues, check:
 - Ensure SQLAlchemy relationships use string references, not direct model classes
 """
 
-from .core import (
-    APIKey,
+# Import from new separated modules
+from .user import (
     DeveloperProductPermission,
-    Project,
-    ProjectEncryptionKeys,
-    ProjectInviteCode,
-    ProjectSettings,
-    SystemBackup,
-    SystemSettings,
     User,
     UserActionLog,
     UserActivity,
     UserProductPermission,
 )
+
+from .project import (
+    Project,
+    ProjectAppearanceSettings,
+    ProjectBackupSettings,
+    ProjectChatSettings,
+    ProjectEncryptionKeys,
+    ProjectEncryptionSettings,
+    ProjectInviteCode,
+    ProjectInviteSettings,
+    ProjectOfflineAuthSettings,
+    ProjectSecuritySettings,
+    ProjectSettings,
+    ProjectSystemSettings,
+)
+
+from .system import (
+    APIKey,
+    SystemBackup,
+    SystemSettings,
+)
+
+# All models are now imported from their specific modules above
+# The core.py module provides backward compatibility by re-exporting these imports
 
 from .products import (
     Announcement,

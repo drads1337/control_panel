@@ -8,6 +8,9 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional, Tuple
 
+from flask import request
+from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
+
 from ...core.extensions import db
 from ...models.core import Project, User
 from ...models.products import Product
@@ -219,8 +222,6 @@ class KeyValidator:
         Returns:
             Tuple of (is_valid, error_message)
         """
-        from flask import request
-        from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
 
         if "Authorization" in request.headers:
             try:

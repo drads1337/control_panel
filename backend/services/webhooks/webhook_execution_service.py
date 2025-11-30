@@ -24,7 +24,6 @@ from urllib3.util.connection import create_connection
 
 from ...core.extensions import db
 from ...models.webhooks import WebhookPendingTask
-# get_service removed - using DI
 from ...utils.service_exceptions import ServiceError
 
 # Try to import Celery task for webhook processing
@@ -94,8 +93,30 @@ class SSRFProtectedHTTPAdapter(HTTPAdapter):
 class WebhookExecutionService:
     """Service for executing webhook deliveries"""
 
-    def __init__(self, webhook_pending_task_service):
+    def __init__(
+        self,
+        webhook_pending_task_service,
+        webhook_formatting_service=None,
+        webhook_crypto_service=None,
+        webhook_validation_service=None
+    ):
+        """
+        Initialize WebhookExecutionService with explicit dependencies.
+        
+        Args:
+            webhook_pending_task_service: Service for storing pending webhook tasks
+            webhook_formatting_service: Service for formatting webhook messages (optional, injected via DI)
+            webhook_crypto_service: Service for webhook crypto operations (optional, injected via DI)
+            webhook_validation_service: Service for webhook URL validation (optional, injected via DI)
+            
+        SECURITY: All dependencies must be injected via ServiceContainer.
+        No lazy loading is allowed - this prevents circular dependencies and ensures
+        explicit dependency graph.
+        """
         self._webhook_pending_task_service = webhook_pending_task_service
+        self._webhook_formatting_service = webhook_formatting_service
+        self._webhook_crypto_service = webhook_crypto_service
+        self._webhook_validation_service = webhook_validation_service
         self.logger = logging.getLogger(__name__)
         self.max_retries = 3
         self.retry_delay = 5
@@ -183,7 +204,12 @@ class WebhookExecutionService:
     def send_telegram_message(self, webhook_data: Dict) -> Tuple[bool, Optional[str]]:
         """Send message to Telegram"""
         try:
-            from .webhook_formatting_service import webhook_formatting_service
+            if not self._webhook_formatting_service:
+                raise ServiceError(
+                    "WebhookFormattingService dependency not injected",
+                    status_code=500
+                )
+            webhook_formatting_service = self._webhook_formatting_service
 
             bot_token = webhook_data["telegram_bot_token"]
             chat_id = webhook_data["telegram_chat_id"]
@@ -228,7 +254,12 @@ class WebhookExecutionService:
     def send_discord_message(self, webhook_data: Dict) -> Tuple[bool, Optional[str]]:
         """Send message to Discord"""
         try:
-            from .webhook_formatting_service import webhook_formatting_service
+            if not self._webhook_formatting_service:
+                raise ServiceError(
+                    "WebhookFormattingService dependency not injected",
+                    status_code=500
+                )
+            webhook_formatting_service = self._webhook_formatting_service
 
             webhook_url = webhook_data.get("discord_webhook_url")
             bot_token = webhook_data.get("discord_bot_token")
@@ -288,8 +319,18 @@ class WebhookExecutionService:
         SSRF through HTTP redirects.
         """
         try:
-            from .webhook_crypto_service import webhook_crypto_service
-            from .webhook_validation_service import webhook_validation_service
+            if not self._webhook_crypto_service:
+                raise ServiceError(
+                    "WebhookCryptoService dependency not injected",
+                    status_code=500
+                )
+            if not self._webhook_validation_service:
+                raise ServiceError(
+                    "WebhookValidationService dependency not injected",
+                    status_code=500
+                )
+            webhook_crypto_service = self._webhook_crypto_service
+            webhook_validation_service = self._webhook_validation_service
 
             url = webhook_data["url"]
             secret = webhook_data.get("secret")

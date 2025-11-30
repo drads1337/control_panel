@@ -573,6 +573,80 @@ def setup_monitoring_endpoints(app):
         """Single health check endpoint"""
         return jsonify(monitoring_system.run_single_check(check_name))
 
+    @app.route("/api/health/live", methods=["GET"])
+    def liveness_probe():
+        """
+        Kubernetes liveness probe endpoint.
+        
+        Liveness probe checks if the application is running.
+        This is a lightweight check that should always succeed if the process is alive.
+        Kubernetes will restart the container if this fails.
+        
+        Returns:
+            200: Application is alive
+            500: Application is dead (should trigger restart)
+        """
+        try:
+            # Simple check: if we can respond, we're alive
+            return jsonify({
+                "status": "alive",
+                "timestamp": datetime.utcnow().isoformat()
+            }), 200
+        except Exception as e:
+            logger.error(f"Liveness probe failed: {e}")
+            return jsonify({
+                "status": "dead",
+                "error": str(e),
+                "timestamp": datetime.utcnow().isoformat()
+            }), 500
+
+    @app.route("/api/health/ready", methods=["GET"])
+    def readiness_probe():
+        """
+        Kubernetes readiness probe endpoint.
+        
+        Readiness probe checks if the application is ready to accept traffic.
+        This checks critical dependencies (DB, Redis) that are required for the app to function.
+        Kubernetes will stop sending traffic if this fails, but won't restart the container.
+        
+        Returns:
+            200: Application is ready to accept traffic
+            503: Application is not ready (critical dependencies unavailable)
+        """
+        try:
+            # Check critical dependencies
+            db_check = DatabaseHealthCheck.check_connection()
+            redis_check = RedisHealthCheck.check_connection()
+            
+            # Application is ready only if both critical dependencies are healthy
+            db_healthy = db_check.get("healthy", False)
+            redis_healthy = redis_check.get("healthy", False)
+            
+            if db_healthy and redis_healthy:
+                return jsonify({
+                    "status": "ready",
+                    "database": "healthy",
+                    "redis": "healthy",
+                    "timestamp": datetime.utcnow().isoformat()
+                }), 200
+            else:
+                # Return 503 (Service Unavailable) if any critical dependency is down
+                return jsonify({
+                    "status": "not_ready",
+                    "database": "healthy" if db_healthy else "unhealthy",
+                    "redis": "healthy" if redis_healthy else "unhealthy",
+                    "database_error": db_check.get("error") if not db_healthy else None,
+                    "redis_error": redis_check.get("error") if not redis_healthy else None,
+                    "timestamp": datetime.utcnow().isoformat()
+                }), 503
+        except Exception as e:
+            logger.error(f"Readiness probe failed: {e}")
+            return jsonify({
+                "status": "not_ready",
+                "error": str(e),
+                "timestamp": datetime.utcnow().isoformat()
+            }), 503
+
     @app.route("/api/metrics", methods=["GET"])
     def get_metrics():
         """Metrics endpoint for Prometheus scraping (JSON format for backward compatibility)"""

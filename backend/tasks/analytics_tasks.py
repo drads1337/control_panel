@@ -10,16 +10,6 @@ Uses dependency injection - services are obtained once at the start of each task
 import logging
 from ...utils.service_helpers import get_service
 
-def _get_service(service_name):
-    """Get service through app context (DI pattern) - requires app context"""
-    from flask import current_app
-    if not hasattr(current_app, 'service_container'):
-        raise RuntimeError(
-            f"Service container not initialized. Cannot get '{service_name}'. "
-            "Make sure init_services() was called during app initialization."
-        )
-    return current_app.service_container.get(service_name)
-
 try:
     from celery import Task
 
@@ -84,7 +74,7 @@ def flush_analytics_buffer_task(self, activity_batch_size: int = None):
         # Get service instance once at the start (DI pattern)
         # Try ServiceContainer first, fallback to direct instantiation
         try:
-            analytics_buffer_service = _get_service('analytics_buffer_service')
+            analytics_buffer_service = get_service('analytics_buffer_service')
         except (RuntimeError, ValueError):
             # Fallback for Celery tasks that may run outside Flask context
             analytics_buffer_service = AnalyticsBufferService()
@@ -151,7 +141,7 @@ def get_analytics_buffer_stats_task(self):
     try:
         # Get service instance - try ServiceContainer first, fallback to direct instantiation
         try:
-            analytics_buffer_service = _get_service('analytics_buffer_service')
+            analytics_buffer_service = get_service('analytics_buffer_service')
         except (RuntimeError, ValueError):
             # Fallback for Celery tasks that may run outside Flask context
             analytics_buffer_service = AnalyticsBufferService()

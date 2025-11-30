@@ -25,4 +25,3 @@ SyslogIdentifier=celery-worker-default
 
 [Install]
 WantedBy=multi-user.target
-

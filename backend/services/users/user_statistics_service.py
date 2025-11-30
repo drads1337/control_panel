@@ -19,6 +19,7 @@ from ...models.keys import Key, TokenTransaction
 from ...models.rbac import Role, UserRole
 from ...utils.service_exceptions import ServiceError
 from ...utils.rbac_utils import RBACManager
+from ...utils.role_constants import RolePermissions
 from ...utils.structured_logging import get_logger
 
 class UserStatisticsService:
@@ -42,8 +43,6 @@ class UserStatisticsService:
             Dictionary with user statistics
         """
         try:
-            from ...utils.role_constants import RolePermissions
-
             query = User.query
 
             if not self._rbac_service:

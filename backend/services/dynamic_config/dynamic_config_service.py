@@ -16,10 +16,13 @@ import time
 import uuid
 from typing import Any, Dict, List, Optional
 
+from cachetools import TTLCache
+
 from ...core.extensions import db
 from ...models.core import Project, User
 from ...models.products import FeatureConfigSchema, Product
 from ...models.keys import Key
+from ...utils.redis_client import get_redis_client, get_redis_client_for_db
 
 class DynamicConfigService:
     """
@@ -34,6 +37,11 @@ class DynamicConfigService:
         self._rbac_service = rbac_service
         self.config_ttl = 3600
         self.redis_client = self._init_redis()
+        
+        # Local in-memory LRU cache for protection against cache stampede when Redis is down
+        # TTL: 10 seconds (short enough to not serve stale data, long enough to protect DB)
+        # Max size: 5000 entries (should cover most active configs)
+        self._local_cache = TTLCache(maxsize=5000, ttl=10)
         
         # Cache stampede protection settings
         self.LOCK_TIMEOUT = 10  # seconds - max time to hold lock while generating config
@@ -54,8 +62,6 @@ class DynamicConfigService:
         """
         try:
             # Use separate DB for dynamic config isolation
-            from ...utils.redis_client import get_redis_client_for_db
-            
             try:
                 client = get_redis_client_for_db("dynamic_config")
                 client.ping()
@@ -66,7 +72,6 @@ class DynamicConfigService:
                     f"Failed to connect to dynamic_config DB, falling back to default: {db_error}"
                 )
                 # Fallback to default DB for backward compatibility
-                from ...utils.redis_client import get_redis_client
                 client = get_redis_client()
                 client.ping()
                 return client
@@ -92,7 +97,14 @@ class DynamicConfigService:
         lock_key = f"dynamic_config_lock:{user_key}:{product_name}:{project_id}"
         lock_identifier = str(uuid.uuid4())
         
-        # First, try to get from cache
+        # First, check local in-memory cache (protection against Redis downtime)
+        local_cache_key = f"{user_key}:{product_name}:{project_id}"
+        if local_cache_key in self._local_cache:
+            cached_result = self._local_cache[local_cache_key]
+            logging.debug(f"DYNAMIC_CONFIG_LOCAL_CACHE_HIT user_key={user_key} product={product_name}")
+            return cached_result
+        
+        # Second, try to get from Redis cache
         if self.redis_client:
             try:
                 stored_config = self.redis_client.get(config_key)
@@ -104,11 +116,14 @@ class DynamicConfigService:
                     expires_at = config_data.get("metadata", {}).get("expires_at", 0)
                     if time.time() < expires_at:
                         logging.debug(f"DYNAMIC_CONFIG_CACHE_HIT user_key={user_key} product={product_name}")
-                        return {
+                        result = {
                             "config": config_data,
                             "metadata": config_data.get("metadata", {}),
                             "config_size": len(stored_config),
                         }
+                        # Store in local cache for protection against Redis downtime
+                        self._local_cache[local_cache_key] = result
+                        return result
             except Exception as e:
                 logging.debug(f"DYNAMIC_CONFIG_CACHE_CHECK_ERROR: {e}")
         
@@ -139,11 +154,14 @@ class DynamicConfigService:
                             expires_at = config_data.get("metadata", {}).get("expires_at", 0)
                             if time.time() < expires_at:
                                 logging.debug(f"DYNAMIC_CONFIG_CACHE_HIT_AFTER_WAIT user_key={user_key} product={product_name}")
-                                return {
+                                result = {
                                     "config": config_data,
                                     "metadata": config_data.get("metadata", {}),
                                     "config_size": len(stored_config),
                                 }
+                                # Store in local cache for protection against Redis downtime
+                                self._local_cache[local_cache_key] = result
+                                return result
                         
                         # Check if we've waited too long
                         if time.time() - wait_start > self.LOCK_WAIT_TIMEOUT:
@@ -263,11 +281,16 @@ class DynamicConfigService:
             )
 
             # Return config dict (will be encrypted at route level)
-            return {
+            result = {
                 "config": dynamic_config,
                 "metadata": dynamic_config["metadata"],
                 "config_size": len(config_json),
             }
+            
+            # Store in local cache for protection against Redis downtime
+            self._local_cache[local_cache_key] = result
+            
+            return result
 
         except Exception as e:
             logging.error(
@@ -478,8 +501,8 @@ class DynamicConfigService:
                 is_owner = self._rbac_service.check_permission(user.id, "system.manage_all_projects")
                 is_admin = self._rbac_service.check_permission(
                     user.id, "products.edit"
-                ) or rbac_service.check_permission(user.id, "products.view")
-                is_seller = rbac_service.check_permission(user.id, "products.view")
+                ) or self._rbac_service.check_permission(user.id, "products.view")
+                is_seller = self._rbac_service.check_permission(user.id, "products.view")
                 
                 if is_owner:
                     # Owner has full access - no restrictions

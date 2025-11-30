@@ -1,6 +1,25 @@
 """
 Tier Limits Service
 Handles tier-based limits and restrictions for different subscription tiers
+
+FREE TIER LIMITS:
+- max_products: 3
+- max_agents: 1
+- max_users: 50
+- max_keys_per_product: 50
+- max_employees: 3
+- max_storage_mb: 500
+- webhooks_enabled: False
+- logs_enabled: False
+- security_enabled: False
+- remote_control_enabled: False
+
+PRO TIER LIMITS:
+- All limits: Unlimited (None)
+- All features: Enabled (True)
+- Storage: Uses project.storage_limit (default 10 GB)
+
+See TIER_FEATURES.md for detailed documentation.
 """
 
 from typing import Optional, Tuple
@@ -32,12 +51,30 @@ class TierLimitsService:
         "remote_control_enabled": False,
     }
 
+    # Pro tier limits (unlimited or high limits)
+    PRO_TIER_LIMITS = {
+        "max_products": None,  # Unlimited
+        "max_agents": None,  # Unlimited
+        "max_users": None,  # Unlimited
+        "max_keys_per_product": None,  # Unlimited
+        "max_employees": None,  # Unlimited
+        "max_storage_mb": None,  # Unlimited (uses project.storage_limit)
+        "webhooks_enabled": True,
+        "logs_enabled": True,
+        "security_enabled": True,
+        "remote_control_enabled": True,
+    }
+
     def __init__(self):
         self.logger = get_logger("tier_limits_service")
 
     def is_free_tier(self, project: Project) -> bool:
         """Check if project is on free tier"""
         return project.subscription_status == "free"
+
+    def is_pro_tier(self, project: Project) -> bool:
+        """Check if project is on pro tier"""
+        return project.subscription_status == "pro"
 
     def check_product_limit(self, project: Project) -> Tuple[bool, Optional[str]]:
         """
@@ -215,7 +252,14 @@ class TierLimitsService:
         if self.is_free_tier(project):
             return self.FREE_TIER_LIMITS["max_storage_mb"]
         
-        # For pro tier, return project's current limit or default
+        # For pro tier, return project's current limit or default (unlimited)
+        if self.is_pro_tier(project):
+            if hasattr(project, 'storage_limit_mb'):
+                return project.storage_limit_mb
+            # Default 10 GB for pro tier if not set
+            return 10 * 1024
+        
+        # For other tiers (trial, active, etc.), return project's limit
         return project.storage_limit_mb if hasattr(project, 'storage_limit_mb') else 0
 
     def enforce_storage_limit(self, project: Project):

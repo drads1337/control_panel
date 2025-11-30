@@ -123,10 +123,35 @@ backend/
 ├── models/       # SQLAlchemy models
 ├── services/     # Business logic
 ├── schemas/      # Pydantic schemas
-└── tasks/        # Celery tasks
+├── tasks/        # Celery tasks
+└── utils/        # Utilities (api_response, service_helpers, etc.)
 ```
 
+## New Features & Improvements
+
+### Kubernetes-Ready Health Checks
+- `/api/health/live` - Liveness probe
+- `/api/health/ready` - Readiness probe (checks DB and Redis)
+- See [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md) for configuration
+
+### Unified API Response Helper
+- Standardized response format across all endpoints
+- See [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md) for usage examples
+
+### Production-Ready Migrations
+- Idempotent migrations
+- CONCURRENTLY index creation (non-blocking)
+- Automatic partition creation for `user_activity` table
+- See [MIGRATION_IMPROVEMENTS.md](./MIGRATION_IMPROVEMENTS.md) for details
+
+### Documentation
+- [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md) - Practical guide for developers
+- [PRODUCTION_DEPLOYMENT_CHECKLIST.md](./PRODUCTION_DEPLOYMENT_CHECKLIST.md) - Deployment checklist
+- [DOCUMENTATION_INDEX.md](./DOCUMENTATION_INDEX.md) - Complete documentation index
+
 **📊 Project Maturity Assessment:** See [PROJECT_MATURITY.md](./PROJECT_MATURITY.md) for detailed analysis of enterprise features, security mechanisms, and production readiness.
+
+**🚀 Recent Improvements:** See [FINAL_IMPROVEMENTS_SUMMARY.md](./FINAL_IMPROVEMENTS_SUMMARY.md) for a complete list of architectural improvements including Kubernetes-ready health checks, unified API responses, and production-ready migrations.
 
 ## Authentication
 
@@ -147,4 +172,18 @@ The application supports password reset via email. Configure email settings in `
 
 **Important:** For password reset emails to work, Celery workers must be running (see Production section).
 
-Added alias for product and change to the product 
+## Documentation
+
+- [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md) - Practical guide for developers
+- [PRODUCTION_DEPLOYMENT_CHECKLIST.md](./PRODUCTION_DEPLOYMENT_CHECKLIST.md) - Production deployment checklist
+- [API_RESPONSE_MIGRATION_EXAMPLES.md](./API_RESPONSE_MIGRATION_EXAMPLES.md) - Examples of migrating to API Response Helper
+- [DOCUMENTATION_INDEX.md](./DOCUMENTATION_INDEX.md) - Complete documentation index
+
+## API Documentation
+
+Interactive API documentation is available at `/api/docs` (Swagger UI) when running in non-production mode.
+
+**Health Checks:**
+- `/api/health/live` - Liveness probe (Kubernetes)
+- `/api/health/ready` - Readiness probe (Kubernetes)
+- `/api/health` - Comprehensive health check 

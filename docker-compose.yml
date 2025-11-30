@@ -1,0 +1,222 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: panel_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-panel}
+      POSTGRES_USER: ${POSTGRES_USER:-panel_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_in_production}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-panel_user} -d ${POSTGRES_DB:-panel}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - panel_network
+    restart: unless-stopped
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: panel_redis
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-change_me_in_production}
+    volumes:
+      - redis_data:/data
+    # Use different port if local Redis is running on 6379
+    # Set REDIS_PORT=6380 in .env to avoid conflicts
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    expose:
+      - "6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - panel_network
+    restart: unless-stopped
+
+  # Flask API Application
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: panel_api
+    environment:
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-panel_user}:${POSTGRES_PASSWORD:-change_me_in_production}@postgres:5432/${POSTGRES_DB:-panel}
+      
+      # Redis
+      REDIS_URL: redis://:${REDIS_PASSWORD:-change_me_in_production}@redis:6379/0
+      
+      # Flask
+      SECRET_KEY: ${SECRET_KEY:-change_me_in_production}
+      FLASK_ENV: ${FLASK_ENV:-production}
+      FLASK_DEBUG: ${FLASK_DEBUG:-0}
+      
+      # Security
+      TOKEN_STATIC_WORD: ${TOKEN_STATIC_WORD:-}
+      PROJECT_MASTER_KEY: ${PROJECT_MASTER_KEY:-}
+      OFFLINE_TICKET_SECRET: ${OFFLINE_TICKET_SECRET:-}
+      
+      # Email (optional)
+      MAIL_SERVER: ${MAIL_SERVER:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USE_TLS: ${MAIL_USE_TLS:-true}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Panel}
+      
+      # Frontend
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      
+      # CORS
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      PRODUCTION_CORS_ORIGINS: ${PRODUCTION_CORS_ORIGINS:-}
+      
+      # Celery
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-change_me_in_production}@redis:6379/1
+      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-change_me_in_production}@redis:6379/2
+    volumes:
+      - ./backend:/app/backend
+      - ./uploads:/app/uploads
+      - ./backend/uploads:/app/backend/uploads
+    ports:
+      - "${API_PORT:-5001}:5001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - panel_network
+    restart: unless-stopped
+    command: >
+      sh -c "
+        echo 'Waiting for database...' &&
+        python -m backend.scripts.setup_database &&
+        echo 'Starting API server...' &&
+        gunicorn -c backend/scripts/gunicorn.conf.py backend.scripts.wsgi:application
+      "
+
+  # Celery Worker - Default Queue
+  celery_worker_default:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: panel_celery_default
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-panel_user}:${POSTGRES_PASSWORD:-change_me_in_production}@postgres:5432/${POSTGRES_DB:-panel}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-change_me_in_production}@redis:6379/0
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-change_me_in_production}@redis:6379/1
+      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-change_me_in_production}@redis:6379/2
+      SECRET_KEY: ${SECRET_KEY:-change_me_in_production}
+      TOKEN_STATIC_WORD: ${TOKEN_STATIC_WORD:-}
+      PROJECT_MASTER_KEY: ${PROJECT_MASTER_KEY:-}
+      OFFLINE_TICKET_SECRET: ${OFFLINE_TICKET_SECRET:-}
+      FLASK_ENV: ${FLASK_ENV:-production}
+    volumes:
+      - ./backend:/app/backend
+      - ./uploads:/app/uploads
+    depends_on:
+      - postgres
+      - redis
+      - api
+    networks:
+      - panel_network
+    restart: unless-stopped
+    command: python -m backend.scripts.celery_worker default
+
+  # Celery Worker - Server Tasks Queue
+  celery_worker_server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: panel_celery_server
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-panel_user}:${POSTGRES_PASSWORD:-change_me_in_production}@postgres:5432/${POSTGRES_DB:-panel}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-change_me_in_production}@redis:6379/0
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-change_me_in_production}@redis:6379/1
+      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-change_me_in_production}@redis:6379/2
+      SECRET_KEY: ${SECRET_KEY:-change_me_in_production}
+      TOKEN_STATIC_WORD: ${TOKEN_STATIC_WORD:-}
+      PROJECT_MASTER_KEY: ${PROJECT_MASTER_KEY:-}
+      OFFLINE_TICKET_SECRET: ${OFFLINE_TICKET_SECRET:-}
+      FLASK_ENV: ${FLASK_ENV:-production}
+    volumes:
+      - ./backend:/app/backend
+      - ./uploads:/app/uploads
+    depends_on:
+      - postgres
+      - redis
+      - api
+    networks:
+      - panel_network
+    restart: unless-stopped
+    command: python -m backend.scripts.celery_worker server_tasks
+
+  # Celery Worker - Key Tasks Queue
+  celery_worker_keys:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: panel_celery_keys
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-panel_user}:${POSTGRES_PASSWORD:-change_me_in_production}@postgres:5432/${POSTGRES_DB:-panel}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-change_me_in_production}@redis:6379/0
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-change_me_in_production}@redis:6379/1
+      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-change_me_in_production}@redis:6379/2
+      SECRET_KEY: ${SECRET_KEY:-change_me_in_production}
+      TOKEN_STATIC_WORD: ${TOKEN_STATIC_WORD:-}
+      PROJECT_MASTER_KEY: ${PROJECT_MASTER_KEY:-}
+      OFFLINE_TICKET_SECRET: ${OFFLINE_TICKET_SECRET:-}
+      FLASK_ENV: ${FLASK_ENV:-production}
+    volumes:
+      - ./backend:/app/backend
+      - ./uploads:/app/uploads
+    depends_on:
+      - postgres
+      - redis
+      - api
+    networks:
+      - panel_network
+    restart: unless-stopped
+    command: python -m backend.scripts.celery_worker key_tasks
+
+  # Flower - Celery Monitoring (optional)
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: panel_flower
+    environment:
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-change_me_in_production}@redis:6379/1
+      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-change_me_in_production}@redis:6379/2
+      FLOWER_BASIC_AUTH: ${FLOWER_BASIC_AUTH:-admin:admin}
+    ports:
+      - "${FLOWER_PORT:-5555}:5555"
+    depends_on:
+      - redis
+    networks:
+      - panel_network
+    restart: unless-stopped
+    command: celery -A backend.core.celery_app.celery flower --port=5555
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  panel_network:
+    driver: bridge
+

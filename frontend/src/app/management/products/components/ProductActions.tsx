@@ -59,7 +59,8 @@ export const ProductActions: React.FC<ProductActionsProps> = React.memo(({
   canManageStatus,
 }) => {
   return (
-    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+    <div className="flex items-center justify-end gap-2">
+      {/* Status Select - Always visible but shrinks on smaller screens */}
       {canManageStatus && (
         <Select
           value={product.status}
@@ -67,7 +68,7 @@ export const ProductActions: React.FC<ProductActionsProps> = React.memo(({
             onStatusChange(product.id, value)
           }
         >
-          <SelectTrigger className="w-[80px] h-7 text-xs border-0 bg-transparent hover:bg-accent px-2">
+          <SelectTrigger className="w-[100px] xl:w-28 h-8 text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -79,62 +80,73 @@ export const ProductActions: React.FC<ProductActionsProps> = React.memo(({
         </Select>
       )}
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-7 w-7">
-            <MoreHorizontal className="h-3.5 w-3.5" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-44">
-          <ConditionalRender permission="products.view" fallback={null}>
-            <DropdownMenuItem onClick={() => onViewProduct(product)}>
-              <Eye className="mr-2 h-4 w-4" /> View
-            </DropdownMenuItem>
-          </ConditionalRender>
+      {/* Minimalistic: Only Edit visible, rest in dropdown */}
+      {canEditProducts && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => onEditProduct(product)}
+          title="Edit Product"
+        >
+          <Edit className="h-4 w-4" />
+        </Button>
+      )}
 
-          {canEditProducts && (
-            <DropdownMenuItem onClick={() => onEditProduct(product)}>
-              <Edit className="mr-2 h-4 w-4" /> Edit
-            </DropdownMenuItem>
-          )}
-
-          {canUploadFiles && (
-            <DropdownMenuItem onClick={() => onUploadProduct(product)}>
-              <Upload className="mr-2 h-4 w-4" /> Files
-            </DropdownMenuItem>
-          )}
-
-          {canManagePrices && (
-            <DropdownMenuItem onClick={() => onPricesProduct(product)}>
-              <DollarSign className="mr-2 h-4 w-4" /> Prices
-            </DropdownMenuItem>
-          )}
-
-          {canManageNotifications && (
-            <DropdownMenuItem onClick={() => onNotificationsProduct(product)}>
-              <Bell className="mr-2 h-4 w-4" /> Notifications
-            </DropdownMenuItem>
-          )}
-
-          {canManageChangelog && (
-            <DropdownMenuItem onClick={() => onChangelogProduct(product)}>
-              <GitCommit className="mr-2 h-4 w-4" /> Changelog
-            </DropdownMenuItem>
-          )}
-
-          {canDeleteProducts && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                onClick={() => onDeleteProduct(product.id)}
-                className="text-destructive focus:text-destructive"
-              >
-                <Trash2 className="mr-2 h-4 w-4" /> Delete
+      {/* All other actions in dropdown menu */}
+      <div className="flex">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreHorizontal className="h-4 w-4" />
+              <span className="sr-only">Open menu</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <ConditionalRender permission="products.view" fallback={null}>
+              <DropdownMenuItem onClick={() => onViewProduct(product)}>
+                <Eye className="mr-2 h-4 w-4" /> View Details
               </DropdownMenuItem>
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+            </ConditionalRender>
+
+            {canUploadFiles && (
+              <DropdownMenuItem onClick={() => onUploadProduct(product)}>
+                <Upload className="mr-2 h-4 w-4" /> Upload Files
+              </DropdownMenuItem>
+            )}
+
+            {canManageNotifications && (
+              <DropdownMenuItem onClick={() => onNotificationsProduct(product)}>
+                <Bell className="mr-2 h-4 w-4" /> Notifications
+              </DropdownMenuItem>
+            )}
+
+            {canManagePrices && (
+              <DropdownMenuItem onClick={() => onPricesProduct(product)}>
+                <DollarSign className="mr-2 h-4 w-4" /> Prices
+              </DropdownMenuItem>
+            )}
+
+            {canManageChangelog && (
+              <DropdownMenuItem onClick={() => onChangelogProduct(product)}>
+                <GitCommit className="mr-2 h-4 w-4" /> Changelog
+              </DropdownMenuItem>
+            )}
+
+            {canDeleteProducts && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  onClick={() => onDeleteProduct(product.id)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </div>
   );
 });

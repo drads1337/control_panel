@@ -12,10 +12,11 @@ from typing import Optional, Tuple
 from flask import request
 
 from ...core.extensions import db
-from ...models import BlockedFingerprint, User
+from ...models import BlockedFingerprint, Key, User
 from ...services.security import SecurityContext, security_service
 from ...services.validation import request_validation_pipeline
 # get_service removed - using DI
+from ...utils.redis_client import get_redis_client
 from ...utils.service_exceptions import ServiceError
 
 class SecurityChecker:
@@ -205,8 +206,6 @@ class SecurityChecker:
         now = int(time.time())
 
         try:
-            from ...utils.redis_client import get_redis_client
-
             # Use persistent Redis instance for behavioral analysis (must not lose data)
             redis_client = get_redis_client()
 
@@ -284,8 +283,6 @@ class SecurityChecker:
                 redis_client.expire(key, self.suspicious_window)
 
             if count >= self.suspicious_threshold:
-                from ...models import Key
-
                 key_obj = Key.query.filter_by(key=user_key, project_id=project_id).first()
                 if key_obj and key_obj.status == 1:
                     key_obj.status = 0

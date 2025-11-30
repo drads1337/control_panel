@@ -5,6 +5,17 @@ This container provides a centralized way to manage service instances with
 support for different scopes (singleton, request-scoped, transient) and
 lifecycle hooks (initialization and cleanup).
 
+API STABILITY:
+==============
+This API is FROZEN and should not be changed without careful consideration.
+Breaking changes to the public API (register, get, register_instance, clear, etc.)
+will break existing code throughout the codebase.
+
+If you need to extend functionality, consider:
+1. Adding new optional parameters (with defaults) to existing methods
+2. Creating new methods rather than modifying existing ones
+3. Documenting any changes in CHANGELOG.md
+
 Scopes:
 - singleton: One instance per application lifetime (default)
 - request: One instance per Flask request (stored in Flask's g object)
@@ -12,6 +23,30 @@ Scopes:
 
 Lifecycle:
 - Services can implement on_init() and on_cleanup() methods for lifecycle hooks
+
+USAGE:
+======
+    from ..core.service_container import get_service_container, ServiceScope
+    
+    container = get_service_container()
+    
+    # Register a service
+    container.register('my_service', MyService, scope=ServiceScope.SINGLETON)
+    
+    # Get a service
+    my_service = container.get('my_service')
+    
+    # In routes/services, use get_service() helper:
+    from ..utils.service_helpers import get_service
+    my_service = get_service('my_service')
+
+MIGRATION NOTES:
+================
+This is a custom DI container. While there are standard libraries (Dependency Injector, Punq),
+this implementation is tailored to our Flask application needs and is now frozen.
+
+For new projects, consider using standard libraries, but for this codebase,
+maintain backward compatibility with existing code.
 """
 
 from enum import Enum
@@ -169,9 +204,43 @@ class ServiceContainer:
                 logger = logging.getLogger(__name__)
                 logger.warning(
                     f"Circular dependency detected for {service_name}. "
-                    f"Creating instance without full DI resolution."
+                    f"Attempting to inject non-circular dependencies."
                 )
-                return service_class()
+                # Try to inject dependencies that are NOT part of the circular dependency chain
+                sig = inspect.signature(service_class.__init__)
+                params = {}
+                
+                for param_name, param in sig.parameters.items():
+                    if param_name == 'self':
+                        continue
+                    
+                    # Skip non-service parameters
+                    if not self._is_service_parameter(param_name):
+                        if param.default != inspect.Parameter.empty:
+                            params[param_name] = param.default
+                        continue
+                    
+                    # Map parameter name to service name
+                    service_key = self._map_param_to_service(param_name)
+                    
+                    # Only inject if the dependency is NOT in the circular chain
+                    if service_key not in self._creating_services and service_key in self._services:
+                        try:
+                            # Check if dependency is already created (singleton)
+                            if service_key in self._instances:
+                                params[param_name] = self._instances[service_key]
+                            elif param.default != inspect.Parameter.empty:
+                                # Use default for optional dependencies
+                                params[param_name] = param.default
+                        except Exception:
+                            # If injection fails, use default if available
+                            if param.default != inspect.Parameter.empty:
+                                params[param_name] = param.default
+                    elif param.default != inspect.Parameter.empty:
+                        # Use default for optional dependencies
+                        params[param_name] = param.default
+                
+                return service_class(**params)
             
             self._creating_services.add(service_name)
             
@@ -443,7 +512,14 @@ def init_services(app):
     container.register('security_rules_service', SecurityRulesService, scope=ServiceScope.SINGLETON)
     container.register('security_rules_init_service', lambda: SecurityRulesInitService(), scope=ServiceScope.SINGLETON)
     
+    # Register cache service FIRST (singleton - stateless)
+    # CacheService must be registered before services that depend on it (e.g., settings_service)
+    from ..services.cache.cache_service import CacheService
+    # CacheService now supports DI - dependencies will be auto-injected
+    container.register('cache_service', CacheService, scope=ServiceScope.SINGLETON)
+    
     # Register settings services (singleton - stateless)
+    # These depend on cache_service, so cache_service must be registered first
     from ..services.settings.settings_repository import SettingsRepository
     from ..services.settings.settings_manager import SettingsManager
     from ..services.settings.settings_service import SettingsService
@@ -453,11 +529,6 @@ def init_services(app):
     container.register('settings_manager', SettingsManager, scope=ServiceScope.SINGLETON)
     # SettingsService now supports DI - dependencies will be auto-injected
     container.register('settings_service', SettingsService, scope=ServiceScope.SINGLETON)
-    
-    # Register cache service (singleton - stateless)
-    from ..services.cache.cache_service import CacheService
-    # CacheService now supports DI - dependencies will be auto-injected
-    container.register('cache_service', CacheService, scope=ServiceScope.SINGLETON)
     
     # Register session service (singleton - stateless)
     from ..services.sessions.session_service import SessionService

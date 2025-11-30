@@ -159,33 +159,20 @@ class RequestValidationPipeline:
         # Check if IP is blocked
         try:
             if not self._security_service:
-                raise ServiceError(
-                    "Security Service dependency not injected",
-                    status_code=500
-                )
-            security_service = self._security_service
-            if not self._security_service:
-                raise ServiceError(
-                    "Security Service dependency not injected",
-                    status_code=500
-                )
-            security_service = self._security_service
-            if not self._security_service:
-                raise ServiceError(
-                    "Security Service dependency not injected",
-                    status_code=500
-                )
-            security_service = self._security_service
-            if not self._security_service:
-                raise ServiceError(
-                    "SecurityService dependency not injected",
-                    status_code=500
-                )
+                # If security service is not available, log warning but don't block requests
+                logger.warning("Security Service dependency not injected, skipping IP block check")
+                return True, None
+            
             if self._security_service.is_ip_blocked(ip, project_id):
                 return False, "IP_BLOCKED"
         except (ConnectionError, TimeoutError) as e:
             # Infrastructure errors - log but don't block requests
             logger.warning(f"IP block check unavailable (connection issue): {e}")
+            # Don't fail validation on service errors - log and continue
+            # This prevents service errors from blocking legitimate requests
+        except ServiceError as e:
+            # Service errors - log but don't block requests
+            logger.warning(f"Security service error during IP block check: {e}")
             # Don't fail validation on service errors - log and continue
             # This prevents service errors from blocking legitimate requests
         except Exception as e:

@@ -39,6 +39,7 @@ def create_swagger_config() -> dict:
         - mTLS required for agent endpoints (`/api/connect`, `/api/dynamic-config`)
         - Rate limiting applied to all endpoints
         - Project isolation enforced at ORM level
+        - Fail-close behavior for critical endpoints (blocks requests if Redis is unavailable)
         
         ## Terminology
         - **Products**: Software products (formerly "Clients")
@@ -49,6 +50,19 @@ def create_swagger_config() -> dict:
         - Default: 100 requests per minute per IP
         - Authentication endpoints: 10 requests per minute
         - Connect endpoints: 30 requests per minute per IP
+        
+        ## Health Checks
+        - `/api/health/live` - Liveness probe (Kubernetes)
+        - `/api/health/ready` - Readiness probe (Kubernetes)
+        - `/api/health` - Comprehensive health check
+        
+        ## Response Format
+        All API responses follow a standardized format:
+        - Success: `{"status": "success", "data": {...}, "message": "..."}`
+        - Error: `{"status": "error", "error": "ERROR_CODE", "message": "...", "details": {...}}`
+        - Paginated: `{"status": "success", "data": {"items": [...], "pagination": {...}}}`
+        
+        See `DEVELOPER_GUIDE.md` for more details on using the API Response Helper.
         """,
         "termsOfService": "",
         "contact": {
@@ -87,6 +101,14 @@ def create_swagger_config() -> dict:
             {
                 "name": "Admin",
                 "description": "Administrative endpoints"
+            },
+            {
+                "name": "Health",
+                "description": "Health check endpoints for monitoring and Kubernetes probes"
+            },
+            {
+                "name": "System",
+                "description": "System-level endpoints (monitoring, metrics, etc.)"
             }
         ],
         "securityDefinitions": {

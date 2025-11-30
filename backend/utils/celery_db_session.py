@@ -22,12 +22,40 @@ import logging
 from contextlib import contextmanager
 from typing import Generator
 
+from prometheus_client import Gauge, REGISTRY
 from sqlalchemy import create_engine, event, pool
 from sqlalchemy.orm import sessionmaker, Session
 
 from ..config.config import Config
 
 logger = logging.getLogger(__name__)
+
+# Prometheus metrics for Celery database connection pool
+_celery_pool_size = Gauge(
+    'celery_db_pool_size',
+    'Current size of Celery database connection pool',
+    registry=REGISTRY
+)
+_celery_pool_checked_in = Gauge(
+    'celery_db_pool_checked_in',
+    'Number of checked-in connections in Celery database pool',
+    registry=REGISTRY
+)
+_celery_pool_checked_out = Gauge(
+    'celery_db_pool_checked_out',
+    'Number of checked-out connections in Celery database pool',
+    registry=REGISTRY
+)
+_celery_pool_overflow = Gauge(
+    'celery_db_pool_overflow',
+    'Number of overflow connections in Celery database pool',
+    registry=REGISTRY
+)
+_celery_pool_invalid = Gauge(
+    'celery_db_pool_invalid',
+    'Number of invalid connections in Celery database pool',
+    registry=REGISTRY
+)
 
 # Global engine and session factory for Celery tasks
 _celery_db_engine = None
@@ -92,13 +120,25 @@ def _setup_connection_monitoring(engine):
     
     @event.listens_for(engine.pool, "checkout")
     def receive_checkout(dbapi_conn, connection_record, connection_proxy):
-        """Log connection checkout"""
+        """Log connection checkout and update metrics"""
         logger.debug(f"[DB_POOL] Connection checked out: {id(dbapi_conn)}")
+        # Update metrics after checkout
+        try:
+            pool_stats = get_pool_stats()
+            _update_prometheus_metrics(pool_stats)
+        except Exception:
+            pass  # Don't fail on metrics update
     
     @event.listens_for(engine.pool, "checkin")
     def receive_checkin(dbapi_conn, connection_record):
-        """Log connection checkin"""
+        """Log connection checkin and update metrics"""
         logger.debug(f"[DB_POOL] Connection checked in: {id(dbapi_conn)}")
+        # Update metrics after checkin
+        try:
+            pool_stats = get_pool_stats()
+            _update_prometheus_metrics(pool_stats)
+        except Exception:
+            pass  # Don't fail on metrics update
     
     @event.listens_for(engine.pool, "invalidate")
     def receive_invalidate(dbapi_conn, connection_record, exception):
@@ -162,6 +202,7 @@ def get_pool_stats() -> dict:
     Get statistics about the database connection pool.
     
     This is useful for monitoring connection usage and detecting leaks.
+    Also updates Prometheus metrics for monitoring.
     
     Returns:
         Dictionary with pool statistics:
@@ -175,11 +216,33 @@ def get_pool_stats() -> dict:
         return {"error": "Engine not initialized"}
     
     pool_instance = _celery_db_engine.pool
-    return {
+    stats = {
         "size": pool_instance.size(),
         "checked_in": pool_instance.checkedin(),
         "checked_out": pool_instance.checkedout(),
         "overflow": pool_instance.overflow(),
         "invalid": pool_instance.invalid(),
     }
+    
+    # Update Prometheus metrics
+    _update_prometheus_metrics(stats)
+    
+    return stats
+
+
+def _update_prometheus_metrics(stats: dict) -> None:
+    """
+    Update Prometheus metrics with current pool statistics.
+    
+    Args:
+        stats: Dictionary with pool statistics
+    """
+    try:
+        _celery_pool_size.set(stats.get("size", 0))
+        _celery_pool_checked_in.set(stats.get("checked_in", 0))
+        _celery_pool_checked_out.set(stats.get("checked_out", 0))
+        _celery_pool_overflow.set(stats.get("overflow", 0))
+        _celery_pool_invalid.set(stats.get("invalid", 0))
+    except Exception as e:
+        logger.warning(f"Failed to update Prometheus metrics for Celery DB pool: {e}")
 

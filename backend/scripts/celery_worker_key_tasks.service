@@ -25,4 +25,3 @@ SyslogIdentifier=celery-worker-key-tasks
 
 [Install]
 WantedBy=multi-user.target
-
