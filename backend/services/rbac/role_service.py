@@ -104,7 +104,6 @@ class RoleService:
 
             cache_service = self._cache_service or get_service('cache_service')
             cache_service = self._cache_service or get_service('cache_service')
-            cache_service = self._cache_service or get_service('cache_service')
             cache_service.invalidate_rbac_role_instantly(role.id, project_id)
             cache_service.invalidate_rbac_project_instantly(project_id)
 

@@ -126,7 +126,17 @@ class PolicyEngine:
     privilege escalation through conflicting policies.
     """
     
-    def __init__(self):
+    def __init__(self, authorization_audit_service=None, rbac_service=None, abac_service=None):
+        """Initialize PolicyEngine with dependencies
+        
+        Args:
+            authorization_audit_service: Service for authorization audit
+            rbac_service: Service for RBAC operations
+            abac_service: Service for ABAC operations
+        """
+        self._authorization_audit_service = authorization_audit_service
+        self._rbac_service = rbac_service
+        self._abac_service = abac_service
         """
         Policy evaluation order:
         1. Owner/Admin bypass - fastest path for privileged users
@@ -325,8 +335,7 @@ class PolicyEngine:
             outcome = DecisionOutcome.DENY
         
         # Audit the authorization decision
-        authorization_audit_service = get_service('authorization_audit_service')
-        authorization_audit_service = get_service('authorization_audit_service')
+        authorization_audit_service = self._authorization_audit_service or get_service('authorization_audit_service')
         authorization_audit_service.audit_authorization_decision(
             user_id=user_id,
             permission=permission,
@@ -420,9 +429,7 @@ class PolicyEngine:
             )
         
         # Get user permissions through RBAC
-        rbac_service = get_service('rbac_service')
-        rbac_service = get_service('rbac_service')
-        rbac_service = get_service('rbac_service')
+        rbac_service = self._rbac_service or get_service('rbac_service')
         user_permissions = rbac_service.get_user_permissions(user.id)
         
         if permission in user_permissions:
@@ -579,7 +586,7 @@ class PolicyEngine:
         from .abac_service import ABACService
         from ...utils.service_helpers import get_service
         
-        abac_service = get_service('abac_service')
+        abac_service = self._abac_service or get_service('abac_service')
         abac_result = abac_service.check_abac_rules(
             user_id=user.id,
             permission=permission,
