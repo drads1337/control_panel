@@ -18,12 +18,14 @@ from ...models.products import Product, ProductExtraFile, ProductFileConfig, Pro
 from ...models.keys import Key
 from ...models.agents import Agent, AgentProductAssignment, AgentDownloadLog
 from ...utils.service_exceptions import NotFoundError, PermissionDeniedError, ConflictError, ServiceError, ValidationError
+from ...utils.service_helpers import get_service
 
 # Type hints for dependencies (imported here to avoid circular imports)
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ...services.cache.cache_service import CacheService
     from ...services.rbac.rbac_service import RBACService
+    from ...services.tier_limits.tier_limits_service import TierLimitsService
 
 class ProductService:
     """Service for managing product data with caching"""
@@ -32,6 +34,7 @@ class ProductService:
         self,
         cache_service: 'CacheService' = None,
         rbac_service: 'RBACService' = None,
+        tier_limits_service: 'TierLimitsService' = None,
         logger=None
     ):
         """
@@ -40,27 +43,13 @@ class ProductService:
         Args:
             cache_service: Service for cache operations
             rbac_service: Service for RBAC checks
+            tier_limits_service: Service for tier limits checks
             logger: Optional logger instance
         """
         self.cache_service = cache_service
         self._rbac_service = rbac_service
+        self._tier_limits_service = tier_limits_service
         self.logger = logger or logging.getLogger(__name__)
-
-    @property
-    def _cache_service(self):
-        """Get cache service instance (lazy loading for backward compatibility)"""
-        if self.cache_service is not None:
-            return self.cache_service
-        from ...utils.service_helpers import get_service
-        return get_service('cache_service')
-    
-    def _get_rbac_service(self):
-        """Get RBAC service (lazy loading for backward compatibility)"""
-        if self._rbac_service is not None:
-            return self._rbac_service
-        from ...utils.service_helpers import get_service
-        self._rbac_service = get_service('rbac_service')
-        return self._rbac_service
 
     def get_products_cached(
         self, project_id: int, product_type: str = "all", user_id: Optional[int] = None
@@ -208,7 +197,7 @@ class ProductService:
         if user_id:
             cache_key_params["user_id"] = user_id
 
-        cached_result = self._cache_service.get_or_set(
+        cached_result = (self.cache_service or get_service('cache_service')).get_or_set(
             cache_type="products", fetch_func=fetch_products, **cache_key_params
         )
 
@@ -459,7 +448,7 @@ class ProductService:
         """Invalidate product cache for a project or specific product - INSTANT updates"""
         try:
 
-            deleted_count = self._cache_service.invalidate_product_instantly(project_id, product_id)
+                    deleted_count = (self.cache_service or get_service('cache_service')).invalidate_product_instantly(project_id, product_id)
 
             self.logger.info(
                 f"INSTANT product cache invalidation completed: {deleted_count} keys deleted"
@@ -479,7 +468,7 @@ class ProductService:
 
                 total_deleted = 0
                 for pattern in patterns:
-                    deleted_count = self._cache_service.invalidate_pattern(pattern)
+                    deleted_count = (self.cache_service or get_service('cache_service')).invalidate_pattern(pattern)
                     total_deleted += deleted_count
 
                 self.logger.info(f"Fallback product cache invalidation: {total_deleted} keys deleted")
@@ -500,7 +489,7 @@ class ProductService:
 
                 user = User.query.get(user_id) if user_id else None
                 # Use explicit dependency injection
-                rbac_service = self._get_rbac_service()
+                rbac_service = self._rbac_service or get_service('rbac_service')
 
                 can_view_all = user and (
                     RBACManager.is_owner(user)
@@ -535,7 +524,7 @@ class ProductService:
         if user_id:
             cache_key_params["user_id"] = user_id
 
-        cached_result = self._cache_service.get_or_set(
+        cached_result = (self.cache_service or get_service('cache_service')).get_or_set(
             cache_type="products", fetch_func=fetch_simple_products, **cache_key_params
         )
 
@@ -566,7 +555,7 @@ class ProductService:
             
             project = Project.query.get(user.project_id)
             if project:
-                tier_limits_service = get_service('tier_limits_service')
+                tier_limits_service = self._tier_limits_service or get_service('tier_limits_service')
                 can_create, error_msg = tier_limits_service.check_product_limit(project)
                 if not can_create:
                     raise ValidationError(error_msg, field="product")
@@ -705,7 +694,7 @@ class ProductService:
                 from ...models.rbac import UserRole, Role
                 from ...utils.rbac_utils import RBACManager
                 # Use explicit dependency injection
-                rbac_service = self._get_rbac_service()
+                rbac_service = self._rbac_service or get_service('rbac_service')
 
                 self.logger.info(
                     f"Fetching product count from database for project {project_id}, type: {product_type}"
@@ -809,7 +798,7 @@ class ProductService:
         if user_id:
             cache_key_params["user_id"] = user_id
 
-        cached_result = self._cache_service.get_or_set(
+        cached_result = (self.cache_service or get_service('cache_service')).get_or_set(
             cache_type="products", fetch_func=fetch_count, **cache_key_params
         )
 
