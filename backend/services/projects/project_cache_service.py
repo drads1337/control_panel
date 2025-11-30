@@ -16,7 +16,7 @@ from ...models.core import Project, User
 from ...utils.fulltext_search import fulltext_search_filter
 from ...utils.rbac_utils import RBACManager
 from ...utils.role_constants import UserRoles
-from ...utils.service_helpers import get_service
+from ...utils.service_exceptions import ServiceError
 
 class ProjectCacheService:
     """
@@ -35,7 +35,12 @@ class ProjectCacheService:
         """Get cache service instance via DI container"""
         if self.cache_service is not None:
             return self.cache_service
-        return get_service('cache_service')
+        # SECURITY: Dependency should be injected via __init__
+        # If not injected, raise error instead of using get_service()
+        raise ServiceError(
+            "CacheService dependency not injected",
+            status_code=500
+        )
 
     def get_projects_cached(
         self, user_id: int, page: int = 1, per_page: int = 20, search: Optional[str] = None
@@ -246,9 +251,19 @@ class ProjectCacheService:
             """Fetch project from database"""
             try:
                 
-                project_crud_service = get_service('project_crud_service')
+                if not self._project_crud_service:
+                    raise ServiceError(
+                        "Project Crud Service dependency not injected",
+                        status_code=500
+                    )
+                project_crud_service = self._project_crud_service
                 project = project_crud_service._find_project_by_id_or_unique_id(project_id)
-                project_crud_service = get_service('project_crud_service')
+                if not self._project_crud_service:
+                    raise ServiceError(
+                        "Project Crud Service dependency not injected",
+                        status_code=500
+                    )
+                project_crud_service = self._project_crud_service
                 if not project:
                     return {"error": "Project not found"}
 
@@ -335,8 +350,12 @@ class ProjectCacheService:
         def fetch_project_stats():
             """Fetch project statistics from database"""
             try:
-                
-                project = project_crud_service._find_project_by_id_or_unique_id(project_id)
+                if not self._project_crud_service:
+                    raise ServiceError(
+                        "ProjectCRUDService dependency not injected",
+                        status_code=500
+                    )
+                project = self._project_crud_service._find_project_by_id_or_unique_id(project_id)
                 if not project:
                     return {"error": "Project not found"}
 

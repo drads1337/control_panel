@@ -1,4 +1,5 @@
 from ...utils.service_helpers import get_service
+from ...utils.service_exceptions import ServiceError
 """
 User Profile Service
 Handles user profile operations: updates, password changes, avatar uploads, and profile data retrieval

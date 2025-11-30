@@ -146,7 +146,12 @@ class ProjectCRUDService:
             # Enforce storage limit for free tier only (double-check)
             if subscription_status == "free":
                 try:
-                    tier_limits_service = self._tier_limits_service or get_service(\'tier_limits_service\')
+                    if not self._tier_limits_service:
+                        raise ServiceError(
+                            "Tier Limits Service dependency not injected",
+                            status_code=500
+                        )
+                    tier_limits_service = self._tier_limits_service
                     tier_limits_service.enforce_storage_limit(project)
                 except Exception as e:
                     self.logger.warning(f"Failed to enforce storage limit for project {project.id}: {e}")
@@ -154,7 +159,12 @@ class ProjectCRUDService:
             db.session.commit()
 
             try:
-                activity_service = self._activity_service or get_service(\'activity_service\')
+                if not self._activity_service:
+                    raise ServiceError(
+                        "Activity Service dependency not injected",
+                        status_code=500
+                    )
+                activity_service = self._activity_service
                 activity_service.log_activity(
                     user,
                     "project_created",
@@ -167,7 +177,12 @@ class ProjectCRUDService:
 
             # Initialize default security rules for the project
             try:
-                security_rules_init_service = self._security_rules_init_service or get_service(\'security_rules_init_service\')
+                if not self._security_rules_init_service:
+                    raise ServiceError(
+                        "Security Rules Init Service dependency not injected",
+                        status_code=500
+                    )
+                security_rules_init_service = self._security_rules_init_service
                 security_rules_init_service.initialize_default_rules(project.id, user_id)
                 self.logger.info(f"Initialized default security rules for project {project.id}")
             except Exception as e:
@@ -278,7 +293,12 @@ class ProjectCRUDService:
             db.session.commit()
 
             try:
-                activity_service = self._activity_service or get_service(\'activity_service\')
+                if not self._activity_service:
+                    raise ServiceError(
+                        "Activity Service dependency not injected",
+                        status_code=500
+                    )
+                activity_service = self._activity_service
                 activity_service.log_activity(
                     user,
                     "project_updated",
@@ -346,7 +366,12 @@ class ProjectCRUDService:
 
             # Delete related data (cascade will handle most, but we log activity first)
             try:
-                activity_service = self._activity_service or get_service(\'activity_service\')
+                if not self._activity_service:
+                    raise ServiceError(
+                        "Activity Service dependency not injected",
+                        status_code=500
+                    )
+                activity_service = self._activity_service
                 activity_service.log_activity(
                     user,
                     "project_deleted",

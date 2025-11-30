@@ -16,6 +16,7 @@ from ...utils.service_exceptions import NotFoundError, PermissionDeniedError
 from ...utils.rbac_utils import RBACManager
 from ...utils.role_constants import UserRoles
 from ...utils.structured_logging import get_logger
+from ...utils.service_helpers import get_service
 from .key_filter_specification import KeyFilterSpecification
 
 # Type hints for dependencies (imported here to avoid circular imports)
@@ -113,7 +114,12 @@ class KeyBulkOperationsService:
         Returns:
             Tuple of (created_count, list_of_errors)
         """
-        validation_service = self._key_validation_service or get_service(\'key_validation_service\')
+        if not self._key_validation_service:
+            raise ServiceError(
+                "Key Validation Service dependency not injected",
+                status_code=500
+            )
+        validation_service = self._key_validation_service
         is_valid, error_msg = validation_service.validate_bulk_operation(
             len(keys_data), self.max_bulk_operations
         )
@@ -126,7 +132,12 @@ class KeyBulkOperationsService:
         for i, key_data in enumerate(keys_data):
             try:
                 # create_key now raises exceptions instead of returning tuples
-                key_crud_service = self._key_crud_service or get_service(\'key_crud_service\')
+                if not self._key_crud_service:
+                    raise ServiceError(
+                        "Key Crud Service dependency not injected",
+                        status_code=500
+                    )
+                key_crud_service = self._key_crud_service
                 key = key_crud_service.create_key(user, key_data)
                 created_count += 1
             except Exception as e:
@@ -164,7 +175,12 @@ class KeyBulkOperationsService:
         """
         try:
             # Use ServiceContainer to avoid circular imports
-            product_service = self._product_service or get_service(\'product_service\')
+            if not self._product_service:
+                raise ServiceError(
+                    "Product Service dependency not injected",
+                    status_code=500
+                )
+            product_service = self._product_service
             # get_product now raises exceptions
             product = product_service.get_product(user, product_id)
 
@@ -185,8 +201,18 @@ class KeyBulkOperationsService:
             
             if not is_owner and not is_admin and product and user.project_id:
                 # Use ServiceContainer to avoid circular imports
-                price_calculation_service = self._price_calculation_service or get_service(\'price_calculation_service\')
-                balance_service = self._balance_service or get_service(\'balance_service\')
+                if not self._price_calculation_service:
+                    raise ServiceError(
+                        "Price Calculation Service dependency not injected",
+                        status_code=500
+                    )
+                price_calculation_service = self._price_calculation_service
+                if not self._balance_service:
+                    raise ServiceError(
+                        "Balance Service dependency not injected",
+                        status_code=500
+                    )
+                balance_service = self._balance_service
                 
                 key_price = price_calculation_service.calculate_key_price(
                     product_id=product.id,
@@ -206,7 +232,12 @@ class KeyBulkOperationsService:
                         return 0, f"Insufficient balance. Required: {total_price} tokens for {count} keys, Available: {user.token_balance} tokens", None
                     
                     # Deduct balance without committing (we're inside a transaction)
-                    balance_service = self._balance_service or get_service(\'balance_service\')
+                    if not self._balance_service:
+                        raise ServiceError(
+                            "Balance Service dependency not injected",
+                            status_code=500
+                        )
+                    balance_service = self._balance_service
                     success, error_msg, _ = balance_service.deduct_balance(
                         current_user=user,
                         target_user_id=user.id,
@@ -219,7 +250,12 @@ class KeyBulkOperationsService:
                     if not success:
                         return 0, f"Failed to deduct balance: {error_msg}", None
 
-            key_generation_service = self._key_generation_service or get_service(\'key_generation_service\')
+            if not self._key_generation_service:
+                raise ServiceError(
+                    "Key Generation Service dependency not injected",
+                    status_code=500
+                )
+            key_generation_service = self._key_generation_service
             for i in range(count):
                 try:
                     key_string = key_generation_service.generate_key_string(
@@ -290,7 +326,12 @@ class KeyBulkOperationsService:
             if not keys:
                 return 0, "No keys found or access denied"
 
-            key_status_service = self._key_status_service or get_service(\'key_status_service\')
+            if not self._key_status_service:
+                raise ServiceError(
+                    "Key Status Service dependency not injected",
+                    status_code=500
+                )
+            key_status_service = self._key_status_service
             affected_count = 0
             for key in keys:
                 success, error = key_status_service.pause_key(user, key.id)
@@ -310,7 +351,12 @@ class KeyBulkOperationsService:
             if not keys:
                 return 0, "No keys found or access denied"
 
-            key_status_service = self._key_status_service or get_service(\'key_status_service\')
+            if not self._key_status_service:
+                raise ServiceError(
+                    "Key Status Service dependency not injected",
+                    status_code=500
+                )
+            key_status_service = self._key_status_service
             affected_count = 0
             for key in keys:
                 success, error = key_status_service.resume_key(user, key.id)
@@ -331,7 +377,12 @@ class KeyBulkOperationsService:
                 return 0, "No keys found or access denied"
 
             affected_count = 0
-            key_crud_service = self._key_crud_service or get_service(\'key_crud_service\')
+            if not self._key_crud_service:
+                raise ServiceError(
+                    "Key Crud Service dependency not injected",
+                    status_code=500
+                )
+            key_crud_service = self._key_crud_service
             for key in keys:
                 success, error = key_crud_service.delete_key(user, key.id)
                 if success:
@@ -376,7 +427,12 @@ class KeyBulkOperationsService:
             if not keys:
                 return 0, "No keys found or access denied"
 
-            key_status_service = self._key_status_service or get_service(\'key_status_service\')
+            if not self._key_status_service:
+                raise ServiceError(
+                    "Key Status Service dependency not injected",
+                    status_code=500
+                )
+            key_status_service = self._key_status_service
             affected_count = 0
             for key in keys:
                 success, error = key_status_service.extend_key(user, key.id, hours)
@@ -452,7 +508,12 @@ class KeyBulkOperationsService:
         """Bulk pause keys by product"""
         try:
             # Use ServiceContainer to avoid circular imports
-            product_service = self._product_service or get_service(\'product_service\')
+            if not self._product_service:
+                raise ServiceError(
+                    "Product Service dependency not injected",
+                    status_code=500
+                )
+            product_service = self._product_service
             # get_product now raises exceptions
             product = product_service.get_product(user, product_id)
 
@@ -478,7 +539,12 @@ class KeyBulkOperationsService:
         """Bulk resume keys by product"""
         try:
             # Use ServiceContainer to avoid circular imports
-            product_service = self._product_service or get_service(\'product_service\')
+            if not self._product_service:
+                raise ServiceError(
+                    "Product Service dependency not injected",
+                    status_code=500
+                )
+            product_service = self._product_service
             # get_product now raises exceptions
             product = product_service.get_product(user, product_id)
 
@@ -501,7 +567,12 @@ class KeyBulkOperationsService:
         """Bulk reset keys by product"""
         try:
             # Use ServiceContainer to avoid circular imports
-            product_service = self._product_service or get_service(\'product_service\')
+            if not self._product_service:
+                raise ServiceError(
+                    "Product Service dependency not injected",
+                    status_code=500
+                )
+            product_service = self._product_service
             # get_product now raises exceptions
             product = product_service.get_product(user, product_id)
 
@@ -524,7 +595,12 @@ class KeyBulkOperationsService:
         """Bulk add hours to keys by product"""
         try:
             # Use ServiceContainer to avoid circular imports
-            product_service = self._product_service or get_service(\'product_service\')
+            if not self._product_service:
+                raise ServiceError(
+                    "Product Service dependency not injected",
+                    status_code=500
+                )
+            product_service = self._product_service
             # get_product now raises exceptions
             product = product_service.get_product(user, product_id)
 

@@ -15,6 +15,7 @@ from ...models.products import Product
 from ...models.keys import Key, ReferralCode
 from ...models.rbac import Role, UserRole
 from ...utils.rbac_utils import RBACManager
+from ...utils.service_exceptions import PermissionDeniedError, ServiceError
 
 # Type hints for dependencies (imported here to avoid circular imports)
 from typing import TYPE_CHECKING
@@ -78,7 +79,12 @@ class AdminService:
                 deactivated_count += 1
 
                 try:
-                    activity_service = self._activity_service or get_service(\'activity_service\')
+                    if not self._activity_service:
+                        raise ServiceError(
+                            "ActivityService dependency not injected",
+                            status_code=500
+                        )
+                    activity_service = self._activity_service
                     activity_service.log_activity(
                         admin_user,
                         "project_deactivated",
@@ -142,7 +148,12 @@ class AdminService:
                     deleted_project_names.append(project_name)
 
                     try:
-                        activity_service = self._activity_service or get_service('activity_service')
+                        if not self._activity_service:
+                            raise ServiceError(
+                                "ActivityService dependency not injected",
+                                status_code=500
+                            )
+                        activity_service = self._activity_service
                         activity_service.log_activity(
                             admin_user,
                             "project_deleted",
@@ -222,7 +233,10 @@ class AdminService:
         try:
 
             if not RBACManager.is_owner(admin_user):
-                return {"error": "Access denied - owner role required"}
+                raise PermissionDeniedError(
+                    "Access denied - owner role required",
+                    action="get_system_statistics"
+                )
 
             stats = {
                 "projects": {
@@ -276,9 +290,16 @@ class AdminService:
 
             return stats
 
+        except PermissionDeniedError:
+            # Re-raise permission errors as-is
+            raise
         except Exception as e:
-            self.logger.error(f"Error getting system stats: {str(e)}")
-            return {"error": "Failed to retrieve system statistics"}
+            self.logger.error(f"Error getting system stats: {str(e)}", exc_info=True)
+            raise ServiceError(
+                "Failed to retrieve system statistics",
+                status_code=500,
+                context={"admin_user_id": admin_user.id if admin_user else None}
+            ) from e
 
     def get_expired_projects_info(self, admin_user: User) -> List[Dict[str, Any]]:
         """
@@ -301,7 +322,12 @@ class AdminService:
             ).all()
 
             # Use explicit dependency injection
-            project_relationships_service = self._project_relationships_service or get_service(\'project_relationships_service\')
+            if not self._project_relationships_service:
+                raise ServiceError(
+                    "ProjectRelationshipsService dependency not injected",
+                    status_code=500
+                )
+            project_relationships_service = self._project_relationships_service
 
             projects_info = []
             for project in expired_projects:
@@ -364,7 +390,12 @@ class AdminService:
             db.session.commit()
 
             try:
-                activity_service = self._activity_service or get_service('activity_service')
+                if not self._activity_service:
+                    raise ServiceError(
+                        "ActivityService dependency not injected",
+                        status_code=500
+                    )
+                activity_service = self._activity_service
                 activity_service.log_activity(
                     admin_user,
                     "project_suspended",
@@ -424,7 +455,12 @@ class AdminService:
             db.session.commit()
 
             try:
-                activity_service = self._activity_service or get_service('activity_service')
+                if not self._activity_service:
+                    raise ServiceError(
+                        "ActivityService dependency not injected",
+                        status_code=500
+                    )
+                activity_service = self._activity_service
                 activity_service.log_activity(
                     admin_user,
                     "project_reactivated",

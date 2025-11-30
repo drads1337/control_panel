@@ -16,6 +16,7 @@ from ...core.extensions import db
 from ...models.core import Project, User
 from ...models.keys import Key
 from ...services.keys import KeyValidator
+from ...utils.service_exceptions import ValidationError, NotFoundError, ServiceError, SecurityError
 from .analytics_tracker import AnalyticsTracker
 from .challenge_validation_service import ChallengeValidationService
 from .device_manager import DeviceManager
@@ -153,33 +154,32 @@ class ConnectService:
             Tuple of (response_dict, status_code)
         """
         try:
+            # Validate user key format (raises ValidationError on failure)
+            self.request_validator.validate_user_key_format(user_key)
 
-            is_valid, error_msg = self.request_validator.validate_user_key_format(user_key)
-            if not is_valid:
-                logger.error(f"CHALLENGE_INVALID_USER_KEY ip={ip} user_key={user_key}")
-                return {"error": error_msg}, 400
-
-            key_obj, project_id, error_msg = self.key_lookup.find_key_in_project(
+            # Find key in project (raises ValidationError or NotFoundError on failure)
+            key_obj, project_id = self.key_lookup.find_key_in_project(
                 user_key, client_project_id
             )
-            if not key_obj:
-                logger.warning(
-                    f"CHALLENGE_KEY_NOT_FOUND ip={ip} user_key={user_key} error={error_msg}"
-                )
-                status = 403 if "not found" in error_msg else 400
-                return {"error": error_msg}, status
 
             if self.security_checker.check_fingerprint_blocked(fingerprint, project_id):
                 logger.warning(
                     f"CHALLENGE_FINGERPRINT_BLOCKED fingerprint={fingerprint} user_key={user_key} project_id={project_id}"
                 )
-                return {
-                    "error": "Access denied",
-                    "message": "Your device fingerprint has been blocked",
-                }, 403
+                raise SecurityError(
+                    "Access denied: Your device fingerprint has been blocked",
+                    error_code="FINGERPRINT_BLOCKED",
+                    context={"fingerprint": fingerprint, "project_id": project_id}
+                )
 
-            challenge_service = self._challenge_service or get_service(\'challenge_service\')
-            enhanced_challenge = challenge_service.create_enhanced_challenge(user_key, fingerprint)
+            # Use injected dependency - ServiceContainer should inject challenge_service automatically
+            if not self._challenge_service:
+                raise ServiceError(
+                    "ChallengeService dependency not injected",
+                    status_code=500,
+                    context={"user_key": user_key}
+                )
+            enhanced_challenge = self._challenge_service.create_enhanced_challenge(user_key, fingerprint)
             logger.debug(
                 f"ENHANCED_CHALLENGE_GENERATED successfully, keys={list(enhanced_challenge.keys())}"
             )
@@ -196,19 +196,26 @@ class ConnectService:
                 "challenge_type": "enhanced",
             }, 200
 
+        except ValidationError as e:
+            # Validation errors are handled by error_handlers.py
+            # Re-raise to let Flask error handler process it
+            logger.warning(f"CHALLENGE_VALIDATION_ERROR ip={ip} user_key={user_key} error={e.message}")
+            raise
+        except NotFoundError as e:
+            # NotFoundError for key/project not found
+            logger.warning(f"CHALLENGE_NOT_FOUND ip={ip} user_key={user_key} error={e.message}")
+            raise
         except Exception as e:
             import traceback
-
             error_traceback = traceback.format_exc()
             logger.error(f"CHALLENGE_ERROR ip={ip} user_key={user_key} error={e}")
             logger.error(f"CHALLENGE_ERROR_TRACEBACK: {error_traceback}")
-
-            error_response = {
-                "error": "Internal server error",
-                "message": "An error occurred while processing the challenge request",
-            }
-
-            return error_response, 500
+            # Re-raise as ServiceError to be handled by error_handlers.py
+            raise ServiceError(
+                "Internal server error",
+                status_code=500,
+                context={"ip": ip, "user_key": user_key}
+            ) from e
 
     def handle_connect_request(
         self, enc_data: str, ip: str, user_agent: str, project_id: Optional[str] = None
@@ -295,9 +302,14 @@ class ConnectService:
 
             elif username and password:
 
-                # Use explicit dependency injection
-                auth_service = self._auth_service or get_service(\'auth_service\')
-                response_data, error_code, error_message = auth_service.process_simple_login(
+                # Use injected dependency - ServiceContainer should inject auth_service automatically
+                if not self._auth_service:
+                    raise ServiceError(
+                        "AuthService dependency not injected",
+                        status_code=500,
+                        context={"username": username, "ip": ip}
+                    )
+                response_data, error_code, error_message = self._auth_service.process_simple_login(
                     username, password, ip, user_agent
                 )
 

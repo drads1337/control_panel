@@ -12,6 +12,7 @@ from ...core.extensions import db, redis_ext
 from ...models.core import User
 from ...config.config import Config
 from ...utils.validators import AuthValidator
+from ...utils.service_exceptions import ServiceError
 from ...utils.service_helpers import get_service
 
 logger = logging.getLogger(__name__)

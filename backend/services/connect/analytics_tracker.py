@@ -10,6 +10,7 @@ from typing import Dict, List, Optional
 
 from ...core.extensions import db
 from ...utils.service_helpers import get_service
+from ...utils.service_exceptions import ServiceError
 from ...models import DeviceInfo, KeyAnalytics, Notification, User
 
 class AnalyticsTracker:

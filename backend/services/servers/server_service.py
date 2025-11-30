@@ -1,4 +1,5 @@
 from ...utils.service_helpers import get_service
+from ...utils.service_exceptions import ServiceError
 """
 Server Service
 Handles server management operations and all server-related business logic
@@ -242,8 +243,18 @@ class ServerService:
             project_id = server.project_id
             if project_id:
                 # Invalidate statistics cache instead of using deprecated counters
-                cache_service = self._cache_service or get_service('cache_service')
-                cache_service = self._cache_service or get_service('cache_service')
+                if not self._cache_service:
+                    raise ServiceError(
+                        "Cache Service dependency not injected",
+                        status_code=500
+                    )
+                cache_service = self._cache_service
+                if not self._cache_service:
+                    raise ServiceError(
+                        "Cache Service dependency not injected",
+                        status_code=500
+                    )
+                cache_service = self._cache_service
                 cache_service = get_service('cache_service')
                 cache_service.invalidate_pattern(f"stats:project_id={project_id}:*")
 

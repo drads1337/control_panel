@@ -14,6 +14,7 @@ from typing import Any, Dict, List
 from ...core.extensions import db
 from ...models.security import SecurityRule
 from ...utils.service_helpers import get_service
+from ...utils.service_exceptions import ServiceError
 from .security_types import SecurityContext
 
 class SecurityRulesService:

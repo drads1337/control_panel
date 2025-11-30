@@ -1,4 +1,5 @@
 from ...utils.service_helpers import get_service
+from ...utils.service_exceptions import ServiceError
 """
 RBAC Service
 Facade service that delegates to specialized RBAC services (RoleService, PermissionService, ABACService)
@@ -901,7 +902,13 @@ class RBACService:
                 .count()
             )
 
-            project_relationships_service = get_service('project_relationships_service')
+            if not self._project_relationships_service:
+                from ...utils.service_exceptions import ServiceError
+                raise ServiceError(
+                    "Project Relationships Service dependency not injected",
+                    status_code=500
+                )
+            project_relationships_service = self._project_relationships_service
             
             total_users = project_relationships_service.get_user_count(project_id)
             users_without_roles = total_users - users_with_roles

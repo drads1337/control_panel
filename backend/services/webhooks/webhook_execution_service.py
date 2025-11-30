@@ -25,6 +25,7 @@ from urllib3.util.connection import create_connection
 from ...core.extensions import db
 from ...models.webhooks import WebhookPendingTask
 from ...utils.service_helpers import get_service
+from ...utils.service_exceptions import ServiceError
 
 # Try to import Celery task for webhook processing
 try:

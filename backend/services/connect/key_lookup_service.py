@@ -8,6 +8,7 @@ import logging
 from typing import Optional, Tuple
 
 from ...models import Key, Project
+from ...utils.service_exceptions import ValidationError, NotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,7 @@ class KeyLookupService:
 
     def find_key_in_project(
         self, user_key: str, client_project_id: Optional[str]
-    ) -> Tuple[Optional[Key], Optional[int], str]:
+    ) -> Tuple[Key, int]:
         """
         Find key in specified project
 
@@ -25,11 +26,18 @@ class KeyLookupService:
             client_project_id: Project ID from client
 
         Returns:
-            Tuple of (key_object, project_id, error_message)
+            Tuple of (key_object, project_id)
+
+        Raises:
+            ValidationError: If project_id is missing or invalid
+            NotFoundError: If project or key is not found
         """
         if not client_project_id:
             logger.warning(f"KEY_LOOKUP: Missing project_id")
-            return None, None, "Project ID is required for security validation"
+            raise ValidationError(
+                "Project ID is required for security validation",
+                field="project_id"
+            )
 
         try:
             logger.debug(
@@ -59,7 +67,7 @@ class KeyLookupService:
                 logger.warning(
                     f"KEY_LOOKUP: Project not found for project_id={client_project_id}"
                 )
-                return None, None, "Project not found"
+                raise NotFoundError("Project", resource_id=str(client_project_id))
 
             key_obj = Key.query.filter_by(key=user_key, project_id=project.id).first()
             if key_obj:
@@ -78,13 +86,24 @@ class KeyLookupService:
                     )
 
             if not key_obj:
-                return None, None, "Key not found in specified project"
+                raise NotFoundError("Key", resource_id=user_key)
 
-            return key_obj, project.id, ""
+            return key_obj, project.id
 
+        except (ValidationError, NotFoundError):
+            # Re-raise service exceptions as-is
+            raise
+        except (ValueError, TypeError) as e:
+            logger.error(f"KEY_LOOKUP: Invalid project_id format: {client_project_id}, error={e}")
+            raise ValidationError(
+                f"Invalid project ID format: {client_project_id}",
+                field="project_id"
+            ) from e
         except Exception as e:
             logger.error(f"KEY_LOOKUP: Key lookup error: {e}")
             import traceback
-
             logger.error(f"KEY_LOOKUP_TRACEBACK: {traceback.format_exc()}")
-            return None, None, "Invalid project ID format"
+            raise ValidationError(
+                "Invalid project ID format",
+                field="project_id"
+            ) from e

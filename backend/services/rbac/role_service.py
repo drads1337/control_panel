@@ -11,6 +11,7 @@ from ...core.extensions import db
 from ...models.core import User
 from ...models.rbac import Permission, Role, RolePermission, UserRole
 from ...utils.rbac_utils import RBACManager
+from ...utils.service_exceptions import ServiceError
 from ...utils.service_helpers import get_service
 from ...utils.role_constants import UserRoles
 

@@ -193,7 +193,12 @@ class KeyCRUDService:
             PermissionDeniedError: If access denied
         """
         # validation_service now raises exceptions
-        validation_service = self._key_validation_service or get_service('key_validation_service')
+        if not self._key_validation_service:
+            raise ServiceError(
+                "Key Validation Service dependency not injected",
+                status_code=500
+            )
+        validation_service = self._key_validation_service
         validation_service.validate_key_data(user, key_data)
 
         product = None
@@ -201,7 +206,12 @@ class KeyCRUDService:
 
         if key_data.get("product_id"):
             # Use explicit dependency injection
-            product_service = self._product_service or get_service('product_service')
+            if not self._product_service:
+                raise ServiceError(
+                    "Product Service dependency not injected",
+                    status_code=500
+                )
+            product_service = self._product_service
             # get_product now raises exceptions
             product = product_service.get_product(user, key_data["product_id"])
             
@@ -210,7 +220,12 @@ class KeyCRUDService:
             
             project = Project.query.get(user.project_id)
             if project:
-                tier_limits_service = self._tier_limits_service or get_service('tier_limits_service')
+                if not self._tier_limits_service:
+                    raise ServiceError(
+                        "Tier Limits Service dependency not injected",
+                        status_code=500
+                    )
+                tier_limits_service = self._tier_limits_service
                 can_create, error_msg = tier_limits_service.check_key_limit_per_product(
                     project, key_data["product_id"]
                 )
@@ -235,8 +250,18 @@ class KeyCRUDService:
         
         if not is_owner and not is_admin and product and user.project_id:
             # Use explicit dependency injection
-            price_calculation_service = self._price_calculation_service or get_service('price_calculation_service')
-            balance_service = self._balance_service or get_service('balance_service')
+            if not self._price_calculation_service:
+                raise ServiceError(
+                    "Price Calculation Service dependency not injected",
+                    status_code=500
+                )
+            price_calculation_service = self._price_calculation_service
+            if not self._balance_service:
+                raise ServiceError(
+                    "Balance Service dependency not injected",
+                    status_code=500
+                )
+            balance_service = self._balance_service
             
             key_price = price_calculation_service.calculate_key_price(
                 product_id=product.id,
@@ -265,7 +290,12 @@ class KeyCRUDService:
                 if not success:
                     raise ValidationError(f"Failed to deduct balance: {error_msg}")
 
-        key_generation_service = self._key_generation_service or get_service('key_generation_service')
+        if not self._key_generation_service:
+            raise ServiceError(
+                "Key Generation Service dependency not injected",
+                status_code=500
+            )
+        key_generation_service = self._key_generation_service
         key_string = key_generation_service.generate_key_string(
             length=key_data.get("length", 32),
             product=product,
@@ -295,12 +325,22 @@ class KeyCRUDService:
         db.session.flush()
 
         # Use cache invalidation instead of deprecated counter functions to avoid race conditions
-        cached_statistics_service = self._cached_statistics_service or get_service('cached_statistics_service')
+        if not self._cached_statistics_service:
+            raise ServiceError(
+                "Cached Statistics Service dependency not injected",
+                status_code=500
+            )
+        cached_statistics_service = self._cached_statistics_service
         cached_statistics_service.invalidate_on_key_change(user.id, user.project_id)
 
         try:
             # Use explicit dependency injection
-            webhook_service = self._webhook_service or get_service('webhook_service')
+            if not self._webhook_service:
+                raise ServiceError(
+                    "Webhook Service dependency not injected",
+                    status_code=500
+                )
+            webhook_service = self._webhook_service
 
             webhook_data = {
                 "key_id": key.id,
@@ -353,7 +393,12 @@ class KeyCRUDService:
             my_keys_only = filters.get("my_keys", False)
 
             # Use explicit dependency injection
-            rbac_service = self._rbac_service or get_service('rbac_service')
+            if not self._rbac_service:
+                raise ServiceError(
+                    "Rbac Service dependency not injected",
+                    status_code=500
+                )
+            rbac_service = self._rbac_service
             if not RBACManager.is_owner(user) and not RBACManager.is_admin(user):
                 has_keys_view = rbac_service.check_permission(user.id, "keys.view")
                 if not has_keys_view:
@@ -503,7 +548,12 @@ class KeyCRUDService:
             ]
 
             # Use explicit dependency injection
-            rbac_service = self._rbac_service or get_service('rbac_service')
+            if not self._rbac_service:
+                raise ServiceError(
+                    "Rbac Service dependency not injected",
+                    status_code=500
+                )
+            rbac_service = self._rbac_service
 
             can_view_full_key = RBACManager.is_owner(user) or RBACManager.is_admin(user)
 
@@ -629,7 +679,12 @@ class KeyCRUDService:
             db.session.delete(key)
 
             # Use explicit dependency injection
-            cache_service = self._cache_service or get_service('cache_service')
+            if not self._cache_service:
+                raise ServiceError(
+                    "Cache Service dependency not injected",
+                    status_code=500
+                )
+            cache_service = self._cache_service
             # Invalidate statistics cache instead of using deprecated counters
             if user_id:
                 cache_service.invalidate_pattern(f"stats:user_id={user_id}:*")

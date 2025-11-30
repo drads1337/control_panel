@@ -1,4 +1,5 @@
 from ...utils.service_helpers import get_service
+from ...utils.service_exceptions import ServiceError
 """
 User Role Service
 Handles user role assignments and role-based filtering
@@ -221,7 +222,12 @@ class UserRoleService:
 
             query = User.query.filter(User.id.in_(user_ids))
 
-            rbac_service = self._rbac_service or get_service('rbac_service')
+            if not self._rbac_service:
+                raise ServiceError(
+                    "Rbac Service dependency not injected",
+                    status_code=500
+                )
+            rbac_service = self._rbac_service
             rbac_service = get_service('rbac_service')
             can_view_all = rbac_service.check_permission(
                 current_user.id, "employees.view"

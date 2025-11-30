@@ -14,6 +14,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from ...utils.service_helpers import get_service
+from ...utils.service_exceptions import ServiceError
 from .security_types import SecurityContext, ThreatAssessment
 
 if TYPE_CHECKING:

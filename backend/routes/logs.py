@@ -13,7 +13,6 @@ from ..middleware.auth import (
     require_project_with_grace_period,
 )
 from ..models.core import User, UserActivity
-from ..utils.service_helpers import get_service
 from ..utils.fulltext_search import fulltext_search_filter
 from ..utils.rbac_utils import RBACManager
 
@@ -23,12 +22,13 @@ def _get_logs_query_filter(user, user_id, project_id_param=None, project_id=None
     """
     Get the appropriate query filter based on user permissions.
     SECURITY: Always applies project_id filtering to prevent data leakage.
-    # Get services once at the start (DI pattern)
-    rbac_service = get_service('rbac_service')
     Returns: (query_filter_dict, can_view_all_project_logs)
     - query_filter_dict: dict with filters to apply (None means no project filter - for owners only)
     - can_view_all_project_logs: bool indicating if user can view all project logs (True if user has logs.view permission)
     """
+    # Get services once at the start (DI pattern)
+    rbac_service = get_service('rbac_service')
+    
     user_roles = RBACManager.get_user_role_names(user)
     is_owner = user_roles and user_roles[0] == "owner"
 
@@ -92,14 +92,14 @@ def _get_logs_query_filter(user, user_id, project_id_param=None, project_id=None
 @require_project_with_grace_period
 @require_project_isolation
 def get_logs(current_user=None, project_id=None):
+    # Get services once at the start (DI pattern)
+    rbac_service = get_service('rbac_service')
+    tier_limits_service = get_service('tier_limits_service')
+    
     user_id = get_jwt_identity()
     user = current_user or User.query.get(user_id)
 
     if not user:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
-        rbac_service = get_service('rbac_service')
-        tier_limits_service = get_service('tier_limits_service')
         return jsonify({"error": "User not found"}), 404
 
     # Check tier limits

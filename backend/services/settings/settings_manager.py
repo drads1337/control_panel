@@ -53,7 +53,12 @@ class SettingsManager:
         if self.cache_service is not None:
             return self.cache_service
         try:
-            return self._cache_service or get_service('cache_service')
+            if not self._cache_service:
+                raise ServiceError(
+                    "Cache Service dependency not injected",
+                    status_code=500
+                )
+            return self._cache_service
         except Exception:
             return None
 

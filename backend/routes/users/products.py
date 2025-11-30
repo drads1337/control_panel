@@ -1,4 +1,4 @@
-from ..utils.service_helpers import get_service
+from ...utils.service_helpers import get_service
 """
 User Products Routes
 Handles user product permissions management

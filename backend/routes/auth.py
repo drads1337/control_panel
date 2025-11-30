@@ -759,11 +759,12 @@ def logout():
     User logout
     
     SECURITY: This endpoint clears HttpOnly JWT cookies server-side.
-    # Get services once at the start (DI pattern)
-    auth_service = get_service('auth_service')
     Frontend should NOT manually delete cookies with tokens as they should
     have HttpOnly flag set. This prevents XSS attacks from stealing tokens.
     """
+    # Get services once at the start (DI pattern)
+    auth_service = get_service('auth_service')
+    
     try:
         user_id = get_jwt_identity()
         user = User.query.get(user_id)

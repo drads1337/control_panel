@@ -2,6 +2,10 @@
 Token Generation Service
 Handles token generation and storage
 Single Responsibility: Token generation and database storage
+
+SECURITY: This service now uses per-project secret_key from the database instead of
+a global TOKEN_STATIC_WORD. This ensures that if one project's secret is compromised,
+tokens for other projects remain secure.
 """
 
 import hashlib
@@ -12,34 +16,34 @@ from typing import Optional
 from ...config.config import Config
 from ...core.extensions import db
 from ...models.keys import ConnectToken
+from ...models.core import Project
 
 logger = logging.getLogger(__name__)
 
 class TokenGenerationService:
-    """Handles token generation and storage"""
+    """
+    Handles token generation and storage
+    
+    SECURITY: Uses per-project secret_key from database for token generation.
+    Falls back to TOKEN_STATIC_WORD only for backward compatibility with legacy projects.
+    """
 
     def __init__(self, static_word: Optional[str] = None):
         """
         Initialize token generation service
 
         Args:
-            static_word: Static word used in token generation (defaults to Config.TOKEN_STATIC_WORD)
+            static_word: Legacy static word used as fallback (defaults to Config.TOKEN_STATIC_WORD)
         
-        SECURITY WARNING:
-        ================
-        The static_word is used as a salt in token generation. If this secret is compromised,
-        all tokens become predictable and can be forged.
+        SECURITY:
+        =========
+        This service now uses project.secret_key from the database for token generation.
+        The static_word parameter is kept only for backward compatibility with legacy projects
+        that may not have secret_key set yet.
         
-        Current implementation uses a single static secret for all tokens. For enhanced security:
-        1. Use a strong, randomly generated TOKEN_STATIC_WORD (minimum 32 bytes)
-        2. Consider implementing per-project or per-user salts stored in the database
-        3. Implement secret rotation mechanism for production environments
-        4. Never commit TOKEN_STATIC_WORD to version control
-        
-        Example secure generation:
-            export TOKEN_STATIC_WORD=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')
+        For new projects, secret_key is automatically generated when the project is created.
         """
-        # SECURITY: Use environment variable instead of hardcoded secret
+        # Keep static_word for backward compatibility only
         self.static_word = static_word or Config.TOKEN_STATIC_WORD
 
     def generate_connect_token(
@@ -59,9 +63,9 @@ class TokenGenerationService:
         This function now stores tokens in the database for secure O(1) validation,
         preventing DoS attacks from token enumeration.
 
-        SECURITY: Uses per-project/user salt to prevent rainbow table attacks.
-        If TOKEN_STATIC_WORD is compromised, tokens from other projects/users
-        remain secure due to unique salt per project/user.
+        SECURITY: Uses per-project secret_key from database for token generation.
+        This ensures that if one project's secret is compromised, tokens for other
+        projects remain secure. Falls back to TOKEN_STATIC_WORD only for legacy projects.
 
         Args:
             product: Product name
@@ -69,25 +73,45 @@ class TokenGenerationService:
             serial: Device serial
             user_id: User ID (required for database storage)
             key_id: Key ID (optional, for regular tokens)
-            project_id: Project ID (optional, but recommended for enhanced security)
+            project_id: Project ID (required for secure token generation)
             expires_at: Token expiration datetime (optional)
             is_classic: Whether this is a classic token (default: False)
 
         Returns:
             Generated token (SHA256 hash)
         """
-        # SECURITY: Use per-project/user salt to prevent rainbow table attacks
-        # If TOKEN_STATIC_WORD is compromised, tokens from other projects remain secure
-        # Priority: project_id > user_id > static_word (fallback for backward compatibility)
+        # SECURITY: Use project.secret_key from database for maximum security
+        # Priority: project.secret_key > user_id-based salt > static_word (legacy fallback)
+        unique_salt = None
+        
         if project_id is not None:
-            # Use project-specific salt for maximum security
-            unique_salt = f"{self.static_word}-project-{project_id}"
+            # Try to get project secret_key from database
+            try:
+                project = Project.query.filter_by(id=project_id).first()
+                if project and project.secret_key:
+                    # Use project-specific secret_key (most secure)
+                    unique_salt = project.secret_key
+                    logger.debug(f"Using project {project_id} secret_key for token generation")
+                else:
+                    # Project exists but doesn't have secret_key (legacy project)
+                    # Use project_id-based salt as fallback
+                    unique_salt = f"{self.static_word}-project-{project_id}"
+                    logger.warning(
+                        f"Project {project_id} missing secret_key, using fallback salt. "
+                        f"Run migration to generate secret_key."
+                    )
+            except Exception as e:
+                # Database error - use fallback
+                logger.warning(f"Failed to get project {project_id} secret_key: {e}, using fallback")
+                unique_salt = f"{self.static_word}-project-{project_id}"
         elif user_id is not None:
             # Fallback to user-specific salt if project_id not available
             unique_salt = f"{self.static_word}-user-{user_id}"
+            logger.warning("No project_id provided, using user-based salt (less secure)")
         else:
-            # Legacy fallback: use static word only (less secure, but backward compatible)
+            # Legacy fallback: use static word only (least secure, but backward compatible)
             unique_salt = self.static_word
+            logger.warning("No project_id or user_id provided, using global static_word (insecure)")
         
         real = f"{product}-{user_key}-{serial}-{unique_salt}"
         token = hashlib.sha256(real.encode()).hexdigest()

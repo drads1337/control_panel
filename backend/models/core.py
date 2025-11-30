@@ -4,6 +4,7 @@ Core models - Project, User, and system-related models
 
 import json
 import random
+import secrets
 from datetime import datetime, timedelta
 
 from ..core.extensions import SensitiveDataMixin, db
@@ -12,7 +13,6 @@ from ..core.extensions import SensitiveDataMixin, db
 # This is safe because project_user.py doesn't import from core.py,
 # it only uses string references in SQLAlchemy relationships
 from .project_user import ProjectAdmin
-from ..utils.service_helpers import get_service
 
 def generate_unique_project_id():
     """Generate a unique 10-digit project ID"""
@@ -60,12 +60,22 @@ class Project(db.Model):
     total_servers = db.Column(db.Integer, default=0, nullable=False)
     active_users = db.Column(db.Integer, default=0, nullable=False)
     active_keys = db.Column(db.Integer, default=0, nullable=False)
+    
+    # SECURITY: Per-project secret key for token generation
+    # This replaces TOKEN_STATIC_WORD to ensure each project has unique token salts
+    # If compromised, only tokens for this specific project are affected
+    secret_key = db.Column(db.String(64), nullable=True, unique=True)
 
-    def __init__(self, **kwargs, project_relationships_service=None):
+    def __init__(self, project_relationships_service=None, **kwargs):
         self._project_relationships_service = project_relationships_service
         super(Project, self).__init__(**kwargs)
         if not self.unique_id:
             self.unique_id = generate_unique_project_id()
+        # SECURITY: Generate unique secret_key for token generation if not provided
+        # This ensures each project has its own token salt, preventing cross-project token attacks
+        if not self.secret_key:
+            # Generate a secure 32-byte (64 hex characters) secret key
+            self.secret_key = secrets.token_hex(32)
 
     @property
     def storage_limit_gb(self):
@@ -140,7 +150,10 @@ class Project(db.Model):
         For new code, use project_relationships_service.get_admin_user(project_id) instead.
         """
         # Use service to avoid code duplication
-        return project_relationships_service.get_admin_user(self.id)
+        if self._project_relationships_service:
+            return self._project_relationships_service.get_admin_user(self.id)
+        from ..utils.service_helpers import get_service
+        return get_service('project_relationships_service').get_admin_user(self.id)
 
     def set_admin(self, user_id):
         """
@@ -149,7 +162,10 @@ class Project(db.Model):
         NOTE: This method is kept for backward compatibility.
         For new code, use project_relationships_service.set_admin(project_id, user_id) instead.
         """
-        return project_relationships_service.set_admin(self.id, user_id)
+        if self._project_relationships_service:
+            return self._project_relationships_service.set_admin(self.id, user_id)
+        from ..utils.service_helpers import get_service
+        return get_service('project_relationships_service').set_admin(self.id, user_id)
 
     def get_admin_id(self):
         """
@@ -158,7 +174,10 @@ class Project(db.Model):
         NOTE: This method is kept for backward compatibility.
         For new code, use project_relationships_service.get_admin_id(project_id) instead.
         """
-        return project_relationships_service.get_admin_id(self.id)
+        if self._project_relationships_service:
+            return self._project_relationships_service.get_admin_id(self.id)
+        from ..utils.service_helpers import get_service
+        return get_service('project_relationships_service').get_admin_id(self.id)
 
 class ProjectEncryptionKeys(db.Model):
     """

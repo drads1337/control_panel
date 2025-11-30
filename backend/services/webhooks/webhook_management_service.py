@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 from ...core.extensions import db
 from ...models.webhooks import Webhook, WebhookLog
 from ...utils.data_masking import mask_key
+from ...utils.service_exceptions import ServiceError
 from ...utils.service_helpers import get_service
 
 class WebhookManagementService:

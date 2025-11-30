@@ -278,14 +278,14 @@ def require_rate_limit_fail_close(func):
     """
     from functools import wraps
     from flask import jsonify, request
-    from ..utils.redis_client import get_redis_client
+    from ..utils.redis_client import get_redis_wrapper
     
     @wraps(func)
     def wrapper(*args, **kwargs):
         # Check if Redis is available before allowing Flask-Limiter to process
         try:
-            redis_client = get_redis_client()
-            if not redis_client.is_available():
+            redis_wrapper = get_redis_wrapper()
+            if not redis_wrapper.is_available():
                 logger.error(
                     f"SECURITY: Redis unavailable for rate limiting on {request.endpoint}. "
                     f"Blocking request from {request.remote_addr}"

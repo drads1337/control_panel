@@ -13,6 +13,7 @@ from ...models.core import Project, User
 from ...models.products import Product
 from ...models.keys import Key
 from ...utils.rbac_utils import RBACManager
+from ...utils.service_exceptions import ServiceError
 from ...utils.service_helpers import get_service
 
 logger = logging.getLogger(__name__)

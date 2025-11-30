@@ -24,8 +24,6 @@ from .service_helpers import (
 
 def create_user_with_roles_and_products(
     current_user: User, data: Dict[str, Any], project_id: Optional[int] = None
-# Get services once at the start (DI pattern)
-tier_limits_service = get_service('tier_limits_service')
 ) -> User:
     """
     Create user with RBAC roles and product permissions using DI services.
@@ -65,6 +63,7 @@ tier_limits_service = get_service('tier_limits_service')
         user_role_service = get_user_role_service()
         user_permission_service = get_user_permission_service()
         rbac_service = get_rbac_service()
+        tier_limits_service = get_service('tier_limits_service')
 
         # Extract data
         username = data.get("username")

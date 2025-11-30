@@ -22,6 +22,7 @@ from flask import current_app
 
 from ...core.extensions import db
 from ...utils.redis_client import get_redis_cache_client, RedisClient
+from ...utils.service_exceptions import ServiceError
 
 class CacheService:
     """Service for managing application-level caching with smart invalidation"""

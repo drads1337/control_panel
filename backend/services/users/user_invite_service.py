@@ -12,6 +12,7 @@ from ...core.extensions import db
 from ...models.core import User
 from ...models.keys import ReferralCode
 from ...utils.service_helpers import get_service
+from ...utils.service_exceptions import ServiceError
 from ...utils.role_constants import RolePermissions
 from ...utils.structured_logging import get_logger
 
@@ -42,8 +43,18 @@ class UserInviteService:
                 return None, "Email is required"
 
             allowed_roles = RolePermissions.ASSIGNABLE_ROLES.copy()
-            rbac_service = self._rbac_service or get_service('rbac_service')
-            rbac_service = self._rbac_service or get_service('rbac_service')
+            if not self._rbac_service:
+                raise ServiceError(
+                    "Rbac Service dependency not injected",
+                    status_code=500
+                )
+            rbac_service = self._rbac_service
+            if not self._rbac_service:
+                raise ServiceError(
+                    "Rbac Service dependency not injected",
+                    status_code=500
+                )
+            rbac_service = self._rbac_service
             rbac_service = get_service('rbac_service')
             can_view_all = rbac_service.check_permission(
                 current_user.id, "employees.view"

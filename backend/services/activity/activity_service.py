@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional
 from ...core.extensions import db
 from ...models.core import User, UserActivity
 from ...utils.data_masking import mask_username
+from ...utils.service_exceptions import ServiceError
 from ...utils.fulltext_search import fulltext_search_filter
 from ...utils.ip_utils import get_location_from_ip
 from ...utils.structured_logging import get_logger
@@ -113,7 +114,7 @@ class ActivityService:
 
             # Default: use buffering to reduce database write pressure
             try:
-                analytics_buffer_service = self._analytics_buffer_service or get_service(\'analytics_buffer_service\')
+                analytics_buffer_service = self._analytics_buffer_service or get_service('analytics_buffer_service')
                 success = analytics_buffer_service.buffer_user_activity(
                     user_id=user.id,
                     action=action,

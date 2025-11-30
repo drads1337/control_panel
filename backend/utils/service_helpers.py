@@ -1,4 +1,3 @@
-from .service_helpers import get_service
 """
 Helper functions for accessing services from the DI container.
 

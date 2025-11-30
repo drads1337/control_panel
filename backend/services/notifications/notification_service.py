@@ -1,4 +1,5 @@
 from ...utils.service_helpers import get_service
+from ...utils.service_exceptions import ServiceError
 """
 Notification Service
 Handles notification management operations
@@ -287,7 +288,12 @@ class NotificationService:
                 # Use ServiceContainer to avoid circular imports
                 rbac_service = get_service('rbac_service')
 
-                rbac_service = self._rbac_service or get_service('rbac_service')
+                if not self._rbac_service:
+                    raise ServiceError(
+                        "Rbac Service dependency not injected",
+                        status_code=500
+                    )
+                rbac_service = self._rbac_service
                 rbac_service = get_service('rbac_service')
                 can_view_all = rbac_service.check_permission(
                     user.id, "employees.view"

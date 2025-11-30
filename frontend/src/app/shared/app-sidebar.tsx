@@ -166,13 +166,15 @@ function AppSidebarContent() {
   const userRole = user?.roles?.[0]
 
   // Memoize sidebar items to avoid recalculation on every render
+  // Show all navigation items - access control happens on the pages themselves
   const sidebarItems = useMemo(() => {
     if (!navigationConfig?.navigation) {
       return []
     }
     const allSidebarItems = convertNavigationItemsToSidebarItems(navigationConfig.navigation)
-    return allSidebarItems.filter(item => canAccessNavigationItem(item, user, userRole))
-  }, [navigationConfig?.navigation, user, userRole])
+    // Don't filter by permissions - show all items, pages will handle access control
+    return allSidebarItems
+  }, [navigationConfig?.navigation])
 
   const { data: currentProjectResponse, isLoading: isProjectLoading, error: projectError } = useQuery({
     queryKey: projectKeys.detail(String(user?.project_id)),

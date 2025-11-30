@@ -1,4 +1,5 @@
 from ...utils.service_helpers import get_service
+from ...utils.service_exceptions import ServiceError
 """
 Webhook Validation Service
 Handles validation of webhook URLs, access, and creation data
@@ -225,7 +226,12 @@ class WebhookValidationService:
                 )
                 return False, "User must be assigned to a project to manage webhooks"
 
-            rbac_service = get_service('rbac_service')
+            if not self._rbac:
+                raise ServiceError(
+                    "Rbac dependency not injected",
+                    status_code=500
+                )
+            rbac_service = self._rbac
             rbac_service = get_service('rbac_service')
             if not rbac_service.check_permission(user.id, "webhooks.view"):
                 logging.warning(f"WEBHOOK_ACCESS_BLOCKED: user_id={user.id} insufficient permissions")

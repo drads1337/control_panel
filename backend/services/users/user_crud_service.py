@@ -21,7 +21,7 @@ from ...models.rbac import Role, UserRole, UserPermission
 from ...models.project_user import ProjectUserRole
 from ...utils.fulltext_search import fulltext_search_filter
 from ...utils.rbac_utils import RBACManager
-from ...utils.service_exceptions import ValidationError, ConflictError, ServiceError
+from ...utils.service_exceptions import ValidationError, ConflictError, ServiceError, PermissionDeniedError
 from ...utils.structured_logging import get_logger
 from werkzeug.security import generate_password_hash
 
@@ -176,12 +176,18 @@ class UserCRUDService:
                 if current_user.project_id:
                     query = query.filter_by(project_id=current_user.project_id)
                 else:
-                    return {"error": "Admin must be assigned to a project"}, 403
+                    raise ValidationError(
+                        "Admin must be assigned to a project",
+                        field="project_id"
+                    )
             else:
                 if current_user.project_id:
                     query = query.filter_by(project_id=current_user.project_id)
                 else:
-                    return {"error": "User must be assigned to a project"}, 403
+                    raise ValidationError(
+                        "User must be assigned to a project",
+                        field="project_id"
+                    )
 
             if search:
                 query = fulltext_search_filter(query, search, "search_vector")
@@ -331,7 +337,11 @@ class UserCRUDService:
             import traceback
             self.logger.error(f"Error getting users with key counts: {str(e)}")
             self.logger.error(f"Traceback: {traceback.format_exc()}")
-            return {"error": "Failed to get users"}, 500
+            raise ServiceError(
+                "Failed to get users",
+                status_code=500,
+                context={"current_user_id": current_user.id if current_user else None}
+            ) from e
 
     def update_user_expiry(self, user_id: int, expiry_date: datetime) -> Tuple[bool, Optional[str]]:
         """
@@ -357,8 +367,12 @@ class UserCRUDService:
 
         except Exception as e:
             db.session.rollback()
-            self.logger.error(f"Error updating user expiry: {str(e)}")
-            return False, "Failed to update user expiry"
+            self.logger.error(f"Error updating user expiry: {str(e)}", exc_info=True)
+            raise ServiceError(
+                "Failed to update user expiry",
+                status_code=500,
+                context={"user_id": user_id}
+            ) from e
 
     def delete_user_safely(
         self, current_user: User, target_user_id: int, project_id: Optional[int] = None
@@ -376,7 +390,12 @@ class UserCRUDService:
         """
         try:
             # Use explicit dependency injection
-            rbac_service = self._rbac_service or get_service(\'rbac_service\')
+            if not self._rbac_service:
+                raise ServiceError(
+                    "RBACService dependency not injected",
+                    status_code=500
+                )
+            rbac_service = self._rbac_service
 
             target_user = User.query.get(target_user_id)
             if not target_user:
@@ -418,7 +437,12 @@ class UserCRUDService:
             project_id = target_user.project_id
             if project_id:
                 # Invalidate statistics cache instead of using deprecated counters
-                cache_service = self._cache_service or get_service(\'cache_service\')
+                if not self._cache_service:
+                    raise ServiceError(
+                        "CacheService dependency not injected",
+                        status_code=500
+                    )
+                cache_service = self._cache_service
                 cache_service.invalidate_pattern(f"stats:project_id={project_id}:*")
 
             db.session.delete(target_user)
@@ -428,8 +452,12 @@ class UserCRUDService:
 
         except Exception as e:
             db.session.rollback()
-            self.logger.error(f"Error deleting user: {str(e)}")
-            return False, f"Failed to delete user: {str(e)}"
+            self.logger.error(f"Error deleting user: {str(e)}", exc_info=True)
+            raise ServiceError(
+                f"Failed to delete user: {str(e)}",
+                status_code=500,
+                context={"target_user_id": target_user_id, "project_id": project_id}
+            ) from e
 
     def bulk_delete_users(
         self, current_user: User, user_ids: List[int], project_id: Optional[int] = None
@@ -447,7 +475,12 @@ class UserCRUDService:
         """
         try:
             # Use explicit dependency injection
-            rbac_service = self._rbac_service or get_service(\'rbac_service\')
+            if not self._rbac_service:
+                raise ServiceError(
+                    "RBACService dependency not injected",
+                    status_code=500
+                )
+            rbac_service = self._rbac_service
 
             query = User.query.filter(User.id.in_(user_ids))
 
@@ -481,7 +514,12 @@ class UserCRUDService:
 
                 if user.project_id:
                     # Invalidate statistics cache instead of using deprecated counters
-                    cache_service = self._cache_service or get_service(\'cache_service\')
+                    if not self._cache_service:
+                        raise ServiceError(
+                            "CacheService dependency not injected",
+                            status_code=500
+                        )
+                    cache_service = self._cache_service
                     cache_service.invalidate_pattern(f"stats:project_id={user.project_id}:*")
 
                 db.session.delete(user)
@@ -492,10 +530,13 @@ class UserCRUDService:
 
         except Exception as e:
             db.session.rollback()
-            self.logger.error(f"Error bulk deleting users: {str(e)}")
-            return 0, f"Failed to delete users: {str(e)}"
+            self.logger.error(f"Error bulk deleting users: {str(e)}", exc_info=True)
+            raise ServiceError(
+                f"Failed to delete users: {str(e)}",
+                status_code=500,
+                context={"user_ids": user_ids, "project_id": project_id}
+            ) from e
 
 # Service instance should be obtained via ServiceContainer:
 #   from ...core.service_container import get_service
-#   service = self._user_crud_service or get_service('user_crud_service')
 

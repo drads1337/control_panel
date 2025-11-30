@@ -19,6 +19,7 @@ from ...core.extensions import db
 from ...models.core import User
 from ...models.security import TwoFactorAuth, TwoFactorBackupCode, TwoFactorSession
 from ...utils.service_helpers import get_service
+from ...utils.service_exceptions import ServiceError
 from ...utils.service_helpers import get_service
 
 class TwoFactorService:
@@ -338,7 +339,12 @@ class TwoFactorService:
         """Check if 2FA is required for a user"""
         rbac_service = self._rbac_service or get_service('rbac_service')
         
-        rbac_service = get_service('rbac_service')
+        if not self._rbac:
+            raise ServiceError(
+                "Rbac dependency not injected",
+                status_code=500
+            )
+        rbac_service = self._rbac
         rbac_service = get_service('rbac_service')
         if rbac_service.check_permission(user.id, "system.manage_all_projects"):
             return True

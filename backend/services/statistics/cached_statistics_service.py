@@ -17,7 +17,7 @@ from typing import Optional
 from ...core.extensions import db
 from ...models import Key, User
 from ...models.core import Project
-from ...utils.service_helpers import get_service
+from ...utils.service_exceptions import ServiceError
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,13 @@ class CachedStatisticsService:
         """Get cache service instance via DI container"""
         if self.cache_service is not None:
             return self.cache_service
-        return self._cache_service or get_service('cache_service')
+        # SECURITY: Dependency should be injected via __init__
+        # If not injected, raise error instead of using get_service()
+        from ...utils.service_exceptions import ServiceError
+        raise ServiceError(
+            "CacheService dependency not injected",
+            status_code=500
+        )
 
     def invalidate_on_key_change(self, user_id: Optional[int], project_id: Optional[int] = None):
         """

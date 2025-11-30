@@ -57,6 +57,7 @@ from flask import g, has_request_context
 
 from ...core.extensions import db
 from ...utils.service_helpers import get_service
+from ...utils.service_exceptions import ServiceError
 from ...models.core import User
 from ...models.rbac import Permission, RolePermission, UserRole
 from ...utils.rbac_utils import RBACManager

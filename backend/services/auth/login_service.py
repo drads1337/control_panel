@@ -268,7 +268,12 @@ class LoginService:
                     error_code=validation_result.reason or "VALIDATION_FAILED"
                 )
 
-            security_service = self._security_service or get_service(\'security_service\')
+            if not self._security_service:
+                raise ServiceError(
+                    "Security Service dependency not injected",
+                    status_code=500
+                )
+            security_service = self._security_service
             if security_service.check_session_limit(user.id, user.project_id):
                 raise SecurityError("Session limit exceeded", error_code="SESSION_LIMIT_EXCEEDED")
 
@@ -322,7 +327,12 @@ class LoginService:
             session_id: Session identifier
             details: Activity details
         """
-        activity_service = self._activity_service or get_service(\'activity_service\')
+        if not self._activity_service:
+            raise ServiceError(
+                "Activity Service dependency not injected",
+                status_code=500
+            )
+        activity_service = self._activity_service
         try:
             activity_service.log_activity(
                 user, "login", ip=ip, user_agent=user_agent, details=details, session_id=session_id
@@ -344,7 +354,12 @@ class LoginService:
             return
 
         try:
-            security_service = self._security_service or get_service(\'security_service\')
+            if not self._security_service:
+                raise ServiceError(
+                    "Security Service dependency not injected",
+                    status_code=500
+                )
+            security_service = self._security_service
             security_service.record_login_attempt(
                 ip, user.username, success, user.project_id, user_agent
             )
@@ -366,7 +381,12 @@ class LoginService:
         """
         try:
             # Use ServiceContainer to avoid circular imports
-            webhook_service = self._webhook_service or get_service(\'webhook_service\')
+            if not self._webhook_service:
+                raise ServiceError(
+                    "Webhook Service dependency not injected",
+                    status_code=500
+                )
+            webhook_service = self._webhook_service
 
             from ...utils.rbac_utils import RBACManager
             from ...utils.role_constants import UserRoles
@@ -387,7 +407,12 @@ class LoginService:
             }
 
             if user.project_id:
-                webhook_service = self._webhook_service or get_service(\'webhook_service\')
+                if not self._webhook_service:
+                    raise ServiceError(
+                        "Webhook Service dependency not injected",
+                        status_code=500
+                    )
+                webhook_service = self._webhook_service
                 webhook_service.trigger_webhook("user.login", webhook_data, user.project_id)
                 self.logger.info(f"Triggered webhook for user login: {user.id}")
         except Exception as e:
@@ -433,7 +458,12 @@ class LoginService:
             # Update user login info
             self.update_user_login_info(user, ip, user_agent)
 
-            auth_token_service = self._auth_token_service or get_service(\'auth_token_service\')
+            if not self._auth_token_service:
+                raise ServiceError(
+                    "Auth Token Service dependency not injected",
+                    status_code=500
+                )
+            auth_token_service = self._auth_token_service
             # Create login response with token (via AuthTokenService)
             response_data = auth_token_service.create_login_response(user, include_token=True)
             session_id = response_data.get("session_id", "")

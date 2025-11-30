@@ -57,7 +57,12 @@ class AuthService:
             AuthenticationError: If credentials are invalid
             ServiceError: If database operation fails
         """
-        login_service = self._login_service or get_service(\'login_service\')
+        if not self._login_service:
+            raise ServiceError(
+                "Login Service dependency not injected",
+                status_code=500
+            )
+        login_service = self._login_service
         return login_service.validate_credentials(username, password)
 
     def create_login_response(self, user: User, include_token: bool = False) -> Dict[str, Any]:
@@ -73,7 +78,12 @@ class AuthService:
         Returns:
             Dictionary with login response data
         """
-        auth_token_service = self._auth_token_service or get_service(\'auth_token_service\')
+        if not self._auth_token_service:
+            raise ServiceError(
+                "Auth Token Service dependency not injected",
+                status_code=500
+            )
+        auth_token_service = self._auth_token_service
         return auth_token_service.create_login_response(user, include_token=include_token)
 
     def update_user_login_info(self, user: User, ip: str, user_agent: str) -> None:
@@ -87,7 +97,12 @@ class AuthService:
             ip: Client IP address
             user_agent: Client user agent
         """
-        login_service = self._login_service or get_service(\'login_service\')
+        if not self._login_service:
+            raise ServiceError(
+                "Login Service dependency not injected",
+                status_code=500
+            )
+        login_service = self._login_service
         login_service.update_user_login_info(user, ip, user_agent)
 
     def log_login_activity(
@@ -110,7 +125,12 @@ class AuthService:
             session_id: Session identifier
             details: Activity details
         """
-        login_service = self._login_service or get_service(\'login_service\')
+        if not self._login_service:
+            raise ServiceError(
+                "Login Service dependency not injected",
+                status_code=500
+            )
+        login_service = self._login_service
         login_service.log_login_activity(user, ip, user_agent, session_id, details)
 
     def check_project_security(
@@ -131,7 +151,12 @@ class AuthService:
             NotFoundError: If project not found
             ServiceError: If security check fails
         """
-        login_service = self._login_service or get_service(\'login_service\')
+        if not self._login_service:
+            raise ServiceError(
+                "Login Service dependency not injected",
+                status_code=500
+            )
+        login_service = self._login_service
         login_service.check_security_constraints(user, ip, user_agent)
 
     def record_login_attempt(self, user: User, ip: str, user_agent: str, success: bool) -> None:
@@ -146,7 +171,12 @@ class AuthService:
             user_agent: Client user agent
             success: Whether login was successful
         """
-        login_service = self._login_service or get_service(\'login_service\')
+        if not self._login_service:
+            raise ServiceError(
+                "Login Service dependency not injected",
+                status_code=500
+            )
+        login_service = self._login_service
         login_service.record_login_attempt(user, ip, user_agent, success)
 
     def process_simple_login(
@@ -171,6 +201,11 @@ class AuthService:
             SecurityError: If security constraints are violated
             ServiceError: If login process fails
         """
-        login_service = self._login_service or get_service(\'login_service\')
+        if not self._login_service:
+            raise ServiceError(
+                "Login Service dependency not injected",
+                status_code=500
+            )
+        login_service = self._login_service
         return login_service.process_login(username, password, ip, user_agent)
 

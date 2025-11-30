@@ -622,10 +622,11 @@ def remove_role_from_user(user_id, role_id, current_user):
 def get_user_permissions(user_id, current_user):
     """Get all permissions for a user"""
 
+    # Get services once at the start (DI pattern)
+    rbac_service = get_service('rbac_service')
+    
     logging.info(
         f"RBAC_PERMISSIONS_GET: Request for user_id={user_id} (type={type(user_id).__name__}) by current_user_id={current_user.id} "
-        # Get services once at the start (DI pattern)
-        rbac_service = get_service('rbac_service')
         f"(username={current_user.username}, project_id={current_user.project_id})"
     )
 

@@ -1,4 +1,5 @@
 from ...utils.service_helpers import get_service
+from ...utils.service_exceptions import ServiceError
 """
 Analytics Buffer Persistence Layer
 Provides fallback persistence mechanisms for analytics data when Redis is unavailable.

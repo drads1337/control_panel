@@ -11,6 +11,8 @@ from typing import Any, Dict, List, Optional, Tuple
 from ...core.extensions import db
 from ...models.core import User
 from ...models.keys import TokenTransaction
+from ...utils.rbac_utils import RBACManager
+from ...utils.service_helpers import get_service
 
 # Type hints for dependencies (imported here to avoid circular imports)
 from typing import TYPE_CHECKING
@@ -73,10 +75,8 @@ class BalanceService:
                 return False, "User not found", None
 
             # Check if current_user has billing permission and should pay from their balance
-            from ...utils.rbac_utils import RBACManager
-            
             # Use explicit dependency injection
-            rbac_service = self._rbac_service or get_service(\'rbac_service\')
+            rbac_service = self._rbac_service or get_service('rbac_service')
             
             is_owner = RBACManager.is_owner(current_user)
             is_admin = RBACManager.is_admin(current_user)
@@ -92,7 +92,6 @@ class BalanceService:
                     return False, f"Insufficient balance. Required: {amount} tokens, Available: {current_user.token_balance} tokens", None
                 
                 # Deduct from current_user's balance
-                current_user_old_balance = current_user.token_balance
                 current_user.token_balance -= amount
                 
                 # Create transaction for current_user (deduction)
@@ -122,7 +121,7 @@ class BalanceService:
             db.session.add(transaction)
             db.session.commit()
 
-            activity_service = self._activity_service or get_service(\'activity_service\')
+            activity_service = self._activity_service or get_service('activity_service')
             activity_service.log_activity(
                 current_user,
                 "topup_balance",
@@ -199,7 +198,7 @@ class BalanceService:
                 db.session.commit()
 
             if commit:
-                activity_service = self._activity_service or get_service(\'activity_service\')
+                activity_service = self._activity_service or get_service('activity_service')
                 activity_service.log_activity(
                     current_user,
                     "deduct_balance",
@@ -359,7 +358,7 @@ class BalanceService:
         """
         try:
             # Use explicit dependency injection
-            rbac_service = self._rbac_service or get_service(\'rbac_service\')
+            rbac_service = self._rbac_service or get_service('rbac_service')
 
             can_manage_balance = (
                 rbac_service.check_permission(current_user.id, "billing.view_balance")

@@ -246,10 +246,11 @@ def get_settings(current_user=None, project_id=None):
     Get project settings for the current user.
     
     Returns:
-        # Get services once at the start (DI pattern)
-        settings_service = get_service('settings_service')
         JSON response with settings data or error message
     """
+    # Get services once at the start (DI pattern)
+    settings_service = get_service('settings_service')
+    
     user_id = get_jwt_identity()
     # Get project_id from parameter (passed by middleware)
     logger.info("Getting settings", user_id=user_id, project_id=project_id)

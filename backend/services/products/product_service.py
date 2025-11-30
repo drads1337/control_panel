@@ -488,7 +488,12 @@ class ProductService:
 
                 user = User.query.get(user_id) if user_id else None
                 # Use explicit dependency injection
-                rbac_service = self._rbac_service or get_service('rbac_service')
+                if not self._rbac_service:
+                    raise ServiceError(
+                        "Rbac Service dependency not injected",
+                        status_code=500
+                    )
+                rbac_service = self._rbac_service
 
                 can_view_all = user and (
                     RBACManager.is_owner(user)
@@ -553,7 +558,12 @@ class ProductService:
             
             project = Project.query.get(user.project_id)
             if project:
-                tier_limits_service = self._tier_limits_service or get_service('tier_limits_service')
+                if not self._tier_limits_service:
+                    raise ServiceError(
+                        "Tier Limits Service dependency not injected",
+                        status_code=500
+                    )
+                tier_limits_service = self._tier_limits_service
                 can_create, error_msg = tier_limits_service.check_product_limit(project)
                 if not can_create:
                     raise ValidationError(error_msg, field="product")
@@ -692,7 +702,12 @@ class ProductService:
                 from ...models.rbac import UserRole, Role
                 from ...utils.rbac_utils import RBACManager
                 # Use explicit dependency injection
-                rbac_service = self._rbac_service or get_service('rbac_service')
+                if not self._rbac_service:
+                    raise ServiceError(
+                        "Rbac Service dependency not injected",
+                        status_code=500
+                    )
+                rbac_service = self._rbac_service
 
                 self.logger.info(
                     f"Fetching product count from database for project {project_id}, type: {product_type}"

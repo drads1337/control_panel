@@ -431,7 +431,7 @@ export default function RemoteControl() {
             <div className="flex items-center justify-center py-6">
               <div className="text-center">
                 <Settings className="h-10 w-10 xs:h-12 xs:w-12 text-muted-foreground mx-auto mb-3 xs:mb-4" />
-                <div className="text-sm xs:text-base font-semibold text-muted-foreground mb-2">Access Denied</div>
+                <h2 className="text-sm xs:text-base font-semibold mb-2">Access Denied</h2>
                 <p className="text-xs xs:text-sm text-muted-foreground mt-1">
                   You don't have permission to access remote control features.
                 </p>

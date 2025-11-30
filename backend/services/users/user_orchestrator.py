@@ -23,12 +23,42 @@ class UserOrchestrator:
     def __init__(self, user_orchestrator=None):
         """Initialize orchestrator with all required services"""
         self._user_orchestrator = user_orchestrator
-        self.user_crud_service = get_service('user_crud_service')
-        self.user_role_service = get_service('user_role_service')
-        self.user_permission_service = get_service('user_permission_service')
-        self.user_profile_service = get_service('user_profile_service')
-        self.rbac_service = get_service('rbac_service')
-        self.activity_service = get_service('activity_service')
+        if not self._user_crud:
+            raise ServiceError(
+                "User Crud dependency not injected",
+                status_code=500
+            )
+        self.user_crud_service = self._user_crud
+        if not self._user_role:
+            raise ServiceError(
+                "User Role dependency not injected",
+                status_code=500
+            )
+        self.user_role_service = self._user_role
+        if not self._user_permission:
+            raise ServiceError(
+                "User Permission dependency not injected",
+                status_code=500
+            )
+        self.user_permission_service = self._user_permission
+        if not self._user_profile:
+            raise ServiceError(
+                "User Profile dependency not injected",
+                status_code=500
+            )
+        self.user_profile_service = self._user_profile
+        if not self._rbac:
+            raise ServiceError(
+                "Rbac dependency not injected",
+                status_code=500
+            )
+        self.rbac_service = self._rbac
+        if not self._activity:
+            raise ServiceError(
+                "Activity dependency not injected",
+                status_code=500
+            )
+        self.activity_service = self._activity
 
     def create_user_with_full_setup(
         self,

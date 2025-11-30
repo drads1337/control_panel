@@ -158,7 +158,7 @@ def setup_redis_and_limiter(app: Flask) -> None:
     def check_redis_for_auth_rate_limiting():
         """Ensure Redis is available for rate limiting on auth endpoints"""
         from flask import jsonify, request
-        from ..utils.redis_client import get_redis_client
+        from ..utils.redis_client import get_redis_wrapper
         import logging
         
         logger = logging.getLogger(__name__)
@@ -168,8 +168,8 @@ def setup_redis_and_limiter(app: Flask) -> None:
             return None
         
         try:
-            redis_client = get_redis_client()
-            if not redis_client.is_available():
+            redis_wrapper = get_redis_wrapper()
+            if not redis_wrapper.is_available():
                 logger.error(
                     f"SECURITY: Redis unavailable for auth rate limiting on {request.endpoint}. "
                     f"Blocking request from {request.remote_addr}"
