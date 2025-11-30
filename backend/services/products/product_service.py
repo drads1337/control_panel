@@ -447,8 +447,7 @@ class ProductService:
     def invalidate_product_cache(self, project_id: int, product_id: Optional[int] = None) -> bool:
         """Invalidate product cache for a project or specific product - INSTANT updates"""
         try:
-
-                    deleted_count = (self.cache_service or get_service('cache_service')).invalidate_product_instantly(project_id, product_id)
+            deleted_count = (self.cache_service or get_service('cache_service')).invalidate_product_instantly(project_id, product_id)
 
             self.logger.info(
                 f"INSTANT product cache invalidation completed: {deleted_count} keys deleted"
