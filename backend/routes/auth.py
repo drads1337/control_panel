@@ -242,7 +242,6 @@ def _handle_simple_login(data: dict, ip: str, user_agent: str):
     """Handle simple username/password login"""
     try:
         # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
         auth_service = get_service('auth_service')
         username = data["username"]
         password = data["password"]
