@@ -59,6 +59,25 @@ class ProjectCRUDService:
         self._activity_service = activity_service
         self._security_rules_init_service = security_rules_init_service
     
+    def _get_activity_service(self):
+        """Get activity service (lazy loading for backward compatibility)"""
+        if self._activity_service is None:
+            from ...utils.service_helpers import get_service
+            self._activity_service = get_service('activity_service')
+        return self._activity_service
+    
+    def _get_security_rules_init_service(self):
+        """Get security rules init service (lazy loading for backward compatibility)"""
+        if self._security_rules_init_service is None:
+            from ...utils.service_helpers import get_service
+            self._security_rules_init_service = get_service('security_rules_init_service')
+        return self._security_rules_init_service
+    
+    def _get_tier_limits_service(self):
+        """Get tier limits service (lazy loading for backward compatibility)"""
+        from ...utils.service_helpers import get_service
+        return get_service('tier_limits_service')
+
     def _find_project_by_id_or_unique_id(self, project_identifier):
         """
         Helper function to find a project by either id (int) or unique_id (string)
@@ -146,7 +165,7 @@ class ProjectCRUDService:
             # Enforce storage limit for free tier only (double-check)
             if subscription_status == "free":
                 try:
-                    tier_limits_service = self._tier_limits_service or get_service(\'tier_limits_service\')
+                    tier_limits_service = self._get_tier_limits_service()
                     tier_limits_service.enforce_storage_limit(project)
                 except Exception as e:
                     self.logger.warning(f"Failed to enforce storage limit for project {project.id}: {e}")
@@ -154,7 +173,7 @@ class ProjectCRUDService:
             db.session.commit()
 
             try:
-                activity_service = self._activity_service or get_service(\'activity_service\')
+                activity_service = self._get_activity_service()
                 activity_service.log_activity(
                     user,
                     "project_created",
@@ -167,7 +186,7 @@ class ProjectCRUDService:
 
             # Initialize default security rules for the project
             try:
-                security_rules_init_service = self._security_rules_init_service or get_service(\'security_rules_init_service\')
+                security_rules_init_service = self._get_security_rules_init_service()
                 security_rules_init_service.initialize_default_rules(project.id, user_id)
                 self.logger.info(f"Initialized default security rules for project {project.id}")
             except Exception as e:
@@ -278,7 +297,7 @@ class ProjectCRUDService:
             db.session.commit()
 
             try:
-                activity_service = self._activity_service or get_service(\'activity_service\')
+                activity_service = self._get_activity_service()
                 activity_service.log_activity(
                     user,
                     "project_updated",
@@ -346,7 +365,7 @@ class ProjectCRUDService:
 
             # Delete related data (cascade will handle most, but we log activity first)
             try:
-                activity_service = self._activity_service or get_service(\'activity_service\')
+                activity_service = self._get_activity_service()
                 activity_service.log_activity(
                     user,
                     "project_deleted",

@@ -46,6 +46,20 @@ class AdminService:
         self._activity_service = activity_service
         self._project_relationships_service = project_relationships_service
     
+    def _get_activity_service(self):
+        """Get activity service (lazy loading for backward compatibility)"""
+        if self._activity_service is None:
+            from ...utils.service_helpers import get_service
+            self._activity_service = get_service('activity_service')
+        return self._activity_service
+    
+    def _get_project_relationships_service(self):
+        """Get project relationships service (lazy loading for backward compatibility)"""
+        if self._project_relationships_service is None:
+            from ...utils.service_helpers import get_service
+            self._project_relationships_service = get_service('project_relationships_service')
+        return self._project_relationships_service
+
     def deactivate_expired_projects(self, admin_user: User) -> Tuple[int, int, Optional[str]]:
         """
         Deactivate expired projects and clean up expired invite codes
@@ -78,7 +92,7 @@ class AdminService:
                 deactivated_count += 1
 
                 try:
-                    activity_service = self._activity_service or get_service(\'activity_service\')
+                    activity_service = self._get_activity_service()
                     activity_service.log_activity(
                         admin_user,
                         "project_deactivated",
@@ -301,7 +315,7 @@ class AdminService:
             ).all()
 
             # Use explicit dependency injection
-            project_relationships_service = self._project_relationships_service or get_service(\'project_relationships_service\')
+            project_relationships_service = self._get_project_relationships_service()
 
             projects_info = []
             for project in expired_projects:

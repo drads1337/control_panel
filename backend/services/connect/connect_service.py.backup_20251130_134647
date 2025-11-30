@@ -70,6 +70,20 @@ class ConnectService:
         self._challenge_service = challenge_service
         self._auth_service = auth_service
     
+    def _get_challenge_service(self):
+        """Get challenge service (lazy loading for backward compatibility)"""
+        if self._challenge_service is None:
+            from ...utils.service_helpers import get_service
+            self._challenge_service = get_service('challenge_service')
+        return self._challenge_service
+    
+    def _get_auth_service(self):
+        """Get auth service (lazy loading for backward compatibility)"""
+        if self._auth_service is None:
+            from ...utils.service_helpers import get_service
+            self._auth_service = get_service('auth_service')
+        return self._auth_service
+
     def generate_offline_ticket(
         self,
         user_key: str,
@@ -178,7 +192,7 @@ class ConnectService:
                     "message": "Your device fingerprint has been blocked",
                 }, 403
 
-            challenge_service = self._challenge_service or get_service(\'challenge_service\')
+            challenge_service = self._get_challenge_service()
             enhanced_challenge = challenge_service.create_enhanced_challenge(user_key, fingerprint)
             logger.debug(
                 f"ENHANCED_CHALLENGE_GENERATED successfully, keys={list(enhanced_challenge.keys())}"
@@ -296,7 +310,7 @@ class ConnectService:
             elif username and password:
 
                 # Use explicit dependency injection
-                auth_service = self._auth_service or get_service(\'auth_service\')
+                auth_service = self._get_auth_service()
                 response_data, error_code, error_message = auth_service.process_simple_login(
                     username, password, ip, user_agent
                 )

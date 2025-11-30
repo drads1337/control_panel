@@ -290,6 +290,53 @@ def refactor_file_function_start(content: str, usages: List[ServiceUsage], dry_r
     
     return ''.join(lines), changes_count
 
+def refactor_class_methods(content: str, info: FileRefactorInfo, usages: List[ServiceUsage], dry_run: bool) -> Tuple[str, int]:
+    """Рефакторит методы классов: заменяет _get_*_service() на прямые обращения"""
+    lines = content.splitlines(keepends=True)
+    changes_count = 0
+    
+    # Группируем использования по методам
+    methods_usages: Dict[str, List[ServiceUsage]] = {}
+    for usage in usages:
+        if usage.is_in_method:
+            method_name = usage.context
+            if method_name not in methods_usages:
+                methods_usages[method_name] = []
+            methods_usages[method_name].append(usage)
+    
+    if not methods_usages:
+        return content, 0
+    
+    # Находим все вызовы _get_*_service() и get_service() внутри методов
+    for line_num, line in enumerate(lines):
+        # Ищем вызовы _get_*_service()
+        if re.search(r'self\._get_\w+_service\(\)', line):
+            # Заменяем на прямое обращение
+            # Паттерн: var = self._get_service_name_service()
+            # Заменяем на: var = self._service_name_service or get_service('service_name')
+            match = re.search(r'(\w+)\s*=\s*self\._get_(\w+)_service\(\)', line)
+            if match:
+                var_name = match.group(1)
+                service_base = match.group(2)
+                service_name = f"{service_base}_service"
+                new_line = re.sub(
+                    r'(\w+)\s*=\s*self\._get_\w+_service\(\)',
+                    f'{var_name} = self._{service_name} or get_service(\'{service_name}\')',
+                    line
+                )
+                lines[line_num] = new_line
+                changes_count += 1
+        
+        # Ищем прямые вызовы get_service() внутри методов (не в __init__)
+        elif 'get_service(' in line and info.init_line and line_num + 1 != info.init_line:
+            # Проверяем, что это не в __init__
+            # Находим, в каком методе мы находимся
+            # Это упрощенная версия - просто заменяем на использование зависимости
+            # Более точная версия потребует парсинга AST
+            pass
+    
+    return ''.join(lines), changes_count
+
 def refactor_file(info: FileRefactorInfo, dry_run: bool = False) -> bool:
     """Рефакторит один файл"""
     file_path = info.file_path
@@ -352,7 +399,21 @@ def refactor_file(info: FileRefactorInfo, dry_run: bool = False) -> bool:
     elif strategy == "class_init":
         print(f"   Стратегия: Добавить зависимости в __init__ класса {info.class_name}")
         print(f"   Нужные сервисы: {', '.join(sorted(services_needed))}")
-        print("   ⚠️  Автоматический рефакторинг классов требует ручной проверки")
+        
+        # Рефакторим методы классов - заменяем _get_*_service() на прямые обращения
+        method_usages = [u for u in info.service_usages if u.is_in_method]
+        if method_usages:
+            new_content, changes_count = refactor_class_methods(content, info, method_usages, dry_run)
+            if changes_count > 0:
+                if not dry_run:
+                    with open(file_path, 'w', encoding='utf-8') as f:
+                        f.write(new_content)
+                    print(f"   ✓ Изменено: {changes_count} использований в методах")
+                else:
+                    print(f"   [DRY RUN] Будет изменено: {changes_count} использований в методах")
+                changes_made = True
+            else:
+                print("   ⚠️  Не удалось автоматически рефакторить методы")
     elif strategy == "class_new_init":
         print(f"   Стратегия: Создать __init__ для класса {info.class_name}")
         print(f"   Нужные сервисы: {', '.join(sorted(services_needed))}")
