@@ -137,6 +137,7 @@ class PolicyEngine:
         self._authorization_audit_service = authorization_audit_service
         self._rbac_service = rbac_service
         self._abac_service = abac_service
+        
         """
         Policy evaluation order:
         1. Owner/Admin bypass - fastest path for privileged users
@@ -696,7 +697,7 @@ class PolicyEngine:
             )
         
         # Check for product permission pattern: "permission.product.{product_id}"
-        rbac_service = get_service('rbac_service')
+        rbac_service = self._rbac_service or get_service('rbac_service')
         user_permissions = rbac_service.get_user_permissions(user.id)
         product_permission_pattern = f"{permission}.product.{product_id}"
         
