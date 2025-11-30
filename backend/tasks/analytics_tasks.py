@@ -1,6 +1,10 @@
 """
 Celery tasks for analytics operations
 Handles periodic flushing of analytics buffer to database
+
+REFACTORED: Removed DatabaseTask as these tasks don't use DB directly.
+They use services which handle their own DB connections.
+Uses dependency injection - services are obtained once at the start of each task function.
 """
 
 import logging
@@ -16,12 +20,8 @@ except ImportError:
     class Task:
         pass
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
 from ..config.config import Config
-from ..utils.service_helpers import get_service
-from ..services.analytics import AnalyticsBufferService
+from ..services.analytics.analytics_buffer_service import AnalyticsBufferService
 from ..services.connect.device_update_buffer import device_update_buffer
 
 logger = logging.getLogger(__name__)
@@ -34,48 +34,6 @@ if CELERY_AVAILABLE:
         logger.warning("Celery app not available")
 else:
     celery_app = None
-
-if CELERY_AVAILABLE and celery_app:
-    db_engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
-    Session = sessionmaker(bind=db_engine)
-else:
-    db_engine = None
-    Session = None
-
-
-class DatabaseTask(Task):
-    """
-    Base task class that provides database session management
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._db_session = None
-
-    def before_start(self, task_id, args, kwargs):
-        """Called before task execution"""
-        if Session:
-            self._db_session = Session()
-
-    def after_return(self, *args, **kwargs):
-        """Called after task execution"""
-        if self._db_session:
-            try:
-                self._db_session.commit()
-            except:
-                self._db_session.rollback()
-            finally:
-                self._db_session.close()
-                self._db_session = None
-
-    def on_failure(self, exc, task_id, args, kwargs, einfo):
-        """Called when task fails"""
-        if self._db_session:
-            try:
-                self._db_session.rollback()
-            finally:
-                self._db_session.close()
-                self._db_session = None
 
 
 def task_decorator(*args, **kwargs):
@@ -92,7 +50,6 @@ def task_decorator(*args, **kwargs):
 
 @task_decorator(
     bind=True,
-    base=DatabaseTask,
     name="backend.tasks.analytics_tasks.flush_analytics_buffer",
     max_retries=3,
     default_retry_delay=60,
@@ -114,14 +71,14 @@ def flush_analytics_buffer_task(self, activity_batch_size: int = None):
                           (defaults to Config.ANALYTICS_BUFFER_BATCH_SIZE)
     """
     try:
-        # Get service instance - try ServiceContainer first, fallback to direct instantiation
+        # Get service instance once at the start (DI pattern)
+        # Try ServiceContainer first, fallback to direct instantiation
         try:
             analytics_buffer_service = get_service('analytics_buffer_service')
         except (RuntimeError, ValueError):
             # Fallback for Celery tasks that may run outside Flask context
             analytics_buffer_service = AnalyticsBufferService()
         
-        analytics_buffer_service = get_service('analytics_buffer_service')
         if not analytics_buffer_service.enabled:
             logger.debug("Analytics buffer is disabled, skipping flush")
             return {"success": True, "skipped": True, "reason": "buffer_disabled"}
@@ -171,7 +128,6 @@ def flush_analytics_buffer_task(self, activity_batch_size: int = None):
 
 @task_decorator(
     bind=True,
-    base=DatabaseTask,
     name="backend.tasks.analytics_tasks.get_analytics_buffer_stats",
     max_retries=2,
     default_retry_delay=30,

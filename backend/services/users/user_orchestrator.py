@@ -77,8 +77,6 @@ class UserOrchestrator:
                 raise BusinessLogicError(f"Failed to create user: {str(e)}")
 
             try:
-                activity_service = get_service('activity_service')
-                activity_service = get_service('activity_service')
                 self.activity_service.log_activity(
                     current_user,
                     "create_user",
@@ -127,10 +125,7 @@ class UserOrchestrator:
         # Check permissions (raises PermissionDeniedError if not allowed)
         self._check_update_permissions(current_user, target_user)
 
-        user_profile_service = get_service('user_profile_service')
-        user_profile_service = get_service('user_profile_service')
         # Update profile (user_profile_service still returns tuple, will be migrated later)
-        user_profile_service = get_service('user_profile_service')
         success, error = self.user_profile_service.update_user_profile(target_user, user_data)
         if not success:
             raise BusinessLogicError(error or "Failed to update user profile")
@@ -220,8 +215,6 @@ class UserOrchestrator:
         rbac_role_ids = user_data.get("rbac_role_ids", [])
 
         if not rbac_role_ids:
-            rbac_service = get_service('rbac_service')
-            rbac_service = get_service('rbac_service')
             raise ValidationError("At least one RBAC role must be selected", field="rbac_role_ids")
 
         has_employee_permission = self.rbac_service.check_permission(
@@ -332,67 +325,72 @@ class UserOrchestrator:
         self, current_user: User, data: Dict[str, Any]
     ) -> User:
         """
-        Create user with RBAC roles and product permissions
-        This method combines CRUD, Role, and Permission services
+        Create user with RBAC roles and product permissions (REFACTORED).
+        
+        This method now uses separated transactions to reduce lock contention:
+        1. Create user core (fast, minimal locks)
+        2. Assign roles and products (can be retried)
+        3. Handle token transactions (can be async)
+        4. Update project counters (non-critical)
 
         Raises:
             ValidationError: If input validation fails
             BusinessLogicError: For business rule violations
         """
-        try:
-            from datetime import datetime, timedelta
-            from werkzeug.security import generate_password_hash
-            from ...models.keys import TokenTransaction
-            from ...utils.project_counters import increment_project_user_counters
+        from datetime import datetime, timedelta
+        from werkzeug.security import generate_password_hash
+        from ...models.keys import TokenTransaction
+        from ...utils.project_counters import increment_project_user_counters
 
-            username = data.get("username")
-            password = data.get("password")
-            first_name = data.get("first_name")
-            last_name = data.get("last_name")
-            email = data.get("email")
-            token_balance = data.get("token_balance", 0)
-            product_ids = data.get("product_ids", [])
-            rbac_role_ids = data.get("rbac_role_ids", [])
+        username = data.get("username")
+        password = data.get("password")
+        first_name = data.get("first_name")
+        last_name = data.get("last_name")
+        email = data.get("email")
+        token_balance = data.get("token_balance", 0)
+        product_ids = data.get("product_ids", [])
+        rbac_role_ids = data.get("rbac_role_ids", [])
 
-            if not username or not password:
-                raise ValidationError("Username and password are required")
+        if not username or not password:
+            raise ValidationError("Username and password are required")
 
-            if User.query.filter_by(username=username).first():
-                raise ValidationError("Username already exists", field="username")
+        if User.query.filter_by(username=username).first():
+            raise ValidationError("Username already exists", field="username")
 
-            if not rbac_role_ids:
-                raise ValidationError("At least one RBAC role must be selected", field="rbac_role_ids")
+        if not rbac_role_ids:
+            raise ValidationError("At least one RBAC role must be selected", field="rbac_role_ids")
 
-            has_moderator_permission = self.rbac_service.check_permission(
-                current_user.id, "employees.create"
-            ) or self.rbac_service.check_permission(current_user.id, "clients.create")
-            if has_moderator_permission and token_balance > 0:
-                if current_user.token_balance < token_balance:
+        has_moderator_permission = self.rbac_service.check_permission(
+            current_user.id, "employees.create"
+        ) or self.rbac_service.check_permission(current_user.id, "clients.create")
+        if has_moderator_permission and token_balance > 0:
+            if current_user.token_balance < token_balance:
+                raise BusinessLogicError(
+                    f"Insufficient balance. Required: {token_balance}, Available: {current_user.token_balance}"
+                )
+
+        project_id = data.get("project_id")
+        can_manage_all = self.rbac_service.check_permission(
+            current_user.id, "employees.view"
+        ) or self.rbac_service.check_permission(current_user.id, "clients.view")
+        if not can_manage_all:
+            project_id = project_id or current_user.project_id
+
+        # Validate roles (before creating user)
+        if rbac_role_ids and project_id:
+            from ...models.rbac import Role
+
+            for role_id in rbac_role_ids:
+                role = Role.query.filter_by(id=role_id).first()
+                if not role:
+                    raise NotFoundError("Role", str(role_id))
+                if role.project_id != project_id:
                     raise BusinessLogicError(
-                        f"Insufficient balance. Required: {token_balance}, Available: {current_user.token_balance}"
+                        f"Role '{role.name}' belongs to a different project (role project_id: {role.project_id}, target project_id: {project_id})"
                     )
 
-            project_id = data.get("project_id")
-            can_manage_all = self.rbac_service.check_permission(
-                current_user.id, "employees.view"
-            ) or self.rbac_service.check_permission(current_user.id, "clients.view")
-            if not can_manage_all:
-                project_id = project_id or current_user.project_id
-
-            # Validate roles
-            if rbac_role_ids and project_id:
-                from ...models.rbac import Role
-
-                for role_id in rbac_role_ids:
-                    role = Role.query.filter_by(id=role_id).first()
-                    if not role:
-                        raise NotFoundError("Role", str(role_id))
-                    if role.project_id != project_id:
-                        raise BusinessLogicError(
-                            f"Role '{role.name}' belongs to a different project (role project_id: {role.project_id}, target project_id: {project_id})"
-                        )
-
-            # Create user
+        # Transaction 1: Create user core (fast, minimal locks)
+        try:
             user = User(
                 username=username,
                 password=generate_password_hash(password),
@@ -400,7 +398,7 @@ class UserOrchestrator:
                 last_name=last_name,
                 email=email,
                 project_id=project_id,
-                token_balance=token_balance,
+                token_balance=0,  # Will be set in token transaction
                 created_at=datetime.utcnow(),
             )
 
@@ -417,11 +415,42 @@ class UserOrchestrator:
                     user.expires_at = datetime.utcnow() + timedelta(days=work_duration_days)
 
             db.session.add(user)
-            db.session.flush()
+            db.session.flush()  # Get user.id
+            db.session.commit()  # Commit user creation
+            logger.info(f"User core created: {user.id} ({user.username})")
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error creating user core: {str(e)}")
+            raise BusinessLogicError(f"Failed to create user: {str(e)}")
 
-            # Handle token transactions
-            if has_moderator_permission and token_balance > 0:
+        # Transaction 2: Assign roles and products (can be retried if fails)
+        try:
+            if project_id and product_ids:
+                processed_product_ids = self.user_permission_service.process_product_ids_from_data(product_ids)
+                if processed_product_ids:
+                    self.user_permission_service.assign_product_permissions(
+                        user.id, project_id, processed_product_ids
+                    )
+
+            if rbac_role_ids and project_id:
+                self.user_role_service.assign_roles_to_user(user.id, project_id, rbac_role_ids)
+
+            db.session.commit()
+            logger.info(f"Roles and products assigned for user {user.id}")
+        except Exception as e:
+            logger.error(
+                f"Failed to assign roles/products for user {user.id}: {e}. "
+                "User is created but roles/products need to be assigned manually."
+            )
+            db.session.rollback()
+            # User is already created, so we don't fail completely
+            # This can be fixed later via admin interface
+
+        # Transaction 3: Handle token transactions (can be async)
+        if has_moderator_permission and token_balance > 0:
+            try:
                 current_user.token_balance -= token_balance
+                user.token_balance = token_balance
 
                 moderator_transaction = TokenTransaction(
                     user_id=current_user.id,
@@ -443,35 +472,30 @@ class UserOrchestrator:
                 )
                 db.session.add(user_transaction)
 
-            # Assign product permissions
-            if project_id and product_ids:
-                processed_product_ids = self.user_permission_service.process_product_ids_from_data(product_ids)
-                if processed_product_ids:
-                    self.user_permission_service.assign_product_permissions(
-                        user.id, project_id, processed_product_ids
-                    )
+                db.session.commit()
+                logger.info(f"Token transactions completed for user {user.id}")
+            except Exception as e:
+                logger.error(
+                    f"Failed to process token transactions for user {user.id}: {e}. "
+                    "User is created but tokens need to be processed manually."
+                )
+                db.session.rollback()
+                # Could send to background task for retry
 
-            # Assign roles
-            if rbac_role_ids and project_id:
-                user_role_service = get_service('user_role_service')
-                user_role_service.assign_roles_to_user(user.id, project_id, rbac_role_ids)
-
-            # Update project counters
-            if project_id:
+        # Transaction 4: Update project counters (non-critical, can be async)
+        if project_id:
+            try:
                 is_active = user.expires_at is None or user.expires_at > datetime.utcnow()
                 increment_project_user_counters(project_id, is_active=is_active)
+                db.session.commit()
+            except Exception as e:
+                logger.warning(
+                    f"Failed to update project counters for user {user.id}: {e}. "
+                    "Counters can be recalculated later."
+                )
+                db.session.rollback()  # Rollback only counter update
 
-            db.session.commit()
-
-            return user
-
-        except (ValidationError, NotFoundError, BusinessLogicError):
-            db.session.rollback()
-            raise
-        except Exception as e:
-            db.session.rollback()
-            logger.error(f"Error creating user with roles and products: {str(e)}")
-            raise BusinessLogicError(f"Failed to create user: {str(e)}")
+        return user
 
 # NOTE: Global singleton removed for better testability.
 # Use ServiceContainer to get service instances:
