@@ -25,6 +25,7 @@ from ...utils.service_exceptions import ValidationError, NotFoundError, Permissi
 from ...utils.data_masking import mask_license_key
 from ...utils.rbac_utils import RBACManager
 from ...utils.structured_logging import get_logger
+from ...utils.service_helpers import get_service
 from .key_filter_specification import KeyFilterSpecification
 
 # Type hints for dependencies (imported here to avoid circular imports)
@@ -39,6 +40,7 @@ if TYPE_CHECKING:
     from ...services.webhooks.webhook_service import WebhookService
     from ...services.rbac.rbac_service import RBACService
     from ...services.cache.cache_service import CacheService
+    from ...services.tier_limits.tier_limits_service import TierLimitsService
 
 class KeyCRUDService:
     """Service for handling basic CRUD operations on keys"""
@@ -54,6 +56,7 @@ class KeyCRUDService:
         webhook_service: 'WebhookService' = None,
         rbac_service: 'RBACService' = None,
         cache_service: 'CacheService' = None,
+        tier_limits_service: 'TierLimitsService' = None,
         logger=None
     ):
         """
@@ -69,6 +72,7 @@ class KeyCRUDService:
             webhook_service: Service for triggering webhooks
             rbac_service: Service for RBAC checks
             cache_service: Service for cache operations
+            tier_limits_service: Service for tier limits checks
             logger: Optional logger instance
         """
         self.logger = logger or get_logger("key_crud_service")
@@ -83,69 +87,8 @@ class KeyCRUDService:
         self._webhook_service = webhook_service
         self._rbac_service = rbac_service
         self._cache_service = cache_service
+        self._tier_limits_service = tier_limits_service
     
-    def _get_key_validation_service(self):
-        """Get key validation service (lazy loading for backward compatibility)"""
-        if self._key_validation_service is None:
-            from ...utils.service_helpers import get_service
-            self._key_validation_service = get_service('key_validation_service')
-        return self._key_validation_service
-    
-    def _get_key_generation_service(self):
-        """Get key generation service (lazy loading for backward compatibility)"""
-        if self._key_generation_service is None:
-            from ...utils.service_helpers import get_service
-            self._key_generation_service = get_service('key_generation_service')
-        return self._key_generation_service
-    
-    def _get_product_service(self):
-        """Get product service (lazy loading for backward compatibility)"""
-        if self._product_service is None:
-            from ...utils.service_helpers import get_service
-            self._product_service = get_service('product_service')
-        return self._product_service
-    
-    def _get_price_calculation_service(self):
-        """Get price calculation service (lazy loading for backward compatibility)"""
-        if self._price_calculation_service is None:
-            from ...utils.service_helpers import get_service
-            self._price_calculation_service = get_service('price_calculation_service')
-        return self._price_calculation_service
-    
-    def _get_balance_service(self):
-        """Get balance service (lazy loading for backward compatibility)"""
-        if self._balance_service is None:
-            from ...utils.service_helpers import get_service
-            self._balance_service = get_service('balance_service')
-        return self._balance_service
-    
-    def _get_cached_statistics_service(self):
-        """Get cached statistics service (lazy loading for backward compatibility)"""
-        if self._cached_statistics_service is None:
-            from ...utils.service_helpers import get_service
-            self._cached_statistics_service = get_service('cached_statistics_service')
-        return self._cached_statistics_service
-    
-    def _get_webhook_service(self):
-        """Get webhook service (lazy loading for backward compatibility)"""
-        if self._webhook_service is None:
-            from ...utils.service_helpers import get_service
-            self._webhook_service = get_service('webhook_service')
-        return self._webhook_service
-    
-    def _get_rbac_service(self):
-        """Get RBAC service (lazy loading for backward compatibility)"""
-        if self._rbac_service is None:
-            from ...utils.service_helpers import get_service
-            self._rbac_service = get_service('rbac_service')
-        return self._rbac_service
-    
-    def _get_cache_service(self):
-        """Get cache service (lazy loading for backward compatibility)"""
-        if self._cache_service is None:
-            from ...utils.service_helpers import get_service
-            self._cache_service = get_service('cache_service')
-        return self._cache_service
 
     def _parse_key_metadata(self, key_metadata_value):
         """
@@ -250,7 +193,7 @@ class KeyCRUDService:
             PermissionDeniedError: If access denied
         """
         # validation_service now raises exceptions
-        validation_service = self._get_key_validation_service()
+        validation_service = self._key_validation_service or get_service('key_validation_service')
         validation_service.validate_key_data(user, key_data)
 
         product = None
@@ -258,17 +201,16 @@ class KeyCRUDService:
 
         if key_data.get("product_id"):
             # Use explicit dependency injection
-            product_service = self._get_product_service()
+            product_service = self._product_service or get_service('product_service')
             # get_product now raises exceptions
             product = product_service.get_product(user, key_data["product_id"])
             
             # Check tier limits for keys per product
             from ...models.core import Project
-            from ...utils.service_helpers import get_service
             
             project = Project.query.get(user.project_id)
             if project:
-                tier_limits_service = get_service('tier_limits_service')
+                tier_limits_service = self._tier_limits_service or get_service('tier_limits_service')
                 can_create, error_msg = tier_limits_service.check_key_limit_per_product(
                     project, key_data["product_id"]
                 )
@@ -293,8 +235,8 @@ class KeyCRUDService:
         
         if not is_owner and not is_admin and product and user.project_id:
             # Use explicit dependency injection
-            price_calculation_service = self._get_price_calculation_service()
-            balance_service = self._get_balance_service()
+            price_calculation_service = self._price_calculation_service or get_service('price_calculation_service')
+            balance_service = self._balance_service or get_service('balance_service')
             
             key_price = price_calculation_service.calculate_key_price(
                 product_id=product.id,
@@ -323,7 +265,7 @@ class KeyCRUDService:
                 if not success:
                     raise ValidationError(f"Failed to deduct balance: {error_msg}")
 
-        key_generation_service = self._get_key_generation_service()
+        key_generation_service = self._key_generation_service or get_service('key_generation_service')
         key_string = key_generation_service.generate_key_string(
             length=key_data.get("length", 32),
             product=product,
@@ -353,12 +295,12 @@ class KeyCRUDService:
         db.session.flush()
 
         # Use cache invalidation instead of deprecated counter functions to avoid race conditions
-        cached_statistics_service = self._get_cached_statistics_service()
+        cached_statistics_service = self._cached_statistics_service or get_service('cached_statistics_service')
         cached_statistics_service.invalidate_on_key_change(user.id, user.project_id)
 
         try:
             # Use explicit dependency injection
-            webhook_service = self._get_webhook_service()
+            webhook_service = self._webhook_service or get_service('webhook_service')
 
             webhook_data = {
                 "key_id": key.id,
@@ -411,7 +353,7 @@ class KeyCRUDService:
             my_keys_only = filters.get("my_keys", False)
 
             # Use explicit dependency injection
-            rbac_service = self._get_rbac_service()
+            rbac_service = self._rbac_service or get_service('rbac_service')
             if not RBACManager.is_owner(user) and not RBACManager.is_admin(user):
                 has_keys_view = rbac_service.check_permission(user.id, "keys.view")
                 if not has_keys_view:
@@ -561,7 +503,7 @@ class KeyCRUDService:
             ]
 
             # Use explicit dependency injection
-            rbac_service = self._get_rbac_service()
+            rbac_service = self._rbac_service or get_service('rbac_service')
 
             can_view_full_key = RBACManager.is_owner(user) or RBACManager.is_admin(user)
 
@@ -687,7 +629,7 @@ class KeyCRUDService:
             db.session.delete(key)
 
             # Use explicit dependency injection
-            cache_service = self._get_cache_service()
+            cache_service = self._cache_service or get_service('cache_service')
             # Invalidate statistics cache instead of using deprecated counters
             if user_id:
                 cache_service.invalidate_pattern(f"stats:user_id={user_id}:*")
