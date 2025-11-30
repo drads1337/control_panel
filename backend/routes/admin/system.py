@@ -24,7 +24,7 @@ def require_owner_role(f):
         user = User.query.get(user_id)
 
         if not user:
-            # Get services once at the start (DI pattern)
+
             rbac_service = get_service('rbac_service')
             return jsonify({"error": "Access denied"}), 403
 

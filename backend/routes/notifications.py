@@ -38,7 +38,7 @@ def find_product_by_id_or_unique_id(product_identifier, project_id):
     Returns:
         Product object or None if not found
     """
-    # Try as integer id (primary key) first
+
     if isinstance(product_identifier, int) or (isinstance(product_identifier, str) and product_identifier.isdigit()):
         try:
             product_id_int = int(product_identifier)
@@ -48,7 +48,7 @@ def find_product_by_id_or_unique_id(product_identifier, project_id):
         except (ValueError, TypeError):
             pass
     
-    # Try as unique_id (string)
+
     product = Product.query.filter_by(unique_id=str(product_identifier), project_id=project_id).first()
     return product
 
@@ -63,13 +63,13 @@ def find_agent_by_id_or_unique_id(agent_identifier, project_id):
     Returns:
         Agent object or None if not found
     """
-    # Try as unique_id (string) first, since that's what the frontend sends
+
     if isinstance(agent_identifier, str) and len(agent_identifier) == 8 and agent_identifier.isdigit():
         agent = Agent.query.filter_by(unique_id=agent_identifier, project_id=project_id).first()
         if agent:
             return agent
     
-    # Try as integer id (primary key)
+
     if isinstance(agent_identifier, int) or (isinstance(agent_identifier, str) and agent_identifier.isdigit()):
         try:
             agent_id_int = int(agent_identifier)
@@ -79,7 +79,7 @@ def find_agent_by_id_or_unique_id(agent_identifier, project_id):
         except (ValueError, TypeError):
             pass
     
-    # Try as unique_id (string) as fallback
+
     agent = Agent.query.filter_by(unique_id=str(agent_identifier), project_id=project_id).first()
     return agent
 
@@ -107,9 +107,9 @@ def get_notifications():
 
     query = Notification.query.filter_by(is_deleted=False)
 
-    # Always filter by user_id to show only notifications sent to this specific user
-    # This ensures that even owners/admins only see their own notifications in sidebar
-    # Project-wide notifications (user_id is None) are excluded for personal notification list
+
+
+
     query = query.filter(Notification.project_id == user.project_id).filter(
         Notification.user_id == user_id
     )
@@ -166,8 +166,8 @@ def mark_as_read(notification_id):
     user = User.query.get(user_id)
 
     if not user:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         activity_service = get_service('activity_service')
         notification_service = get_service('notification_service')
         return jsonify({"error": "User not found"}), 404
@@ -197,8 +197,8 @@ def increment_show_count(notification_id, current_user, project_id=None):
     """Increment the show count of a notification"""
 
     if not current_user:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         rbac_service = get_service('rbac_service')
         return jsonify({"error": "User not found"}), 404
 
@@ -383,8 +383,8 @@ def send_notification(current_user, project_id=None, validated_data=None):
     )
 
     if error:
-        # Return 400 for validation/business logic errors, not 404
-        # 404 should only be used for actual resource not found errors
+
+
         status_code = 400
         return jsonify({"error": error}), status_code
 
@@ -421,13 +421,13 @@ def delete_notification(notification_id, current_user, project_id=None):
 
     from ..models.agents import AgentNotification
 
-    # First check if it's an AgentNotification
+
     agent_notification = AgentNotification.query.filter_by(
         id=notification_id, project_id=current_user.project_id
     ).first()
 
     if agent_notification:
-        # Check permissions for agent notifications
+
         can_delete = rbac_service.check_permission(
             current_user.id, "agents.notifications_delete"
         ) or rbac_service.check_permission(current_user.id, "products.notifications_delete")
@@ -435,7 +435,7 @@ def delete_notification(notification_id, current_user, project_id=None):
         if not can_delete:
             return jsonify({"error": "Insufficient permissions"}), 403
 
-        # Hard delete agent notification (no soft delete field)
+
         db.session.delete(agent_notification)
         db.session.commit()
 
@@ -448,8 +448,8 @@ def delete_notification(notification_id, current_user, project_id=None):
 
         return jsonify({"message": "Notification deleted successfully"})
 
-    # Otherwise, try as a regular Notification (soft delete)
-    # Check permissions for product notifications
+
+
     can_delete = rbac_service.check_permission(
         current_user.id, "products.notifications_delete"
     )
@@ -709,8 +709,8 @@ def create_bulk_notifications(validated_data=None):
     user = User.query.get(user_id)
 
     if not user.project_id:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         project_relationships_service = get_service('project_relationships_service')
         return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -722,9 +722,9 @@ def create_bulk_notifications(validated_data=None):
 
 
     try:
-        # Get project relationships service
+
         
-        # Get users for the project using service
+
         project_users = project_relationships_service.get_users(user.project_id)
         user_ids = [u.id for u in project_users]
         query = User.query.filter(User.id.in_(user_ids))

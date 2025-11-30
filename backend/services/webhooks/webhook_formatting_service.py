@@ -16,7 +16,7 @@ class WebhookFormattingService:
     def get_valid_events(self) -> List[str]:
         """Get list of valid webhook events"""
         return [
-            # Keys
+
             "key.created",
             "key.activated",
             "key.expired",
@@ -28,14 +28,14 @@ class WebhookFormattingService:
             "key.renewed",
             "key.suspended",
             "key.unsuspended",
-            # Connect
+
             "connect.success",
             "connect.failed",
             "connect.disconnected",
             "connect.challenge_requested",
             "connect.token_generated",
             "connect.token_expired",
-            # Users
+
             "user.created",
             "user.registered",
             "user.login",
@@ -50,7 +50,7 @@ class WebhookFormattingService:
             "user.profile_updated",
             "user.2fa_enabled",
             "user.2fa_disabled",
-            # Products
+
             "product.created",
             "product.updated",
             "product.activated",
@@ -60,7 +60,7 @@ class WebhookFormattingService:
             "product.file_downloaded",
             "product.settings_changed",
             "product.version_updated",
-            # Security
+
             "security.alert",
             "security.block",
             "security.login_failed",
@@ -72,7 +72,7 @@ class WebhookFormattingService:
             "security.2fa_disabled",
             "security.suspicious_activity",
             "security.breach_detected",
-            # Agents
+
             "agent.created",
             "agent.updated",
             "agent.deleted",
@@ -81,25 +81,25 @@ class WebhookFormattingService:
             "agent.status_changed",
             "agent.product_assigned",
             "agent.product_unassigned",
-            # Servers
+
             "server.created",
             "server.updated",
             "server.deleted",
             "server.status_changed",
             "server.connected",
             "server.disconnected",
-            # Remote Control
+
             "remote.feature_enabled",
             "remote.feature_disabled",
             "remote.feature_updated",
             "remote.category_created",
             "remote.category_updated",
             "remote.category_deleted",
-            # Notifications
+
             "notification.created",
             "notification.sent",
             "notification.read",
-            # RBAC
+
             "rbac.role_created",
             "rbac.role_updated",
             "rbac.role_deleted",
@@ -107,7 +107,7 @@ class WebhookFormattingService:
             "rbac.permission_revoked",
             "rbac.user_role_assigned",
             "rbac.user_role_removed",
-            # Billing & Payments
+
             "billing.plan_changed",
             "billing.payment_success",
             "billing.payment_failed",
@@ -133,7 +133,7 @@ class WebhookFormattingService:
                 self.logger.error(f"Error processing custom template: {e}")
 
         event_names = {
-            # Keys
+
             "key.created": "🔑 New key created",
             "key.activated": "✅ Key activated",
             "key.expired": "⏰ Key expired",
@@ -145,14 +145,14 @@ class WebhookFormattingService:
             "key.renewed": "🔄 Key renewed",
             "key.suspended": "⏸️ Key suspended",
             "key.unsuspended": "▶️ Key unsuspended",
-            # Connect
+
             "connect.success": "✅ Client connected",
             "connect.failed": "❌ Connection failed",
             "connect.disconnected": "🔌 Client disconnected",
             "connect.challenge_requested": "🔐 Challenge requested",
             "connect.token_generated": "🎫 Token generated",
             "connect.token_expired": "⏰ Token expired",
-            # Users
+
             "user.created": "👤 New user created",
             "user.registered": "👤 New user registered",
             "user.login": "🔐 User login",
@@ -167,7 +167,7 @@ class WebhookFormattingService:
             "user.profile_updated": "📝 Profile updated",
             "user.2fa_enabled": "🔒 2FA enabled",
             "user.2fa_disabled": "🔓 2FA disabled",
-            # Products
+
             "product.created": "🎮 New product created",
             "product.updated": "📝 Product updated",
             "product.activated": "✅ Product activated",
@@ -177,7 +177,7 @@ class WebhookFormattingService:
             "product.file_downloaded": "📥 File downloaded",
             "product.settings_changed": "⚙️ Settings changed",
             "product.version_updated": "🔄 Version updated",
-            # Security
+
             "security.alert": "⚠️ Security alert",
             "security.block": "🚫 Security block",
             "security.login_failed": "❌ Login failed",
@@ -189,7 +189,7 @@ class WebhookFormattingService:
             "security.2fa_disabled": "🔓 2FA disabled",
             "security.suspicious_activity": "⚠️ Suspicious activity",
             "security.breach_detected": "🚨 Breach detected",
-            # Agents
+
             "agent.created": "🤖 Agent created",
             "agent.updated": "📝 Agent updated",
             "agent.deleted": "🗑️ Agent deleted",
@@ -198,25 +198,25 @@ class WebhookFormattingService:
             "agent.status_changed": "🔄 Status changed",
             "agent.product_assigned": "➕ Product assigned",
             "agent.product_unassigned": "➖ Product unassigned",
-            # Servers
+
             "server.created": "🖥️ Server created",
             "server.updated": "📝 Server updated",
             "server.deleted": "🗑️ Server deleted",
             "server.status_changed": "🔄 Status changed",
             "server.connected": "🔌 Server connected",
             "server.disconnected": "🔌 Server disconnected",
-            # Remote Control
+
             "remote.feature_enabled": "✅ Feature enabled",
             "remote.feature_disabled": "❌ Feature disabled",
             "remote.feature_updated": "📝 Feature updated",
             "remote.category_created": "📁 Category created",
             "remote.category_updated": "📝 Category updated",
             "remote.category_deleted": "🗑️ Category deleted",
-            # Notifications
+
             "notification.created": "📢 Notification created",
             "notification.sent": "📤 Notification sent",
             "notification.read": "👁️ Notification read",
-            # RBAC
+
             "rbac.role_created": "👑 Role created",
             "rbac.role_updated": "📝 Role updated",
             "rbac.role_deleted": "🗑️ Role deleted",
@@ -224,7 +224,7 @@ class WebhookFormattingService:
             "rbac.permission_revoked": "❌ Permission revoked",
             "rbac.user_role_assigned": "➕ Role assigned",
             "rbac.user_role_removed": "➖ Role removed",
-            # Billing & Payments
+
             "billing.plan_changed": "💳 Plan changed",
             "billing.payment_success": "✅ Payment success",
             "billing.payment_failed": "❌ Payment failed",
@@ -283,7 +283,7 @@ class WebhookFormattingService:
     def format_discord_embed(self, event: str, data: Dict) -> Dict:
         """Format embed for Discord"""
         event_info = {
-            # Keys
+
             "key.created": {"title": "🔑 New key created", "color": 0x00FF00},
             "key.activated": {"title": "✅ Key activated", "color": 0x00FF00},
             "key.expired": {"title": "⏰ Key expired", "color": 0xFFAA00},
@@ -295,14 +295,14 @@ class WebhookFormattingService:
             "key.renewed": {"title": "🔄 Key renewed", "color": 0x00FF00},
             "key.suspended": {"title": "⏸️ Key suspended", "color": 0xFFAA00},
             "key.unsuspended": {"title": "▶️ Key unsuspended", "color": 0x00FF00},
-            # Connect
+
             "connect.success": {"title": "✅ Client connected", "color": 0x00FF00},
             "connect.failed": {"title": "❌ Connection failed", "color": 0xFF0000},
             "connect.disconnected": {"title": "🔌 Client disconnected", "color": 0xFFAA00},
             "connect.challenge_requested": {"title": "🔐 Challenge requested", "color": 0x0099FF},
             "connect.token_generated": {"title": "🎫 Token generated", "color": 0x00FF00},
             "connect.token_expired": {"title": "⏰ Token expired", "color": 0xFFAA00},
-            # Users
+
             "user.created": {"title": "👤 New user created", "color": 0x0099FF},
             "user.registered": {"title": "👤 New user registered", "color": 0x0099FF},
             "user.login": {"title": "🔐 User login", "color": 0x00FF00},
@@ -317,7 +317,7 @@ class WebhookFormattingService:
             "user.profile_updated": {"title": "📝 Profile updated", "color": 0x0099FF},
             "user.2fa_enabled": {"title": "🔒 2FA enabled", "color": 0x00FF00},
             "user.2fa_disabled": {"title": "🔓 2FA disabled", "color": 0xFFAA00},
-            # Products
+
             "product.created": {"title": "🎮 New product created", "color": 0x00FF00},
             "product.updated": {"title": "📝 Product updated", "color": 0x0099FF},
             "product.activated": {"title": "✅ Product activated", "color": 0x00FF00},
@@ -327,7 +327,7 @@ class WebhookFormattingService:
             "product.file_downloaded": {"title": "📥 File downloaded", "color": 0x0099FF},
             "product.settings_changed": {"title": "⚙️ Settings changed", "color": 0x0099FF},
             "product.version_updated": {"title": "🔄 Version updated", "color": 0x0099FF},
-            # Projects
+
             "project.created": {"title": "🏗️ New project created", "color": 0x00FF00},
             "project.updated": {"title": "📝 Project updated", "color": 0x0099FF},
             "project.deleted": {"title": "🗑️ Project deleted", "color": 0xFF0000},
@@ -336,7 +336,7 @@ class WebhookFormattingService:
             "project.member_removed": {"title": "➖ Member removed", "color": 0xFFAA00},
             "project.invite_created": {"title": "📨 Invite created", "color": 0x0099FF},
             "project.invite_accepted": {"title": "✅ Invite accepted", "color": 0x00FF00},
-            # Security
+
             "security.alert": {"title": "⚠️ Security alert", "color": 0xFFAA00},
             "security.block": {"title": "🚫 Security block", "color": 0xFF0000},
             "security.login_failed": {"title": "❌ Login failed", "color": 0xFF0000},
@@ -348,7 +348,7 @@ class WebhookFormattingService:
             "security.2fa_disabled": {"title": "🔓 2FA disabled", "color": 0xFFAA00},
             "security.suspicious_activity": {"title": "⚠️ Suspicious activity", "color": 0xFFAA00},
             "security.breach_detected": {"title": "🚨 Breach detected", "color": 0xFF0000},
-            # Agents
+
             "agent.created": {"title": "🤖 Agent created", "color": 0x00FF00},
             "agent.updated": {"title": "📝 Agent updated", "color": 0x0099FF},
             "agent.deleted": {"title": "🗑️ Agent deleted", "color": 0xFF0000},
@@ -357,25 +357,25 @@ class WebhookFormattingService:
             "agent.status_changed": {"title": "🔄 Status changed", "color": 0x0099FF},
             "agent.product_assigned": {"title": "➕ Product assigned", "color": 0x00FF00},
             "agent.product_unassigned": {"title": "➖ Product unassigned", "color": 0xFFAA00},
-            # Servers
+
             "server.created": {"title": "🖥️ Server created", "color": 0x00FF00},
             "server.updated": {"title": "📝 Server updated", "color": 0x0099FF},
             "server.deleted": {"title": "🗑️ Server deleted", "color": 0xFF0000},
             "server.status_changed": {"title": "🔄 Status changed", "color": 0x0099FF},
             "server.connected": {"title": "🔌 Server connected", "color": 0x00FF00},
             "server.disconnected": {"title": "🔌 Server disconnected", "color": 0xFFAA00},
-            # Remote Control
+
             "remote.feature_enabled": {"title": "✅ Feature enabled", "color": 0x00FF00},
             "remote.feature_disabled": {"title": "❌ Feature disabled", "color": 0xFF0000},
             "remote.feature_updated": {"title": "📝 Feature updated", "color": 0x0099FF},
             "remote.category_created": {"title": "📁 Category created", "color": 0x0099FF},
             "remote.category_updated": {"title": "📝 Category updated", "color": 0x0099FF},
             "remote.category_deleted": {"title": "🗑️ Category deleted", "color": 0xFF0000},
-            # Notifications
+
             "notification.created": {"title": "📢 Notification created", "color": 0x0099FF},
             "notification.sent": {"title": "📤 Notification sent", "color": 0x00FF00},
             "notification.read": {"title": "👁️ Notification read", "color": 0x666666},
-            # RBAC
+
             "rbac.role_created": {"title": "👑 Role created", "color": 0x00FF00},
             "rbac.role_updated": {"title": "📝 Role updated", "color": 0x0099FF},
             "rbac.role_deleted": {"title": "🗑️ Role deleted", "color": 0xFF0000},
@@ -383,7 +383,7 @@ class WebhookFormattingService:
             "rbac.permission_revoked": {"title": "❌ Permission revoked", "color": 0xFF0000},
             "rbac.user_role_assigned": {"title": "➕ Role assigned", "color": 0x00FF00},
             "rbac.user_role_removed": {"title": "➖ Role removed", "color": 0xFFAA00},
-            # Billing & Payments
+
             "billing.plan_changed": {"title": "💳 Plan changed", "color": 0x0099FF},
             "billing.payment_success": {"title": "✅ Payment success", "color": 0x00FF00},
             "billing.payment_failed": {"title": "❌ Payment failed", "color": 0xFF0000},
@@ -393,12 +393,12 @@ class WebhookFormattingService:
             "payment.completed": {"title": "✅ Payment completed", "color": 0x00FF00},
             "payment.failed": {"title": "❌ Payment failed", "color": 0xFF0000},
             "payment.refunded": {"title": "💰 Payment refunded", "color": 0xFFAA00},
-            # Chat
+
             "chat.message_sent": {"title": "💬 Message sent", "color": 0x0099FF},
             "chat.group_created": {"title": "👥 Group created", "color": 0x00FF00},
             "chat.group_updated": {"title": "📝 Group updated", "color": 0x0099FF},
             "chat.group_deleted": {"title": "🗑️ Group deleted", "color": 0xFF0000},
-            # System
+
             "system.maintenance": {"title": "🔧 System maintenance", "color": 0x666666},
             "system.error": {"title": "❌ System error", "color": 0xFF0000},
             "system.backup_created": {"title": "💾 Backup created", "color": 0x00FF00},

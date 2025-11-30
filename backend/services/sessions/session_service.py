@@ -1,4 +1,3 @@
-from ...utils.service_helpers import get_service
 """
 Session Management Service
 Enhanced session management with security features
@@ -37,9 +36,9 @@ class SessionService:
         self.SUSPICIOUS_ACTIVITY_THRESHOLD = 10
         self.IP_CHANGE_THRESHOLD = 3
         
-        # Redis lock settings
-        self.LOCK_TIMEOUT = 5  # seconds
-        self.LOCK_RETRY_DELAY = 0.1  # seconds
+
+        self.LOCK_TIMEOUT = 5
+        self.LOCK_RETRY_DELAY = 0.1
         self.LOCK_MAX_RETRIES = 10
 
     def create_session(
@@ -61,9 +60,9 @@ class SessionService:
             if not user:
                 raise ValueError("User not found")
 
-            # SECURITY: Check session limit atomically before creating session
-            # This prevents race conditions where multiple concurrent requests
-            # could all pass the limit check before any session is created
+
+
+
             limit_exceeded, decremented_count = self._check_and_enforce_session_limit_atomic(user_id)
             if limit_exceeded:
                 raise ValueError("Maximum number of sessions reached")
@@ -84,8 +83,8 @@ class SessionService:
 
             self._store_session(session_data)
             
-            # SECURITY: Record login activity after successful session creation
-            # This must be done atomically to keep count accurate
+
+
             try:
                 from ...models.core import UserActivity
                 login_activity = UserActivity(
@@ -98,11 +97,11 @@ class SessionService:
                 db.session.add(login_activity)
                 db.session.commit()
                 
-                # Update cache with new count (increment by 1)
+
                 self._increment_session_count_cache(user_id, decremented_count)
             except Exception as e:
                 self.logger.warning(f"Failed to record login activity: {e}")
-                # Don't fail session creation if activity logging fails
+
 
             self.logger.info(
                 f"Session created for user {user_id}",
@@ -492,13 +491,13 @@ class SessionService:
             redis_client = get_redis_client()
         except Exception as e:
             self.logger.warning(f"Redis unavailable for session limit check, falling back to DB: {e}")
-            # Fallback to database-only approach if Redis is unavailable
+
             return self._check_session_limit_db_only_atomic(user_id)
         
-        # Try to acquire distributed lock
+
         lock_acquired = False
         for attempt in range(self.LOCK_MAX_RETRIES):
-            # Try to acquire lock using SET NX EX (set if not exists with expiration)
+
             lock_acquired = redis_client.set(
                 lock_key,
                 lock_identifier,
@@ -509,18 +508,18 @@ class SessionService:
             if lock_acquired:
                 break
                 
-            # Wait before retry with exponential backoff
+
             time.sleep(self.LOCK_RETRY_DELAY * (2 ** attempt))
         
         if not lock_acquired:
             self.logger.warning(
                 f"Could not acquire lock for session limit check for user {user_id} after {self.LOCK_MAX_RETRIES} attempts"
             )
-            # Fallback to database-only approach if lock cannot be acquired
+
             return self._check_session_limit_db_only_atomic(user_id)
         
         try:
-            # Check cached session count first
+
             cached_count = redis_client.get(cache_key)
             if cached_count is not None:
                 try:
@@ -530,10 +529,10 @@ class SessionService:
             else:
                 session_count = None
             
-            # If cache miss or invalid, query database
+
             if session_count is None:
                 cutoff_time = datetime.utcnow() - timedelta(hours=24)
-                # Use COUNT query instead of fetching all records to reduce memory and lock time
+
                 session_count = (
                     UserActivity.query.filter(
                         UserActivity.user_id == user_id,
@@ -543,13 +542,13 @@ class SessionService:
                     .count()
                 )
                 
-                # Cache the count for 60 seconds to reduce database queries
+
                 redis_client.setex(cache_key, 60, str(session_count))
             
-            # SECURITY: Check limit BEFORE incrementing (atomic check-and-enforce)
-            # If limit reached, try to free space by terminating oldest session
+
+
             if session_count >= self.MAX_SESSIONS_PER_USER:
-                # Need to terminate oldest session
+
                 cutoff_time = datetime.utcnow() - timedelta(hours=24)
                 oldest_session = (
                     UserActivity.query.filter(
@@ -568,27 +567,27 @@ class SessionService:
                         oldest_session_id=oldest_session.id,
                     )
                     
-                    # Update in a single transaction to minimize lock time
+
                     oldest_session.action = "logout_forced"
                     oldest_session.details = "Session terminated due to session limit enforcement"
                     db.session.commit()
                     
-                    # Decrement count (now we have space for new session)
+
                     new_count = session_count - 1
                     redis_client.setex(cache_key, 60, str(new_count))
                     
-                    # Return False (limit not exceeded) and new count
-                    # New session will be created, bringing count back to MAX_SESSIONS_PER_USER
+
+
                     return False, new_count
                 else:
-                    # Limit reached but couldn't find oldest session to terminate
+
                     return True, session_count
             
-            # Limit not reached - return current count (will be incremented after session creation)
+
             return False, session_count
             
         finally:
-            # Release lock using Lua script to ensure we only delete our own lock
+
             lua_script = """
             if redis.call("get", KEYS[1]) == ARGV[1] then
                 return redis.call("del", KEYS[1])
@@ -600,7 +599,7 @@ class SessionService:
                 redis_client.eval(lua_script, 1, lock_key, lock_identifier)
             except Exception as e:
                 self.logger.warning(f"Failed to release lock for user {user_id}: {e}")
-                # Lock will expire automatically after LOCK_TIMEOUT
+
     
     def _increment_session_count_cache(self, user_id: int, base_count: int):
         """
@@ -628,7 +627,7 @@ class SessionService:
         """
         cutoff_time = datetime.utcnow() - timedelta(hours=24)
         
-        # Use COUNT query to minimize data transfer and lock time
+
         session_count = (
             UserActivity.query.filter(
                 UserActivity.user_id == user_id,
@@ -639,7 +638,7 @@ class SessionService:
         )
         
         if session_count >= self.MAX_SESSIONS_PER_USER:
-            # Get only the oldest session ID to minimize lock time
+
             oldest_session = (
                 UserActivity.query.filter(
                     UserActivity.user_id == user_id,
@@ -662,11 +661,11 @@ class SessionService:
                 db.session.commit()
                 
                 new_count = session_count - 1
-                return False, new_count  # Space freed, can create new session
+                return False, new_count
             
-            return True, session_count  # Limit reached, couldn't free space
+            return True, session_count
         
-        return False, session_count  # Limit not reached
+        return False, session_count
     
     def _check_session_limit(self, user_id: int) -> bool:
         """
@@ -685,7 +684,7 @@ class SessionService:
         """
         cutoff_time = datetime.utcnow() - timedelta(hours=24)
         
-        # Use COUNT query to minimize data transfer and lock time
+
         session_count = (
             UserActivity.query.filter(
                 UserActivity.user_id == user_id,
@@ -696,7 +695,7 @@ class SessionService:
         )
         
         if session_count >= self.MAX_SESSIONS_PER_USER:
-            # Get only the oldest session ID to minimize lock time
+
             oldest_session = (
                 UserActivity.query.filter(
                     UserActivity.user_id == user_id,
@@ -760,6 +759,6 @@ class SessionService:
             self.logger.error(f"Error calculating session duration: {e}")
             return "Unknown"
 
-# Singleton instance for backward compatibility
-# Service instance should be obtained via ServiceContainer:
-#   service = get_service('session_service')
+
+
+

@@ -34,7 +34,7 @@ def find_product_by_id_or_unique_id(product_identifier, project_id):
     Returns:
         Product object or None if not found
     """
-    # Try as integer id (primary key) first
+
     if isinstance(product_identifier, int) or (isinstance(product_identifier, str) and product_identifier.isdigit()):
         try:
             product_id_int = int(product_identifier)
@@ -44,7 +44,7 @@ def find_product_by_id_or_unique_id(product_identifier, project_id):
         except (ValueError, TypeError):
             pass
     
-    # Try as unique_id (string)
+
     product = Product.query.filter_by(unique_id=str(product_identifier), project_id=project_id).first()
     return product
 
@@ -59,7 +59,7 @@ class TelegramBotManager:
 
     def __init__(self):
         self.bots = {}
-        self.timeout = 10  # Request timeout in seconds
+        self.timeout = 10
 
     def send_message(self, bot_token, chat_id, message, parse_mode="HTML"):
         """
@@ -313,8 +313,8 @@ def send_message(project_id=None):
             if not product_settings.discord_enabled:
                 discord_allowed = False
 
-        # SECURITY FIX: Use async tasks for Telegram/Discord to prevent blocking
-        # If Telegram/Discord API is slow or down, it won't block the user's request
+
+
         if telegram_bot and telegram_allowed:
             sender_name = (
                 user.username
@@ -324,7 +324,7 @@ def send_message(project_id=None):
             formatted_message = bot_manager.format_message(sender_type, sender_name, message_text)
 
             try:
-                # Use async Celery task instead of synchronous call
+
                 from ...tasks.chat_tasks import send_telegram_message_task
                 
                 send_telegram_message_task.delay(
@@ -336,7 +336,7 @@ def send_message(project_id=None):
                 )
                 logger.debug(f"Queued Telegram message task for chat_message_id={chat_message.id}")
             except ImportError:
-                # Celery is required for production - log error instead of blocking request
+
                 logger.error("Celery not available - Telegram message will not be sent. Celery is required for production.")
             except Exception as e:
                 logger.error(f"Error queueing Telegram message task: {e}")
@@ -349,7 +349,7 @@ def send_message(project_id=None):
                 message_content = f"[{sender_type.upper()}] {user.username if user and user.username else 'User'}: {message_text}"
                 for hook in discord_hooks:
                     try:
-                        # Use async Celery task instead of synchronous call
+
                         from ...tasks.chat_tasks import send_discord_message_task
                         
                         send_discord_message_task.delay(
@@ -359,7 +359,7 @@ def send_message(project_id=None):
                         )
                         logger.debug(f"Queued Discord message task for webhook_id={hook.id}")
                     except ImportError:
-                        # Celery is required for production - log error instead of blocking request
+
                         logger.error(f"Celery not available - Discord message will not be sent for webhook_id={hook.id}. Celery is required for production.")
                     except Exception as e:
                         logger.error(f"Error queueing Discord message task for webhook_id={hook.id}: {e}")
@@ -461,9 +461,9 @@ def configure_telegram_bot():
 
         existing_bot = TelegramBot.query.filter_by(project_id=project_id).first()
 
-        # SECURITY: Validate bot token asynchronously to prevent blocking
-        # For now, use synchronous validation but with timeout protection
-        # TODO: Move to Celery task for production
+
+
+
         try:
             bot_info = bot_manager.get_bot_info(bot_token)
             if not bot_info:
@@ -568,7 +568,7 @@ def send_client_message():
         helper = ProjectSettingsHelper(project.id)
         chat_settings = helper.get_chat_settings()
         
-        # Use chat settings from specialized model
+
         if chat_settings:
             if (
                 chat_settings.chat_message_max_length
@@ -625,13 +625,13 @@ def send_client_message():
 
         telegram_bot = TelegramBot.query.filter_by(project_id=project.id, is_active=True).first()
 
-        # SECURITY FIX: Use async tasks for Telegram/Discord to prevent blocking
+
         if telegram_bot and ("telegram" in platforms_set):
             sender_name = f"Client ({client_key[-4:]})"
             formatted_message = bot_manager.format_message("client", sender_name, message_text)
 
             try:
-                # Use async Celery task instead of synchronous call
+
                 from ...tasks.chat_tasks import send_telegram_message_task
                 
                 send_telegram_message_task.delay(
@@ -643,7 +643,7 @@ def send_client_message():
                 )
                 logger.debug(f"Queued Telegram message task for chat_message_id={chat_message.id}")
             except ImportError:
-                # Celery is required for production - log error instead of blocking request
+
                 logger.error("Celery not available - Telegram message will not be sent. Celery is required for production.")
             except Exception as e:
                 logger.error(f"Error queueing Telegram message task: {e}")
@@ -656,7 +656,7 @@ def send_client_message():
                 message_content = f"[CLIENT] {client_key[-4:] if client_key else ''}: {message_text}"
                 for hook in discord_hooks:
                     try:
-                        # Use async Celery task instead of synchronous call
+
                         from ...tasks.chat_tasks import send_discord_message_task
                         
                         send_discord_message_task.delay(
@@ -666,7 +666,7 @@ def send_client_message():
                         )
                         logger.debug(f"Queued Discord message task for webhook_id={hook.id}")
                     except ImportError:
-                        # Celery is required for production - log error instead of blocking request
+
                         logger.error(f"Celery not available - Discord message will not be sent for webhook_id={hook.id}. Celery is required for production.")
                     except Exception as e:
                         logger.error(f"Error queueing Discord message task for webhook_id={hook.id}: {e}")

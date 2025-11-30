@@ -27,7 +27,7 @@ class MTLSValidator:
     def __init__(self):
         self.enabled = os.environ.get("MTLS_ENABLED", "false").lower() == "true"
         self.ca_cert_path = os.environ.get("MTLS_CA_CERT_PATH")
-        self.required_cn = os.environ.get("MTLS_REQUIRED_CN")  # Common Name pattern
+        self.required_cn = os.environ.get("MTLS_REQUIRED_CN")
         
         if self.enabled and not self.ca_cert_path:
             logger.warning(
@@ -55,9 +55,9 @@ class MTLSValidator:
         if not self.enabled:
             return True, None
         
-        # SECURITY: Verify that request comes from trusted proxy
-        # This prevents attackers from directly connecting to the application
-        # and spoofing mTLS headers
+
+
+
         if not self._is_trusted_proxy():
             logger.error(
                 f"[MTLS_SECURITY] Request from untrusted proxy: {request.remote_addr}. "
@@ -66,15 +66,15 @@ class MTLSValidator:
             )
             return False, "Request must come through trusted reverse proxy"
         
-        # SECURITY: Prefer WSGI environment variables over HTTP headers
-        # WSGI variables (SSL_CLIENT_*) are set by the WSGI server and are harder to spoof
-        # HTTP headers (X-SSL-Client-*) are set by reverse proxy and can be spoofed if misconfigured
+
+
+
         client_cert = request.environ.get("SSL_CLIENT_CERT")
         client_verify = request.environ.get("SSL_CLIENT_VERIFY")
-        client_dn = request.environ.get("SSL_CLIENT_S_DN")  # Distinguished Name
+        client_dn = request.environ.get("SSL_CLIENT_S_DN")
         
-        # SECURITY: Check if WSGI variables are required (MTLS_REQUIRE_WSGI_VARS)
-        # If required and not present, reject the request
+
+
         if Config.MTLS_REQUIRE_WSGI_VARS and not client_cert:
             logger.error(
                 "[MTLS_SECURITY] WSGI variables required but not found. "
@@ -84,15 +84,15 @@ class MTLSValidator:
             )
             return False, "WSGI SSL variables required but not available"
         
-        # SECURITY: Only fall back to HTTP headers if WSGI variables are not available
-        # This is a security risk if Nginx is not properly configured to strip external headers
+
+
         if not client_cert:
-            # Check alternative locations (depends on WSGI server configuration)
+
             client_cert = request.environ.get("HTTP_X_SSL_CLIENT_CERT")
             client_verify = request.environ.get("HTTP_X_SSL_CLIENT_VERIFY")
             client_dn = request.environ.get("HTTP_X_SSL_CLIENT_S_DN")
             
-            # SECURITY: Log warning if using HTTP headers (potential spoofing risk)
+
             if client_cert:
                 logger.warning(
                     "[MTLS_SECURITY] Using HTTP headers for client certificate validation. "
@@ -102,8 +102,8 @@ class MTLSValidator:
                     f"IP: {request.remote_addr}, Path: {request.path}"
                 )
         
-        # SECURITY: Check for suspicious patterns
-        # If verification status exists but certificate is missing, this is suspicious
+
+
         if client_verify and not client_cert:
             logger.error(
                 "[MTLS_SECURITY] Suspicious pattern detected: verification status present "
@@ -114,8 +114,8 @@ class MTLSValidator:
         if not client_cert:
             return False, "Client certificate not provided"
         
-        # SECURITY: Strict validation of verification status
-        # Only "SUCCESS" is acceptable. "NONE", "FAILED", or any other value is rejected.
+
+
         if client_verify != "SUCCESS":
             logger.warning(
                 f"[MTLS_SECURITY] Client certificate verification failed: {client_verify}. "
@@ -123,10 +123,10 @@ class MTLSValidator:
             )
             return False, f"Client certificate verification failed: {client_verify}"
         
-        # SECURITY: Validate Common Name if required
-        # This provides additional layer of authentication beyond certificate validity
+
+
         if self.required_cn and client_dn:
-            # Extract CN from DN (format: CN=value,OU=...,O=...)
+
             cn = self._extract_cn_from_dn(client_dn)
             if not cn or not self._matches_cn_pattern(cn, self.required_cn):
                 logger.warning(
@@ -151,18 +151,18 @@ class MTLSValidator:
         """
         client_ip = request.remote_addr
         
-        # Check if client IP is in trusted proxy list
+
         if client_ip in Config.TRUSTED_PROXY_IPS:
             return True
         
-        # Also check X-Real-IP header (set by Nginx) if present
-        # But only if the direct connection is from trusted proxy
-        # This handles the case where Nginx forwards the real client IP
+
+
+
         real_ip = request.headers.get("X-Real-IP")
         if real_ip:
-            # The direct connection should still be from trusted proxy
-            # X-Real-IP contains the original client IP
-            # We trust it only if the direct connection is from trusted proxy
+
+
+
             if client_ip in Config.TRUSTED_PROXY_IPS:
                 return True
         
@@ -171,11 +171,11 @@ class MTLSValidator:
     def _extract_cn_from_dn(self, dn: str) -> Optional[str]:
         """Extract Common Name from Distinguished Name string."""
         try:
-            # DN format: CN=value,OU=...,O=...
+
             parts = dn.split(",")
             for part in parts:
                 if part.strip().startswith("CN="):
-                    return part.strip()[3:]  # Remove "CN=" prefix
+                    return part.strip()[3:]
         except Exception as e:
             logger.warning(f"Failed to extract CN from DN '{dn}': {e}")
         return None
@@ -191,17 +191,17 @@ class MTLSValidator:
         if pattern == cn:
             return True
         
-        # Simple wildcard matching
+
         if "*" in pattern:
             import re
-            # Convert pattern to regex: "agent-*" -> "agent-.*"
+
             regex_pattern = pattern.replace("*", ".*")
             return bool(re.match(f"^{regex_pattern}$", cn))
         
         return False
 
 
-# Global validator instance
+
 _mtls_validator = MTLSValidator()
 
 

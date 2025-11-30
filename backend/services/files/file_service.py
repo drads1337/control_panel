@@ -89,8 +89,8 @@ class FileService:
         Returns:
             Tuple of (is_valid, error_message)
         """
-        # Common file signatures (magic bytes)
-        # Format: (signature_bytes, file_type_description)
+
+
         dangerous_signatures = [
             (b'MZ', 'Windows executable (PE)'),
             (b'\x7fELF', 'Linux/Unix executable'),
@@ -108,32 +108,32 @@ class FileService:
             b'\xff\xd8\xff': ['jpg', 'jpeg'],
             b'GIF87a': ['gif'],
             b'GIF89a': ['gif'],
-            b'RIFF': ['webp'],  # WebP files start with RIFF, but need more validation
+            b'RIFF': ['webp'],
         }
         
         try:
             with open(file_path, 'rb') as f:
-                # Read first 12 bytes (enough for most signatures)
+
                 header = f.read(12)
                 
                 if len(header) < 2:
-                    return True, None  # Too small to validate, allow it
+                    return True, None
                 
-                # Check for dangerous executable signatures
+
                 for signature, description in dangerous_signatures:
                     if header.startswith(signature):
                         return False, f"File signature indicates {description}. This file type is not allowed for security reasons."
                 
-                # If expected extensions are provided, validate against image signatures
+
                 if expected_extensions:
-                    # Normalize extensions (remove dots, lowercase)
+
                     normalized_exts = [ext.lstrip('.').lower() for ext in expected_extensions]
                     
-                    # Check if any image signature matches
+
                     signature_matched = False
                     for sig_bytes, valid_exts in image_signatures.items():
                         if header.startswith(sig_bytes):
-                            # For WebP, need to check more bytes
+
                             if sig_bytes == b'RIFF':
                                 f.seek(0)
                                 webp_header = f.read(12)
@@ -144,11 +144,11 @@ class FileService:
                                 signature_matched = True
                                 break
                     
-                    # If we expect image extensions, verify the signature matches
+
                     if any(ext in ['png', 'jpg', 'jpeg', 'gif', 'webp'] for ext in normalized_exts):
                         if not signature_matched:
                             return False, f"File extension suggests image file, but file signature does not match. Possible file type spoofing."
-                        # Verify the extension matches the signature
+
                         for sig_bytes, valid_exts in image_signatures.items():
                             if header.startswith(sig_bytes):
                                 if not any(ext in valid_exts for ext in normalized_exts):
@@ -158,8 +158,8 @@ class FileService:
                 return True, None
         except Exception as e:
             self.logger.warning(f"Error validating file signature for {file_path}: {e}")
-            # On error, allow the file but log the warning
-            # This prevents blocking legitimate files due to validation errors
+
+
             return True, None
 
     def get_file_hash(self, file_path: str) -> str:
@@ -360,13 +360,13 @@ class FileService:
             file_path = os.path.join(upload_path, filename)
             file.save(file_path)
 
-            # SECURITY: Validate file signature (magic bytes) to prevent file type spoofing
-            # Check if file extension suggests an image, and validate accordingly
+
+
             ext_lower = ext.lstrip('.').lower() if ext else None
             expected_extensions = [ext_lower] if ext_lower and ext_lower in ['png', 'jpg', 'jpeg', 'gif', 'webp'] else None
             is_valid, validation_error = self.validate_file_signature(file_path, expected_extensions)
             if not is_valid:
-                # Remove the invalid file
+
                 try:
                     os.remove(file_path)
                 except Exception:
@@ -768,7 +768,7 @@ class FileService:
             file_path = os.path.join(self.get_upload_path(), product.loader_file)
             filename = f"{product.name}_loader.exe"
         elif file_type == "background" and product.backgrounds:
-            # Backgrounds stored as JSON array, get first one
+
             try:
                 import json
                 backgrounds_list = json.loads(product.backgrounds)
@@ -779,7 +779,7 @@ class FileService:
                 else:
                     return None, None, "File not found"
             except:
-                # If not JSON, treat as direct path
+
                 file_path = os.path.join(self.get_upload_path(), product.backgrounds)
                 filename = f"{product.name}_background.png"
         else:
@@ -964,11 +964,11 @@ class FileService:
             file_path = os.path.join(upload_path, filename)
             file.save(file_path)
 
-            # SECURITY: Validate file signature (magic bytes) to prevent file type spoofing
-            # For config files, we should block executable signatures
+
+
             is_valid, validation_error = self.validate_file_signature(file_path, None)
             if not is_valid:
-                # Remove the invalid file
+
                 try:
                     os.remove(file_path)
                 except Exception:
@@ -1057,11 +1057,11 @@ class FileService:
             file_path = os.path.join(upload_path, unique_filename)
             file.save(file_path)
 
-            # SECURITY: Validate file signature (magic bytes) to prevent file type spoofing
-            # For extra files, we should block executable signatures
+
+
             is_valid, validation_error = self.validate_file_signature(file_path, None)
             if not is_valid:
-                # Remove the invalid file
+
                 try:
                     os.remove(file_path)
                 except Exception:

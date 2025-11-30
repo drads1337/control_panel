@@ -114,18 +114,18 @@ class UserPublicResponse(BaseSchema):
     def convert_id_to_unique_id(cls, data):
         """Convert SQLAlchemy model id to unique_id for API responses"""
         if hasattr(data, 'unique_id'):
-            # SQLAlchemy model - convert to dict
+
             if hasattr(data, '__dict__'):
                 data_dict = {}
                 for k, v in data.__dict__.items():
                     if not k.startswith('_'):
                         data_dict[k] = v
-                # Replace id with unique_id
+
                 if 'unique_id' in data_dict:
                     data_dict['id'] = data_dict['unique_id']
                 return data_dict
         elif isinstance(data, dict):
-            # Already a dict - replace id with unique_id if present
+
             if 'unique_id' in data and 'id' not in data:
                 data['id'] = data['unique_id']
         return data
@@ -196,7 +196,7 @@ class UserInviteSchema(BaseSchema):
     @classmethod
     def validate_role(cls, v: str) -> str:
         """Validate role"""
-        # Note: Full validation against ASSIGNABLE_ROLES should be done in route
+
         if not v or not v.strip():
             raise ValueError("Role cannot be empty")
         return v.strip()

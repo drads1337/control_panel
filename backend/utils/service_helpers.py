@@ -37,10 +37,10 @@ def get_service(service_name: str) -> Any:
     return current_app.service_container.get(service_name)
 
 
-# Convenience functions for commonly used services
-# These functions are kept for backward compatibility
-# New code should use get_service() directly or DI through constructors
-# These functions use DI directly through current_app.service_container
+
+
+
+
 
 def get_user_crud_service():
     """Get UserCRUDService instance."""

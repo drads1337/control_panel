@@ -13,7 +13,7 @@ import sys
 import traceback
 from pathlib import Path
 
-# Add project root to path
+
 script_dir = Path(__file__).parent
 backend_dir = script_dir.parent
 project_root = backend_dir.parent
@@ -37,7 +37,7 @@ def get_migration_revisions():
     alembic_cfg = AlembicConfig(str(backend_dir / "migrations" / "alembic.ini"))
     alembic_cfg.set_main_option("script_location", str(backend_dir / "migrations"))
     
-    # Get all revisions
+
     revisions = []
     try:
         from alembic.script import ScriptDirectory
@@ -71,16 +71,16 @@ def test_migration_rollback():
         logger.info("Starting migration rollback tests", component="migrations")
         
         try:
-            # First, ensure we're at head
+
             logger.info("Applying all migrations to head", component="migrations")
             upgrade(revision="head")
             logger.info("All migrations applied", component="migrations")
             
-            # Get current revision
+
             current_rev = current()
             logger.info(f"Current migration revision: {current_rev}", component="migrations")
             
-            # Get all revisions
+
             revisions = get_migration_revisions()
             if not revisions:
                 logger.warning("No migrations found to test", component="migrations")
@@ -88,21 +88,21 @@ def test_migration_rollback():
             
             logger.info(f"Found {len(revisions)} migrations to test", component="migrations")
             
-            # Test downgrade capability
-            # Note: We test downgrade to previous revision, not individual migrations
-            # This is safer and more realistic
+
+
+
             failed_rollbacks = []
             
-            # Get the revision before head
+
             if len(revisions) > 1:
-                previous_rev = revisions[-2]  # Second to last revision
+                previous_rev = revisions[-2]
                 logger.info(f"Testing rollback from head to {previous_rev}", component="migrations")
                 
                 try:
                     downgrade(revision=previous_rev)
                     logger.info(f"✓ Rollback to {previous_rev} succeeded", component="migrations")
                     
-                    # Re-apply to head
+
                     upgrade(revision="head")
                     logger.info("✓ Re-applied migrations to head", component="migrations")
                 except Exception as e:

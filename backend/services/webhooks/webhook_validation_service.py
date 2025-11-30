@@ -23,8 +23,8 @@ class WebhookValidationService:
         self._webhook_formatting_service = webhook_formatting_service
         self._rbac_service = rbac_service
         self.logger = logging.getLogger(__name__)
-        # Cache DNS resolution results to prevent DNS rebinding attacks
-        # TTL: 3600 seconds (1 hour) - balances security and flexibility
+
+
         self.DNS_CACHE_TTL = 3600
         self.DNS_CACHE_PREFIX = "webhook_dns_cache:"
 
@@ -56,73 +56,73 @@ class WebhookValidationService:
 
             url = url.strip()
             
-            # Parse URL
+
             parsed = urlparse(url)
             
-            # SECURITY: Only allow HTTPS, not HTTP
+
             if parsed.scheme != "https":
                 logging.warning(f"WEBHOOK_SSRF_BLOCKED: Only HTTPS allowed, got {parsed.scheme}")
                 return False
             
-            # Get hostname
+
             hostname = parsed.hostname
             if not hostname:
                 return False
             
-            # SECURITY: Block localhost and common local hostnames
+
             blocked_hostnames = {
                 "localhost",
                 "127.0.0.1",
                 "0.0.0.0",
                 "::1",
                 "localhost.localdomain",
-                "metadata.google.internal",  # GCP metadata
+                "metadata.google.internal",
             }
             if hostname.lower() in blocked_hostnames:
                 logging.warning(f"WEBHOOK_SSRF_BLOCKED: Blocked hostname {hostname}")
                 return False
             
-            # SECURITY: Block IP addresses in URL (should use hostname, not IP)
-            # This prevents bypassing DNS resolution checks
+
+
             try:
-                # Try to parse hostname as IP address
+
                 ipaddress.ip_address(hostname)
-                # If successful, hostname is an IP address - block it
+
                 logging.warning(f"WEBHOOK_SSRF_BLOCKED: IP address in URL instead of hostname: {hostname}")
                 return False
             except ValueError:
-                # Not an IP address, continue validation
+
                 pass
             
-            # SECURITY: Resolve hostname to ALL IP addresses (IPv4 and IPv6)
-            # Using getaddrinfo() instead of gethostbyname() to:
-            # 1. Get all IP addresses (not just first)
-            # 2. Support both IPv4 and IPv6
-            # 3. Better handle DNS rebinding attacks
+
+
+
+
+
             try:
-                # Check cache first to prevent DNS rebinding attacks
+
                 cache_key = f"{self.DNS_CACHE_PREFIX}{hostname}"
                 cached_ips = self._get_cached_ips(cache_key)
                 
                 if cached_ips:
-                    # Use cached IPs (validated previously)
+
                     ip_addresses = cached_ips
                     logging.debug(f"WEBHOOK_DNS_CACHE_HIT: Using cached IPs for {hostname}")
                 else:
-                    # Get all address info (IPv4 and IPv6)
+
                     addr_infos = socket.getaddrinfo(hostname, None, 0, socket.SOCK_STREAM)
                     if not addr_infos:
                         logging.warning(f"WEBHOOK_SSRF_BLOCKED: No IP addresses found for {hostname}")
                         return False
                     
-                    # Extract all IP addresses
+
                     ip_addresses = []
                     for addr_info in addr_infos:
-                        ip_addr = addr_info[4][0]  # (hostname, port) tuple, get hostname
+                        ip_addr = addr_info[4][0]
                         ip_addresses.append(ip_addr)
                 
-                # SECURITY: Validate ALL resolved IP addresses
-                # If ANY IP is in blocked range, reject the URL
+
+
                 validated_ips = []
                 for ip_address in ip_addresses:
                     try:
@@ -131,41 +131,41 @@ class WebhookValidationService:
                         logging.warning(f"WEBHOOK_SSRF_BLOCKED: Invalid IP address {ip_address}")
                         return False
                     
-                    # SECURITY: Block private IP ranges (RFC 1918)
-                    # 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+
+
                     if ip_obj.is_private:
                         logging.warning(f"WEBHOOK_SSRF_BLOCKED: Private IP range {ip_address} for {hostname}")
                         return False
                     
-                    # SECURITY: Block loopback addresses
+
                     if ip_obj.is_loopback:
                         logging.warning(f"WEBHOOK_SSRF_BLOCKED: Loopback address {ip_address} for {hostname}")
                         return False
                     
-                    # SECURITY: Block link-local addresses (169.254.0.0/16)
+
                     if ip_obj.is_link_local:
                         logging.warning(f"WEBHOOK_SSRF_BLOCKED: Link-local address {ip_address} for {hostname}")
                         return False
                     
-                    # SECURITY: Block multicast addresses
+
                     if ip_obj.is_multicast:
                         logging.warning(f"WEBHOOK_SSRF_BLOCKED: Multicast address {ip_address} for {hostname}")
                         return False
                     
-                    # SECURITY: Block reserved addresses (0.0.0.0/8, etc.)
+
                     if ip_obj.is_reserved:
                         logging.warning(f"WEBHOOK_SSRF_BLOCKED: Reserved address {ip_address} for {hostname}")
                         return False
                     
-                    # SECURITY: Block cloud metadata endpoints (AWS, GCP, Azure)
+
                     if ip_address == "169.254.169.254":
                         logging.warning(f"WEBHOOK_SSRF_BLOCKED: Cloud metadata endpoint {ip_address} for {hostname}")
                         return False
                     
                     validated_ips.append(ip_address)
                 
-                # SECURITY: Cache validated IPs to prevent DNS rebinding attacks
-                # When webhook is executed, we'll use cached IPs instead of re-resolving DNS
+
+
                 if not cached_ips:
                     self._cache_validated_ips(cache_key, validated_ips)
                 
@@ -173,7 +173,7 @@ class WebhookValidationService:
                 logging.warning(f"WEBHOOK_SSRF_BLOCKED: Failed to resolve {hostname}: {e}")
                 return False
             
-            # URL format validation
+
             url_pattern = re.compile(
                 r"^https://"
                 r"(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|"
@@ -206,10 +206,10 @@ class WebhookValidationService:
             Tuple of (has_access, error_message)
         """
         try:
-            # Import RBACManager (no circular dependency - it's a utility)
+
             from ...utils.rbac_utils import RBACManager
             
-            # Use injected dependency instead of Service Locator pattern
+
             if not self._rbac_service:
                 raise ServiceError(
                     "Rbac dependency not injected",
@@ -265,7 +265,7 @@ class WebhookValidationService:
 
             user = User.query.get(user_id)
 
-            # Get webhook
+
             webhook = Webhook.query.filter_by(id=webhook_id, project_id=user.project_id).first()
             if not webhook:
                 return False, "Webhook not found", None
@@ -333,7 +333,7 @@ class WebhookValidationService:
 
             if events:
                 if valid_events is None:
-                    # Use injected dependency instead of Service Locator pattern
+
                     if not self._webhook_formatting_service:
                         raise ServiceError(
                             "Webhook formatting service dependency not injected",

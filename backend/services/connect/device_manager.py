@@ -137,11 +137,11 @@ class DeviceManager:
         existing_device = DeviceInfo.query.filter_by(key_id=key_id, serial=serial).first()
 
         if existing_device:
-            # Buffer last_seen update instead of writing immediately
-            # This reduces database write pressure significantly
+
+
             device_update_buffer.buffer_device_update(key_id, serial)
             
-            # Update critical fields immediately (these are less frequent)
+
             needs_commit = False
             
             if existing_device.ip_address != ip:

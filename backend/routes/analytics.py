@@ -35,8 +35,8 @@ def get_dashboard_overview(current_user=None, project_id=None):
     Get comprehensive dashboard overview with analytics
     """
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         analytics_service = get_service('analytics_service')
         rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
@@ -49,7 +49,7 @@ def get_dashboard_overview(current_user=None, project_id=None):
         if not rbac_service.check_permission(user.id, "analytics.view"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
-        # Use project_id from parameter or fallback to user.project_id
+
         project_id = project_id or user.project_id
         period_days = request.args.get("period_days", 30, type=int)
 
@@ -62,7 +62,7 @@ def get_dashboard_overview(current_user=None, project_id=None):
         if not analytics_data:
             return jsonify({"error": "Failed to generate analytics"}), 500
 
-        # Add load status filtered by project_id for project isolation
+
         try:
             load_status = prometheus_metrics_reader.get_all_endpoints_status(project_id=project_id)
             if load_status:
@@ -72,7 +72,7 @@ def get_dashboard_overview(current_user=None, project_id=None):
                 logging.warning(f"prometheus_metrics_reader.get_all_endpoints_status returned None or empty for project {project_id}")
         except Exception as load_error:
             logging.error(f"Error getting load status for dashboard overview: {load_error}", exc_info=True)
-            # Don't fail the entire request if load status fails
+
             analytics_data["load_status"] = None
 
         return jsonify({"status": "success", "data": analytics_data})
@@ -92,8 +92,8 @@ def get_owner_dashboard_overview():
     """
     user_id = None
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         analytics_service = get_service('analytics_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
@@ -123,7 +123,7 @@ def get_owner_dashboard_overview():
                 logging.warning("prometheus_metrics_reader.get_all_endpoints_status returned None or empty for owner dashboard")
         except Exception as load_error:
             logging.error(f"Error getting load status for owner dashboard: {load_error}", exc_info=True)
-            # Don't fail the entire request if load status fails
+
             analytics_data["load_status"] = None
 
         return jsonify({"status": "success", "data": analytics_data})
@@ -140,8 +140,8 @@ def get_sales_trends():
     Get sales trends and analytics
     """
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         analytics_service = get_service('analytics_service')
         rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
@@ -211,8 +211,8 @@ def get_user_insights():
     Get user insights and analytics
     """
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         analytics_service = get_service('analytics_service')
         rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
@@ -260,8 +260,8 @@ def get_geography_activations():
     Get activation geography analytics
     """
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         analytics_service = get_service('analytics_service')
         rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
@@ -309,8 +309,8 @@ def get_popular_products():
     Get popular products analytics
     """
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         analytics_service = get_service('analytics_service')
         rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
@@ -366,8 +366,8 @@ def get_security_overview():
     Get security overview and analytics
     """
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         analytics_service = get_service('analytics_service')
         rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
@@ -414,8 +414,8 @@ def get_system_health():
     Get system health metrics
     """
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         analytics_service = get_service('analytics_service')
         rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
@@ -459,8 +459,8 @@ def generate_analytics_report():
     Generate comprehensive analytics report
     """
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         analytics_service = get_service('analytics_service')
         rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()

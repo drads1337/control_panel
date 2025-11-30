@@ -57,7 +57,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(profile_bp, url_prefix="/api/profile")
     app.register_blueprint(keys_bp, url_prefix="/api/keys")
     app.register_blueprint(sessions_bp, url_prefix="/api/sessions")
-    # REMOVED: clients_bp - legacy endpoint removed, use /api/products instead
+
 
     app.register_blueprint(system_bp, url_prefix="/api/admin")
     app.register_blueprint(admin_users_bp, url_prefix="/api/admin/users")
@@ -65,10 +65,10 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(servers_bp, url_prefix="/api/servers")
     app.register_blueprint(files_bp, url_prefix="/api/files")
     
-    # Universal terminology endpoints
-    # Using consistent terminology:
-    # - "products" instead of "clients" (legacy /api/clients removed)
-    # - "agents" instead of "loaders"
+
+
+
+
     app.register_blueprint(products_bp, url_prefix="/api/products", name="products")
     app.register_blueprint(agents_bp, url_prefix="/api/agents", name="agents")
 

@@ -31,8 +31,8 @@ from typing import Optional, Tuple, Union
 
 logger = logging.getLogger(__name__)
 
-# Logical errors that indicate programming mistakes or invalid input
-# These should be caught and handled specifically, not masked by broad Exception
+
+
 LOGICAL_ERRORS = (
     ValueError,
     KeyError,
@@ -43,8 +43,8 @@ LOGICAL_ERRORS = (
     KeyError,
 )
 
-# System/infrastructure errors that indicate external service issues
-# These can be caught more broadly but should be logged appropriately
+
+
 SYSTEM_ERRORS = (
     ConnectionError,
     TimeoutError,
@@ -52,14 +52,14 @@ SYSTEM_ERRORS = (
     IOError,
 )
 
-# Database errors (SQLAlchemy)
+
 try:
     from sqlalchemy.exc import SQLAlchemyError, OperationalError, IntegrityError
     DATABASE_ERRORS = (SQLAlchemyError, OperationalError, IntegrityError)
 except ImportError:
     DATABASE_ERRORS = ()
 
-# Redis errors
+
 try:
     import redis
     REDIS_ERRORS = (
@@ -144,32 +144,32 @@ def handle_service_error(
     """
     error_category = get_error_category(exception)
     
-    # Auto-determine traceback inclusion based on error type
+
     if include_traceback is None:
-        # Always include traceback for logical errors (they indicate bugs)
-        # For system errors, include in development, minimal in production
+
+
         include_traceback = is_logical_error(exception)
     
-    # Build log message
+
     log_message = f"{error_category.upper()}_ERROR: {type(exception).__name__}: {str(exception)}"
     if context:
         context_str = " ".join(f"{k}={v}" for k, v in context.items())
         log_message = f"{log_message} {context_str}"
     
-    # Log with appropriate level
+
     log_func = getattr(logger, log_level, logger.error)
     if include_traceback:
         log_func(log_message, exc_info=True)
     else:
         log_func(log_message)
     
-    # Build response
+
     error_response = {
         "error": user_message,
         "type": error_category,
     }
     
-    # In development, include more details for logical errors
+
     from ..config.config import Config
     if Config.FLASK_ENV == "development" and is_logical_error(exception):
         error_response["exception_type"] = type(exception).__name__
@@ -220,13 +220,13 @@ def safe_execute(
         )
         return None, error_response, status_code
     except Exception as e:
-        # Catch-all for unexpected exceptions
+
         error_response, status_code = handle_service_error(
             e,
             default_error_message,
             default_status_code,
             context=context,
-            include_traceback=True,  # Always log unexpected exceptions with traceback
+            include_traceback=True,
         )
         return None, error_response, status_code
 

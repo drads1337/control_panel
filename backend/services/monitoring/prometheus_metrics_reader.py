@@ -37,20 +37,20 @@ class PrometheusMetricsReader:
             Metric value or 0.0 if not found
         """
         try:
-            # Get all metrics in text format
+
             metrics_text = generate_latest(self.registry).decode('utf-8')
             
-            # Parse metrics
+
             for family in text_string_to_metric_families(metrics_text):
                 if family.name == metric_name:
                     for sample in family.samples:
-                        # Check if labels match
+
                         if labels:
                             sample_labels = sample.labels
                             if all(sample_labels.get(k) == v for k, v in labels.items()):
                                 return float(sample.value)
                         else:
-                            # No labels specified, return first value
+
                             return float(sample.value)
             
             return 0.0
@@ -72,35 +72,35 @@ class PrometheusMetricsReader:
         use Prometheus queries directly or scrape /metrics endpoint.
         """
         try:
-            # Get all metrics and parse them
+
             metrics_text = generate_latest(self.registry).decode('utf-8')
             
             request_count = 0
             error_count = 0
             response_times = []
             
-            # Parse metrics from text format
+
             for family in text_string_to_metric_families(metrics_text):
-                # Look for request count metrics
+
                 if 'http_request' in family.name.lower() and 'total' in family.name.lower():
                     for sample in family.samples:
-                        # Check if this matches our endpoint
+
                         path = sample.labels.get('path', '')
                         method = sample.labels.get('method', '')
                         status = sample.labels.get('status', '')
                         
                         if endpoint in path.lower() or f'/{endpoint}' in path:
                             request_count += float(sample.value)
-                            # Count errors (4xx, 5xx)
+
                             if status and (status.startswith('4') or status.startswith('5')):
                                 error_count += float(sample.value)
                 
-                # Look for response time metrics
+
                 if 'http_request_duration' in family.name.lower():
                     for sample in family.samples:
                         path = sample.labels.get('path', '')
                         if endpoint in path.lower() or f'/{endpoint}' in path:
-                            # Extract bucket values
+
                             le = sample.labels.get('le', '')
                             if le:
                                 try:
@@ -108,17 +108,17 @@ class PrometheusMetricsReader:
                                 except ValueError:
                                     pass
             
-            # Calculate RPS (simplified - based on total requests)
+
             rps = request_count / 60.0 if request_count > 0 else 0.0
             error_rate = (error_count / request_count * 100) if request_count > 0 else 0.0
             
-            # Estimate response times (simplified)
-            avg_response_ms = 200  # Default estimate
+
+            avg_response_ms = 200
             if response_times:
                 response_times.sort()
                 avg_response_ms = response_times[len(response_times) // 2] * 1000
             
-            # Determine status
+
             status, severity = self._determine_load_status(endpoint, rps, avg_response_ms, error_rate)
             
             return {
@@ -155,7 +155,7 @@ class PrometheusMetricsReader:
         Returns:
             Tuple of (status, severity)
         """
-        # Simplified thresholds - can be moved to config
+
         if endpoint == "connect":
             warning_rps = 50
             critical_rps = 100
@@ -171,19 +171,19 @@ class PrometheusMetricsReader:
         error_rate_warning_pct = 5
         error_rate_critical_pct = 10
         
-        # Check RPS
+
         if rps >= critical_rps:
             return "critical", "critical"
         elif rps >= warning_rps:
             return "warning", "high"
         
-        # Check response time
+
         if avg_response_ms >= response_time_critical_ms:
             return "critical", "critical"
         elif avg_response_ms >= response_time_warning_ms:
             return "warning", "medium"
         
-        # Check error rate
+
         if error_rate >= error_rate_critical_pct:
             return "critical", "critical"
         elif error_rate >= error_rate_warning_pct:
@@ -207,7 +207,7 @@ class PrometheusMetricsReader:
         for endpoint in endpoints:
             status[endpoint] = self.get_endpoint_metrics(endpoint)
         
-        # Overall system status
+
         critical_count = sum(1 for s in status.values() if s.get("status") == "critical")
         warning_count = sum(1 for s in status.values() if s.get("status") == "warning")
         
@@ -225,6 +225,6 @@ class PrometheusMetricsReader:
             "note": "Metrics are collected automatically by Prometheus. Use /metrics endpoint for raw metrics.",
         }
 
-# Singleton instance
+
 prometheus_metrics_reader = PrometheusMetricsReader()
 

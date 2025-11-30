@@ -42,21 +42,21 @@ def register_error_handlers(app: Flask) -> None:
 
         error_response = {"error": "Internal server error", "type": "internal_error"}
 
-        # SECURITY: Never expose tracebacks in production
-        # Only show details in development mode (not production)
-        # Additional checks: Docker environment, explicit production flags
+
+
+
         from ..config.config import IS_PRODUCTION
         import os
         
-        # SECURITY: Multiple checks to ensure production mode is enforced
-        # 1. Check IS_PRODUCTION flag
-        # 2. Check FLASK_ENV environment variable directly
-        # 3. Check for Docker/Kubernetes production indicators
+
+
+
+
         flask_env_prod = Config.FLASK_ENV == "production"
         docker_prod = os.environ.get("DOCKER_ENV") == "production" or os.environ.get("KUBERNETES_SERVICE_HOST") is not None
         explicit_prod = os.environ.get("FORCE_PRODUCTION", "").lower() == "true"
         
-        # If any production indicator is set, force production mode
+
         is_production = IS_PRODUCTION or flask_env_prod or docker_prod or explicit_prod
         is_safe_to_show_details = not is_production
         
@@ -65,8 +65,8 @@ def register_error_handlers(app: Flask) -> None:
             error_response["details"] = str(error)
             error_response["message"] = f"{type(error).__name__}: {str(error)}"
         else:
-            # Production mode: never expose tracebacks or error details
-            # Even if debug mode is accidentally enabled, we don't expose internals
+
+
             error_response = {
                 "error": "Internal Server Error",
                 "message": "An unexpected error occurred. Support team has been notified.",
@@ -134,7 +134,7 @@ def register_error_handlers(app: Flask) -> None:
                 429,
             )
 
-    # Register ServiceError handler before generic Exception handler
+
     if ServiceError:
         @app.errorhandler(ServiceError)
         def handle_service_error(e: ServiceError):
@@ -144,23 +144,23 @@ def register_error_handlers(app: Flask) -> None:
             """
             logger = logging.getLogger(__name__)
             
-            # Special handling for AuthenticationError - log suspicious activity
+
             if hasattr(e, '__class__') and e.__class__.__name__ == 'AuthenticationError':
                 try:
                     from flask import request
                     ip = request.remote_addr if request else "unknown"
-                    # Log suspicious activity for authentication failures
+
                     logger.warning(f"Suspicious activity from {ip}: LOGIN_FAIL - AuthenticationError: {e.message}")
                 except Exception:
-                    pass  # Don't fail if logging fails
+                    pass
             
-            # Log the error with context if available
+
             log_message = f"ServiceError: {type(e).__name__}: {e.message}"
             if e.context:
                 context_str = " ".join(f"{k}={v}" for k, v in e.context.items())
                 log_message = f"{log_message} {context_str}"
             
-            # Use appropriate log level based on status code
+
             if e.status_code >= 500:
                 logger.error(log_message, exc_info=True)
             elif e.status_code >= 400:
@@ -168,28 +168,28 @@ def register_error_handlers(app: Flask) -> None:
             else:
                 logger.info(log_message)
             
-            # Build error response
+
             error_response = {
                 "error": e.message,
                 "type": type(e).__name__.lower().replace("error", ""),
             }
             
-            # Add field information for ValidationError
+
             if hasattr(e, "field") and e.field:
                 error_response["field"] = e.field
             
-            # Add resource information for NotFoundError
+
             if hasattr(e, "resource_type") and e.resource_type:
                 error_response["resource_type"] = e.resource_type
                 if hasattr(e, "resource_id") and e.resource_id:
                     error_response["resource_id"] = e.resource_id
             
-            # Add error_code for SecurityError
+
             if hasattr(e, "error_code") and e.error_code:
                 error_response["error_code"] = e.error_code
             
-            # In development, include more details (but never in production)
-            # SECURITY: Multiple checks to ensure production mode is enforced
+
+
             from ..config.config import IS_PRODUCTION
             import os
             
@@ -197,7 +197,7 @@ def register_error_handlers(app: Flask) -> None:
             docker_prod = os.environ.get("DOCKER_ENV") == "production" or os.environ.get("KUBERNETES_SERVICE_HOST") is not None
             explicit_prod = os.environ.get("FORCE_PRODUCTION", "").lower() == "true"
             
-            # If any production indicator is set, force production mode
+
             is_production = IS_PRODUCTION or flask_env_prod or docker_prod or explicit_prod
             is_safe_to_show_details = not is_production
             
@@ -212,8 +212,8 @@ def register_error_handlers(app: Flask) -> None:
     def handle_unhandled_exception(e):
         """Handle all unhandled exceptions"""
         
-        # ServiceError should be handled by its specific handler above
-        # Flask will route ServiceError to the registered handler automatically
+
+
 
         if RateLimitExceeded and isinstance(e, RateLimitExceeded):
 
@@ -247,21 +247,21 @@ def register_error_handlers(app: Flask) -> None:
 
         error_response = {"error": "Internal server error", "type": "unhandled_exception"}
 
-        # SECURITY: Never expose tracebacks in production
-        # Only show details in development mode (not production)
-        # Additional checks: Docker environment, explicit production flags
+
+
+
         from ..config.config import IS_PRODUCTION
         import os
         
-        # SECURITY: Multiple checks to ensure production mode is enforced
-        # 1. Check IS_PRODUCTION flag
-        # 2. Check FLASK_ENV environment variable directly
-        # 3. Check for Docker/Kubernetes production indicators
+
+
+
+
         flask_env_prod = Config.FLASK_ENV == "production"
         docker_prod = os.environ.get("DOCKER_ENV") == "production" or os.environ.get("KUBERNETES_SERVICE_HOST") is not None
         explicit_prod = os.environ.get("FORCE_PRODUCTION", "").lower() == "true"
         
-        # If any production indicator is set, force production mode
+
         is_production = IS_PRODUCTION or flask_env_prod or docker_prod or explicit_prod
         is_safe_to_show_details = not is_production
         
@@ -270,8 +270,8 @@ def register_error_handlers(app: Flask) -> None:
             error_response["details"] = str(e)
             error_response["message"] = f"{type(e).__name__}: {str(e)}"
         else:
-            # Production mode: never expose tracebacks or error details
-            # Even if debug mode is accidentally enabled, we don't expose internals
+
+
             error_response = {
                 "error": "Internal Server Error",
                 "message": "An unexpected error occurred. Support team has been notified.",

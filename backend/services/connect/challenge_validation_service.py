@@ -15,7 +15,7 @@ import redis
 from ...config.config import Config
 from ...utils.redis_client import get_redis_client
 from ...utils.service_exceptions import ServiceError
-# get_service removed - using DI
+
 
 logger = logging.getLogger(__name__)
 
@@ -82,11 +82,11 @@ class ChallengeValidationService:
 
         pipe = redis_client.pipeline()
         pipe.setex(challenge_id, Config.CHALLENGE_TTL, json.dumps(enhanced_challenge))
-        # SECURITY: Use centralized CANARY_TTL from Config (reduced from 300 to 120 seconds).
-        # In high-load systems, canaries should expire quickly to prevent replay attacks.
+
+
         pipe.setex(f"canary:{user_key}:{fingerprint}", Config.CANARY_TTL, canary)
 
-        # SECURITY: Use centralized PROJECT_ID_CACHE_TTL from Config (reduced from 300 to 120 seconds)
+
         pipe.setex(f"challenge_project_id:{ip}", Config.PROJECT_ID_CACHE_TTL, str(project_id))
         pipe.execute()
 

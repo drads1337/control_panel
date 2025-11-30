@@ -65,7 +65,7 @@ class AuthorizationAuditService:
     
     def __init__(self):
         self.audit_enabled = True
-        self.max_audit_entries = 10000  # Keep last 10k entries in memory
+        self.max_audit_entries = 10000
         self.audit_trail: List[AuthorizationAuditEntry] = []
         self.suspicious_patterns: Set[str] = set()
         
@@ -104,7 +104,7 @@ class AuthorizationAuditService:
         if evaluated_policies is None:
             evaluated_policies = []
             
-        # Detect potential security issues
+
         potential_issues = self._detect_potential_issues(
             user_id, permission, outcome, policy_type, context, evaluated_policies
         )
@@ -122,19 +122,19 @@ class AuthorizationAuditService:
             potential_issues=potential_issues,
         )
         
-        # Add to audit trail (with size limit)
+
         self.audit_trail.append(entry)
         if len(self.audit_trail) > self.max_audit_entries:
             self.audit_trail.pop(0)
         
-        # Log suspicious patterns
+
         if potential_issues:
             logger.warning(
                 f"[AUTH_AUDIT] Potential security issues detected for user_id={user_id} "
                 f"permission={permission}: {', '.join(potential_issues)}"
             )
             
-        # Log all authorization decisions for security analysis
+
         logger.info(
             f"[AUTH_AUDIT] user_id={user_id} permission={permission} outcome={outcome.value} "
             f"policy={policy_type} reason={reason} execution_time={execution_time_ms:.2f}ms "
@@ -160,26 +160,26 @@ class AuthorizationAuditService:
         """
         issues = []
         
-        # Check for privilege escalation patterns
+
         if outcome == DecisionOutcome.ALLOW:
-            # Check if user was granted access through multiple conflicting policies
+
             policy_types = [p.get("type") for p in evaluated_policies]
             if len(set(policy_types)) > 3:
                 issues.append("Multiple policy types evaluated (potential complexity)")
             
-            # Check for policy conflicts (RBAC ALLOW vs ABAC potential DENY)
-            # This helps detect cases where RBAC grants access but ABAC should deny
+
+
             policy_decisions = [p for p in evaluated_policies if p.get("type") != "abstain" and p.get("type") != "error"]
             if len(policy_decisions) > 1:
                 rbac_allowed = any(p.get("type") == "rbac" and p.get("allowed") for p in policy_decisions)
                 abac_checked = any(p.get("type") == "abac" for p in evaluated_policies)
                 if rbac_allowed and abac_checked:
-                    # Check if ABAC might have denied but was overridden
+
                     abac_decisions = [p for p in policy_decisions if p.get("type") == "abac"]
                     if not abac_decisions or not any(p.get("allowed") for p in abac_decisions):
                         issues.append("RBAC allowed but ABAC did not explicitly allow (potential conflict)")
             
-            # Check for admin/owner bypass on sensitive operations
+
             if policy_type in ("owner_bypass", "admin_bypass"):
                 sensitive_permissions = [
                     "system.manage_all_projects",
@@ -190,11 +190,11 @@ class AuthorizationAuditService:
                 if permission in sensitive_permissions:
                     issues.append(f"Sensitive permission granted via {policy_type}")
             
-            # Check for ABAC rules that might be too permissive
+
             if policy_type == "abac":
                 issues.append("Access granted via ABAC (verify rule logic)")
         
-        # Check for resolved conflicts (DENY overriding ALLOW)
+
         if context.get("conflict_resolved"):
             conflicting_policies = context.get("conflicting_allow_policies", [])
             if conflicting_policies:
@@ -202,16 +202,16 @@ class AuthorizationAuditService:
                     f"Policy conflict resolved: DENY from {policy_type} overrode ALLOW from {', '.join(conflicting_policies)}"
                 )
         
-        # Check for inconsistent decisions
+
         if len(evaluated_policies) > 5:
             issues.append("Many policies evaluated (potential performance issue)")
         
-        # Check for missing context
+
         if outcome == DecisionOutcome.ALLOW and not context.get("project_id"):
             if permission.startswith(("keys.", "users.", "products.")):
                 issues.append("Access granted without project_id context")
         
-        # Check for resource-level permissions without resource_id
+
         if "resource" in policy_type.lower() and not context.get("resource_id"):
             issues.append("Resource-level permission without resource_id")
         
@@ -240,7 +240,7 @@ class AuthorizationAuditService:
         if not self.audit_enabled:
             return {"status": "disabled"}
         
-        # Find recent decisions for this user/permission
+
         recent_decisions = [
             entry for entry in self.audit_trail[-1000:]
             if entry.user_id == user_id and entry.permission == permission
@@ -253,12 +253,12 @@ class AuthorizationAuditService:
                 "decisions_count": 0,
             }
         
-        # Check for inconsistencies
+
         outcomes = [d.outcome for d in recent_decisions]
         unique_outcomes = set(outcomes)
         
         if len(unique_outcomes) > 1:
-            # Inconsistent outcomes detected
+
             outcome_counts = {}
             for outcome in outcomes:
                 outcome_counts[outcome.value] = outcome_counts.get(outcome.value, 0) + 1
@@ -280,7 +280,7 @@ class AuthorizationAuditService:
                         "policy_type": d.policy_type,
                         "reason": d.reason,
                     }
-                    for d in recent_decisions[-10:]  # Last 10 decisions
+                    for d in recent_decisions[-10:]
                 ],
             }
         
@@ -327,7 +327,7 @@ class AuthorizationAuditService:
                 "entries_count": 0,
             }
         
-        # Calculate statistics
+
         outcomes = [e.outcome for e in filtered_entries]
         allow_count = sum(1 for o in outcomes if o == DecisionOutcome.ALLOW)
         deny_count = sum(1 for o in outcomes if o == DecisionOutcome.DENY)
@@ -375,23 +375,23 @@ class AuthorizationAuditService:
         
         suspicious = []
         
-        # Group by user and permission
+
         user_permission_map = {}
-        for entry in self.audit_trail[-5000:]:  # Check last 5000 entries
+        for entry in self.audit_trail[-5000:]:
             key = (entry.user_id, entry.permission)
             if key not in user_permission_map:
                 user_permission_map[key] = []
             user_permission_map[key].append(entry)
         
-        # Check for users who were denied then allowed (potential escalation)
+
         for (user_id, permission), entries in user_permission_map.items():
             if len(entries) < 2:
                 continue
             
-            # Sort by timestamp
+
             entries_sorted = sorted(entries, key=lambda e: e.timestamp)
             
-            # Check for deny -> allow pattern on sensitive permissions
+
             sensitive_permissions = [
                 "system.manage_all_projects",
                 "users.delete",
@@ -414,4 +414,4 @@ class AuthorizationAuditService:
         
         return suspicious
 
-# Global instance
+

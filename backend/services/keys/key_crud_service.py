@@ -28,7 +28,7 @@ from ...utils.structured_logging import get_logger
 from ...utils.service_helpers import get_service
 from .key_filter_specification import KeyFilterSpecification
 
-# Type hints for dependencies (imported here to avoid circular imports)
+
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ...services.keys.key_validation_service import KeyValidationService
@@ -77,7 +77,7 @@ class KeyCRUDService:
         """
         self.logger = logger or get_logger("key_crud_service")
         
-        # Store dependencies explicitly
+
         self._key_validation_service = key_validation_service
         self._key_generation_service = key_generation_service
         self._product_service = product_service
@@ -192,7 +192,7 @@ class KeyCRUDService:
             NotFoundError: If product or agent not found
             PermissionDeniedError: If access denied
         """
-        # validation_service now raises exceptions
+
         if not self._key_validation_service:
             raise ServiceError(
                 "Key Validation Service dependency not injected",
@@ -205,17 +205,17 @@ class KeyCRUDService:
         agent = None
 
         if key_data.get("product_id"):
-            # Use explicit dependency injection
+
             if not self._product_service:
                 raise ServiceError(
                     "Product Service dependency not injected",
                     status_code=500
                 )
             product_service = self._product_service
-            # get_product now raises exceptions
+
             product = product_service.get_product(user, key_data["product_id"])
             
-            # Check tier limits for keys per product
+
             from ...models.core import Project
             
             project = Project.query.get(user.project_id)
@@ -242,14 +242,14 @@ class KeyCRUDService:
         duration_hours = key_data.get("duration_hours", 24)
         max_devices = key_data.get("max_devices", 1)
 
-        # Deduct balance for key creation (except for admin/owner) - BEFORE creating the key
+
         from ...utils.rbac_utils import RBACManager
         
         is_owner = RBACManager.is_owner(user)
         is_admin = RBACManager.is_admin(user)
         
         if not is_owner and not is_admin and product and user.project_id:
-            # Use explicit dependency injection
+
             if not self._price_calculation_service:
                 raise ServiceError(
                     "Price Calculation Service dependency not injected",
@@ -270,21 +270,21 @@ class KeyCRUDService:
             )
             
             if key_price > 0:
-                # Refresh user to get latest balance
+
                 db.session.refresh(user)
                 
-                # Check if user has sufficient balance
+
                 if user.token_balance < key_price:
                     raise ValidationError(f"Insufficient balance. Required: {key_price} tokens, Available: {user.token_balance} tokens")
                 
-                # Deduct balance without committing (we're inside a transaction)
+
                 success, error_msg, _ = balance_service.deduct_balance(
                     current_user=user,
                     target_user_id=user.id,
                     amount=key_price,
                     reason=f"Key creation: {duration_hours} hours for product {product.name}",
                     ip_address=None,
-                    commit=False  # Don't commit, we're inside a transaction
+                    commit=False
                 )
                 
                 if not success:
@@ -324,7 +324,7 @@ class KeyCRUDService:
         db.session.add(key)
         db.session.flush()
 
-        # Use cache invalidation instead of deprecated counter functions to avoid race conditions
+
         if not self._cached_statistics_service:
             raise ServiceError(
                 "Cached Statistics Service dependency not injected",
@@ -334,7 +334,7 @@ class KeyCRUDService:
         cached_statistics_service.invalidate_on_key_change(user.id, user.project_id)
 
         try:
-            # Use explicit dependency injection
+
             if not self._webhook_service:
                 raise ServiceError(
                     "Webhook Service dependency not injected",
@@ -392,7 +392,7 @@ class KeyCRUDService:
 
             my_keys_only = filters.get("my_keys", False)
 
-            # Use explicit dependency injection
+
             if not self._rbac_service:
                 raise ServiceError(
                     "Rbac Service dependency not injected",
@@ -424,7 +424,7 @@ class KeyCRUDService:
             initial_count = query.count()
             self.logger.info(f"📊 Initial query count (all keys in project): {initial_count}")
 
-            # Apply filters using KeyFilterSpecification
+
             filter_spec = KeyFilterSpecification(filters, logger=self.logger)
             query = filter_spec.apply(query)
 
@@ -449,8 +449,8 @@ class KeyCRUDService:
             for key in pagination.items:
                 product_name = key.product.name if key.product else None
 
-                # is_expired only applies to active keys (status = 1)
-                # Blocked/paused keys (status = 2, 3) are not considered expired
+
+
                 is_expired = key.status == 1 and key.expires_at and key.expires_at <= datetime.utcnow()
                 is_active = key.status == 1 and (not key.expires_at or not is_expired)
 
@@ -475,7 +475,7 @@ class KeyCRUDService:
                         devices_list = [d.strip() for d in key.devices.split(",") if d.strip()]
                         device_count = len(devices_list)
 
-                # Parse key_metadata from JSON string to dict if needed
+
                 key_metadata = self._parse_key_metadata(key.key_metadata)
 
                 keys.append(
@@ -547,7 +547,7 @@ class KeyCRUDService:
                 for device in devices
             ]
 
-            # Use explicit dependency injection
+
             if not self._rbac_service:
                 raise ServiceError(
                     "Rbac Service dependency not injected",
@@ -566,7 +566,7 @@ class KeyCRUDService:
 
             key_value = key.key if can_view_full_key else mask_license_key(key.key)
 
-            # Parse key_metadata from JSON string to dict if needed
+
             key_metadata = self._parse_key_metadata(key.key_metadata)
 
             key_data = KeyDetailsData(
@@ -626,7 +626,7 @@ class KeyCRUDService:
 
             if "duration" in data and data["duration"] is not None:
                 duration = data["duration"]
-                # Convert to int if it's a string or float (defensive programming)
+
                 try:
                     if isinstance(duration, str):
                         duration = int(duration)
@@ -678,14 +678,14 @@ class KeyCRUDService:
 
             db.session.delete(key)
 
-            # Use explicit dependency injection
+
             if not self._cache_service:
                 raise ServiceError(
                     "Cache Service dependency not injected",
                     status_code=500
                 )
             cache_service = self._cache_service
-            # Invalidate statistics cache instead of using deprecated counters
+
             if user_id:
                 cache_service.invalidate_pattern(f"stats:user_id={user_id}:*")
             if project_id:

@@ -220,9 +220,9 @@ class BlockedIP(db.Model):
 class BlockedDeviceFingerprint(db.Model):
     """Model for tracking blocked device fingerprints (formerly HWID)"""
 
-    __tablename__ = "blockedhwid"  # Keep table name for backward compatibility
+    __tablename__ = "blockedhwid"
     id = db.Column(db.Integer, primary_key=True)
-    hwid = db.Column(db.String(256), nullable=False)  # Keep column name for backward compatibility
+    hwid = db.Column(db.String(256), nullable=False)
     
     @property
     def device_fingerprint(self):
@@ -275,7 +275,7 @@ class BlockedDeviceFingerprint(db.Model):
         db.UniqueConstraint("hwid", "project_id", name="blocked_hwid_hwid_project_key"),
     )
 
-# Backward compatibility alias
+
 BlockedHWID = BlockedDeviceFingerprint
 
 class SecurityEvent(db.Model):

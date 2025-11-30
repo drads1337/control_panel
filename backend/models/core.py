@@ -13,7 +13,7 @@ For new code, import directly from the specific modules:
     from ..models.system import SystemSettings, APIKey
 """
 
-# Import all models from their new locations for backward compatibility
+
 from .user import (
     DeveloperProductPermission,
     User,
@@ -43,15 +43,15 @@ from .system import (
     SystemSettings,
 )
 
-# Re-export for backward compatibility
+
 __all__ = [
-    # User models
+
     "User",
     "UserActivity",
     "UserActionLog",
     "UserProductPermission",
     "DeveloperProductPermission",
-    # Project models
+
     "Project",
     "ProjectEncryptionKeys",
     "ProjectSecuritySettings",
@@ -64,7 +64,7 @@ __all__ = [
     "ProjectInviteSettings",
     "ProjectSettings",
     "ProjectInviteCode",
-    # System models
+
     "SystemSettings",
     "APIKey",
     "SystemBackup",

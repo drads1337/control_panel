@@ -102,11 +102,11 @@ class WebhookLoggingService:
     def update_webhook_stats(self, webhook_id: int, success: bool, project_id: Optional[int] = None):
         """Update webhook statistics"""
         try:
-            # Get webhook
+
             if project_id:
                 webhook = Webhook.query.filter_by(id=webhook_id, project_id=project_id).first()
             else:
-                # Fallback for backward compatibility
+
                 webhook = Webhook.query.filter_by(id=webhook_id).first()
             
             if not webhook:

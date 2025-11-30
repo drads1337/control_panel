@@ -25,7 +25,7 @@ analytics_bp = Blueprint("keys_analytics", __name__)
 @require_project_isolation
 def get_keys_usage():
     """Get key usage statistics"""
-    # Get services once at the start (DI pattern)
+
     rbac_service = get_service('rbac_service')
     
     user_id = get_jwt_identity()
@@ -196,7 +196,7 @@ def get_key_analytics(key_id, current_user, project_id=None):
 
     from ...models import Key, KeyAnalytics, DeviceInfo
 
-    # Try as integer id first
+
     key = None
     try:
         key_id_int = int(key_id)
@@ -204,7 +204,7 @@ def get_key_analytics(key_id, current_user, project_id=None):
     except (ValueError, TypeError):
         pass
     
-    # Try as unique_id (string) if not found
+
     if not key:
         key = Key.query.filter_by(unique_id=str(key_id), project_id=current_user.project_id).first()
 
@@ -232,9 +232,9 @@ def get_key_analytics(key_id, current_user, project_id=None):
             all_products.update(products_list)
             total_connections_all_time += analytic.total_connections
 
-        # Count unique devices from DeviceInfo table
-        # Use distinct count on serial (preferred) or device_id as fallback
-        # Only count devices that have at least serial or device_id
+
+
+
         total_unique_devices = db.session.query(
             func.count(func.distinct(
                 case(
@@ -282,7 +282,7 @@ def get_key_analytics(key_id, current_user, project_id=None):
 @require_project_isolation
 def get_keys_stats():
     """Get key statistics"""
-    # Get services once at the start (DI pattern)
+
     key_statistics_service = get_service('key_statistics_service')
     
     user_id = get_jwt_identity()
@@ -314,7 +314,7 @@ def get_keys_stats():
 @require_project_isolation
 def export_keys():
     """Export keys to CSV"""
-    # Get services once at the start (DI pattern)
+
     rbac_service = get_service('rbac_service')
     
     user_id = get_jwt_identity()

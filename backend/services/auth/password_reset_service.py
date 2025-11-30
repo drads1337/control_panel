@@ -13,7 +13,7 @@ from ...models.core import User
 from ...config.config import Config
 from ...utils.validators import AuthValidator
 from ...utils.service_exceptions import ServiceError
-# get_service removed - using DI
+
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ class PasswordResetService:
     def __init__(self, email_service=None):
         self._email_service = email_service
         self.logger = logging.getLogger(__name__)
-        self.token_ttl = 300  # 5 minutes
+        self.token_ttl = 300
         
     def generate_reset_token(self, user: User) -> str:
         """
@@ -35,10 +35,10 @@ class PasswordResetService:
         Returns:
             Reset token string
         """
-        # Generate secure token
+
         token = secrets.token_urlsafe(32)
         
-        # Store token in Redis with TTL
+
         redis_client = redis_ext.client
         
         token_key = f"password_reset:{token}"
@@ -86,7 +86,7 @@ class PasswordResetService:
             if not user:
                 return None, "User not found"
             
-            # Verify email matches
+
             if user.email != token_data.get("email"):
                 return None, "Token email mismatch"
             
@@ -112,17 +112,17 @@ class PasswordResetService:
             return False, error or "Invalid token"
         
         try:
-            # Validate password
+
             is_valid, password_error = AuthValidator.validate_password(new_password, min_length=8)
             if not is_valid:
                 return False, password_error
             
-            # Hash and update password
+
             from werkzeug.security import generate_password_hash
             user.password = generate_password_hash(new_password)
             db.session.commit()
             
-            # Delete token after successful reset
+
             redis_client = redis_ext.client
             token_key = f"password_reset:{token}"
             redis_client.delete(token_key)
@@ -147,10 +147,10 @@ class PasswordResetService:
             Always returns success to prevent email enumeration
         """
         try:
-            # Find user by email
+
             user = User.query.filter_by(email=email.lower()).first()
             
-            # Always return success to prevent email enumeration
+
             if not user:
                 self.logger.warning(f"Password reset requested for non-existent email: {email}")
                 return True, None
@@ -158,10 +158,10 @@ class PasswordResetService:
             if not user.email:
                 return True, None
             
-            # Generate token
+
             token = self.generate_reset_token(user)
             
-            # Send email asynchronously via Celery
+
             try:
                 from ...tasks.email_tasks import send_password_reset_email
                 send_password_reset_email.delay(
@@ -171,12 +171,12 @@ class PasswordResetService:
                 )
             except Exception as e:
                 self.logger.error(f"Failed to queue email task: {str(e)}")
-                # Fallback to synchronous sending
+
                 
                 frontend_url = Config.FRONTEND_URL
                 reset_url = f"{frontend_url}/reset-password?token={token}"
                 
-                # Use injected dependency instead of Service Locator
+
                 if not self._email_service:
                     raise ServiceError(
                         "EmailService dependency not injected",
@@ -201,5 +201,5 @@ class PasswordResetService:
             
         except Exception as e:
             self.logger.error(f"Error requesting password reset: {str(e)}")
-            return True, None  # Always return success for security
+            return True, None
 

@@ -84,8 +84,8 @@ class RBACManager:
             True if user has permission, False otherwise
         """
         try:
-            # Use rbac_service as single source of truth for all permission checks
-            # Get service through app context (DI pattern) - requires app context
+
+
             from flask import current_app
             if not hasattr(current_app, 'service_container'):
                 raise RuntimeError(
@@ -98,7 +98,7 @@ class RBACManager:
             logging.error(
                 f"RBAC_HAS_PERMISSION_ERROR user_id={user_id} permission={permission} error={e}"
             )
-            # Fallback: check permissions directly (should rarely be needed)
+
             permissions = RBACManager.get_user_permissions(user_id, project_id)
             return permission in permissions
 
@@ -220,8 +220,8 @@ class RBACManager:
 
                     return [default_role]
             else:
-                # Users without project_id (owners) - check for roles without project_id filter
-                # Owners can have roles assigned from any project, typically system roles
+
+
                 try:
                     from ..models.rbac import Role, UserRole
 
@@ -241,7 +241,7 @@ class RBACManager:
 
                     return [default_role]
             
-            # If no RBAC roles found, return default role
+
             return [default_role]
 
         except Exception as e:

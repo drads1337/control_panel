@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 @connect_rate_limit(rate_limit=Config.RATE_LIMIT, rate_limit_burst=Config.RATE_LIMIT_BURST)
 def get_challenge():
     """Generate challenge for authentication"""
-    # Get services once at the start (DI pattern)
+
     
     req_json = request.get_json(silent=True) or {}
 
@@ -34,7 +34,7 @@ def get_challenge():
     client_project_id = req_json.get("project_id")
 
     if not user_key or not fingerprint:
-        # Get services once at the start (DI pattern)
+
         connect_service = get_service('connect_service')
         return jsonify({"error": "Missing user_key or fingerprint"}), 400
 
@@ -62,24 +62,24 @@ def api_connect():
     encrypted blob, so rate limiting uses IP address. Additional IP-based rate limiting
     is applied before expensive decryption operations.
     """
-    # Get services once at the start (DI pattern)
+
     
     logger.debug("=== CONNECT REQUEST RECEIVED ===")
     ip = request.remote_addr
     user_agent = request.headers.get("User-Agent", "")
     logger.info(f"CONNECT_ATTEMPT ip={ip} user_agent={user_agent}")
 
-    # SECURITY: IP-based rate limiting with fail-close behavior
-    # This is a critical security endpoint - if Redis fails, block the request
+
+
     try:
         import redis
         from ...config.config import Config
         from ...utils.redis_client import get_redis_client
 
-        # Use persistent Redis instance for rate limiting
+
         redis_client = get_redis_client()
         
-        # SECURITY: Fail-close - if Redis is unavailable, block the request
+
         if not redis_client.is_available():
             logger.error(f"SECURITY: Redis unavailable for IP rate limiting. Blocking request from {ip}")
             from ...services.connect import ResponseBuilder
@@ -88,7 +88,7 @@ def api_connect():
                 "Rate limiting service unavailable. Request blocked for security."
             )
             encrypted_response = response_builder.encrypt_response(error_response, True)
-            return encrypted_response, 503  # Service Unavailable
+            return encrypted_response, 503
 
         ip_rate_key = f"rl_connect_ip:{ip}"
         ip_rate_count = redis_client.incr(ip_rate_key)
@@ -103,11 +103,11 @@ def api_connect():
             security_checker = SecurityChecker()
             security_checker.log_suspicious_activity(ip, "IP_RATE_LIMIT_CONNECT", "")
             
-            # Update trigger count for Rate Limiting Protection rule
+
             try:
-                # Try to get project_id from request if available
-                # Note: project_id might not be available yet at this point
-                # This is best-effort update
+
+
+
                 if project_id:
                     security_service._update_rule_trigger("Rate Limiting Protection", project_id)
             except Exception as e:
@@ -118,8 +118,8 @@ def api_connect():
             encrypted_response = response_builder.encrypt_response(error_response, True)
             return encrypted_response, 429
     except (redis.ConnectionError, redis.TimeoutError) as e:
-        # SECURITY: Fail-close for critical security endpoint
-        # If Redis fails, block the request instead of allowing it
+
+
         logger.error(f"SECURITY: Redis connection error for IP rate limiting. Blocking request from {ip}: {e}")
         from ...services.connect import ResponseBuilder
         response_builder = ResponseBuilder()
@@ -127,9 +127,9 @@ def api_connect():
             "Rate limiting service unavailable. Request blocked for security."
         )
         encrypted_response = response_builder.encrypt_response(error_response, True)
-        return encrypted_response, 503  # Service Unavailable
+        return encrypted_response, 503
     except redis.RedisError as e:
-        # SECURITY: Fail-close for critical security endpoint
+
         logger.error(f"SECURITY: Redis error for IP rate limiting. Blocking request from {ip}: {e}")
         from ...services.connect import ResponseBuilder
         response_builder = ResponseBuilder()
@@ -137,9 +137,9 @@ def api_connect():
             "Rate limiting service unavailable. Request blocked for security."
         )
         encrypted_response = response_builder.encrypt_response(error_response, True)
-        return encrypted_response, 503  # Service Unavailable
+        return encrypted_response, 503
     except Exception as e:
-        # SECURITY: Fail-close for unexpected errors
+
         logger.error(f"SECURITY: Unexpected error in IP rate limiting. Blocking request from {ip}: {e}", exc_info=True)
         from ...services.connect import ResponseBuilder
         response_builder = ResponseBuilder()
@@ -147,7 +147,7 @@ def api_connect():
             "Rate limiting service unavailable. Request blocked for security."
         )
         encrypted_response = response_builder.encrypt_response(error_response, True)
-        return encrypted_response, 503  # Service Unavailable
+        return encrypted_response, 503
 
     if not request.is_json:
         logger.warning(f"NO_JSON ip={ip}")
@@ -163,7 +163,7 @@ def api_connect():
     project_id = req_json.get("project_id")
 
     if not enc_data:
-        # Log more context for debugging
+
         request_keys = list(req_json.keys()) if req_json else []
         logger.warning(
             f"NO_BLOB ip={ip} user_agent={user_agent} "
@@ -218,7 +218,7 @@ def classic_connect():
 
     For token authentication, security is handled via token validation and expiration checks.
     """
-    # Get services once at the start (DI pattern)
+
     
     logger.debug("=== CLASSIC CONNECT REQUEST RECEIVED ===")
     ip = request.remote_addr

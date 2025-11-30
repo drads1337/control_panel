@@ -43,7 +43,7 @@ dynamic_config_bp = Blueprint("dynamic_config", __name__)
 from ..config.config import Config
 
 RATE_LIMIT = Config.RATE_LIMIT
-# SECURITY: Use centralized NONCE_TTL from Config
+
 NONCE_TTL = Config.NONCE_TTL
 from ..config.config import Config
 
@@ -61,9 +61,9 @@ TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
 PLAY_INTEGRITY_API_KEY = os.environ.get("PLAY_INTEGRITY_API_KEY")
 
-# SECURITY: Removed encrypt_data() and decrypt_data() functions that used global MASTER_KEY
-# All client data must be encrypted/decrypted with project-specific keys only
-# Use encrypt_data_with_project_key() and decrypt_data_with_project_key() instead
+
+
+
 
 def rate_limited(func):
     @wraps(func)
@@ -108,7 +108,7 @@ def api_config_request():
     user_agent = request.headers.get("User-Agent", "")
     logging.info(f"DYNAMIC_CONFIG_REQUEST_ATTEMPT ip={ip} user_agent={user_agent}")
 
-    # Validate request format
+
     if not request.is_json:
         logging.warning(f"DYNAMIC_CONFIG_NO_JSON ip={ip} user_agent={user_agent}")
         return jsonify({"error": "Invalid request format"}), 400
@@ -120,7 +120,7 @@ def api_config_request():
         logging.warning(f"DYNAMIC_CONFIG_NO_BLOB ip={ip} user_agent={user_agent}")
         return jsonify({"error": "Missing encrypted data"}), 400
 
-    # SECURITY: Require project_id for decryption - no fallback to global MASTER_KEY
+
     project_id_param = req_json.get("project_id")
     if not project_id_param:
         logging.warning(f"DYNAMIC_CONFIG_NO_PROJECT_ID ip={ip} user_agent={user_agent}")
@@ -132,10 +132,10 @@ def api_config_request():
         logging.warning(f"DYNAMIC_CONFIG_INVALID_PROJECT_ID ip={ip} project_id={project_id_param}")
         return jsonify({"error": "Invalid project_id format"}), 400
 
-    # Decrypt request data using project-specific key only
+
     data = None
 
-    # Try base64 decode first (for backward compatibility with unencrypted data)
+
     try:
         import base64
         decoded = base64.b64decode(enc_data).decode("utf-8")
@@ -144,7 +144,7 @@ def api_config_request():
     except (base64.binascii.Error, UnicodeDecodeError, json.JSONDecodeError):
         logging.debug("[DEBUG] Not base64, trying decryption with project key...")
 
-    # Decrypt with project-specific key only (no fallback to global MASTER_KEY)
+
     if data is None:
         try:
             from ..utils.secure_crypto import decrypt_data_with_project_key
@@ -162,13 +162,13 @@ def api_config_request():
                 "message": "Please ensure you are using the correct project encryption key"
             }), 400
 
-    # Validate required parameters
+
     user_key = data.get("user_key")
     product_name = data.get("product_name")
     data_project_id = data.get("project_id")
     session_id = data.get("session_id")
 
-    # SECURITY: Verify that project_id from data matches project_id from request
+
     if data_project_id and int(data_project_id) != project_id_int:
         logging.warning(
             f"DYNAMIC_CONFIG_PROJECT_ID_MISMATCH ip={ip} "
@@ -176,7 +176,7 @@ def api_config_request():
         )
         return jsonify({"error": "Project ID mismatch"}), 400
 
-    # Use project_id from request (more secure - comes from unencrypted part)
+
     project_id = project_id_int
 
     if not all([user_key, product_name]):
@@ -185,7 +185,7 @@ def api_config_request():
         )
         return jsonify({"error": "Missing required parameters: user_key and product_name"}), 400
 
-    # Validate session if provided
+
     if session_id:
         is_valid, message, status_data = heartbeat_service.check_session_status(session_id)
         if not is_valid:
@@ -194,7 +194,7 @@ def api_config_request():
             )
             return jsonify({"error": f"Invalid session: {message}"}), 403
 
-    # Validate key
+
     key_obj = Key.query.filter_by(key=user_key, project_id=project_id).first()
     if not key_obj:
         logging.warning(
@@ -208,7 +208,7 @@ def api_config_request():
         )
         return jsonify({"error": "Key is not active"}), 403
 
-    # Validate product
+
     product = Product.query.filter_by(name=product_name, project_id=project_id).first()
     if not product:
         logging.warning(
@@ -222,7 +222,7 @@ def api_config_request():
         )
         return jsonify({"error": f"Product is {product.status}"}), 403
 
-    # Generate configuration
+
     config_data = dynamic_config_service.generate_dynamic_config(
         user_key=user_key, product_name=product_name, project_id=project_id
     )
@@ -239,7 +239,7 @@ def api_config_request():
         "timestamp": int(time.time()),
     }
 
-    # SECURITY: Encrypt response with project-specific key only (no fallback to global MASTER_KEY)
+
     try:
         encrypted_blob = encrypt_data_with_project_key(resp, project_id)
         logging.debug(
@@ -275,7 +275,7 @@ def api_config_validate():
     user_agent = request.headers.get("User-Agent", "")
     logging.info(f"DYNAMIC_CONFIG_VALIDATION_ATTEMPT ip={ip} user_agent={user_agent}")
 
-    # Validate request format
+
     if not request.is_json:
         logging.warning(f"DYNAMIC_CONFIG_VALIDATION_NO_JSON ip={ip} user_agent={user_agent}")
         return jsonify({"error": "Invalid request format"}), 400
@@ -287,7 +287,7 @@ def api_config_validate():
         logging.warning(f"DYNAMIC_CONFIG_VALIDATION_NO_BLOB ip={ip} user_agent={user_agent}")
         return jsonify({"error": "Missing encrypted data"}), 400
 
-    # SECURITY: Require project_id for decryption - no fallback to global MASTER_KEY
+
     project_id_param = req_json.get("project_id")
     if not project_id_param:
         logging.warning(f"DYNAMIC_CONFIG_VALIDATION_NO_PROJECT_ID ip={ip} user_agent={user_agent}")
@@ -299,10 +299,10 @@ def api_config_validate():
         logging.warning(f"DYNAMIC_CONFIG_VALIDATION_INVALID_PROJECT_ID ip={ip} project_id={project_id_param}")
         return jsonify({"error": "Invalid project_id format"}), 400
 
-    # Decrypt request data using project-specific key only
+
     data = None
 
-    # Try base64 decode first (for backward compatibility with unencrypted data)
+
     try:
         import base64
         decoded = base64.b64decode(enc_data).decode("utf-8")
@@ -311,7 +311,7 @@ def api_config_validate():
     except (base64.binascii.Error, UnicodeDecodeError, json.JSONDecodeError):
         logging.debug("[DEBUG] Not base64, trying decryption with project key...")
 
-    # Decrypt with project-specific key only (no fallback to global MASTER_KEY)
+
     if data is None:
         try:
             data = decrypt_data_with_project_key(enc_data, project_id_int)
@@ -330,14 +330,14 @@ def api_config_validate():
 
     project_id = project_id_int
 
-    # Validate required parameters
-    # KISS Principle: config_checksum is now optional (deprecated for backward compatibility)
+
+
     user_key = data.get("user_key")
     product_name = data.get("product_name")
     data_project_id = data.get("project_id")
-    config_checksum = data.get("config_checksum")  # Optional, kept for backward compatibility
+    config_checksum = data.get("config_checksum")
 
-    # SECURITY: Verify that project_id from data matches project_id from request
+
     if data_project_id and int(data_project_id) != project_id_int:
         logging.warning(
             f"DYNAMIC_CONFIG_VALIDATION_PROJECT_ID_MISMATCH ip={ip} "
@@ -345,7 +345,7 @@ def api_config_validate():
         )
         return jsonify({"error": "Project ID mismatch"}), 400
 
-    # Use project_id from request (more secure - comes from unencrypted part)
+
     project_id = project_id_int
 
     if not all([user_key, product_name]):
@@ -354,12 +354,12 @@ def api_config_validate():
         )
         return jsonify({"error": "Missing required parameters"}), 400
 
-    # Validate configuration
+
     is_valid = dynamic_config_service.validate_config_request(
         user_key=user_key,
         product_name=product_name,
         project_id=project_id,
-        config_checksum=config_checksum,  # Optional, will be ignored
+        config_checksum=config_checksum,
     )
 
     if not is_valid:
@@ -378,7 +378,7 @@ def api_config_validate():
         "timestamp": int(time.time()),
     }
 
-    # SECURITY: Encrypt response with project-specific key only (no fallback to global MASTER_KEY)
+
     try:
         encrypted_blob = encrypt_data_with_project_key(resp, project_id)
         logging.debug(
@@ -410,9 +410,9 @@ def api_config_statistics():
     stats = dynamic_config_service.get_config_statistics()
     return jsonify({"status": "success", "statistics": stats, "timestamp": int(time.time())})
 
-# ============================================================================
-# Feature Management API - JSON Schema Management
-# ============================================================================
+
+
+
 
 @dynamic_config_bp.route("/schemas", methods=["GET"])
 @jwt_required()
@@ -436,10 +436,10 @@ def get_feature_schemas():
         query = FeatureConfigSchema.query.filter_by(project_id=project_id, is_active=True)
         
         if product_id:
-            # Get product-specific schema
+
             query = query.filter_by(product_id=product_id)
         else:
-            # Include both product-specific and project-level schemas (product_id is None)
+
             query = query.filter(
                 (FeatureConfigSchema.product_id.is_(None))
             )
@@ -500,7 +500,7 @@ def create_feature_schema():
         if not name:
             return jsonify({"error": "Schema name is required"}), 400
         
-        # Check if schema with same name already exists in project
+
         existing = FeatureConfigSchema.query.filter_by(
             name=name,
             project_id=project_id,
@@ -513,14 +513,14 @@ def create_feature_schema():
         if not json_schema:
             return jsonify({"error": "JSON schema is required"}), 400
         
-        # Validate JSON schema structure
+
         try:
             if isinstance(json_schema, str):
                 json_schema = json.loads(json_schema)
         except json.JSONDecodeError:
             return jsonify({"error": "Invalid JSON schema format"}), 400
         
-        # Validate default_config if provided
+
         default_config = data.get("default_config", {})
         if isinstance(default_config, str):
             try:
@@ -530,7 +530,7 @@ def create_feature_schema():
         
         product_id = data.get("product_id")
         if product_id:
-            # Validate product exists and belongs to project
+
             product = Product.query.filter_by(id=product_id, project_id=project_id).first()
             if not product:
                 return jsonify({"error": "Product not found or doesn't belong to project"}), 404
@@ -641,7 +641,7 @@ def update_feature_schema(schema_id):
         data = request.json
         
         if "name" in data:
-            # Check if new name conflicts with existing schema
+
             existing = FeatureConfigSchema.query.filter_by(
                 name=data["name"],
                 project_id=project_id,
@@ -721,7 +721,7 @@ def delete_feature_schema(schema_id):
         if not schema:
             return jsonify({"error": "Schema not found"}), 404
         
-        # Soft delete - just deactivate
+
         schema.is_active = False
         db.session.commit()
         

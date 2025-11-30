@@ -71,12 +71,12 @@ def flush_analytics_buffer_task(self, activity_batch_size: int = None):
                           (defaults to Config.ANALYTICS_BUFFER_BATCH_SIZE)
     """
     try:
-        # Get service instance once at the start (DI pattern)
-        # Try ServiceContainer first, fallback to direct instantiation
+
+
         try:
             analytics_buffer_service = get_service('analytics_buffer_service')
         except (RuntimeError, ValueError):
-            # Fallback for Celery tasks that may run outside Flask context
+
             analytics_buffer_service = AnalyticsBufferService()
         
         if not analytics_buffer_service.enabled:
@@ -88,16 +88,16 @@ def flush_analytics_buffer_task(self, activity_batch_size: int = None):
         
         logger.info("Starting analytics buffer flush task")
         
-        # Get buffer stats before flush
+
         stats_before = analytics_buffer_service.get_buffer_stats()
         logger.debug(f"Buffer stats before flush: {stats_before}")
         
-        # Flush all buffered analytics
+
         flush_results = analytics_buffer_service.flush_all(
             activity_batch_size=activity_batch_size
         )
         
-        # Flush buffered device updates (last_seen)
+
         device_updates_flushed = device_update_buffer.flush_updates()
         
         logger.info(
@@ -107,7 +107,7 @@ def flush_analytics_buffer_task(self, activity_batch_size: int = None):
             f"{device_updates_flushed} device updates"
         )
         
-        # Get buffer stats after flush
+
         stats_after = analytics_buffer_service.get_buffer_stats()
         logger.debug(f"Buffer stats after flush: {stats_after}")
         
@@ -139,11 +139,11 @@ def get_analytics_buffer_stats_task(self):
     Useful for monitoring buffer health and size.
     """
     try:
-        # Get service instance - try ServiceContainer first, fallback to direct instantiation
+
         try:
             analytics_buffer_service = get_service('analytics_buffer_service')
         except (RuntimeError, ValueError):
-            # Fallback for Celery tasks that may run outside Flask context
+
             analytics_buffer_service = AnalyticsBufferService()
         
         stats = analytics_buffer_service.get_buffer_stats()

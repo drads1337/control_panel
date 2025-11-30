@@ -17,7 +17,7 @@ from ...models.products import Product
 from ...models.keys import Key
 from ...utils.rbac_utils import RBACManager
 from ...utils.service_exceptions import ServiceError
-# get_service removed - using DI
+
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +65,7 @@ class KeyValidator:
 
             try:
                 if not self._webhook_service:
-                    # Webhook is optional - log warning but don't fail
+
                     logger.warning(f"WebhookService not injected, skipping webhook trigger for key activation: {key_obj.id}")
                 else:
                     product = None

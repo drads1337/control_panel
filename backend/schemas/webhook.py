@@ -36,7 +36,7 @@ class WebhookCreateSchema(BaseSchema):
         description="Custom headers to include in webhook requests"
     )
     
-    # Telegram-specific fields
+
     telegram_bot_token: Optional[str] = Field(
         default=None,
         description="Telegram bot token (required for telegram type)"
@@ -46,7 +46,7 @@ class WebhookCreateSchema(BaseSchema):
         description="Telegram chat ID (required for telegram type)"
     )
     
-    # Discord-specific fields
+
     discord_webhook_url: Optional[HttpUrl] = Field(
         default=None,
         description="Discord webhook URL (required for discord type)"
@@ -113,7 +113,7 @@ class WebhookUpdateSchema(BaseSchema):
         description="Custom headers to include in webhook requests"
     )
     
-    # Telegram-specific fields
+
     telegram_bot_token: Optional[str] = Field(
         default=None,
         description="Telegram bot token (required for telegram type)"
@@ -123,7 +123,7 @@ class WebhookUpdateSchema(BaseSchema):
         description="Telegram chat ID (required for telegram type)"
     )
     
-    # Discord-specific fields
+
     discord_webhook_url: Optional[HttpUrl] = Field(
         default=None,
         description="Discord webhook URL (required for discord type)"

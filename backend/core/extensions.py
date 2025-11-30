@@ -44,21 +44,21 @@ class Database(SQLAlchemy):
             read_uri = app.config.get("SQLALCHEMY_DATABASE_READ_URI")
             
             if not read_uri:
-                # No read replica configured, fall back to primary
+
                 return super().get_engine(app=app, bind=None)
             
-            # Check if engine is already cached
-            # Flask-SQLAlchemy stores engines in app.extensions['sqlalchemy']['engines']
+
+
             if 'sqlalchemy' in app.extensions:
                 engines = app.extensions['sqlalchemy'].get('engines', {})
                 if 'read' in engines:
                     return engines['read']
             
-            # Create engine with custom options and cache it
+
             read_options = app.config.get("SQLALCHEMY_READ_ENGINE_OPTIONS", {})
             engine = create_engine(read_uri, **read_options)
             
-            # Cache the engine
+
             if 'sqlalchemy' not in app.extensions:
                 app.extensions['sqlalchemy'] = {}
             if 'engines' not in app.extensions['sqlalchemy']:
@@ -67,7 +67,7 @@ class Database(SQLAlchemy):
             
             return engine
         
-        # Use default implementation for primary database
+
         return super().get_engine(app=app, bind=bind)
 
 db = Database()
@@ -95,7 +95,7 @@ class RedisExtension:
         """
         from ..config.config import Config
 
-        # Use persistent Redis instance for Flask extension (sessions, queues, etc.)
+
         redis_config = {
             "host": Config.REDIS_PERSISTENT_HOST,
             "port": Config.REDIS_PERSISTENT_PORT,
@@ -113,13 +113,13 @@ class RedisExtension:
 
         self._client = redis.Redis(**redis_config)
 
-        # Verify connection
+
         try:
             self._client.ping()
         except Exception as e:
             raise RuntimeError(f"Redis is required but connection failed: {e}")
 
-        # Store in app extensions
+
         app.extensions["redis"] = self
 
     @property
@@ -135,5 +135,5 @@ class RedisExtension:
         return self._client
 
 
-# Create extension instance
+
 redis_ext = RedisExtension()

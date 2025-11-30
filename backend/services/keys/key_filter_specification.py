@@ -90,8 +90,8 @@ class KeyFilterSpecification:
                         "⏰ Applying expired status filter: "
                         "status=1 AND expires_at <= now (only active keys can be expired)"
                     )
-                # Only active keys (status=1) can be expired
-                # Blocked/paused keys are not considered expired
+
+
                 query = query.filter(
                     Key.status == 1,
                     Key.expires_at <= datetime.utcnow()

@@ -83,8 +83,8 @@ def register_system_routes(app: Flask) -> None:
     """
 
 
-    # Avatar route is always enabled (even in production) because avatars require
-    # authorization checks to ensure users can only access their own avatars
+
+
     @app.route("/uploads/avatars/<path:filename>")
     def uploaded_avatar(filename):
             """
@@ -98,31 +98,31 @@ def register_system_routes(app: Flask) -> None:
 
             filename = secure_filename(filename)
             
-            # Use consistent absolute path resolution
-            # Get project root (parent of backend directory where app.root_path typically points)
+
+
             project_root = Path(app.root_path).parent
-            # Config.AVATARS_FOLDER is "uploads/avatars" (relative), so split and join properly
+
             avatars_folder_abs = project_root / "uploads" / "avatars"
             avatars_folder_abs_str = str(avatars_folder_abs)
         
-            # Try the most likely path first (project root uploads/avatars)
-            # This is where files are actually saved
+
+
             primary_path = os.path.normpath(os.path.join(avatars_folder_abs_str, filename))
             
             possible_dirs = [
-                avatars_folder_abs_str,  # Primary location - checked first
+                avatars_folder_abs_str,
                 os.path.join(app.root_path, "uploads", "avatars"),
                 os.path.join(os.path.dirname(app.root_path), "uploads", "avatars"),
                 os.path.join(os.getcwd(), "uploads", "avatars"),
-                # Fallback with Config.AVATARS_FOLDER
+
                 os.path.join(str(project_root), Config.AVATARS_FOLDER),
             ]
             
-            # Normalize all paths for comparison and remove duplicates
+
             possible_dirs = [os.path.normpath(os.path.abspath(d)) for d in possible_dirs]
-            possible_dirs = list(dict.fromkeys(possible_dirs))  # Remove duplicates while preserving order
+            possible_dirs = list(dict.fromkeys(possible_dirs))
             
-            # Quick check: if primary path exists, use it immediately
+
             avatar_dir = None
             file_path = None
             
@@ -133,7 +133,7 @@ def register_system_routes(app: Flask) -> None:
                     avatar_dir = avatars_folder_abs_str
                     file_path = primary_path
                     logging.info(f"✅ Found avatar immediately at primary path: {file_path}")
-                    # Skip the loop below
+
                     possible_dirs = []
             
             logging.info(f"Looking for avatar: {filename}")
@@ -144,8 +144,8 @@ def register_system_routes(app: Flask) -> None:
             for dir_path in possible_dirs:
                 test_path = os.path.normpath(os.path.join(dir_path, filename))
                 
-                # Security check: ensure file path is within the directory
-                # Use realpath to resolve symlinks for accurate comparison
+
+
                 try:
                     real_dir = os.path.realpath(dir_path)
                     real_test = os.path.realpath(test_path)
@@ -153,7 +153,7 @@ def register_system_routes(app: Flask) -> None:
                         logging.warning(f"Path traversal attempt: {test_path} not in {dir_path}")
                         continue
                 except OSError:
-                    # If realpath fails, fall back to string comparison
+
                     if not test_path.startswith(dir_path):
                         logging.warning(f"Path traversal attempt: {test_path} not in {dir_path}")
                         continue
@@ -166,13 +166,13 @@ def register_system_routes(app: Flask) -> None:
                     break
             
             if not avatar_dir or not file_path:
-                # Last resort: try direct path from project root
+
                 direct_path = os.path.join(str(project_root), "uploads", "avatars", filename)
                 direct_path = os.path.normpath(os.path.abspath(direct_path))
                 logging.info(f"Trying direct path as last resort: {direct_path} (exists: {os.path.exists(direct_path)})")
                 
                 if os.path.exists(direct_path):
-                    # Security check for direct path
+
                     real_dir = os.path.realpath(os.path.join(str(project_root), "uploads", "avatars"))
                     real_test = os.path.realpath(direct_path)
                     if real_test.startswith(real_dir):
@@ -196,32 +196,32 @@ def register_system_routes(app: Flask) -> None:
             if not is_authorized:
                 return jsonify({"error": error_msg}), 403
 
-            # SECURITY & PERFORMANCE: Use X-Accel-Redirect for Nginx to serve files
-            # This offloads file serving from Python workers to Nginx, improving
-            # performance and scalability. Nginx handles file I/O efficiently.
-            # 
-            # In production, Nginx should be configured with:
-            #   location /internal/uploads/ {
-            #       internal;
-            #       alias /app/uploads/;
-            #   }
-            #
-            # The X-Accel-Redirect header tells Nginx to serve the file from
-            # the internal location, which is not directly accessible from outside.
+
+
+
+
+
+
+
+
+
+
+
+
             if Config.FLASK_ENV == "production":
-                # Use X-Accel-Redirect for production (Nginx handles file serving)
+
                 internal_path = f"/internal/uploads/avatars/{filename}"
-                response = jsonify({})  # Empty response body
+                response = jsonify({})
                 response.headers["X-Accel-Redirect"] = internal_path
                 response.headers["Content-Type"] = "application/octet-stream"
-                # Let Nginx determine content type from file extension
+
                 return response
             else:
-                # Development mode: serve directly from Flask
+
                 return send_from_directory(avatar_dir, filename)
 
-    # General uploads route - only enabled in development
-    # In production, use Nginx/CDN for non-sensitive files or /api/files/ for authorized access
+
+
     if Config.FLASK_ENV != "production":
         @app.route("/uploads/<path:filename>")
         def uploaded_file(filename):
@@ -251,18 +251,18 @@ def register_system_routes(app: Flask) -> None:
             if not is_authorized:
                 return jsonify({"error": error_msg}), 403
 
-            # SECURITY & PERFORMANCE: Use X-Accel-Redirect for Nginx to serve files
-            # This offloads file serving from Python workers to Nginx, improving
-            # performance and scalability. Nginx handles file I/O efficiently.
+
+
+
             if Config.FLASK_ENV == "production":
-                # Use X-Accel-Redirect for production (Nginx handles file serving)
+
                 internal_path = f"/internal/uploads/{filename}"
-                response = jsonify({})  # Empty response body
+                response = jsonify({})
                 response.headers["X-Accel-Redirect"] = internal_path
                 response.headers["Content-Type"] = "application/octet-stream"
                 return response
             else:
-                # Development mode: serve directly from Flask
+
                 return send_from_directory(upload_dir, filename)
     else:
         logging.info(

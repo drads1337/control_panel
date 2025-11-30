@@ -151,8 +151,8 @@ class ClassicLoginRegisterSchema(BaseSchema):
     def validate_invite_code(cls, v):
         if not v or not v.strip():
             raise ValueError("Invite code cannot be empty")
-        # Normalize code: remove common separators (hyphens, underscores, spaces)
-        # and convert to uppercase
+
+
         code_normalized = re.sub(r'[-_\s]+', '', v.strip().upper())
         if not code_normalized:
             raise ValueError("Invite code cannot be empty")
@@ -186,8 +186,8 @@ class RegisterWithInviteSchema(BaseSchema):
     def validate_invite_code(cls, v):
         if not v or not v.strip():
             raise ValueError("Invite code cannot be empty")
-        # Normalize code: remove common separators (hyphens, underscores, spaces)
-        # and convert to uppercase
+
+
         code_normalized = re.sub(r'[-_\s]+', '', v.strip().upper())
         if not code_normalized:
             raise ValueError("Invite code cannot be empty")
@@ -202,8 +202,8 @@ class InviteCodeValidateSchema(BaseSchema):
     def validate_invite_code(cls, v):
         if not v or not v.strip():
             raise ValueError("Invite code cannot be empty")
-        # Normalize code: remove common separators (hyphens, underscores, spaces)
-        # and convert to uppercase
+
+
         code_normalized = re.sub(r'[-_\s]+', '', v.strip().upper())
         if not code_normalized:
             raise ValueError("Invite code cannot be empty")

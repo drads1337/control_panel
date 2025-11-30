@@ -41,8 +41,8 @@ class SettingsService:
         self._settings_service = settings_service
         self.repository = repository or SettingsRepository()
         
-        # cache_service must be injected via DI (may be None if not needed)
-        # SettingsManager will handle None cache_service gracefully
+
+
         
         self.manager = manager or SettingsManager(
             repository=self.repository,
@@ -92,6 +92,6 @@ class SettingsService:
         """
         return self.manager.invalidate_settings_cache(user_id)
 
-# Singleton instance for backward compatibility
-# Service instance should be obtained via ServiceContainer:
-#   service = get_service('settings_service')
+
+
+

@@ -55,7 +55,7 @@ class Agent(db.Model):
 
     def _generate_unique_id(self):
         """Generate a unique 8-digit agent ID"""
-        max_attempts = 100  # Prevent infinite loops
+        max_attempts = 100
         attempts = 0
         while attempts < max_attempts:
             unique_id = "".join([str(random.randint(0, 9)) for _ in range(8)])
@@ -64,14 +64,14 @@ class Agent(db.Model):
                 if not existing_agent:
                     return unique_id
             except Exception:
-                # If query fails, still return the generated ID
-                # Database constraints will catch duplicates
+
+
                 return unique_id
             attempts += 1
-        # Fallback: return timestamp-based ID if random generation fails
+
         import time
         timestamp_str = str(int(time.time() * 1000))
-        # Ensure exactly 8 digits by padding or truncating
+
         if len(timestamp_str) < 8:
             return timestamp_str.zfill(8)
         return timestamp_str[-8:]

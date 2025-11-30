@@ -14,7 +14,7 @@ from ...models.keys import TokenTransaction
 from ...utils.rbac_utils import RBACManager
 from ...utils.service_helpers import get_service
 
-# Type hints for dependencies (imported here to avoid circular imports)
+
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ...services.rbac.rbac_service import RBACService
@@ -39,7 +39,7 @@ class BalanceService:
         """
         self.logger = logger or logging.getLogger(__name__)
         
-        # Store dependencies explicitly
+
         self._rbac_service = rbac_service
         self._activity_service = activity_service
     
@@ -74,8 +74,8 @@ class BalanceService:
             if not target_user:
                 return False, "User not found", None
 
-            # Check if current_user has billing permission and should pay from their balance
-            # Use explicit dependency injection
+
+
             if not self._rbac_service:
                 from ...utils.service_exceptions import ServiceError
                 raise ServiceError(
@@ -92,15 +92,15 @@ class BalanceService:
                 current_user.id, "billing.deduct_balance"
             )
             
-            # If user has billing permission (and is not admin/owner), deduct from their balance
+
             if not is_owner and not is_admin and has_billing_permission:
                 if current_user.token_balance < amount:
                     return False, f"Insufficient balance. Required: {amount} tokens, Available: {current_user.token_balance} tokens", None
                 
-                # Deduct from current_user's balance
+
                 current_user.token_balance -= amount
                 
-                # Create transaction for current_user (deduction)
+
                 current_user_transaction = TokenTransaction(
                     user_id=current_user.id,
                     amount=amount,
@@ -375,7 +375,7 @@ class BalanceService:
             Tuple of (has_access, error_message)
         """
         try:
-            # Use explicit dependency injection
+
             if not self._rbac_service:
                 from ...utils.service_exceptions import ServiceError
                 raise ServiceError(

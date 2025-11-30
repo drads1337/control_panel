@@ -29,7 +29,7 @@ def find_product_by_id_or_unique_id(product_identifier, project_id):
     Returns:
         Product object or None if not found
     """
-    # Try as integer id (primary key) first
+
     if isinstance(product_identifier, int) or (isinstance(product_identifier, str) and product_identifier.isdigit()):
         try:
             product_id_int = int(product_identifier)
@@ -39,7 +39,7 @@ def find_product_by_id_or_unique_id(product_identifier, project_id):
         except (ValueError, TypeError):
             pass
     
-    # Try as unique_id (string)
+
     product = Product.query.filter_by(unique_id=str(product_identifier), project_id=project_id).first()
     return product
 
@@ -95,7 +95,7 @@ def update_product_prices(product_identifier, validated_data=None):
     user = User.query.get(user_id)
 
     if not user:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         product_service = get_service('product_service')
         return jsonify({"error": "User not found"}), 404
@@ -129,13 +129,13 @@ def update_product_prices(product_identifier, validated_data=None):
         prices_data = validated_data.prices
 
         for period, price_value in prices_data.items():
-            # Skip custom periods (they have their own endpoint)
+
             if period.startswith("custom_"):
                 continue
 
-            # Validate period is numeric (hours) or skip
+
             try:
-                # Period should be a string representing hours
+
                 period_hours = int(period)
                 if period_hours <= 0:
                     current_app.logger.warning(f"Invalid period (must be positive): {period}")
@@ -254,7 +254,7 @@ def add_custom_period(product_identifier, validated_data=None):
     user = User.query.get(user_id)
 
     if not user:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         product_service = get_service('product_service')
         return jsonify({"error": "User not found"}), 404
@@ -352,7 +352,7 @@ def remove_custom_period(product_identifier, custom_period_id):
     user = User.query.get(user_id)
 
     if not user:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         product_service = get_service('product_service')
         return jsonify({"error": "User not found"}), 404

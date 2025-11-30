@@ -266,7 +266,7 @@ class KeyBulkProductExtendSchema(BaseSchema):
 class KeyBulkFilterActionSchema(BaseSchema):
     """Schema for bulk key actions by filters"""
 
-    # Optional filters - can be empty dict
+
     filters: Optional[dict] = Field(default_factory=dict, description="Filter criteria")
 
 class KeyBulkFilterExtendSchema(BaseSchema):

@@ -11,15 +11,15 @@ from prometheus_client import Counter, Gauge, REGISTRY
 
 logger = logging.getLogger(__name__)
 
-# Prometheus metrics (shared across all instances)
+
 _metrics_initialized = False
 _metrics_lock = threading.Lock()
 
-# Analytics Buffer metrics
+
 _analytics_buffer_size = Gauge(
     'analytics_buffer_size',
     'Current size of analytics buffer (number of items)',
-    ['buffer_type'],  # 'user_activity' or 'key_analytics'
+    ['buffer_type'],
     registry=REGISTRY
 )
 
@@ -33,7 +33,7 @@ _analytics_buffer_overflow_total = Counter(
 _analytics_buffer_flush_total = Counter(
     'analytics_buffer_flush_total',
     'Total number of analytics buffer flushes',
-    ['buffer_type', 'status'],  # status: 'success' or 'error'
+    ['buffer_type', 'status'],
     registry=REGISTRY
 )
 
@@ -44,18 +44,18 @@ _analytics_buffer_flush_duration_seconds = Gauge(
     registry=REGISTRY
 )
 
-# Redis Integrity metrics
+
 _redis_integrity_errors_total = Counter(
     'redis_integrity_errors_total',
     'Total number of Redis integrity verification failures',
-    ['key_pattern'],  # e.g., 'dynamic_config', 'session', 'challenge'
+    ['key_pattern'],
     registry=REGISTRY
 )
 
 _redis_integrity_checks_total = Counter(
     'redis_integrity_checks_total',
     'Total number of Redis integrity checks performed',
-    ['key_pattern', 'result'],  # result: 'valid' or 'invalid'
+    ['key_pattern', 'result'],
     registry=REGISTRY
 )
 
@@ -204,8 +204,8 @@ class BufferIntegrityMonitor:
             Dictionary with metrics summary
         """
         try:
-            # Note: This is a simplified summary. For detailed metrics,
-            # use Prometheus scraping endpoint /metrics
+
+
             return {
                 "analytics_buffer_metrics_available": True,
                 "redis_integrity_metrics_available": True,
@@ -217,7 +217,7 @@ class BufferIntegrityMonitor:
                 "error": str(e)
             }
 
-# Global instance
+
 _buffer_integrity_monitor = None
 _monitor_lock = threading.Lock()
 

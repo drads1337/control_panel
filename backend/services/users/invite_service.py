@@ -97,14 +97,14 @@ class InviteService:
             if not user:
                 return None, "User not found"
 
-            # Check for existing active referral code (not used and not expired)
+
             existing_code = ReferralCode.query.filter_by(user_id=user_id, used=False).first()
             if existing_code:
-                # Check if it's still valid (not expired)
+
                 if not existing_code.expires_at or existing_code.expires_at > datetime.utcnow():
                     return existing_code.code, None
 
-            # Generate referral code with "REF" prefix (3 chars) + 7 random chars = 10 total
+
             code = self._generate_unique_code(length=7, prefix="REF")
 
             duration = duration_days or self.default_referral_duration_days
@@ -135,13 +135,13 @@ class InviteService:
         Returns:
             Code with format: prefix + random_part (total max 10 characters)
         """
-        # Ensure total length doesn't exceed 10 characters
+
         if prefix:
-            # If prefix exists, adjust random part length to keep total <= 10
+
             max_random_length = 10 - len(prefix)
             length = min(length, max_random_length)
         else:
-            # No prefix, use requested length but cap at 10
+
             length = min(length, 10)
         
         while True:
@@ -175,8 +175,8 @@ class InviteService:
             if not code or not code.strip():
                 return None, "Invite code is required"
 
-            # Normalize code: remove common separators (hyphens, underscores, spaces)
-            # and convert to uppercase
+
+
             code_normalized = re.sub(r'[-_\s]+', '', code.strip().upper())
 
             if len(code_normalized) < 6:
@@ -185,7 +185,7 @@ class InviteService:
             if len(code_normalized) > 64:
                 return None, "Invite code is too long"
 
-            # Check that code contains only alphanumeric characters after normalization
+
             if not re.match(r"^[A-Z0-9]+$", code_normalized):
                 return None, "Invite code can only contain letters and numbers"
 
@@ -194,10 +194,10 @@ class InviteService:
 
             self.logger.debug(f"Validating invite code: '{code}' (length: {code_length})")
 
-            # First try ProjectInviteCode (exact match) - supports up to 64 characters
+
             invite = ProjectInviteCode.query.filter_by(code=code).first()
             if not invite:
-                # Try case-insensitive search as fallback
+
                 invite = ProjectInviteCode.query.filter(func.upper(ProjectInviteCode.code) == code).first()
                 if invite:
                     self.logger.debug(f"Found ProjectInviteCode with case-insensitive search: '{invite.code}'")
@@ -219,11 +219,11 @@ class InviteService:
                     "code_type": "project_invite",
                 }, None
 
-            # Only check ReferralCode if code length <= 32 (column max length)
+
             if code_length <= 32:
                 referral = ReferralCode.query.filter_by(code=code).first()
                 if not referral:
-                    # Try case-insensitive search as fallback
+
                     referral = ReferralCode.query.filter(func.upper(ReferralCode.code) == code).first()
                     if referral:
                         self.logger.debug(f"Found ReferralCode with case-insensitive search: '{referral.code}'")
@@ -249,11 +249,11 @@ class InviteService:
                         "rbac_role_ids": referral.rbac_role_ids if referral.rbac_role_ids else [],
                     }, None
 
-            # Only check ProductInviteCode if code length <= 32 (column max length)
+
             if code_length <= 32:
                 product_invite = ProductInviteCode.query.filter_by(code=code).first()
                 if not product_invite:
-                    # Try case-insensitive search as fallback
+
                     product_invite = ProductInviteCode.query.filter(func.upper(ProductInviteCode.code) == code).first()
                     if product_invite:
                         self.logger.debug(f"Found ProductInviteCode with case-insensitive search: '{product_invite.code}'")
@@ -277,7 +277,7 @@ class InviteService:
                         "assigned_role": product_invite.assigned_role,
                     }, None
 
-            # Code not found in any table
+
             searched_tables = ["ProjectInviteCode"]
             if code_length <= 32:
                 searched_tables.extend(["ReferralCode", "ProductInviteCode"])

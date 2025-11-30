@@ -29,7 +29,7 @@ class RedisSecurityMonitor:
     - Tracking of DynamicConfig access
     """
 
-    # Critical key patterns that should be monitored
+
     CRITICAL_KEY_PATTERNS = {
         "dynamic_config": "dynamic_config:*",
         "rate_limit": "limiter:*",
@@ -39,7 +39,7 @@ class RedisSecurityMonitor:
         "analytics_buffer": "analytics_buffer:*",
     }
 
-    # Operations that should be logged
+
     CRITICAL_OPERATIONS = {
         "SET", "SETEX", "DEL", "INCR", "DECR", "HSET", "HDEL", "SADD", "SREM"
     }
@@ -47,7 +47,7 @@ class RedisSecurityMonitor:
     def __init__(self):
         self.redis_client = None
         self.monitoring_enabled = True
-        self.alert_threshold = 10  # Alert after N suspicious operations
+        self.alert_threshold = 10
         
     def _get_redis_client(self):
         """Get Redis client with error handling"""
@@ -79,14 +79,14 @@ class RedisSecurityMonitor:
         if not key.startswith("dynamic_config:"):
             return True
             
-        # Log all DynamicConfig access
+
         logger.info(
             f"[REDIS_SECURITY] DynamicConfig access: key={key}, operation={operation}, "
             f"expected_project_id={expected_project_id}"
         )
         
-        # Extract project_id from key if possible
-        # Format: dynamic_config:{user_key}:{product_name}:{project_id}
+
+
         try:
             parts = key.split(":")
             if len(parts) >= 4:
@@ -100,7 +100,7 @@ class RedisSecurityMonitor:
         except (ValueError, IndexError):
             pass
             
-        # Alert on DELETE operations (should be rare)
+
         if operation == "DEL":
             logger.warning(
                 f"[REDIS_SECURITY] DynamicConfig deletion detected: key={key}"
@@ -128,14 +128,14 @@ class RedisSecurityMonitor:
         if not key.startswith("limiter:"):
             return True
             
-        # Alert on suspicious rate limit modifications
+
         if operation in ("SET", "SETEX", "DEL", "INCR", "DECR"):
             logger.warning(
                 f"[REDIS_SECURITY] Rate limit modification detected: "
                 f"key={key}, operation={operation}, value={value}"
             )
             
-            # Check if value is being reset to 0 (potential bypass attempt)
+
             if operation in ("SET", "SETEX") and value == "0":
                 logger.error(
                     f"[REDIS_SECURITY] CRITICAL: Rate limit reset to 0 detected: key={key}"
@@ -169,14 +169,14 @@ class RedisSecurityMonitor:
         suspicious_changes = []
         
         try:
-            # Get all keys matching pattern
+
             keys = redis_client.keys(key_pattern)
             
             for key in keys:
-                # Check if key has been modified recently
+
                 ttl = redis_client.ttl(key)
                 
-                # If key has no TTL and matches critical pattern, it might be suspicious
+
                 if ttl == -1:
                     if "dynamic_config" in key:
                         suspicious_changes.append({
@@ -193,12 +193,12 @@ class RedisSecurityMonitor:
                             "timestamp": time.time()
                         })
                 
-                # Check for suspicious values in rate limit keys
+
                 if "rate_limit" in key or "limiter" in key:
                     try:
                         value = redis_client.get(key)
                         if value:
-                            # Check if rate limit is set to 0 (potential bypass)
+
                             try:
                                 count = int(value)
                                 if count == 0:
@@ -230,13 +230,13 @@ class RedisSecurityMonitor:
         
         all_suspicious = []
         
-        # Monitor each critical key pattern
+
         for pattern_type, pattern in self.CRITICAL_KEY_PATTERNS.items():
             try:
                 suspicious = self.detect_unauthorized_changes(pattern)
                 if suspicious:
                     all_suspicious.extend(suspicious)
-                    # Log critical findings immediately
+
                     for change in suspicious:
                         if change.get("severity") == "critical":
                             logger.error(
@@ -245,7 +245,7 @@ class RedisSecurityMonitor:
             except Exception as e:
                 logger.error(f"Error monitoring {pattern_type}: {e}")
         
-        # Alert if too many suspicious changes
+
         if len(all_suspicious) >= self.alert_threshold:
             logger.error(
                 f"[REDIS_SECURITY] ALERT: {len(all_suspicious)} suspicious changes detected "
@@ -273,7 +273,7 @@ class RedisSecurityMonitor:
         if not self.monitoring_enabled:
             return
             
-        # Check if key matches any critical pattern
+
         is_critical = False
         key_type = None
         
@@ -284,7 +284,7 @@ class RedisSecurityMonitor:
                 break
                 
         if is_critical and operation in self.CRITICAL_OPERATIONS:
-            # Log critical operation
+
             log_data = {
                 "key": key,
                 "operation": operation,
@@ -293,12 +293,12 @@ class RedisSecurityMonitor:
             }
             
             if value is not None:
-                # Don't log full values (might be sensitive), just length/type
+
                 if isinstance(value, (str, bytes)):
                     log_data["value_length"] = len(value)
                     log_data["value_type"] = type(value).__name__
                 else:
-                    log_data["value"] = str(value)[:100]  # Truncate long values
+                    log_data["value"] = str(value)[:100]
                     
             logger.info(
                 f"[REDIS_SECURITY] Critical operation: {json.dumps(log_data)}"
@@ -330,9 +330,9 @@ class RedisSecurityMonitor:
         config_command_available = False
         
         try:
-            # Check if authentication is required
-            # Note: This requires CONFIG command access, which might be disabled
-            # In protected environments (AWS ElastiCache), CONFIG is disabled by default
+
+
+
             try:
                 requirepass = redis_client.config_get("requirepass")
                 config_command_available = True
@@ -341,12 +341,12 @@ class RedisSecurityMonitor:
                     "message": "Password required" if requirepass.get("requirepass") else "No password configured"
                 }
             except redis.ResponseError as e:
-                # SECURITY: CONFIG command disabled is a GOOD security practice in production
-                # This is expected in AWS ElastiCache and similar managed services
+
+
                 error_msg = str(e).lower()
                 if "unknown command" in error_msg or "command not allowed" in error_msg:
                     if IS_PRODUCTION:
-                        # In production, CONFIG being disabled is a security best practice
+
                         checks["authentication"] = {
                             "status": "ok",
                             "message": "CONFIG command disabled (expected in protected environments like AWS ElastiCache)"
@@ -361,19 +361,19 @@ class RedisSecurityMonitor:
                             "message": "CONFIG command disabled (may be expected in managed Redis services)"
                         }
                 else:
-                    # Other Redis errors
+
                     checks["authentication"] = {
                         "status": "unknown",
                         "message": f"Cannot check authentication: {str(e)[:100]}"
                     }
             except Exception as e:
-                # Generic exception handling
+
                 checks["authentication"] = {
                     "status": "unknown",
                     "message": f"Cannot check authentication: {type(e).__name__}"
                 }
                 
-            # Check protected mode (only if CONFIG is available)
+
             if config_command_available:
                 try:
                     protected_mode = redis_client.config_get("protected-mode")
@@ -387,13 +387,13 @@ class RedisSecurityMonitor:
                         "message": "Cannot check protected mode"
                     }
             else:
-                # CONFIG disabled - assume protected mode is enabled (managed services enforce this)
+
                 checks["protected_mode"] = {
                     "status": "ok",
                     "message": "CONFIG command disabled - protected mode assumed enabled (managed Redis services enforce this)"
                 }
                 
-            # Check bind address (only if CONFIG is available)
+
             if config_command_available:
                 try:
                     bind = redis_client.config_get("bind")
@@ -408,7 +408,7 @@ class RedisSecurityMonitor:
                         "message": "Cannot check bind address"
                     }
             else:
-                # CONFIG disabled - managed services handle network isolation
+
                 checks["bind_address"] = {
                     "status": "ok",
                     "message": "CONFIG command disabled - network isolation handled by managed service (e.g., AWS ElastiCache VPC)"
@@ -422,14 +422,14 @@ class RedisSecurityMonitor:
                 "checks": checks
             }
             
-        # Determine overall status
-        # In production, if CONFIG is disabled, that's actually a good security sign
+
+
         has_warnings = any(
             check.get("status") == "warning" 
             for check in checks.values()
         )
         
-        # If all checks are "ok" or "info", status is "ok"
+
         all_ok_or_info = all(
             check.get("status") in ("ok", "info", "unknown")
             for check in checks.values()
@@ -459,12 +459,12 @@ class RedisSecurityMonitor:
         }
         
         try:
-            # Count keys by pattern
+
             for pattern_type, pattern in self.CRITICAL_KEY_PATTERNS.items():
                 keys = redis_client.keys(pattern)
                 stats["critical_keys_count"][pattern_type] = len(keys)
                 
-            # Get total key count (approximate)
+
             info = redis_client.info("keyspace")
             total_keys = 0
             for db_info in info.values():
@@ -478,6 +478,6 @@ class RedisSecurityMonitor:
         return stats
 
 
-# Global instance
+
 redis_security_monitor = RedisSecurityMonitor()
 

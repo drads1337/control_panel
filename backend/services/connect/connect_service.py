@@ -26,7 +26,7 @@ from .connect_orchestrator import ConnectOrchestrator
 from .key_lookup_service import KeyLookupService
 from .request_validation_service import RequestValidationService
 
-# Type hints for dependencies (imported here to avoid circular imports)
+
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ...services.auth.challenge_service import ChallengeService
@@ -67,7 +67,7 @@ class ConnectService:
         self.request_validator = RequestValidationService()
         self.challenge_validator = ChallengeValidationService()
         
-        # Store dependencies explicitly
+
         self._challenge_service = challenge_service
         self._auth_service = auth_service
     
@@ -154,10 +154,10 @@ class ConnectService:
             Tuple of (response_dict, status_code)
         """
         try:
-            # Validate user key format (raises ValidationError on failure)
+
             self.request_validator.validate_user_key_format(user_key)
 
-            # Find key in project (raises ValidationError or NotFoundError on failure)
+
             key_obj, project_id = self.key_lookup.find_key_in_project(
                 user_key, client_project_id
             )
@@ -172,7 +172,7 @@ class ConnectService:
                     context={"fingerprint": fingerprint, "project_id": project_id}
                 )
 
-            # Use injected dependency - ServiceContainer should inject challenge_service automatically
+
             if not self._challenge_service:
                 raise ServiceError(
                     "ChallengeService dependency not injected",
@@ -184,7 +184,7 @@ class ConnectService:
                 f"ENHANCED_CHALLENGE_GENERATED successfully, keys={list(enhanced_challenge.keys())}"
             )
 
-            # Use ChallengeValidationService to store challenge (single responsibility)
+
             canary = self.challenge_validator.store_challenge(user_key, fingerprint, enhanced_challenge, project_id, ip)
 
             logger.info(f"ENHANCED_CHALLENGE_CREATED user_key={user_key}")
@@ -197,12 +197,12 @@ class ConnectService:
             }, 200
 
         except ValidationError as e:
-            # Validation errors are handled by error_handlers.py
-            # Re-raise to let Flask error handler process it
+
+
             logger.warning(f"CHALLENGE_VALIDATION_ERROR ip={ip} user_key={user_key} error={e.message}")
             raise
         except NotFoundError as e:
-            # NotFoundError for key/project not found
+
             logger.warning(f"CHALLENGE_NOT_FOUND ip={ip} user_key={user_key} error={e.message}")
             raise
         except Exception as e:
@@ -210,7 +210,7 @@ class ConnectService:
             error_traceback = traceback.format_exc()
             logger.error(f"CHALLENGE_ERROR ip={ip} user_key={user_key} error={e}")
             logger.error(f"CHALLENGE_ERROR_TRACEBACK: {error_traceback}")
-            # Re-raise as ServiceError to be handled by error_handlers.py
+
             raise ServiceError(
                 "Internal server error",
                 status_code=500,
@@ -302,7 +302,7 @@ class ConnectService:
 
             elif username and password:
 
-                # Use injected dependency - ServiceContainer should inject auth_service automatically
+
                 if not self._auth_service:
                     raise ServiceError(
                         "AuthService dependency not injected",

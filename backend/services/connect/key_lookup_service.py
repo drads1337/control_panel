@@ -91,7 +91,7 @@ class KeyLookupService:
             return key_obj, project.id
 
         except (ValidationError, NotFoundError):
-            # Re-raise service exceptions as-is
+
             raise
         except (ValueError, TypeError) as e:
             logger.error(f"KEY_LOOKUP: Invalid project_id format: {client_project_id}, error={e}")

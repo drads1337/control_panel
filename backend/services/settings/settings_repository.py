@@ -84,11 +84,11 @@ class SettingsRepository:
         appearance = helper.get_appearance_settings()
         invite = helper.get_invite_settings()
         
-        # Create aggregated settings object (dict-like for compatibility)
+
         class AggregatedSettings:
             """Aggregated settings object that provides attribute access like ProjectSettings"""
             def __init__(self):
-                # Security settings
+
                 self.min_password_length = security.min_password_length
                 self.max_login_attempts = security.max_login_attempts
                 self.ip_block_duration_minutes = security.ip_block_duration_minutes
@@ -108,7 +108,7 @@ class SettingsRepository:
                 self.session_limiting_enabled = security.session_limiting_enabled
                 self.auto_log_cleanup_enabled = security.auto_log_cleanup_enabled
                 
-                # System settings
+
                 self.max_connections = system.max_connections
                 self.session_timeout_minutes = system.session_timeout_minutes
                 self.log_file_size_mb = system.log_file_size_mb
@@ -117,30 +117,30 @@ class SettingsRepository:
                 self.analytics_enabled = system.analytics_enabled
                 self.system_notifications_enabled = system.system_notifications_enabled
                 
-                # Encryption settings
+
                 self.encryption_enabled = encryption.encryption_enabled
                 self.encryption_algorithm = encryption.encryption_algorithm
                 self.key_rotation_days = encryption.key_rotation_days
                 self.project_master_key = encryption.project_master_key
                 
-                # Backup settings
+
                 self.auto_backup_enabled = backup.auto_backup_enabled
                 self.backup_frequency_hours = backup.backup_frequency_hours
                 self.backup_retention_days = backup.backup_retention_days
                 
-                # Chat settings
+
                 self.chat_message_limit_per_minute = chat.chat_message_limit_per_minute
                 self.chat_daily_message_limit = chat.chat_daily_message_limit
                 self.chat_message_max_length = chat.chat_message_max_length
                 
-                # Offline auth settings
+
                 self.offline_auth_enabled = offline_auth.offline_auth_enabled
                 self.offline_ticket_expiration_hours = offline_auth.offline_ticket_expiration_hours
                 
-                # Appearance settings
+
                 self.appearance_settings = appearance.appearance_settings
                 
-                # Invite settings
+
                 self.invite_code_required = invite.invite_code_required
         
         return AggregatedSettings()
@@ -216,6 +216,6 @@ class SettingsRepository:
             }
         except Exception as e:
             logger.error(f"Error in get_or_create_project_encryption_keys for project_id {project_id}: {e}")
-            # Return empty keys instead of raising to prevent 500 errors
+
             return {"aes_key": "", "public_key": ""}
 

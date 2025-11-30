@@ -42,7 +42,7 @@ def encrypt_data_with_project_key(data: dict, project_id: int) -> str:
         project_master_key = encryption_settings.project_master_key
         
         if not project_master_key:
-            # Generate master key if not exists
+
             project_master_key = secrets.token_hex(32)
             encryption_settings.project_master_key = project_master_key
             db.session.commit()
@@ -62,14 +62,14 @@ def decrypt_data_with_project_key(enc: str, project_id: int, use_gcm: bool = Tru
     which uses only ONE key and ONE method to prevent timing attacks.
     Multiple key attempts or method fallbacks are removed for security.
     """
-    # Delegate to the secure implementation in secure_crypto
+
     from ..utils.secure_crypto import decrypt_data_with_project_key as secure_decrypt
     
     try:
         if not enc:
             raise ValueError("Empty encrypted data")
 
-        # Try base64 decode first (for backward compatibility with unencrypted data)
+
         try:
             decoded = base64.b64decode(enc).decode("utf-8")
             data = json.loads(decoded)
@@ -80,7 +80,7 @@ def decrypt_data_with_project_key(enc: str, project_id: int, use_gcm: bool = Tru
         if len(enc) < 20:
             raise ValueError("Data too short for decryption")
 
-        # Use secure decryption (single key, single method)
+
         return secure_decrypt(enc, project_id, use_gcm)
 
     except Exception as e:
@@ -118,7 +118,7 @@ def get_or_create_project_settings(project_id):
     This function is kept for backward compatibility.
     """
     helper = ProjectSettingsHelper(project_id)
-    # Return aggregated settings for backward compatibility
+
     from ..services.settings.settings_repository import SettingsRepository
     repo = SettingsRepository()
     return repo.get_all_project_settings(project_id)
@@ -230,7 +230,7 @@ def get_or_create_project_keys(project_id):
             private_key_encrypted=private_pem,
             key_metadata=json.dumps({"algorithm": "RSA", "key_size": 2048, "aes_key_size": 256}),
         )
-        # Use set_aes_key() to automatically encrypt with Envelope Encryption if available
+
         keys.set_aes_key(aes_key, use_envelope=True)
         db.session.add(keys)
         db.session.commit()
@@ -248,11 +248,11 @@ def get_settings(current_user=None, project_id=None):
     Returns:
         JSON response with settings data or error message
     """
-    # Get services once at the start (DI pattern)
+
     settings_service = get_service('settings_service')
     
     user_id = get_jwt_identity()
-    # Get project_id from parameter (passed by middleware)
+
     logger.info("Getting settings", user_id=user_id, project_id=project_id)
 
     result = settings_service.get_settings_cached(user_id=user_id, project_id=project_id)
@@ -301,7 +301,7 @@ def get_settings(current_user=None, project_id=None):
         else:
             return jsonify(error_response), 500
 
-    # Validate JSON serializability
+
     import json as json_module
     try:
         json_module.dumps(result)
@@ -650,7 +650,7 @@ def regenerate_keys(validated_data=None):
         return jsonify({"error": "Insufficient permissions"}), 403
 
     if not validated_data:
-        # Fallback for backward compatibility
+
         data = request.get_json() or {}
         action = data.get("action", "all")
     else:
@@ -660,7 +660,7 @@ def regenerate_keys(validated_data=None):
 
     if action in ["aes", "all"]:
         new_aes_key = secrets.token_hex(32)
-        # Use set_aes_key() to automatically encrypt with Envelope Encryption if available
+
         keys.set_aes_key(new_aes_key, use_envelope=True)
 
     if action in ["rsa", "all"]:
@@ -735,7 +735,7 @@ def update_keys(validated_data=None):
     keys = get_or_create_project_keys(project_id)
 
     if validated_data.aes_key:
-        # Use set_aes_key() to automatically encrypt with Envelope Encryption if available
+
         keys.set_aes_key(validated_data.aes_key, use_envelope=True)
 
     if validated_data.public_key:
@@ -925,8 +925,8 @@ def remove_from_fingerprint_blacklist(fp_id):
 @require_project_isolation
 def get_blocked_ips():
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         project_id, error = get_user_project_id(user_id)
@@ -988,8 +988,8 @@ def get_blocked_ips():
 @require_project_isolation
 def block_ip(validated_data=None):
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         project_id, error = get_user_project_id(user_id)
@@ -1050,8 +1050,8 @@ def block_ip(validated_data=None):
 @require_project_isolation
 def unblock_ip(ip_id):
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         project_id, error = get_user_project_id(user_id)
@@ -1094,8 +1094,8 @@ def unblock_ip(ip_id):
 @require_project_isolation
 def get_blocked_hwids():
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         project_id, error = get_user_project_id(user_id)
@@ -1160,8 +1160,8 @@ def get_blocked_hwids():
 @require_project_isolation
 def block_hwid(validated_data=None):
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         project_id, error = get_user_project_id(user_id)
@@ -1221,8 +1221,8 @@ def block_hwid(validated_data=None):
 @require_project_isolation
 def unblock_hwid(hwid_id):
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         project_id, error = get_user_project_id(user_id)
@@ -1265,8 +1265,8 @@ def unblock_hwid(hwid_id):
 @require_project_isolation
 def get_security_analytics():
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         rbac_service = get_service('rbac_service')
         security_service = get_service('security_service')
         user_id = get_jwt_identity()
@@ -1301,8 +1301,8 @@ def get_security_analytics():
 @require_project_isolation
 def get_security_rules():
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         rbac_service = get_service('rbac_service')
         security_rules_init_service = get_service('security_rules_init_service')
         user_id = get_jwt_identity()
@@ -1322,7 +1322,7 @@ def get_security_rules():
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
-        # Ensure default rules exist
+
         security_rules_init_service.ensure_default_rules(project_id)
 
         from ..models.security import SecurityRule
@@ -1333,7 +1333,7 @@ def get_security_rules():
             .all()
         )
 
-        # Map rule types to frontend types
+
         type_mapping = {
             "threat_score": "ip",
             "rate_limit": "behavior",
@@ -1346,7 +1346,7 @@ def get_security_rules():
             "fingerprint_block": "ip",
         }
 
-        # Map action types to frontend actions
+
         action_mapping = {
             "block": "block",
             "monitor": "monitor",
@@ -1354,7 +1354,7 @@ def get_security_rules():
             "warn": "monitor",
         }
 
-        # Map severity
+
         severity_mapping = {
             "low": "low",
             "medium": "medium",
@@ -1399,8 +1399,8 @@ def get_security_rules():
 @require_project_isolation
 def create_security_rule(validated_data=None):
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         project_id, error = get_user_project_id(user_id)
@@ -1454,8 +1454,8 @@ def create_security_rule(validated_data=None):
 @require_project_isolation
 def get_security_events():
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         project_id, error = get_user_project_id(user_id)
@@ -1523,8 +1523,8 @@ def get_security_events():
 def toggle_security_rule(rule_id):
     """Toggle security rule active status"""
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         activity_service = get_service('activity_service')
         rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
@@ -1558,7 +1558,7 @@ def toggle_security_rule(rule_id):
         rule.is_active = not rule.is_active
         db.session.commit()
 
-        # Log the activity
+
         try:
             action = "security_rule_enabled" if rule.is_active else "security_rule_disabled"
             details = f'Security rule "{rule.name}" (ID: {rule.id}) {"enabled" if rule.is_active else "disabled"}'
@@ -1569,7 +1569,7 @@ def toggle_security_rule(rule_id):
                 ip=get_real_ip(),
                 user_agent=request.headers.get("User-Agent", ""),
                 details=details,
-                force_flush=True,  # Force immediate write for security actions
+                force_flush=True,
             )
             
             logger.info(
@@ -1583,7 +1583,7 @@ def toggle_security_rule(rule_id):
                 new_status=rule.is_active,
             )
         except Exception as log_error:
-            # Don't fail the request if logging fails
+
             logger.warning(f"Failed to log security rule toggle activity: {log_error}")
 
         return jsonify(
@@ -1605,8 +1605,8 @@ def toggle_security_rule(rule_id):
 @require_project_isolation
 def update_security_rule(rule_id, validated_data=None):
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         project_id, error = get_user_project_id(user_id)
@@ -1684,8 +1684,8 @@ def update_security_rule(rule_id, validated_data=None):
 @require_project_isolation
 def delete_security_rule(rule_id):
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         project_id, error = get_user_project_id(user_id)
@@ -1728,8 +1728,8 @@ def delete_security_rule(rule_id):
 @require_project_isolation
 def reset_security_rules():
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         project_id, error = get_user_project_id(user_id)

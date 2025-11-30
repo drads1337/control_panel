@@ -21,7 +21,7 @@ class RemoteCategory(db.Model):
     product_id = db.Column(
         db.Integer, db.ForeignKey("product.id", ondelete="CASCADE"), nullable=False
     )
-    product = db.relationship("Product", backref="remote_categories")  # Using Product instead of Product
+    product = db.relationship("Product", backref="remote_categories")
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -63,7 +63,7 @@ class RemoteFeature(db.Model):
     product_id = db.Column(
         db.Integer, db.ForeignKey("product.id", ondelete="CASCADE"), nullable=False
     )
-    product = db.relationship("Product", backref="remote_features")  # Using Product instead of Product
+    product = db.relationship("Product", backref="remote_features")
 
     configuration = db.Column(db.Text, nullable=True)
 

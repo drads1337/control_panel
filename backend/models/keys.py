@@ -109,9 +109,9 @@ class ReferralCode(db.Model):
     expires_at = db.Column(db.DateTime, nullable=True)
     used = db.Column(db.Boolean, default=False)
     used_by = db.Column(db.Integer, db.ForeignKey("user.id", ondelete="SET NULL"), nullable=True)
-    # SECURITY: Using JSON instead of PickleType to prevent RCE attacks
-    # PickleType is unsafe - if attacker gets DB access, they can execute arbitrary code
-    # JSON is safe and provides the same functionality for list storage
+
+
+
     product_ids = db.Column(db.JSON, nullable=True)
     rbac_role_ids = db.Column(db.JSON, nullable=True)
     token_balance = db.Column(db.BigInteger, default=0)
@@ -127,19 +127,19 @@ class ReferralCode(db.Model):
         if self.product_ids is None:
             return []
 
-        # JSON column already stores as list, but handle legacy data
+
         if isinstance(self.product_ids, list):
             return self.product_ids
 
-        # Handle legacy string format (backward compatibility)
+
         if isinstance(self.product_ids, str):
             try:
                 import json
-                # Try to parse as JSON first
+
                 parsed = json.loads(self.product_ids)
                 if isinstance(parsed, list):
                     return parsed
-                # Fallback to comma-separated string
+
                 clean_str = self.product_ids.strip("[]")
                 if clean_str:
                     return [int(x.strip()) for x in clean_str.split(",")]
@@ -163,19 +163,19 @@ class ReferralCode(db.Model):
         if self.rbac_role_ids is None:
             return []
 
-        # JSON column already stores as list, but handle legacy data
+
         if isinstance(self.rbac_role_ids, list):
             return self.rbac_role_ids
 
-        # Handle legacy string format (backward compatibility)
+
         if isinstance(self.rbac_role_ids, str):
             try:
                 import json
-                # Try to parse as JSON first
+
                 parsed = json.loads(self.rbac_role_ids)
                 if isinstance(parsed, list):
                     return parsed
-                # Fallback to comma-separated string
+
                 clean_str = self.rbac_role_ids.strip("[]")
                 if clean_str:
                     return [int(x.strip()) for x in clean_str.split(",")]

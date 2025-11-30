@@ -33,7 +33,7 @@ def make_celery(app=None):
         logging.warning("Celery is not installed. Task queue will use fallback mode.")
         return None
 
-    # Use persistent Redis instance for Celery (sessions and queues must not lose data)
+
     redis_password_part = f":{Config.REDIS_PERSISTENT_PASSWORD}@" if Config.REDIS_PERSISTENT_PASSWORD else ""
     redis_url = (
         f"redis://{redis_password_part}{Config.REDIS_PERSISTENT_HOST}:"
@@ -119,9 +119,9 @@ def make_celery(app=None):
         },
 
         beat_schedule={
-            # Flush analytics buffer periodically to reduce database write pressure
-            # This implements write-behind caching pattern for high-load scenarios
-            # Interval is configurable via ANALYTICS_BUFFER_FLUSH_INTERVAL (default: 30 seconds)
+
+
+
             "flush-analytics-buffer": {
                 "task": "backend.tasks.analytics_tasks.flush_analytics_buffer",
                 "schedule": timedelta(

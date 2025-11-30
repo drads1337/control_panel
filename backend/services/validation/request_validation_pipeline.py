@@ -12,7 +12,7 @@ from typing import Optional, Tuple
 
 from flask import request
 
-# get_service removed - using DI
+
 from ...utils.service_exceptions import ServiceError
 from ...utils.ip_utils import get_real_ip
 
@@ -37,11 +37,11 @@ class RequestValidationPipeline:
     def __init__(self, security_service=None):
         """Initialize validation pipeline with configuration"""
         self._security_service = security_service
-        # User-Agent validation patterns
+
         self.bad_ua_keywords = ["wget", "python", "requests", "postman", "insomnia"]
         self.bad_headers = []
         
-        # IP validation settings
+
         self.require_ip_validation = True
         self.require_user_agent_validation = True
 
@@ -64,7 +64,7 @@ class RequestValidationPipeline:
         Returns:
             ValidationResult with validation status and details
         """
-        # Extract IP and User-Agent if not provided
+
         if ip is None:
             ip = get_real_ip()
         
@@ -74,7 +74,7 @@ class RequestValidationPipeline:
         if headers is None:
             headers = dict(request.headers) if request else {}
 
-        # Validate User-Agent
+
         if self.require_user_agent_validation:
             ua_valid, ua_reason = self._validate_user_agent(user_agent, headers)
             if not ua_valid:
@@ -89,7 +89,7 @@ class RequestValidationPipeline:
                     user_agent=user_agent,
                 )
 
-        # Validate IP address
+
         if self.require_ip_validation and project_id:
             ip_valid, ip_reason = self._validate_ip_address(ip, project_id)
             if not ip_valid:
@@ -128,12 +128,12 @@ class RequestValidationPipeline:
 
         ua_lower = user_agent.lower()
 
-        # Check for suspicious keywords
+
         for keyword in self.bad_ua_keywords:
             if keyword in ua_lower:
                 return False, f"BAD_UA_{keyword.upper()}"
 
-        # Check for suspicious headers
+
         for bad_header in self.bad_headers:
             if bad_header.lower() in (k.lower() for k in headers.keys()):
                 return False, f"BAD_HEADER_{bad_header.upper()}"
@@ -156,30 +156,30 @@ class RequestValidationPipeline:
         if not ip:
             return False, "MISSING_IP"
 
-        # Check if IP is blocked
+
         try:
             if not self._security_service:
-                # If security service is not available, log warning but don't block requests
+
                 logger.warning("Security Service dependency not injected, skipping IP block check")
                 return True, None
             
             if self._security_service.is_ip_blocked(ip, project_id):
                 return False, "IP_BLOCKED"
         except (ConnectionError, TimeoutError) as e:
-            # Infrastructure errors - log but don't block requests
+
             logger.warning(f"IP block check unavailable (connection issue): {e}")
-            # Don't fail validation on service errors - log and continue
-            # This prevents service errors from blocking legitimate requests
+
+
         except ServiceError as e:
-            # Service errors - log but don't block requests
+
             logger.warning(f"Security service error during IP block check: {e}")
-            # Don't fail validation on service errors - log and continue
-            # This prevents service errors from blocking legitimate requests
+
+
         except Exception as e:
-            # Other errors - log with context
+
             logger.error(f"Error checking IP block status: {e}", exc_info=True)
-            # Don't fail validation on service errors - log and continue
-            # This prevents service errors from blocking legitimate requests
+
+
 
         return True, None
 
@@ -200,7 +200,7 @@ class RequestValidationPipeline:
             ip = get_real_ip()
         
         if not project_id:
-            return True, None  # Skip validation if no project_id
+            return True, None
         
         return self._validate_ip_address(ip, project_id)
 
@@ -225,6 +225,6 @@ class RequestValidationPipeline:
         
         return self._validate_user_agent(user_agent, headers)
 
-# Singleton instance for easy access
+
 request_validation_pipeline = RequestValidationPipeline()
 

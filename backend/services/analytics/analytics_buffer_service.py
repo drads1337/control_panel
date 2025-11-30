@@ -21,7 +21,7 @@ from ...utils.redis_client import redis_client
 
 logger = logging.getLogger(__name__)
 
-# Import monitoring service
+
 try:
     from ...services.monitoring.buffer_integrity_monitor import get_buffer_integrity_monitor
     MONITORING_AVAILABLE = True
@@ -43,17 +43,17 @@ class AnalyticsBufferService:
         self.buffer_ttl = Config.ANALYTICS_BUFFER_TTL
         self.enabled = Config.ANALYTICS_BUFFER_ENABLED
         
-        # Separate buffers for different analytics types
+
         self.activity_buffer_key = f"{self.buffer_prefix}:user_activity"
         self.key_analytics_buffer_key = f"{self.buffer_prefix}:key_analytics"
         
-        # Counter keys for monitoring
+
         self.activity_counter_key = f"{self.buffer_prefix}:user_activity:count"
         self.key_analytics_counter_key = f"{self.buffer_prefix}:key_analytics:count"
         
-        # Track last flush time to ensure periodic flushing even with small buffers
+
         self.last_flush_time_key = f"{self.buffer_prefix}:last_flush_time"
-        self.max_flush_interval = 60  # Maximum seconds between flushes (even if buffer is small)
+        self.max_flush_interval = 60
 
     def buffer_user_activity(
         self,
@@ -101,41 +101,41 @@ class AnalyticsBufferService:
                 "created_at": datetime.utcnow().isoformat(),
             }
             
-            # Remove None values to save space
+
             activity_data = {k: v for k, v in activity_data.items() if v is not None}
             
-            # Use Redis list to buffer activities
+
             activity_json = json.dumps(activity_data)
             redis_client.client.rpush(self.activity_buffer_key, activity_json)
             
-            # Set TTL on the buffer key
+
             redis_client.client.expire(self.activity_buffer_key, self.buffer_ttl)
             
-            # Increment counter
+
             redis_client.client.incr(self.activity_counter_key)
             redis_client.client.expire(self.activity_counter_key, self.buffer_ttl)
             
             logger.debug(f"Buffered user activity: user_id={user_id}, action={action}")
             
-            # Check if buffer is getting large or if enough time has passed since last flush
-            # This ensures buffer is flushed even if Celery Beat is not running
+
+
             buffer_size = redis_client.client.llen(self.activity_buffer_key)
             
-            # Record buffer size for monitoring
+
             if MONITORING_AVAILABLE:
                 try:
                     monitor = get_buffer_integrity_monitor()
                     monitor.record_buffer_size('user_activity', buffer_size)
                     
-                    # Check for overflow
+
                     if buffer_size >= self.buffer_max_size:
                         monitor.record_buffer_overflow('user_activity')
                 except Exception as e:
                     logger.debug(f"Failed to record buffer metrics: {e}")
             
-            flush_threshold = max(min(self.buffer_max_size // 4, 10), 5)  # At least 5 items, max 25% of max size or 10
+            flush_threshold = max(min(self.buffer_max_size // 4, 10), 5)
             
-            # Check time since last flush
+
             last_flush_time = redis_client.client.get(self.last_flush_time_key)
             should_flush_by_time = False
             if last_flush_time:
@@ -146,12 +146,12 @@ class AnalyticsBufferService:
                         should_flush_by_time = True
                         logger.debug(f"Last flush was {time_since_flush:.1f}s ago, triggering periodic flush")
                 except (ValueError, TypeError):
-                    # If timestamp is invalid, trigger flush
+
                     should_flush_by_time = True
             else:
-                # No previous flush recorded, but buffer has items - trigger flush after interval
+
                 if buffer_size > 0:
-                    # Set initial timestamp
+
                     redis_client.client.set(
                         self.last_flush_time_key,
                         datetime.utcnow().timestamp(),
@@ -163,7 +163,7 @@ class AnalyticsBufferService:
                     f"Activity buffer size ({buffer_size}) reached flush threshold ({flush_threshold}) "
                     f"or max interval exceeded, triggering automatic flush in background"
                 )
-                # Trigger async flush in background thread to avoid blocking request
+
                 self._trigger_async_flush()
             
             return True
@@ -204,40 +204,40 @@ class AnalyticsBufferService:
             today_str = today.isoformat()
             analytics_key = f"{self.key_analytics_buffer_key}:{key_id}:{today_str}"
             
-            # Use Redis hash to store aggregated updates for each key+date
+
             pipeline = redis_client.client.pipeline()
             
             if increment_connections:
                 pipeline.hincrby(analytics_key, "total_connections", 1)
             
-            # Store product in a set (for unique products)
+
             if product:
                 pipeline.sadd(f"{analytics_key}:products", product)
             
-            # Use HyperLogLog for efficient unique device counting
-            # HyperLogLog uses ~12KB per key and provides ~0.81% error rate
-            # Much more efficient than storing all serials in a set
+
+
+
             if serial:
                 hll_key = f"{analytics_key}:devices_hll"
-                pipeline.pfadd(hll_key, serial)  # PFADD adds to HyperLogLog
+                pipeline.pfadd(hll_key, serial)
                 pipeline.expire(hll_key, self.buffer_ttl)
             
-            # Store IP in a set (for unique IPs if needed)
+
             if ip_address:
                 pipeline.sadd(f"{analytics_key}:ips", ip_address)
             
-            # Set TTL
+
             pipeline.expire(analytics_key, self.buffer_ttl)
             pipeline.expire(f"{analytics_key}:products", self.buffer_ttl)
             pipeline.expire(f"{analytics_key}:ips", self.buffer_ttl)
             
-            # Track this key+date combination for flushing
+
             pipeline.sadd(f"{self.key_analytics_buffer_key}:keys", analytics_key)
             pipeline.expire(f"{self.key_analytics_buffer_key}:keys", self.buffer_ttl)
             
             pipeline.execute()
             
-            # Increment counter
+
             redis_client.client.incr(self.key_analytics_counter_key)
             redis_client.client.expire(self.key_analytics_counter_key, self.buffer_ttl)
             
@@ -259,7 +259,7 @@ class AnalyticsBufferService:
             activity_count = redis_client.client.llen(self.activity_buffer_key)
             activity_total = int(redis_client.client.get(self.activity_counter_key) or 0)
             
-            # Count unique key analytics entries
+
             key_analytics_keys = redis_client.client.smembers(f"{self.key_analytics_buffer_key}:keys")
             key_analytics_count = len(key_analytics_keys) if key_analytics_keys else 0
             key_analytics_total = int(redis_client.client.get(self.key_analytics_counter_key) or 0)
@@ -303,7 +303,7 @@ class AnalyticsBufferService:
         
         try:
             while True:
-                # Pop batch_size items from the buffer
+
                 activities_json = redis_client.client.lrange(
                     self.activity_buffer_key, 0, batch_size - 1
                 )
@@ -311,13 +311,13 @@ class AnalyticsBufferService:
                 if not activities_json:
                     break
                 
-                # Parse and create UserActivity objects
+
                 activities_to_insert = []
                 for activity_json in activities_json:
                     try:
                         activity_data = json.loads(activity_json)
                         
-                        # Convert created_at string back to datetime
+
                         if "created_at" in activity_data:
                             activity_data["created_at"] = datetime.fromisoformat(
                                 activity_data["created_at"]
@@ -333,7 +333,7 @@ class AnalyticsBufferService:
                 if not activities_to_insert:
                     break
                 
-                # Bulk insert to database
+
                 try:
                     db.session.bulk_insert_mappings(UserActivity, [
                         {
@@ -352,7 +352,7 @@ class AnalyticsBufferService:
                     ])
                     db.session.commit()
                     
-                    # Remove flushed items from buffer
+
                     redis_client.client.ltrim(
                         self.activity_buffer_key, len(activities_json), -1
                     )
@@ -363,12 +363,12 @@ class AnalyticsBufferService:
                 except Exception as e:
                     logger.error(f"Failed to flush user activities to database: {e}")
                     db.session.rollback()
-                    # Don't remove from buffer on error - will retry later
+
                     break
             
             success = True
             
-            # Record flush metrics
+
             if MONITORING_AVAILABLE:
                 try:
                     duration = time.time() - start_time
@@ -379,7 +379,7 @@ class AnalyticsBufferService:
                     
         except Exception as e:
             logger.error(f"Error flushing user activities: {e}")
-            # Record failed flush
+
             if MONITORING_AVAILABLE:
                 try:
                     duration = time.time() - start_time
@@ -409,7 +409,7 @@ class AnalyticsBufferService:
         
         try:
             while True:
-                # Pop batch_size items from the buffer
+
                 activities_json = redis_client.client.lrange(
                     self.activity_buffer_key, 0, batch_size - 1
                 )
@@ -417,13 +417,13 @@ class AnalyticsBufferService:
                 if not activities_json:
                     break
                 
-                # Parse and create UserActivity objects
+
                 activities_to_insert = []
                 for activity_json in activities_json:
                     try:
                         activity_data = json.loads(activity_json)
                         
-                        # Convert created_at string back to datetime
+
                         if "created_at" in activity_data:
                             activity_data["created_at"] = datetime.fromisoformat(
                                 activity_data["created_at"]
@@ -439,7 +439,7 @@ class AnalyticsBufferService:
                 if not activities_to_insert:
                     break
                 
-                # Bulk insert to database
+
                 try:
                     session.bulk_insert_mappings(UserActivity, [
                         {
@@ -458,7 +458,7 @@ class AnalyticsBufferService:
                     ])
                     session.commit()
                     
-                    # Remove flushed items from buffer
+
                     redis_client.client.ltrim(
                         self.activity_buffer_key, len(activities_json), -1
                     )
@@ -466,7 +466,7 @@ class AnalyticsBufferService:
                     flushed_count += len(activities_to_insert)
                     logger.info(f"Flushed {len(activities_to_insert)} user activities to database")
                     
-                    # Update last flush time after successful flush
+
                     try:
                         redis_client.client.set(
                             self.last_flush_time_key,
@@ -479,10 +479,10 @@ class AnalyticsBufferService:
                 except Exception as e:
                     logger.error(f"Failed to flush user activities to database: {e}")
                     session.rollback()
-                    # Don't remove from buffer on error - will retry later
+
                     break
             
-            # Update last flush time at the end if any activities were flushed
+
             if flushed_count > 0:
                 try:
                     redis_client.client.set(
@@ -520,7 +520,7 @@ class AnalyticsBufferService:
         flushed_count = 0
         
         try:
-            # Get all buffered key analytics keys
+
             analytics_keys = redis_client.client.smembers(
                 f"{self.key_analytics_buffer_key}:keys"
             )
@@ -530,28 +530,28 @@ class AnalyticsBufferService:
             
             for analytics_key in analytics_keys:
                 try:
-                    # Parse key_id and date from key format: "analytics_buffer:key_analytics:{key_id}:{date}"
-                    # The key format is: analytics_buffer:key_analytics:{key_id}:{date_isoformat}
+
+
                     parts = analytics_key.split(":")
                     if len(parts) < 4:
                         continue
                     
                     key_id = int(parts[2])
                     date_str = parts[3]
-                    # date_str is already in ISO format (YYYY-MM-DD) from date.today().isoformat()
+
                     from datetime import date as date_type
                     analytics_date = date_type.fromisoformat(date_str)
                     
-                    # Get aggregated updates from Redis
+
                     updates = redis_client.client.hgetall(analytics_key)
                     products_set = redis_client.client.smembers(f"{analytics_key}:products")
                     
                     if not updates and not products_set:
-                        # Empty entry, skip
+
                         redis_client.client.srem(f"{self.key_analytics_buffer_key}:keys", analytics_key)
                         continue
                     
-                    # Get or create analytics record
+
                     analytics = KeyAnalytics.query.filter_by(
                         key_id=key_id, date=analytics_date
                     ).first()
@@ -569,11 +569,11 @@ class AnalyticsBufferService:
                         )
                         db.session.add(analytics)
                     
-                    # Apply updates
+
                     if "total_connections" in updates:
                         analytics.total_connections += int(updates["total_connections"])
                     
-                    # Update products list
+
                     if products_set:
                         existing_products = json.loads(analytics.products_played or "[]")
                         new_products = [g.decode() if isinstance(g, bytes) else g for g in products_set]
@@ -582,13 +582,13 @@ class AnalyticsBufferService:
                                 existing_products.append(product)
                         analytics.products_played = json.dumps(existing_products)
                     
-                    # Get unique devices count from HyperLogLog (much faster than DB query)
-                    # HyperLogLog provides approximate count with ~0.81% error rate
-                    # This eliminates expensive COUNT(DISTINCT) queries on every flush
+
+
+
                     hll_key = f"{analytics_key}:devices_hll"
                     unique_devices_today = redis_client.client.pfcount(hll_key)
                     
-                    # Fallback to DB query only if HyperLogLog is empty (first time or Redis cleared)
+
                     if unique_devices_today == 0:
                         logger.debug(
                             f"HyperLogLog empty for {hll_key}, falling back to DB query for key_id={key_id}"
@@ -608,7 +608,7 @@ class AnalyticsBufferService:
                     
                     db.session.commit()
                     
-                    # Clean up Redis keys
+
                     redis_client.client.delete(analytics_key)
                     redis_client.client.delete(f"{analytics_key}:products")
                     redis_client.client.delete(f"{analytics_key}:ips")
@@ -661,7 +661,7 @@ class AnalyticsBufferService:
             redis_client.client.delete(self.activity_buffer_key)
             redis_client.client.delete(self.activity_counter_key)
             
-            # Clear key analytics
+
             analytics_keys = redis_client.client.smembers(
                 f"{self.key_analytics_buffer_key}:keys"
             )
@@ -700,11 +700,11 @@ class AnalyticsBufferService:
             import threading
             import time
             
-            # Use a lock to prevent multiple concurrent flushes
+
             if not hasattr(self, '_flush_lock'):
                 self._flush_lock = threading.Lock()
             
-            # Check if flush is already running (non-blocking check)
+
             if not self._flush_lock.acquire(blocking=False):
                 logger.debug("Flush already in progress, skipping")
                 return
@@ -712,52 +712,52 @@ class AnalyticsBufferService:
             def flush_async():
                 """Flush buffer in background thread"""
                 try:
-                    # Create database session directly without Flask app context
-                    # This avoids the need to create a new Flask app instance
+
+
                     from sqlalchemy import create_engine
                     from sqlalchemy.orm import sessionmaker
                     from ...config.config import Config
                     from ...models.core import UserActivity
                     from ...core.extensions import db
                     
-                    # Use database engine directly
+
                     engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
                     Session = sessionmaker(bind=engine)
                     session = Session()
                     
                     try:
-                        # Flush in smaller batches to avoid long-running transactions
+
                         batch_size = min(self.buffer_max_size, 100)
                         flushed = self._flush_user_activities_with_session(Session, batch_size)
                         if flushed > 0:
                             logger.info(f"Auto-flushed {flushed} activities from buffer")
                     finally:
-                        pass  # Session will be closed when function exits
+                        pass
                 except Exception as e:
                     logger.error(f"Error in async flush: {e}", exc_info=True)
                 finally:
-                    # Release lock after flush completes
+
                     try:
                         self._flush_lock.release()
                     except Exception:
                         pass
             
-            # Start flush in background thread (daemon so it doesn't block shutdown)
+
             thread = threading.Thread(target=flush_async, daemon=True)
             thread.start()
             logger.debug("Started async flush thread")
             
         except Exception as e:
             logger.warning(f"Failed to start async flush thread: {e}")
-            # Release lock if we failed to start thread
+
             try:
                 if hasattr(self, '_flush_lock'):
                     self._flush_lock.release()
             except Exception:
                 pass
-            # Fallback: try to flush synchronously if thread creation fails (small batch)
+
             try:
-                flushed = self.flush_user_activities(batch_size=50)  # Smaller batch to avoid blocking
+                flushed = self.flush_user_activities(batch_size=50)
                 if flushed > 0:
                     logger.info(f"Sync-flushed {flushed} activities from buffer (fallback)")
             except Exception as sync_error:

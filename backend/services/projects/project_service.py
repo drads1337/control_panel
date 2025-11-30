@@ -14,7 +14,7 @@ from typing import Any, Dict, Optional
 
 from ...models.core import Project
 
-# Type hints for dependencies (imported here to avoid circular imports)
+
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ...services.projects.project_crud_service import ProjectCRUDService
@@ -48,10 +48,10 @@ class ProjectService:
             logger: Optional logger instance
         """
         self.logger = logger or logging.getLogger(__name__)
-        # Store cache_service for backward compatibility, but use specialized services
+
         self.cache_service = cache_service
         
-        # Store dependencies explicitly
+
         self._project_crud_service = project_crud_service
         self._project_cache_service = project_cache_service
         self._project_invite_service = project_invite_service
@@ -166,7 +166,7 @@ class ProjectService:
             )
         project = self._project_crud_service.create_project(user_id, name, description, ip_address, user_agent)
         
-        # Invalidate cache after creation
+
         try:
             if self._project_cache_service:
                 self._project_cache_service.invalidate_project_cache(project.id)
@@ -217,8 +217,8 @@ class ProjectService:
             project_id, user_id, name, description, status, subscription_status, storage_limit_gb, ip_address, user_agent
         )
         
-        # Invalidate cache after successful update
-        # If update_project raises an exception, this code won't execute (which is correct)
+
+
         try:
             project = self._project_crud_service._find_project_by_id_or_unique_id(project_id)
             if project and self._project_cache_service:
@@ -254,18 +254,18 @@ class ProjectService:
             )
         result = self._project_crud_service.delete_project(project_id, user_id, ip_address, user_agent)
         
-        # Invalidate cache after successful deletion
-        # If delete_project raises an exception, this code won't execute (which is correct)
-        # Note: After deletion, project won't exist, so we invalidate by project_id from before deletion
+
+
+
         try:
-            # Try to invalidate cache - project may already be deleted, but cache key might still exist
+
             if self._project_cache_service:
-                # Use project_id directly if it's an integer, otherwise try to find it
+
                 if isinstance(project_id, int):
                     self._project_cache_service.invalidate_project_cache(project_id)
                 else:
-                    # If project_id is unique_id string, we can't invalidate by ID, but that's okay
-                    # Cache will expire naturally
+
+
                     pass
         except Exception as e:
             self.logger.warning(f"Failed to invalidate cache after project deletion: {e}")

@@ -18,9 +18,9 @@ from ...models.products import Product, ProductExtraFile, ProductFileConfig, Pro
 from ...models.keys import Key
 from ...models.agents import Agent, AgentProductAssignment, AgentDownloadLog
 from ...utils.service_exceptions import NotFoundError, PermissionDeniedError, ConflictError, ServiceError, ValidationError
-# get_service removed - using DI
 
-# Type hints for dependencies (imported here to avoid circular imports)
+
+
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ...services.cache.cache_service import CacheService
@@ -51,7 +51,7 @@ class ProductService:
         self._tier_limits_service = tier_limits_service
         self.logger = logger or logging.getLogger(__name__)
         
-        # Validate required dependency
+
         if not self.cache_service:
             raise ServiceError(
                 "CacheService dependency is required",
@@ -70,11 +70,11 @@ class ProductService:
                     f"Fetching products from database for project {project_id}, type: {product_type}"
                 )
 
-                # Base query with eager loading to prevent N+1 queries
+
                 query = Product.query.filter_by(project_id=project_id).options(
-                    # Eager load prices for all products
+
                     subqueryload(Product.key_prices),
-                    # Eager load agent assignments with agents
+
                     subqueryload(Product.agent_assignments).joinedload(AgentProductAssignment.agent)
                 )
 
@@ -94,10 +94,10 @@ class ProductService:
                         "filter_type": product_type,
                     }
 
-                # Pre-fetch all related data in batch queries to avoid N+1
+
                 product_ids = [p.id for p in products]
                 
-                # Batch load active users count for all products
+
                 active_users_query = (
                     db.session.query(Key.product_id, func.count(func.distinct(Key.user_id)))
                     .filter(
@@ -112,7 +112,7 @@ class ProductService:
                 )
                 active_users_map = dict(active_users_query.all())
                 
-                # Batch load config downloads for all products
+
                 config_downloads_query = (
                     db.session.query(ProductFileConfig.product_id, func.count(ProductFileDownload.id))
                     .join(ProductFileDownload, ProductFileDownload.file_id == ProductFileConfig.id)
@@ -126,7 +126,7 @@ class ProductService:
                 )
                 config_downloads_map = dict(config_downloads_query.all())
                 
-                # Batch load extra file downloads for all products
+
                 extra_file_downloads_query = (
                     db.session.query(ProductExtraFile.product_id, func.count(ProductFileDownload.id))
                     .join(ProductFileDownload, ProductFileDownload.file_id == ProductExtraFile.id)
@@ -140,7 +140,7 @@ class ProductService:
                 )
                 extra_file_downloads_map = dict(extra_file_downloads_query.all())
                 
-                # Batch load agent downloads for multi-app products
+
                 multi_app_product_ids = [p.id for p in products if p.is_multi_app]
                 agent_downloads_map = {}
                 if multi_app_product_ids:
@@ -166,7 +166,7 @@ class ProductService:
                             )
                             agent_downloads_map = dict(agent_downloads_query.all())
 
-                # Build product data using pre-fetched data
+
                 products_data = []
                 for product in products:
                     try:
@@ -204,7 +204,7 @@ class ProductService:
         if user_id:
             cache_key_params["user_id"] = user_id
 
-        # Use injected dependency instead of Service Locator
+
         if not self.cache_service:
             raise ServiceError(
                 "CacheService dependency not injected",
@@ -232,8 +232,8 @@ class ProductService:
     ) -> Dict[str, Any]:
         """Build product data dictionary using pre-fetched data to avoid N+1 queries"""
         try:
-            # Use eagerly loaded prices (already loaded via subqueryload)
-            # Filter by project_id and exclude custom periods
+
+
             price_dict = {}
             for price in product.key_prices:
                 if price.project_id == project_id and not (price.period and price.period.startswith("custom_")):
@@ -251,7 +251,7 @@ class ProductService:
 
             agent_info = None
             if product.is_multi_app:
-                # Use eagerly loaded agent assignment (already loaded via subqueryload)
+
                 agent_assignment = next(
                     (aa for aa in product.agent_assignments if aa.project_id == project_id),
                     None
@@ -510,7 +510,7 @@ class ProductService:
                 from ...utils.rbac_utils import RBACManager
 
                 user = User.query.get(user_id) if user_id else None
-                # Use explicit dependency injection
+
                 if not self._rbac_service:
                     raise ServiceError(
                         "Rbac Service dependency not injected",
@@ -551,7 +551,7 @@ class ProductService:
         if user_id:
             cache_key_params["user_id"] = user_id
 
-        # Use injected dependency instead of Service Locator
+
         if not self.cache_service:
             raise ServiceError(
                 "CacheService dependency not injected",
@@ -582,7 +582,7 @@ class ProductService:
             ServiceError: If database operation fails
         """
         try:
-            # Check tier limits
+
             from ...models.core import Project
             
             project = Project.query.get(user.project_id)
@@ -674,34 +674,34 @@ class ProductService:
         try:
             from ...utils.rbac_utils import RBACManager
             
-            # Check if user is owner - owners can access products from any project
+
             is_owner = RBACManager.is_owner(user)
             
-            # Try to determine if product_id is an integer ID or a string unique_id
+
             product = None
             
-            # First, try as integer ID
+
             if isinstance(product_id, int) or (isinstance(product_id, str) and product_id.isdigit()):
                 try:
                     product_id_int = int(product_id)
                     if is_owner:
-                        # Owners can access products from any project
+
                         product = Product.query.filter_by(id=product_id_int).first()
                     else:
-                        # Non-owners must have project_id and product must belong to their project
+
                         if not user.project_id:
                             raise PermissionDeniedError("User must be assigned to a project")
                         product = Product.query.filter_by(id=product_id_int, project_id=user.project_id).first()
                 except (ValueError, TypeError):
                     pass
             
-            # If not found, try as unique_id (string)
+
             if not product:
                 if is_owner:
-                    # Owners can access products from any project
+
                     product = Product.query.filter_by(unique_id=str(product_id)).first()
                 else:
-                    # Non-owners must have project_id and product must belong to their project
+
                     if not user.project_id:
                         raise PermissionDeniedError("User must be assigned to a project")
                     product = Product.query.filter_by(unique_id=str(product_id), project_id=user.project_id).first()
@@ -730,7 +730,7 @@ class ProductService:
                 from ...models.core import UserProductPermission
                 from ...models.rbac import UserRole, Role
                 from ...utils.rbac_utils import RBACManager
-                # Use explicit dependency injection
+
                 if not self._rbac_service:
                     raise ServiceError(
                         "Rbac Service dependency not injected",
@@ -742,7 +742,7 @@ class ProductService:
                     f"Fetching product count from database for project {project_id}, type: {product_type}"
                 )
 
-                # Base query for products
+
                 query = Product.query.filter_by(project_id=project_id)
 
                 if product_type == "multi_app":
@@ -750,7 +750,7 @@ class ProductService:
                 elif product_type == "product_library":
                     query = query.filter_by(is_multi_app=False)
 
-                # Get all product IDs first (lightweight query)
+
                 product_ids = [p.id for p in query.with_entities(Product.id).all()]
 
                 if not product_ids:
@@ -759,7 +759,7 @@ class ProductService:
                         "count": 0,
                     }
 
-                # Get user permissions if user_id is provided
+
                 user_product_permissions = {}
                 has_view_permission = False
                 is_seller = False
@@ -778,10 +778,10 @@ class ProductService:
                             for perm in UserProductPermission.query.filter_by(user_id=user_id).all()
                         }
 
-                    # Check global view permission
+
                     has_view_permission = rbac_service.check_permission(user_id, "products.view")
 
-                    # Check if user is seller
+
                     try:
                         user_roles = db.session.query(Role.name).join(
                             UserRole, Role.id == UserRole.role_id
@@ -797,12 +797,12 @@ class ProductService:
                         user_role_names = [role[0] for role in user_roles]
                         is_seller = 'seller' in user_role_names or any('seller' in str(role).lower() for role in user_role_names)
 
-                # Count products based on permissions
-                # If user has global view permission and is not a seller, count all
+
+
                 if user_id and has_view_permission and not is_seller:
                     count = len(product_ids)
                 else:
-                    # Need to check each product's permission
+
                     count = 0
                     for product_id in product_ids:
                         should_include = False
@@ -813,7 +813,7 @@ class ProductService:
                             if is_seller:
                                 should_include = False
                             elif not has_view_permission:
-                                # Check per-product permission
+
                                 should_include = rbac_service.check_permission(user_id, "products.view", product_id=product_id)
                             else:
                                 should_include = True
@@ -840,7 +840,7 @@ class ProductService:
         if user_id:
             cache_key_params["user_id"] = user_id
 
-        # Use injected dependency instead of Service Locator
+
         if not self.cache_service:
             raise ServiceError(
                 "CacheService dependency not injected",

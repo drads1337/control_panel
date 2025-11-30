@@ -24,12 +24,12 @@ def deactivate_expired_projects():
     This should be called by a scheduled task, not directly by users
     """
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         admin_service = get_service('admin_service')
         rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
-        # Use DI container to get service
+
         user_crud_service = get_user_crud_service()
         user = user_crud_service.get_user_by_id(user_id)
 
@@ -69,12 +69,12 @@ def cleanup_expired_projects():
     This should be called by a scheduled task, not directly by users
     """
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         admin_service = get_service('admin_service')
         rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
-        # Use DI container to get service
+
         user_crud_service = get_user_crud_service()
         user = user_crud_service.get_user_by_id(user_id)
 
@@ -111,12 +111,12 @@ def cleanup_expired_projects():
 def get_system_stats():
     """Get system statistics for admin dashboard"""
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         admin_service = get_service('admin_service')
         rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
-        # Use DI container to get service
+
         user_crud_service = get_user_crud_service()
         user = user_crud_service.get_user_by_id(user_id)
 
@@ -147,12 +147,12 @@ def get_system_stats():
 def get_expired_projects():
     """Get information about expired projects"""
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         admin_service = get_service('admin_service')
         rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
-        # Use DI container to get service
+
         user_crud_service = get_user_crud_service()
         user = user_crud_service.get_user_by_id(user_id)
 
@@ -180,12 +180,12 @@ def get_expired_projects():
 def suspend_project(project_id):
     """Suspend a project"""
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         admin_service = get_service('admin_service')
         rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
-        # Use DI container to get service
+
         user_crud_service = get_user_crud_service()
         user = user_crud_service.get_user_by_id(user_id)
 
@@ -219,12 +219,12 @@ def suspend_project(project_id):
 def reactivate_project(project_id):
     """Reactivate a suspended or expired project"""
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         admin_service = get_service('admin_service')
         rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
-        # Use DI container to get service
+
         user_crud_service = get_user_crud_service()
         user = user_crud_service.get_user_by_id(user_id)
 

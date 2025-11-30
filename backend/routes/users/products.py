@@ -36,14 +36,14 @@ def find_user_by_id_or_unique_id(user_identifier, project_id=None):
     Returns:
         User object or None if not found
     """
-    # Try as integer id (primary key) first
+
     if isinstance(user_identifier, int) or (isinstance(user_identifier, str) and user_identifier.isdigit()):
         user = User.query.get(int(user_identifier))
         if user:
             if project_id is None or user.project_id == project_id:
                 return user
     
-    # Try as unique_id (string)
+
     user = User.query.filter_by(unique_id=str(user_identifier)).first()
     if user:
         if project_id is None or user.project_id == project_id:
@@ -62,7 +62,7 @@ def find_product_by_id_or_unique_id(product_identifier, project_id):
     Returns:
         Product object or None if not found
     """
-    # Try as integer id (primary key) first
+
     if isinstance(product_identifier, int) or (isinstance(product_identifier, str) and product_identifier.isdigit()):
         try:
             product_id_int = int(product_identifier)
@@ -72,7 +72,7 @@ def find_product_by_id_or_unique_id(product_identifier, project_id):
         except (ValueError, TypeError):
             pass
     
-    # Try as unique_id (string)
+
     product = Product.query.filter_by(unique_id=str(product_identifier), project_id=project_id).first()
     return product
 
@@ -92,7 +92,7 @@ def get_user_products(user_identifier, current_user):
         f"(username={current_user.username}, project_id={current_user.project_id})"
     )
 
-    # Check if user exists in database - try by id or unique_id
+
     target_user = find_user_by_id_or_unique_id(user_identifier, current_user.project_id)
     
     if not target_user:
@@ -107,7 +107,7 @@ def get_user_products(user_identifier, current_user):
         f"project_id={target_user.project_id}, current_user_project_id={current_user.project_id}"
     )
 
-    # Handle users without project_id
+
     if not target_user.project_id:
         logger.warning(
             f"USER_PRODUCTS_GET: User {user_identifier} (username={target_user.username}) has no project_id. "
@@ -115,7 +115,7 @@ def get_user_products(user_identifier, current_user):
         )
         return jsonify([])
 
-    # Enforce project isolation - users can only access products for users in their own project
+
     if target_user.project_id != current_user.project_id:
         logger.error(
             f"USER_PRODUCTS_GET: Project isolation violation - user_id={user_identifier} "
@@ -132,7 +132,7 @@ def get_user_products(user_identifier, current_user):
         if not project_products:
             return jsonify([])
 
-        # Use the actual database id
+
         actual_user_id = target_user.id
         user_permissions = UserProductPermission.query.filter_by(user_id=actual_user_id).all()
         permission_map = {up.product_id: up.has_access for up in user_permissions}
@@ -181,7 +181,7 @@ def toggle_user_product_access(user_identifier, product_identifier, current_user
     if not target_user:
         return jsonify({"error": "User not found"}), 404
 
-    # Find product by id or unique_id
+
     product = find_product_by_id_or_unique_id(product_identifier, target_user.project_id)
     if not product:
         return jsonify({"error": "Product not found"}), 404
@@ -195,7 +195,7 @@ def toggle_user_product_access(user_identifier, product_identifier, current_user
             return jsonify({"error": "Access denied"}), 403
 
     try:
-        # Use the actual database ids
+
         actual_user_id = target_user.id
         actual_product_id = product.id
         user_product = UserProductPermission.query.filter_by(

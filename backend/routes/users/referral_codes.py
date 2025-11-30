@@ -43,14 +43,14 @@ def get_refcodes(current_user, project_id=None):
             .all()
         )
 
-        # Get all role IDs from all referral codes for batch query
+
         all_role_ids = set()
         for code in referral_codes:
             if code.rbac_role_ids:
                 if isinstance(code.rbac_role_ids, list):
                     all_role_ids.update(code.rbac_role_ids)
         
-        # Batch fetch all roles
+
         roles_dict = {}
         if all_role_ids and project_id:
             roles = Role.query.filter(
@@ -70,18 +70,18 @@ def get_refcodes(current_user, project_id=None):
         codes_data = []
         for code in referral_codes:
             rbac_role_ids = code.rbac_role_ids if code.rbac_role_ids else []
-            # Get role information for this code's rbac_role_ids
+
             roles = []
             if rbac_role_ids:
                 if isinstance(rbac_role_ids, list):
                     roles = [roles_dict[role_id] for role_id in rbac_role_ids if role_id in roles_dict]
             
-            # Compute is_expired based on expires_at
+
             is_expired = False
             if code.expires_at and code.expires_at < datetime.utcnow():
                 is_expired = True
             
-            # Get role names as comma-separated string for backward compatibility
+
             role_names = ", ".join([role["name"] for role in roles]) if roles else None
             
             codes_data.append(
@@ -118,7 +118,7 @@ def get_refcodes(current_user, project_id=None):
 def create_refcode(current_user, project_id=None, validated_data=None):
     """Create a new referral code"""
     if not validated_data:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         return jsonify({"error": "No data provided"}), 400
 
@@ -141,7 +141,7 @@ def create_refcode(current_user, project_id=None, validated_data=None):
         import secrets
         import string
 
-        # Generate code if not provided
+
         if not code:
             def generate_code():
                 return "".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(10))
@@ -150,7 +150,7 @@ def create_refcode(current_user, project_id=None, validated_data=None):
             while ReferralCode.query.filter_by(code=code).first():
                 code = generate_code()
         else:
-            # Check if code already exists
+
             existing_code = ReferralCode.query.filter_by(code=code).first()
             if existing_code:
                 return jsonify({"error": "Referral code already exists"}), 400
@@ -207,7 +207,7 @@ def delete_refcode(code_id, current_user, project_id=None):
     """Delete a referral code"""
     try:
 
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         rbac_service = get_service('rbac_service')
         if project_id is None:
@@ -252,7 +252,7 @@ def delete_unused_refcodes(current_user, project_id=None):
     """Delete all unused referral codes"""
     try:
 
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         if project_id is None:
             project_id = current_user.project_id

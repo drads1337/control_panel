@@ -16,9 +16,9 @@ from pydantic import Field
 from ..common import BaseSchema
 
 
-# ============================================================================
-# Key Service Response Models
-# ============================================================================
+
+
+
 
 class KeyListItem(BaseSchema):
     """Single key item in a list response"""
@@ -104,9 +104,9 @@ class KeyStatsResponse(BaseSchema):
     paused_keys: int = Field(..., description="Number of paused keys")
 
 
-# ============================================================================
-# User Service Response Models
-# ============================================================================
+
+
+
 
 class UserKeyCounts(BaseSchema):
     """User key counts"""
@@ -209,16 +209,16 @@ class UserTransactionsResponse(BaseSchema):
     pages: int = Field(..., description="Total number of pages")
 
 
-# ============================================================================
-# Settings Service Response Models
-# ============================================================================
+
+
+
 
 class SettingsResponse(BaseSchema):
     """Response for get_settings_cached service method"""
 
-    # This is a complex nested structure, so we'll keep it flexible
-    # but document the expected structure
-    # Full type definition should be in settings.py schema
+
+
+
     pass
 
 

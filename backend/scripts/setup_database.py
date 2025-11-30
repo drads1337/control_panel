@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 Database Setup Script
 
@@ -17,7 +17,7 @@ import subprocess
 import secrets
 from pathlib import Path
 
-# Add project root to path
+
 script_dir = Path(__file__).parent.absolute()
 backend_dir = script_dir.parent
 project_root = backend_dir.parent
@@ -39,7 +39,7 @@ def check_postgres_running():
     print_step(1, "Checking if PostgreSQL is running...")
     
     try:
-        # Try to connect to PostgreSQL
+
         result = subprocess.run(
             ["psql", "--version"],
             capture_output=True,
@@ -55,12 +55,12 @@ def check_postgres_running():
         print("   Install PostgreSQL: https://www.postgresql.org/download/")
         return False
     
-    # Try to connect to PostgreSQL
-    # On macOS Homebrew, the default user is the current user, not "postgres"
+
+
     import getpass
     current_user = getpass.getuser()
     
-    # Try with current user first (macOS Homebrew default)
+
     try:
         result = subprocess.run(
             ["psql", "-h", "localhost", "-U", current_user, "-d", "postgres", "-c", "SELECT 1"],
@@ -74,7 +74,7 @@ def check_postgres_running():
     except:
         pass
     
-    # Try with postgres user (Linux default)
+
     try:
         result = subprocess.run(
             ["psql", "-h", "localhost", "-U", "postgres", "-c", "SELECT 1"],
@@ -101,7 +101,7 @@ def get_db_config():
     """Get database configuration from user or environment"""
     print_step(2, "Database Configuration")
     
-    # Check if DATABASE_URL is already set
+
     db_url = os.environ.get("DATABASE_URL")
     if db_url:
         print(f"📋 Found existing DATABASE_URL: {db_url.split('@')[-1] if '@' in db_url else 'hidden'}")
@@ -119,10 +119,10 @@ def get_db_config():
     
     print("\nEnter PostgreSQL superuser credentials (for creating user/database):")
     import getpass
-    default_user = getpass.getuser()  # macOS Homebrew uses current user
+    default_user = getpass.getuser()
     superuser = input(f"Superuser [{default_user}]: ").strip() or default_user
     
-    # Try to get password from environment or prompt
+
     superuser_pass = os.environ.get("PGPASSWORD")
     if not superuser_pass:
         import getpass
@@ -142,7 +142,7 @@ def create_database_user(config):
     print_step(3, f"Creating database user '{config['user']}'...")
     
     try:
-        # Check if user exists
+
         check_user_cmd = [
             "psql",
             "-h", config["host"],
@@ -167,12 +167,12 @@ def create_database_user(config):
             print(f"✅ User '{config['user']}' already exists")
             return True
         
-        # Generate a secure password
+
         password = secrets.token_urlsafe(16)
         print(f"🔑 Generated password for user '{config['user']}': {password}")
         print("   (Save this password - you'll need it for DATABASE_URL)")
         
-        # Create user
+
         create_user_cmd = [
             "psql",
             "-h", config["host"],
@@ -193,7 +193,7 @@ def create_database_user(config):
         if result.returncode == 0:
             print(f"✅ User '{config['user']}' created successfully")
             
-            # Grant privileges
+
             grant_cmd = [
                 "psql",
                 "-h", config["host"],
@@ -229,7 +229,7 @@ def create_database(config):
         env = os.environ.copy()
         env["PGPASSWORD"] = config.get("superuser_pass") or config.get("password", "")
         
-        # Check if database exists
+
         check_db_cmd = [
             "psql",
             "-h", config["host"],
@@ -251,7 +251,7 @@ def create_database(config):
             print(f"✅ Database '{config['database']}' already exists")
             return True
         
-        # Create database
+
         create_db_cmd = [
             "psql",
             "-h", config["host"],
@@ -320,28 +320,28 @@ def save_env_file(db_url):
     env_file = project_root / ".env"
     backend_env_file = backend_dir / ".env"
     
-    # Try to find existing .env file
+
     target_file = None
     if env_file.exists():
         target_file = env_file
     elif backend_env_file.exists():
         target_file = backend_env_file
     else:
-        # Create .env in project root
+
         target_file = env_file
     
-    # Read existing content
+
     existing_content = ""
     if target_file.exists():
         with open(target_file, "r") as f:
             existing_content = f.read()
     
-    # Check if DATABASE_URL already exists
+
     if "DATABASE_URL=" in existing_content:
         print(f"⚠️  DATABASE_URL already exists in {target_file}")
         replace = input("Replace existing DATABASE_URL? (y/N): ").strip().lower()
         if replace == 'y':
-            # Replace existing DATABASE_URL
+
             lines = existing_content.split("\n")
             new_lines = []
             for line in lines:
@@ -355,12 +355,12 @@ def save_env_file(db_url):
             print(f'   DATABASE_URL="{db_url}"')
             return
     else:
-        # Append DATABASE_URL
+
         if existing_content and not existing_content.endswith("\n"):
             existing_content += "\n"
         existing_content += f'DATABASE_URL="{db_url}"\n'
     
-    # Write to file
+
     with open(target_file, "w") as f:
         f.write(existing_content)
     
@@ -379,7 +379,7 @@ def main():
     print("  5. Save configuration to .env file")
     print()
     
-    # Step 1: Check PostgreSQL
+
     if not check_postgres_running():
         print("\n❌ PostgreSQL is not running or not accessible.")
         print("   Please start PostgreSQL and try again.")
@@ -388,35 +388,35 @@ def main():
         print("   On Windows: Start PostgreSQL service from Services")
         return False
     
-    # Step 2: Get configuration
+
     config = get_db_config()
     
     if isinstance(config, str):
-        # DATABASE_URL was provided
+
         db_url = config
         print(f"\n✅ Using existing DATABASE_URL")
     else:
-        # Need to create user and database
-        # Step 3: Create user
+
+
         if not create_database_user(config):
             print("\n❌ Failed to create database user")
             return False
         
-        # Step 4: Create database
+
         if not create_database(config):
             print("\n❌ Failed to create database")
             return False
         
-        # Generate DATABASE_URL
+
         db_url = generate_database_url(config)
     
-    # Step 5: Test connection
+
     if not test_connection(db_url):
         print("\n❌ Connection test failed")
         print("   Please check your database credentials and try again")
         return False
     
-    # Step 6: Save configuration
+
     save_env_file(db_url)
     
     print_header("Setup Complete!")

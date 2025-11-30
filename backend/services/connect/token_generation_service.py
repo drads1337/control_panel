@@ -42,7 +42,7 @@ class TokenGenerationService:
         All projects must have secret_key set (auto-generated on creation or via migration).
         No fallback to TOKEN_STATIC_WORD is allowed in production for security.
         """
-        # DEPRECATED: static_word is not used, kept only for backward compatibility in tests
+
         self.static_word = static_word or Config.TOKEN_STATIC_WORD if static_word else None
 
     def generate_connect_token(
@@ -79,15 +79,15 @@ class TokenGenerationService:
         Returns:
             Generated token (SHA256 hash)
         """
-        # SECURITY: REQUIRES project.secret_key from database - no fallbacks allowed
-        # All projects must have secret_key set (auto-generated on creation or via migration)
+
+
         if project_id is None:
             raise ValueError(
                 "project_id is required for token generation. "
                 "Token generation requires project.secret_key for security isolation."
             )
         
-        # Get project secret_key from database - REQUIRED
+
         try:
             project = Project.query.filter_by(id=project_id).first()
             if not project:
@@ -104,10 +104,10 @@ class TokenGenerationService:
             unique_salt = project.secret_key
             logger.debug(f"Using project {project_id} secret_key for token generation")
         except ValueError:
-            # Re-raise ValueError as-is (configuration errors)
+
             raise
         except Exception as e:
-            # Database errors should be treated as critical failures
+
             logger.error(
                 f"CRITICAL: Failed to get project {project_id} secret_key: {e}. "
                 f"This is a database error, not a configuration issue."

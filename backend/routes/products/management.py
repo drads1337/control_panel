@@ -34,7 +34,7 @@ def find_product_by_id_or_unique_id(product_identifier, project_id):
     Returns:
         Product object or None if not found
     """
-    # Try as integer id (primary key) first
+
     if isinstance(product_identifier, int) or (isinstance(product_identifier, str) and product_identifier.isdigit()):
         try:
             product_id_int = int(product_identifier)
@@ -44,7 +44,7 @@ def find_product_by_id_or_unique_id(product_identifier, project_id):
         except (ValueError, TypeError):
             pass
     
-    # Try as unique_id (string)
+
     product = Product.query.filter_by(unique_id=str(product_identifier), project_id=project_id).first()
     return product
 
@@ -54,7 +54,7 @@ def find_product_by_id_or_unique_id(product_identifier, project_id):
 @enforce_project_scope
 def get_products_count(current_user, project_id=None):
     """Get count of products (optimized endpoint that doesn't load full product data)"""
-    # Get services once at the start (DI pattern)
+
     product_service = get_service('product_service')
     rbac_service = get_service('rbac_service')
     
@@ -64,7 +64,7 @@ def get_products_count(current_user, project_id=None):
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    # Allow users with clients.view permission to access products even if they don't have a project_id
+
     has_clients_view = rbac_service.check_permission(user.id, "clients.view")
     
     if not user.project_id and not has_clients_view:
@@ -102,7 +102,7 @@ def get_products_count(current_user, project_id=None):
 @enforce_project_scope
 def get_products(current_user=None, project_id=None):
     """Get list of products"""
-    # Get services once at the start (DI pattern)
+
     product_service = get_service('product_service')
     rbac_service = get_service('rbac_service')
     
@@ -112,8 +112,8 @@ def get_products(current_user=None, project_id=None):
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    # Allow users with clients.view permission to access products even if they don't have a project_id
-    # This is needed when editing users
+
+
     has_clients_view = rbac_service.check_permission(user.id, "clients.view")
     
     if not user.project_id and not has_clients_view:
@@ -121,11 +121,11 @@ def get_products(current_user=None, project_id=None):
 
     scoped_project_id = project_id or user.project_id
     if not scoped_project_id:
-        # If user has clients.view permission but no project_id, try to get project_id from request
-        # This allows viewing products when editing users from different projects
+
+
         if has_clients_view:
-            # For users with clients.view, we'll return an empty list if no project_id
-            # The frontend should handle this gracefully
+
+
             return jsonify({"success": True, "products": [], "total_count": 0})
         return jsonify({"error": "No project associated"}), 400
 
@@ -147,7 +147,7 @@ def get_products(current_user=None, project_id=None):
             from ...models.core import UserProductPermission
             from ...models.products import Product
             
-            # Build mapping from product unique_id to database id
+
             product_unique_ids = [p.get("id") for p in original_products]
             product_id_map = {}
             if product_unique_ids:
@@ -187,7 +187,7 @@ def get_products(current_user=None, project_id=None):
                 ).filter(UserRole.user_id == user_id).all()
                 user_role_names = [role[0] for role in user_roles]
             except Exception as role_error:
-                # If transaction is aborted, rollback and retry
+
                 db.session.rollback()
                 current_app.logger.warning(f"Transaction aborted, rolling back and retrying user roles query: {str(role_error)}")
                 user_roles = db.session.query(Role.name).join(
@@ -209,7 +209,7 @@ def get_products(current_user=None, project_id=None):
                 product_db_id = product_id_map.get(product_unique_id)
                 should_include = False
 
-                # Check permissions using database id
+
                 if product_db_id and product_db_id in user_product_permissions:
                     should_include = user_product_permissions[product_db_id]
                 else:
@@ -345,7 +345,7 @@ def create_product(validated_data=None):
     user = User.query.get(user_id)
 
     if not user:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         product_service = get_service('product_service')
         return jsonify({"error": "User not found"}), 404
@@ -366,7 +366,7 @@ def create_product(validated_data=None):
         if not validated_data:
             return jsonify({"error": "Invalid request data"}), 400
 
-        # Exceptions are handled by global handler
+
         new_product = product_service.create_product(user, validated_data)
 
         activity_service.log_activity(user, "product_created", details=f"Created product: {new_product.id}")
@@ -388,7 +388,7 @@ def create_product(validated_data=None):
         )
 
     except ServiceError:
-        # Let ServiceError propagate to global error handler
+
         raise
     except Exception as e:
         db.session.rollback()
@@ -409,7 +409,7 @@ def update_product_status(product_identifier, validated_data=None):
     user = User.query.get(user_id)
 
     if not user:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         product_service = get_service('product_service')
         return jsonify({"error": "User not found"}), 404
@@ -480,7 +480,7 @@ def update_product(product_identifier, validated_data=None):
     user = User.query.get(user_id)
 
     if not user:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         product_service = get_service('product_service')
         return jsonify({"error": "User not found"}), 404
@@ -566,7 +566,7 @@ def delete_product(product_identifier):
     user = User.query.get(user_id)
 
     if not user:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         product_service = get_service('product_service')
         return jsonify({"error": "User not found"}), 404

@@ -120,7 +120,7 @@ class SecurityAuditService:
                 db.session.add(blocked_fingerprint)
                 db.session.commit()
 
-                # Log security event
+
                 if not self._security_monitoring_service:
                     raise ServiceError(
                         "SecurityMonitoringService dependency not injected",
@@ -220,8 +220,8 @@ class SecurityAuditService:
             True if session limit exceeded, False otherwise
         """
         try:
-            # Session limit checking logic would go here
-            # For now, return False (no limit)
+
+
             return False
         except Exception as e:
             self.logger.error(f"Error checking session limit: {e}")
@@ -271,7 +271,7 @@ class SecurityAuditService:
                     )
                     db.session.add(blocked_ip)
                     
-                    # Update trigger count for "Failed Login Protection" rule
+
                     if not self._security_rules_service:
                         raise ServiceError(
                             "SecurityRulesService dependency not injected",

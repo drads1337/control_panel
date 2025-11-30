@@ -35,8 +35,8 @@ class ProjectCacheService:
         """Get cache service instance via DI container"""
         if self.cache_service is not None:
             return self.cache_service
-        # SECURITY: Dependency should be injected via __init__
-        # If not injected, raise error instead of using get_service()
+
+
         raise ServiceError(
             "CacheService dependency not injected",
             status_code=500
@@ -118,7 +118,7 @@ class ProjectCacheService:
                             "per_page": per_page,
                         }
                 else:
-                    # For owners, exclude system project used for owner roles
+
                     query = query.filter(Project.name != "__SYSTEM_OWNER_ROLES__")
                     self.logger.info(f"[FETCH] User is owner, showing all projects except system project")
 
@@ -212,7 +212,7 @@ class ProjectCacheService:
                     "error": str(e),
                 }
 
-        # Try to get from cache first
+
         cache_key = f"projects:user_id={user_id}:page={page}:per_page={per_page}:search={search or ''}"
         
         try:
@@ -223,13 +223,13 @@ class ProjectCacheService:
         except Exception as e:
             self.logger.warning(f"[CACHE] Error getting from cache: {e}")
 
-        # Cache miss - fetch from database
+
         self.logger.info(f"[CACHE] Cache miss for projects: user_id={user_id}, page={page}")
         result = fetch_projects()
 
-        # Store in cache
+
         try:
-            self._cache_service.set(cache_key, result, ttl=300)  # 5 minutes TTL
+            self._cache_service.set(cache_key, result, ttl=300)
             self.logger.info(f"[CACHE] Stored projects in cache: user_id={user_id}, page={page}")
         except Exception as e:
             self.logger.warning(f"[CACHE] Error storing in cache: {e}")
@@ -299,8 +299,8 @@ class ProjectCacheService:
                 self.logger.error(f"Error fetching project: {e}", exc_info=True)
                 return {"error": "Failed to retrieve project"}
 
-        # Try to get from cache first
-        # v2: Added unique_id and days_until_expiry to response
+
+
         cache_key = f"project:v2:project_id={project_id}:user_id={user_id}"
         
         try:
@@ -309,7 +309,7 @@ class ProjectCacheService:
                 self.logger.info(f"[CACHE] Cache hit for project: project_id={project_id}")
                 self.logger.info(f"[CACHE] Cached result keys: {list(cached_result.keys()) if isinstance(cached_result, dict) else 'not a dict'}")
                 self.logger.info(f"[CACHE] Has unique_id? {('unique_id' in cached_result) if isinstance(cached_result, dict) else 'N/A'}")
-                # If cached result doesn't have unique_id, invalidate and fetch fresh
+
                 if isinstance(cached_result, dict) and 'unique_id' not in cached_result:
                     self.logger.warning(f"[CACHE] Cached result missing unique_id, invalidating cache")
                     try:
@@ -322,14 +322,14 @@ class ProjectCacheService:
         except Exception as e:
             self.logger.warning(f"[CACHE] Error getting from cache: {e}")
 
-        # Cache miss - fetch from database
+
         self.logger.info(f"[CACHE] Cache miss for project: project_id={project_id}")
         result = fetch_project()
 
-        # Store in cache (only if successful)
+
         if "error" not in result:
             try:
-                self._cache_service.set(cache_key, result, ttl=300)  # 5 minutes TTL
+                self._cache_service.set(cache_key, result, ttl=300)
                 self.logger.info(f"[CACHE] Stored project in cache: project_id={project_id}")
             except Exception as e:
                 self.logger.warning(f"[CACHE] Error storing in cache: {e}")
@@ -367,7 +367,7 @@ class ProjectCacheService:
                 if not is_owner and user.project_id != project.id:
                     return {"error": "Access denied"}
 
-                # Use denormalized counters from Project model
+
                 stats = {
                     "total_users": project.total_users or 0,
                     "total_keys": project.total_keys or 0,
@@ -384,7 +384,7 @@ class ProjectCacheService:
                 self.logger.error(f"Error fetching project stats: {e}", exc_info=True)
                 return {"error": "Failed to retrieve project statistics"}
 
-        # Try to get from cache first
+
         cache_key = f"project_stats:project_id={project_id}:user_id={user_id}"
         
         try:
@@ -395,14 +395,14 @@ class ProjectCacheService:
         except Exception as e:
             self.logger.warning(f"[CACHE] Error getting from cache: {e}")
 
-        # Cache miss - fetch from database
+
         self.logger.info(f"[CACHE] Cache miss for project stats: project_id={project_id}")
         result = fetch_project_stats()
 
-        # Store in cache (only if successful)
+
         if "error" not in result:
             try:
-                self._cache_service.set(cache_key, result, ttl=60)  # 1 minute TTL for stats
+                self._cache_service.set(cache_key, result, ttl=60)
                 self.logger.info(f"[CACHE] Stored project stats in cache: project_id={project_id}")
             except Exception as e:
                 self.logger.warning(f"[CACHE] Error storing in cache: {e}")
@@ -420,11 +420,11 @@ class ProjectCacheService:
             True if successful, False otherwise
         """
         try:
-            # Invalidate all cache keys related to this project
+
             patterns = [
                 f"project:project_id={project_id}:*",
                 f"project_stats:project_id={project_id}:*",
-                "projects:*",  # Invalidate all projects lists
+                "projects:*",
             ]
             
             for pattern in patterns:

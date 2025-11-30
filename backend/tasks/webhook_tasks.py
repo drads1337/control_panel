@@ -41,7 +41,7 @@ def task_decorator(*args, **kwargs):
     if CELERY_AVAILABLE and celery_app:
         return celery_app.task(*args, **kwargs)
     else:
-        # Fallback: return function as-is if Celery is not available
+
         def decorator(func):
             return func
 
@@ -117,7 +117,7 @@ def _send_telegram_message(webhook_data: Dict) -> Tuple[bool, Optional[str]]:
         event = webhook_data["event"]
         data = webhook_data["data"]
 
-        # Format message
+
         event_names = {
             "key.created": "🔑 New key created",
             "key.activated": "✅ Key activated",
@@ -174,7 +174,7 @@ def _send_discord_message(webhook_data: Dict) -> Tuple[bool, Optional[str]]:
         event = webhook_data["event"]
         data = webhook_data["data"]
 
-        # Format embed
+
         embed = {
             "title": f"Event: {event}",
             "color": 0x0099FF,
@@ -266,7 +266,7 @@ def process_webhook(self, webhook_data: Dict[str, Any]) -> Dict[str, Any]:
         success = False
         error_message = None
 
-        # Send webhook based on type
+
         if webhook_type == "telegram":
             success, error_message = _send_telegram_message(webhook_data)
         elif webhook_type == "discord":
@@ -274,7 +274,7 @@ def process_webhook(self, webhook_data: Dict[str, Any]) -> Dict[str, Any]:
         else:
             success, error_message = _send_custom_webhook(webhook_data)
 
-        # Log webhook result
+
         try:
             with celery_db_session() as session:
                 log_entry = WebhookLog(
@@ -288,7 +288,7 @@ def process_webhook(self, webhook_data: Dict[str, Any]) -> Dict[str, Any]:
 
                 session.add(log_entry)
 
-                # Update webhook statistics
+
                 webhook = session.query(Webhook).filter_by(id=webhook_id).first()
                 if webhook:
                     if success:

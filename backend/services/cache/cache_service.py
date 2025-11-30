@@ -48,11 +48,11 @@ class CacheService:
         }
 
         self.smart_cache_enabled = True
-        self.stale_while_revalidate = False  # Упрощено: по умолчанию выключено
-        self.use_tags = False  # Упрощено: теги опциональны, по умолчанию выключены
-        self.use_markers = True  # Маркеры оставлены для обратной совместимости
+        self.stale_while_revalidate = False
+        self.use_tags = False
+        self.use_markers = True
 
-        # Теги используются только если use_tags=True
+
         self.cache_tags = {
             "products": ["project", "product"],
             "projects": ["project", "user"],
@@ -92,9 +92,9 @@ class CacheService:
         This allows O(1) lookup and deletion instead of O(N) SCAN operations.
         Pattern sets are used for efficient invalidation by pattern.
         """
-        # Normalize pattern: remove wildcards and use as set key identifier
+
         normalized = pattern.replace("*", "").replace("?", "")
-        # Use hash for long patterns to keep key names reasonable
+
         if len(normalized) > 100:
             import hashlib
             pattern_hash = hashlib.md5(normalized.encode()).hexdigest()
@@ -104,7 +104,7 @@ class CacheService:
     def _add_cache_tags(self, cache_key: str, cache_type: str, **kwargs) -> bool:
         """Add cache tags for smart invalidation (only if use_tags=True)"""
         if not self.use_tags:
-            return True  # Теги выключены, просто возвращаем успех
+            return True
         
         try:
             tags = self.cache_tags.get(cache_type, [])
@@ -149,7 +149,7 @@ class CacheService:
         try:
             cache_client = self._get_cache_client()
             
-            # Упрощенная проверка маркеров - только основные случаи
+
             if "project_id" in kwargs:
                 project_id = kwargs["project_id"]
                 project_marker = f"{self.cache_prefix}:project_updated:{project_id}"
@@ -157,7 +157,7 @@ class CacheService:
                     logging.debug(f"Project update marker found, bypassing cache")
                     return True
                 
-                # Проверка маркеров продуктов для проекта
+
                 if "product_id" in kwargs:
                     product_id = kwargs["product_id"]
                     product_marker = f"{self.cache_prefix}:product_updated:{project_id}:{product_id}"
@@ -165,7 +165,7 @@ class CacheService:
                         logging.debug(f"Product update marker found, bypassing cache")
                         return True
 
-            # Проверка RBAC маркеров
+
             if cache_type.startswith("rbac"):
                 if "user_id" in kwargs:
                     user_id = kwargs["user_id"]
@@ -236,36 +236,36 @@ class CacheService:
             success = cache_wrapper.set_json(cache_key, cache_data, ex=ttl)
 
             if success:
-                # Add to cache tags (if enabled)
+
                 self._add_cache_tags(cache_key, cache_type, **kwargs)
                 
-                # Add to pattern sets for efficient invalidation
-                # Track by cache_type and common patterns (project_id, user_id, etc.)
+
+
                 pattern_sets = []
                 
-                # Pattern: cache_type:*
+
                 pattern_sets.append(f"{cache_type}:*")
                 
-                # Pattern: cache_type:project_id=X:*
+
                 if "project_id" in kwargs:
                     pattern_sets.append(f"{cache_type}:project_id={kwargs['project_id']}:*")
                     pattern_sets.append(f"*:project_id={kwargs['project_id']}:*")
                 
-                # Pattern: cache_type:user_id=X:*
+
                 if "user_id" in kwargs:
                     pattern_sets.append(f"{cache_type}:user_id={kwargs['user_id']}:*")
                 
-                # Pattern: cache_type:product_id=X:*
+
                 if "product_id" in kwargs:
                     pattern_sets.append(f"{cache_type}:product_id={kwargs['product_id']}:*")
                     pattern_sets.append(f"{cache_type}:project_id={kwargs.get('project_id', '*')}:product_id={kwargs['product_id']}:*")
                 
-                # Add cache key to all relevant pattern sets
+
                 for pattern in pattern_sets:
                     pattern_set_key = self._generate_pattern_set_key(pattern)
                     try:
                         cache_wrapper.client.sadd(pattern_set_key, cache_key)
-                        # Set TTL on pattern set (slightly longer than cache TTL to allow cleanup)
+
                         cache_wrapper.client.expire(pattern_set_key, ttl + 60)
                     except Exception as e:
                         logging.debug(f"Failed to add key to pattern set {pattern_set_key}: {e}")
@@ -288,9 +288,9 @@ class CacheService:
             success = cache_wrapper.delete(cache_key)
 
             if success:
-                # Remove from pattern sets (cleanup)
-                # Note: We don't know which pattern sets contain this key, so we skip cleanup
-                # Pattern sets will auto-expire with TTL, and invalidate_pattern handles cleanup
+
+
+
                 logging.debug(f"Cache DELETE for key: {cache_key}")
             else:
                 logging.debug(f"Cache DELETE failed for key: {cache_key}")
@@ -314,33 +314,33 @@ class CacheService:
         Falls back to SCAN if pattern set doesn't exist (backward compatibility).
         """
         try:
-            # Normalize pattern
+
             if not pattern.startswith(self.cache_prefix):
                 full_pattern = f"{self.cache_prefix}:{pattern}"
             else:
                 full_pattern = pattern
             
-            # Add * at end if not present
+
             if not full_pattern.endswith("*"):
                 full_pattern = f"{full_pattern}*"
 
             cache_wrapper = self._get_cache_client()
             deleted_count = 0
             
-            # Try fast path: use pattern set if available
+
             pattern_set_key = self._generate_pattern_set_key(full_pattern)
             try:
-                # Get all keys from pattern set (O(1) operation)
+
                 keys = cache_wrapper.client.smembers(pattern_set_key)
                 
                 if keys:
-                    # Convert from bytes to strings if needed
+
                     keys_list = [k.decode() if isinstance(k, bytes) else k for k in keys]
                     
-                    # Delete all keys at once (O(M) where M is keys in set)
+
                     deleted_count = cache_wrapper.delete(*keys_list)
                     
-                    # Delete the pattern set itself
+
                     cache_wrapper.client.delete(pattern_set_key)
                     
                     logging.info(
@@ -351,10 +351,10 @@ class CacheService:
             except Exception as e:
                 logging.debug(f"Pattern set not found or error for {pattern_set_key}: {e}, falling back to SCAN")
             
-            # Fallback: use SCAN for backward compatibility (if pattern set doesn't exist)
-            # This handles cases where keys were created before pattern set tracking was added
+
+
             cursor = 0
-            scanned_keys = set()  # Use set to avoid duplicates
+            scanned_keys = set()
             
             while True:
                 result = cache_wrapper.scan(cursor, match=full_pattern, count=100)
@@ -451,11 +451,11 @@ class CacheService:
         try:
             total_deleted = 0
             
-            # Инвалидация по паттернам
+
             for pattern in patterns:
                 total_deleted += self.invalidate_pattern(pattern)
             
-            # Установка маркера (если включены маркеры)
+
             if self.use_markers and marker_key:
                 cache_wrapper = self._get_cache_client()
                 cache_wrapper.set(marker_key, "updated", ex=marker_ttl)
@@ -565,7 +565,7 @@ class CacheService:
             marker_key = f"{self.cache_prefix}:rbac_updated:permission:{permission_id}"
             total_deleted = self._invalidate_by_patterns_and_marker(patterns, marker_key)
 
-            # Дополнительный маркер для проекта, если указан
+
             if project_id and self.use_markers:
                 cache_wrapper = self._get_cache_client()
                 project_marker = f"{self.cache_prefix}:rbac_updated:project:{project_id}"
@@ -628,7 +628,7 @@ class CacheService:
             if cached_data is not None:
                 data = cached_data.get("data")
                 
-                # Упрощенная проверка stale-while-revalidate (только если включено)
+
                 if self.stale_while_revalidate and data:
                     cached_at_str = cached_data.get("cached_at")
                     if cached_at_str:
@@ -637,7 +637,7 @@ class CacheService:
                             age_seconds = (datetime.utcnow() - cached_at).total_seconds()
                             ttl_value = cached_data.get("ttl", self.default_ttl)
                             
-                            # Просто логируем, если кэш устарел (без фонового обновления для упрощения)
+
                             if age_seconds > (ttl_value * 0.7):
                                 logging.debug(f"Cache is stale ({age_seconds}s old, TTL: {ttl_value}s)")
                         except Exception:
@@ -688,7 +688,7 @@ class CacheService:
             pattern = f"{self.cache_prefix}:*"
             cache_wrapper = self._get_cache_client()
             
-            # Use SCAN instead of KEYS to avoid blocking Redis
+
             cursor = 0
             scanned_keys = set()
             
@@ -705,8 +705,8 @@ class CacheService:
             cleaned_count = 0
             for key in scanned_keys:
                 try:
-                    # Check if key exists (expired keys are automatically removed by Redis)
-                    # This is mainly for logging purposes
+
+
                     if not cache_wrapper.client.exists(key):
                         cleaned_count += 1
                 except:
@@ -730,7 +730,7 @@ class CacheService:
             pattern = f"{self.cache_prefix}:*"
             cache_wrapper = self._get_cache_client()
             
-            # Use SCAN instead of KEYS to avoid blocking Redis
+
             cursor = 0
             scanned_keys = set()
             
@@ -763,9 +763,9 @@ class CacheService:
 
             self.invalidate_product_instantly(project_id, product_id)
 
-            # Use injected dependency instead of Service Locator
-            # Note: This creates a circular dependency, but it's optional (only for cache refresh)
-            # If product_service is not injected, skip the refresh (cache invalidation is enough)
+
+
+
             if self._product_service:
                 self._product_service.get_product_simple_cached(project_id)
             else:
@@ -864,7 +864,7 @@ class CacheService:
             pattern = f"{self.cache_prefix}:*"
             cache_wrapper = self._get_cache_client()
             
-            # Use SCAN instead of KEYS to avoid blocking Redis
+
             cursor = 0
             scanned_keys = set()
             

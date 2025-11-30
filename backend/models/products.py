@@ -443,21 +443,21 @@ class FeatureConfigSchema(db.Model):
     name = db.Column(db.String(128), nullable=False)
     description = db.Column(db.Text, nullable=True)
     
-    # JSON Schema definition (validates the structure of config values)
+
     json_schema = db.Column(db.Text, nullable=False)
     
-    # Default configuration template (example/default values matching the schema)
+
     default_config = db.Column(db.Text, nullable=True)
     
-    # Product association (optional - can be global or product-specific)
+
     product_id = db.Column(db.Integer, db.ForeignKey("product.id", ondelete="CASCADE"), nullable=True)
     product = db.relationship("Product", backref="feature_schemas")
     
-    # Project association
+
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=False)
     project = db.relationship("Project", backref="feature_config_schemas")
     
-    # Metadata
+
     is_active = db.Column(db.Boolean, default=True)
     version = db.Column(db.String(32), default="1.0.0")
     created_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)

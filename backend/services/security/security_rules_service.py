@@ -52,7 +52,7 @@ class SecurityRulesService:
         for rule in rules:
             try:
                 if self._evaluate_rule(rule, context):
-                    # Use injected dependencies instead of Service Locator
+
                     if not self._security_audit_service:
                         raise ServiceError(
                             "SecurityAuditService dependency not injected",
@@ -213,7 +213,7 @@ class SecurityRulesService:
 
             if "min_threat_score" in conditions:
                 min_score = conditions["min_threat_score"]
-                # Use injected dependency instead of Service Locator
+
                 if not self._security_monitoring_service:
                     raise ServiceError(
                         "SecurityMonitoringService dependency not injected",
@@ -262,7 +262,7 @@ class SecurityRulesService:
                 redis_client.expire(rate_key, time_window * 60)
 
             if new_count > max_requests:
-                # Update trigger count for "Rate Limiting Protection" rule
+
                 self._update_rule_trigger("Rate Limiting Protection", context.project_id)
                 return True
 
@@ -288,7 +288,7 @@ class SecurityRulesService:
                 if blocked_countries and context.country and context.country.upper() in [
                     c.upper() for c in blocked_countries
                 ]:
-                    # Update trigger count for "Geo-blocking" rule
+
                     self._update_rule_trigger("Geo-blocking", context.project_id)
                     return True
 
@@ -297,7 +297,7 @@ class SecurityRulesService:
                 if allowed_countries and context.country and context.country.upper() not in [
                     c.upper() for c in allowed_countries
                 ]:
-                    # Update trigger count for "Geo-blocking" rule
+
                     self._update_rule_trigger("Geo-blocking", context.project_id)
                     return True
 
@@ -344,7 +344,7 @@ class SecurityRulesService:
                 ).count()
 
                 if connection_count >= 10:
-                    # Update trigger count for "Suspicious Activity Monitor" rule
+
                     self._update_rule_trigger("Suspicious Activity Monitor", context.project_id)
                     return True
 
@@ -358,7 +358,7 @@ class SecurityRulesService:
         """Evaluate threat score conditions for auto-blocking suspicious IPs"""
         try:
             min_threat_score = conditions.get("min_threat_score", 70)
-            # Use injected dependencies instead of Service Locator
+
             if not self._security_monitoring_service:
                 raise ServiceError(
                     "SecurityMonitoringService dependency not injected",
@@ -367,7 +367,7 @@ class SecurityRulesService:
             threat_assessment = self._security_monitoring_service.assess_threat(context)
             
             if threat_assessment.score >= min_threat_score:
-                # Auto-block IP if threat score is high
+
                 from ...models.security import BlockedIP
                 if not self._security_audit_service:
                     raise ServiceError(
@@ -398,7 +398,7 @@ class SecurityRulesService:
                     )
                     db.session.add(blocked_ip)
                     
-                    # Update trigger count for "Auto-block Suspicious IPs" rule
+
                     self._update_rule_trigger("Auto-block Suspicious IPs", context.project_id)
                     
                     db.session.commit()
@@ -417,7 +417,7 @@ class SecurityRulesService:
         """Evaluate VPN detection conditions"""
         try:
             from ...utils.vpn_detection import vpn_detector
-            # Use injected dependencies instead of Service Locator
+
             if not self._security_monitoring_service:
                 raise ServiceError(
                     "SecurityMonitoringService dependency not injected",
@@ -437,7 +437,7 @@ class SecurityRulesService:
             is_vpn = vpn_result.get("is_vpn", False) or vpn_result.get("is_proxy", False)
             
             if is_vpn:
-                # Log VPN detection
+
                 self._security_monitoring_service.log_security_event(
                     event_type="vpn_detected",
                     context=context,
@@ -446,10 +446,10 @@ class SecurityRulesService:
                     threat_score=30,
                 )
                 
-                # Update trigger count for "VPN Detection" rule
+
                 self._update_rule_trigger("VPN Detection", context.project_id)
                 
-                # Block if configured
+
                 block_vpn = conditions.get("block_vpn", False)
                 if block_vpn:
                     from ...models.security import BlockedIP
@@ -484,7 +484,7 @@ class SecurityRulesService:
 
     def _evaluate_failed_login_conditions(self, conditions: Dict, context: SecurityContext) -> bool:
         """Evaluate failed login conditions (handled separately in record_login_attempt)"""
-        # This is handled in record_login_attempt method
+
         return False
 
     def _evaluate_hwid_block_conditions(self, conditions: Dict, context: SecurityContext) -> bool:
@@ -495,7 +495,7 @@ class SecurityRulesService:
             if not context.fingerprint:
                 return False
             
-            # Check if fingerprint is in blacklist
+
             blocked_hwid = BlockedDeviceFingerprint.query.filter_by(
                 hwid=context.fingerprint,
                 project_id=context.project_id,
@@ -503,14 +503,14 @@ class SecurityRulesService:
             ).first()
             
             if blocked_hwid:
-                # Check if expired
+
                 if blocked_hwid.expires_at and blocked_hwid.expires_at < datetime.utcnow():
                     blocked_hwid.is_active = False
                     db.session.commit()
                     return False
                 
-                # Update trigger count for "HWID Blacklist" rule (only once per check to avoid spam)
-                # Use a flag to track if we've already updated for this check
+
+
                 if not hasattr(context, '_hwid_trigger_updated'):
                     self._update_rule_trigger("HWID Blacklist", context.project_id)
                     context._hwid_trigger_updated = True
@@ -530,7 +530,7 @@ class SecurityRulesService:
             time_window_minutes = conditions.get("time_window_minutes", 5)
             cutoff_time = datetime.utcnow() - timedelta(minutes=time_window_minutes)
             
-            # Count failed attempts in time window
+
             failed_attempts = LoginAttempt.query.filter(
                 LoginAttempt.ip_address == context.ip_address,
                 LoginAttempt.project_id == context.project_id,
@@ -539,7 +539,7 @@ class SecurityRulesService:
             ).count()
             
             if failed_attempts >= max_attempts:
-                # Temporary block
+
                 existing_block = BlockedIP.query.filter_by(
                     ip_address=context.ip_address,
                     project_id=context.project_id,
@@ -565,7 +565,7 @@ class SecurityRulesService:
                     )
                     db.session.add(blocked_ip)
                     
-                    # Update trigger count for "Brute Force Protection" rule
+
                     self._update_rule_trigger("Brute Force Protection", context.project_id)
                     
                     db.session.commit()

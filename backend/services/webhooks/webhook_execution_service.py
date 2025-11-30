@@ -26,7 +26,7 @@ from ...core.extensions import db
 from ...models.webhooks import WebhookPendingTask
 from ...utils.service_exceptions import ServiceError
 
-# Try to import Celery task for webhook processing
+
 try:
     from ...tasks.webhook_tasks import process_webhook as celery_process_webhook
     CELERY_AVAILABLE = True
@@ -49,7 +49,7 @@ class SSRFProtectedHTTPAdapter(HTTPAdapter):
         self.logger = logging.getLogger(__name__)
     
     def init_poolmanager(self, *args, **kwargs):
-        # Use our custom connection pool
+
         return super().init_poolmanager(*args, **kwargs)
     
     def _validate_ip(self, ip_address: str) -> bool:
@@ -62,27 +62,27 @@ class SSRFProtectedHTTPAdapter(HTTPAdapter):
         try:
             ip_obj = ipaddress.ip_address(ip_address)
             
-            # Block private IP ranges
+
             if ip_obj.is_private:
                 return False
             
-            # Block loopback addresses
+
             if ip_obj.is_loopback:
                 return False
             
-            # Block link-local addresses
+
             if ip_obj.is_link_local:
                 return False
             
-            # Block multicast addresses
+
             if ip_obj.is_multicast:
                 return False
             
-            # Block reserved addresses
+
             if ip_obj.is_reserved:
                 return False
             
-            # Block cloud metadata endpoints
+
             if ip_address == "169.254.169.254":
                 return False
             
@@ -133,10 +133,10 @@ class WebhookExecutionService:
                 )
                 return False
 
-            # Get active webhooks
+
             all_webhooks = Webhook.query.filter_by(project_id=project_id, is_active=True).all()
             
-            # Filter by event
+
             webhooks = [
                 w for w in all_webhooks
                 if f'"{event}"' in (w.events or "")
@@ -164,14 +164,14 @@ class WebhookExecutionService:
                     "message_template": webhook.message_template,
                 }
 
-                # Use Celery task for async webhook processing
+
                 if CELERY_AVAILABLE and celery_process_webhook:
                     try:
                         celery_process_webhook.delay(webhook_data)
                         self.logger.debug(f"WEBHOOK_QUEUED webhook_id={webhook.id} event={event} via Celery")
                     except Exception as e:
                         self.logger.error(f"WEBHOOK_CELERY_ERROR webhook_id={webhook.id} error={e}")
-                        # If Celery fails, store task in database for later processing
+
                         if not self._webhook_pending_task_service:
                             raise ServiceError(
                                 "WebhookPendingTaskService dependency not injected",
@@ -181,7 +181,7 @@ class WebhookExecutionService:
                             webhook.id, project_id, event, webhook_data, str(e)
                         )
                 else:
-                    # If Celery is not available, store task in database for later processing
+
                     self.logger.warning(f"Celery not available, storing webhook task in database for later processing (webhook_id={webhook.id})")
                     if not self._webhook_pending_task_service:
                         raise ServiceError(
@@ -351,21 +351,21 @@ class WebhookExecutionService:
 
             headers["Content-Type"] = "application/json"
 
-            # SECURITY: Get cached IP addresses to prevent DNS rebinding
+
             validated_ips = webhook_validation_service.get_validated_ips_for_url(url)
             if not validated_ips:
                 self.logger.warning(
                     f"WEBHOOK_SSRF_PROTECTION: No cached IPs for {url}, "
                     "re-validating URL. This should not happen in normal operation."
                 )
-                # Re-validate URL (this will cache IPs)
+
                 if not webhook_validation_service.validate_url(url):
                     return False, "Invalid webhook URL (SSRF protection)"
                 validated_ips = webhook_validation_service.get_validated_ips_for_url(url)
                 if not validated_ips:
                     return False, "Failed to validate webhook URL"
 
-            # Create session with SSRF-protected adapter
+
             session = requests.Session()
             adapter = SSRFProtectedHTTPAdapter(allowed_ips=validated_ips)
             session.mount("https://", adapter)
@@ -374,17 +374,17 @@ class WebhookExecutionService:
             error_message = None
             for attempt in range(self.max_retries):
                 try:
-                    # SECURITY: Block redirects to prevent SSRF through HTTP redirects
-                    # If server returns redirect, we block it instead of following
+
+
                     response = session.post(
                         url,
                         json=payload,
                         headers=headers,
                         timeout=self.timeout,
-                        allow_redirects=False  # SECURITY: Block redirects
+                        allow_redirects=False
                     )
 
-                    # Handle redirect response (block it)
+
                     if response.status_code in [301, 302, 303, 307, 308]:
                         self.logger.warning(
                             f"WEBHOOK_SSRF_BLOCKED: Redirect detected for {url} "
@@ -402,7 +402,7 @@ class WebhookExecutionService:
                     error_message = "Request timeout"
                 except requests.exceptions.ConnectionError as e:
                     error_message = f"Connection error: {str(e)}"
-                    # Check if connection was blocked due to SSRF protection
+
                     if "blocked" in str(e).lower() or "private" in str(e).lower():
                         self.logger.warning(
                             f"WEBHOOK_SSRF_BLOCKED: Connection blocked for {url}: {e}"

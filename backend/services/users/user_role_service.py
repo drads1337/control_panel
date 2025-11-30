@@ -233,12 +233,12 @@ class UserRoleService:
 
             users = query.all()
 
-            # Remove old roles and assign new role
+
             for user in users:
-                # Remove all existing roles
+
                 UserRole.query.filter_by(user_id=user.id).delete()
 
-                # Assign new role
+
                 target_project_id = project_id or user.project_id
                 if target_project_id:
                     self.assign_user_role(user.id, target_project_id, new_role)

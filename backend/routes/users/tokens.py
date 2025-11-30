@@ -39,7 +39,7 @@ def get_user_tokens(user_id, current_user):
     target_user = User.query.get(user_id)
 
     if not target_user:
-        # Get services once at the start (DI pattern)
+
         rbac_service = get_service('rbac_service')
         return jsonify({"error": "User not found"}), 404
 
@@ -87,7 +87,7 @@ def create_user_token(user_id, current_user, validated_data=None):
     target_user = User.query.get(user_id)
 
     if not target_user:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         return jsonify({"error": "User not found"}), 404
 

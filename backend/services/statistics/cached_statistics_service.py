@@ -38,8 +38,8 @@ class CachedStatisticsService:
         """Get cache service instance via DI container"""
         if self.cache_service is not None:
             return self.cache_service
-        # SECURITY: Dependency should be injected via __init__
-        # If not injected, raise error instead of using get_service()
+
+
         from ...utils.service_exceptions import ServiceError
         raise ServiceError(
             "CacheService dependency not injected",
@@ -58,7 +58,7 @@ class CachedStatisticsService:
             project_id: Optional project ID for project-level statistics
         """
         try:
-            # Invalidate user-level statistics cache
+
             if user_id:
                 cache_patterns = [
                     f"stats:user:{user_id}*",
@@ -67,7 +67,7 @@ class CachedStatisticsService:
                 for pattern in cache_patterns:
                     self._cache_service.invalidate_pattern(pattern)
             
-            # Invalidate project-level statistics cache
+
             if project_id:
                 cache_patterns = [
                     f"stats:project:{project_id}*",
@@ -76,7 +76,7 @@ class CachedStatisticsService:
                 for pattern in cache_patterns:
                     self._cache_service.invalidate_pattern(pattern)
             
-            # Also invalidate user and project model caches
+
             if user_id:
                 self._cache_service.delete("user_data", user_id=user_id)
             if project_id:

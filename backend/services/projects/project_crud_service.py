@@ -28,7 +28,7 @@ from ...utils.service_exceptions import ValidationError, NotFoundError, Conflict
 from ...utils.rbac_utils import RBACManager
 from ...utils.role_constants import UserRoles
 
-# Type hints for dependencies (imported here to avoid circular imports)
+
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ...services.activity.activity_service import ActivityService
@@ -57,7 +57,7 @@ class ProjectCRUDService:
         """
         self.logger = logger or logging.getLogger(__name__)
         
-        # Store dependencies explicitly
+
         self._activity_service = activity_service
         self._security_rules_init_service = security_rules_init_service
     
@@ -71,7 +71,7 @@ class ProjectCRUDService:
         Returns:
             Project object or None if not found
         """
-        # Try as integer id (primary key) first
+
         if isinstance(project_identifier, int) or (isinstance(project_identifier, str) and project_identifier.isdigit()):
             try:
                 project_id_int = int(project_identifier)
@@ -81,7 +81,7 @@ class ProjectCRUDService:
             except (ValueError, TypeError):
                 pass
         
-        # Try as unique_id (string)
+
         project = Project.query.filter_by(unique_id=str(project_identifier)).first()
         return project
 
@@ -123,14 +123,14 @@ class ProjectCRUDService:
             if existing_project:
                 raise ConflictError("Project with this name already exists", resource_type="project")
 
-            # Set storage limit based on tier
+
             if subscription_status == "free":
-                storage_limit_bytes = 500 * (1024 ** 2)  # 500 MB for free tier
-                subscription_expires_at = None  # Free tier doesn't expire
+                storage_limit_bytes = 500 * (1024 ** 2)
+                subscription_expires_at = None
             else:
-                # Pro tier - default 10 GB (or use project's default)
-                storage_limit_bytes = 10 * (1024 ** 3)  # 10 GB for pro tier
-                subscription_expires_at = datetime.utcnow() + timedelta(days=30)  # 30 days trial for pro
+
+                storage_limit_bytes = 10 * (1024 ** 3)
+                subscription_expires_at = datetime.utcnow() + timedelta(days=30)
             
             project = Project(
                 name=name,
@@ -145,8 +145,8 @@ class ProjectCRUDService:
             db.session.add(project)
             db.session.flush()
             
-            # Storage limit is already set above based on subscription_status
-            # No need for additional enforcement here
+
+
             
             db.session.commit()
 
@@ -167,7 +167,7 @@ class ProjectCRUDService:
             except Exception as e:
                 self.logger.warning(f"Failed to log project creation activity: {e}")
 
-            # Initialize default security rules for the project
+
             try:
                 if not self._security_rules_init_service:
                     raise ServiceError(
@@ -180,8 +180,8 @@ class ProjectCRUDService:
             except Exception as e:
                 self.logger.warning(f"Failed to initialize security rules for project {project.id}: {e}")
 
-            # Note: Cache invalidation should be handled by ProjectCacheService
-            # This keeps CRUD service focused on database operations only
+
+
 
             return project
 
@@ -236,19 +236,19 @@ class ProjectCRUDService:
             if not user:
                 raise NotFoundError("User", resource_id=str(user_id))
 
-            # Check permissions
+
             is_owner = RBACManager.is_owner(user)
             can_edit = is_owner or (user.project_id == project.id and RBACManager.has_permission(user.id, project.id, "projects.edit"))
 
             if not can_edit:
                 raise ServiceError("Permission denied", status_code=403)
 
-            # Update fields
+
             if name is not None:
                 name = name.strip()
                 if not name:
                     raise ValidationError("Project name cannot be empty", field="name")
-                # Check for conflicts (excluding current project)
+
                 existing = Project.query.filter(Project.name == name, Project.id != project.id).first()
                 if existing:
                     raise ConflictError("Project with this name already exists", resource_type="project")
@@ -272,21 +272,21 @@ class ProjectCRUDService:
                     )
                 project.subscription_status = subscription_status
                 
-                # Update storage limit based on tier when subscription status changes
+
                 if subscription_status == "free":
-                    # Free tier: 500 MB
+
                     project.storage_limit = 500 * (1024 ** 2)
-                    subscription_expires_at = None  # Free tier doesn't expire
+                    subscription_expires_at = None
                     project.subscription_expires_at = subscription_expires_at
                 elif subscription_status == "pro":
-                    # Pro tier: keep current limit or set default 10 GB
+
                     if project.storage_limit < 10 * (1024 ** 3):
                         project.storage_limit = 10 * (1024 ** 3)
 
             if storage_limit_gb is not None:
                 if storage_limit_gb < 0:
                     raise ValidationError("Storage limit cannot be negative", field="storage_limit_gb")
-                # Convert GB to bytes for storage_limit field
+
                 project.storage_limit = int(storage_limit_gb * (1024**3))
                 project.storage_limit_gb = storage_limit_gb
 
@@ -354,7 +354,7 @@ class ProjectCRUDService:
             if not user:
                 raise NotFoundError("User", resource_id=str(user_id))
 
-            # Check permissions - only owners can delete projects
+
             is_owner = RBACManager.is_owner(user)
             if not is_owner:
                 raise ServiceError("Only owners can delete projects", status_code=403)
@@ -362,7 +362,7 @@ class ProjectCRUDService:
             project_name = project.name
             project_id_int = project.id
 
-            # Delete related data (cascade will handle most, but we log activity first)
+
             try:
                 if not self._activity_service:
                     raise ServiceError(
@@ -380,20 +380,20 @@ class ProjectCRUDService:
             except Exception as e:
                 self.logger.warning(f"Failed to log project deletion activity: {e}")
 
-            # Explicitly delete all related settings and encryption keys to avoid SQLAlchemy trying to set project_id to None
-            # This prevents IntegrityError when project_id has NOT NULL constraint
-            # SQLAlchemy may try to update these records before cascade deletion, which fails with NOT NULL
+
+
+
             settings_models = [
                 ProjectAppearanceSettings,
                 ProjectBackupSettings,
                 ProjectChatSettings,
                 ProjectEncryptionSettings,
-                ProjectEncryptionKeys,  # Must be deleted explicitly to avoid NOT NULL constraint violation
+                ProjectEncryptionKeys,
                 ProjectInviteSettings,
                 ProjectOfflineAuthSettings,
                 ProjectSecuritySettings,
                 ProjectSystemSettings,
-                ProjectSettings,  # Deprecated but may still exist
+                ProjectSettings,
             ]
             
             for settings_model in settings_models:

@@ -41,13 +41,13 @@ def find_agent_by_id_or_unique_id(agent_identifier, project_id):
     Returns:
         Agent object or None if not found
     """
-    # Try as unique_id (string) first, since that's what the frontend sends
+
     if isinstance(agent_identifier, str) and len(agent_identifier) == 8 and agent_identifier.isdigit():
         agent = Agent.query.filter_by(unique_id=agent_identifier, project_id=project_id).first()
         if agent:
             return agent
     
-    # Try as integer id (primary key)
+
     if isinstance(agent_identifier, int) or (isinstance(agent_identifier, str) and agent_identifier.isdigit()):
         try:
             agent_id_int = int(agent_identifier)
@@ -57,7 +57,7 @@ def find_agent_by_id_or_unique_id(agent_identifier, project_id):
         except (ValueError, TypeError):
             pass
     
-    # Try as unique_id (string) as fallback
+
     agent = Agent.query.filter_by(unique_id=str(agent_identifier), project_id=project_id).first()
     return agent
 
@@ -132,7 +132,7 @@ def get_loaders():
             }
 
             assignments = AgentProductAssignment.query.filter_by(agent_id=agent.id).all()
-            # Get product unique_ids instead of internal ids
+
             assigned_product_ids = [assignment.product_id for assignment in assignments]
             if assigned_product_ids:
                 products = Product.query.filter(Product.id.in_(assigned_product_ids)).all()
@@ -160,8 +160,8 @@ def get_loaders():
 def get_available_products_for_agents():
     """Get only multi-app products that can be assigned to agents (universal terminology)"""
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         product_service = get_service('product_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
@@ -243,10 +243,10 @@ def get_available_products_for_agents():
 def create_loader(validated_data=None):
     """Create a new agent"""
     try:
-        # Fallback: if validated_data is None, try to get data from request
-        # This can happen if validation middleware didn't run or failed silently
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
+
+
         cache_service = get_service('cache_service')
         tier_limits_service = get_service('tier_limits_service')
         if not validated_data:
@@ -256,10 +256,10 @@ def create_loader(validated_data=None):
                 f"Content-Type: {request.headers.get('Content-Type')}, "
                 f"Is JSON: {request.is_json}"
             )
-            # Try to get raw JSON data as fallback
+
             raw_data = request.get_json(silent=True) if request.is_json else None
             if raw_data:
-                # Manually validate using the schema
+
                 try:
                     from ..schemas.agent import AgentCreateSchema
                     schema = AgentCreateSchema(**raw_data)
@@ -296,7 +296,7 @@ def create_loader(validated_data=None):
         if not user.project_id:
             return jsonify({"error": "No project associated"}), 400
 
-        # Check tier limits
+
         from ..models.core import Project
         
         project = Project.query.get(user.project_id)
@@ -385,8 +385,8 @@ def create_loader(validated_data=None):
 def update_loader(agent_identifier):
     """Update an existing agent"""
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         cache_service = get_service('cache_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
@@ -470,8 +470,8 @@ def update_loader(agent_identifier):
 def delete_loader(agent_identifier):
     """Delete a agent"""
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         cache_service = get_service('cache_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
@@ -493,31 +493,31 @@ def delete_loader(agent_identifier):
 
         agent_id = agent.id
 
-        # Delete agent-related records that have nullable=False constraints
-        # These must be deleted explicitly before deleting the agent to avoid constraint violations
+
+
         try:
             from ..models.agents import AgentChangelog, AgentNotification, AgentDownloadLog, AgentConfiguration
             from sqlalchemy import or_
             
-            # Delete agent changelog entries (filter by project_id when available)
+
             db.session.query(AgentChangelog).filter(
                 AgentChangelog.agent_id == agent_id,
                 or_(AgentChangelog.project_id == user.project_id, AgentChangelog.project_id.is_(None))
             ).delete(synchronize_session=False)
             
-            # Delete agent notifications (filter by project_id when available)
+
             db.session.query(AgentNotification).filter(
                 AgentNotification.agent_id == agent_id,
                 or_(AgentNotification.project_id == user.project_id, AgentNotification.project_id.is_(None))
             ).delete(synchronize_session=False)
             
-            # Delete agent download logs (filter by project_id when available)
+
             db.session.query(AgentDownloadLog).filter(
                 AgentDownloadLog.agent_id == agent_id,
                 or_(AgentDownloadLog.project_id == user.project_id, AgentDownloadLog.project_id.is_(None))
             ).delete(synchronize_session=False)
             
-            # Delete agent configuration (filter by project_id when available)
+
             db.session.query(AgentConfiguration).filter(
                 AgentConfiguration.agent_id == agent_id,
                 or_(AgentConfiguration.project_id == user.project_id, AgentConfiguration.project_id.is_(None))
@@ -527,7 +527,7 @@ def delete_loader(agent_identifier):
         except Exception as e:
             current_app.logger.warning(f"Error deleting agent-related records: {str(e)}")
 
-        # Delete agent product assignments
+
         try:
             db.session.query(AgentProductAssignment).filter_by(
                 agent_id=agent_id, project_id=user.project_id
@@ -536,11 +536,11 @@ def delete_loader(agent_identifier):
         except Exception as e:
             current_app.logger.warning(f"Error deleting agent product assignments: {str(e)}")
 
-        # Set agent_id to NULL for keys that reference this agent
+
         try:
             from ..models.keys import Key
             from sqlalchemy import or_
-            # Handle keys in the same project or with NULL project_id
+
             keys_updated = db.session.query(Key).filter(
                 Key.agent_id == agent_id,
                 or_(Key.project_id == user.project_id, Key.project_id.is_(None))
@@ -550,7 +550,7 @@ def delete_loader(agent_identifier):
                 db.session.flush()
         except Exception as e:
             current_app.logger.warning(f"Error updating keys: {str(e)}")
-            # Try alternative approach: update keys individually
+
             try:
                 keys = Key.query.filter_by(agent_id=agent_id).all()
                 for key in keys:
@@ -560,10 +560,10 @@ def delete_loader(agent_identifier):
             except Exception as e2:
                 current_app.logger.error(f"Error updating keys individually: {str(e2)}")
 
-        # Set agent_id to NULL for chat messages that reference this agent
+
         try:
             from ..models.chat import ChatMessage
-            # ChatMessage.project_id is NOT NULL, so only filter by project_id
+
             messages_updated = db.session.query(ChatMessage).filter_by(
                 agent_id=agent_id, project_id=user.project_id
             ).update({"agent_id": None}, synchronize_session=False)
@@ -572,7 +572,7 @@ def delete_loader(agent_identifier):
                 db.session.flush()
         except Exception as e:
             current_app.logger.warning(f"Error updating chat messages: {str(e)}")
-            # Try alternative approach: update messages individually
+
             try:
                 messages = ChatMessage.query.filter_by(agent_id=agent_id, project_id=user.project_id).all()
                 for message in messages:
@@ -581,7 +581,7 @@ def delete_loader(agent_identifier):
             except Exception as e2:
                 current_app.logger.error(f"Error updating chat messages individually: {str(e2)}")
 
-        # Now delete the agent
+
         db.session.delete(agent)
         db.session.commit()
 
@@ -632,7 +632,7 @@ def assign_products_to_agent(agent_identifier, validated_data=None):
         current_assignments = AgentProductAssignment.query.filter_by(
             agent_id=agent.id, project_id=user.project_id
         ).all()
-        # Get current assigned product unique_ids for comparison
+
         current_assigned_product_ids = [assignment.product_id for assignment in current_assignments]
         current_assigned_products = Product.query.filter(Product.id.in_(current_assigned_product_ids)).all() if current_assigned_product_ids else []
         current_product_unique_ids = {product.unique_id for product in current_assigned_products}
@@ -640,7 +640,7 @@ def assign_products_to_agent(agent_identifier, validated_data=None):
         product_ids = validated_data.get('product_ids', [])
 
         for product_identifier in product_ids:
-            # Find product by id or unique_id
+
             product = None
             if isinstance(product_identifier, int) or (isinstance(product_identifier, str) and product_identifier.isdigit()):
                 try:
@@ -653,13 +653,13 @@ def assign_products_to_agent(agent_identifier, validated_data=None):
                 product = Product.query.filter_by(unique_id=str(product_identifier), project_id=user.project_id).first()
             
             if not product:
-                continue  # Skip invalid products
+                continue
             
-            # Check if already assigned to this agent
+
             if product.unique_id in current_product_unique_ids:
                 continue
 
-            # Check if assigned to another agent
+
             existing_assignment = AgentProductAssignment.query.filter_by(
                 product_id=product.id, project_id=user.project_id
             ).first()
@@ -685,9 +685,9 @@ def assign_products_to_agent(agent_identifier, validated_data=None):
         ).delete()
 
         for product_identifier in product_ids:
-            # Find product by id or unique_id (frontend sends unique_id)
+
             product = None
-            # Try as integer id first
+
             if isinstance(product_identifier, int) or (isinstance(product_identifier, str) and product_identifier.isdigit()):
                 try:
                     product_id_int = int(product_identifier)
@@ -695,14 +695,14 @@ def assign_products_to_agent(agent_identifier, validated_data=None):
                 except (ValueError, TypeError):
                     pass
             
-            # Try as unique_id if not found
+
             if not product:
                 product = Product.query.filter_by(unique_id=str(product_identifier), project_id=user.project_id).first()
             
             if product:
                 assignment = AgentProductAssignment(
                     agent_id=agent.id,
-                    product_id=product.id,  # Use internal id for database
+                    product_id=product.id,
                     assigned_by=user.id,
                     project_id=user.project_id,
                 )
@@ -723,8 +723,8 @@ def assign_products_to_agent(agent_identifier, validated_data=None):
 def upload_loader_files(agent_identifier):
     """Upload files for a agent"""
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         file_service = get_service('file_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
@@ -774,20 +774,20 @@ def upload_loader_files(agent_identifier):
                     file_path = os.path.join(upload_path, unique_filename)
                     file.save(file_path)
 
-                    # SECURITY: Validate file signature (magic bytes) to prevent file type spoofing
-                    # This prevents attackers from uploading executable files with image extensions
+
+
                     
-                    # Determine expected extensions based on file type
+
                     expected_extensions = None
                     if file_type in ["logo", "banner", "background"]:
-                        # For images, expect image extensions
+
                         ext = filename.rsplit(".", 1)[1].lower() if "." in filename else None
                         if ext and ext in ["png", "jpg", "jpeg", "gif", "webp"]:
                             expected_extensions = [ext]
                     
                     is_valid, validation_error = file_service.validate_file_signature(file_path, expected_extensions)
                     if not is_valid:
-                        # Remove the invalid file
+
                         try:
                             os.remove(file_path)
                         except Exception:
@@ -844,8 +844,8 @@ def upload_loader_files(agent_identifier):
 def update_loader_status(agent_identifier, validated_data=None):
     """Update agent status"""
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         activity_service = get_service('activity_service')
         cache_service = get_service('cache_service')
         user_id = get_jwt_identity()
@@ -898,8 +898,8 @@ def update_loader_status(agent_identifier, validated_data=None):
 def refresh_loader_cache():
     """Force refresh agent cache for debugging"""
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         cache_service = get_service('cache_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)

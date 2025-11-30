@@ -40,7 +40,7 @@ def task_decorator(*args, **kwargs):
     if CELERY_AVAILABLE and celery_app:
         return celery_app.task(*args, **kwargs)
     else:
-        # Fallback: return function as-is if Celery is not available
+
         def decorator(func):
             return func
 
@@ -160,7 +160,7 @@ def send_telegram_message_task(
             bot_token, chat_id, message, chat_message_id
         )
 
-        # Update chat message if chat_message_id is provided
+
         if chat_message_id:
             try:
                 with celery_db_session() as session:
@@ -170,7 +170,7 @@ def send_telegram_message_task(
                             chat_message.telegram_message_id = str(telegram_message_id)
                             chat_message.is_sent_to_telegram = True
                         else:
-                            # Mark as failed if we have error
+
                             chat_message.is_sent_to_telegram = False
 
                         session.commit()

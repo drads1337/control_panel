@@ -84,9 +84,9 @@ class ResponseBuilder:
         if access_token:
             response["access_token"] = access_token
 
-        # Add product information if available
+
         if product_obj:
-            # Handle backgrounds - it's stored as JSON string, return first item or string
+
             background_value = ""
             if product_obj.backgrounds:
                 try:
@@ -174,9 +174,9 @@ class ResponseBuilder:
                     )
                 return encrypted_blob
             elif project_id:
-                # SECURITY: No fallback to global MASTER_KEY
-                # If project encryption fails, raise error instead of using global key
-                # This ensures data isolation - each project MUST use its own encryption key
+
+
+
                 try:
                     encrypted_blob = encrypt_data_with_project_key(response, project_id)
                     logging.info(
@@ -189,15 +189,15 @@ class ResponseBuilder:
                         f"Global MASTER_KEY fallback is disabled for security. "
                         f"Project {project_id} must configure its own encryption key."
                     )
-                    # Raise error instead of falling back to global key
+
                     raise ValueError(
                         f"Encryption failed for project {project_id}. "
                         f"Project must configure its own encryption key. "
                         f"Global MASTER_KEY fallback is disabled for security (prevents data isolation breach)."
                     ) from e
             else:
-                # No project_id provided - this should not happen in multi-tenant architecture
-                # But if it does, we cannot use global key as fallback for security
+
+
                 logging.error(
                     "[ENCRYPT_RESPONSE] SECURITY: No project_id provided for encryption. "
                     "Global MASTER_KEY fallback is disabled for security."
@@ -209,14 +209,14 @@ class ResponseBuilder:
 
         except Exception as e:
             logging.error(f"Error encrypting response: {e}")
-            # SECURITY: Even for error responses, we should not use global MASTER_KEY
-            # if project_id is available. However, for critical errors where encryption
-            # completely fails, we need to return something. In this case, we'll return
-            # an unencrypted error response (which is acceptable for critical failures).
-            # The client should handle this gracefully.
+
+
+
+
+
             error_response = {"error": "Internal server error", "r": os.urandom(16).hex()}
-            # Only use global key for error responses if we truly have no project context
-            # This is a last resort for critical system errors
+
+
             if not project_id:
                 logging.warning(
                     "[ENCRYPT_RESPONSE] Using global MASTER_KEY for error response (no project_id). "
@@ -226,13 +226,13 @@ class ResponseBuilder:
                     json.dumps(error_response), Config.MASTER_KEY
                 )
             else:
-                # If we have project_id but encryption failed, try one more time with project key
-                # If that also fails, we cannot use global key - return unencrypted error
+
+
                 logging.error(
                     f"[ENCRYPT_RESPONSE] Critical: Cannot encrypt error response for project {project_id}. "
                     "Returning unencrypted error (client should handle gracefully)."
                 )
-                # Return as JSON string (unencrypted) - client should detect this
+
                 return json.dumps(error_response)
 
     def build_classic_connect_response(

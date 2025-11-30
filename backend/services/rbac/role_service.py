@@ -12,7 +12,7 @@ from ...models.core import User
 from ...models.rbac import Permission, Role, RolePermission, UserRole
 from ...utils.rbac_utils import RBACManager
 from ...utils.service_exceptions import ServiceError
-# get_service removed - using DI
+
 from ...utils.role_constants import UserRoles
 
 class RoleService:
@@ -49,7 +49,7 @@ class RoleService:
             if name.lower() == "owner":
                 raise ValueError("Owner role cannot be created through RBAC management")
 
-            # Check for existing role
+
             existing = Role.query.filter_by(name=name, project_id=project_id).first()
 
             if existing:
@@ -88,7 +88,7 @@ class RoleService:
             db.session.add(role)
             db.session.flush()
 
-            # Get permissions
+
             permission_objects = []
             for perm_name in permissions:
                 perm = Permission.query.filter_by(name=perm_name, project_id=project_id).first()
@@ -136,7 +136,7 @@ class RoleService:
     def update_role(self, role_id: int, project_id: int, **kwargs) -> Dict:
         """Update an existing role"""
         try:
-            # Get role
+
             role = Role.query.filter_by(id=role_id, project_id=project_id).first()
             if not role:
                 raise ValueError("Role not found")
@@ -164,9 +164,9 @@ class RoleService:
                         )
 
             if "name" in kwargs:
-                # Check for existing role with same name
+
                 existing = Role.query.filter_by(name=kwargs["name"], project_id=role.project_id).first()
-                # Check if it's a different role
+
                 if existing and existing.id != role_id:
                     raise ValueError(f"Role '{kwargs['name']}' already exists")
 
@@ -188,7 +188,7 @@ class RoleService:
 
                 RolePermission.query.filter_by(role_id=role_id).delete()
 
-                # Get permissions
+
                 permission_objects = []
                 for perm_name in kwargs["permissions"]:
                     perm = Permission.query.filter_by(name=perm_name, project_id=role.project_id).first()
@@ -237,7 +237,7 @@ class RoleService:
     ) -> bool:
         """Delete a role"""
         try:
-            # Get role
+
             role = Role.query.filter_by(id=role_id, project_id=project_id).first()
             if not role:
                 return False
@@ -251,7 +251,7 @@ class RoleService:
                 db.session.add(child_role)
 
             user_ids_to_invalidate = set()
-            # Get user roles
+
             user_role_objs = UserRole.query.filter_by(role_id=role_id).all()
             user_ids_to_invalidate = {ur.user_id for ur in user_role_objs}
 
@@ -263,13 +263,13 @@ class RoleService:
                     )
 
                 if reassign_to_role_id:
-                    # Get target role
+
                     target_role = Role.query.filter_by(id=reassign_to_role_id, project_id=project_id).first()
                     if not target_role:
                         raise ValueError(f"Target role {reassign_to_role_id} not found")
 
                     for user_role in user_role_objs:
-                        # Check for existing user role
+
                         existing = UserRole.query.filter_by(
                             user_id=user_role.user_id, role_id=reassign_to_role_id
                         ).first()
@@ -346,7 +346,7 @@ class RoleService:
             if cached_data:
                 return cached_data.get("data", [])
 
-            # Get roles
+
             roles = Role.query.filter_by(project_id=project_id).order_by(Role.name).all()
 
             result = [
@@ -382,8 +382,8 @@ class RoleService:
     def get_role_by_id(self, role_id: int) -> Optional[Dict]:
         """Get role information by ID"""
         try:
-            # Note: This method doesn't have project_id, so we use direct query
-            # In production, this should be refactored to require project_id
+
+
             role = Role.query.get(role_id)
             if not role:
                 return None
@@ -410,8 +410,8 @@ class RoleService:
             if not user.project_id:
                 raise ValueError("User must be assigned to a project")
 
-            # Get role - need to check all projects for this case
-            # In production, this should be refactored to require project_id
+
+
             role = Role.query.filter_by(id=role_id).first()
             if not role:
                 raise ValueError(f"Role with id {role_id} does not exist")
@@ -429,7 +429,7 @@ class RoleService:
                     f"{role.name.title()} role cannot be assigned through RBAC management"
                 )
 
-            # Check for existing user role
+
             existing = UserRole.query.filter_by(user_id=user_id, role_id=role_id).first()
             if existing:
                 logging.info(f"RBAC_ROLE_ALREADY_ASSIGNED user_id={user_id} role_id={role_id}")
@@ -460,7 +460,7 @@ class RoleService:
     def remove_role_from_user(self, user_id: int, role_id: int) -> bool:
         """Remove a role from a user"""
         try:
-            # Get user role
+
             user_role = UserRole.query.filter_by(user_id=user_id, role_id=role_id).first()
             if not user_role:
                 return False
@@ -493,7 +493,7 @@ class RoleService:
             if cached_data:
                 return cached_data.get("data", [])
 
-            # Get user roles
+
             user_roles = UserRole.query.filter_by(user_id=user_id).all()
 
             result = [
@@ -526,7 +526,7 @@ class RoleService:
     def get_role_users(self, role_id: int) -> List[Dict]:
         """Get all users assigned to a role"""
         try:
-            # Get user roles
+
             user_roles = UserRole.query.filter_by(role_id=role_id).all()
 
             return [
@@ -551,9 +551,9 @@ class RoleService:
     def get_role_hierarchy(self, project_id: int) -> Dict:
         """Get the complete role hierarchy for a project"""
         try:
-            # Get roles
+
             roles = Role.query.filter_by(project_id=project_id).order_by(Role.hierarchy_level).all()
-            # Sort by hierarchy_level then name
+
             roles = sorted(roles, key=lambda r: (r.hierarchy_level, r.name))
 
             role_dict = {}
@@ -617,7 +617,7 @@ class RoleService:
 
         for role_name, role_data in default_roles_copy.items():
 
-            # Check for existing role
+
             existing = Role.query.filter_by(name=role_name, project_id=project_id).first()
 
             if not existing:
@@ -666,7 +666,7 @@ class RoleService:
     def _invalidate_users_with_role_cache(self, role_id: int) -> None:
         """Invalidate cache for all users with a specific role (granular invalidation with instant markers)"""
         try:
-            # Get user roles
+
             user_roles = UserRole.query.filter_by(role_id=role_id).all()
             for user_role in user_roles:
 

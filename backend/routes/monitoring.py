@@ -73,9 +73,9 @@ def get_top_ips(endpoint: str):
             return jsonify({"error": "Invalid endpoint"}), 400
         
         limit = int(request.args.get("limit", 10))
-        # Note: IP tracking is not available in prometheus-flask-exporter by default
-        # This would require custom metrics or using a different approach
-        # For now, return empty list with a note
+
+
+
         return jsonify({
             "status": "success", 
             "data": {

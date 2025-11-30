@@ -50,10 +50,10 @@ def setup_security_headers(app: Flask) -> None:
         - Protocol downgrade (Strict-Transport-Security)
         """
         
-        # Content Security Policy (CSP)
-        # Matches nginx.conf policy for consistency
-        # Production: Vite generates hashed assets, allowing stricter policy
-        # Development: Requires 'unsafe-inline' and 'unsafe-eval' for HMR
+
+
+
+
         csp_policy = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; "
@@ -73,41 +73,41 @@ def setup_security_headers(app: Flask) -> None:
         )
         response.headers['Content-Security-Policy'] = csp_policy
         
-        # X-Content-Type-Options: Prevent MIME type sniffing
-        # Forces browser to respect declared Content-Type
+
+
         response.headers['X-Content-Type-Options'] = 'nosniff'
         
-        # X-Frame-Options: Prevent clickjacking (fallback for older browsers)
-        # CSP frame-ancestors 'none' is preferred, but this provides compatibility
+
+
         response.headers['X-Frame-Options'] = 'DENY'
         
-        # X-XSS-Protection: Legacy XSS protection (for older browsers)
-        # Modern browsers ignore this, but it doesn't hurt
+
+
         response.headers['X-XSS-Protection'] = '1; mode=block'
         
-        # Referrer-Policy: Control referrer information
-        # Only send referrer for same-origin requests, HTTPS->HTTPS, or downgrade
+
+
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
         
-        # Permissions-Policy: Control browser features
-        # Disable geolocation, microphone, camera by default
+
+
         response.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
         
-        # Strict-Transport-Security (HSTS): Force HTTPS
-        # Only add if request is HTTPS (to avoid issues in development)
-        # 1 year with includeSubDomains and preload
+
+
+
         if request.is_secure or request.headers.get('X-Forwarded-Proto') == 'https':
             response.headers['Strict-Transport-Security'] = (
                 'max-age=31536000; includeSubDomains; preload'
             )
         
-        # Cross-Origin-Opener-Policy: Prevent cross-origin window access
+
         response.headers['Cross-Origin-Opener-Policy'] = 'same-origin'
         
-        # Cross-Origin-Embedder-Policy: Require CORS for embedded resources
-        # Commented out as it can break third-party integrations
-        # Uncomment only if you need strict isolation
-        # response.headers['Cross-Origin-Embedder-Policy'] = 'require-corp'
+
+
+
+
         
         return response
     

@@ -37,7 +37,7 @@ class ConnectOrchestrator:
         self.request_validator = RequestValidationService()
         self.key_lookup = KeyLookupService()
         self.challenge_validator = ChallengeValidationService()
-        # SECURITY: Token generator uses Config.TOKEN_STATIC_WORD from environment
+
         self.token_generator = TokenGenerationService()
 
         self.security_checker = SecurityChecker()
@@ -69,12 +69,12 @@ class ConnectOrchestrator:
         used_global_key = False
 
         try:
-            # Use unified validation pipeline for IP and User-Agent (DRY principle)
-            # Note: project_id may not be available yet, so we validate User-Agent first
+
+
             validation_result = request_validation_pipeline.validate_request(
                 ip=ip,
                 user_agent=user_agent,
-                project_id=None,  # Will be validated later when project_id is known
+                project_id=None,
             )
             if not validation_result.is_valid:
                 logger.warning(
@@ -118,7 +118,7 @@ class ConnectOrchestrator:
                 )
                 return self._build_error_response(error_msg, used_global_key, successful_project_id), 403
 
-            # Now that we have project_id, validate IP address (DRY principle)
+
             ip_validation_result = request_validation_pipeline.validate_ip_only(
                 ip=ip, project_id=project_id
             )
@@ -160,7 +160,7 @@ class ConnectOrchestrator:
                 )
                 return encrypted_response, 403
 
-            # Check automated security rules (this updates triggers automatically)
+
             is_blocked, block_reason = self.security_checker.enhanced_fingerprint_security_check(
                 fields.get("fingerprint"), ip, user_agent, user_key, project_id
             )
@@ -281,8 +281,8 @@ class ConnectOrchestrator:
                 key_validator.get_key_expiration_info(key_obj)
             )
 
-            # SECURITY: Pass project_id for per-project salt in token generation
-            # This prevents rainbow table attacks if TOKEN_STATIC_WORD is compromised
+
+
             token = self.token_generator.generate_connect_token(
                 product=fields.get("product"),
                 user_key=user_key,
@@ -303,7 +303,7 @@ class ConnectOrchestrator:
                 key_obj=key_obj,
             )
 
-            # Generate JWT access token for API authentication
+
             access_token = None
             if key_obj.user_id:
                 try:
@@ -342,7 +342,7 @@ class ConnectOrchestrator:
             return encrypted_response, 200
 
         except (ValueError, KeyError, AttributeError, TypeError) as e:
-            # Logical errors - these indicate bugs or invalid data, log with full traceback
+
             logger.error(
                 f"CONNECT_LOGICAL_ERROR ip={ip} user_key={user_key if user_key else 'unknown'} "
                 f"error_type={type(e).__name__} error={e}",
@@ -354,7 +354,7 @@ class ConnectOrchestrator:
             return encrypted_response, 400
 
         except Exception as e:
-            # System errors or unexpected exceptions - mask details in production
+
             logger.error(
                 f"CONNECT_SYSTEM_ERROR ip={ip} user_key={user_key if user_key else 'unknown'} "
                 f"error_type={type(e).__name__} error={e}",
@@ -376,7 +376,7 @@ class ConnectOrchestrator:
         Returns:
             Encrypted response string
         """
-        # Always return encrypted response, even on error
+
         try:
             encrypted_response = self.response_builder.encrypt_response(
                 error_response, used_global_key=True, use_legacy=True
@@ -387,22 +387,22 @@ class ConnectOrchestrator:
                 f"ENCRYPTION_FAILED_IN_ERROR_HANDLER ip={ip} error={encrypt_error}",
                 exc_info=True
             )
-            # Last resort: use MasterKeyManager directly
+
             try:
                 import json
-                # SECURITY: For error responses, we should use project-specific encryption if project_id is available
-                # Only use global MASTER_KEY as last resort for critical system errors with no project context
+
+
                 from ...utils.secure_crypto import MasterKeyManager
                 from ...config.config import Config
 
                 error_json = json.dumps(error_response)
-                # Only use global key if we truly have no project context (critical system error)
+
                 if project_id:
                     logger.warning(
                         f"SECURITY: Attempting to encrypt error response with project {project_id} key. "
                         "Global MASTER_KEY fallback should not be used for project-specific errors."
                     )
-                    # Try to use project key first
+
                     try:
                         from ...utils.secure_crypto import encrypt_data_with_project_key
                         encrypted_response = encrypt_data_with_project_key(
@@ -414,11 +414,11 @@ class ConnectOrchestrator:
                             f"SECURITY: Failed to encrypt error response with project {project_id} key: {project_encrypt_error}. "
                             "Cannot use global MASTER_KEY fallback for project-specific errors."
                         )
-                        # Return unencrypted error - client should handle gracefully
+
                         return error_json
                 else:
-                    # No project context - this is a critical system error
-                    # Using global key is acceptable only in this extreme case
+
+
                     logger.warning(
                         "SECURITY: Using global MASTER_KEY for error encryption (no project_id). "
                         "This should only happen for critical system errors."
@@ -432,8 +432,8 @@ class ConnectOrchestrator:
                     f"CRITICAL: Failed to encrypt error response ip={ip} error={final_error}",
                     exc_info=True
                 )
-                # This should never happen, but if it does, return a minimal unencrypted error
-                # SECURITY: We cannot use global MASTER_KEY here as we don't know the project context
+
+
                 minimal_error = {"error": "Internal server error", "r": "0000000000000000"}
                 return json.dumps(minimal_error)
 

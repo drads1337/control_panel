@@ -10,7 +10,7 @@ from ...core.extensions import db
 from ...models.core import User
 from ...models.products import Product
 from ...models.keys import Key
-# get_service removed - using DI
+
 from ...utils.service_exceptions import ServiceError
 from ...utils.data_masking import mask_license_key
 from ...utils.rbac_utils import RBACManager

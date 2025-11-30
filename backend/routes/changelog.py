@@ -37,7 +37,7 @@ def find_product_by_id_or_unique_id(product_identifier, project_id):
     """
     logger = logging.getLogger(__name__)
     
-    # Try as integer id (primary key) first
+
     if isinstance(product_identifier, int) or (isinstance(product_identifier, str) and product_identifier.isdigit()):
         try:
             product_id_int = int(product_identifier)
@@ -45,7 +45,7 @@ def find_product_by_id_or_unique_id(product_identifier, project_id):
             if product:
                 return product
             else:
-                # Log for debugging - check if product exists in different project
+
                 product_any_project = Product.query.filter_by(id=product_id_int).first()
                 if product_any_project:
                     logger.warning(
@@ -58,12 +58,12 @@ def find_product_by_id_or_unique_id(product_identifier, project_id):
             logger.debug(f"Error converting product_identifier to int: {e}")
             pass
     
-    # Try as unique_id (string)
+
     product = Product.query.filter_by(unique_id=str(product_identifier), project_id=project_id).first()
     if product:
         return product
     
-    # Try as name (string) as fallback
+
     product = Product.query.filter_by(name=str(product_identifier), project_id=project_id).first()
     return product
 
@@ -139,8 +139,8 @@ def create_changelog_entry(product_identifier, validated_data=None):
     user = User.query.get(user_id)
 
     if not user:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         activity_service = get_service('activity_service')
         rbac_service = get_service('rbac_service')
         return jsonify({"error": "User not found"}), 404
@@ -237,8 +237,8 @@ def update_changelog_entry(entry_id):
     user = User.query.get(user_id)
 
     if not user:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         activity_service = get_service('activity_service')
         rbac_service = get_service('rbac_service')
         return jsonify({"error": "User not found"}), 404
@@ -284,15 +284,15 @@ def update_changelog_entry(entry_id):
         if "release_date" in data and data["release_date"]:
             entry.release_date = datetime.fromisoformat(data["release_date"])
         
-        # Handle agent-specific fields
+
         if is_agent_entry:
-            agent_entry = entry  # entry is AgentChangelog at this point
+            agent_entry = entry
             if "change_type" in data:
                 agent_entry.change_type = data["change_type"]
             if "custom_type_name" in data:
                 agent_entry.custom_type_name = data.get("custom_type_name")
             
-            # Sync version with agent if version changed
+
             if version_changed:
                 from ..models.agents import Agent
                 agent = Agent.query.filter_by(id=agent_entry.agent_id, project_id=user.project_id).first()
@@ -300,7 +300,7 @@ def update_changelog_entry(entry_id):
                     agent.version = entry.version
                     agent.updated_at = datetime.utcnow()
         else:
-            # Sync version with product if version changed
+
             if version_changed:
                 from ..models.products import Product
                 product = Product.query.filter_by(id=entry.product_id, project_id=user.project_id).first()
@@ -310,7 +310,7 @@ def update_changelog_entry(entry_id):
 
         db.session.commit()
 
-        # Get the appropriate ID for logging
+
         if is_agent_entry:
             entity_id = getattr(entry, 'agent_id', None)
             entity_type = "agent"
@@ -339,9 +339,9 @@ def update_changelog_entry(entry_id):
             },
         }
         
-        # Add agent-specific fields to response
+
         if is_agent_entry:
-            agent_entry = entry  # entry is AgentChangelog at this point
+            agent_entry = entry
             response_data["entry"]["change_type"] = agent_entry.change_type
             response_data["entry"]["custom_type_name"] = agent_entry.custom_type_name
 
@@ -360,8 +360,8 @@ def delete_changelog_entry(entry_id):
     user = User.query.get(user_id)
 
     if not user:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         activity_service = get_service('activity_service')
         rbac_service = get_service('rbac_service')
         return jsonify({"error": "User not found"}), 404
@@ -393,7 +393,7 @@ def delete_changelog_entry(entry_id):
 
         version = entry.version
         
-        # Get entity info for logging before deletion
+
         if is_agent_entry:
             entity_id = getattr(entry, 'agent_id', None)
             entity_type = "agent"
@@ -672,8 +672,8 @@ def create_loader_changelog_entry(agent_identifier, validated_data=None):
 
     if not user:
 
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         activity_service = get_service('activity_service')
         rbac_service = get_service('rbac_service')
         return jsonify({"error": "User not found"}), 404
@@ -685,7 +685,7 @@ def create_loader_changelog_entry(agent_identifier, validated_data=None):
     if not user.project_id:
         return jsonify({"error": "No project associated"}), 400
 
-    # For agent changelog, check agent permissions first, then fallback to product permissions
+
     has_agent_permission = rbac_service.check_permission(
         user.id, "agents.changelog_create"
     )

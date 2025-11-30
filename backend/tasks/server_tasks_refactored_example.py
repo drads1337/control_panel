@@ -87,7 +87,7 @@ def server_status_check(self, server_id, task_id=None, project_id=None):
     task_service = None
     if task_id:
         try:
-            # Example: Get service through app context (DI pattern)
+
             from flask import current_app
             if not hasattr(current_app, 'service_container'):
                 raise RuntimeError(
@@ -99,11 +99,11 @@ def server_status_check(self, server_id, task_id=None, project_id=None):
         except Exception as e:
             logger.warning(f"Failed to update task status: {e}")
 
-    # Use context manager for database session
-    # Session is guaranteed to close even if worker crashes
+
+
     with celery_db_session() as session:
         try:
-            # Query server
+
             if project_id:
                 server = session.query(Server).filter_by(
                     id=server_id, project_id=project_id
@@ -118,7 +118,7 @@ def server_status_check(self, server_id, task_id=None, project_id=None):
                     task_service.update_task_status(task_id, "failed", error=error_msg)
                 return {"status": "error", "error": error_msg}
 
-            # Get encryption settings
+
             helper = ProjectSettingsHelper(server.project_id)
             encryption_settings = helper.get_encryption_settings()
             
@@ -126,7 +126,7 @@ def server_status_check(self, server_id, task_id=None, project_id=None):
                 error_msg = f"No encryption key found for project {server.project_id}"
                 logger.error(error_msg)
                 server.status = "error"
-                session.commit()  # Commit within context manager
+                session.commit()
                 
                 if task_service and task_id:
                     task_service.update_task_status(task_id, "failed", error=error_msg)
@@ -135,7 +135,7 @@ def server_status_check(self, server_id, task_id=None, project_id=None):
             if task_service and task_id:
                 task_service.update_task_status(task_id, "in_progress", progress=30)
 
-            # Decrypt password
+
             try:
                 decrypted_password = server.get_password(encryption_settings.project_master_key)
             except Exception as e:
@@ -148,7 +148,7 @@ def server_status_check(self, server_id, task_id=None, project_id=None):
                     task_service.update_task_status(task_id, "failed", error=error_msg)
                 return {"status": "error", "error": error_msg}
 
-            # Check server via SSH
+
             if not paramiko:
                 error_msg = "paramiko library not available"
                 logger.error(error_msg)
@@ -169,7 +169,7 @@ def server_status_check(self, server_id, task_id=None, project_id=None):
                 )
 
                 server.status = "online"
-                session.commit()  # Commit within context manager
+                session.commit()
                 ssh.close()
 
                 if task_service and task_id:
@@ -185,7 +185,7 @@ def server_status_check(self, server_id, task_id=None, project_id=None):
 
             except Exception as e:
                 server.status = "offline"
-                session.commit()  # Commit within context manager
+                session.commit()
                 logger.error(f"Error checking server {server.name}: {str(e)}")
 
                 if task_service and task_id:
@@ -199,12 +199,12 @@ def server_status_check(self, server_id, task_id=None, project_id=None):
                     pass
 
         except Exception as e:
-            # Any exception will cause rollback and session close
+
             logger.error(f"Unexpected error in server_status_check: {e}", exc_info=True)
             if task_service and task_id:
                 task_service.update_task_status(task_id, "failed", error=str(e))
-            raise  # Re-raise to trigger Celery retry if configured
+            raise
 
-    # Session is automatically closed here by context manager
-    # Even if worker crashes, the connection pool will handle cleanup
+
+
 

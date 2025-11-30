@@ -56,7 +56,7 @@ def success_response(
     if message:
         response_data["message"] = message
     
-    # Add any additional fields
+
     response_data.update(kwargs)
     
     return jsonify(response_data), status_code
@@ -102,7 +102,7 @@ def error_response(
     if details:
         response_data["details"] = details
     
-    # Add any additional fields
+
     response_data.update(kwargs)
     
     return jsonify(response_data), status_code

@@ -42,7 +42,7 @@ class RedisStartupChecker:
         self.warnings.clear()
         self.info.clear()
         
-        # Check Redis connection
+
         if not self._check_connection():
             return {
                 "status": "error",
@@ -52,13 +52,13 @@ class RedisStartupChecker:
                 "info": self.info,
             }
         
-        # Run security checks
+
         self._check_authentication()
         self._check_network_isolation()
         self._check_protected_mode()
         self._check_database_separation()
         
-        # Determine overall status
+
         if self.errors:
             status = "error"
             message = "Critical security issues found"
@@ -92,7 +92,7 @@ class RedisStartupChecker:
         """Check if Redis requires authentication"""
         try:
             client = get_redis_client()
-            # Try to get config (requires authentication if enabled)
+
             try:
                 config = redis_security_monitor.check_redis_security_config()
                 auth_check = config.get("checks", {}).get("authentication", {})
@@ -106,7 +106,7 @@ class RedisStartupChecker:
                         "Set requirepass in redis.conf for production."
                     )
                 elif status == "ok":
-                    # Check if message indicates CONFIG is disabled (expected in managed services)
+
                     if "CONFIG command disabled" in message:
                         self.info.append(
                             "Redis authentication check: CONFIG command disabled "
@@ -115,14 +115,14 @@ class RedisStartupChecker:
                     else:
                         self.info.append("Redis authentication is configured")
                 elif status == "info":
-                    # Info status means CONFIG disabled but acceptable
+
                     self.info.append(f"Redis authentication: {message}")
                 else:
                     self.warnings.append(
                         f"Cannot verify Redis authentication: {message or 'unknown'}"
                     )
             except Exception as e:
-                # If we can't check config, it might be disabled (which is acceptable in managed services)
+
                 from ..config.config import IS_PRODUCTION
                 if IS_PRODUCTION:
                     self.info.append(
@@ -156,7 +156,7 @@ class RedisStartupChecker:
                 else:
                     self.info.append(f"Redis bind address: {message}")
             elif status == "ok":
-                # Check if message indicates CONFIG is disabled (expected in managed services)
+
                 if "CONFIG command disabled" in message:
                     self.info.append(
                         "Redis network isolation: CONFIG command disabled "
@@ -186,7 +186,7 @@ class RedisStartupChecker:
                     "Enable protected-mode yes in redis.conf for production."
                 )
             elif status == "ok":
-                # Check if message indicates CONFIG is disabled (expected in managed services)
+
                 if "CONFIG command disabled" in message:
                     self.info.append(
                         "Redis protected mode: CONFIG command disabled "
@@ -206,7 +206,7 @@ class RedisStartupChecker:
         try:
             from ..config.config import Config
             
-            # Check if different DBs are configured
+
             dbs = {
                 "sessions": Config.REDIS_DB_SESSIONS,
                 "rate_limit": Config.REDIS_DB_RATE_LIMIT,
@@ -215,7 +215,7 @@ class RedisStartupChecker:
                 "cache": Config.REDIS_DB_CACHE,
             }
             
-            # Check if all DBs are the same (not recommended)
+
             unique_dbs = set(dbs.values())
             if len(unique_dbs) == 1:
                 self.warnings.append(
@@ -246,7 +246,7 @@ def check_redis_security_on_startup() -> Dict[str, any]:
     checker = RedisStartupChecker()
     results = checker.check_all()
     
-    # Log results
+
     if results["status"] == "error":
         logger.error(
             f"Redis security check failed: {results['message']}\n"

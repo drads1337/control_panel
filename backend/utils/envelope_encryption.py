@@ -76,7 +76,7 @@ class EnvelopeKeyManager:
                 "Generate with: python -c 'import secrets; print(secrets.token_hex(32))'"
             )
         
-        # Validate format (64 hex characters = 32 bytes)
+
         if len(kek_hex) != 64:
             raise ValueError(
                 f"PROJECT_MASTER_KEY must be 64 hex characters (32 bytes), got {len(kek_hex)}"
@@ -116,13 +116,13 @@ class EnvelopeKeyManager:
         if cls._fernet is None:
             kek = cls._get_kek()
             
-            # Derive Fernet-compatible key from KEK using PBKDF2
-            # Fernet requires exactly 32 bytes (URL-safe base64 encoded)
+
+
             kdf = PBKDF2HMAC(
                 algorithm=hashes.SHA256(),
                 length=32,
-                salt=b'envelope_encryption_salt',  # Fixed salt for deterministic key derivation
-                iterations=100000,  # High iteration count for security
+                salt=b'envelope_encryption_salt',
+                iterations=100000,
                 backend=default_backend()
             )
             fernet_key = base64.urlsafe_b64encode(kdf.derive(kek))
@@ -181,7 +181,7 @@ class EnvelopeKeyManager:
             Encrypted DEK as base64-encoded string
         """
         try:
-            # Convert hex string to bytes
+
             dek_bytes = bytes.fromhex(dek_string)
             return cls.encrypt_dek(dek_bytes)
         except ValueError as e:
@@ -226,7 +226,7 @@ class EnvelopeKeyManager:
         cls._fernet = None
 
 
-# SECURITY: No fallback to plain key if decryption fails
+
 def get_project_key_safe(project_id: int, use_envelope: bool = True) -> str:
     """
     Get project encryption key with Envelope Encryption support.
@@ -250,9 +250,9 @@ def get_project_key_safe(project_id: int, use_envelope: bool = True) -> str:
     if not encryption_keys:
         raise ValueError(f"No encryption keys found for project {project_id}")
     
-    # SECURITY: If encrypted key exists, Envelope Encryption is REQUIRED
+
     if use_envelope and EnvelopeKeyManager.validate_kek_set():
-        # Check if key is encrypted (new format)
+
         if hasattr(encryption_keys, 'aes_key_encrypted') and encryption_keys.aes_key_encrypted:
             try:
                 return EnvelopeKeyManager.decrypt_dek_string(encryption_keys.aes_key_encrypted)
@@ -267,7 +267,7 @@ def get_project_key_safe(project_id: int, use_envelope: bool = True) -> str:
                     f"Please ensure PROJECT_MASTER_KEY is correct or contact support."
                 ) from e
         
-        # If no encrypted key, check for plain key (legacy projects)
+
         if hasattr(encryption_keys, 'aes_key') and encryption_keys.aes_key:
             logger.warning(
                 f"Project {project_id} using plain key (legacy). "
@@ -275,7 +275,7 @@ def get_project_key_safe(project_id: int, use_envelope: bool = True) -> str:
             )
             return encryption_keys.aes_key
     
-    # Legacy behavior: return plain key (for projects that haven't migrated)
+
     if hasattr(encryption_keys, 'aes_key') and encryption_keys.aes_key:
         return encryption_keys.aes_key
     

@@ -46,9 +46,9 @@ admin_users_bp = Blueprint("admin_users", __name__)
 def get_users(current_user, project_id=None):
     """Get users with optimized key counts (fixes N+1 problem)"""
 
-    # project_id should be passed via kwargs from middleware
+
     if project_id is None:
-        # Get services once at the start (DI pattern)
+
         user_crud_service = get_service('user_crud_service')
         project_id = request.args.get("project_id", type=int)
 
@@ -88,12 +88,12 @@ def add_user(current_user, validated_data=None, project_id=None):
     data = validated_data if validated_data is not None else request.get_json()
 
     if not data:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         return jsonify({"error": "No data provided"}), 400
 
     try:
-        # Use DI helper function instead of facade
+
         user, error = create_user_with_roles_and_products(current_user, data, project_id=project_id)
 
         if error:
@@ -139,7 +139,7 @@ def delete_user(user_id, current_user, project_id=None):
     success, error = user_crud_service.delete_user_safely(current_user, user_id, project_id=project_id)
 
     if not success:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         user_crud_service = get_service('user_crud_service')
         return jsonify({"error": error}), 400 if "not found" in error.lower() else 403
@@ -164,7 +164,7 @@ def bulk_action(current_user, project_id=None):
     user_ids = data.get("user_ids", [])
 
     if not action or not user_ids:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         rbac_service = get_service('rbac_service')
         return jsonify({"error": "Action and user_ids are required"}), 400
@@ -178,7 +178,7 @@ def bulk_action(current_user, project_id=None):
         query = query.filter_by(project_id=current_user.project_id)
     else:
 
-        # project_id should be passed via kwargs from middleware
+
         if project_id:
             query = query.filter_by(project_id=project_id)
 
@@ -268,7 +268,7 @@ def export_users(current_user, project_id=None):
 
     role_filter = request.args.get("role")
     if project_id is None:
-        # Get services once at the start (DI pattern)
+
         rbac_service = get_service('rbac_service')
         project_id = request.args.get("project_id", type=int)
 
@@ -380,7 +380,7 @@ def invite_user(current_user):
     message = data.get("message", "")
 
     if not email:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         rbac_service = get_service('rbac_service')
         return jsonify({"error": "Email is required"}), 400
@@ -439,7 +439,7 @@ def get_users_stats(current_user, project_id=None):
         current_user.id, "employees.view"
     ) or rbac_service.check_permission(current_user.id, "clients.view")
     if not can_view_all:
-        # Get services once at the start (DI pattern)
+
         rbac_service = get_service('rbac_service')
         query = query.filter_by(project_id=current_user.project_id)
     elif project_id:
@@ -481,7 +481,7 @@ def get_user_stats(user_id, current_user, project_id=None):
     target_user = User.query.get(user_id)
 
     if not target_user:
-        # Get services once at the start (DI pattern)
+
         rbac_service = get_service('rbac_service')
         return jsonify({"error": "User not found"}), 404
 
@@ -494,7 +494,7 @@ def get_user_stats(user_id, current_user, project_id=None):
             return jsonify({"error": "Access denied"}), 403
         project_id = current_user.project_id
     else:
-        # project_id should be passed via kwargs from middleware
+
         if project_id is None:
             project_id = current_user.project_id
         if project_id and target_user.project_id != project_id:
@@ -579,7 +579,7 @@ def get_user_activities(user_id, current_user):
     target_user = User.query.get(user_id)
 
     if not target_user:
-        # Get services once at the start (DI pattern)
+
         rbac_service = get_service('rbac_service')
         return jsonify({"error": "User not found"}), 404
 
@@ -634,7 +634,7 @@ def get_user_transactions(user_id, current_user):
     target_user = User.query.get(user_id)
 
     if not target_user:
-        # Get services once at the start (DI pattern)
+
         rbac_service = get_service('rbac_service')
         return jsonify({"error": "User not found"}), 404
 

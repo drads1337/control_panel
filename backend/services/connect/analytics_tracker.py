@@ -9,7 +9,7 @@ from datetime import date, datetime
 from typing import Dict, List, Optional
 
 from ...core.extensions import db
-# get_service removed - using DI
+
 from ...utils.service_exceptions import ServiceError
 from ...models import DeviceInfo, Key, KeyAnalytics, Notification, User
 
@@ -41,10 +41,10 @@ class AnalyticsTracker:
             serial: Device serial number (optional, used for HyperLogLog unique device counting)
         """
         try:
-            # Use write-behind buffer instead of direct DB write
-            # HyperLogLog is used for efficient unique device counting
+
+
             if not self._analytics_buffer_service:
-                # Fallback to direct write if service not injected
+
                 logging.warning(f"AnalyticsBufferService not injected, using direct DB write for key_id={key_id}")
                 self._update_key_analytics_direct(key_id, product, ip_address, serial)
                 return
@@ -61,7 +61,7 @@ class AnalyticsTracker:
                     f"ANALYTICS_BUFFERED key_id={key_id} product={product} (will be flushed to DB by background worker)"
                 )
             else:
-                # Fallback to direct write if buffer fails
+
                 logging.warning(
                     f"ANALYTICS_BUFFER_FAILED key_id={key_id}, falling back to direct DB write"
                 )
@@ -69,7 +69,7 @@ class AnalyticsTracker:
 
         except Exception as e:
             logging.error(f"ANALYTICS_UPDATE_ERROR key_id={key_id} error={e}")
-            # Fallback to direct write on error
+
             try:
                 self._update_key_analytics_direct(key_id, product, ip_address, serial)
             except Exception as fallback_error:

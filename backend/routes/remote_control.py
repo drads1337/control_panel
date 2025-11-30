@@ -41,9 +41,9 @@ remote_control_bp = Blueprint("remote_control", __name__)
 def get_categories(project_id=None):
     """Get all remote control categories for the current project and product/product"""
     try:
-        # Check tier limits
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
+
         tier_limits_service = get_service('tier_limits_service')
         if project_id:
             project = Project.query.get(project_id)
@@ -59,7 +59,7 @@ def get_categories(project_id=None):
                 400,
             )
 
-        # Support both product_id (universal) and product_id (backward compatibility)
+
         product_id_param = request.args.get("product_id")
         if not product_id_param:
             return (
@@ -67,9 +67,9 @@ def get_categories(project_id=None):
                 400,
             )
 
-        # Resolve product by id or unique_id
+
         product = None
-        # Try as integer ID first
+
         if isinstance(product_id_param, int) or (isinstance(product_id_param, str) and product_id_param.isdigit()):
             try:
                 product_id_int = int(product_id_param)
@@ -77,7 +77,7 @@ def get_categories(project_id=None):
             except (ValueError, TypeError):
                 pass
         
-        # If not found, try as unique_id (string)
+
         if not product:
             product = Product.query.filter_by(unique_id=str(product_id_param), project_id=project_id).first()
         
@@ -106,13 +106,13 @@ def get_categories(project_id=None):
 def create_category(current_user, project_id=None, validated_data=None):
     """Create a new remote control category"""
     if not validated_data:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         activity_service = get_service('activity_service')
         tier_limits_service = get_service('tier_limits_service')
         return jsonify({"error": "No data provided"}), 400
 
-    # Check tier limits
+
     if project_id:
         project = Project.query.get(project_id)
         if project:
@@ -132,7 +132,7 @@ def create_category(current_user, project_id=None, validated_data=None):
             )
 
 
-        # Verify product belongs to project
+
         product = Product.query.filter_by(id=product_id, project_id=project_id).first()
         if not product:
             return jsonify({"error": "Product not found or does not belong to this project"}), 404
@@ -218,7 +218,7 @@ def update_category(category_id, current_user, project_id=None, validated_data=N
         if not validated_data:
             return jsonify({"error": "No data provided"}), 400
 
-        # If product_id is being updated, verify it belongs to project
+
         if validated_data.product_id is not None and validated_data.product_id != category.product_id:
             product = Product.query.filter_by(id=validated_data.product_id, project_id=project_id).first()
             if not product:
@@ -339,15 +339,15 @@ def get_features(project_id=None):
                 400,
             )
 
-        # Support both product_id (universal) and product_id (backward compatibility)
+
         product_id_param = request.args.get("product_id")
         category_id = request.args.get("category_id", type=int)
 
         query = RemoteFeature.query.filter_by(project_id=project_id)
         if product_id_param:
-            # Resolve product by id or unique_id
+
             product = None
-            # Try as integer ID first
+
             if isinstance(product_id_param, int) or (isinstance(product_id_param, str) and product_id_param.isdigit()):
                 try:
                     product_id_int = int(product_id_param)
@@ -355,7 +355,7 @@ def get_features(project_id=None):
                 except (ValueError, TypeError):
                     pass
             
-            # If not found, try as unique_id (string)
+
             if not product:
                 product = Product.query.filter_by(unique_id=str(product_id_param), project_id=project_id).first()
             
@@ -493,7 +493,7 @@ def update_feature(feature_id, current_user, project_id=None, validated_data=Non
 
             new_product_id = category.product_id
         else:
-            # Keep existing category if not updating
+
             category = RemoteCategory.query.filter_by(
                 id=feature.category_id, project_id=project_id
             ).first()
@@ -657,7 +657,7 @@ def get_stats(project_id=None):
                 400,
             )
 
-        # Support both product_id (universal) and product_id (backward compatibility)
+
         product_id_param = request.args.get("product_id")
         if not product_id_param:
             return (
@@ -665,9 +665,9 @@ def get_stats(project_id=None):
                 400,
             )
 
-        # Resolve product by id or unique_id
+
         product = None
-        # Try as integer ID first
+
         if isinstance(product_id_param, int) or (isinstance(product_id_param, str) and product_id_param.isdigit()):
             try:
                 product_id_int = int(product_id_param)
@@ -675,7 +675,7 @@ def get_stats(project_id=None):
             except (ValueError, TypeError):
                 pass
         
-        # If not found, try as unique_id (string)
+
         if not product:
             product = Product.query.filter_by(unique_id=str(product_id_param), project_id=project_id).first()
         

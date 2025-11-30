@@ -30,7 +30,7 @@ from ..config.config import Config
 
 logger = logging.getLogger(__name__)
 
-# Prometheus metrics for Celery database connection pool
+
 _celery_pool_size = Gauge(
     'celery_db_pool_size',
     'Current size of Celery database connection pool',
@@ -57,7 +57,7 @@ _celery_pool_invalid = Gauge(
     registry=REGISTRY
 )
 
-# Global engine and session factory for Celery tasks
+
 _celery_db_engine = None
 _CelerySession = None
 
@@ -76,14 +76,14 @@ def get_celery_db_engine():
     if _celery_db_engine is None:
         _celery_db_engine = create_engine(
             Config.SQLALCHEMY_DATABASE_URI,
-            pool_pre_ping=True,  # Verify connections before using
-            pool_recycle=3600,   # Recycle connections every hour
-            pool_size=10,        # Maximum number of connections in pool
-            max_overflow=20,     # Maximum overflow connections
-            echo=False,          # Set to True for SQL query logging
+            pool_pre_ping=True,
+            pool_recycle=3600,
+            pool_size=10,
+            max_overflow=20,
+            echo=False,
         )
         
-        # Add event listeners for connection monitoring
+
         _setup_connection_monitoring(_celery_db_engine)
         
         logger.info("Celery database engine initialized")
@@ -122,23 +122,23 @@ def _setup_connection_monitoring(engine):
     def receive_checkout(dbapi_conn, connection_record, connection_proxy):
         """Log connection checkout and update metrics"""
         logger.debug(f"[DB_POOL] Connection checked out: {id(dbapi_conn)}")
-        # Update metrics after checkout
+
         try:
             pool_stats = get_pool_stats()
             _update_prometheus_metrics(pool_stats)
         except Exception:
-            pass  # Don't fail on metrics update
+            pass
     
     @event.listens_for(engine.pool, "checkin")
     def receive_checkin(dbapi_conn, connection_record):
         """Log connection checkin and update metrics"""
         logger.debug(f"[DB_POOL] Connection checked in: {id(dbapi_conn)}")
-        # Update metrics after checkin
+
         try:
             pool_stats = get_pool_stats()
             _update_prometheus_metrics(pool_stats)
         except Exception:
-            pass  # Don't fail on metrics update
+            pass
     
     @event.listens_for(engine.pool, "invalidate")
     def receive_invalidate(dbapi_conn, connection_record, exception):
@@ -224,7 +224,7 @@ def get_pool_stats() -> dict:
         "invalid": pool_instance.invalid(),
     }
     
-    # Update Prometheus metrics
+
     _update_prometheus_metrics(stats)
     
     return stats

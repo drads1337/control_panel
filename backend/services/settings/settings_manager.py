@@ -16,7 +16,7 @@ from ...utils.project_settings_migration import ProjectSettingsHelper
 from ...utils.service_exceptions import BusinessLogicError, ServiceError
 from .settings_repository import SettingsRepository
 
-# Type hints for dependencies (imported here to avoid circular imports)
+
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ...services.cache.cache_service import CacheService
@@ -69,17 +69,17 @@ class SettingsManager:
         Raises:
             BusinessLogicError: If project_id cannot be resolved
         """
-        # Check if user is owner - owners can work without project_id
+
         is_owner = RBACManager.is_owner(user)
         
-        # Use project_id from parameter (passed by middleware) or fallback logic
+
         if not project_id:
             if is_owner:
-                # For owners without project_id, try to use first available project as fallback
+
                 try:
-                    # First try active projects
+
                     first_project = self.repository.get_first_available_project(active_only=True)
-                    # If no active projects, try any project
+
                     if not first_project:
                         first_project = self.repository.get_first_available_project(active_only=False)
                     if first_project:
@@ -95,7 +95,7 @@ class SettingsManager:
                     self.logger.error(f"Error looking up projects for owner {user.id}: {project_lookup_error}")
                     raise BusinessLogicError("Project selection required. Please select a project to view settings.")
             else:
-                # Non-owners must have project_id
+
                 project_id = user.project_id
                 if not project_id:
                     raise BusinessLogicError("User must be assigned to a project")
@@ -117,7 +117,7 @@ class SettingsManager:
             Dictionary with settings organized by category
         """
         try:
-            # Parse appearance settings
+
             appearance_settings = {}
             try:
                 if hasattr(settings, "appearance_settings") and settings.appearance_settings:
@@ -125,7 +125,7 @@ class SettingsManager:
             except (json.JSONDecodeError, TypeError, AttributeError):
                 appearance_settings = {}
 
-            # Ensure encryption_keys has required fields
+
             if not encryption_keys or not isinstance(encryption_keys, dict):
                 encryption_keys = {"aes_key": "", "public_key": ""}
             
@@ -134,7 +134,7 @@ class SettingsManager:
             if "public_key" not in encryption_keys:
                 encryption_keys["public_key"] = ""
 
-            # Build response structure
+
             result = {
                 "security": {
                     "min_password_length": int(getattr(settings, "min_password_length", 8) or 8),
@@ -217,7 +217,7 @@ class SettingsManager:
                 },
             }
 
-            # Filter admin-only sections for non-admin users
+
             try:
                 is_admin = RBACManager.is_admin(user)
             except Exception as admin_check_error:
@@ -258,19 +258,19 @@ class SettingsManager:
             Dictionary with settings or error message
         """
         try:
-            # Get user
+
             user = self.repository.get_user(user_id)
             if not user:
                 return {"error": "User not found"}
 
-            # Resolve project_id (raises BusinessLogicError if cannot resolve)
+
             project_id = self.resolve_project_id(user, project_id)
 
-            # Get settings and keys from repository
+
             settings = self.repository.get_or_create_project_settings(project_id)
             encryption_keys = self.repository.get_or_create_project_encryption_keys(project_id)
 
-            # Build response
+
             result = self.build_settings_response(settings, encryption_keys, user)
             
             self.logger.info(f"Successfully retrieved settings for user {user_id}, project {project_id}")
@@ -295,21 +295,21 @@ class SettingsManager:
             Dictionary with success status or error message
         """
         try:
-            # Get user
+
             user = self.repository.get_user(user_id)
             if not user:
                 return {"error": "User not found"}
 
-            # Resolve project_id (raises BusinessLogicError if cannot resolve)
+
             project_id = self.resolve_project_id(user, project_id)
 
-            # Update settings from settings_data (works with specialized models)
+
             self._update_settings_from_data(project_id, settings_data)
 
-            # Commit changes
+
             db.session.commit()
 
-            # Invalidate cache
+
             self.invalidate_settings_cache(user_id)
 
             return {"success": True, "message": "Settings updated successfully"}

@@ -94,7 +94,7 @@ class FolderCreateSchema(BaseSchema):
         """Validate and normalize folder name"""
         if not v or not v.strip():
             raise ValueError("Folder name cannot be empty")
-        # Remove path separators for security
+
         name = v.strip().replace("/", "").replace("\\", "")
         if not name:
             raise ValueError("Folder name cannot contain only path separators")
@@ -106,7 +106,7 @@ class FolderCreateSchema(BaseSchema):
         """Validate parent path"""
         if not v:
             return "/"
-        # Ensure path starts with /
+
         if not v.startswith("/"):
             return "/" + v
         return v

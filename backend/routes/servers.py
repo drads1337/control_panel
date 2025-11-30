@@ -27,8 +27,8 @@ def get_servers():
     current_user = server_service.get_user_by_id(current_user_id)
 
     if not current_user:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         server_service = get_service('server_service')
         task_service = get_service('task_service')
         return jsonify({"error": "Access denied"}), 403
@@ -79,8 +79,8 @@ def create_server(validated_data=None):
     if not current_user or not rbac_service.check_permission(
         current_user.id, "system.manage_maintenance"
     ):
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         activity_service = get_service('activity_service')
         rbac_service = get_service('rbac_service')
         server_service = get_service('server_service')
@@ -157,8 +157,8 @@ def delete_server(server_id):
     current_user = server_service.get_user_by_id(current_user_id)
 
     if not current_user:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         activity_service = get_service('activity_service')
         server_service = get_service('server_service')
         return jsonify({"error": "Access denied"}), 403
@@ -193,8 +193,8 @@ def start_server_route(server_id, current_user):
     server = server_service.get_server_by_id(server_id, current_user)
 
     if not server:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         activity_service = get_service('activity_service')
         server_service = get_service('server_service')
         task_service = get_service('task_service')
@@ -236,8 +236,8 @@ def stop_server_route(server_id):
     current_user = server_service.get_user_by_id(current_user_id)
 
     if not current_user:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         activity_service = get_service('activity_service')
         server_service = get_service('server_service')
         task_service = get_service('task_service')
@@ -283,8 +283,8 @@ def restart_server_route(server_id):
     current_user = server_service.get_user_by_id(current_user_id)
 
     if not current_user:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         activity_service = get_service('activity_service')
         server_service = get_service('server_service')
         task_service = get_service('task_service')
@@ -330,8 +330,8 @@ def get_server_status(server_id):
     current_user = server_service.get_user_by_id(current_user_id)
 
     if not current_user:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         server_service = get_service('server_service')
         task_service = get_service('task_service')
         return jsonify({"error": "Access denied"}), 403
@@ -371,8 +371,8 @@ def bulk_check_status(validated_data=None):
     current_user = server_service.get_user_by_id(current_user_id)
 
     if not current_user:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         activity_service = get_service('activity_service')
         server_service = get_service('server_service')
         task_service = get_service('task_service')
@@ -422,8 +422,8 @@ def get_server_stats():
     current_user = server_service.get_user_by_id(current_user_id)
 
     if not current_user:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         server_service = get_service('server_service')
         return jsonify({"error": "Access denied"}), 403
 

@@ -64,7 +64,7 @@ class ProjectSettingsHelper:
         settings = ProjectSecuritySettings.query.filter_by(project_id=self.project_id).first()
         
         if not settings:
-            # Create with default values (no migration from ProjectSettings)
+
             settings = ProjectSecuritySettings(project_id=self.project_id)
             db.session.add(settings)
             db.session.commit()
@@ -220,13 +220,13 @@ def migrate_project_settings(project_id: int) -> Dict[str, bool]:
     Returns:
         Dict with migration status for each settings type
     """
-    # Import ProjectSettings here to avoid circular dependency issues
+
     from ..models.core import ProjectSettings
     
     legacy_settings = ProjectSettings.query.filter_by(project_id=project_id).first()
     if not legacy_settings:
         logger.warning(f"No legacy ProjectSettings found for project {project_id}, creating new specialized settings")
-        # Just create new specialized settings with defaults
+
         helper = ProjectSettingsHelper(project_id)
         return {
             "security": True,
@@ -242,7 +242,7 @@ def migrate_project_settings(project_id: int) -> Dict[str, bool]:
     results = {}
     helper = ProjectSettingsHelper(project_id)
     
-    # Migrate security settings
+
     try:
         security = helper.get_security_settings()
         security.min_password_length = legacy_settings.min_password_length
@@ -270,7 +270,7 @@ def migrate_project_settings(project_id: int) -> Dict[str, bool]:
         logger.error(f"Failed to migrate security settings for project {project_id}: {e}")
         results["security"] = False
     
-    # Migrate system settings
+
     try:
         system = helper.get_system_settings()
         system.max_connections = legacy_settings.max_connections
@@ -287,7 +287,7 @@ def migrate_project_settings(project_id: int) -> Dict[str, bool]:
         logger.error(f"Failed to migrate system settings for project {project_id}: {e}")
         results["system"] = False
     
-    # Migrate encryption settings
+
     try:
         encryption = helper.get_encryption_settings()
         encryption.encryption_enabled = legacy_settings.encryption_enabled
@@ -301,7 +301,7 @@ def migrate_project_settings(project_id: int) -> Dict[str, bool]:
         logger.error(f"Failed to migrate encryption settings for project {project_id}: {e}")
         results["encryption"] = False
     
-    # Migrate backup settings
+
     try:
         backup = helper.get_backup_settings()
         backup.auto_backup_enabled = legacy_settings.auto_backup_enabled
@@ -314,7 +314,7 @@ def migrate_project_settings(project_id: int) -> Dict[str, bool]:
         logger.error(f"Failed to migrate backup settings for project {project_id}: {e}")
         results["backup"] = False
     
-    # Migrate chat settings
+
     try:
         chat = helper.get_chat_settings()
         if hasattr(legacy_settings, 'chat_message_limit_per_minute'):
@@ -330,7 +330,7 @@ def migrate_project_settings(project_id: int) -> Dict[str, bool]:
         logger.error(f"Failed to migrate chat settings for project {project_id}: {e}")
         results["chat"] = False
     
-    # Migrate offline auth settings
+
     try:
         offline_auth = helper.get_offline_auth_settings()
         if hasattr(legacy_settings, 'offline_auth_enabled'):
@@ -344,7 +344,7 @@ def migrate_project_settings(project_id: int) -> Dict[str, bool]:
         logger.error(f"Failed to migrate offline auth settings for project {project_id}: {e}")
         results["offline_auth"] = False
     
-    # Migrate appearance settings
+
     try:
         appearance = helper.get_appearance_settings()
         if hasattr(legacy_settings, 'appearance_settings'):
@@ -356,7 +356,7 @@ def migrate_project_settings(project_id: int) -> Dict[str, bool]:
         logger.error(f"Failed to migrate appearance settings for project {project_id}: {e}")
         results["appearance"] = False
     
-    # Migrate invite settings
+
     try:
         invite = helper.get_invite_settings()
         invite.invite_code_required = legacy_settings.invite_code_required

@@ -37,7 +37,7 @@ class ReferralCodeCreateSchema(BaseSchema):
         """Validate product IDs list"""
         if not isinstance(v, list):
             raise ValueError("Product IDs must be a list")
-        # Filter out invalid IDs (0, None, negative)
+
         valid_ids = [pid for pid in v if isinstance(pid, int) and pid > 0]
         return valid_ids
 
@@ -47,7 +47,7 @@ class ReferralCodeCreateSchema(BaseSchema):
         """Validate RBAC role IDs list"""
         if not isinstance(v, list):
             raise ValueError("RBAC role IDs must be a list")
-        # Filter out invalid IDs (0, None, negative)
+
         valid_ids = [rid for rid in v if isinstance(rid, int) and rid > 0]
         return valid_ids
 

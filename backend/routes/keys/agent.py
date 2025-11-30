@@ -34,7 +34,7 @@ def create_loader_key(current_user, project_id=None, validated_data=None):
     """Create a agent key"""
 
     if not current_user:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         key_generation_service = get_service('key_generation_service')
         return jsonify({"error": "User not found"}), 404
@@ -251,7 +251,7 @@ def bulk_create_loader_keys(current_user, project_id=None, validated_data=None):
     """Bulk create agent keys - uses async tasks for large operations"""
 
     if not current_user:
-        # Get services once at the start (DI pattern)
+
         task_service = get_service('task_service')
         return jsonify({"error": "User not found"}), 404
 
@@ -353,7 +353,7 @@ def bulk_create_loader_keys(current_user, project_id=None, validated_data=None):
         try:
             from ...tasks.key_tasks import bulk_create_loader_keys_task
 
-            # Get task service
+
             
             task_id = task_service.create_task(
                 task_type="bulk_create_loader_keys",
@@ -656,7 +656,7 @@ def bulk_delete_unused_loader_keys(current_user, project_id=None, validated_data
     """Bulk delete unused agent keys"""
 
     if not current_user:
-        # Get services once at the start (DI pattern)
+
         key_bulk_operations_service = get_service('key_bulk_operations_service')
         return jsonify({"error": "User not found"}), 404
 
@@ -699,7 +699,7 @@ def bulk_delete_expired_loader_keys(current_user, project_id=None, validated_dat
     """Bulk delete expired agent keys"""
 
     if not current_user:
-        # Get services once at the start (DI pattern)
+
         key_bulk_operations_service = get_service('key_bulk_operations_service')
         return jsonify({"error": "User not found"}), 404
 

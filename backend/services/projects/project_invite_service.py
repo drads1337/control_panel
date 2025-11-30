@@ -55,26 +55,26 @@ class ProjectInviteService:
 
             is_owner = RBACManager.is_owner(user)
 
-            # Determine project_id
+
             if not project_id:
                 if is_owner:
-                    # Owners can create invite codes for any project (project_id=None means global)
+
                     project_id = None
                 else:
                     if not user.project_id:
                         raise ValidationError("User must be assigned to a project", field="project_id")
                     project_id = user.project_id
             else:
-                # Validate project exists
+
                 project = Project.query.get(project_id)
                 if not project:
                     raise NotFoundError("Project", resource_id=str(project_id))
 
-                # Check permissions
+
                 if not is_owner and user.project_id != project_id:
                     raise ServiceError("Permission denied", status_code=403)
 
-            # Generate unique invite code (10 characters: uppercase letters and digits)
+
             code = self._generate_unique_code()
             expires_at = datetime.utcnow() + timedelta(days=expires_in_days)
 
@@ -136,7 +136,7 @@ class ProjectInviteService:
 
             is_owner = RBACManager.is_owner(user)
 
-            # Check permissions
+
             if not is_owner:
                 if not user.project_id or user.project_id != invite_code.project_id:
                     raise ServiceError("Permission denied", status_code=403)
@@ -178,7 +178,7 @@ class ProjectInviteService:
             is_owner = RBACManager.is_owner(user)
 
             if is_owner:
-                # Owners can see all invite codes (including global ones with project_id=None)
+
                 invite_codes = ProjectInviteCode.query.order_by(desc(ProjectInviteCode.created_at)).all()
             else:
                 if not user.project_id:
@@ -235,7 +235,7 @@ class ProjectInviteService:
                     .first()
                 )
             else:
-                # For owners without project_id, get global invite codes
+
                 latest_code = (
                     ProjectInviteCode.query.filter_by(project_id=None)
                     .order_by(desc(ProjectInviteCode.created_at))
@@ -281,7 +281,7 @@ class ProjectInviteService:
             characters = string.ascii_uppercase + string.digits
             code = "".join(secrets.choice(characters) for _ in range(length))
             
-            # Check if code is unique across all invite code tables
+
             invite_exists = ProjectInviteCode.query.filter_by(code=code).first() is not None
             referral_exists = ReferralCode.query.filter_by(code=code).first() is not None
             product_invite_exists = ProductInviteCode.query.filter_by(code=code).first() is not None

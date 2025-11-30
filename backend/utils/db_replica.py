@@ -44,16 +44,16 @@ def init_replica_binds(app):
     read_replica_url = app.config.get("SQLALCHEMY_DATABASE_READ_URI")
     
     if read_replica_url:
-        # Configure bind in SQLALCHEMY_BINDS (already set in config.py)
+
         if 'read' not in app.config.get("SQLALCHEMY_BINDS", {}):
             logger.warning("Read replica URL configured but not in SQLALCHEMY_BINDS")
             return
         
         try:
-            # Get the read engine (created by custom Database.get_engine)
+
             read_engine = db.get_engine(app, bind='read')
             
-            # Set up read-only mode event listener
+
             @event.listens_for(read_engine, "connect")
             def set_readonly_pragma(dbapi_conn, connection_record):
                 """Set read-only mode for read replica connections"""
@@ -112,15 +112,15 @@ def get_read_session(force_primary: bool = False):
         SQLAlchemy Session for read operations
     """
     if not has_read_replica() or force_primary:
-        # Use default session (primary database)
+
         yield db.session
         return
     
-    # Use read replica bind
+
     try:
-        # Create a session bound to the read replica
-        # Flask-SQLAlchemy's db.session uses scoped_session, so we need to
-        # create a new session with the read bind
+
+
+
         from sqlalchemy.orm import sessionmaker
         
         read_engine = db.get_engine(current_app, bind='read')
@@ -137,7 +137,7 @@ def get_read_session(force_primary: bool = False):
             session.close()
     except Exception as e:
         logger.error(f"Failed to get read session, falling back to primary: {e}")
-        # Fallback to primary database
+
         yield db.session
 
 @contextmanager
@@ -149,7 +149,7 @@ def get_write_session():
     Yields:
         SQLAlchemy Session for write operations
     """
-    # Always use default session (primary database)
+
     yield db.session
 
 def get_session_for_query(is_read: Optional[bool] = None):
@@ -208,7 +208,7 @@ def check_replica_health() -> dict:
                 result["read_replica_available"] = True
 
                 try:
-                    # Check replication lag (PostgreSQL specific)
+
                     lag_result = session.execute(
                         text(
                             """
@@ -219,7 +219,7 @@ def check_replica_health() -> dict:
                     if lag_result:
                         result["read_replica_lag"] = lag_result[0]
                 except Exception:
-                    # Replication lag check may fail on non-replica setups
+
                     pass
 
         except Exception as e:

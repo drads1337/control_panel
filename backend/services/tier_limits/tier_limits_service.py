@@ -37,7 +37,7 @@ from ...utils.structured_logging import get_logger
 class TierLimitsService:
     """Service for checking tier-based limits"""
 
-    # Free tier limits
+
     FREE_TIER_LIMITS = {
         "max_products": 3,
         "max_agents": 1,
@@ -51,14 +51,14 @@ class TierLimitsService:
         "remote_control_enabled": False,
     }
 
-    # Pro tier limits (unlimited or high limits)
+
     PRO_TIER_LIMITS = {
-        "max_products": None,  # Unlimited
-        "max_agents": None,  # Unlimited
-        "max_users": None,  # Unlimited
-        "max_keys_per_product": None,  # Unlimited
-        "max_employees": None,  # Unlimited
-        "max_storage_mb": None,  # Unlimited (uses project.storage_limit)
+        "max_products": None,
+        "max_agents": None,
+        "max_users": None,
+        "max_keys_per_product": None,
+        "max_employees": None,
+        "max_storage_mb": None,
         "webhooks_enabled": True,
         "logs_enabled": True,
         "security_enabled": True,
@@ -161,14 +161,14 @@ class TierLimitsService:
         if not self.is_free_tier(project):
             return True, None
         
-        # Count users with employee role
+
         employee_role = Role.query.filter_by(
             project_id=project.id,
             name="employee"
         ).first()
         
         if not employee_role:
-            # If no employee role exists, check is passed
+
             return True, None
         
         current_count = db.session.query(func.count(UserRole.user_id)).filter_by(
@@ -252,14 +252,14 @@ class TierLimitsService:
         if self.is_free_tier(project):
             return self.FREE_TIER_LIMITS["max_storage_mb"]
         
-        # For pro tier, return project's current limit or default (unlimited)
+
         if self.is_pro_tier(project):
             if hasattr(project, 'storage_limit_mb'):
                 return project.storage_limit_mb
-            # Default 10 GB for pro tier if not set
+
             return 10 * 1024
         
-        # For other tiers (trial, active, etc.), return project's limit
+
         return project.storage_limit_mb if hasattr(project, 'storage_limit_mb') else 0
 
     def enforce_storage_limit(self, project: Project):
@@ -271,7 +271,7 @@ class TierLimitsService:
             max_storage_bytes = self.FREE_TIER_LIMITS["max_storage_mb"] * (1024 ** 2)
             if project.storage_limit != max_storage_bytes:
                 project.storage_limit = max_storage_bytes
-                # Update storage_limit_gb property if it exists
+
                 if hasattr(project, 'storage_limit_gb'):
                     project.storage_limit_gb = self.FREE_TIER_LIMITS["max_storage_mb"] / 1024.0
                 db.session.commit()

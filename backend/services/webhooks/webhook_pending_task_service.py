@@ -11,7 +11,7 @@ from typing import Dict
 from ...core.extensions import db
 from ...models.webhooks import WebhookPendingTask
 
-# Try to import Celery task for webhook processing
+
 try:
     from ...tasks.webhook_tasks import process_webhook as celery_process_webhook
     CELERY_AVAILABLE = True
@@ -42,11 +42,11 @@ class WebhookPendingTaskService:
             error_reason: Reason why task couldn't be queued (for logging)
         """
         try:
-            # Serialize webhook_data to JSON for storage
+
             webhook_data_json = json.dumps(webhook_data)
             
-            # Calculate next retry time (initial delay: 1 minute)
-            # Retry logic with exponential backoff will be handled by the processing worker
+
+
             next_retry = datetime.utcnow() + timedelta(seconds=60)
             
             pending_task = WebhookPendingTask(
@@ -102,8 +102,8 @@ class WebhookPendingTaskService:
         try:
             now = datetime.utcnow()
             
-            # Get pending tasks that are ready for retry
-            # Order by next_retry_at to process oldest first
+
+
             pending_tasks = (
                 WebhookPendingTask.query
                 .filter(
@@ -121,26 +121,26 @@ class WebhookPendingTaskService:
             
             self.logger.info(f"Processing {len(pending_tasks)} pending webhook tasks")
             
-            # Retry delays with exponential backoff: 1min, 5min, 15min, 30min, 1h, 6h, 24h
-            retry_delays = [60, 300, 900, 1800, 3600, 21600, 86400]  # seconds
+
+            retry_delays = [60, 300, 900, 1800, 3600, 21600, 86400]
             max_retries = len(retry_delays)
             
             for task in pending_tasks:
                 try:
                     stats["processed"] += 1
                     
-                    # Mark task as processing
+
                     task.status = "processing"
                     db.session.commit()
                     
-                    # Deserialize webhook_data
+
                     webhook_data = json.loads(task.webhook_data)
                     
-                    # Try to queue in Celery
+
                     if CELERY_AVAILABLE and celery_process_webhook:
                         try:
                             celery_process_webhook.delay(webhook_data)
-                            # Success - mark task as completed (keep for audit, will be cleaned up later)
+
                             task.status = "completed"
                             task.processed_at = datetime.utcnow()
                             db.session.commit()
@@ -151,7 +151,7 @@ class WebhookPendingTaskService:
                             )
                             continue
                         except Exception as e:
-                            # Celery queue failed again - schedule retry
+
                             self.logger.warning(
                                 f"WEBHOOK_PENDING_TASK_CELERY_FAILED task_id={task.id} error={e}"
                             )
@@ -159,9 +159,9 @@ class WebhookPendingTaskService:
                     else:
                         error_reason = "Celery not available"
                     
-                    # Check retry count
+
                     if task.retry_count >= max_retries:
-                        # Max retries exceeded - mark as failed permanently
+
                         task.status = "failed"
                         task.processed_at = datetime.utcnow()
                         task.error_message = f"Max retries exceeded: {error_reason}"
@@ -172,7 +172,7 @@ class WebhookPendingTaskService:
                             f"webhook_id={task.webhook_id} retry_count={task.retry_count}"
                         )
                     else:
-                        # Schedule retry with exponential backoff
+
                         delay_seconds = retry_delays[min(task.retry_count, len(retry_delays) - 1)]
                         task.status = "pending"
                         task.retry_count += 1
@@ -191,11 +191,11 @@ class WebhookPendingTaskService:
                         f"WEBHOOK_PENDING_TASK_PROCESS_ERROR task_id={task.id} error={e}",
                         exc_info=True
                     )
-                    # Mark task for retry later
+
                     try:
                         task.status = "pending"
                         task.retry_count += 1
-                        task.next_retry_at = datetime.utcnow() + timedelta(seconds=300)  # 5 minutes
+                        task.next_retry_at = datetime.utcnow() + timedelta(seconds=300)
                         task.error_message = f"Processing error: {str(e)}"
                         db.session.commit()
                         stats["retry_later"] += 1

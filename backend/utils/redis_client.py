@@ -83,7 +83,7 @@ class RedisClient:
         self._instance = instance
         self._is_available = True
         self._last_health_check = 0
-        self._health_check_interval = 30  # Check health every 30 seconds
+        self._health_check_interval = 30
         self._consecutive_failures = 0
         self._max_consecutive_failures = 3
         self._lock = threading.RLock()
@@ -102,7 +102,7 @@ class RedisClient:
         Raises:
             RuntimeError: If Redis connection cannot be established
         """
-        # Determine which Redis instance to use
+
         instance_type = instance if instance is not None else self._instance
         
         if instance_type == "cache":
@@ -110,13 +110,13 @@ class RedisClient:
             port = Config.REDIS_CACHE_PORT
             password = Config.REDIS_CACHE_PASSWORD
             default_db = Config.REDIS_CACHE_DB
-        else:  # persistent
+        else:
             host = Config.REDIS_PERSISTENT_HOST
             port = Config.REDIS_PERSISTENT_PORT
             password = Config.REDIS_PERSISTENT_PASSWORD
             default_db = Config.REDIS_PERSISTENT_DB
         
-        # Use provided db, instance db, or default from config
+
         db_number = db if db is not None else (self._db if self._db is not None else default_db)
         
         redis_config = {
@@ -131,30 +131,30 @@ class RedisClient:
             "max_connections": 20,
         }
 
-        # SECURITY: Add password authentication
+
         if password:
             redis_config["password"] = password
         else:
-            # SECURITY: Warn if password is not set (especially for persistent instance)
+
             if instance_type == "persistent":
                 logger.warning(
                     "[REDIS_SECURITY] Redis persistent instance has no password configured. "
                     "This is a security risk in production. Set REDIS_PERSISTENT_PASSWORD environment variable."
                 )
 
-        # SECURITY: Add TLS/SSL support for encrypted connections
-        # This is critical for production environments where Redis may be accessed over network
+
+
         if instance_type == "cache":
             ssl_enabled = Config.REDIS_CACHE_SSL
             ssl_cert_reqs = Config.REDIS_CACHE_SSL_CERT_REQS
             ssl_ca_certs = Config.REDIS_CACHE_SSL_CA_CERTS
-        else:  # persistent
+        else:
             ssl_enabled = Config.REDIS_PERSISTENT_SSL
             ssl_cert_reqs = Config.REDIS_PERSISTENT_SSL_CERT_REQS
             ssl_ca_certs = Config.REDIS_PERSISTENT_SSL_CA_CERTS
         
         if ssl_enabled:
-            # Convert cert_reqs string to ssl constant
+
             import ssl
             cert_reqs_map = {
                 "none": ssl.CERT_NONE,
@@ -173,7 +173,7 @@ class RedisClient:
                 f"(cert_reqs={ssl_cert_reqs})"
             )
         elif instance_type == "persistent" and IS_PRODUCTION:
-            # SECURITY: Warn in production if TLS is not enabled for persistent instance
+
             logger.warning(
                 "[REDIS_SECURITY] Redis persistent instance TLS is not enabled in production. "
                 "This is a security risk. Set REDIS_PERSISTENT_SSL=true to enable encrypted connections. "
@@ -200,7 +200,7 @@ class RedisClient:
         """
         current_time = time.time()
         
-        # Only check health if interval has passed
+
         if current_time - self._last_health_check < self._health_check_interval:
             return self._is_available
         
@@ -230,7 +230,7 @@ class RedisClient:
                 logger.debug(f"Redis health check failed (ping): {e}")
                 self._consecutive_failures += 1
                 
-                # Mark as unavailable if too many consecutive failures
+
                 if self._consecutive_failures >= self._max_consecutive_failures:
                     if self._is_available:
                         logger.warning(
@@ -238,7 +238,7 @@ class RedisClient:
                             f"consecutive failures. Instance: {self._instance}"
                         )
                     self._is_available = False
-                    # Try to reconnect on next operation
+
                     try:
                         self._client = None
                     except Exception:
@@ -254,7 +254,7 @@ class RedisClient:
         Returns:
             Redis client instance (singleton)
         """
-        # Check health before returning client
+
         self._check_health()
         
         if self._client is None:
@@ -425,7 +425,7 @@ class RedisClient:
             logger.error(f"Redis KEYS error for pattern {pattern}: {e}")
             return []
 
-# Default client uses persistent instance (backward compatibility)
+
 _redis_client_instance = RedisClient(instance="persistent")
 
 def get_redis_client() -> redis.Redis:
@@ -445,17 +445,17 @@ def get_redis_client() -> redis.Redis:
         redis_client.pubsub()
         redis_client.ping()
     """
-    # Try to get from Flask extension first (preferred)
+
     if has_app_context():
         try:
             redis_extension = current_app.extensions.get("redis")
             if redis_extension:
                 return redis_extension.client
         except (AttributeError, RuntimeError):
-            # Fall back to singleton if extension not available
+
             pass
 
-    # Fall back to singleton instance
+
     return _redis_client_instance.client
 
 def get_redis_wrapper() -> RedisClient:
@@ -468,12 +468,12 @@ def get_redis_wrapper() -> RedisClient:
     Returns:
         RedisClient wrapper instance (persistent instance by default)
     """
-    # Try to get from Flask extension first (preferred)
+
     if has_app_context():
         try:
             redis_extension = current_app.extensions.get("redis")
             if redis_extension:
-                # Create a wrapper that uses the extension's client
+
                 class ExtensionWrapper(RedisClient):
                     @property
                     def client(self) -> redis.Redis:
@@ -481,10 +481,10 @@ def get_redis_wrapper() -> RedisClient:
 
                 return ExtensionWrapper()
         except (AttributeError, RuntimeError):
-            # Fall back to singleton if extension not available
+
             pass
 
-    # Fall back to singleton instance
+
     return _redis_client_instance
 
 def get_redis_cache_client() -> redis.Redis:
@@ -506,12 +506,12 @@ def get_redis_cache_client() -> redis.Redis:
     cache_client = RedisClient(instance="cache")
     return cache_client.client
 
-# For backward compatibility
+
 redis_client = get_redis_wrapper()
 
-# SECURITY: Database mapping for different data types
-# This allows isolation of different data types in separate Redis databases
-# Cache-related data uses cache instance, persistent data uses persistent instance
+
+
+
 REDIS_DB_MAPPING = {
     "sessions": {"db": Config.REDIS_DB_SESSIONS, "instance": "persistent"},
     "rate_limit": {"db": Config.REDIS_DB_RATE_LIMIT, "instance": "persistent"},
@@ -520,7 +520,7 @@ REDIS_DB_MAPPING = {
     "cache": {"db": Config.REDIS_DB_CACHE, "instance": "cache"},
 }
 
-# Cache for database-specific clients
+
 _db_clients: Dict[str, RedisClient] = {}
 
 def get_redis_client_for_db(db_type: str) -> redis.Redis:
@@ -556,7 +556,7 @@ def get_redis_client_for_db(db_type: str) -> redis.Redis:
         )
         return get_redis_client()
     
-    # Use cached client if available
+
     if db_type not in _db_clients:
         db_config = REDIS_DB_MAPPING[db_type]
         _db_clients[db_type] = RedisClient(db=db_config["db"], instance=db_config["instance"])

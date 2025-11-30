@@ -25,7 +25,7 @@ from ...utils.service_exceptions import ValidationError, ConflictError, ServiceE
 from ...utils.structured_logging import get_logger
 from werkzeug.security import generate_password_hash
 
-# Type hints for dependencies (imported here to avoid circular imports)
+
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ...services.rbac.rbac_service import RBACService
@@ -50,7 +50,7 @@ class UserCRUDService:
         """
         self.logger = logger or get_logger("user_crud_service")
         
-        # Store dependencies explicitly
+
         self._rbac_service = rbac_service
         self._cache_service = cache_service
     
@@ -389,7 +389,7 @@ class UserCRUDService:
             Tuple of (success, error_message)
         """
         try:
-            # Use explicit dependency injection
+
             if not self._rbac_service:
                 raise ServiceError(
                     "RBACService dependency not injected",
@@ -411,7 +411,7 @@ class UserCRUDService:
                 if RBACManager.is_admin(target_user) or RBACManager.is_owner(target_user):
                     return False, "Cannot delete owner or admin users"
             else:
-                # For users with delete_all permission, check project_id scope
+
                 scoped_project_id = project_id or current_user.project_id
                 if scoped_project_id and scoped_project_id != target_user.project_id:
                     return False, "Access denied"
@@ -436,7 +436,7 @@ class UserCRUDService:
 
             project_id = target_user.project_id
             if project_id:
-                # Invalidate statistics cache instead of using deprecated counters
+
                 if not self._cache_service:
                     raise ServiceError(
                         "CacheService dependency not injected",
@@ -474,7 +474,7 @@ class UserCRUDService:
             Tuple of (deleted_count, error_message)
         """
         try:
-            # Use explicit dependency injection
+
             if not self._rbac_service:
                 raise ServiceError(
                     "RBACService dependency not injected",
@@ -513,7 +513,7 @@ class UserCRUDService:
                 ProjectUserRole.query.filter_by(user_id=user.id).delete()
 
                 if user.project_id:
-                    # Invalidate statistics cache instead of using deprecated counters
+
                     if not self._cache_service:
                         raise ServiceError(
                             "CacheService dependency not injected",
@@ -537,6 +537,6 @@ class UserCRUDService:
                 context={"user_ids": user_ids, "project_id": project_id}
             ) from e
 
-# Service instance should be obtained via ServiceContainer:
-#   from ...core.service_container import get_service
+
+
 

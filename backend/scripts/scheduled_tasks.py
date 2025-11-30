@@ -62,7 +62,7 @@ class ScheduledTaskProcessor:
 
             session = self.Session()
             try:
-                session.execute("SELECT 1")
+                session.execute(text("SELECT 1"))
                 self.logger.info("Database health check: OK")
             except Exception as e:
                 self.logger.error(f"Database health check failed: {e}")
@@ -85,8 +85,6 @@ class ScheduledTaskProcessor:
         try:
             self.logger.info("Running key expiration check")
 
-            from datetime import datetime
-
             from ..models.core import User
             from ..models.products import Product
             from ..models.keys import Key
@@ -106,45 +104,45 @@ class ScheduledTaskProcessor:
                     .all()
                 )
 
-            if expired_keys:
-                self.logger.info(f"Found {len(expired_keys)} expired keys")
+                if expired_keys:
+                    self.logger.info(f"Found {len(expired_keys)} expired keys")
 
-                webhook_service = get_service_container().get('webhook_service')
+                    webhook_service = get_service_container().get('webhook_service')
 
-                for key in expired_keys:
-                    try:
+                    for key in expired_keys:
+                        try:
 
-                        product = None
-                        if key.product_id:
-                            product = session.query(Product).get(key.product_id)
+                            product = None
+                            if key.product_id:
+                                product = session.query(Product).get(key.product_id)
 
-                        user = None
-                        if key.user_id:
-                            user = session.query(User).get(key.user_id)
+                            user = None
+                            if key.user_id:
+                                user = session.query(User).get(key.user_id)
 
-                        webhook_data = {
-                            "key_id": key.id,
-                            "key_value": key.key,
-                            "user_id": key.user_id,
-                            "username": user.username if user else None,
-                            "product_id": key.product_id,
-                            "product_name": product.name if product else None,
-                            "duration_hours": key.duration_hours,
-                            "max_devices": key.max_devices,
-                            "activated_at": (
-                                key.activated_at.isoformat() if key.activated_at else None
-                            ),
-                            "expires_at": key.expires_at.isoformat() if key.expires_at else None,
-                            "expired_at": now.isoformat(),
-                        }
+                            webhook_data = {
+                                "key_id": key.id,
+                                "key_value": key.key,
+                                "user_id": key.user_id,
+                                "username": user.username if user else None,
+                                "product_id": key.product_id,
+                                "product_name": product.name if product else None,
+                                "duration_hours": key.duration_hours,
+                                "max_devices": key.max_devices,
+                                "activated_at": (
+                                    key.activated_at.isoformat() if key.activated_at else None
+                                ),
+                                "expires_at": key.expires_at.isoformat() if key.expires_at else None,
+                                "expired_at": now.isoformat(),
+                            }
 
-                        webhook_service.trigger_webhook("key.expired", webhook_data, key.project_id)
-                        self.logger.info(f"Triggered webhook for expired key: {key.id}")
+                            webhook_service.trigger_webhook("key.expired", webhook_data, key.project_id)
+                            self.logger.info(f"Triggered webhook for expired key: {key.id}")
 
-                    except Exception as e:
-                        self.logger.error(
-                            f"Failed to trigger webhook for expired key {key.id}: {e}"
-                        )
+                        except Exception as e:
+                            self.logger.error(
+                                f"Failed to trigger webhook for expired key {key.id}: {e}"
+                            )
                 else:
                     self.logger.info("No expired keys found")
             finally:
@@ -160,7 +158,7 @@ class ScheduledTaskProcessor:
             
             session = self.Session()
             try:
-                # Call the PostgreSQL function to create partitions
+
                 result = session.execute(
                     text("SELECT ensure_user_activity_partitions()")
                 )
@@ -220,15 +218,15 @@ class ScheduledTaskProcessor:
 
         schedule.every().hour.do(self.run_key_expiration_check)
         
-        # Ensure user_activity partitions exist for next 3 months
-        # Run on the 25th of each month to create next month's partition
+
+
         schedule.every().day.at("03:00").do(self.ensure_user_activity_partitions)
         
-        # Process pending webhook tasks every 5 minutes
-        # These are tasks that couldn't be queued in Celery and were stored in DB
+
+
         schedule.every(5).minutes.do(self.process_pending_webhook_tasks)
         
-        # Clean up old completed/failed webhook tasks daily
+
         schedule.every().day.at("01:00").do(self.cleanup_old_webhook_tasks)
 
         self.logger.info("Scheduled tasks configured:")

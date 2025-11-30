@@ -62,8 +62,8 @@ class ChatMessage(db.Model):
 
     project = db.relationship("Project", backref="chat_messages")
     sender = db.relationship("User", backref="sent_messages")
-    product = db.relationship("Product", backref="chat_messages", foreign_keys=[product_id])  # Using Product instead of Product
-    agent = db.relationship("Agent", backref="chat_messages", foreign_keys=[agent_id])  # Using Agent instead of Agent
+    product = db.relationship("Product", backref="chat_messages", foreign_keys=[product_id])
+    agent = db.relationship("Agent", backref="chat_messages", foreign_keys=[agent_id])
 
     def __repr__(self):
         return f"<ChatMessage {self.sender_type}:{self.message[:50]}...>"

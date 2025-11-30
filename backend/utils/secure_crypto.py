@@ -731,7 +731,7 @@ def encrypt_data_with_project_key(data: dict, project_id: int, use_gcm: bool = T
     try:
         encryption_keys = ProjectEncryptionKeys.query.filter_by(project_id=project_id).first()
         if encryption_keys:
-            # Use new method that supports Envelope Encryption
+
             try:
                 project_aes_key = encryption_keys.get_aes_key()
                 logging.info(
@@ -743,7 +743,7 @@ def encrypt_data_with_project_key(data: dict, project_id: int, use_gcm: bool = T
                     json.dumps(data), project_aes_key
                 )
             except ValueError:
-                # Fallback to old method if get_aes_key() fails
+
                 if encryption_keys.aes_key:
                     logging.info(
                         f"[ENCRYPT_PROJECT] Using legacy AES Key from ProjectEncryptionKeys for project {project_id}"
@@ -802,30 +802,30 @@ def decrypt_data_with_project_key(
 
     from ..models.core import ProjectEncryptionKeys
 
-    # SECURITY: Use only ONE key source to prevent timing attacks
-    # Prefer AES Key from ProjectEncryptionKeys (what clients should use)
+
+
     encryption_keys = ProjectEncryptionKeys.query.filter_by(project_id=project_id).first()
     project_key = None
     key_source = None
     
     if encryption_keys:
         try:
-            # Use new method that supports Envelope Encryption
+
             project_key = encryption_keys.get_aes_key()
             key_source = "ProjectEncryptionKeys.aes_key (Envelope Encryption)" if encryption_keys.aes_key_encrypted else "ProjectEncryptionKeys.aes_key"
         except ValueError:
-            # Fallback to old method if get_aes_key() fails
+
             if encryption_keys.aes_key:
                 aes_key = encryption_keys.aes_key.strip()
                 
-                # Validate AES key format (must be 64 hex characters = 32 bytes)
+
                 if len(aes_key) != 64:
                     raise ValueError(
                         f"Invalid AES key format for project {project_id}: "
                         f"expected 64 hex characters, got {len(aes_key)}"
                     )
                 
-                # Validate that it's valid hex
+
                 try:
                     key_bytes_test = bytes.fromhex(aes_key)
                     if len(key_bytes_test) != 32:
@@ -843,7 +843,7 @@ def decrypt_data_with_project_key(
             else:
                 project_key = None
     else:
-        # Fallback to project_master_key from ProjectEncryptionSettings
+
         from ..utils.project_settings_migration import ProjectSettingsHelper
         
         helper = ProjectSettingsHelper(project_id)
@@ -856,7 +856,7 @@ def decrypt_data_with_project_key(
         
         project_master_key = encryption_settings.project_master_key.strip()
         
-        # Validate project_master_key format
+
         if len(project_master_key) != 64:
             raise ValueError(
                 f"Invalid project_master_key format for project {project_id}: "
@@ -878,20 +878,20 @@ def decrypt_data_with_project_key(
         project_key = project_master_key
         key_source = "ProjectSettings.project_master_key"
     
-    # SECURITY: Use only ONE decryption method to prevent timing attacks
-    # Multiple method attempts create timing attack vectors
+
+
     logging.info(
         f"[DECRYPT_PROJECT] Decrypting with {key_source} for project {project_id}"
     )
     
     try:
-        # Use standard decryption method only (no legacy fallbacks)
+
         json_str = MasterKeyManager.decrypt_with_master_key(encrypted_data, project_key)
         logging.debug(f"[DECRYPT_PROJECT] Successfully decrypted with {key_source} for project {project_id}")
         return json.loads(json_str)
     except Exception as decrypt_error:
-        # SECURITY: Fail immediately with generic error message
-        # Don't reveal which key was used or why it failed (prevents information leakage)
+
+
         error_type = type(decrypt_error).__name__
         logging.warning(
             f"[DECRYPT_PROJECT] Decryption failed for project {project_id} using {key_source}: "
@@ -953,7 +953,7 @@ def generate_project_keys_secure(project_name: str) -> Dict[str, Any]:
         "metadata": metadata,
     }
 
-# Backward compatibility aliases
+
 def encrypt_data(data: str, aes_key_hex: str) -> str:
     """
     Backward compatibility wrapper for encrypt_data_secure.

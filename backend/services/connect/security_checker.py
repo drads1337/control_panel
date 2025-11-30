@@ -15,7 +15,7 @@ from ...core.extensions import db
 from ...models import BlockedFingerprint, Key, User
 from ...services.security import SecurityContext, security_service
 from ...services.validation import request_validation_pipeline
-# get_service removed - using DI
+
 from ...utils.redis_client import get_redis_client
 from ...utils.service_exceptions import ServiceError
 
@@ -206,7 +206,7 @@ class SecurityChecker:
         now = int(time.time())
 
         try:
-            # Use persistent Redis instance for behavioral analysis (must not lose data)
+
             redis_client = get_redis_client()
 
             last_geo = redis_client.get(f"geo:{user_key}")

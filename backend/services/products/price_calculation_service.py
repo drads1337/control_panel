@@ -31,7 +31,7 @@ class PriceCalculationService:
             Price in tokens (0.0 if no price found or free)
         """
         try:
-            # First, try to find exact match for duration
+
             period_str = str(int(duration_hours))
             exact_price = ProductKeyPrice.query.filter_by(
                 product_id=product_id, period=period_str, project_id=project_id
@@ -40,29 +40,29 @@ class PriceCalculationService:
             if exact_price:
                 return float(exact_price.price)
 
-            # If no exact match, check for custom periods
+
             custom_prices = ProductKeyPrice.query.filter_by(
                 product_id=product_id, project_id=project_id
             ).filter(ProductKeyPrice.period.like("custom_%")).all()
 
-            # Check if there's a matching custom period
+
             for custom_price in custom_prices:
-                # Custom periods might have metadata with hours info
-                # For now, we'll use the price per hour calculation
+
+
                 pass
 
-            # If no exact match, calculate based on price per hour
-            # Get price for 1 hour
+
+
             one_hour_price = ProductKeyPrice.query.filter_by(
                 product_id=product_id, period="1", project_id=project_id
             ).first()
 
             if one_hour_price:
-                # Multiply by duration_hours
+
                 price_per_hour = float(one_hour_price.price)
                 return price_per_hour * duration_hours
 
-            # If no pricing found, return 0 (free)
+
             self.logger.warning(
                 f"No pricing found for product_id={product_id}, duration_hours={duration_hours}, project_id={project_id}"
             )
@@ -86,7 +86,7 @@ class PriceCalculationService:
             Price in tokens (0.0 if no price found)
         """
         try:
-            # Use 1 hour price for reset
+
             one_hour_price = ProductKeyPrice.query.filter_by(
                 product_id=product_id, period="1", project_id=project_id
             ).first()
@@ -94,13 +94,13 @@ class PriceCalculationService:
             if one_hour_price:
                 return float(one_hour_price.price)
 
-            # If no 1 hour price, try to get any price and use it
+
             any_price = ProductKeyPrice.query.filter_by(
                 product_id=product_id, project_id=project_id
             ).first()
 
             if any_price:
-                # If it's a period price, calculate per hour
+
                 try:
                     period_hours = float(any_price.period)
                     if period_hours > 0:

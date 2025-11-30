@@ -166,20 +166,20 @@ def increment_project_product_counters(project_id: Optional[int]):
     if not project_id:
         return
     
-    # Use cache invalidation instead of direct counter updates
-    # The counter will be recalculated automatically when needed
-    # Get service inside function (DI pattern - avoid module-level service access)
+
+
+
     try:
-        # Get service through app context (DI pattern) - requires app context
+
         from flask import current_app
         if hasattr(current_app, 'service_container'):
             cached_statistics_service = current_app.service_container.get('cached_statistics_service')
             cached_statistics_service.invalidate_on_product_change(project_id)
     except (RuntimeError, AttributeError, Exception):
-        # Service might not be available in all contexts (e.g., migrations)
+
         pass
     
-    # Also increment the counter directly for immediate consistency
+
     project = Project.query.get(project_id)
     if project:
         project.total_products = (project.total_products or 0) + 1
@@ -198,20 +198,20 @@ def increment_project_server_counters(project_id: Optional[int]):
     if not project_id:
         return
     
-    # Use cache invalidation instead of direct counter updates
-    # The counter will be recalculated automatically when needed
-    # Get service inside function (DI pattern - avoid module-level service access)
+
+
+
     try:
-        # Get service through app context (DI pattern) - requires app context
+
         from flask import current_app
         if hasattr(current_app, 'service_container'):
             cached_statistics_service = current_app.service_container.get('cached_statistics_service')
             cached_statistics_service.invalidate_on_server_change(project_id)
     except (RuntimeError, AttributeError, Exception):
-        # Service might not be available in all contexts (e.g., migrations)
+
         pass
     
-    # Also increment the counter directly for immediate consistency
+
     project = Project.query.get(project_id)
     if project:
         project.total_servers = (project.total_servers or 0) + 1

@@ -19,45 +19,67 @@ class UserOrchestrator:
     Coordinates specialized services to handle complete user lifecycle operations
     """
 
-    def __init__(self, user_orchestrator=None):
-        """Initialize orchestrator with all required services"""
-        self._user_orchestrator = user_orchestrator
-        if not self._user_crud:
+    def __init__(
+        self,
+        user_crud_service=None,
+        user_role_service=None,
+        user_permission_service=None,
+        user_profile_service=None,
+        rbac_service=None,
+        activity_service=None
+    ):
+        """
+        Initialize orchestrator with all required services.
+        
+        Args:
+            user_crud_service: Service for user CRUD operations
+            user_role_service: Service for user role management
+            user_permission_service: Service for user permission management
+            user_profile_service: Service for user profile management
+            rbac_service: Service for RBAC operations
+            activity_service: Service for activity logging
+            
+        SECURITY: All dependencies must be injected via ServiceContainer.
+        No lazy loading is allowed - this prevents circular dependencies and ensures
+        explicit dependency graph.
+        """
+        if not user_crud_service:
             raise ServiceError(
-                "User Crud dependency not injected",
+                "UserCrUDService dependency not injected",
                 status_code=500
             )
-        self.user_crud_service = self._user_crud
-        if not self._user_role:
+        if not user_role_service:
             raise ServiceError(
-                "User Role dependency not injected",
+                "UserRoleService dependency not injected",
                 status_code=500
             )
-        self.user_role_service = self._user_role
-        if not self._user_permission:
+        if not user_permission_service:
             raise ServiceError(
-                "User Permission dependency not injected",
+                "UserPermissionService dependency not injected",
                 status_code=500
             )
-        self.user_permission_service = self._user_permission
-        if not self._user_profile:
+        if not user_profile_service:
             raise ServiceError(
-                "User Profile dependency not injected",
+                "UserProfileService dependency not injected",
                 status_code=500
             )
-        self.user_profile_service = self._user_profile
-        if not self._rbac:
+        if not rbac_service:
             raise ServiceError(
-                "Rbac dependency not injected",
+                "RBACService dependency not injected",
                 status_code=500
             )
-        self.rbac_service = self._rbac
-        if not self._activity:
+        if not activity_service:
             raise ServiceError(
-                "Activity dependency not injected",
+                "ActivityService dependency not injected",
                 status_code=500
             )
-        self.activity_service = self._activity
+        
+        self.user_crud_service = user_crud_service
+        self.user_role_service = user_role_service
+        self.user_permission_service = user_permission_service
+        self.user_profile_service = user_profile_service
+        self.rbac_service = rbac_service
+        self.activity_service = activity_service
 
     def create_user_with_full_setup(
         self,
@@ -83,15 +105,15 @@ class UserOrchestrator:
             BusinessLogicError: For business rule violations
         """
         try:
-            # Validate (raises ValidationError if invalid)
+
             self._validate_user_creation_data(user_data)
             
-            # Check permissions (raises PermissionDeniedError if not allowed)
+
             self._check_creation_permissions(current_user, user_data)
 
             token_balance = user_data.get("token_balance", 0)
             if token_balance > 0:
-                # Check balance (raises BusinessLogicError if insufficient)
+
                 self._check_and_reserve_balance(current_user, token_balance)
 
             try:
@@ -152,19 +174,19 @@ class UserOrchestrator:
             PermissionDeniedError: If user doesn't have permission
             BusinessLogicError: For business rule violations
         """
-        # Check permissions (raises PermissionDeniedError if not allowed)
+
         self._check_update_permissions(current_user, target_user)
 
-        # Update profile (user_profile_service still returns tuple, will be migrated later)
+
         success, error = self.user_profile_service.update_user_profile(target_user, user_data)
         if not success:
             raise BusinessLogicError(error or "Failed to update user profile")
 
-        # Update roles (raises BusinessLogicError on failure)
+
         if "rbac_role_ids" in user_data:
             self._update_user_roles(target_user, user_data["rbac_role_ids"])
 
-        # Update product permissions (raises BusinessLogicError on failure)
+
         if "product_ids" in user_data:
             self._update_user_product_permissions(target_user, user_data["product_ids"])
 
@@ -204,10 +226,10 @@ class UserOrchestrator:
         if not target_user:
             raise NotFoundError("User", str(target_user_id))
 
-        # Check permissions (raises PermissionDeniedError if not allowed)
+
         self._check_deletion_permissions(current_user, target_user)
 
-        # Delete user (user_crud_service still returns tuple, will be migrated later)
+
         success, error = self.user_crud_service.delete_user_safely(current_user, target_user_id)
         if not success:
             raise BusinessLogicError(error or "Failed to delete user")
@@ -406,7 +428,7 @@ class UserOrchestrator:
         if not can_manage_all:
             project_id = project_id or current_user.project_id
 
-        # Validate roles (before creating user)
+
         if rbac_role_ids and project_id:
             from ...models.rbac import Role
 
@@ -419,7 +441,7 @@ class UserOrchestrator:
                         f"Role '{role.name}' belongs to a different project (role project_id: {role.project_id}, target project_id: {project_id})"
                     )
 
-        # Transaction 1: Create user core (fast, minimal locks)
+
         try:
             user = User(
                 username=username,
@@ -428,7 +450,7 @@ class UserOrchestrator:
                 last_name=last_name,
                 email=email,
                 project_id=project_id,
-                token_balance=0,  # Will be set in token transaction
+                token_balance=0,
                 created_at=datetime.utcnow(),
             )
 
@@ -445,15 +467,15 @@ class UserOrchestrator:
                     user.expires_at = datetime.utcnow() + timedelta(days=work_duration_days)
 
             db.session.add(user)
-            db.session.flush()  # Get user.id
-            db.session.commit()  # Commit user creation
+            db.session.flush()
+            db.session.commit()
             logger.info(f"User core created: {user.id} ({user.username})")
         except Exception as e:
             db.session.rollback()
             logger.error(f"Error creating user core: {str(e)}")
             raise BusinessLogicError(f"Failed to create user: {str(e)}")
 
-        # Transaction 2: Assign roles and products (can be retried if fails)
+
         try:
             if project_id and product_ids:
                 processed_product_ids = self.user_permission_service.process_product_ids_from_data(product_ids)
@@ -473,10 +495,10 @@ class UserOrchestrator:
                 "User is created but roles/products need to be assigned manually."
             )
             db.session.rollback()
-            # User is already created, so we don't fail completely
-            # This can be fixed later via admin interface
 
-        # Transaction 3: Handle token transactions (can be async)
+
+
+
         if has_moderator_permission and token_balance > 0:
             try:
                 current_user.token_balance -= token_balance
@@ -510,9 +532,9 @@ class UserOrchestrator:
                     "User is created but tokens need to be processed manually."
                 )
                 db.session.rollback()
-                # Could send to background task for retry
 
-        # Transaction 4: Update project counters (non-critical, can be async)
+
+
         if project_id:
             try:
                 is_active = user.expires_at is None or user.expires_at > datetime.utcnow()
@@ -523,10 +545,10 @@ class UserOrchestrator:
                     f"Failed to update project counters for user {user.id}: {e}. "
                     "Counters can be recalculated later."
                 )
-                db.session.rollback()  # Rollback only counter update
+                db.session.rollback()
 
         return user
 
-# NOTE: Global singleton removed for better testability.
-# Use ServiceContainer to get service instances:
-#   user_orchestrator = get_service('user_orchestrator')
+
+
+

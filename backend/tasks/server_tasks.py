@@ -78,7 +78,7 @@ def server_status_check(self, server_id, task_id=None, project_id=None):
         except Exception as e:
             logger.warning(f"Failed to update task status: {e}")
 
-    # Use context manager for database session - guaranteed to close
+
     with celery_db_session() as session:
         try:
             if project_id:
@@ -464,7 +464,7 @@ def server_restart(self, server_id, task_id=None, project_id=None):
             logger.warning(f"Failed to update task status: {e}")
 
     try:
-        # Verify server exists
+
         with celery_db_session() as session:
             if project_id:
                 server = session.query(Server).filter_by(id=server_id, project_id=project_id).first()
@@ -480,7 +480,7 @@ def server_restart(self, server_id, task_id=None, project_id=None):
         if task_service and task_id:
             task_service.update_task_status(task_id, "in_progress", progress=20)
 
-        # Stop server
+
         stop_task = server_stop.apply(
             args=[server_id], kwargs={"task_id": None, "project_id": project_id}
         )
@@ -497,7 +497,7 @@ def server_restart(self, server_id, task_id=None, project_id=None):
 
         time.sleep(2)
 
-        # Start server
+
         start_task = server_start.apply(
             args=[server_id], kwargs={"task_id": None, "project_id": project_id}
         )

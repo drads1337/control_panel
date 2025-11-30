@@ -229,7 +229,7 @@ class SecurityMonitoringService:
             db.session.commit()
 
             if not success:
-                # Check and block IP if needed (Failed Login Protection rule)
+
                 if not self._security_audit_service:
                     from ...utils.service_exceptions import ServiceError
                     raise ServiceError(
@@ -238,17 +238,17 @@ class SecurityMonitoringService:
                     )
                 self._security_audit_service._check_and_block_ip_if_needed(ip_address, project_id)
                 
-                # Also check brute force protection rule
+
                 try:
                     context = SecurityContext(
-                        fingerprint="",  # Not available during login
+                        fingerprint="",
                         ip_address=ip_address,
                         user_agent=user_agent or "",
                         user_key=None,
                         project_id=project_id,
                         timestamp=datetime.utcnow(),
                     )
-                    # Check brute force rule - this will update trigger if condition is met
+
                     from ...models.security import SecurityRule
                     import json
                     
@@ -266,7 +266,7 @@ class SecurityMonitoringService:
                             )
                         conditions = json.loads(brute_force_rule.conditions)
                         if self._security_rules_service._evaluate_brute_force_conditions(conditions, context):
-                            # Rule already updates trigger in _evaluate_brute_force_conditions
+
                             self.logger.info(f"Brute force protection triggered for IP {ip_address}")
                 except Exception as e:
                     self.logger.debug(f"Error checking brute force rule during login: {e}")
@@ -295,8 +295,8 @@ class SecurityMonitoringService:
 
     def _is_known_bad_ip(self, ip_address: str) -> bool:
         """Check if IP is known to be malicious"""
-        # This could be enhanced with threat intelligence feeds
-        # For now, check against blocked IPs
+
+
         try:
             from ...models.security import BlockedIP
 
@@ -322,8 +322,8 @@ class SecurityMonitoringService:
 
     def _is_geographic_anomaly(self, context: SecurityContext) -> bool:
         """Check for geographic anomalies"""
-        # This is a simplified check - could be enhanced with user history
-        # For now, just check if country is set
+
+
         return context.country is not None
 
     def _is_fingerprint_reuse(self, fingerprint: str) -> bool:

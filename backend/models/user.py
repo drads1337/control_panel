@@ -77,7 +77,7 @@ class UserActivity(db.Model):
 
     user = db.relationship("User", backref="activities")
     
-    # Composite index for common query patterns: filtering by project and date range
+
     __table_args__ = (
         db.Index("idx_user_activity_project_created", "project_id", "created_at"),
         db.Index("idx_user_activity_user_created", "user_id", "created_at"),
@@ -108,7 +108,7 @@ class UserActionLog(db.Model):
     user = db.relationship("User", backref="action_logs")
     project = db.relationship("Project", backref="action_logs")
     
-    # Composite index for common query patterns
+
     __table_args__ = (
         db.Index("idx_user_action_log_project_created", "project_id", "created_at"),
         db.Index("idx_user_action_log_user_created", "user_id", "created_at"),

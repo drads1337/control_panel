@@ -164,7 +164,7 @@ class StructuredLogger:
 
     def _log_with_context(self, level: str, message: str, **kwargs):
         """Log with additional context"""
-        # Extract exc_info from kwargs if present, as it's a special parameter
+
         exc_info = kwargs.pop("exc_info", None)
         extra = {
             "request_id": request_id_var.get(),
@@ -318,7 +318,7 @@ def setup_structured_logging(app):
         g.request_id = request_id
         g.start_time = datetime.utcnow()
         
-        # Check if client sent correlation ID in headers, otherwise generate new one
+
         correlation_id = request.headers.get('X-Correlation-ID') or str(uuid.uuid4())
         
         set_request_context(request_id, correlation_id=correlation_id)
@@ -336,12 +336,12 @@ def setup_structured_logging(app):
     def log_request(response):
         g.response_status = response.status_code
 
-        # Add Correlation ID to response headers for observability
+
         correlation_id = correlation_id_var.get()
         if correlation_id:
             response.headers['X-Correlation-ID'] = correlation_id
         
-        # Also add request ID for backward compatibility
+
         request_id = request_id_var.get()
         if request_id:
             response.headers['X-Request-ID'] = request_id

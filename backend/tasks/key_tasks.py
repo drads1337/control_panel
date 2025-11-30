@@ -84,14 +84,14 @@ def bulk_create_keys_task(
         project_id: Project ID for isolation
         remote_addr: Remote address for activity logging
     """
-    # Get all required services once at the start (DI pattern)
+
     task_service = None
     key_generation_service = None
     cached_statistics_service = None
     activity_service = None
     
     try:
-        # Get services through app context (DI pattern)
+
         from flask import current_app
         if hasattr(current_app, 'service_container'):
             container = current_app.service_container
@@ -102,7 +102,7 @@ def bulk_create_keys_task(
             cached_statistics_service = container.get('cached_statistics_service')
             activity_service = container.get('activity_service')
         else:
-            # Fallback for backward compatibility
+
             if task_id:
                 task_service = get_service('task_service')
                 task_service.update_task_status(task_id, "in_progress", progress=5)
@@ -125,11 +125,11 @@ def bulk_create_keys_task(
             if not project_id:
                 project_id = user.project_id
 
-            # Get product - now we receive actual product.id from route
-            # But still handle owners who might access products from any project
+
+
             is_owner = RBACManager.is_owner(user)
             
-            # Convert product_id to int if it's a string
+
             try:
                 product_id_int = int(product_id) if not isinstance(product_id, int) else product_id
             except (ValueError, TypeError):
@@ -139,7 +139,7 @@ def bulk_create_keys_task(
                     task_service.update_task_status(task_id, "failed", error=error_msg)
                 return {"status": "error", "error": error_msg}
             
-            # Query product - owners can access from any project
+
             if is_owner:
                 product = session.query(Product).filter_by(id=product_id_int).first()
             else:
@@ -176,7 +176,7 @@ def bulk_create_keys_task(
                 expires_at = datetime.utcnow() + timedelta(hours=duration_hours)
 
             total = count
-            # Commit in batches to avoid losing all keys if one fails
+
             BATCH_SIZE = 50
             for i in range(count):
                 try:
@@ -205,7 +205,7 @@ def bulk_create_keys_task(
                     key = Key(
                         key=key_string,
                         user_id=user.id,
-                        product_id=product.id,  # Use product.id instead of product_id parameter
+                        product_id=product.id,
                         expires_at=expires_at,
                         max_devices=max_devices,
                         duration_hours=duration_hours,
@@ -217,14 +217,14 @@ def bulk_create_keys_task(
                     session.add(key)
                     session.flush()
 
-                    # Use cache invalidation instead of deprecated counter functions to avoid race conditions
+
                     if not cached_statistics_service:
                         cached_statistics_service = get_service('cached_statistics_service')
                     cached_statistics_service.invalidate_on_key_change(user.id, project_id)
                     created_keys.append(key)
                     logger.debug(f"🔑 Created key {i+1}/{count}: {key_string[:8]}...")
 
-                    # Commit in batches to avoid transaction timeout and preserve progress
+
                     if (i + 1) % BATCH_SIZE == 0:
                         try:
                             session.commit()
@@ -232,7 +232,7 @@ def bulk_create_keys_task(
                         except Exception as batch_commit_error:
                             logger.error(f"🔑 Failed to commit batch at key {i+1}: {str(batch_commit_error)}")
                             session.rollback()
-                            # Count how many keys were actually committed before this batch
+
                             committed_count = len(created_keys) - BATCH_SIZE
                             if committed_count < 0:
                                 committed_count = 0
@@ -245,10 +245,10 @@ def bulk_create_keys_task(
                     errors.append(f"Key {i+1}: {str(key_error)}")
                     logger.error(f"🔑 Failed to create key {i+1}: {str(key_error)}")
                     logger.error(f"🔑 Error traceback: {error_trace}")
-                    # Don't rollback here - let the batch commit handle it
-                    # Just continue to next key
 
-            # Commit remaining keys
+
+
+
             if created_keys:
                 try:
                     session.commit()
@@ -258,7 +258,7 @@ def bulk_create_keys_task(
                     import traceback
                     logger.error(f"🔑 Commit error traceback: {traceback.format_exc()}")
                     session.rollback()
-                    # Count how many keys were committed in previous batches
+
                     previous_batches = (len(created_keys) // BATCH_SIZE) * BATCH_SIZE
                     created_keys = created_keys[:previous_batches]
                     errors.append(f"Final commit failed: {str(commit_error)}")
@@ -354,7 +354,7 @@ def bulk_create_loader_keys_task(
         project_id: Project ID for isolation
         remote_addr: Remote address for activity logging
     """
-    # Get all required services once at the start (DI pattern)
+
     task_service = None
     key_generation_service = None
     activity_service = None
@@ -363,7 +363,7 @@ def bulk_create_loader_keys_task(
         if task_id:
             task_service = get_service('task_service')
             task_service.update_task_status(task_id, "in_progress", progress=5)
-        # Get services that will be used in the task
+
         key_generation_service = get_service('key_generation_service')
         activity_service = get_service('activity_service')
     except Exception as e:

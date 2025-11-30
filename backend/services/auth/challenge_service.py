@@ -27,15 +27,15 @@ class ChallengeService:
         self.max_attempts = 3
         self.complexity_levels = {"basic": 1, "standard": 2, "advanced": 3, "maximum": 4}
 
-    # REMOVED: generate_bytecode_challenge() - deprecated, used custom crypto (false security)
-    # REMOVED: generate_js_challenge() - deprecated, used JS obfuscation (false security)
-    # REMOVED: _obfuscate_js() - deprecated, used JS obfuscation (false security)
-    #
-    # These methods were removed to follow KISS principle and eliminate "Security through Obscurity".
-    # Real security comes from:
-    # - Standard cryptographic algorithms (SHA-256, HMAC, PBKDF2) - already in generate_crypto_challenge()
-    # - Proper authentication (mTLS - already implemented)
-    # - Infrastructure-level protection (rate limiting, monitoring - already implemented)
+
+
+
+
+
+
+
+
+
 
     def generate_crypto_challenge(self, user_key: str, fingerprint: str) -> Dict:
         """Generate a cryptographic challenge using secure algorithms only"""
@@ -214,7 +214,7 @@ class ChallengeService:
 
             challenge_type = challenge_data.get("type", "basic")
 
-            # Removed bytecode and javascript challenge types (deprecated)
+
             if challenge_type == "crypto":
                 return self._validate_crypto_response(
                     challenge_data, response, user_key, fingerprint
@@ -267,7 +267,7 @@ class ChallengeService:
                     if not is_valid:
                         return False, f"Crypto challenge failed: {message}"
 
-                # Removed bytecode and javascript challenge validation (deprecated)
+
                 elif challenge_name == "memory":
 
                     is_valid, message = self._validate_memory_response(challenge_config, response)
@@ -285,8 +285,8 @@ class ChallengeService:
         except Exception as e:
             return False, f"Enhanced challenge validation error: {str(e)}"
 
-    # REMOVED: _validate_bytecode_response() - deprecated, used custom crypto (false security)
-    # REMOVED: _validate_js_response() - deprecated, used JS obfuscation (false security)
+
+
 
     def _validate_crypto_response(
         self, challenge_data: Dict, response: Dict, user_key: str, fingerprint: str
@@ -417,11 +417,11 @@ class ChallengeService:
 
         challenges["crypto"] = self.generate_crypto_challenge(user_key, fingerprint)
 
-        # Note: Removed deprecated bytecode and JS obfuscation challenges.
-        # Real security comes from standard cryptographic algorithms (SHA-256, HMAC, PBKDF2),
-        # mTLS authentication, and infrastructure-level protection (rate limiting, monitoring).
-        # If additional challenge complexity is needed, extend generate_crypto_challenge()
-        # with more standard algorithms (e.g., Argon2, scrypt) instead of custom obfuscation.
+
+
+
+
+
 
         if complexity == "maximum":
             challenges["memory"] = self.generate_memory_challenge()

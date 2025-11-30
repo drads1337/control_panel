@@ -26,8 +26,8 @@ class DeviceUpdateBuffer:
 
     def __init__(self):
         self.buffer_prefix = "device_update_buffer"
-        self.buffer_ttl = 3600  # 1 hour TTL
-        self.enabled = Config.ANALYTICS_BUFFER_ENABLED  # Reuse same config
+        self.buffer_ttl = 3600
+        self.enabled = Config.ANALYTICS_BUFFER_ENABLED
 
     def buffer_device_update(self, key_id: int, serial: str) -> bool:
         """
@@ -44,12 +44,12 @@ class DeviceUpdateBuffer:
             return False
 
         try:
-            # Use a set to track unique key_id:serial combinations
-            # This automatically deduplicates multiple updates for the same device
+
+
             buffer_key = f"{self.buffer_prefix}:updates"
             device_key = f"{key_id}:{serial}"
             
-            # Add to set (automatically handles duplicates)
+
             redis_client.client.sadd(buffer_key, device_key)
             redis_client.client.expire(buffer_key, self.buffer_ttl)
             
@@ -78,17 +78,17 @@ class DeviceUpdateBuffer:
         try:
             buffer_key = f"{self.buffer_prefix}:updates"
             
-            # Get all buffered device updates
+
             device_keys = redis_client.client.smembers(buffer_key)
             
             if not device_keys:
                 return 0
 
-            # Group by key_id for efficient batch updates
+
             devices_by_key: Dict[int, Set[str]] = {}
             for device_key in device_keys:
                 try:
-                    # Decode if bytes
+
                     if isinstance(device_key, bytes):
                         device_key = device_key.decode()
                     
@@ -103,12 +103,12 @@ class DeviceUpdateBuffer:
                     logger.warning(f"Invalid device key format: {device_key}, error: {e}")
                     continue
 
-            # Batch update devices by key_id
+
             current_time = datetime.utcnow()
             
             for key_id, serials in devices_by_key.items():
                 try:
-                    # Update all devices for this key_id in one query
+
                     updated = (
                         db.session.query(DeviceInfo)
                         .filter(
@@ -131,7 +131,7 @@ class DeviceUpdateBuffer:
                     db.session.rollback()
                     continue
 
-            # Commit all updates
+
             try:
                 db.session.commit()
                 logger.info(f"Flushed {updated_count} device updates to database")
@@ -140,7 +140,7 @@ class DeviceUpdateBuffer:
                 db.session.rollback()
                 return 0
 
-            # Clear buffer after successful flush
+
             redis_client.client.delete(buffer_key)
 
         except Exception as e:

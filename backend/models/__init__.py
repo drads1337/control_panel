@@ -55,7 +55,7 @@ If you encounter import issues, check:
 - Ensure SQLAlchemy relationships use string references, not direct model classes
 """
 
-# Import from new separated modules
+
 from .user import (
     DeveloperProductPermission,
     User,
@@ -85,8 +85,8 @@ from .system import (
     SystemSettings,
 )
 
-# All models are now imported from their specific modules above
-# The core.py module provides backward compatibility by re-exporting these imports
+
+
 
 from .products import (
     Announcement,
@@ -137,9 +137,9 @@ from .rbac import (
 )
 
 from .security import (
-    BlockedDeviceFingerprint,  # New universal name
+    BlockedDeviceFingerprint,
     BlockedFingerprint,
-    BlockedHWID,  # Backward compatibility alias
+    BlockedHWID,
     BlockedIP,
     LoginAttempt,
     SecurityAnalytics,
@@ -171,10 +171,10 @@ from .remote_control import (
     RemoteFeatureLog,
 )
 
-# Explicit __all__ for better IDE support and static type checking
-# This replaces the dynamic __all__ generation that breaks autocomplete
+
+
 __all__ = [
-    # Core models
+
     "APIKey",
     "DeveloperProductPermission",
     "Project",
@@ -187,7 +187,7 @@ __all__ = [
     "UserActionLog",
     "UserActivity",
     "UserProductPermission",
-    # Product models
+
     "Announcement",
     "ChangelogEntry",
     "FeatureConfigSchema",
@@ -204,21 +204,21 @@ __all__ = [
     "ProductSecurityLog",
     "ProductStatus",
     "RemoteConfig",
-    # Key models
+
     "ConnectToken",
     "DeviceInfo",
     "Key",
     "KeyAnalytics",
     "ReferralCode",
     "TokenTransaction",
-    # Agent models
+
     "Agent",
     "AgentChangelog",
     "AgentConfiguration",
     "AgentDownloadLog",
     "AgentNotification",
     "AgentProductAssignment",
-    # RBAC models
+
     "AttributeRule",
     "Permission",
     "ResourceAttribute",
@@ -227,7 +227,7 @@ __all__ = [
     "UserAttribute",
     "UserPermission",
     "UserRole",
-    # Security models
+
     "BlockedDeviceFingerprint",
     "BlockedFingerprint",
     "BlockedHWID",
@@ -239,10 +239,10 @@ __all__ = [
     "TwoFactorAuth",
     "TwoFactorBackupCode",
     "TwoFactorSession",
-    # Project-User models
+
     "ProjectAdmin",
     "ProjectUserRole",
-    # Other models
+
     "Notification",
     "Webhook",
     "WebhookLog",

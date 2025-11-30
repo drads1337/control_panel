@@ -40,7 +40,7 @@ heartbeat_bp = Blueprint("heartbeat", __name__)
 from ..config.config import Config
 
 RATE_LIMIT = Config.RATE_LIMIT
-# SECURITY: Use centralized NONCE_TTL from Config
+
 NONCE_TTL = Config.NONCE_TTL
 from ..config.config import Config
 
@@ -58,9 +58,9 @@ TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
 PLAY_INTEGRITY_API_KEY = os.environ.get("PLAY_INTEGRITY_API_KEY")
 
-# SECURITY: Removed encrypt_data() and decrypt_data() functions that used global MASTER_KEY
-# All client data must be encrypted/decrypted with project-specific keys only
-# Use encrypt_data_with_project_key() and decrypt_data_with_project_key() instead
+
+
+
 
 def rate_limited(func):
     """Rate limiting decorator that supports both sync and async functions"""
@@ -135,8 +135,8 @@ def api_heartbeat():
     logging.info(f"HEARTBEAT_ATTEMPT ip={ip} user_agent={user_agent}")
 
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         heartbeat_service = get_service('heartbeat_service')
         if not request.is_json:
             logging.warning(f"HEARTBEAT_NO_JSON ip={ip} user_agent={user_agent}")
@@ -149,7 +149,7 @@ def api_heartbeat():
             logging.warning(f"HEARTBEAT_NO_BLOB ip={ip} user_agent={user_agent}")
             return jsonify({"error": "Missing encrypted data"}), 400
 
-        # SECURITY: Require project_id for decryption - no fallback to global MASTER_KEY
+
         project_id_param = req_json.get("project_id")
         if not project_id_param:
             logging.warning(f"HEARTBEAT_NO_PROJECT_ID ip={ip} user_agent={user_agent}")
@@ -161,10 +161,10 @@ def api_heartbeat():
             logging.warning(f"HEARTBEAT_INVALID_PROJECT_ID ip={ip} project_id={project_id_param}")
             return jsonify({"error": "Invalid project_id format"}), 400
 
-        # Decrypt request data using project-specific key only
+
         data = None
 
-        # Try base64 decode first (for backward compatibility with unencrypted data)
+
         try:
             import base64
             decoded = base64.b64decode(enc_data).decode("utf-8")
@@ -173,7 +173,7 @@ def api_heartbeat():
         except (base64.binascii.Error, UnicodeDecodeError, json.JSONDecodeError):
             logging.debug(f"[DEBUG] Not base64, trying decryption with project key...")
 
-        # Decrypt with project-specific key only (no fallback to global MASTER_KEY)
+
         if data is None:
             try:
                 from ..utils.secure_crypto import decrypt_data_with_project_key
@@ -198,9 +198,9 @@ def api_heartbeat():
                 logging.warning(f"HEARTBEAT_NO_SESSION_ID ip={ip}")
                 return jsonify({"error": "Session ID required"}), 400
 
-            # Get heartbeat service
 
-            # Run heartbeat processing
+
+
             is_valid, message, response_data = heartbeat_service.process_heartbeat(
                 session_id,
                 heartbeat_data
@@ -222,7 +222,7 @@ def api_heartbeat():
                 "timestamp": int(time.time()),
             }
 
-            # SECURITY: Encrypt response with project-specific key only (no fallback to global MASTER_KEY)
+
             try:
                 encrypted_blob = encrypt_data_with_project_key(resp, project_id)
                 logging.debug(
@@ -261,8 +261,8 @@ def api_heartbeat_status():
     logging.info(f"HEARTBEAT_STATUS_ATTEMPT ip={ip} user_agent={user_agent}")
 
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         heartbeat_service = get_service('heartbeat_service')
         if not request.is_json:
             logging.warning(f"HEARTBEAT_STATUS_NO_JSON ip={ip} user_agent={user_agent}")
@@ -275,7 +275,7 @@ def api_heartbeat_status():
             logging.warning(f"HEARTBEAT_STATUS_NO_BLOB ip={ip} user_agent={user_agent}")
             return jsonify({"error": "Missing encrypted data"}), 400
 
-        # SECURITY: Require project_id for decryption - no fallback to global MASTER_KEY
+
         project_id_param = req_json.get("project_id")
         if not project_id_param:
             logging.warning(f"HEARTBEAT_STATUS_NO_PROJECT_ID ip={ip} user_agent={user_agent}")
@@ -287,10 +287,10 @@ def api_heartbeat_status():
             logging.warning(f"HEARTBEAT_STATUS_INVALID_PROJECT_ID ip={ip} project_id={project_id_param}")
             return jsonify({"error": "Invalid project_id format"}), 400
 
-        # Decrypt request data using project-specific key only
+
         data = None
 
-        # Try base64 decode first (for backward compatibility with unencrypted data)
+
         try:
             import base64
             decoded = base64.b64decode(enc_data).decode("utf-8")
@@ -299,7 +299,7 @@ def api_heartbeat_status():
         except (base64.binascii.Error, UnicodeDecodeError, json.JSONDecodeError):
             logging.debug(f"[DEBUG] Not base64, trying decryption with project key...")
 
-        # Decrypt with project-specific key only (no fallback to global MASTER_KEY)
+
         if data is None:
             try:
                 from ..utils.secure_crypto import decrypt_data_with_project_key
@@ -323,9 +323,9 @@ def api_heartbeat_status():
                 logging.warning(f"HEARTBEAT_STATUS_NO_SESSION_ID ip={ip}")
                 return jsonify({"error": "Session ID required"}), 400
 
-            # Get heartbeat service
 
-            # Run session status check
+
+
             is_valid, message, status_data = heartbeat_service.check_session_status(
                 session_id
             )
@@ -342,7 +342,7 @@ def api_heartbeat_status():
                 "timestamp": int(time.time()),
             }
 
-            # SECURITY: Encrypt response with project-specific key only (no fallback to global MASTER_KEY)
+
             try:
                 encrypted_blob = encrypt_data_with_project_key(resp, project_id)
                 logging.debug(

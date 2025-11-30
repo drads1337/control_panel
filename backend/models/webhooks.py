@@ -87,16 +87,16 @@ class WebhookPendingTask(db.Model):
     )
     project = db.relationship("Project", backref="webhook_pending_tasks")
     
-    # Task data stored as JSON
+
     event = db.Column(db.String(100), nullable=False)
-    webhook_data = db.Column(db.Text, nullable=False)  # JSON string of webhook_data dict
+    webhook_data = db.Column(db.Text, nullable=False)
     
-    # Status tracking
-    status = db.Column(db.String(20), nullable=False, default="pending")  # pending, processing, failed, completed
+
+    status = db.Column(db.String(20), nullable=False, default="pending")
     retry_count = db.Column(db.Integer, default=0, nullable=False)
     error_message = db.Column(db.Text, nullable=True)
     
-    # Timestamps
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     processed_at = db.Column(db.DateTime, nullable=True)
     next_retry_at = db.Column(db.DateTime, nullable=True)

@@ -112,7 +112,7 @@ class ServerService:
             project_ids = list(set([server.project_id for server in pagination.items]))
             project_settings_dict = {}
             if project_ids and include_password:
-                # Get project master keys from encryption settings
+
                 for pid in project_ids:
                     helper = ProjectSettingsHelper(pid)
                     encryption_settings = helper.get_encryption_settings()
@@ -243,7 +243,7 @@ class ServerService:
 
             project_id = server.project_id
             if project_id:
-                # Invalidate statistics cache instead of using deprecated counters
+
                 if not self._cache_service:
                     raise ServiceError(
                         "Cache Service dependency not injected",

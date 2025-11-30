@@ -22,8 +22,8 @@ def get_cache_stats():
     user = User.query.get(user_id)
 
     if not user:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         cache_service = get_service('cache_service')
         rbac_service = get_service('rbac_service')
         return jsonify({"error": "User not found"}), 404
@@ -47,8 +47,8 @@ def clear_cache():
     user = User.query.get(user_id)
 
     if not user:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         cache_service = get_service('cache_service')
         return jsonify({"error": "User not found"}), 404
 
@@ -76,8 +76,8 @@ def cleanup_cache():
     user = User.query.get(user_id)
 
     if not user:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         cache_service = get_service('cache_service')
         return jsonify({"error": "User not found"}), 404
 
@@ -101,8 +101,8 @@ def invalidate_cache_type(cache_type):
     user = User.query.get(user_id)
 
     if not user:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         cache_service = get_service('cache_service')
         product_service = get_service('product_service')
         return jsonify({"error": "User not found"}), 404

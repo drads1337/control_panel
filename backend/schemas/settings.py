@@ -13,7 +13,7 @@ from .common import BaseSchema
 class SettingsUpdateSchema(BaseSchema):
     """Schema for updating project settings"""
     
-    # Security settings
+
     min_password_length: Optional[int] = Field(default=None, ge=4, le=128, description="Minimum password length")
     max_login_attempts: Optional[int] = Field(default=None, ge=1, le=20, description="Maximum login attempts")
     ip_block_duration_minutes: Optional[int] = Field(default=None, ge=1, le=1440, description="IP block duration in minutes")
@@ -24,7 +24,7 @@ class SettingsUpdateSchema(BaseSchema):
     ip_whitelist_enabled: Optional[bool] = Field(default=None, description="Enable IP whitelist")
     ip_whitelist: Optional[str] = Field(default=None, description="IP whitelist (comma-separated)")
     
-    # System settings
+
     log_retention_days: Optional[int] = Field(default=None, ge=1, le=3650, description="Log retention in days")
     security_log_level: Optional[str] = Field(default=None, description="Security log level")
     max_connections: Optional[int] = Field(default=None, ge=1, le=10000, description="Maximum connections")
@@ -35,7 +35,7 @@ class SettingsUpdateSchema(BaseSchema):
     analytics_enabled: Optional[bool] = Field(default=None, description="Enable analytics")
     system_notifications_enabled: Optional[bool] = Field(default=None, description="Enable system notifications")
     
-    # Additional settings (flexible dict for future extensions)
+
     additional_settings: Optional[Dict[str, Any]] = Field(default=None, description="Additional settings")
 
     @field_validator("security_log_level", "system_log_level")

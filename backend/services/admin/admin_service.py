@@ -17,7 +17,7 @@ from ...models.rbac import Role, UserRole
 from ...utils.rbac_utils import RBACManager
 from ...utils.service_exceptions import PermissionDeniedError, ServiceError
 
-# Type hints for dependencies (imported here to avoid circular imports)
+
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ...services.activity.activity_service import ActivityService
@@ -43,7 +43,7 @@ class AdminService:
         self.logger = logger or logging.getLogger(__name__)
         self.grace_period_days = 14
         
-        # Store dependencies explicitly
+
         self._activity_service = activity_service
         self._project_relationships_service = project_relationships_service
     
@@ -291,7 +291,7 @@ class AdminService:
             return stats
 
         except PermissionDeniedError:
-            # Re-raise permission errors as-is
+
             raise
         except Exception as e:
             self.logger.error(f"Error getting system stats: {str(e)}", exc_info=True)
@@ -321,7 +321,7 @@ class AdminService:
                 Project.status.in_(["active", "expired"]),
             ).all()
 
-            # Use explicit dependency injection
+
             if not self._project_relationships_service:
                 raise ServiceError(
                     "ProjectRelationshipsService dependency not injected",

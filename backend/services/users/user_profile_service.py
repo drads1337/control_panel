@@ -180,8 +180,8 @@ class UserProfileService:
             filename = secure_filename(file.filename)
             file_extension = filename.rsplit(".", 1)[1].lower()
             
-            # SECURITY: Validate file signature (magic bytes) before saving
-            # Save file temporarily to validate signature
+
+
             temp_file_path = None
             try:
                 with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_extension}") as temp_file:
@@ -189,7 +189,7 @@ class UserProfileService:
                     temp_file.write(file.read())
                     temp_file_path = temp_file.name
                 
-                # Validate file signature - expect image extensions
+
                 from ...services.files.file_service import file_service
                 expected_extensions = [ext.lstrip('.').lower() for ext in self.allowed_avatar_extensions]
                 is_valid, validation_error = file_service.validate_file_signature(temp_file_path, expected_extensions)
@@ -202,7 +202,7 @@ class UserProfileService:
                         field="avatar"
                     )
                 
-                # Reset file stream for saving
+
                 file.seek(0)
             except ValidationError:
                 if temp_file_path and os.path.exists(temp_file_path):
@@ -220,7 +220,7 @@ class UserProfileService:
                 self.logger.error(f"File signature validation error: {str(validation_exception)}")
                 raise ValidationError("File validation failed", field="avatar") from validation_exception
             finally:
-                # Clean up temp file after validation
+
                 if temp_file_path and os.path.exists(temp_file_path):
                     try:
                         os.unlink(temp_file_path)

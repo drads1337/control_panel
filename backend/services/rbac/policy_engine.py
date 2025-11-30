@@ -85,7 +85,7 @@ class DecisionType(Enum):
     """Type of authorization decision"""
     ALLOW = "allow"
     DENY = "deny"
-    ABSTAIN = "abstain"  # Policy doesn't apply, continue to next policy
+    ABSTAIN = "abstain"
 
 @dataclass
 class Decision:
@@ -190,7 +190,7 @@ class PolicyEngine:
         if context is None:
             context = {}
         
-        # Check request-scoped cache first (avoid redundant evaluations in same request)
+
         cache_key = _get_policy_cache_key(user_id, permission, product_id, resource_type, resource_id)
         if has_request_context():
             if not hasattr(g, '_policy_cache'):
@@ -204,13 +204,13 @@ class PolicyEngine:
                 )
                 return cached_decision
         
-        # Log authorization request for debugging
+
         logger.info(
             f"POLICY_EVALUATION_START user_id={user_id} permission={permission} "
             f"product_id={product_id} resource_type={resource_type} resource_id={resource_id}"
         )
         
-        # Get user (required for all policies)
+
         user = User.query.get(user_id)
         if not user:
             logger.warning(f"POLICY_EVALUATION_FAILED user_id={user_id} reason=User not found")
@@ -220,23 +220,23 @@ class PolicyEngine:
                 policy_type="system",
                 context={"user_id": user_id}
             )
-            # Cache negative result too
+
             if has_request_context():
                 g._policy_cache[cache_key] = decision
             return decision
         
-        # Track execution time for performance monitoring
+
         evaluation_start_time = time.perf_counter()
         
-        # SECURITY: Evaluate all policies first, then apply conflict resolution
-        # This ensures DENY always takes precedence over ALLOW, preventing privilege escalation
-        # when RBAC grants access but ABAC should deny it.
-        # 
-        # PERFORMANCE: Fast Fail optimization - if owner/admin bypass grants access,
-        # we can return early (but still log all policies for audit)
+
+
+
+
+
+
         evaluated_policies = []
         all_decisions = []
-        fast_fail_allowed = False  # Track if we can fast-fail with ALLOW
+        fast_fail_allowed = False
         
         for policy in self.policies:
             try:
@@ -257,12 +257,12 @@ class PolicyEngine:
                 }
                 evaluated_policies.append(policy_info)
                 
-                # Store decision if it's not an abstention
+
                 if decision.policy_type != "abstain":
                     all_decisions.append(decision)
                     
-                    # Fast Fail: If owner/admin bypass grants access, we can return early
-                    # (but continue evaluating for audit purposes - we'll break after loop)
+
+
                     if decision.allowed and decision.policy_type in ("owner_bypass", "admin_bypass"):
                         fast_fail_allowed = True
                         logger.debug(
@@ -282,21 +282,21 @@ class PolicyEngine:
                     "allowed": False,
                     "reason": f"Error: {str(e)}"
                 })
-                # Continue to next policy on error
+
         
-        # Conflict resolution: DENY > ALLOW > ABSTAIN
-        # This prevents privilege escalation when multiple policies conflict
+
+
         execution_time_ms = (time.perf_counter() - evaluation_start_time) * 1000
         
         if all_decisions:
-            # Check for any DENY first (highest priority) - Fast Fail for DENY
+
             deny_decisions = [d for d in all_decisions if not d.allowed]
             if deny_decisions:
-                # Use the first DENY decision (most specific)
+
                 final_decision = deny_decisions[0]
                 outcome = DecisionOutcome.DENY
                 
-                # Log conflict if there were also ALLOW decisions
+
                 allow_decisions = [d for d in all_decisions if d.allowed]
                 if allow_decisions:
                     logger.warning(
@@ -307,10 +307,10 @@ class PolicyEngine:
                     final_decision.context["conflict_resolved"] = True
                     final_decision.context["conflicting_allow_policies"] = [d.policy_type for d in allow_decisions]
             else:
-                # No DENY, use first ALLOW
-                # Fast Fail: If owner/admin bypass granted access, use that decision
+
+
                 if fast_fail_allowed:
-                    # Find the owner/admin bypass decision
+
                     bypass_decision = next(
                         (d for d in all_decisions if d.policy_type in ("owner_bypass", "admin_bypass")),
                         all_decisions[0]
@@ -320,7 +320,7 @@ class PolicyEngine:
                     final_decision = all_decisions[0]
                 outcome = DecisionOutcome.ALLOW
         else:
-            # All policies abstained - default deny (fail-secure)
+
             final_decision = Decision(
                 allowed=False,
                 reason="No policy granted permission",
@@ -335,7 +335,7 @@ class PolicyEngine:
             )
             outcome = DecisionOutcome.DENY
         
-        # Audit the authorization decision
+
         if not self._authorization_audit_service:
             raise ServiceError(
                 "AuthorizationAuditService dependency not injected",
@@ -367,7 +367,7 @@ class PolicyEngine:
             f"execution_time={execution_time_ms:.2f}ms fast_fail={fast_fail_allowed}"
         )
         
-        # Cache result for request scope
+
         if has_request_context():
             g._policy_cache[cache_key] = final_decision
         
@@ -433,7 +433,7 @@ class PolicyEngine:
                 context={}
             )
         
-        # Get user permissions through RBAC
+
         if not self._rbac_service:
             raise ServiceError(
                 "RBACService dependency not injected",
@@ -482,14 +482,14 @@ class PolicyEngine:
                 context={}
             )
         
-        # Parse permission into resource and action
+
         if "." in permission:
             resource, action = permission.split(".", 1)
         else:
             resource = permission
             action = "view"
         
-        # Get user roles
+
         user_roles = UserRole.query.filter_by(user_id=user.id).all()
         role_ids = [ur.role_id for ur in user_roles]
         
@@ -501,7 +501,7 @@ class PolicyEngine:
                 context={}
             )
         
-        # Check for resource-level permissions
+
         resource_permissions = (
             db.session.query(Permission)
             .join(RolePermission, RolePermission.permission_id == Permission.id)
@@ -515,7 +515,7 @@ class PolicyEngine:
         )
         
         for perm in resource_permissions:
-            # Global scope: applies to all resources of this type
+
             if perm.scope == "global":
                 return Decision(
                     allowed=True,
@@ -529,7 +529,7 @@ class PolicyEngine:
                     }
                 )
             
-            # Resource-type scope: applies to all instances of this type
+
             elif perm.scope == "resource" and perm.resource_type == resource_type:
                 return Decision(
                     allowed=True,
@@ -543,7 +543,7 @@ class PolicyEngine:
                     }
                 )
             
-            # Instance scope: applies to specific resource instance
+
             elif (
                 perm.scope == "instance"
                 and perm.resource_type == resource_type
@@ -591,7 +591,7 @@ class PolicyEngine:
                 context={}
             )
         
-        # Delegate to ABAC service
+
         if not self._abac_service:
             raise ServiceError(
                 "ABACService dependency not injected",
@@ -630,7 +630,7 @@ class PolicyEngine:
                 }
             )
         
-        # ABAC service returned None (no rule applies)
+
         return Decision(
             allowed=False,
             reason="No ABAC rule applies",
@@ -660,14 +660,14 @@ class PolicyEngine:
                 context={}
             )
         
-        # Parse permission
+
         if "." in permission:
             resource, action = permission.split(".", 1)
         else:
             resource = permission
             action = "view"
         
-        # Get user roles
+
         user_roles = UserRole.query.filter_by(user_id=user.id).all()
         role_ids = [ur.role_id for ur in user_roles]
         
@@ -679,7 +679,7 @@ class PolicyEngine:
                 context={}
             )
         
-        # Check for product-specific permission
+
         product_permission = (
             db.session.query(Permission)
             .join(RolePermission, RolePermission.permission_id == Permission.id)
@@ -705,7 +705,7 @@ class PolicyEngine:
                 }
             )
         
-        # Check for product permission pattern: "permission.product.{product_id}"
+
         if not self._rbac_service:
             raise ServiceError(
                 "RBACService dependency not injected",
@@ -733,5 +733,5 @@ class PolicyEngine:
             context={"product_id": product_id}
         )
 
-# Singleton instance
+
 policy_engine = PolicyEngine()

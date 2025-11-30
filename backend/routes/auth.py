@@ -241,15 +241,15 @@ def login(validated_data=None):
 def _handle_simple_login(data: dict, ip: str, user_agent: str):
     """Handle simple username/password login"""
     try:
-        # Get services once at the start (DI pattern)
+
         auth_service = get_service('auth_service')
         username = data["username"]
         password = data["password"]
 
-        # Exceptions are handled by global handler
+
         response_data = auth_service.process_simple_login(username, password, ip, user_agent)
 
-        # Log suspicious activity for authentication errors (handled by exception handler)
+
         from ..utils.data_masking import mask_username
         masked_username = mask_username(username) if username else "unknown"
         
@@ -263,7 +263,7 @@ def _handle_simple_login(data: dict, ip: str, user_agent: str):
         return response
 
     except SecurityError as e:
-        # Handle project inactive error with user-friendly message
+
         if hasattr(e, 'error_code') and e.error_code == "PROJECT_INACTIVE":
             logger.warning(f"User attempted to login to inactive project: {ip}")
             return jsonify({
@@ -271,7 +271,7 @@ def _handle_simple_login(data: dict, ip: str, user_agent: str):
                 "error_code": "PROJECT_INACTIVE",
                 "message": "Project is paused. Please contact the administrator for additional information."
             }), 403
-        # Re-raise other SecurityErrors to be handled by global handler
+
         raise
     except Exception as e:
         import traceback
@@ -334,8 +334,8 @@ def register(validated_data=None):
     """User registration endpoint - creates user and project automatically (free tier)"""
     try:
 
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         project_crud_service = get_service('project_crud_service')
         rbac_service = get_service('rbac_service')
         user_crud_service = get_service('user_crud_service')
@@ -343,21 +343,21 @@ def register(validated_data=None):
         if not validated_data:
             return jsonify({"error": "REGISTRATION_FAILED", "message": "Invalid request data"}), 400
 
-        # Email is required for registration
+
         if not validated_data.get("email"):
             return jsonify({"error": "REGISTRATION_FAILED", "message": "Email is required for registration"}), 400
 
-        # Create user first (without project_id)
+
         user = user_crud_service.create_user(
             validated_data["username"], 
             validated_data["email"], 
             validated_data["password"]
         )
         
-        # Create project with free tier (user is now available)
+
         project_name = validated_data.get("project_name") or f"Project_{validated_data['username']}"
         
-        # Create project with free tier
+
         project = project_crud_service.create_project(
             user_id=user.id,
             name=project_name,
@@ -366,13 +366,13 @@ def register(validated_data=None):
             user_agent=request.headers.get("User-Agent", "")
         )
         
-        # Update user with project_id
+
         user.project_id = project.id
         
-        # Initialize RBAC for the project (creates default roles including owner)
+
         rbac_service.initialize_default_data(project.id)
         
-        # Assign owner role to user
+
         from ..models.rbac import Role, UserRole
         owner_role = Role.query.filter_by(name="owner", project_id=project.id).first()
         if owner_role:
@@ -431,8 +431,8 @@ def register(validated_data=None):
 def register_with_invite(validated_data=None):
     """User registration with invite code"""
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         invite_service = get_service('invite_service')
         project_crud_service = get_service('project_crud_service')
         rbac_service = get_service('rbac_service')
@@ -469,26 +469,26 @@ def register_with_invite(validated_data=None):
                     400,
                 )
 
-            # Create user first (without project_id, will be updated after project creation)
+
             from werkzeug.security import generate_password_hash
             from ..models.core import User
             from ..utils.service_exceptions import ConflictError
             
-            # Validate username doesn't exist
+
             if User.query.filter_by(username=username).first():
                 return jsonify({"error": "USERNAME_EXISTS", "message": "Username already exists"}), 400
             
-            # Validate email if provided
+
             if email:
                 email_valid, email_error = AuthValidator.validate_email(email)
                 if not email_valid:
                     return jsonify({"error": "INVALID_EMAIL", "message": email_error}), 400
                 
-                # Check if email already exists
+
                 if User.query.filter_by(email=email).first():
                     return jsonify({"error": "EMAIL_EXISTS", "message": "Email already exists"}), 400
             
-            # Create user without project_id
+
             temp_user = User(
                 username=username,
                 email=email,
@@ -498,51 +498,51 @@ def register_with_invite(validated_data=None):
             db.session.add(temp_user)
             db.session.flush()
             
-            # Create project with pro tier (invite code = pro tier)
+
             new_project = project_crud_service.create_project(
                 user_id=temp_user.id,
                 name=project_name,
                 description=f"Project created via invite code",
                 ip_address=request.remote_addr,
                 user_agent=request.headers.get("User-Agent", ""),
-                subscription_status="pro"  # Pro tier for invite code registration
+                subscription_status="pro"
             )
             project_id = new_project.id
             
-            # Update user with project_id
+
             temp_user.project_id = project_id
 
-            # Initialize RBAC
+
             rbac_service.initialize_default_data(project_id)
             
-            # Assign owner role to user
+
             from ..models.rbac import Role, UserRole
             owner_role = Role.query.filter_by(name="owner", project_id=project_id).first()
             if owner_role:
                 user_role = UserRole(user_id=temp_user.id, role_id=owner_role.id)
                 db.session.add(user_role)
 
-            # Update invite code with project_id
+
             invite = ProjectInviteCode.query.filter_by(code=invite_code).first()
             if invite:
                 invite.project_id = project_id
             
             db.session.commit()
             
-            # Use the created user instead of creating a new one
+
             user = temp_user
             user_already_created = True
         else:
             user_already_created = False
 
-        # Check if this is a referral code with RBAC roles
+
         code_type = code_info.get("code_type", "project_invite")
         rbac_role_ids = code_info.get("rbac_role_ids", []) if code_type == "referral" else []
         product_ids = code_info.get("product_ids", []) if code_type == "referral" else []
         token_balance = code_info.get("token_balance", 0) if code_type == "referral" else 0
         work_duration_days = code_info.get("work_duration_days") if code_type == "referral" else None
         
-        # Log for debugging
+
         if code_type == "referral":
             logger.info(
                 f"Referral code registration: code={invite_code}, "
@@ -550,11 +550,11 @@ def register_with_invite(validated_data=None):
                 f"token_balance={token_balance}, work_duration_days={work_duration_days}"
             )
 
-        # Exceptions are handled by global handler
+
         try:
-            # Only create user if not already created (for new projects)
+
             if not user_already_created:
-                # Handle referral codes - always assign products and roles if specified
+
                 if code_type == "referral":
                     from werkzeug.security import generate_password_hash
                     from ..models.core import User
@@ -562,21 +562,21 @@ def register_with_invite(validated_data=None):
                     from ..models.keys import ReferralCode
                     from datetime import timedelta
                 
-                # Validate username doesn't exist
+
                 if User.query.filter_by(username=username).first():
                     raise ConflictError("Username already exists", resource_type="user")
                 
-                # Validate email if provided
+
                 if email:
                     email_valid, email_error = AuthValidator.validate_email(email)
                     if not email_valid:
                         return jsonify({"error": "INVALID_EMAIL", "message": email_error}), 400
                     
-                    # Check if email already exists
+
                     if User.query.filter_by(email=email).first():
                         raise ConflictError("Email already exists", resource_type="user")
                 
-                # Create user without legacy role field (roles are managed via RBAC)
+
                 user = User(
                     username=username,
                     email=email,
@@ -587,59 +587,59 @@ def register_with_invite(validated_data=None):
                 db.session.add(user)
                 db.session.flush()
                 
-                # Assign RBAC roles if provided
+
                 if rbac_role_ids and project_id:
                     user_role_service = get_user_role_service()
                     user_role_service.assign_roles_to_user(user.id, project_id, rbac_role_ids)
                 
-                # Assign product permissions - always try to assign if product_ids provided
+
                 if project_id:
                     user_permission_service = get_user_permission_service()
-                    # Process product_ids to filter out invalid values like 0
+
                     processed_product_ids = user_permission_service.process_product_ids_from_data(product_ids)
                     if processed_product_ids:
                         user_permission_service.assign_product_permissions(user.id, project_id, processed_product_ids)
                 
-                # Set work duration if specified
+
                 if work_duration_days:
                     user.expires_at = datetime.utcnow() + timedelta(days=work_duration_days)
                 
-                # Add token balance if provided
+
                 if token_balance > 0:
                     user.token_balance = token_balance
                 
                 db.session.commit()
                 
-                # Mark referral code as used
+
                 referral = ReferralCode.query.filter_by(code=invite_code).first()
                 if referral:
                     referral.used = True
                     referral.used_by = user.id
                     db.session.commit()
                 else:
-                    # Default behavior for project invite codes (when project already exists)
+
                     default_role = UserRoles.ADMIN.value
                     user = user_crud_service.create_user(
                         username, email, password, project_id, default_role
                     )
                     
-                    # Mark invite code as used
+
                     success, error = invite_service.use_invite_code(invite_code, user.id)
                     if not success:
                         logger.warning(f"Failed to mark invite code as used: {error}")
             else:
-                # Default behavior for project invite codes (when project already exists)
+
                 default_role = UserRoles.ADMIN.value
                 user = user_crud_service.create_user(
                     username, email, password, project_id, default_role
                 )
                 
-                # Mark invite code as used
+
                 success, error = invite_service.use_invite_code(invite_code, user.id)
                 if not success:
                     logger.warning(f"Failed to mark invite code as used: {error}")
         except (ValidationError, ConflictError, ServiceError):
-            # Let global error handler deal with these, but ensure rollback
+
             db.session.rollback()
             raise
 
@@ -657,7 +657,7 @@ def register_with_invite(validated_data=None):
         )
 
     except (ValidationError, ConflictError, ServiceError):
-        # Let global error handler deal with these
+
         raise
     except Exception as e:
         import traceback
@@ -672,8 +672,8 @@ def register_with_invite(validated_data=None):
 def get_current_user():
     """Get current user information"""
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         user_profile_service = get_service('user_profile_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
@@ -695,8 +695,8 @@ def get_current_user():
 def update_profile(validated_data=None):
     """Update user profile"""
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         user_profile_service = get_service('user_profile_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
@@ -724,8 +724,8 @@ def update_profile(validated_data=None):
 def change_password(validated_data=None):
     """Change user password"""
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         user_profile_service = get_service('user_profile_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
@@ -762,7 +762,7 @@ def logout():
     Frontend should NOT manually delete cookies with tokens as they should
     have HttpOnly flag set. This prevents XSS attacks from stealing tokens.
     """
-    # Get services once at the start (DI pattern)
+
     auth_service = get_service('auth_service')
     
     try:
@@ -782,9 +782,9 @@ def logout():
             except Exception as e:
                 logger.warning(f"Failed to log logout activity: {e}")
 
-        # SECURITY: Clear HttpOnly cookies server-side using unset_jwt_cookies
-        # This sets Set-Cookie headers with expired dates to invalidate the cookies
-        # Frontend cannot access HttpOnly cookies, so they must be cleared here
+
+
+
         response = make_response(jsonify({"message": "Logged out successfully"}))
         unset_jwt_cookies(response)
         
@@ -792,7 +792,7 @@ def logout():
 
     except Exception as e:
         logger.error(f"Error in logout: {str(e)}")
-        # Even on error, try to clear cookies to prevent token leakage
+
         try:
             response = make_response(jsonify({"error": "LOGOUT_FAILED", "message": "Logout failed"}), 500)
             unset_jwt_cookies(response)
@@ -1061,8 +1061,8 @@ def register_with_code(validated_data=None):
 def validate_invite_code(validated_data=None):
     """Validate an invite code and return information about it"""
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         invite_service = get_service('invite_service')
         if not validated_data:
             return jsonify({"error": "Invite code is required"}), 400
@@ -1071,10 +1071,10 @@ def validate_invite_code(validated_data=None):
         if not invite_code:
             return jsonify({"error": "Invite code is required"}), 400
 
-        # Code is already normalized by InviteCodeValidateSchema
+
         code_info, error = invite_service.validate_invite_code(invite_code)
         if not code_info:
-            # Return the error message from service (could be validation error or "Invalid invite code")
+
             return jsonify({"error": error or "Invalid invite code"}), 400
 
         code_type = code_info.get("code_type", "project_invite")
@@ -1089,14 +1089,14 @@ def validate_invite_code(validated_data=None):
             "code_type": code_type,
         }
 
-        # Add referral code specific fields if it's a referral code
+
         if code_type == "referral":
             response_data["token_balance"] = code_info.get("token_balance", 0)
             response_data["work_duration_days"] = code_info.get("work_duration_days")
             response_data["product_ids"] = code_info.get("product_ids", [])
             response_data["rbac_role_ids"] = code_info.get("rbac_role_ids", [])
             
-            # Get role information for rbac_role_ids
+
             rbac_role_ids = code_info.get("rbac_role_ids", [])
             roles = []
             if rbac_role_ids and project_id:
@@ -1117,7 +1117,7 @@ def validate_invite_code(validated_data=None):
             response_data["roles"] = roles
             response_data["requires_project_name"] = False
         elif code_type == "product_invite":
-            # Product invite code specific fields
+
             response_data["product_id"] = code_info.get("product_id")
             response_data["assigned_role"] = code_info.get("assigned_role")
             if project_id:
@@ -1130,7 +1130,7 @@ def validate_invite_code(validated_data=None):
             else:
                 response_data["requires_project_name"] = False
         elif project_id:
-            # Project invite code with project_id
+
             project = Project.query.get(project_id)
             if project:
                 response_data["project_name"] = project.name
@@ -1138,7 +1138,7 @@ def validate_invite_code(validated_data=None):
             else:
                 response_data["requires_project_name"] = False
         else:
-            # Project invite code without project_id (requires project name)
+
             response_data["requires_project_name"] = True
 
         return jsonify(response_data), 200
@@ -1203,7 +1203,7 @@ def forgot_password(validated_data=None):
         
         success, error = password_reset_service.request_password_reset(email)
         
-        # Always return success to prevent email enumeration
+
         return jsonify({
             "message": "If an account with that email exists, a password reset link has been sent."
         }), 200

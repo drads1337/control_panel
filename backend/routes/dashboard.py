@@ -916,11 +916,11 @@ def get_load_status(project_id=None):
         if project_filter is None and not is_owner:
             return jsonify({"error": "Project isolation required"}), 403
 
-        # Get load status for the project (or all projects for owner)
+
         if project_filter:
             load_status = prometheus_metrics_reader.get_all_endpoints_status(project_id=project_filter)
         else:
-            # Owner gets overall system status
+
             load_status = prometheus_metrics_reader.get_all_endpoints_status(project_id=None)
 
         return jsonify({"status": "success", "data": load_status}), 200

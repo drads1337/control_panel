@@ -13,7 +13,7 @@ from ...utils.fulltext_search import fulltext_search_filter
 from ...utils.ip_utils import get_location_from_ip
 from ...utils.structured_logging import get_logger
 
-# Type hints for dependencies (imported here to avoid circular imports)
+
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ...services.analytics.analytics_buffer_service import AnalyticsBufferService
@@ -42,11 +42,11 @@ class ActivityService:
             logger: Optional logger instance
         """
         self.logger = logger or get_logger("activity_service")
-        # OPTIMIZATION: Use buffer mode by default if enabled
-        # This prevents database overload from activity logs
+
+
         self._use_buffer_by_default = True
         
-        # Store dependencies explicitly
+
         self._analytics_buffer_service = analytics_buffer_service
     
     def log_activity(
@@ -103,21 +103,21 @@ class ActivityService:
                 except Exception as e:
                     self.logger.warning(f"Failed to get geolocation: {e}")
 
-            # OPTIMIZATION: Use buffer by default (unless explicitly requested direct write)
-            # This prevents database overload from activity logs
+
+
             if use_direct_write:
-                # Critical action: write directly to database for immediate visibility
+
                 self.logger.debug(f"Using direct write for critical action: {action}")
                 return self._log_activity_direct(
                     user, action, ip, details, user_agent, session_id, country, city
                 )
 
-            # Default: use buffering to reduce database write pressure
+
             try:
                 if not self._analytics_buffer_service:
-                    # Analytics buffer is optional - log warning but don't fail
+
                     self.logger.warning("AnalyticsBufferService not injected, skipping activity buffering")
-                    # Fallback to direct write
+
                     return self._log_activity_direct(
                         user, action, ip, details, user_agent, session_id, country, city
                     )
@@ -139,11 +139,11 @@ class ActivityService:
                         f"(will be flushed to DB by background worker)"
                     )
                     
-                    # Force flush for critical actions
+
                     if force_flush:
                         self._analytics_buffer_service._trigger_async_flush()
                     
-                    # Return a mock object to maintain compatibility
+
                     return UserActivity(
                         user_id=user.id,
                         action=action,
@@ -156,7 +156,7 @@ class ActivityService:
                         session_id=session_id,
                     )
                 else:
-                    # Buffer failed (e.g., Redis unavailable), fallback to direct write
+
                     self.logger.warning(
                         f"Buffer failed for {action}, falling back to direct write"
                     )
@@ -164,7 +164,7 @@ class ActivityService:
                         user, action, ip, details, user_agent, session_id, country, city
                     )
             except Exception as buffer_error:
-                # Buffer error, fallback to direct write
+
                 self.logger.warning(
                     f"Buffer error for {action}: {buffer_error}, falling back to direct write"
                 )
@@ -178,7 +178,7 @@ class ActivityService:
 
             self.logger.warning(f"log_activity traceback: {traceback.format_exc()}")
 
-            # Final fallback to direct write on error
+
             try:
                 return self._log_activity_direct(
                     user, action, ip, details, user_agent, session_id, None, None

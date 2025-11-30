@@ -49,13 +49,13 @@ class EmailService:
             return False
             
         try:
-            # Create message
+
             msg = MIMEMultipart('alternative')
             msg['Subject'] = subject
             msg['From'] = f"{self.from_name} <{self.from_email}>"
             msg['To'] = to_email
             
-            # Add text and HTML parts
+
             if text_body:
                 text_part = MIMEText(text_body, 'plain')
                 msg.attach(text_part)
@@ -63,7 +63,7 @@ class EmailService:
             html_part = MIMEText(html_body, 'html')
             msg.attach(html_part)
             
-            # Connect to SMTP server
+
             if self.use_ssl:
                 server = smtplib.SMTP_SSL(self.server, self.port)
             else:
@@ -71,7 +71,7 @@ class EmailService:
                 if self.use_tls:
                     server.starttls()
             
-            # Login and send
+
             server.login(self.username, self.password)
             server.send_message(msg)
             server.quit()

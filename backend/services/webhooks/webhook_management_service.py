@@ -12,7 +12,7 @@ from ...core.extensions import db
 from ...models.webhooks import Webhook, WebhookLog
 from ...utils.data_masking import mask_key
 from ...utils.service_exceptions import ServiceError
-# get_service removed - using DI
+
 
 class WebhookManagementService:
     """Service for managing webhook CRUD operations"""
@@ -89,11 +89,11 @@ class WebhookManagementService:
     def update_webhook(self, webhook_id: int, project_id: Optional[int] = None, **kwargs) -> Dict:
         """Update an existing webhook"""
         try:
-            # Get webhook
+
             if project_id:
                 webhook = Webhook.query.filter_by(id=webhook_id, project_id=project_id).first()
             else:
-                # Fallback for backward compatibility
+
                 webhook = Webhook.query.filter_by(id=webhook_id).first()
             
             if not webhook:
@@ -141,11 +141,11 @@ class WebhookManagementService:
     def delete_webhook(self, webhook_id: int, project_id: Optional[int] = None) -> bool:
         """Delete a webhook"""
         try:
-            # Get webhook
+
             if project_id:
                 webhook = Webhook.query.filter_by(id=webhook_id, project_id=project_id).first()
             else:
-                # Fallback for backward compatibility
+
                 webhook = Webhook.query.filter_by(id=webhook_id).first()
             
             if not webhook:
@@ -173,11 +173,11 @@ class WebhookManagementService:
         returned when explicitly needed (e.g., during webhook execution).
         """
         try:
-            # Get webhooks
+
             if project_id:
                 webhooks = Webhook.query.filter_by(project_id=project_id).order_by(Webhook.created_at.desc()).all()
             else:
-                # Fallback for backward compatibility
+
                 webhooks = Webhook.query.order_by(Webhook.created_at.desc()).all()
 
             return [
@@ -188,15 +188,15 @@ class WebhookManagementService:
                     "webhook_type": webhook.webhook_type,
                     "url": webhook.url,
                     "events": json.loads(webhook.events),
-                    # SECURITY: Mask secret to prevent XSS exposure
+
                     "secret": mask_key(webhook.secret) if webhook.secret else None,
                     "is_active": webhook.is_active,
                     "headers": json.loads(webhook.headers or "{}"),
-                    # SECURITY: Mask tokens to prevent XSS exposure
+
                     "telegram_bot_token": mask_key(webhook.telegram_bot_token) if webhook.telegram_bot_token else None,
                     "telegram_chat_id": webhook.telegram_chat_id,
                     "discord_webhook_url": webhook.discord_webhook_url,
-                    # SECURITY: Mask bot token to prevent XSS exposure
+
                     "discord_bot_token": mask_key(webhook.discord_bot_token) if webhook.discord_bot_token else None,
                     "discord_channel_id": webhook.discord_channel_id,
                     "created_at": webhook.created_at.isoformat(),
@@ -286,11 +286,11 @@ class WebhookManagementService:
     def update_webhook_stats(self, webhook_id: int, success: bool, project_id: Optional[int] = None):
         """Update webhook statistics"""
         try:
-            # Get webhook
+
             if project_id:
                 webhook = Webhook.query.filter_by(id=webhook_id, project_id=project_id).first()
             else:
-                # Fallback for backward compatibility
+
                 webhook = Webhook.query.filter_by(id=webhook_id).first()
             
             if not webhook:

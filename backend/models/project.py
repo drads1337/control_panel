@@ -50,9 +50,9 @@ class Project(db.Model):
     active_users = db.Column(db.Integer, default=0, nullable=False)
     active_keys = db.Column(db.Integer, default=0, nullable=False)
     
-    # SECURITY: Per-project secret key for token generation
-    # This replaces TOKEN_STATIC_WORD to ensure each project has unique token salts
-    # If compromised, only tokens for this specific project are affected
+
+
+
     secret_key = db.Column(db.String(64), nullable=True, unique=True)
 
     def __init__(self, project_relationships_service=None, **kwargs):
@@ -60,10 +60,10 @@ class Project(db.Model):
         super(Project, self).__init__(**kwargs)
         if not self.unique_id:
             self.unique_id = generate_unique_project_id()
-        # SECURITY: Generate unique secret_key for token generation if not provided
-        # This ensures each project has its own token salt, preventing cross-project token attacks
+
+
         if not self.secret_key:
-            # Generate a secure 32-byte (64 hex characters) secret key
+
             self.secret_key = secrets.token_hex(32)
 
     @property
@@ -138,10 +138,10 @@ class Project(db.Model):
         For new code, use project_relationships_service.get_admin_user(project_id) instead.
         Uses DI through app context to get project_relationships_service.
         """
-        # Use service to avoid code duplication
+
         if self._project_relationships_service:
             return self._project_relationships_service.get_admin_user(self.id)
-        # Get service through app context (DI pattern) - requires app context
+
         from flask import current_app
         if not hasattr(current_app, 'service_container'):
             raise RuntimeError(
@@ -160,7 +160,7 @@ class Project(db.Model):
         """
         if self._project_relationships_service:
             return self._project_relationships_service.set_admin(self.id, user_id)
-        # Get service through app context (DI pattern) - requires app context
+
         from flask import current_app
         if not hasattr(current_app, 'service_container'):
             raise RuntimeError(
@@ -179,7 +179,7 @@ class Project(db.Model):
         """
         if self._project_relationships_service:
             return self._project_relationships_service.get_admin_id(self.id)
-        # Get service through app context (DI pattern) - requires app context
+
         from flask import current_app
         if not hasattr(current_app, 'service_container'):
             raise RuntimeError(
@@ -206,10 +206,10 @@ class ProjectEncryptionKeys(db.Model):
     )
     project = db.relationship("Project", backref="encryption_keys")
 
-    # Legacy: Plain-text key (deprecated, kept for backward compatibility)
+
     aes_key = db.Column(db.Text, nullable=True)
     
-    # New: Encrypted DEK (encrypted with KEK from PROJECT_MASTER_KEY env)
+
     aes_key_encrypted = db.Column(db.Text, nullable=True)
 
     public_key_cert = db.Column(db.Text, nullable=False)
@@ -238,7 +238,7 @@ class ProjectEncryptionKeys(db.Model):
         import logging
         logger = logging.getLogger(__name__)
         
-        # SECURITY: If encrypted key exists, Envelope Encryption is REQUIRED
+
         if self.aes_key_encrypted:
             if not EnvelopeKeyManager.validate_kek_set():
                 raise ValueError(
@@ -260,7 +260,7 @@ class ProjectEncryptionKeys(db.Model):
                     f"Please ensure PROJECT_MASTER_KEY is correct or contact support."
                 ) from e
         
-        # If no encrypted key, use plain key (legacy projects that haven't migrated)
+
         if self.aes_key:
             logger.warning(
                 f"Project {self.project_id} using plain key (legacy). "
@@ -286,21 +286,21 @@ class ProjectEncryptionKeys(db.Model):
         """
         from ..utils.envelope_encryption import EnvelopeKeyManager
         
-        # Validate key format
+
         if len(plain_key) != 64:
             raise ValueError(f"AES key must be 64 hex characters (32 bytes), got {len(plain_key)}")
         
         try:
-            bytes.fromhex(plain_key)  # Validate hex format
+            bytes.fromhex(plain_key)
         except ValueError as e:
             raise ValueError(f"Invalid AES key format: {e}") from e
         
-        # Try Envelope Encryption first
+
         if use_envelope and EnvelopeKeyManager.validate_kek_set():
             try:
                 self.aes_key_encrypted = EnvelopeKeyManager.encrypt_dek_string(plain_key)
-                # Keep plain key for backward compatibility during migration period
-                # TODO: Remove after full migration
+
+
                 self.aes_key = plain_key
                 return
             except Exception as e:
@@ -311,9 +311,9 @@ class ProjectEncryptionKeys(db.Model):
                     f"Falling back to plain storage."
                 )
         
-        # Fallback to plain storage (legacy behavior)
+
         self.aes_key = plain_key
-        # Clear encrypted key if we're using plain storage
+
         self.aes_key_encrypted = None
 
     def __repr__(self):
@@ -496,8 +496,8 @@ class ProjectInviteSettings(db.Model):
         return f"<ProjectInviteSettings(project_id={self.project_id})>"
 
 
-# Backward compatibility: Keep ProjectSettings as a view/alias that aggregates all settings
-# This allows gradual migration of existing code
+
+
 class ProjectSettings(db.Model):
     """
     DEPRECATED: This model is kept for backward compatibility.
@@ -518,8 +518,8 @@ class ProjectSettings(db.Model):
     )
     project = db.relationship("Project", backref="settings")
 
-    # All fields are deprecated - use specific settings models instead
-    # These are kept for backward compatibility during migration
+
+
     min_password_length = db.Column(db.Integer, default=8)
     max_login_attempts = db.Column(db.Integer, default=5)
     ip_block_duration_minutes = db.Column(db.Integer, default=15)

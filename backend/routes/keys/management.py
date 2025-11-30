@@ -34,7 +34,7 @@ def find_key_by_id_or_unique_id(key_identifier, project_id):
     Returns:
         Key object or None
     """
-    # Try as integer id first
+
     try:
         key_id = int(key_identifier)
         key = Key.query.filter_by(id=key_id, project_id=project_id).first()
@@ -43,7 +43,7 @@ def find_key_by_id_or_unique_id(key_identifier, project_id):
     except (ValueError, TypeError):
         pass
     
-    # Try as unique_id (string)
+
     key = Key.query.filter_by(unique_id=str(key_identifier), project_id=project_id).first()
     return key
 
@@ -53,7 +53,7 @@ def find_key_by_id_or_unique_id(key_identifier, project_id):
 @require_project_isolation
 def get_keys(current_user, project_id=None):
     """Get list of keys with filtering and pagination"""
-    # Get services once at the start (DI pattern)
+
     key_crud_service = get_service('key_crud_service')
     
     import logging
@@ -67,7 +67,7 @@ def get_keys(current_user, project_id=None):
 
     my_keys = request.args.get("my_keys", "false").lower() == "true"
     
-    # Get status filter, but ignore if it's "all"
+
     status_arg = request.args.get("status")
     status_filter = None if (status_arg is None or status_arg.lower() == "all") else status_arg
     
@@ -98,7 +98,7 @@ def get_keys(current_user, project_id=None):
         keys = []
         total_count = 0
     else:
-        # Convert KeyListResponse to legacy format
+
         keys = [key.model_dump() for key in result.keys]
         total_count = result.total
     
@@ -110,13 +110,13 @@ def get_keys(current_user, project_id=None):
     page = filters["page"]
     per_page = filters["per_page"]
     
-    # Ensure pages is at least 1 even when total is 0 (for proper pagination UI)
+
     if total_count == 0:
         pages = 0
     else:
         pages = (total_count + per_page - 1) // per_page
 
-    # Ensure keys is always a list
+
     if keys is None:
         keys = []
 
@@ -140,7 +140,7 @@ def create_key(current_user, project_id=None, validated_data=None):
     logger = logging.getLogger(__name__)
     logger.info(f"🔑 Create key request - Origin: {request.headers.get('Origin')}")
 
-    # Get services once at the start (DI pattern)
+
     activity_service = get_service('activity_service')
     key_crud_service = get_service('key_crud_service')
     product_service = get_service('product_service')
@@ -165,7 +165,7 @@ def create_key(current_user, project_id=None, validated_data=None):
 
     product = None
     if validated_data.get("product_id"):
-        # Exceptions are handled by global handler
+
         product = product_service.get_product(current_user, validated_data["product_id"])
 
         is_access_code = product.login_type == "classic_login"
@@ -186,7 +186,7 @@ def create_key(current_user, project_id=None, validated_data=None):
     if not product:
         return jsonify({"error": "Product ID is required"}), 400
 
-    # Exceptions are handled by global handler
+
     key = key_crud_service.create_key(current_user, key_data)
 
     logger.info(f"🔑 Key {key.id} created and committed")
@@ -246,7 +246,7 @@ def create_custom_key(current_user, project_id=None, validated_data=None):
     logger = logging.getLogger(__name__)
     logger.info(f"🔑 Create custom key request - Origin: {request.headers.get('Origin')}")
 
-    # Get services once at the start (DI pattern)
+
     activity_service = get_service('activity_service')
     balance_service = get_service('balance_service')
     price_calculation_service = get_service('price_calculation_service')
@@ -267,34 +267,34 @@ def create_custom_key(current_user, project_id=None, validated_data=None):
     duration_hours = validated_data["duration_hours"]
     max_devices = validated_data["max_devices"]
 
-    # Check if key already exists
+
     if current_user.project_id:
         existing_key = Key.query.filter_by(key=custom_key, project_id=current_user.project_id).first()
     else:
-        # For owners without project_id, check across all projects
+
         existing_key = Key.query.filter_by(key=custom_key).first()
     
     if existing_key:
         return jsonify({"error": "Key already exists"}), 400
 
-    # Get product - exceptions are handled by global handler
+
     product = product_service.get_product(current_user, product_id)
 
     is_access_code = product.login_type == "classic_login"
     generation_type = "access_code" if is_access_code else "license_key"
 
-    # Calculate expiration
+
     expires_at = None
     if duration_hours:
         expires_at = datetime.utcnow() + timedelta(hours=duration_hours)
 
-    # Determine project_id for the key
+
     key_project_id = current_user.project_id
     if not key_project_id and is_owner:
-        # For owners, use the product's project_id
+
         key_project_id = product.project_id
 
-    # Create the key (balance deduction happens before creation in try block)
+
     key_metadata = {
         "type": "custom",
         "generation_type": generation_type,
@@ -308,11 +308,11 @@ def create_custom_key(current_user, project_id=None, validated_data=None):
     }
 
     try:
-        # Deduct balance for custom key creation (except for admin/owner) - BEFORE creating the key
+
         is_admin = RBACManager.is_admin(current_user)
         
         if not is_owner and not is_admin and product and key_project_id:
-            # Get price calculation service
+
             
             key_price = price_calculation_service.calculate_key_price(
                 product_id=product.id,
@@ -321,21 +321,21 @@ def create_custom_key(current_user, project_id=None, validated_data=None):
             )
             
             if key_price > 0:
-                # Refresh user to get latest balance
+
                 db.session.refresh(current_user)
                 
-                # Check if user has sufficient balance
+
                 if current_user.token_balance < key_price:
                     return jsonify({"error": f"Insufficient balance. Required: {key_price} tokens, Available: {current_user.token_balance} tokens"}), 400
                 
-                # Deduct balance without committing (we're inside a transaction)
+
                 success, error_msg, _ = balance_service.deduct_balance(
                     current_user=current_user,
                     target_user_id=current_user.id,
                     amount=key_price,
                     reason=f"Custom key creation: {duration_hours} hours for product {product.name}",
                     ip_address=request.remote_addr,
-                    commit=False  # Don't commit, we're inside a transaction
+                    commit=False
                 )
                 
                 if not success:
@@ -414,7 +414,7 @@ def update_key(key_id, current_user, project_id=None, validated_data=None):
     """Update a key"""
 
     if not current_user:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         key_crud_service = get_service('key_crud_service')
         return jsonify({"error": "User not found"}), 404
@@ -432,7 +432,7 @@ def update_key(key_id, current_user, project_id=None, validated_data=None):
     if not can_manage_key(current_user, key, "keys.edit"):
         return jsonify({"error": "You do not have permission to edit this key"}), 403
 
-    # validated_data is already a dict from the validation middleware
+
     update_data = {k: v for k, v in validated_data.items() if v is not None}
 
     key, error = key_crud_service.update_key(current_user, key.id, update_data)
@@ -457,7 +457,7 @@ def delete_key(key_id, current_user, project_id=None):
     """Delete a key"""
 
     if not current_user:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         key_crud_service = get_service('key_crud_service')
         return jsonify({"error": "User not found"}), 404
@@ -500,7 +500,7 @@ def delete_key(key_id, current_user, project_id=None):
 def reset_key(key_id, current_user, project_id=None):
     """Reset a key"""
     if not current_user:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         return jsonify({"error": "User not found"}), 404
 
@@ -516,7 +516,7 @@ def reset_key(key_id, current_user, project_id=None):
         return jsonify({"error": "You do not have permission to reset this key"}), 403
 
     try:
-        # Deduct balance for reset (except for admin/owner)
+
         from ...utils.rbac_utils import RBACManager
         
         is_owner = RBACManager.is_owner(current_user)
@@ -529,11 +529,11 @@ def reset_key(key_id, current_user, project_id=None):
             )
             
             if reset_price > 0:
-                # Check if user has sufficient balance
+
                 if current_user.token_balance < reset_price:
                     return jsonify({"error": f"Insufficient balance. Required: {reset_price} tokens, Available: {current_user.token_balance} tokens"}), 400
                 
-                # Deduct balance
+
                 success, error_msg, _ = balance_service.deduct_balance(
                     current_user=current_user,
                     target_user_id=current_user.id,
@@ -572,7 +572,7 @@ def reset_key(key_id, current_user, project_id=None):
 def pause_key(key_id, current_user, project_id=None):
     """Pause a key"""
     if not current_user:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         return jsonify({"error": "User not found"}), 404
 
@@ -604,9 +604,9 @@ def pause_key(key_id, current_user, project_id=None):
             current_user, "pause_key", details=f"Paused key: {key.key[:8]}...", ip=request.remote_addr
         )
 
-        # Return updated key data for immediate UI update
-        is_expired = False  # Paused keys are not expired
-        is_active = False  # Paused keys are not active
+
+        is_expired = False
+        is_active = False
         
         return jsonify({
             "message": "Key paused successfully",
@@ -629,7 +629,7 @@ def pause_key(key_id, current_user, project_id=None):
 def resume_key(key_id, current_user, project_id=None):
     """Resume a key"""
     if not current_user:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         return jsonify({"error": "User not found"}), 404
 
@@ -661,7 +661,7 @@ def resume_key(key_id, current_user, project_id=None):
             current_user, "resume_key", details=f"Resumed key: {key.key[:8]}...", ip=request.remote_addr
         )
 
-        # Return updated key data for immediate UI update
+
         is_expired = key.status == 1 and key.expires_at and key.expires_at <= datetime.utcnow()
         is_active = key.status == 1 and (not key.expires_at or not is_expired)
         
@@ -687,7 +687,7 @@ def resume_key(key_id, current_user, project_id=None):
 def extend_key(key_id, current_user, project_id=None, validated_data=None):
     """Extend a key"""
     if not current_user:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         return jsonify({"error": "User not found"}), 404
 
@@ -735,7 +735,7 @@ def extend_key(key_id, current_user, project_id=None, validated_data=None):
 def duplicate_key(key_id, current_user, project_id=None):
     """Duplicate a key"""
     if not current_user:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         key_generation_service = get_service('key_generation_service')
         return jsonify({"error": "User not found"}), 404
@@ -806,7 +806,7 @@ def duplicate_key(key_id, current_user, project_id=None):
 def move_key(key_id, current_user, project_id=None, validated_data=None):
     """Move a key to another user"""
     if not current_user:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         return jsonify({"error": "User not found"}), 404
 
@@ -852,7 +852,7 @@ def move_key(key_id, current_user, project_id=None, validated_data=None):
 def block_key(key_id, current_user, project_id=None):
     """Block a key"""
     if not current_user:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         return jsonify({"error": "User not found"}), 404
 
@@ -871,9 +871,9 @@ def block_key(key_id, current_user, project_id=None):
         old_status = key.status
         logger = logging.getLogger(__name__)
         
-        # If key is already blocked (status = 2), unblock it instead
+
         if old_status == 2:
-            key.status = 1  # Unblock: set to active
+            key.status = 1
             
             from ...utils.key_counters import update_user_key_counters_on_status_change
             update_user_key_counters_on_status_change(key.user_id, old_status, 1)
@@ -888,7 +888,7 @@ def block_key(key_id, current_user, project_id=None):
                 current_user, "unblock_key", details=f"Unblocked key: {key.key[:8]}...", ip=request.remote_addr
             )
             
-            # Return updated key data for immediate UI update
+
             is_expired = key.status == 1 and key.expires_at and key.expires_at <= datetime.utcnow()
             is_active = key.status == 1 and (not key.expires_at or not is_expired)
             
@@ -903,7 +903,7 @@ def block_key(key_id, current_user, project_id=None):
                 }
             })
         else:
-            # Block the key
+
             key.status = 2
 
             from ...utils.key_counters import update_user_key_counters_on_status_change
@@ -919,10 +919,10 @@ def block_key(key_id, current_user, project_id=None):
                 current_user, "block_key", details=f"Blocked key: {key.key[:8]}...", ip=request.remote_addr
             )
 
-            # Return updated key data for immediate UI update
-            # Blocked keys (status = 2) are never expired, regardless of expires_at
-            is_expired = False  # Blocked keys are not expired
-            is_active = False  # Blocked keys are not active
+
+
+            is_expired = False
+            is_active = False
             
             return jsonify({
                 "message": "Key blocked successfully",
@@ -946,7 +946,7 @@ def block_key(key_id, current_user, project_id=None):
 def unblock_key(key_id, current_user, project_id=None):
     """Unblock a key"""
     if not current_user:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         return jsonify({"error": "User not found"}), 404
 
@@ -978,7 +978,7 @@ def unblock_key(key_id, current_user, project_id=None):
             current_user, "unblock_key", details=f"Unblocked key: {key.key[:8]}...", ip=request.remote_addr
         )
 
-        # Return updated key data for immediate UI update
+
         is_expired = key.status == 1 and key.expires_at and key.expires_at <= datetime.utcnow()
         is_active = key.status == 1 and (not key.expires_at or not is_expired)
         
@@ -1003,7 +1003,7 @@ def unblock_key(key_id, current_user, project_id=None):
 def archive_key(key_id, current_user, project_id=None):
     """Archive a key"""
     if not current_user:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         return jsonify({"error": "User not found"}), 404
 
@@ -1045,7 +1045,7 @@ def archive_key(key_id, current_user, project_id=None):
 def restore_key(key_id, current_user, project_id=None):
     """Restore an archived key"""
     if not current_user:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         return jsonify({"error": "User not found"}), 404
 
@@ -1087,7 +1087,7 @@ def restore_key(key_id, current_user, project_id=None):
 def export_key(key_id, current_user, project_id=None):
     """Export a single key"""
     if not current_user:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         return jsonify({"error": "User not found"}), 404
 

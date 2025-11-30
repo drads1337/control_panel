@@ -45,14 +45,14 @@ def serialize_response(schema: Type[BaseModel], many: bool = False):
         def wrapper(*args, **kwargs):
             result = func(*args, **kwargs)
 
-            # Responses and streaming objects should pass through untouched.
+
             if isinstance(result, Response):
                 return result
 
             data, status_code = _extract_data_and_status(result)
             status_code = status_code or 200
 
-            # Allow existing JSON/error payloads to pass through.
+
             if isinstance(data, Response):
                 return data
             if isinstance(data, dict) and (

@@ -33,8 +33,8 @@ from ..schemas.user import UserPrivateResponse
 
 profile_bp = Blueprint("profile", __name__)
 
-# Use absolute path for upload folder to ensure consistency
-# Get project root (parent of backend directory)
+
+
 _project_root = Path(__file__).parent.parent.parent
 UPLOAD_FOLDER = os.path.join(_project_root, "uploads", "avatars")
 ALLOWED_EXTENSIONS = Config.ALLOWED_AVATAR_EXTENSIONS
@@ -52,12 +52,12 @@ def process_image(file_stream, crop_data=None):
     try:
         image = Image.open(file_stream)
         
-        # Convert to RGBA for transparency support
+
         if image.mode != "RGBA":
             image = image.convert("RGBA")
 
-        # Apply crop if crop_data is provided (for backward compatibility)
-        # Note: Frontend now sends pre-cropped images, so this is rarely used
+
+
         if crop_data:
             try:
                 x = float(crop_data.get("x", 0))
@@ -66,7 +66,7 @@ def process_image(file_stream, crop_data=None):
                 height = float(crop_data.get("height", image.height))
 
                 if width > 0 and height > 0:
-                    # Clamp values to image bounds
+
                     x = max(0, min(x, image.width))
                     y = max(0, min(y, image.height))
                     width = max(1, min(width, image.width - x))
@@ -75,30 +75,30 @@ def process_image(file_stream, crop_data=None):
             except Exception as e:
                 logging.debug(f"Error during cropping: {str(e)}")
 
-        # Get current dimensions
+
         width, height = image.size
         
-        # Target size is square (MAX_SIZE[0] x MAX_SIZE[0])
-        target_size = MAX_SIZE[0]  # 300x300
+
+        target_size = MAX_SIZE[0]
         
-        # Resize to target size
-        # Frontend sends square images (512x512), so direct resize is safe
-        # For non-square images, we scale to fit and crop to center square
+
+
+
         if width != target_size or height != target_size:
-            # Check if image is already square
+
             if width == height:
-                # Direct resize for square images (most common case from frontend)
+
                 image = image.resize((target_size, target_size), Image.Resampling.LANCZOS)
             else:
-                # For non-square images: scale to fit, then crop to center square
+
                 scale = min(target_size / width, target_size / height)
                 new_width = int(width * scale)
                 new_height = int(height * scale)
                 
-                # Resize with high-quality resampling
+
                 image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
                 
-                # Crop to center square if needed
+
                 if new_width != target_size or new_height != target_size:
                     left = max(0, (new_width - target_size) // 2)
                     top = max(0, (new_height - target_size) // 2)
@@ -106,15 +106,15 @@ def process_image(file_stream, crop_data=None):
                     bottom = min(new_height, top + target_size)
                     image = image.crop((left, top, right, bottom))
                     
-                    # If crop resulted in smaller image, resize to target
+
                     if image.size[0] != target_size or image.size[1] != target_size:
                         image = image.resize((target_size, target_size), Image.Resampling.LANCZOS)
 
-        # Create new image with transparency support
+
         new_image = Image.new("RGBA", (target_size, target_size), (0, 0, 0, 0))
         new_image.paste(image, (0, 0), image)
 
-        # Save to buffer with optimization
+
         buffer = io.BytesIO()
         new_image.save(buffer, format="PNG", optimize=True)
         buffer.seek(0)
@@ -150,8 +150,8 @@ def get_me(current_user):
 
     user_permissions = []
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         rbac_service = get_service('rbac_service')
         permissions_set = rbac_service.get_user_permissions(user.id)
         user_permissions = list(permissions_set) if permissions_set else []
@@ -183,12 +183,12 @@ def update_profile(current_user):
     data = request.get_json()
 
     if not data:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         activity_service = get_service('activity_service')
         return jsonify({"error": "No data provided"}), 400
 
-    # Use DI container to get service
+
     user_profile_service = get_user_profile_service()
     success, error = user_profile_service.update_user_profile(user, data)
 
@@ -260,7 +260,7 @@ def change_password(current_user):
     if not is_valid:
         return jsonify({"error": error_msg}), 400
 
-    # Use DI container to get service
+
     user_profile_service = get_user_profile_service()
     success, error = user_profile_service.change_password(user, current_password, new_password)
 
@@ -288,8 +288,8 @@ def upload_avatar(current_user):
     user = current_user
 
     if "avatar" not in request.files:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         file_service = get_service('file_service')
         return jsonify({"error": "No file provided"}), 400
 
@@ -309,10 +309,10 @@ def upload_avatar(current_user):
         return jsonify({"error": f"File too large. Maximum size is {max_size_mb}MB"}), 400
 
     try:
-        # SECURITY: Validate file signature (magic bytes) before processing
-        # This prevents file type spoofing attacks (e.g., executable files with image extensions)
+
+
         
-        # Save file temporarily to validate signature
+
         import tempfile
         with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as temp_file:
             file.seek(0)
@@ -320,7 +320,7 @@ def upload_avatar(current_user):
             temp_file_path = temp_file.name
         
         try:
-            # Validate file signature - expect image extensions
+
             expected_extensions = [ext.lstrip('.').lower() for ext in ALLOWED_EXTENSIONS]
             is_valid, validation_error = file_service.validate_file_signature(temp_file_path, expected_extensions)
             
@@ -328,14 +328,14 @@ def upload_avatar(current_user):
                 os.unlink(temp_file_path)
                 return jsonify({"error": validation_error or "Invalid file type: file signature validation failed"}), 400
             
-            # Reset file stream for processing
+
             file.seek(0)
         except Exception as validation_exception:
             os.unlink(temp_file_path)
             logging.error(f"File signature validation error: {str(validation_exception)}")
             return jsonify({"error": "File validation failed"}), 400
         finally:
-            # Clean up temp file after validation
+
             try:
                 if os.path.exists(temp_file_path):
                     os.unlink(temp_file_path)
@@ -355,7 +355,7 @@ def upload_avatar(current_user):
         filename = f"{user.id}_{uuid.uuid4().hex}.png"
         filepath = os.path.join(UPLOAD_FOLDER, filename)
 
-        # Ensure upload directory exists
+
         os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
         with open(filepath, "wb") as f:

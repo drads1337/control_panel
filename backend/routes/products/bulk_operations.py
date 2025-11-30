@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 def bulk_update_product_status(validated_data=None):
     """Bulk update product status"""
     try:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         product_service = get_service('product_service')
         user_id = get_jwt_identity()
@@ -115,7 +115,7 @@ def bulk_update_product_status(validated_data=None):
 def bulk_delete_products(validated_data=None):
     """Bulk delete products"""
     try:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         product_service = get_service('product_service')
         user_id = get_jwt_identity()

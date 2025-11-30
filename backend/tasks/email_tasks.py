@@ -101,13 +101,13 @@ def _send_password_reset_email_impl(
         logger.error(f"Error sending password reset email: {str(e)}")
         raise
 
-# Register as Celery task if available, otherwise create a mock task object
+
 if celery_app:
     @celery_app.task(bind=True, name="backend.tasks.email_tasks.send_password_reset_email")
     def send_password_reset_email(self, to_email: str, reset_token: str, user_id: int):
         return _send_password_reset_email_impl(to_email, reset_token, user_id)
 else:
-    # Fallback: create a mock task object that can be called with .delay() or directly
+
     class MockTask:
         def delay(self, *args, **kwargs):
             return _send_password_reset_email_impl(*args, **kwargs)

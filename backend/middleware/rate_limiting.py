@@ -114,7 +114,7 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10, fail_cl
             from ..services.connect import ResponseBuilder, SecurityChecker
             from ..utils.redis_client import get_redis_client
 
-            # Get services once at the start (DI pattern)
+
             
             security_checker = SecurityChecker()
             response_builder = ResponseBuilder()
@@ -124,7 +124,7 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10, fail_cl
             user_key = req_json.get("user_key") or ""
 
             minute_key = f"rl_min:{user_key}:{ip}"
-            # Get service through app context (DI pattern)
+
             from flask import current_app
             if not hasattr(current_app, 'service_container'):
                 raise RuntimeError(
@@ -135,12 +135,12 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10, fail_cl
             burst_key = f"rl_burst:{user_key}:{ip}"
 
             try:
-                # Use persistent Redis instance for rate limiting (must not lose data)
-                redis_client = get_redis_client()  # Already uses persistent instance by default
+
+                redis_client = get_redis_client()
                 
-                # Check if Redis is available
+
                 if not redis_client.is_available():
-                    # Redis is marked as unavailable - raise exception to trigger fail-close
+
                     raise ConnectionError("Redis is unavailable for rate limiting")
 
                 burst_count = redis_client.incr(burst_key)
@@ -159,19 +159,19 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10, fail_cl
                 if minute_count == 1:
                     redis_client.expire(minute_key, 60)
 
-                # NOTE: Removed blocking time.sleep() for progressive delays
-                # Progressive delays block worker threads and degrade performance under load.
-                # Rate limiting should work by returning 429 errors, not by blocking requests.
-                # If progressive delays are needed, they should be implemented asynchronously
-                # or using non-blocking mechanisms (e.g., gevent, async/await with proper event loop).
+
+
+
+
+
 
                 if minute_count > rate_limit:
                     security_checker.log_suspicious_activity(ip, "RATE_LIMIT", user_key)
                     
-                    # Update trigger count for Rate Limiting Protection rule
+
                     try:
                         from ...models.keys import Key
-                        # Try to get project_id from user_key if available
+
                         project_id = None
                         if user_key:
                             key_obj = Key.query.filter_by(key=user_key).first()
@@ -189,8 +189,8 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10, fail_cl
 
                 return None
             except Exception as redis_error:
-                # Redis operation failed - re-raise to be handled by wrapper
-                # This will trigger fail-close behavior for security-critical endpoints
+
+
                 logger.error(f"Redis rate limiting error: {redis_error}")
                 raise
 
@@ -198,7 +198,7 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10, fail_cl
             @wraps(func)
             async def async_wrapper(*args, **kwargs):
                 try:
-                    # Run rate limit check in thread pool
+
                     rate_limit_result = await asyncio.to_thread(check_rate_limit)
                     if rate_limit_result:
                         return rate_limit_result
@@ -211,8 +211,8 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10, fail_cl
 
                     logger.error(f"Rate limiting traceback: {traceback.format_exc()}")
 
-                    # SECURITY: Fail-close for security-critical endpoints (auth, connect)
-                    # If Redis fails, block the request instead of allowing it
+
+
                     if fail_close:
                         from ...services.connect import ResponseBuilder
                         response_builder = ResponseBuilder()
@@ -220,9 +220,9 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10, fail_cl
                             "Rate limiting service unavailable. Request blocked for security."
                         )
                         encrypted_response = response_builder.encrypt_response(error_response, True)
-                        return encrypted_response, 503  # Service Unavailable
+                        return encrypted_response, 503
                     
-                    # Fail-open for non-critical endpoints
+
                     return await func(*args, **kwargs)
 
             return async_wrapper
@@ -242,8 +242,8 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10, fail_cl
 
                     logger.error(f"Rate limiting traceback: {traceback.format_exc()}")
 
-                    # SECURITY: Fail-close for security-critical endpoints (auth, connect)
-                    # If Redis fails, block the request instead of allowing it
+
+
                     if fail_close:
                         from ...services.connect import ResponseBuilder
                         response_builder = ResponseBuilder()
@@ -251,9 +251,9 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10, fail_cl
                             "Rate limiting service unavailable. Request blocked for security."
                         )
                         encrypted_response = response_builder.encrypt_response(error_response, True)
-                        return encrypted_response, 503  # Service Unavailable
+                        return encrypted_response, 503
                     
-                    # Fail-open for non-critical endpoints
+
                     return func(*args, **kwargs)
 
             return sync_wrapper
@@ -287,7 +287,7 @@ def require_rate_limit_fail_close(func):
     
     @wraps(func)
     def wrapper(*args, **kwargs):
-        # Check if Redis is available before allowing Flask-Limiter to process
+
         try:
             redis_wrapper = get_redis_wrapper()
             if not redis_wrapper.is_available():
@@ -298,9 +298,9 @@ def require_rate_limit_fail_close(func):
                 return jsonify({
                     "error": "Rate limiting service unavailable",
                     "message": "Request blocked for security. Please try again later."
-                }), 503  # Service Unavailable
+                }), 503
         except Exception as e:
-            # If we can't check Redis, fail-close (block the request)
+
             logger.error(
                 f"SECURITY: Cannot verify Redis availability for rate limiting on {request.endpoint}. "
                 f"Blocking request from {request.remote_addr}: {e}"
@@ -308,9 +308,9 @@ def require_rate_limit_fail_close(func):
             return jsonify({
                 "error": "Rate limiting service unavailable",
                 "message": "Request blocked for security. Please try again later."
-            }), 503  # Service Unavailable
+            }), 503
         
-        # Redis is available, proceed with normal rate limiting
+
         return func(*args, **kwargs)
     
     return wrapper

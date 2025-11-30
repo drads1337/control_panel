@@ -47,14 +47,14 @@ def find_user_by_id_or_unique_id(user_identifier, project_id=None):
     Returns:
         User object or None if not found
     """
-    # Try as integer id (primary key) first
+
     if isinstance(user_identifier, int) or (isinstance(user_identifier, str) and user_identifier.isdigit()):
         user = User.query.get(int(user_identifier))
         if user:
             if project_id is None or user.project_id == project_id:
                 return user
     
-    # Try as unique_id (string)
+
     user = User.query.filter_by(unique_id=str(user_identifier)).first()
     if user:
         if project_id is None or user.project_id == project_id:
@@ -76,7 +76,7 @@ def get_users(current_user, project_id=None):
 
     try:
 
-        # project_id should be passed via kwargs from middleware
+
         if project_id is None:
             project_id = request.args.get("project_id", type=int)
 
@@ -86,7 +86,7 @@ def get_users(current_user, project_id=None):
         roles_filter = request.args.getlist("roles")
         search = request.args.get("search")
 
-        # Use DI container to get service
+
         user_crud_service = get_user_crud_service()
         result = user_crud_service.get_users_with_key_counts(
             current_user=current_user,
@@ -119,14 +119,14 @@ def add_user(current_user, validated_data=None, project_id=None):
     logger = logging.getLogger(__name__)
 
     if not validated_data:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         return jsonify({"error": "No data provided"}), 400
 
     try:
-        # Convert Pydantic model to dict for helper function
+
         data = validated_data.model_dump(exclude_none=True) if hasattr(validated_data, 'model_dump') else validated_data
-        # Use DI helper function - exceptions are handled by global handler
+
         user = create_user_with_roles_and_products(current_user, data, project_id=project_id)
 
         try:
@@ -154,12 +154,12 @@ def add_user(current_user, validated_data=None, project_id=None):
             201,
         )
     except Exception as e:
-        # ServiceError and subclasses are handled by global handler
-        # This catch is for unexpected exceptions only
+
+
         logger.error(f"Unexpected error in add_user endpoint: {str(e)}", exc_info=True)
         import traceback
         logger.error(f"Traceback: {traceback.format_exc()}")
-        raise  # Re-raise to let global handler process it
+        raise
 
 @management_bp.route("/<int:user_id>", methods=["PUT"])
 @jwt_required()
@@ -176,13 +176,13 @@ def update_user(user_id, current_user, validated_data=None):
 
 
     if not validated_data:
-        # Get services once at the start (DI pattern)
+
         rbac_service = get_service('rbac_service')
         user_profile_service = get_service('user_profile_service')
         return jsonify({"error": "No data provided"}), 400
 
     try:
-        # Convert Pydantic model to dict for service
+
         data = validated_data.model_dump(exclude_none=True) if hasattr(validated_data, 'model_dump') else validated_data
 
         target_user = User.query.get(user_id)
@@ -197,7 +197,7 @@ def update_user(user_id, current_user, validated_data=None):
             if current_user.project_id != target_user.project_id:
                 return jsonify({"error": "Access denied"}), 403
         else:
-            # project_id should be passed via kwargs from middleware
+
             if project_id is None:
                 project_id = current_user.project_id
             if project_id and target_user.project_id != project_id:
@@ -220,13 +220,13 @@ def update_user(user_id, current_user, validated_data=None):
         keys_count = target_user.total_keys or 0
         active_keys = target_user.active_keys or 0
 
-        # Set dynamic attributes for schema validation
+
         setattr(target_user, "role", role_names[0] if role_names else None)
         setattr(target_user, "roles", role_names)
         setattr(target_user, "keys_count", keys_count)
         setattr(target_user, "active_keys", active_keys)
         setattr(target_user, "is_admin", RBACManager.is_admin(target_user))
-        setattr(target_user, "permissions", [])  # Can be populated if needed
+        setattr(target_user, "permissions", [])
         setattr(target_user, "needs_project_assignment", False)
 
         try:
@@ -255,17 +255,17 @@ def update_user(user_id, current_user, validated_data=None):
 def delete_user(user_id, current_user, project_id=None):
     """Delete a user safely"""
     
-    # Find user by id or unique_id
+
     target_user = find_user_by_id_or_unique_id(user_id, project_id)
     if not target_user:
         return jsonify({"error": "User not found"}), 404
 
-    # Use DI container to get service
+
     user_crud_service = get_user_crud_service()
     success, error = user_crud_service.delete_user_safely(current_user, target_user.id, project_id=project_id)
 
     if not success:
-        # Return 404 for not found, 403 for access denied, 400 for other errors
+
         if "not found" in error.lower():
             return jsonify({"error": error}), 404
         elif "access denied" in error.lower() or "cannot delete" in error.lower():
@@ -297,12 +297,12 @@ def bulk_action(current_user, project_id=None, validated_data=None):
         current_user.id, "employees.view"
     ) or rbac_service.check_permission(current_user.id, "clients.view")
     if not can_view_all:
-        # Get services once at the start (DI pattern)
+
         rbac_service = get_service('rbac_service')
         query = query.filter_by(project_id=current_user.project_id)
     else:
 
-        # project_id should be passed via kwargs from middleware
+
         if project_id:
             query = query.filter_by(project_id=project_id)
 
@@ -348,7 +348,7 @@ def bulk_action(current_user, project_id=None, validated_data=None):
             return jsonify({"error": f"Failed to delete users: {str(e)}"}), 500
 
     elif action == "change_role":
-        # new_role is already validated in schema
+
         if new_role not in RolePermissions.ASSIGNABLE_ROLES:
             return (
                 jsonify(
@@ -510,7 +510,7 @@ def invite_user(current_user, validated_data=None):
     ) or rbac_service.check_permission(current_user.id, "clients.view")
     if not can_view_all:
 
-        # Get services once at the start (DI pattern)
+
         rbac_service = get_service('rbac_service')
         allowed_roles = [r for r in allowed_roles if r not in RolePermissions.ADMIN_ROLES]
 

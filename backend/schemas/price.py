@@ -23,7 +23,7 @@ class ProductPricesUpdateSchema(BaseSchema):
         if len(v) == 0:
             raise ValueError("At least one price must be provided")
         
-        # Validate price values
+
         for period, price_value in v.items():
             if not isinstance(price_value, (int, float)):
                 raise ValueError(f"Price for period '{period}' must be a number")
@@ -46,7 +46,7 @@ class CustomPriceCreateSchema(BaseSchema):
         """Validate and normalize period name"""
         if not v or not v.strip():
             raise ValueError("Period name cannot be empty")
-        # Ensure it starts with "custom_" prefix
+
         name = v.strip()
         if not name.startswith("custom_"):
             name = f"custom_{name}"

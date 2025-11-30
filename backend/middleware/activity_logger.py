@@ -239,7 +239,7 @@ class ActivityLoggerMiddleware:
                         )
 
                         if not self._activity_service:
-                            # ActivityService is required - raise error if not injected
+
                             from ...utils.service_exceptions import ServiceError
                             raise ServiceError(
                                 "ActivityService dependency not injected",

@@ -92,7 +92,7 @@ def check_redis_security():
             f"Failed to run Redis security check: {e}",
             component="redis_security"
         )
-        return True  # Don't block startup if check fails
+        return True
 
 def setup_logging(app: Flask) -> None:
     """Configure application logging"""
@@ -111,10 +111,10 @@ def setup_logging(app: Flask) -> None:
 
 def setup_redis_and_limiter(app: Flask) -> None:
     """Setup Redis connection and rate limiting"""
-    # Initialize Redis extension (uses persistent instance by default)
+
     redis_ext.init_app(app)
 
-    # Use persistent Redis instance for rate limiting (must not lose data)
+
     redis_password_part = f":{Config.REDIS_PERSISTENT_PASSWORD}@" if Config.REDIS_PERSISTENT_PASSWORD else ""
     storage_uri = (
         f"redis://{redis_password_part}{Config.REDIS_PERSISTENT_HOST}:"
@@ -151,9 +151,9 @@ def setup_redis_and_limiter(app: Flask) -> None:
 
     limiter.limit(rate_limits["connect"])(connect_bp)
     
-    # SECURITY: Add fail-close behavior for auth endpoints
-    # Flask-Limiter uses fail-open by default, but auth endpoints are critical
-    # We add a before_request hook to check Redis availability
+
+
+
     @auth_bp.before_request
     def check_redis_for_auth_rate_limiting():
         """Ensure Redis is available for rate limiting on auth endpoints"""
@@ -163,7 +163,7 @@ def setup_redis_and_limiter(app: Flask) -> None:
         
         logger = logging.getLogger(__name__)
         
-        # Skip for OPTIONS requests
+
         if request.method == "OPTIONS":
             return None
         
@@ -177,9 +177,9 @@ def setup_redis_and_limiter(app: Flask) -> None:
                 return jsonify({
                     "error": "Rate limiting service unavailable",
                     "message": "Request blocked for security. Please try again later."
-                }), 503  # Service Unavailable
+                }), 503
         except Exception as e:
-            # If we can't check Redis, fail-close (block the request)
+
             logger.error(
                 f"SECURITY: Cannot verify Redis availability for auth rate limiting on {request.endpoint}. "
                 f"Blocking request from {request.remote_addr}: {e}"
@@ -187,9 +187,9 @@ def setup_redis_and_limiter(app: Flask) -> None:
             return jsonify({
                 "error": "Rate limiting service unavailable",
                 "message": "Request blocked for security. Please try again later."
-            }), 503  # Service Unavailable
+            }), 503
         
-        return None  # Continue with request
+        return None
     
     limiter.limit(rate_limits["auth"])(auth_bp)
     limiter.limit(rate_limits["keys"])(keys_bp)
@@ -297,12 +297,12 @@ def create_app() -> Flask:
     jwt.init_app(app)
     redis_ext.init_app(app)
     
-    # Initialize automatic query isolation for project-based data separation
-    # This must be done after db.init_app() to ensure SQLAlchemy is ready
+
+
     init_query_isolation(app)
     
-    # Initialize PostgreSQL Row Level Security (RLS) support
-    # This provides database-level security in addition to application-level filtering
+
+
     init_postgresql_rls(app)
 
     app.config["JWT_SECRET_KEY"] = Config.JWT_SECRET_KEY
@@ -326,7 +326,7 @@ def create_app() -> Flask:
     setup_cors(app)
     setup_redis_and_limiter(app)
     
-    # Setup security headers (defense-in-depth, works even if nginx is bypassed)
+
     from ..config.security_headers import setup_security_headers
     setup_security_headers(app)
     
@@ -341,7 +341,7 @@ def create_app() -> Flask:
     setup_storage_and_monitoring(app)
     setup_migrations(app)
 
-    # Initialize service container for dependency injection
+
     from .service_container import init_services
     init_services(app)
     logger.info("Service container initialized")
@@ -351,7 +351,7 @@ def create_app() -> Flask:
     register_jwt_error_handlers(app)
     register_system_routes(app)
     
-    # Initialize Swagger documentation (only in non-production)
+
     if Config.FLASK_ENV != "production":
         try:
             swagger = init_swagger(app)
@@ -359,7 +359,7 @@ def create_app() -> Flask:
         except Exception as e:
             logger.warning(f"Failed to initialize Swagger: {e}. API documentation will not be available.")
 
-    # Initialize ActivityLoggerMiddleware with injected service
+
     from ..services.activity.activity_service import ActivityService
     activity_service = app.service_container.get('activity_service')
     ActivityLoggerMiddleware(app, activity_service=activity_service)

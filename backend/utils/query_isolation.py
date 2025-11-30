@@ -38,19 +38,19 @@ from sqlalchemy.orm.session import ORMExecuteState
 
 logger = logging.getLogger(__name__)
 
-# Models that should NEVER be filtered by project_id
-# These are system-level models that exist outside project scope
+
+
 SYSTEM_MODELS: Set[str] = {
-    "Project",  # Project itself
-    "User",  # Users can belong to projects but queries may need cross-project access
-    "SystemSettings",  # System-wide settings
-    "APIKey",  # System API keys
-    "SystemBackup",  # System backups
-    "ProjectInviteCode",  # Invite codes may need cross-project queries during creation
+    "Project",
+    "User",
+    "SystemSettings",
+    "APIKey",
+    "SystemBackup",
+    "ProjectInviteCode",
 }
 
-# Models that have project_id but may need special handling
-# These models will be filtered, but can be excluded if needed
+
+
 PROJECT_SCOPED_MODELS: Set[str] = {
     "Key",
     "Product",
@@ -103,14 +103,14 @@ def _get_model_from_statement(statement, execute_state=None):
         Model class or None if cannot be determined
     """
     try:
-        # Try to get from execute_state first (most reliable)
+
         if execute_state and hasattr(execute_state, "select_statement"):
             select_stmt = execute_state.select_statement
             if select_stmt is not None:
-                # Get from the select statement's FROM clause
+
                 if hasattr(select_stmt, "froms") and select_stmt.froms:
                     from_clause = select_stmt.froms[0]
-                    # Check various ways to get the class
+
                     if hasattr(from_clause, "entity_namespace"):
                         return from_clause.entity_namespace
                     elif hasattr(from_clause, "class_"):
@@ -118,25 +118,25 @@ def _get_model_from_statement(statement, execute_state=None):
                     elif hasattr(from_clause, "__entity_namespace__"):
                         return from_clause.__entity_namespace__
         
-        # For Select statements
+
         if isinstance(statement, select):
-            # Get the FROM clause
+
             if hasattr(statement, "froms") and statement.froms:
                 from_clause = statement.froms[0]
-                # Check if it's a Table or mapped class
+
                 if hasattr(from_clause, "entity_namespace"):
                     return from_clause.entity_namespace
                 elif hasattr(from_clause, "class_"):
                     return from_clause.class_
                 elif hasattr(from_clause, "__entity_namespace__"):
                     return from_clause.__entity_namespace__
-                # Try to get from mapper
+
                 elif hasattr(from_clause, "mapper"):
                     mapper = from_clause.mapper
                     if mapper and hasattr(mapper, "class_"):
                         return mapper.class_
         
-        # For Update/Delete statements
+
         if hasattr(statement, "table"):
             table = statement.table
             if hasattr(table, "entity_namespace"):
@@ -148,7 +148,7 @@ def _get_model_from_statement(statement, execute_state=None):
                 if mapper and hasattr(mapper, "class_"):
                     return mapper.class_
         
-        # Try to get from column_descriptions if available
+
         if hasattr(statement, "column_descriptions"):
             for desc in statement.column_descriptions:
                 entity = desc.get("entity")
@@ -171,12 +171,12 @@ def _has_project_id_in_statement(statement) -> bool:
         True if project_id filter appears to be present
     """
     try:
-        # Convert to string and check (simple heuristic)
+
         statement_str = str(statement)
         if "project_id" in statement_str.lower():
             return True
         
-        # Check WHERE clause if available
+
         if hasattr(statement, "whereclause") and statement.whereclause is not None:
             where_str = str(statement.whereclause)
             if "project_id" in where_str.lower():
@@ -203,12 +203,12 @@ def _apply_project_isolation_to_statement(statement, project_id: int, execute_st
         Modified statement with project_id filter
     """
     try:
-        # Get the model class
+
         model_class = _get_model_from_statement(statement, execute_state)
         if not model_class:
             return statement
         
-        # Skip system models that should never be filtered
+
         model_name = model_class.__name__
         if model_name in SYSTEM_MODELS:
             logger.debug(
@@ -216,9 +216,9 @@ def _apply_project_isolation_to_statement(statement, project_id: int, execute_st
             )
             return statement
         
-        # Check if model has project_id attribute
+
         if not hasattr(model_class, "project_id"):
-            # Log warning if model is expected to have project_id
+
             if model_name in PROJECT_SCOPED_MODELS:
                 logger.warning(
                     f"Model {model_name} is expected to have project_id but doesn't. "
@@ -226,30 +226,30 @@ def _apply_project_isolation_to_statement(statement, project_id: int, execute_st
                 )
             return statement
         
-        # Check if statement already has project_id filter
+
         if _has_project_id_in_statement(statement):
             logger.debug(
                 f"Statement for {model_class.__name__} already has project_id filter, skipping"
             )
             return statement
         
-        # Get the project_id column
+
         project_id_column = getattr(model_class, "project_id")
         
-        # Create filter condition
+
         filter_condition = project_id_column == project_id
         
-        # Apply filter based on statement type
-        # Use where() method which properly handles existing WHERE clauses
+
+
         if isinstance(statement, select):
-            # For SELECT statements, add to WHERE clause
-            # where() method automatically combines with existing WHERE using AND
+
+
             statement = statement.where(filter_condition)
         elif hasattr(statement, "where"):
-            # For UPDATE/DELETE statements that support where() method
+
             statement = statement.where(filter_condition)
         else:
-            # Fallback for statements without where() method
+
             logger.warning(
                 f"Cannot apply project isolation filter to statement type: {type(statement)}"
             )
@@ -260,7 +260,7 @@ def _apply_project_isolation_to_statement(statement, project_id: int, execute_st
             f"to statement for {model_class.__name__}"
         )
     except Exception as e:
-        # Log error but don't break the statement
+
         logger.error(
             f"Error applying project isolation filter: {e}",
             exc_info=True
@@ -282,11 +282,11 @@ def _do_orm_execute(execute_state: ORMExecuteState):
     Args:
         execute_state: ORMExecuteState object containing the statement to execute
     """
-    # Only process SELECT, UPDATE, DELETE statements
+
     if not execute_state.is_select and not execute_state.is_update and not execute_state.is_delete:
         return
     
-    # Check if we should apply isolation
+
     if not has_request_context():
         return
     
@@ -298,17 +298,17 @@ def _do_orm_execute(execute_state: ORMExecuteState):
         return
     
     try:
-        # Get the statement
+
         statement = execute_state.statement
         
-        # Apply project isolation filter
+
         modified_statement = _apply_project_isolation_to_statement(statement, project_id, execute_state)
         
-        # Update the statement in execute_state
+
         if modified_statement is not statement:
             execute_state.statement = modified_statement
     except Exception as e:
-        # Log but don't break the query
+
         logger.error(f"Error in query isolation do_orm_execute: {e}", exc_info=True)
 
 
@@ -322,8 +322,8 @@ def init_query_isolation(app) -> None:
     Args:
         app: Flask product instance
     """
-    # The event listener is registered at module level, so we just need to
-    # verify it's loaded and log the initialization
+
+
     logger.info(
         "Automatic query isolation initialized",
         component="query_isolation",
@@ -369,7 +369,7 @@ def disable_project_isolation(reason: Optional[str] = None, require_owner: bool 
     import traceback
     from flask import request
     
-    # SECURITY: Require explicit reason for audit trail
+
     if not reason:
         raise ValueError(
             "disable_project_isolation() requires 'reason' parameter for security audit. "
@@ -377,8 +377,8 @@ def disable_project_isolation(reason: Optional[str] = None, require_owner: bool 
         )
     
     if not has_request_context():
-        # Outside request context (e.g., CLI scripts, background tasks)
-        # Log but allow (may be legitimate for system operations)
+
+
         logger.warning(
             f"[SECURITY_AUDIT] disable_project_isolation() called outside request context. "
             f"Reason: {reason}"
@@ -386,7 +386,7 @@ def disable_project_isolation(reason: Optional[str] = None, require_owner: bool 
         yield
         return
     
-    # SECURITY: Check user permissions if require_owner is True
+
     if require_owner:
         try:
             from flask_jwt_extended import get_jwt_identity
@@ -408,12 +408,12 @@ def disable_project_isolation(reason: Optional[str] = None, require_owner: bool 
                             "This is a security-critical operation."
                         )
         except (ImportError, AttributeError, Exception) as e:
-            # If RBAC check fails, log warning but allow (may be in test/CLI context)
+
             logger.warning(
                 f"[SECURITY_AUDIT] Could not verify owner permission for disable_project_isolation: {e}"
             )
     
-    # Get current user info for audit
+
     user_info = "unknown"
     project_id = getattr(g, "project_id", None)
     try:
@@ -427,7 +427,7 @@ def disable_project_isolation(reason: Optional[str] = None, require_owner: bool 
     except Exception:
         pass
     
-    # SECURITY: Log entry into isolation disable
+
     logger.warning(
         f"[SECURITY_AUDIT] Project isolation DISABLED by {user_info}. "
         f"Reason: {reason}. "
@@ -445,7 +445,7 @@ def disable_project_isolation(reason: Optional[str] = None, require_owner: bool 
     try:
         yield
     finally:
-        # SECURITY: Log exit from isolation disable
+
         logger.warning(
             f"[SECURITY_AUDIT] Project isolation RE-ENABLED by {user_info}. "
             f"Reason was: {reason}"

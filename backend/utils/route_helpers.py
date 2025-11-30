@@ -34,15 +34,15 @@ def get_service_from_container(service_name: str) -> Any:
         RuntimeError: If service container is not initialized
         ValueError: If service is not registered
     """
-    # Cache services in Flask's g object per request
+
     if not hasattr(g, '_route_services'):
         g._route_services = {}
     
-    # Return cached service if available
+
     if service_name in g._route_services:
         return g._route_services[service_name]
     
-    # Get service from container
+
     if not hasattr(current_app, 'service_container'):
         raise RuntimeError(
             "Service container not initialized. "
@@ -51,13 +51,13 @@ def get_service_from_container(service_name: str) -> Any:
     
     service = current_app.service_container.get(service_name)
     
-    # Cache for this request
+
     g._route_services[service_name] = service
     
     return service
 
 
-# Convenience functions for commonly used services in routes
+
 def get_rbac_service() -> Any:
     """Get RBACService instance (cached per request)."""
     return get_service_from_container('rbac_service')

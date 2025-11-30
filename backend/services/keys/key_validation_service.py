@@ -43,13 +43,13 @@ class KeyValidationService:
         agent = None
 
         if key_data.get("product_id"):
-            # Use ServiceContainer to avoid circular imports
+
             if not self._product_service:
                 raise ServiceError(
                     "Product dependency not injected",
                     status_code=500
                 )
-            # get_product now raises exceptions instead of returning tuples
+
             try:
                 product = self._product_service.get_product(user, key_data["product_id"])
             except NotFoundError:

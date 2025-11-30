@@ -58,20 +58,20 @@ def set_project_context(project_id: Optional[int], session: Optional[Session] = 
     
     try:
         if project_id is not None:
-            # Set project context in PostgreSQL session
+
             session.execute(text("SELECT set_project_context(:project_id)"), {"project_id": project_id})
             logger.debug(f"PostgreSQL RLS context set to project_id={project_id}")
         else:
-            # Clear project context (for system/admin queries)
+
             session.execute(text("SELECT clear_project_context()"))
             logger.debug("PostgreSQL RLS context cleared")
         
-        # Store in Flask g for reference
+
         if has_request_context():
             g.postgresql_rls_project_id = project_id
     except Exception as e:
-        # Log error but don't break the application
-        # RLS will fall back to allowing queries if context is not set
+
+
         logger.warning(
             f"Failed to set PostgreSQL RLS context: {e}. "
             f"This may indicate RLS is not enabled or migration not applied."
@@ -129,11 +129,11 @@ def _set_rls_context_on_transaction_begin(session, transaction, connection):
     project_id = getattr(g, "project_id", None)
     if project_id is not None:
         try:
-            # Set RLS context using raw connection
+
             connection.execute(text("SELECT set_project_context(:project_id)"), {"project_id": project_id})
             logger.debug(f"Auto-set PostgreSQL RLS context to project_id={project_id} on transaction begin")
         except Exception as e:
-            # Log but don't break - RLS may not be enabled
+
             logger.debug(f"Could not auto-set RLS context: {e}")
 
 
@@ -146,7 +146,7 @@ def _clear_rls_context_on_commit(session):
     """
     try:
         if has_request_context() and hasattr(g, "postgresql_rls_project_id"):
-            # Context will be set again on next transaction if project_id is still in g
+
             pass
     except Exception:
         pass

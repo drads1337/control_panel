@@ -8,7 +8,7 @@ import logging
 from typing import Dict, List, Optional, Tuple
 
 from ...models.webhooks import Webhook
-# get_service removed - using DI
+
 from ...utils.service_exceptions import ServiceError
 
 class WebhookService:
@@ -25,8 +25,8 @@ class WebhookService:
         self._webhook_crypto_service = webhook_crypto_service
         self.logger = logging.getLogger(__name__)
 
-    # ==================== CRUD Operations ====================
-    # Delegated to WebhookManagementService
+
+
 
     def create_webhook(
         self,
@@ -45,7 +45,7 @@ class WebhookService:
         discord_channel_id: Optional[str] = None,
     ) -> Dict:
         """Create a new webhook"""
-        # Validate before creating
+
         if not self._webhook_validation_service:
             raise ServiceError(
                 "Webhook Validation dependency not injected",
@@ -67,7 +67,7 @@ class WebhookService:
         if not is_valid:
             raise ValueError(error)
 
-        # Delegate to management service
+
         if not self._webhook_management_service:
             raise ServiceError(
                 "Webhook Management dependency not injected",
@@ -92,7 +92,7 @@ class WebhookService:
 
     def update_webhook(self, webhook_id: int, project_id: Optional[int] = None, **kwargs) -> Dict:
         """Update an existing webhook"""
-        # Validate URL if provided
+
         if "url" in kwargs:
             if not self._webhook_validation_service:
                 raise ServiceError(
@@ -103,7 +103,7 @@ class WebhookService:
             if not validation_service.validate_url(kwargs["url"]):
                 raise ValueError("Invalid webhook URL")
 
-        # Validate events if provided
+
         if "events" in kwargs:
             if not self._webhook_formatting_service:
                 raise ServiceError(
@@ -116,7 +116,7 @@ class WebhookService:
                 if event not in valid_events:
                     raise ValueError(f"Invalid event: {event}")
 
-        # Delegate to management service
+
         if not self._webhook_management_service:
             raise ServiceError(
                 "Webhook Management dependency not injected",
@@ -145,8 +145,8 @@ class WebhookService:
         management_service = self._webhook_management_service
         return management_service.get_webhooks(project_id)
 
-    # ==================== Execution ====================
-    # Delegated to WebhookExecutionService
+
+
 
     def trigger_webhook(self, event: str, data: Dict, project_id: Optional[int] = None) -> bool:
         """Trigger webhooks for a specific event"""
@@ -158,8 +158,8 @@ class WebhookService:
         execution_service = self._webhook_execution_service
         return execution_service.trigger_webhook(event, data, project_id)
 
-    # ==================== Logging and Statistics ====================
-    # Delegated to WebhookLoggingService
+
+
 
     def get_webhook_logs(self, webhook_id: int, limit: int = 100) -> List[Dict]:
         """Get webhook logs"""
@@ -235,8 +235,8 @@ class WebhookService:
         logging_service = self._webhook_logging_service
         logging_service.update_webhook_stats_with_context(webhook_id, success)
 
-    # ==================== Testing ====================
-    # Delegated to WebhookTestingService
+
+
 
     def test_webhook(self, webhook_id: int) -> Dict:
         """Test a webhook with a test payload"""
@@ -248,8 +248,8 @@ class WebhookService:
         testing_service = self._webhook_testing_service
         return testing_service.test_webhook(webhook_id)
 
-    # ==================== Validation ====================
-    # Delegated to WebhookValidationService
+
+
 
     def validate_webhook_access(self, user_id: int, project_id: Optional[int] = None) -> Tuple[bool, Optional[str]]:
         """Validate user access to webhooks"""
@@ -312,8 +312,8 @@ class WebhookService:
             valid_events=valid_events,
         )
 
-    # ==================== Pending Tasks ====================
-    # Delegated to WebhookPendingTaskService
+
+
 
     def process_pending_webhook_tasks(self, batch_size: int = 50) -> Dict[str, int]:
         """Process pending webhook tasks from database"""
@@ -335,8 +335,8 @@ class WebhookService:
         pending_task_service = self._webhook_pending_task_service
         return pending_task_service.cleanup_old_pending_tasks(days_old)
 
-    # ==================== Backward Compatibility Methods ====================
-    # These methods are kept for backward compatibility but delegate to specialized services
+
+
 
     def _get_valid_events(self) -> List[str]:
         """Get list of valid webhook events (internal method for backward compatibility)"""
@@ -440,4 +440,4 @@ class WebhookService:
         pending_task_service = self._webhook_pending_task_service
         pending_task_service.store_pending_webhook_task(webhook_id, project_id, event, webhook_data, error_reason)
 
-# get_webhook_service removed - use DI container instead
+

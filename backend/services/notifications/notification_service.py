@@ -107,79 +107,79 @@ class NotificationService:
                 f"target_user_ids={target_user_ids}, message_length={len(message)}"
             )
 
-            # API returns unique_id as id, so we need to search by both id and unique_id
-            # If value is 9 digits, it's likely a unique_id (string), otherwise it's an id (int)
-            # Convert all to strings for unique_id lookup, and keep as ints for id lookup
+
+
+
             target_user_ids_str = [str(uid) for uid in target_user_ids]
             
-            # Try to find users by both id (integer) and unique_id (string)
-            # First try by id (for small integers)
+
+
             users_by_id = User.query.filter(User.id.in_(target_user_ids)).all()
             
-            # Then try by unique_id (for 9-digit strings)
+
             users_by_unique_id = User.query.filter(User.unique_id.in_(target_user_ids_str)).all()
             
-            # Combine and deduplicate
+
             all_users_any_project = list({u.id: u for u in users_by_id + users_by_unique_id}.values())
             all_existing_user_ids = {u.id for u in all_users_any_project}
             all_existing_unique_ids = {u.unique_id for u in all_users_any_project}
             
-            # Map input IDs to actual user IDs
-            # If input is a 9-digit number (likely unique_id), map it to the actual user.id
+
+
             id_mapping = {}
             for uid in target_user_ids:
                 uid_str = str(uid)
-                # If 9 digits, treat as unique_id
+
                 if len(uid_str) == 9 and uid_str.isdigit():
-                    # Find user by unique_id
+
                     user_by_unique = next((u for u in all_users_any_project if u.unique_id == uid_str), None)
                     if user_by_unique:
                         id_mapping[uid] = user_by_unique.id
                     else:
-                        id_mapping[uid] = uid  # Keep original if not found
+                        id_mapping[uid] = uid
                 else:
-                    # Treat as regular id
+
                     user_by_id = next((u for u in all_users_any_project if u.id == uid), None)
                     if user_by_id:
                         id_mapping[uid] = user_by_id.id
                     else:
-                        id_mapping[uid] = uid  # Keep original if not found
+                        id_mapping[uid] = uid
             
-            # Then filter by project_id - enforce project isolation
-            # Users must belong to the same project as the sender (both must have matching project_id)
-            # If sender has project_id, target must have the same project_id (not None)
+
+
+
             if user.project_id is not None:
                 target_user_objects = [
                     u for u in all_users_any_project 
                     if u.project_id == user.project_id
                 ]
             else:
-                # If sender has no project_id, only allow targets with no project_id
+
                 target_user_objects = [
                     u for u in all_users_any_project 
                     if u.project_id is None
                 ]
 
-            # Map target IDs to actual user IDs for validation
+
             mapped_target_ids = [id_mapping.get(uid, uid) for uid in target_user_ids]
 
             if len(target_user_objects) != len(target_user_ids):
-                # Find which users are missing or don't belong to the project
-                # Use mapped IDs for comparison
+
+
                 found_user_ids = {user_obj.id for user_obj in target_user_objects}
                 missing_user_ids = [uid for uid in mapped_target_ids if uid not in found_user_ids]
-                # Keep original IDs for error messages
+
                 missing_original_ids = [
                     orig_id for orig_id, mapped_id in zip(target_user_ids, mapped_target_ids)
                     if mapped_id not in found_user_ids
                 ]
                 
-                # Check if they exist but belong to different project (or have None project_id when sender has one)
+
                 wrong_project_user_ids = [
                     mapped_id for mapped_id, orig_id in zip(mapped_target_ids, target_user_ids)
                     if mapped_id in all_existing_user_ids and mapped_id not in found_user_ids
                 ]
-                # Get original IDs for wrong project users
+
                 wrong_project_original_ids = [
                     orig_id for orig_id, mapped_id in zip(target_user_ids, mapped_target_ids)
                     if mapped_id in wrong_project_user_ids
@@ -277,14 +277,14 @@ class NotificationService:
             Tuple of (success, error_message)
         """
         try:
-            # Get notification
+
             notification = Notification.query.filter_by(id=notification_id, project_id=user.project_id).first()
 
             if not notification:
                 return False, "Notification not found"
 
             if notification.user_id and notification.user_id != user.id:
-                # Use injected dependency instead of Service Locator
+
                 if not self._rbac_service:
                     raise ServiceError(
                         "RBACService dependency not injected",
@@ -341,7 +341,7 @@ class NotificationService:
                 return False, "Access denied"
 
             if notification_user_id and notification_user_id != user.id:
-                # Use injected dependency instead of Service Locator
+
                 if not self._rbac_service:
                     raise ServiceError(
                         "RBACService dependency not injected",
@@ -391,9 +391,9 @@ class NotificationService:
         try:
             cutoff_date = datetime.utcnow() - timedelta(days=days_old)
 
-            # Use repository to get notifications for cleanup
-            # Note: Repository doesn't support bulk delete with filters, so we use direct query
-            # In production, this could be added to repository
+
+
+
             deleted_count = Notification.query.filter(
                 Notification.project_id == user.project_id,
                 Notification.created_at < cutoff_date,

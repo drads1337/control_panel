@@ -66,8 +66,8 @@ class AuthTokenService:
                 "login_success": True,
             }
 
-            # Only include token if explicitly requested (for API clients)
-            # Cookie-based auth is preferred for web clients
+
+
             if include_token:
                 response_data["access_token"] = self.create_access_token_for_user(user)
 

@@ -57,30 +57,30 @@ class PersistenceLayer:
     
     def __init__(self, analytics_buffer_service=None):
         self._analytics_buffer_service = analytics_buffer_service
-        # In-memory queue configuration
+
         self._max_queue_size = int(
             getattr(Config, 'ANALYTICS_MEMORY_QUEUE_SIZE', 10000)
-        )  # Max items in memory queue
-        self._queue_drop_oldest = True  # Drop oldest items when queue is full
+        )
+        self._queue_drop_oldest = True
         
-        # Thread-safe in-memory queues
+
         self._activity_queue: deque = deque(maxlen=self._max_queue_size)
         self._key_analytics_queue: deque = deque(maxlen=self._max_queue_size)
         self._queue_lock = threading.Lock()
         
-        # Track last successful Redis operation
+
         self._redis_available = True
         self._redis_failures = 0
         self._max_redis_failures = 3
         
-        # Statistics
+
         self.stats = {
             "redis_writes": 0,
             "memory_queue_writes": 0,
             "log_writes": 0,
             "db_fallbacks": 0,
             "redis_failures": 0,
-            "queue_drops": 0,  # Items dropped due to queue being full
+            "queue_drops": 0,
         }
     
     def _get_analytics_buffer_service(self):
@@ -128,10 +128,10 @@ class PersistenceLayer:
             "created_at": datetime.utcnow().isoformat(),
         }
         
-        # Remove None values
+
         activity_data = {k: v for k, v in activity_data.items() if v is not None}
         
-        # Try Redis first
+
         if self._redis_available:
             try:
                 analytics_buffer_service = self._get_analytics_buffer_service()
@@ -166,7 +166,7 @@ class PersistenceLayer:
                         "Using disk backup and DB fallback."
                     )
         
-        # Fallback to in-memory queue
+
         try:
             success = self._buffer_to_memory_queue("user_activity", activity_data)
             if success:
@@ -184,7 +184,7 @@ class PersistenceLayer:
         except Exception as e:
             logger.error(f"Memory queue buffer failed: {e}")
         
-        # Fallback to structured logging (for Filebeat/Vector collection)
+
         try:
             success = self._log_to_structured_log("user_activity", activity_data)
             if success:
@@ -201,7 +201,7 @@ class PersistenceLayer:
         except Exception as e:
             logger.error(f"Structured logging failed: {e}")
         
-        # Final fallback: write directly to database
+
         try:
             success = self._write_direct_to_db("user_activity", activity_data)
             if success:
@@ -239,7 +239,7 @@ class PersistenceLayer:
             "created_at": datetime.utcnow().isoformat(),
         }
         
-        # Try Redis first
+
         if self._redis_available:
             try:
                 analytics_buffer_service = self._get_analytics_buffer_service()
@@ -270,7 +270,7 @@ class PersistenceLayer:
                         "Using disk backup and DB fallback."
                     )
         
-        # Fallback to in-memory queue
+
         try:
             success = self._buffer_to_memory_queue("key_analytics", analytics_data)
             if success:
@@ -288,7 +288,7 @@ class PersistenceLayer:
         except Exception as e:
             logger.error(f"Memory queue buffer failed: {e}")
         
-        # Fallback to structured logging (for Filebeat/Vector collection)
+
         try:
             success = self._log_to_structured_log("key_analytics", analytics_data)
             if success:
@@ -305,7 +305,7 @@ class PersistenceLayer:
         except Exception as e:
             logger.error(f"Structured logging failed: {e}")
         
-        # Final fallback: write directly to database
+
         try:
             success = self._write_direct_to_db("key_analytics", analytics_data)
             if success:
@@ -338,7 +338,7 @@ class PersistenceLayer:
             with self._queue_lock:
                 queue = self._activity_queue if data_type == "user_activity" else self._key_analytics_queue
                 
-                # Check if queue is full (deque with maxlen automatically drops oldest)
+
                 was_full = len(queue) >= self._max_queue_size
                 
                 queue.append({
@@ -379,7 +379,7 @@ class PersistenceLayer:
             True if successfully logged, False otherwise
         """
         try:
-            # Use structured logging with special marker for analytics data
+
             logger.info(
                 f"Analytics fallback: {data_type}",
                 extra={
@@ -411,7 +411,7 @@ class PersistenceLayer:
         """
         try:
             if data_type == "user_activity":
-                # Convert created_at string back to datetime
+
                 created_at = datetime.fromisoformat(data.get("created_at", datetime.utcnow().isoformat()))
                 
                 activity = UserActivity(
@@ -432,13 +432,13 @@ class PersistenceLayer:
                 return True
                 
             elif data_type == "key_analytics":
-                # Key analytics are aggregated, so we can't write individual updates directly
-                # Instead, we'll log them for later processing
+
+
                 logger.warning(
                     f"Cannot write key analytics directly to DB (aggregated data). "
                     f"Data: {data}. Will be processed when Redis recovers."
                 )
-                # Still return True to indicate we "handled" it (by logging)
+
                 return True
                 
         except Exception as e:
@@ -463,13 +463,13 @@ class PersistenceLayer:
         
         try:
             with self._queue_lock:
-                # Process activity queue
+
                 while self._activity_queue:
                     try:
                         item = self._activity_queue.popleft()
                         data = item.get("data", {})
                         
-                        # Try to write to Redis first
+
                         try:
                             analytics_buffer_service = self._get_analytics_buffer_service()
                             success = analytics_buffer_service.buffer_user_activity(
@@ -486,13 +486,13 @@ class PersistenceLayer:
                             if success:
                                 recovered["user_activities"] += 1
                             else:
-                                # Fallback to direct DB write
+
                                 if self._write_direct_to_db("user_activity", data):
                                     recovered["user_activities"] += 1
                                 else:
                                     recovered["errors"] += 1
                         except Exception:
-                            # Fallback to direct DB write
+
                             if self._write_direct_to_db("user_activity", data):
                                 recovered["user_activities"] += 1
                             else:
@@ -502,13 +502,13 @@ class PersistenceLayer:
                         logger.error(f"Failed to recover activity from memory queue: {e}")
                         recovered["errors"] += 1
                 
-                # Process key analytics queue
+
                 while self._key_analytics_queue:
                     try:
                         item = self._key_analytics_queue.popleft()
                         data = item.get("data", {})
                         
-                        # Try to write to Redis first
+
                         try:
                             analytics_buffer_service = self._get_analytics_buffer_service()
                             success = analytics_buffer_service.buffer_key_analytics_update(
@@ -521,13 +521,13 @@ class PersistenceLayer:
                             if success:
                                 recovered["key_analytics"] += 1
                             else:
-                                # Key analytics are aggregated, log for processing
+
                                 logger.warning(
                                     f"Cannot recover key analytics directly (aggregated): {data}"
                                 )
                                 recovered["key_analytics"] += 1
                         except Exception:
-                            # Key analytics are aggregated, log for processing
+
                             logger.warning(
                                 f"Cannot recover key analytics directly (aggregated): {data}"
                             )
@@ -599,5 +599,5 @@ class PersistenceLayer:
                 "total_queue_size": len(self._activity_queue) + len(self._key_analytics_queue),
             }
 
-# Singleton instance
+
 persistence_layer = PersistenceLayer()

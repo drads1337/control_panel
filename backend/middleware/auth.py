@@ -265,7 +265,7 @@ def require_any_permission(permissions):
     def manage_user():
         pass
     """
-    # Use RBACManager as single source of truth (which delegates to rbac_service)
+
 
     def decorator(f):
         import inspect
@@ -283,7 +283,7 @@ def require_any_permission(permissions):
                 if not user:
                     return jsonify({"error": "User not found"}), 404
 
-                # Use RBACManager as single source of truth (which delegates to rbac_service)
+
                 has_any_permission = False
                 for permission in permissions:
                     if RBACManager.has_permission(user.id, user.project_id, permission):
@@ -759,7 +759,7 @@ def enforce_project_scope(f):
             project_id = user.project_id
             project = Project.query.get(project_id)
             if not project:
-                # Project was deleted, clear the user's project_id
+
                 user.project_id = None
                 db.session.commit()
                 return jsonify({"error": "User has no project"}), 403
@@ -876,17 +876,17 @@ def require_project_isolation(f):
                 return jsonify({"error": "User must be assigned to a project"}), 403
 
             if _is_owner_safe(user) and not user.project_id:
-                # For owners without project_id, try to get project_id from request
+
                 owner_project_id = None
                 
-                # Check query parameters
+
                 if "project_id" in request.args:
                     try:
                         owner_project_id = int(request.args.get("project_id"))
                     except (ValueError, TypeError):
                         pass
                 
-                # Check JSON body
+
                 if owner_project_id is None and request.is_json:
                     body = request.get_json(silent=True) or {}
                     if isinstance(body, dict) and "project_id" in body and body["project_id"] is not None:
@@ -895,12 +895,12 @@ def require_project_isolation(f):
                         except (ValueError, TypeError):
                             pass
                 
-                # Set project_id from request if available, otherwise None
+
                 g.project_id = owner_project_id
                 g.current_user = user
                 g.current_project = Project.query.get(owner_project_id) if owner_project_id else None
                 
-                # Set PostgreSQL RLS context for database-level security
+
                 if owner_project_id is not None:
                     try:
                         from ..utils.postgresql_rls import set_project_context
@@ -908,7 +908,7 @@ def require_project_isolation(f):
                     except Exception as e:
                         logger.debug(f"Could not set PostgreSQL RLS context: {e}")
 
-                # Always pass parameters via kwargs for explicit dependency injection
+
                 sig = inspect.signature(f)
                 if "current_user" in sig.parameters and "current_user" not in kwargs:
                     kwargs["current_user"] = user
@@ -934,26 +934,26 @@ def require_project_isolation(f):
                 )
                 return jsonify({"error": "Project is inactive"}), 403
 
-            # Always set g for backward compatibility and query isolation
+
             g.project_id = user.project_id
             g.current_user = user
             g.current_project = project
             
-            # Set PostgreSQL RLS context for database-level security
+
             try:
                 from ..utils.postgresql_rls import set_project_context
                 set_project_context(project_id=user.project_id)
             except Exception as e:
-                # Log but don't break - RLS may not be enabled yet
+
                 logger.debug(f"Could not set PostgreSQL RLS context: {e}")
 
-            # Always pass parameters via kwargs for explicit dependency injection
+
             sig = inspect.signature(f)
             if "current_user" in sig.parameters and "current_user" not in kwargs:
                 kwargs["current_user"] = user
             elif "current_user" not in sig.parameters:
-                # Even if function doesn't declare current_user, pass it for future migration
-                # Routes can accept it as **kwargs if needed
+
+
                 pass
             
             if "current_project" in sig.parameters and "current_project" not in kwargs:

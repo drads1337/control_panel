@@ -27,7 +27,7 @@ def topup_user_balance(current_user, validated_data=None):
     """Top up user balance"""
 
     if not validated_data:
-        # Get services once at the start (DI pattern)
+
         balance_service = get_service('balance_service')
         return jsonify({"error": "No data provided"}), 400
 
@@ -37,38 +37,38 @@ def topup_user_balance(current_user, validated_data=None):
 
     logger.info(f"Topup balance request: current_user_id={current_user.id}, target_user_id={user_id}, amount={amount}, project_id={current_user.project_id}")
 
-    # Try to find user by id (numeric) or unique_id (string)
-    # user_id can be either numeric id or unique_id string
+
+
     target_user = None
     
-    # First, try as numeric id
+
     try:
         numeric_id = int(user_id)
         target_user = User.query.filter_by(id=numeric_id, project_id=current_user.project_id).first()
         if not target_user:
-            # Try without project_id check for owner/admin
+
             target_user = User.query.get(numeric_id)
     except (ValueError, TypeError):
-        # If conversion to int fails, try as unique_id (string)
+
         pass
     
-    # If not found by numeric id, try as unique_id
+
     if not target_user:
         target_user = User.query.filter_by(unique_id=str(user_id), project_id=current_user.project_id).first()
         if not target_user:
-            # Try without project_id check
+
             target_user = User.query.filter_by(unique_id=str(user_id)).first()
     
     if not target_user:
         logger.warning(f"User not found: user_id={user_id}, project_id={current_user.project_id}")
         return jsonify({"error": "User not found"}), 404
     
-    # Check if current user has permission to manage this user
+
     if current_user.project_id and target_user.project_id != current_user.project_id:
         logger.warning(f"User not in same project: target_user.project_id={target_user.project_id}, current_user.project_id={current_user.project_id}")
         return jsonify({"error": "User not found in your project"}), 404
     
-    # Use numeric id for balance operations
+
     user_id = target_user.id
 
     has_access, error_msg = balance_service.check_balance_access(current_user, target_user)
@@ -104,38 +104,38 @@ def deduct_user_balance(current_user, validated_data=None):
     amount = data.amount
     reason = data.reason
 
-    # Try to find user by id (numeric) or unique_id (string)
-    # user_id can be either numeric id or unique_id string
+
+
     target_user = None
     
-    # First, try as numeric id
+
     try:
         numeric_id = int(user_id)
         target_user = User.query.filter_by(id=numeric_id, project_id=current_user.project_id).first()
         if not target_user:
-            # Try without project_id check for owner/admin
+
             target_user = User.query.get(numeric_id)
     except (ValueError, TypeError):
-        # If conversion to int fails, try as unique_id (string)
+
         pass
     
-    # If not found by numeric id, try as unique_id
+
     if not target_user:
         target_user = User.query.filter_by(unique_id=str(user_id), project_id=current_user.project_id).first()
         if not target_user:
-            # Try without project_id check
+
             target_user = User.query.filter_by(unique_id=str(user_id)).first()
     
     if not target_user:
         logger.warning(f"User not found: user_id={user_id}, project_id={current_user.project_id}")
         return jsonify({"error": "User not found"}), 404
     
-    # Check if current user has permission to manage this user
+
     if current_user.project_id and target_user.project_id != current_user.project_id:
         logger.warning(f"User not in same project: target_user.project_id={target_user.project_id}, current_user.project_id={current_user.project_id}")
         return jsonify({"error": "User not found in your project"}), 404
     
-    # Use numeric id for balance operations
+
     user_id = target_user.id
 
     has_access, error_msg = balance_service.check_balance_access(current_user, target_user)
@@ -165,7 +165,7 @@ def get_user_transactions(current_user, validated_params=None):
     """Get transaction history for a user with pagination"""
 
     if not validated_params:
-        # Fallback for backward compatibility
+
         user_id = request.args.get("user_id")
         page = request.args.get("page", 1, type=int)
         per_page = request.args.get("per_page", 50, type=int)
@@ -179,38 +179,38 @@ def get_user_transactions(current_user, validated_params=None):
 
     logger.info(f"Get transactions request: current_user_id={current_user.id}, target_user_id={user_id}, project_id={current_user.project_id}")
 
-    # Try to find user by id (numeric) or unique_id (string)
-    # user_id can be either numeric id or unique_id string
+
+
     target_user = None
     
-    # First, try as numeric id
+
     try:
         numeric_id = int(user_id)
         target_user = User.query.filter_by(id=numeric_id, project_id=current_user.project_id).first()
         if not target_user:
-            # Try without project_id check for owner/admin
+
             target_user = User.query.get(numeric_id)
     except (ValueError, TypeError):
-        # If conversion to int fails, try as unique_id (string)
+
         pass
     
-    # If not found by numeric id, try as unique_id
+
     if not target_user:
         target_user = User.query.filter_by(unique_id=str(user_id), project_id=current_user.project_id).first()
         if not target_user:
-            # Try without project_id check
+
             target_user = User.query.filter_by(unique_id=str(user_id)).first()
     
     if not target_user:
         logger.warning(f"User not found: user_id={user_id}, project_id={current_user.project_id}")
         return jsonify({"error": "User not found"}), 404
     
-    # Check if current user has permission to manage this user
+
     if current_user.project_id and target_user.project_id != current_user.project_id:
         logger.warning(f"User not in same project: target_user.project_id={target_user.project_id}, current_user.project_id={current_user.project_id}")
         return jsonify({"error": "User not found in your project"}), 404
     
-    # Use numeric id for balance operations
+
     numeric_user_id = target_user.id
 
     has_access, error_msg = balance_service.check_balance_access(current_user, target_user)

@@ -33,7 +33,7 @@ class UserPermissionService:
             True if successful, False otherwise
         """
         try:
-            # Get all project products
+
             all_project_products = Product.query.filter_by(project_id=project_id).all()
             all_product_ids = {product.id for product in all_project_products}
             selected_product_ids = set(product_ids) if product_ids else set()
@@ -43,7 +43,7 @@ class UserPermissionService:
                 f"project_products={len(all_product_ids)}, selected={len(selected_product_ids)}"
             )
 
-            # Remove existing permissions
+
             existing_permissions = UserProductPermission.query.filter_by(user_id=user_id).all()
             existing_product_ids = {perm.product_id for perm in existing_permissions}
 
@@ -55,7 +55,7 @@ class UserPermissionService:
                     db.session.delete(perm)
                 db.session.flush()
 
-            # Create new permissions
+
             for product_id in selected_product_ids:
                 if product_id in all_product_ids:
                     try:

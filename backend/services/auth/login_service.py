@@ -22,7 +22,7 @@ from ...utils.rbac_utils import RBACManager
 from ...utils.role_constants import UserRoles
 from ...services.validation import request_validation_pipeline
 
-# Type hints for dependencies (imported here to avoid circular imports)
+
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ...services.security.security_service import SecurityService
@@ -62,7 +62,7 @@ class LoginService:
         """
         self.logger = logger or logging.getLogger(__name__)
         
-        # Store dependencies explicitly
+
         self._security_service = security_service
         self._activity_service = activity_service
         self._webhook_service = webhook_service
@@ -84,12 +84,12 @@ class LoginService:
             ServiceError: If database operation fails
         """
         try:
-            # Clean and normalize identifier
+
             identifier = username.strip()
-            # Remove any non-printable characters that might cause issues
+
             identifier = ''.join(char for char in identifier if char.isprintable())
             
-            # Handle potential session rollback issues
+
             try:
                 if "@" in identifier:
                     email = identifier.lower()
@@ -98,18 +98,18 @@ class LoginService:
                         f"Login attempt with email: {email}, user found: {user is not None}"
                     )
                     if not user:
-                        # Try case-insensitive search as fallback
+
                         user = User.query.filter(func.lower(User.email) == email).first()
                         if user:
                             self.logger.debug(f"User found with case-insensitive email search")
                 else:
                     username_lower = identifier.lower()
-                    # First try exact match
+
                     user = User.query.filter_by(username=identifier).first()
                     self.logger.debug(
                         f"Login attempt with username: {identifier}, exact match found: {user is not None}"
                     )
-                    # If not found, try case-insensitive search
+
                     if not user:
                         user = User.query.filter(func.lower(User.username) == username_lower).first()
                         if user:
@@ -117,11 +117,11 @@ class LoginService:
                                 f"User found with case-insensitive username search: {user.username}"
                             )
             except (SQLAlchemyError, InvalidRequestError) as db_error:
-                # If session was rolled back, rollback explicitly and retry
+
                 self.logger.warning(f"Database session error, rolling back: {db_error}")
                 db.session.rollback()
                 
-                # Retry the query after rollback
+
                 if "@" in identifier:
                     email = identifier.lower()
                     user = User.query.filter_by(email=email).first()
@@ -134,20 +134,20 @@ class LoginService:
                         user = User.query.filter(func.lower(User.username) == username_lower).first()
 
             if not user:
-                # Additional debugging: check if any users exist with similar username
+
                 debug_info = []
                 total_users = 0
                 
                 try:
-                    # Count total users once for all debug checks
+
                     total_users = User.query.count()
                     debug_info.append(f"Total users in database: {total_users}")
                     
                     if "@" not in identifier:
-                        # Try to find similar usernames for debugging
-                        # NOTE: ILIKE is used here only for debug purposes when user is not found.
-                        # This is not in the critical path and doesn't affect production performance.
-                        # For production search, use fulltext_search with GIN indexes (see SCALABILITY_IMPROVEMENTS.md)
+
+
+
+
                         similar_users = User.query.filter(
                             User.username.ilike(f"%{identifier}%")
                         ).limit(5).all()
@@ -155,7 +155,7 @@ class LoginService:
                             similar_usernames = [u.username for u in similar_users]
                             debug_info.append(f"Found {len(similar_users)} similar usernames: {similar_usernames}")
                         
-                        # Check if exact lowercase match exists
+
                         exact_lower = User.query.filter(
                             func.lower(User.username) == identifier.lower()
                         ).first()
@@ -171,7 +171,7 @@ class LoginService:
                 if debug_info:
                     warning_msg += f"\nDebug info: {'; '.join(debug_info)}"
                 
-                # Provide helpful message if database is empty
+
                 if total_users == 0:
                     warning_msg += (
                         f"\nDATABASE IS EMPTY: No users found in database. "
@@ -202,16 +202,16 @@ class LoginService:
             return user
 
         except AuthenticationError:
-            # Ensure session is rolled back on authentication error
+
             try:
                 db.session.rollback()
             except Exception:
                 pass
             raise
         except OperationalError as e:
-            # Database connection errors should be handled separately
+
             self.logger.error(f"Database connection error in validate_credentials: {str(e)}", exc_info=True)
-            # Ensure session is rolled back on database error
+
             try:
                 db.session.rollback()
             except Exception:
@@ -219,7 +219,7 @@ class LoginService:
             raise ServiceError("Database connection failed. Please try again later.", status_code=503) from e
         except Exception as e:
             self.logger.error(f"Error in validate_credentials: {str(e)}", exc_info=True)
-            # Ensure session is rolled back on any error
+
             try:
                 db.session.rollback()
             except Exception:
@@ -243,14 +243,14 @@ class LoginService:
             ServiceError: If security check fails
         """
         if not user.project_id:
-            return  # No project, no security checks needed
+            return
 
         try:
-            # Handle potential session rollback issues
+
             try:
                 project = Project.query.get(user.project_id)
             except (SQLAlchemyError, InvalidRequestError) as db_error:
-                # If session was rolled back, rollback explicitly and retry
+
                 self.logger.warning(f"Database session error in check_security_constraints, rolling back: {db_error}")
                 db.session.rollback()
                 project = Project.query.get(user.project_id)
@@ -267,7 +267,7 @@ class LoginService:
                 )
                 raise SecurityError("Project is inactive", error_code="PROJECT_INACTIVE")
 
-            # Use unified validation pipeline for IP and User-Agent
+
             validation_result = request_validation_pipeline.validate_request(
                 ip=ip,
                 user_agent=user_agent,
@@ -291,7 +291,7 @@ class LoginService:
         except (SecurityError, NotFoundError):
             raise
         except OperationalError as e:
-            # Database connection errors should be handled separately
+
             self.logger.error(f"Database connection error in check_security_constraints: {str(e)}", exc_info=True)
             raise ServiceError("Database connection failed. Please try again later.", status_code=503) from e
         except Exception as e:
@@ -395,7 +395,7 @@ class LoginService:
             session_id: Session identifier
         """
         try:
-            # Use ServiceContainer to avoid circular imports
+
             if not self._webhook_service:
                 raise ServiceError(
                     "Webhook Service dependency not injected",
@@ -462,13 +462,13 @@ class LoginService:
         try:
             self.logger.debug(f"Login attempt: username={username}, ip={ip}")
             
-            # Validate credentials
+
             user = self.validate_credentials(username, password)
             
-            # Check security constraints
+
             self.check_security_constraints(user, ip, user_agent)
 
-            # Update user login info
+
             self.update_user_login_info(user, ip, user_agent)
 
             if not self._auth_token_service:
@@ -477,17 +477,17 @@ class LoginService:
                     status_code=500
                 )
             auth_token_service = self._auth_token_service
-            # Create login response with token (via AuthTokenService)
+
             response_data = auth_token_service.create_login_response(user, include_token=True)
             session_id = response_data.get("session_id", "")
 
-            # Log activity
+
             self.log_login_activity(user, ip, user_agent, session_id)
 
-            # Record login attempt
+
             self.record_login_attempt(user, ip, user_agent, True)
 
-            # Trigger webhook
+
             self._trigger_login_webhook(user, ip, user_agent, "simple", session_id)
 
             return response_data
@@ -495,7 +495,7 @@ class LoginService:
         except (AuthenticationError, SecurityError):
             raise
         except OperationalError as e:
-            # Database connection errors should be handled separately
+
             self.logger.error(f"Database connection error in process_login: {str(e)}", exc_info=True)
             raise ServiceError("Database connection failed. Please try again later.", status_code=503) from e
         except Exception as e:

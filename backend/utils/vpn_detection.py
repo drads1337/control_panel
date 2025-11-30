@@ -16,7 +16,7 @@ class VPNDetector:
     """Detects VPN, proxy, and datacenter IP addresses"""
 
     def __init__(self):
-        self.cache_ttl = 3600  # 1 hour cache
+        self.cache_ttl = 3600
         self._cache: Dict[str, Tuple[bool, float, Dict]] = {}
         self.timeout = 3
 
@@ -31,9 +31,9 @@ class VPNDetector:
     def _cache_result(self, ip: str, data: Dict):
         """Cache the detection result"""
         self._cache[ip] = (data.get("is_vpn", False), time.time(), data)
-        # Limit cache size to 1000 entries
+
         if len(self._cache) > 1000:
-            # Remove oldest entries
+
             sorted_items = sorted(self._cache.items(), key=lambda x: x[1][1])
             for key, _ in sorted_items[:100]:
                 del self._cache[key]
@@ -66,7 +66,7 @@ class VPNDetector:
                 "method": "local",
             }
 
-        # Check cache first
+
         cached = self._is_cached(ip)
         if cached:
             return cached
@@ -80,7 +80,7 @@ class VPNDetector:
             "method": "unknown",
         }
 
-        # Try multiple detection methods
+
         methods = [
             self._detect_via_ipapi,
             self._detect_via_ipinfo,
@@ -97,7 +97,7 @@ class VPNDetector:
                 logger.debug(f"VPN detection method {method.__name__} failed for {ip}: {e}")
                 continue
 
-        # Cache the result
+
         self._cache_result(ip, result)
 
         return result
@@ -115,7 +115,7 @@ class VPNDetector:
                 org = data.get("org", "").lower()
                 asn = data.get("asn", "")
 
-                # Check for VPN/proxy indicators
+
                 is_vpn = any(
                     keyword in org
                     for keyword in [
@@ -129,7 +129,7 @@ class VPNDetector:
                     ]
                 )
 
-                # Check ASN for known datacenter ranges
+
                 is_datacenter = any(
                     keyword in org
                     for keyword in [
@@ -170,7 +170,7 @@ class VPNDetector:
                 org = data.get("org", "").lower()
                 hostname = data.get("hostname", "").lower()
 
-                # Check for VPN/proxy indicators
+
                 is_vpn = any(
                     keyword in org or keyword in hostname
                     for keyword in [
@@ -222,6 +222,6 @@ class VPNDetector:
         return result.get("is_vpn", False) or result.get("is_proxy", False)
 
 
-# Global instance
+
 vpn_detector = VPNDetector()
 

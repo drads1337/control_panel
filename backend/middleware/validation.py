@@ -40,9 +40,9 @@ def _sanitize_validation_errors(errors: list) -> list:
         elif isinstance(obj, dict):
             return {str(k): _make_serializable(v) for k, v in obj.items()}
         else:
-            # Convert any other type (like ValueError, Exception) to string
+
             try:
-                # Try to get a meaningful string representation
+
                 return str(obj)
             except Exception:
                 return repr(obj)
@@ -73,9 +73,9 @@ class ValidationMiddleware:
             def wrapper(*args, **kwargs):
                 logger.info(f"Validation middleware ENTRY for {request.method} {request.path}")
                 logger.info(f"Function: {func.__name__}, Schema: {schema_class.__name__}")
-                validated_data = None  # Initialize to None to catch any unset cases
+                validated_data = None
                 try:
-                    # Check for completely empty request body first
+
                     request_data = request.get_data()
                     logger.debug(f"Request data length: {len(request_data) if request_data else 0}, allow_empty: {allow_empty}")
                     if not request_data and not allow_empty:
@@ -90,7 +90,7 @@ class ValidationMiddleware:
                             400,
                         )
                     
-                    # Check if request is JSON - accept both application/json and product/json
+
                     content_type = request.headers.get('Content-Type', '').lower()
                     is_json_request = (
                         request.is_json or 
@@ -117,29 +117,29 @@ class ValidationMiddleware:
                             )
                     else:
                         logger.debug(f"Processing JSON request for {request.method} {request.path}")
-                        # Get JSON data - manually parse for product/json, otherwise use Flask's parser
+
                         json_data = None
                         if content_type == 'product/json' or content_type.startswith('product/json;'):
-                            # Manually parse JSON for product/json content type
+
                             try:
                                 raw_data = request.get_data(as_text=True)
                                 if raw_data and raw_data.strip():
                                     json_data = json.loads(raw_data)
                                 else:
-                                    # Empty body should be None, not empty dict
+
                                     json_data = None
                             except (json.JSONDecodeError, UnicodeDecodeError) as e:
                                 logger.warning(f"JSON decode error for {request.method} {request.path}: {str(e)}")
                                 json_data = None
                         else:
-                            # Use silent=True to avoid raising exceptions, but handle errors explicitly
+
                             try:
                                 json_data = request.get_json(silent=True, force=True)
                             except Exception as json_error:
                                 logger.warning(f"Error parsing JSON for {request.method} {request.path}: {str(json_error)}")
                                 json_data = None
                         
-                        # Ensure json_data is a dict if it's not None (handle edge cases like lists, strings, etc.)
+
                         if json_data is not None and not isinstance(json_data, dict):
                             logger.warning(f"JSON data is not a dict (type: {type(json_data)}) for {request.method} {request.path}, converting or rejecting")
                             if allow_empty:
@@ -168,11 +168,11 @@ class ValidationMiddleware:
                                 )
                         elif json_data == {}:
                             logger.debug(f"json_data is empty dict, allow_empty: {allow_empty}")
-                            # Empty JSON object - check if schema allows it
+
                             if allow_empty:
                                 validated_data = {}
                             else:
-                                # Try to validate empty dict - will fail if required fields are missing
+
                                 try:
                                     validated_data = schema_class(**json_data).model_dump()
                                 except ValidationError as e:
@@ -187,7 +187,7 @@ class ValidationMiddleware:
                                         400,
                                     )
                         else:
-                            # Log before validation attempt
+
                             logger.debug(f"Attempting to validate JSON data for {request.method} {request.path}: {json_data}")
                             logger.debug(f"Schema class: {schema_class.__name__}, strict: {strict}")
                             try:
@@ -212,7 +212,7 @@ class ValidationMiddleware:
                                     400,
                                 )
                             except Exception as e:
-                                # Catch any other exceptions during validation (TypeError, etc.)
+
                                 logger.error(f"Unexpected error during schema validation for {request.method} {request.path}: {str(e)}")
                                 logger.error(f"JSON data type: {type(json_data)}, value: {json_data}")
                                 logger.error(f"Schema class: {schema_class.__name__}")
@@ -229,7 +229,7 @@ class ValidationMiddleware:
                                     400,
                                 )
 
-                    # Ensure validated_data is always set (should never be None at this point)
+
                     if validated_data is None:
                         logger.error(f"CRITICAL: validated_data is None for {request.method} {request.path} - this should not happen")
                         logger.error(f"Request data: {request.get_data(as_text=True)[:200]}")
@@ -256,7 +256,7 @@ class ValidationMiddleware:
                             400,
                         )
                     
-                    # Double-check it's a dict
+
                     if not isinstance(validated_data, dict):
                         logger.error(f"CRITICAL: validated_data is not a dict: {type(validated_data)} for {request.method} {request.path}")
                         return (
@@ -269,7 +269,7 @@ class ValidationMiddleware:
                             400,
                         )
                     
-                    # Final safety check - validated_data must be set and must be a dict
+
                     if validated_data is None:
                         logger.critical(f"CRITICAL: validated_data is None right before calling function for {request.method} {request.path}")
                         logger.critical(f"This should never happen - validation should have returned an error earlier")
@@ -302,7 +302,7 @@ class ValidationMiddleware:
                             500,
                         )
                     
-                    # Final check before setting in kwargs - this should never be None at this point
+
                     if validated_data is None:
                         logger.critical(f"CRITICAL: validated_data is None at final check for {request.method} {request.path}")
                         logger.critical(f"This is a critical bug - validation should have returned an error earlier")
@@ -323,10 +323,10 @@ class ValidationMiddleware:
                             500,
                         )
                     
-                    # Log what we're passing to help debug
+
                     logger.debug(f"Validation middleware passing validated_data: {validated_data} for {request.method} {request.path}")
                     
-                    # Final safety check - this should never be None at this point
+
                     if validated_data is None:
                         logger.critical(f"CRITICAL: validated_data is None right before function call for {request.method} {request.path}")
                         logger.critical(f"This is a critical bug - validation should have returned an error earlier")
@@ -358,7 +358,7 @@ class ValidationMiddleware:
                         400,
                     )
                 except Exception as e:
-                    # Let ServiceError exceptions pass through to be handled by global error handler
+
                     if ServiceError and isinstance(e, ServiceError):
                         raise
                     
@@ -368,8 +368,8 @@ class ValidationMiddleware:
                     logger.error(f"Request data: {request.get_data(as_text=True)[:200]}")
                     logger.error(f"Content-Type: {request.headers.get('Content-Type')}")
 
-                    # Ensure we never pass None to the handler - if we get here, something went wrong
-                    # Don't set validated_data in kwargs, return an error instead
+
+
                     error_response = {
                         "error": "VALIDATION_ERROR",
                         "message": "Request validation failed - invalid request data",
@@ -384,12 +384,12 @@ class ValidationMiddleware:
                         error_response["details"] = str(e)
                         error_response["traceback"] = error_traceback.split("\n")
 
-                    # CRITICAL: Ensure we return and never call the function
+
                     try:
                         return jsonify(error_response), 400
                     except Exception as return_error:
                         logger.critical(f"CRITICAL: Failed to return error response: {str(return_error)}")
-                        # Last resort - raise to prevent function from being called
+
                         raise
 
             return wrapper
@@ -445,7 +445,7 @@ class ValidationMiddleware:
                     return func(*args, **kwargs)
 
                 except Exception as e:
-                    # Let ServiceError exceptions pass through to be handled by global error handler
+
                     if ServiceError and isinstance(e, ServiceError):
                         raise
                     
@@ -512,7 +512,7 @@ class ValidationMiddleware:
                     return func(*args, **kwargs)
 
                 except Exception as e:
-                    # Let ServiceError exceptions pass through to be handled by global error handler
+
                     if ServiceError and isinstance(e, ServiceError):
                         raise
                     

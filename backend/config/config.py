@@ -6,36 +6,36 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# SECURITY: In production, secrets should come from environment variables only.
-# .env file is only loaded in development mode to prevent security issues.
-# In Kubernetes/Docker Swarm, secrets are injected via environment variables.
+
+
+
 project_root = Path(__file__).parent.parent.parent
 env_path = project_root / ".env"
 
-# Check FLASK_ENV from environment first
+
 FLASK_ENV = os.environ.get("FLASK_ENV")
 
-# If FLASK_ENV is not set, check .env file for it (without loading other vars)
+
 if not FLASK_ENV and env_path.exists():
     from dotenv import dotenv_values
     env_vars = dotenv_values(dotenv_path=env_path)
     FLASK_ENV = env_vars.get("FLASK_ENV")
 
-# Default to production if still not set
+
 FLASK_ENV = FLASK_ENV or "production"
 os.environ["FLASK_ENV"] = FLASK_ENV
 
 if FLASK_ENV == "development":
-    # Only load .env file in development mode
+
     if env_path.exists():
         load_dotenv(dotenv_path=env_path, override=False)
         logging.debug("Loaded .env file for development")
 else:
-    # In production, rely only on environment variables
+
     logging.debug("Production mode: using environment variables only (no .env file)")
 
-# SECURITY: In production, application MUST fail if secrets are not set
-# No fallback or auto-generation allowed in production
+
+
 IS_PRODUCTION = FLASK_ENV == "production"
 
 MASTER_KEY = os.environ.get("PANEL_MASTER_KEY")
@@ -50,7 +50,7 @@ if not MASTER_KEY:
             "Example: export PANEL_MASTER_KEY=$(python -c 'import secrets; print(secrets.token_hex(32))')"
         )
     else:
-        # In development, still raise but with different message
+
         raise RuntimeError(
             "CRITICAL SECURITY ERROR: PANEL_MASTER_KEY environment variable is not set!\n"
             "This will cause data loss and security vulnerabilities.\n"
@@ -156,9 +156,9 @@ class Config:
                 "Please set JWT_SECRET_KEY with a secure random string.\n"
                 "Example: export JWT_SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
             )
-    # SECURITY: BOT_API_KEY should be set explicitly in production
-    # For development, a warning is logged but the app continues
-    # In production, this should be set to prevent security issues
+
+
+
     BOT_API_KEY = os.environ.get("BOT_API_KEY")
     if not BOT_API_KEY:
         flask_env_check = os.environ.get("FLASK_ENV", "development")
@@ -198,50 +198,50 @@ class Config:
 
     WTF_CSRF_SSL_STRICT = FLASK_ENV == "production"
 
-    # Redis Cache Instance (non-persistent, can lose data)
-    # Used for: general cache, temporary data
+
+
     REDIS_CACHE_HOST = os.environ.get("REDIS_CACHE_HOST", os.environ.get("REDIS_HOST", "127.0.0.1"))
     REDIS_CACHE_PORT = int(os.environ.get("REDIS_CACHE_PORT", os.environ.get("REDIS_PORT", 6379)))
     REDIS_CACHE_DB = int(os.environ.get("REDIS_CACHE_DB", 0))
     REDIS_CACHE_PASSWORD = os.environ.get("REDIS_CACHE_PASSWORD", os.environ.get("REDIS_PASSWORD", None))
-    # SECURITY: TLS support for Redis cache instance
+
     REDIS_CACHE_SSL = os.environ.get("REDIS_CACHE_SSL", "false").lower() == "true"
-    REDIS_CACHE_SSL_CERT_REQS = os.environ.get("REDIS_CACHE_SSL_CERT_REQS", "required")  # none, optional, required
-    REDIS_CACHE_SSL_CA_CERTS = os.environ.get("REDIS_CACHE_SSL_CA_CERTS", None)  # Path to CA certificate
+    REDIS_CACHE_SSL_CERT_REQS = os.environ.get("REDIS_CACHE_SSL_CERT_REQS", "required")
+    REDIS_CACHE_SSL_CA_CERTS = os.environ.get("REDIS_CACHE_SSL_CA_CERTS", None)
     
-    # Redis Persistent Instance (persistent, must not lose data)
-    # Used for: sessions, queues (Celery), rate limiting, dynamic config, analytics
+
+
     REDIS_PERSISTENT_HOST = os.environ.get("REDIS_PERSISTENT_HOST", os.environ.get("REDIS_HOST", "127.0.0.1"))
     REDIS_PERSISTENT_PORT = int(os.environ.get("REDIS_PERSISTENT_PORT", os.environ.get("REDIS_PORT", 6379)))
     REDIS_PERSISTENT_DB = int(os.environ.get("REDIS_PERSISTENT_DB", 0))
     REDIS_PERSISTENT_PASSWORD = os.environ.get("REDIS_PERSISTENT_PASSWORD", os.environ.get("REDIS_PASSWORD", None))
-    # SECURITY: TLS support for Redis persistent instance (CRITICAL for production)
-    # In production, Redis should use TLS encryption to protect sensitive data (sessions, tokens, configs)
+
+
     REDIS_PERSISTENT_SSL = os.environ.get("REDIS_PERSISTENT_SSL", "false").lower() == "true"
-    REDIS_PERSISTENT_SSL_CERT_REQS = os.environ.get("REDIS_PERSISTENT_SSL_CERT_REQS", "required")  # none, optional, required
-    REDIS_PERSISTENT_SSL_CA_CERTS = os.environ.get("REDIS_PERSISTENT_SSL_CA_CERTS", None)  # Path to CA certificate
+    REDIS_PERSISTENT_SSL_CERT_REQS = os.environ.get("REDIS_PERSISTENT_SSL_CERT_REQS", "required")
+    REDIS_PERSISTENT_SSL_CA_CERTS = os.environ.get("REDIS_PERSISTENT_SSL_CA_CERTS", None)
     
-    # SECURITY: Redis Integrity Protection (HMAC signing)
-    # If Redis uses TLS inside VPC (e.g., AWS ElastiCache with TLS),
-    # HMAC adds CPU overhead without significant security benefit.
-    # Disable if Redis traffic is already encrypted via TLS.
-    # Default: disabled (False) - enable only if Redis is not using TLS
+
+
+
+
+
     REDIS_INTEGRITY_ENABLED = os.environ.get("REDIS_INTEGRITY_ENABLED", "false").lower() == "true"
     
-    # Backward compatibility: default Redis config (uses persistent instance)
+
     REDIS_HOST = REDIS_PERSISTENT_HOST
     REDIS_PORT = REDIS_PERSISTENT_PORT
     REDIS_DB = REDIS_PERSISTENT_DB
     REDIS_PASSWORD = REDIS_PERSISTENT_PASSWORD
     
-    # SECURITY: Separate Redis databases for different data types to reduce blast radius
-    # If compromised, attacker can only access specific database, not all data
-    # These are used within the persistent Redis instance
-    REDIS_DB_SESSIONS = int(os.environ.get("REDIS_DB_SESSIONS", 0))  # Sessions and auth
-    REDIS_DB_RATE_LIMIT = int(os.environ.get("REDIS_DB_RATE_LIMIT", 1))  # Rate limiting
-    REDIS_DB_DYNAMIC_CONFIG = int(os.environ.get("REDIS_DB_DYNAMIC_CONFIG", 2))  # Dynamic config
-    REDIS_DB_ANALYTICS = int(os.environ.get("REDIS_DB_ANALYTICS", 3))  # Analytics buffers
-    REDIS_DB_CACHE = int(os.environ.get("REDIS_DB_CACHE", 4))  # General cache (on cache instance)
+
+
+
+    REDIS_DB_SESSIONS = int(os.environ.get("REDIS_DB_SESSIONS", 0))
+    REDIS_DB_RATE_LIMIT = int(os.environ.get("REDIS_DB_RATE_LIMIT", 1))
+    REDIS_DB_DYNAMIC_CONFIG = int(os.environ.get("REDIS_DB_DYNAMIC_CONFIG", 2))
+    REDIS_DB_ANALYTICS = int(os.environ.get("REDIS_DB_ANALYTICS", 3))
+    REDIS_DB_CACHE = int(os.environ.get("REDIS_DB_CACHE", 4))
 
     FLASK_ENV = os.environ.get("FLASK_ENV", "production")
     if FLASK_ENV == "development":
@@ -252,12 +252,12 @@ class Config:
         RATE_LIMIT_BURST = 10
 
     CHALLENGE_TTL = 120
-    # SECURITY: NONCE_TTL for anti-replay protection. Reduced from 300 to 30 seconds.
-    # In high-load systems, nonces should expire quickly (milliseconds to seconds).
+
+
     NONCE_TTL = int(os.environ.get("NONCE_TTL", 30))
-    # SECURITY: CANARY_TTL for challenge canary tokens. Should match or be shorter than CHALLENGE_TTL.
+
     CANARY_TTL = int(os.environ.get("CANARY_TTL", CHALLENGE_TTL))
-    # SECURITY: PROJECT_ID_CACHE_TTL for caching project_id during challenge flow.
+
     PROJECT_ID_CACHE_TTL = int(os.environ.get("PROJECT_ID_CACHE_TTL", CHALLENGE_TTL))
     SUSPICIOUS_THRESHOLD = 3
     SUSPICIOUS_WINDOW = 3600
@@ -275,7 +275,7 @@ class Config:
             },
         },
         "redis": {
-            # Use cache instance for storage cache (can lose data)
+
             "host": REDIS_CACHE_HOST,
             "port": REDIS_CACHE_PORT,
             "db": REDIS_CACHE_DB,
@@ -301,52 +301,52 @@ class Config:
         os.environ.get("ENABLE_SLOW_QUERY_MONITORING", "true").lower() == "true"
     )
 
-    # Analytics Buffer Configuration (Write-Behind Caching)
-    # These settings control the Redis buffer for analytics writes to reduce database load
+
+
     ANALYTICS_BUFFER_ENABLED = (
         os.environ.get("ANALYTICS_BUFFER_ENABLED", "true").lower() == "true"
     )
     ANALYTICS_BUFFER_MAX_SIZE = int(
         os.environ.get("ANALYTICS_BUFFER_MAX_SIZE", 1000)
-    )  # Max items before forced flush
+    )
     ANALYTICS_BUFFER_TTL = int(
         os.environ.get("ANALYTICS_BUFFER_TTL", 3600)
-    )  # 1 hour TTL for safety
+    )
     ANALYTICS_MEMORY_QUEUE_SIZE = int(
         os.environ.get("ANALYTICS_MEMORY_QUEUE_SIZE", 10000)
-    )  # Max items in in-memory queue when Redis fails (container-safe)
+    )
     ANALYTICS_BUFFER_FLUSH_INTERVAL = int(
         os.environ.get("ANALYTICS_BUFFER_FLUSH_INTERVAL", 30)
-    )  # Flush every 30 seconds
+    )
     ANALYTICS_BUFFER_BATCH_SIZE = int(
         os.environ.get("ANALYTICS_BUFFER_BATCH_SIZE", 100)
-    )  # Batch size for user activities
+    )
 
-    # Load Monitoring Configuration
+
     CONNECT_WARNING_RPS = int(
         os.environ.get("CONNECT_WARNING_RPS", 100)
-    )  # Warning threshold: requests per second
+    )
     CONNECT_CRITICAL_RPS = int(
         os.environ.get("CONNECT_CRITICAL_RPS", 200)
-    )  # Critical threshold: requests per second
+    )
     HEARTBEAT_WARNING_RPS = int(
         os.environ.get("HEARTBEAT_WARNING_RPS", 500)
-    )  # Warning threshold: requests per second
+    )
     HEARTBEAT_CRITICAL_RPS = int(
         os.environ.get("HEARTBEAT_CRITICAL_RPS", 1000)
-    )  # Critical threshold: requests per second
+    )
     RESPONSE_TIME_WARNING_MS = float(
         os.environ.get("RESPONSE_TIME_WARNING_MS", 1000.0)
-    )  # Warning threshold: milliseconds
+    )
     RESPONSE_TIME_CRITICAL_MS = float(
         os.environ.get("RESPONSE_TIME_CRITICAL_MS", 3000.0)
-    )  # Critical threshold: milliseconds
+    )
     ERROR_RATE_WARNING_PCT = float(
         os.environ.get("ERROR_RATE_WARNING_PCT", 5.0)
-    )  # Warning threshold: percentage
+    )
     ERROR_RATE_CRITICAL_PCT = float(
         os.environ.get("ERROR_RATE_CRITICAL_PCT", 10.0)
-    )  # Critical threshold: percentage
+    )
 
     CORS_ORIGINS = os.environ.get(
         "CORS_ORIGINS",
@@ -372,8 +372,8 @@ class Config:
             "Example: export OFFLINE_TICKET_SECRET=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
         )
 
-    # SECURITY: Token generation static word - must be set from environment
-    # This is used in token generation and must be kept secret
+
+
     TOKEN_STATIC_WORD = os.environ.get("TOKEN_STATIC_WORD")
     if not TOKEN_STATIC_WORD:
         raise RuntimeError(
@@ -451,21 +451,21 @@ class Config:
         },
     }
     
-    # SECURITY: Trusted proxy configuration for mTLS validation
-    # These IP addresses are trusted reverse proxies (e.g., Nginx)
-    # Requests from these IPs are considered safe for mTLS header validation
-    # In production, this should be set to the actual Nginx/proxy IP addresses
-    # Default: localhost only (127.0.0.1, ::1) for security
+
+
+
+
+
     TRUSTED_PROXY_IPS = os.environ.get("TRUSTED_PROXY_IPS", "127.0.0.1,::1").split(",")
     TRUSTED_PROXY_IPS = [ip.strip() for ip in TRUSTED_PROXY_IPS if ip.strip()]
     
-    # SECURITY: Require WSGI environment variables instead of HTTP headers for mTLS
-    # WSGI variables (SSL_CLIENT_*) are set by the WSGI server and are harder to spoof
-    # HTTP headers (X-SSL-Client-*) can be spoofed if Nginx is misconfigured
-    # Set to True to strictly require WSGI variables (recommended for production)
+
+
+
+
     MTLS_REQUIRE_WSGI_VARS = os.environ.get("MTLS_REQUIRE_WSGI_VARS", "true").lower() == "true"
     
-    # Email Configuration (for password reset)
+
     MAIL_SERVER = os.environ.get("MAIL_SERVER", "smtp.gmail.com")
     MAIL_PORT = int(os.environ.get("MAIL_PORT", 587))
     MAIL_USE_TLS = os.environ.get("MAIL_USE_TLS", "true").lower() == "true"

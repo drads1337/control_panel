@@ -9,7 +9,7 @@ from typing import Any, Dict
 from ...models.core import User
 from ...utils.service_exceptions import AuthenticationError, SecurityError, NotFoundError, ServiceError
 
-# Type hints for dependencies (imported here to avoid circular imports)
+
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ...services.auth.login_service import LoginService
@@ -34,7 +34,7 @@ class AuthService:
         """
         self.logger = logger or logging.getLogger(__name__)
         
-        # Store dependencies explicitly
+
         self._login_service = login_service
         self._auth_token_service = auth_token_service
     

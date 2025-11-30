@@ -91,7 +91,7 @@ def get_me(current_user):
 
     user = current_user
 
-    # Get services once at the start (DI pattern)
+
     rbac_service = get_service('rbac_service')
 
     if not RBACManager.is_owner(user) and not user.project_id:
@@ -164,12 +164,12 @@ def update_profile(current_user, validated_data=None):
     user = current_user
     update_data = validated_data or {}
 
-    # Get services once at the start (DI pattern)
+
     activity_service = get_service('activity_service')
     user_profile_service = get_service('user_profile_service')
 
     try:
-        # Service now raises exceptions instead of returning tuples
+
         updated_profile = user_profile_service.update_user_profile(user, update_data)
 
         activity_service.log_activity(
@@ -188,8 +188,8 @@ def update_profile(current_user, validated_data=None):
             }
         )
     except ServiceError:
-        # ServiceError and its subclasses are handled by error_handlers.py
-        # Re-raise to let Flask error handler process it
+
+
         raise
 
 @profile_bp.route("/change_password", methods=["POST"])
@@ -203,7 +203,7 @@ def change_password(current_user):
     data = request.get_json()
 
     if not data:
-        # Get services once at the start (DI pattern)
+
         activity_service = get_service('activity_service')
         user_profile_service = get_service('user_profile_service')
         return jsonify({"error": "No data provided"}), 400
@@ -237,12 +237,12 @@ def change_password(current_user):
     if not is_valid:
         return jsonify({"error": error_msg}), 400
 
-    # Get services once at the start (DI pattern)
+
     activity_service = get_service('activity_service')
     user_profile_service = get_service('user_profile_service')
 
     try:
-        # Service now raises exceptions instead of returning tuples
+
         user_profile_service.change_password(user, current_password, new_password)
 
         activity_service.log_activity(
@@ -256,8 +256,8 @@ def change_password(current_user):
 
         return jsonify({"message": "Password changed successfully"})
     except ServiceError:
-        # ServiceError and its subclasses are handled by error_handlers.py
-        # Re-raise to let Flask error handler process it
+
+
         raise
 
 @profile_bp.route("/avatar", methods=["POST"])

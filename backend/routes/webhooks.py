@@ -32,8 +32,8 @@ def get_user_info():
     Simple endpoint to get user info without any middleware
     """
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
@@ -73,8 +73,8 @@ def get_webhooks():
     Get webhooks for a project
     """
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         tier_limits_service = get_service('tier_limits_service')
         webhook_service = get_service('webhook_service')
         user_id = get_jwt_identity()
@@ -87,7 +87,7 @@ def get_webhooks():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Check tier limits
+
         if user.project_id:
             project = Project.query.get(user.project_id)
             if project:
@@ -131,8 +131,8 @@ def create_webhook(validated_data=None):
     Create a new webhook
     """
     try:
-        # Get services once at the start (DI pattern)
-        # Get services once at the start (DI pattern)
+
+
         tier_limits_service = get_service('tier_limits_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
@@ -140,7 +140,7 @@ def create_webhook(validated_data=None):
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # Check tier limits
+
         if user.project_id:
             project = Project.query.get(user.project_id)
             if project:
@@ -159,10 +159,10 @@ def create_webhook(validated_data=None):
             ] else 404
             return jsonify({"error": error}), status_code
 
-        # Parse validated data into schema object
+
         data = WebhookCreateSchema(**validated_data)
         
-        # Validate webhook-specific requirements
+
         is_valid, validation_error = webhook_service.validate_webhook_creation_data(
             webhook_type=data.webhook_type,
             url=str(data.url) if data.url else None,
@@ -238,13 +238,13 @@ def update_webhook(webhook_id, validated_data=None):
             ] else 404
             return jsonify({"error": error}), status_code
 
-        # Parse validated data into schema object (strict=False allows partial updates)
+
         data = WebhookUpdateSchema(**validated_data)
         
-        # Convert Pydantic model to dict, excluding None values
+
         update_data = data.model_dump(exclude_none=True)
         
-        # Convert HttpUrl objects to strings
+
         if "url" in update_data and update_data["url"]:
             update_data["url"] = str(update_data["url"])
         if "discord_webhook_url" in update_data and update_data["discord_webhook_url"]:

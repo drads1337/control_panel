@@ -30,7 +30,7 @@ class RedisIntegrityProtection:
     even if an attacker gains access to Redis.
     """
     
-    # Critical key patterns that should be protected
+
     PROTECTED_KEY_PATTERNS = {
         "dynamic_config": "dynamic_config:*",
         "session": "session:*",
@@ -40,13 +40,13 @@ class RedisIntegrityProtection:
     
     def __init__(self):
         self.signing_key = self._get_signing_key()
-        # SECURITY: Redis Integrity Protection is optional.
-        # If Redis uses TLS inside VPC (e.g., AWS ElastiCache with TLS),
-        # HMAC adds CPU overhead without significant security benefit.
-        # Disable if Redis traffic is already encrypted via TLS.
+
+
+
+
         from ..config.config import Config
         
-        # Automatically disable if Redis uses TLS (redundant protection)
+
         if getattr(Config, 'REDIS_PERSISTENT_SSL', False):
             logger.info(
                 "Redis Integrity Protection automatically disabled: Redis uses TLS encryption. "
@@ -54,7 +54,7 @@ class RedisIntegrityProtection:
             )
             self.protection_enabled = False
         else:
-            # Use explicit config if TLS is not enabled
+
             self.protection_enabled = getattr(Config, 'REDIS_INTEGRITY_ENABLED', False)
             if self.protection_enabled:
                 logger.info(
@@ -77,8 +77,8 @@ class RedisIntegrityProtection:
         try:
             from ..config.config import Config, IS_PRODUCTION
             
-            # Use MASTER_KEY as base, but derive a separate key for HMAC
-            # This ensures HMAC key is different from encryption keys
+
+
             if not Config.MASTER_KEY:
                 if IS_PRODUCTION:
                     raise RuntimeError(
@@ -94,10 +94,10 @@ class RedisIntegrityProtection:
             key_source = f"{Config.MASTER_KEY}_redis_integrity_salt"
             return hashlib.sha256(key_source.encode()).digest()
         except RuntimeError:
-            # Re-raise RuntimeError (our security errors)
+
             raise
         except Exception as e:
-            # For any other exception, fail in production
+
             from ..config.config import IS_PRODUCTION
             if IS_PRODUCTION:
                 raise RuntimeError(
@@ -105,7 +105,7 @@ class RedisIntegrityProtection:
                     "Application cannot start without a secure signing key in production."
                 ) from e
             else:
-                # In development, still fail but with clearer message
+
                 raise RuntimeError(
                     f"CRITICAL SECURITY ERROR: Failed to initialize Redis integrity signing key: {e}. "
                     "Please ensure PANEL_MASTER_KEY is set correctly."
@@ -160,7 +160,7 @@ class RedisIntegrityProtection:
         if not self._should_protect_key(key):
             return data
         
-        # Include key name in HMAC to prevent key substitution attacks
+
         message = f"{key}:{data}".encode("utf-8")
         signature = hmac.new(
             self.signing_key,
@@ -168,7 +168,7 @@ class RedisIntegrityProtection:
             hashlib.sha256
         ).hexdigest()
         
-        # Format: data|signature
+
         signed_data = f"{data}|{signature}"
         
         logger.debug(f"[REDIS_INTEGRITY] Signed data for key {key} (length: {len(signed_data)})")
@@ -190,14 +190,14 @@ class RedisIntegrityProtection:
         if not self._should_protect_key(key):
             return True, signed_data
         
-        # Check if data is signed (contains | separator)
+
         if "|" not in signed_data:
             logger.warning(
                 f"[REDIS_INTEGRITY] Unsigned data detected for protected key {key}"
             )
             return False, None
         
-        # Split data and signature
+
         parts = signed_data.rsplit("|", 1)
         if len(parts) != 2:
             logger.warning(
@@ -207,7 +207,7 @@ class RedisIntegrityProtection:
         
         data, signature = parts
         
-        # Verify HMAC
+
         message = f"{key}:{data}".encode("utf-8")
         expected_signature = hmac.new(
             self.signing_key,
@@ -215,18 +215,18 @@ class RedisIntegrityProtection:
             hashlib.sha256
         ).hexdigest()
         
-        # Use constant-time comparison to prevent timing attacks
+
         if not hmac.compare_digest(signature, expected_signature):
             logger.error(
                 f"[REDIS_INTEGRITY] HMAC verification failed for key {key} - "
                 f"possible tampering detected"
             )
             
-            # Record integrity error for monitoring
+
             try:
                 from ..services.monitoring.buffer_integrity_monitor import get_buffer_integrity_monitor
                 monitor = get_buffer_integrity_monitor()
-                # Determine key pattern
+
                 key_pattern = self._get_key_pattern(key)
                 monitor.record_redis_integrity_error(key_pattern)
                 monitor.record_redis_integrity_check(key_pattern, False)
@@ -237,7 +237,7 @@ class RedisIntegrityProtection:
         
         logger.debug(f"[REDIS_INTEGRITY] Verified data for key {key}")
         
-        # Record successful integrity check
+
         try:
             from ..services.monitoring.buffer_integrity_monitor import get_buffer_integrity_monitor
             monitor = get_buffer_integrity_monitor()
@@ -303,9 +303,9 @@ class RedisIntegrityProtection:
         try:
             signed_value = redis_client.get(key)
             if signed_value is None:
-                return True, None  # Key not found (not an integrity issue)
+                return True, None
             
-            # Decode bytes to string if needed
+
             if isinstance(signed_value, bytes):
                 signed_value = signed_value.decode("utf-8")
             
@@ -364,7 +364,7 @@ class RedisIntegrityProtection:
                     results["invalid_keys"] += 1
                     results["invalid_key_list"].append(key)
                 else:
-                    # Check if key should be protected but isn't signed
+
                     if self._should_protect_key(key):
                         signed_value = redis_client.get(key)
                         if signed_value and isinstance(signed_value, bytes):
@@ -384,7 +384,7 @@ class RedisIntegrityProtection:
                     f"keys={results['invalid_key_list'][:10]}"
                 )
             
-            # Record unsigned keys count for monitoring
+
             try:
                 from ..services.monitoring.buffer_integrity_monitor import get_buffer_integrity_monitor
                 monitor = get_buffer_integrity_monitor()
@@ -402,6 +402,6 @@ class RedisIntegrityProtection:
             }
 
 
-# Global instance
+
 redis_integrity_protection = RedisIntegrityProtection()
 

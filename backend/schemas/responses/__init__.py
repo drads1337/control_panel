@@ -6,14 +6,14 @@ to provide better type safety, IDE support, and self-documenting code.
 """
 
 from .service_responses import (
-    # Key models
+
     KeyListItem,
     KeyListResponse,
     KeyDetailsResponse,
     KeyDetailsData,
     DeviceInfo,
     KeyStatsResponse,
-    # User models
+
     UserListItem,
     UserListResponse,
     UserKeyCounts,
