@@ -23,7 +23,6 @@ from ..models.products import Product
 from ..models.servers import Server
 from .service_helpers import get_service
 
-cached_statistics_service = get_service('cached_statistics_service')
 def update_project_counters(project_id: Optional[int]):
     """
     Recalculate and update all statistics counters for a project.
@@ -161,8 +160,13 @@ def increment_project_product_counters(project_id: Optional[int]):
     
     # Use cache invalidation instead of direct counter updates
     # The counter will be recalculated automatically when needed
-    if cached_statistics_service:
+    # Get service inside function (DI pattern - avoid module-level service access)
+    try:
+        cached_statistics_service = get_service('cached_statistics_service')
         cached_statistics_service.invalidate_on_product_change(project_id)
+    except Exception:
+        # Service might not be available in all contexts (e.g., migrations)
+        pass
     
     # Also increment the counter directly for immediate consistency
     project = Project.query.get(project_id)
