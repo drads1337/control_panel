@@ -17,7 +17,6 @@ from ...utils.ip_utils import get_location_from_ip
 from ...utils.service_helpers import get_service
 from .security_types import SecurityContext
 
-
 class SecurityAuditService:
     """
     Service for handling security audit operations.
@@ -293,14 +292,3 @@ class SecurityAuditService:
         repo = SettingsRepository()
         return repo.get_all_project_settings(project_id)
 
-
-# Singleton instance
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   security_audit_service = get_service('security_audit_service')
-
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   security_audit_service = get_service('security_audit_service')

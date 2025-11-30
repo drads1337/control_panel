@@ -10,7 +10,6 @@ from ...models.core import User
 from ...models.keys import Key
 from ...utils.structured_logging import get_logger
 
-
 class KeyStatusService:
     """Service for managing key statuses"""
 
@@ -168,11 +167,4 @@ class KeyStatusService:
             db.session.rollback()
             self.logger.error(f"Failed to extend key: {str(e)}")
             return False, f"Failed to extend key: {str(e)}"
-
-
-# Singleton instance
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   key_status_service = get_service('key_status_service')
 

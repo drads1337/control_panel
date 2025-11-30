@@ -348,7 +348,3 @@ class ServerService:
             self.logger.error(f"Error getting project settings for project {project_id}: {str(e)}")
             return None
 
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   server_service = get_service('server_service')

@@ -71,7 +71,25 @@ class ValidationMiddleware:
         def decorator(func):
             @wraps(func)
             def wrapper(*args, **kwargs):
+                logger.info(f"Validation middleware ENTRY for {request.method} {request.path}")
+                logger.info(f"Function: {func.__name__}, Schema: {schema_class.__name__}")
+                validated_data = None  # Initialize to None to catch any unset cases
                 try:
+                    # Check for completely empty request body first
+                    request_data = request.get_data()
+                    logger.debug(f"Request data length: {len(request_data) if request_data else 0}, allow_empty: {allow_empty}")
+                    if not request_data and not allow_empty:
+                        logger.debug(f"Empty request body detected for {request.method} {request.path}")
+                        return (
+                            jsonify(
+                                {
+                                    "error": "INVALID_JSON",
+                                    "message": "Request body is required and must be valid JSON"
+                                }
+                            ),
+                            400,
+                        )
+                    
                     # Check if request is JSON - accept both application/json and product/json
                     content_type = request.headers.get('Content-Type', '').lower()
                     is_json_request = (
@@ -79,12 +97,15 @@ class ValidationMiddleware:
                         content_type == 'product/json' or
                         content_type.startswith('product/json;')
                     )
+                    logger.debug(f"Content-Type: {content_type}, is_json: {request.is_json}, is_json_request: {is_json_request}")
 
                     if not is_json_request:
+                        logger.debug(f"Not a JSON request for {request.method} {request.path}")
                         if allow_empty and not request.get_data():
-
+                            logger.debug(f"Setting validated_data to empty dict (allow_empty=True)")
                             validated_data = {}
                         else:
+                            logger.debug(f"Returning INVALID_CONTENT_TYPE error")
                             return (
                                 jsonify(
                                     {
@@ -95,33 +116,80 @@ class ValidationMiddleware:
                                 400,
                             )
                     else:
+                        logger.debug(f"Processing JSON request for {request.method} {request.path}")
                         # Get JSON data - manually parse for product/json, otherwise use Flask's parser
                         json_data = None
                         if content_type == 'product/json' or content_type.startswith('product/json;'):
                             # Manually parse JSON for product/json content type
                             try:
                                 raw_data = request.get_data(as_text=True)
-                                if raw_data:
+                                if raw_data and raw_data.strip():
                                     json_data = json.loads(raw_data)
                                 else:
-                                    json_data = {}
-                            except (json.JSONDecodeError, UnicodeDecodeError):
+                                    # Empty body should be None, not empty dict
+                                    json_data = None
+                            except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                                logger.warning(f"JSON decode error for {request.method} {request.path}: {str(e)}")
                                 json_data = None
                         else:
-                            json_data = request.get_json(silent=True)
+                            # Use silent=True to avoid raising exceptions, but handle errors explicitly
+                            try:
+                                json_data = request.get_json(silent=True, force=True)
+                            except Exception as json_error:
+                                logger.warning(f"Error parsing JSON for {request.method} {request.path}: {str(json_error)}")
+                                json_data = None
                         
-                        if json_data is None:
+                        # Ensure json_data is a dict if it's not None (handle edge cases like lists, strings, etc.)
+                        if json_data is not None and not isinstance(json_data, dict):
+                            logger.warning(f"JSON data is not a dict (type: {type(json_data)}) for {request.method} {request.path}, converting or rejecting")
                             if allow_empty:
-                                validated_data = {}
+                                json_data = {}
                             else:
                                 return (
                                     jsonify(
-                                        {"error": "INVALID_JSON", "message": "Invalid JSON data"}
+                                        {"error": "INVALID_JSON", "message": "Request body must be a JSON object"}
                                     ),
                                     400,
                                 )
+                        
+                        logger.debug(f"Parsed json_data: {json_data} (type: {type(json_data)})")
+                        if json_data is None:
+                            logger.debug(f"json_data is None, allow_empty: {allow_empty}")
+                            if allow_empty:
+                                logger.debug(f"Setting validated_data to empty dict (allow_empty=True, json_data=None)")
+                                validated_data = {}
+                            else:
+                                logger.debug(f"Returning INVALID_JSON error (json_data=None, allow_empty=False)")
+                                return (
+                                    jsonify(
+                                        {"error": "INVALID_JSON", "message": "Invalid JSON data or empty request body"}
+                                    ),
+                                    400,
+                                )
+                        elif json_data == {}:
+                            logger.debug(f"json_data is empty dict, allow_empty: {allow_empty}")
+                            # Empty JSON object - check if schema allows it
+                            if allow_empty:
+                                validated_data = {}
+                            else:
+                                # Try to validate empty dict - will fail if required fields are missing
+                                try:
+                                    validated_data = schema_class(**json_data).model_dump()
+                                except ValidationError as e:
+                                    return (
+                                        jsonify(
+                                            {
+                                                "error": "VALIDATION_ERROR",
+                                                "message": "Request validation failed",
+                                                "details": _sanitize_validation_errors(e.errors()),
+                                            }
+                                        ),
+                                        400,
+                                    )
                         else:
-
+                            # Log before validation attempt
+                            logger.debug(f"Attempting to validate JSON data for {request.method} {request.path}: {json_data}")
+                            logger.debug(f"Schema class: {schema_class.__name__}, strict: {strict}")
                             try:
                                 if strict:
                                     validated_data = schema_class(**json_data).model_dump()
@@ -129,7 +197,10 @@ class ValidationMiddleware:
                                     validated_data = schema_class(**json_data).model_dump(
                                         exclude_unset=True
                                     )
+                                logger.debug(f"Validation successful for {request.method} {request.path}, validated_data: {validated_data}")
                             except ValidationError as e:
+                                logger.warning(f"ValidationError for {request.method} {request.path}: {e.errors()}")
+                                logger.warning(f"JSON data that failed validation: {json_data}")
                                 return (
                                     jsonify(
                                         {
@@ -140,7 +211,120 @@ class ValidationMiddleware:
                                     ),
                                     400,
                                 )
+                            except Exception as e:
+                                # Catch any other exceptions during validation (TypeError, etc.)
+                                logger.error(f"Unexpected error during schema validation for {request.method} {request.path}: {str(e)}")
+                                logger.error(f"JSON data type: {type(json_data)}, value: {json_data}")
+                                logger.error(f"Schema class: {schema_class.__name__}")
+                                import traceback
+                                logger.error(traceback.format_exc())
+                                return (
+                                    jsonify(
+                                        {
+                                            "error": "VALIDATION_ERROR",
+                                            "message": "Request validation failed - invalid data format",
+                                            "details": str(e) if current_app.debug else None,
+                                        }
+                                    ),
+                                    400,
+                                )
 
+                    # Ensure validated_data is always set (should never be None at this point)
+                    if validated_data is None:
+                        logger.error(f"CRITICAL: validated_data is None for {request.method} {request.path} - this should not happen")
+                        logger.error(f"Request data: {request.get_data(as_text=True)[:200]}")
+                        logger.error(f"Content-Type: {request.headers.get('Content-Type')}")
+                        logger.error(f"is_json: {request.is_json}")
+                        logger.error(f"is_json_request: {is_json_request}")
+                        logger.error(f"allow_empty: {allow_empty}")
+                        import traceback
+                        logger.error(f"Stack trace:\n{traceback.format_stack()}")
+                        return (
+                            jsonify(
+                                {
+                                    "error": "VALIDATION_ERROR",
+                                    "message": "Request validation failed - no data provided",
+                                    "debug_info": {
+                                        "content_type": request.headers.get('Content-Type'),
+                                        "has_body": bool(request.get_data()),
+                                        "body_preview": request.get_data(as_text=True)[:100] if request.get_data() else None,
+                                        "is_json": request.is_json,
+                                        "is_json_request": is_json_request,
+                                    }
+                                }
+                            ),
+                            400,
+                        )
+                    
+                    # Double-check it's a dict
+                    if not isinstance(validated_data, dict):
+                        logger.error(f"CRITICAL: validated_data is not a dict: {type(validated_data)} for {request.method} {request.path}")
+                        return (
+                            jsonify(
+                                {
+                                    "error": "VALIDATION_ERROR",
+                                    "message": "Request validation failed - invalid data format"
+                                }
+                            ),
+                            400,
+                        )
+                    
+                    # Final safety check - validated_data must be set and must be a dict
+                    if validated_data is None:
+                        logger.critical(f"CRITICAL: validated_data is None right before calling function for {request.method} {request.path}")
+                        logger.critical(f"This should never happen - validation should have returned an error earlier")
+                        import traceback
+                        logger.critical(f"Stack trace:\n{traceback.format_stack()}")
+                        return (
+                            jsonify(
+                                {
+                                    "error": "VALIDATION_ERROR",
+                                    "message": "Request validation failed - internal error",
+                                    "debug_info": {
+                                        "content_type": request.headers.get('Content-Type'),
+                                        "has_body": bool(request.get_data()),
+                                        "body_preview": request.get_data(as_text=True)[:100] if request.get_data() else None,
+                                    }
+                                }
+                            ),
+                            500,
+                        )
+                    
+                    if not isinstance(validated_data, dict):
+                        logger.critical(f"CRITICAL: validated_data is not a dict (type: {type(validated_data)}) right before calling function for {request.method} {request.path}")
+                        return (
+                            jsonify(
+                                {
+                                    "error": "VALIDATION_ERROR",
+                                    "message": "Request validation failed - internal error",
+                                }
+                            ),
+                            500,
+                        )
+                    
+                    # Final check before setting in kwargs - this should never be None at this point
+                    if validated_data is None:
+                        logger.critical(f"CRITICAL: validated_data is None at final check for {request.method} {request.path}")
+                        logger.critical(f"This is a critical bug - validation should have returned an error earlier")
+                        import traceback
+                        logger.critical(f"Stack trace:\n{traceback.format_stack()}")
+                        return (
+                            jsonify(
+                                {
+                                    "error": "VALIDATION_ERROR",
+                                    "message": "Request validation failed - internal validation error",
+                                    "debug_info": {
+                                        "content_type": request.headers.get('Content-Type'),
+                                        "has_body": bool(request.get_data()),
+                                        "body_preview": request.get_data(as_text=True)[:100] if request.get_data() else None,
+                                    }
+                                }
+                            ),
+                            500,
+                        )
+                    
+                    # Log what we're passing to help debug
+                    logger.debug(f"Validation middleware passing validated_data: {validated_data} for {request.method} {request.path}")
                     kwargs["validated_data"] = validated_data
 
                     return func(*args, **kwargs)
@@ -158,18 +342,33 @@ class ValidationMiddleware:
                     
                     import traceback
                     error_traceback = traceback.format_exc()
-                    logger.error(f"Unexpected error in validation middleware: {str(e)}\n{error_traceback}")
+                    logger.error(f"Unexpected error in validation middleware for {request.method} {request.path}: {str(e)}\n{error_traceback}")
+                    logger.error(f"Request data: {request.get_data(as_text=True)[:200]}")
+                    logger.error(f"Content-Type: {request.headers.get('Content-Type')}")
 
+                    # Ensure we never pass None to the handler - if we get here, something went wrong
+                    # Don't set validated_data in kwargs, return an error instead
                     error_response = {
-                        "error": "INTERNAL_ERROR",
-                        "message": "Internal server error"
+                        "error": "VALIDATION_ERROR",
+                        "message": "Request validation failed - invalid request data",
+                        "debug_info": {
+                            "content_type": request.headers.get('Content-Type'),
+                            "has_body": bool(request.get_data()),
+                            "body_preview": request.get_data(as_text=True)[:100] if request.get_data() else None,
+                        }
                     }
 
                     if current_app.debug:
                         error_response["details"] = str(e)
                         error_response["traceback"] = error_traceback.split("\n")
 
-                    return jsonify(error_response), 500
+                    # CRITICAL: Ensure we return and never call the function
+                    try:
+                        return jsonify(error_response), 400
+                    except Exception as return_error:
+                        logger.critical(f"CRITICAL: Failed to return error response: {str(return_error)}")
+                        # Last resort - raise to prevent function from being called
+                        raise
 
             return wrapper
 

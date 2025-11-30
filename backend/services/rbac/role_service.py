@@ -620,7 +620,3 @@ class RoleService:
         except Exception as e:
             logging.error(f"Error invalidating users cache for role_id={role_id}: {e}")
 
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   role_service = get_service('role_service')

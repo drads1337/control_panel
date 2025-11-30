@@ -548,6 +548,7 @@ def download_product_config(config_id):
         if error:
             return jsonify({"error": error}), 404
 
+        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "download_product_config",
@@ -1434,6 +1435,34 @@ def delete_product_file(product_identifier, file_type):
 @jwt_required()
 @enforce_project_scope
 def create_folder(validated_data=None):
+    # CRITICAL: This should never be None if validation middleware ran correctly
+    # If it's None, the validation middleware failed to catch an error condition
+    if validated_data is None:
+        logger.error("CRITICAL: create_folder received None for validated_data - validation middleware may have failed")
+        logger.error(f"Request body: {request.get_data(as_text=True)[:500]}")
+        logger.error(f"Content-Type: {request.headers.get('Content-Type')}")
+        logger.error(f"Request is_json: {request.is_json}")
+        
+        # Try to parse JSON manually to see what's wrong
+        try:
+            raw_body = request.get_data(as_text=True)
+            if raw_body:
+                import json
+                parsed = json.loads(raw_body)
+                logger.error(f"Manually parsed JSON: {parsed}")
+        except Exception as e:
+            logger.error(f"Failed to parse JSON manually: {str(e)}")
+        
+        return jsonify({
+            "error": "VALIDATION_ERROR", 
+            "message": "Request validation failed - invalid or missing request data",
+            "debug_info": {
+                "content_type": request.headers.get('Content-Type'),
+                "has_body": bool(request.get_data()),
+                "body_preview": request.get_data(as_text=True)[:100] if request.get_data() else None
+            }
+        }), 400
+    
     user_id = get_jwt_identity()
     file_service = get_service('file_service')
     user = file_service.get_user_by_id(user_id)
@@ -1442,12 +1471,30 @@ def create_folder(validated_data=None):
     if not is_valid:
         return jsonify({"error": error}), 404 if error == "User not found" else 403
 
-    if not validated_data:
-        return jsonify({"error": "No data provided"}), 400
+    # Check if validated_data is empty dict (should have been caught by validation)
+    if not validated_data or not isinstance(validated_data, dict):
+        logger.warning(f"create_folder: Invalid validated_data - {validated_data}, type: {type(validated_data)}")
+        return jsonify({
+            "error": "VALIDATION_ERROR", 
+            "message": "Request validation failed - invalid data format"
+        }), 400
 
-    folder_name = validated_data.name
-    parent_path = validated_data.parent_path
-    product_id = validated_data.product_id
+    folder_name = validated_data.get("name")
+    if not folder_name:
+        return jsonify({"error": "Folder name is required"}), 400
+    
+    parent_path = validated_data.get("parent_path", "/")
+    product_id_param = validated_data.get("product_id")
+
+    # Convert product_id (which might be unique_id string or database id) to database id
+    product_id = None
+    if product_id_param is not None:
+        from ..models.products import Product
+        product = find_product_by_id_or_unique_id(product_id_param, user.project_id)
+        if product:
+            product_id = product.id
+        else:
+            return jsonify({"error": "Product not found"}), 404
 
     success, error, folder_data = file_service.create_folder(folder_name, parent_path, product_id)
     if not success:

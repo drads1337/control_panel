@@ -23,7 +23,6 @@ from flask import current_app
 from ...core.extensions import db
 from ...utils.redis_client import get_redis_cache_client, RedisClient
 
-
 class CacheService:
     """Service for managing application-level caching with smart invalidation"""
 
@@ -895,17 +894,3 @@ class CacheService:
         except Exception as e:
             logging.error(f"Cache stats error: {e}")
             return {}
-
-
-# Global instance for backward compatibility
-# New code should use DI pattern via ServiceContainer:
-#   from ...utils.service_helpers import get_service
-#   cache_service = get_service('cache_service')
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   cache_service = get_service('cache_service')
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   cache_service = get_service('cache_service')

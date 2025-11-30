@@ -516,11 +516,3 @@ class ChallengeService:
             logging.error(f"Error checking challenge replay: {e}")
             return True
 
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   challenge_service = get_service('challenge_service')
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   challenge_service = get_service('challenge_service')

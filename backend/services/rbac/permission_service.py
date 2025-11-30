@@ -595,7 +595,3 @@ class PermissionService:
 
         return {"allow": allow_permissions, "deny": deny_permissions}
 
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   permission_service = get_service('permission_service')

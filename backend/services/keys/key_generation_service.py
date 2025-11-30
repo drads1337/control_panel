@@ -87,8 +87,3 @@ class KeyGenerationService:
 
         return prefix
 
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   key_generation_service = get_service('key_generation_service')
-

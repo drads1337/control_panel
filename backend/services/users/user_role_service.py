@@ -14,7 +14,6 @@ from ...models.rbac import Role, UserRole
 from ...utils.rbac_utils import RBACManager
 from ...utils.structured_logging import get_logger
 
-
 class UserRoleService:
     """Service for handling user role operations"""
 
@@ -251,11 +250,4 @@ class UserRoleService:
             db.session.rollback()
             self.logger.error(f"Error bulk changing roles: {str(e)}")
             return 0, f"Failed to change roles: {str(e)}"
-
-
-# Singleton instance
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   user_role_service = get_service('user_role_service')
 

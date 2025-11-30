@@ -18,7 +18,6 @@ from ...utils.rbac_utils import RBACManager
 from ...utils.role_constants import UserRoles
 from ...utils.service_helpers import get_service
 
-
 class ProjectCacheService:
     """
     Service for handling project caching operations.
@@ -420,15 +419,3 @@ class ProjectCacheService:
         except Exception as e:
             self.logger.error(f"Error invalidating project cache: {e}")
             return False
-
-
-# Singleton instance
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   project_cache_service = get_service('project_cache_service')
-
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   project_cache_service = get_service('project_cache_service')

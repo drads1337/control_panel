@@ -11,7 +11,6 @@ from ...models.webhooks import Webhook
 from ...utils.service_helpers import get_service
 from ...utils.service_exceptions import ServiceError
 
-
 class WebhookService:
     """Main service for managing webhook notifications - coordinates specialized services"""
 

@@ -10,7 +10,6 @@ from ...core.extensions import db
 from ...models.products import Product, ProductKeyPrice
 from ...utils.structured_logging import get_logger
 
-
 class PriceCalculationService:
     """Service for calculating key prices based on product pricing"""
 
@@ -116,8 +115,3 @@ class PriceCalculationService:
             self.logger.error(f"Error getting reset price: {str(e)}")
             return 0.0
 
-
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   price_calculation_service = get_service('price_calculation_service')

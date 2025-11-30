@@ -18,13 +18,11 @@ from enum import Enum
 
 logger = logging.getLogger(__name__)
 
-
 class DecisionOutcome(Enum):
     """Authorization decision outcome"""
     ALLOW = "allow"
     DENY = "deny"
     ERROR = "error"
-
 
 @dataclass
 class AuthorizationAuditEntry:
@@ -53,7 +51,6 @@ class AuthorizationAuditEntry:
     evaluated_policies: List[Dict[str, Any]] = field(default_factory=list)
     execution_time_ms: float = 0.0
     potential_issues: List[str] = field(default_factory=list)
-
 
 class AuthorizationAuditService:
     """
@@ -417,10 +414,4 @@ class AuthorizationAuditService:
         
         return suspicious
 
-
 # Global instance
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   authorization_audit_service = get_service('authorization_audit_service')
-

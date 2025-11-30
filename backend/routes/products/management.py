@@ -18,6 +18,7 @@ from ...models.core import UserProductPermission
 from ...schemas.product import ProductCreateSchema, ProductStatusUpdateSchema, ProductUpdateSchema
 from ...utils.service_helpers import get_service
 from ...utils.rbac_utils import RBACManager
+from ...utils.service_exceptions import ServiceError
 from sqlalchemy.orm import joinedload
 
 management_bp = Blueprint("products_management", __name__)
@@ -385,12 +386,16 @@ def create_product(validated_data=None):
             201,
         )
 
+    except ServiceError:
+        # Let ServiceError propagate to global error handler
+        raise
     except Exception as e:
+        db.session.rollback()
         current_app.logger.error(f"Error creating product: {str(e)}")
         import traceback
 
         current_app.logger.error(f"Traceback: {traceback.format_exc()}")
-        return jsonify({"error": "Failed to create product"}), 500
+        return jsonify({"error": f"Failed to create product: {str(e)}"}), 500
 
 @management_bp.route("/<product_identifier>/status", methods=["PUT"])
 @jwt_required()

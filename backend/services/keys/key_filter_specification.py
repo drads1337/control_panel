@@ -12,7 +12,6 @@ from sqlalchemy.orm import Query
 from ...models.keys import Key
 from ...utils.fulltext_search import fulltext_search_filter
 
-
 class KeyFilterSpecification:
     """
     Specification class for filtering keys.

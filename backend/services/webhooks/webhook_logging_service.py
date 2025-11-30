@@ -11,7 +11,6 @@ from typing import Dict, List, Optional
 from ...core.extensions import db
 from ...models.webhooks import Webhook, WebhookLog
 
-
 class WebhookLoggingService:
     """Service for logging and statistics related to webhooks"""
 
@@ -188,10 +187,4 @@ class WebhookLoggingService:
         except Exception as e:
             self.logger.error(f"WEBHOOK_STATISTICS_ERROR project_id={project_id} error={e}")
             return {}
-
-
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   webhook_logging_service = get_service('webhook_logging_service')
 

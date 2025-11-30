@@ -12,7 +12,6 @@ from ...models.core import DeveloperProductPermission, UserProductPermission
 from ...models.products import Product
 from ...utils.structured_logging import get_logger
 
-
 class UserPermissionService:
     """Service for handling user product permissions"""
 
@@ -192,11 +191,4 @@ class UserPermissionService:
                 continue
 
         return processed_product_ids
-
-
-# Singleton instance
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   user_permission_service = get_service('user_permission_service')
 

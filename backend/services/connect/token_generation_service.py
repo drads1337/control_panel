@@ -24,6 +24,20 @@ class TokenGenerationService:
 
         Args:
             static_word: Static word used in token generation (defaults to Config.TOKEN_STATIC_WORD)
+        
+        SECURITY WARNING:
+        ================
+        The static_word is used as a salt in token generation. If this secret is compromised,
+        all tokens become predictable and can be forged.
+        
+        Current implementation uses a single static secret for all tokens. For enhanced security:
+        1. Use a strong, randomly generated TOKEN_STATIC_WORD (minimum 32 bytes)
+        2. Consider implementing per-project or per-user salts stored in the database
+        3. Implement secret rotation mechanism for production environments
+        4. Never commit TOKEN_STATIC_WORD to version control
+        
+        Example secure generation:
+            export TOKEN_STATIC_WORD=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')
         """
         # SECURITY: Use environment variable instead of hardcoded secret
         self.static_word = static_word or Config.TOKEN_STATIC_WORD

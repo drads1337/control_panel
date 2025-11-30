@@ -14,7 +14,6 @@ from ...models.core import User
 
 logger = logging.getLogger(__name__)
 
-
 class UserOrchestrator:
     """
     Orchestrates complex user management operations

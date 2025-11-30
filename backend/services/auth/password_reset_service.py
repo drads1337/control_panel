@@ -196,12 +196,3 @@ class PasswordResetService:
             self.logger.error(f"Error requesting password reset: {str(e)}")
             return True, None  # Always return success for security
 
-# Singleton instance
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   password_reset_service = get_service('password_reset_service')
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   password_reset_service = get_service('password_reset_service')

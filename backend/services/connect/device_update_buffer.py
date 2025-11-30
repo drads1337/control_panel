@@ -16,7 +16,6 @@ from ...utils.redis_client import redis_client
 
 logger = logging.getLogger(__name__)
 
-
 class DeviceUpdateBuffer:
     """
     Service for buffering DeviceInfo.last_seen updates.
@@ -172,7 +171,6 @@ class DeviceUpdateBuffer:
         except Exception as e:
             logger.error(f"Failed to get device buffer stats: {e}")
             return {"buffered_updates": 0, "enabled": self.enabled}
-
 
 device_update_buffer = DeviceUpdateBuffer()
 

@@ -14,7 +14,6 @@ from ...models.products import Product
 from ...models.keys import Key
 from ...utils.structured_logging import get_logger
 
-
 class KeyStatisticsService:
     """Service for handling key statistics"""
 
@@ -68,11 +67,4 @@ class KeyStatisticsService:
                 "inactive_keys": 0,
                 "keys_by_product": [],
             }
-
-
-# Singleton instance
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   key_statistics_service = get_service('key_statistics_service')
 

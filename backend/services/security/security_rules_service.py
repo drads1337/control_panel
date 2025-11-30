@@ -16,7 +16,6 @@ from ...models.security import SecurityRule
 from ...utils.service_helpers import get_service
 from .security_types import SecurityContext
 
-
 class SecurityRulesService:
     """
     Service for handling security rules operations.
@@ -585,11 +584,4 @@ class SecurityRulesService:
         except Exception as e:
             db.session.rollback()
             self.logger.error(f"Error updating rule trigger for {rule_name} in project {project_id}: {e}")
-
-
-# Singleton instance
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   security_rules_service = get_service('security_rules_service')
 

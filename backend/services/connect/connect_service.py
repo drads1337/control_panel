@@ -416,7 +416,3 @@ class ConnectService:
             logger.error(f"CLASSIC_CONNECT_ERROR_TRACEBACK: {traceback.format_exc()}")
             return {"error": "Internal server error"}, 500
 
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   connect_service = get_service('connect_service')

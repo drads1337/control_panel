@@ -377,7 +377,3 @@ class ABACService:
             )
             raise ValueError(f"Failed to set resource attribute: {str(e)}")
 
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   abac_service = get_service('abac_service')

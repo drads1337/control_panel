@@ -17,7 +17,6 @@ from ...utils.redis_client import get_redis_client_for_db
 # Note: get_service and RBACManager are imported inside functions to avoid circular dependencies
 # These imports are safe because they use lazy loading via service container
 
-
 class WebhookValidationService:
     """Service for validating webhook URLs, access, and creation data"""
 
@@ -413,10 +412,4 @@ class WebhookValidationService:
         except Exception as e:
             self.logger.warning(f"Failed to get validated IPs for URL {url}: {e}")
             return None
-
-
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   webhook_validation_service = get_service('webhook_validation_service')
 

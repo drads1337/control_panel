@@ -14,7 +14,6 @@ from prometheus_client.parser import text_string_to_metric_families
 
 logger = logging.getLogger(__name__)
 
-
 class PrometheusMetricsReader:
     """
     Service for reading metrics from Prometheus registry.
@@ -225,7 +224,6 @@ class PrometheusMetricsReader:
             "project_id": project_id,
             "note": "Metrics are collected automatically by Prometheus. Use /metrics endpoint for raw metrics.",
         }
-
 
 # Singleton instance
 prometheus_metrics_reader = PrometheusMetricsReader()

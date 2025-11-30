@@ -22,7 +22,6 @@ from ...models.project_user import ProjectAdmin, ProjectUserRole
 from ...models.rbac import Role
 from ...utils.structured_logging import get_logger
 
-
 class ProjectRelationshipsService:
     """
     Service for accessing Project relationships
@@ -222,11 +221,4 @@ class ProjectRelationshipsService:
         except Exception as e:
             self.logger.error(f"Error getting action logs for project {project_id}: {e}")
             return []
-
-
-# Singleton instance
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   project_relationships_service = get_service('project_relationships_service')
 

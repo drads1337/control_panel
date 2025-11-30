@@ -16,7 +16,6 @@ from flask_jwt_extended import create_access_token, set_access_cookies
 from ...models.core import User
 from ...utils.rbac_utils import RBACManager
 
-
 class AuthTokenService:
     """
     Service for handling JWT token operations.
@@ -111,11 +110,4 @@ class AuthTokenService:
         except Exception as e:
             self.logger.error(f"Error creating response with token cookie: {str(e)}")
             raise
-
-
-# Singleton instance
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   auth_token_service = get_service('auth_token_service')
 

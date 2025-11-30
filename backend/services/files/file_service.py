@@ -1142,7 +1142,3 @@ class FileService:
             self.logger.error(f"Error deleting product extra file: {e}")
             return False, f"Failed to delete product extra file: {str(e)}"
 
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   file_service = get_service('file_service')

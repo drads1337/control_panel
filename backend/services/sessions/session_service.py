@@ -762,7 +762,3 @@ class SessionService:
 # Service instance should be obtained via ServiceContainer:
 #   from ...utils.service_helpers import get_service
 #   service = get_service('session_service')
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   session_service = get_service('session_service')

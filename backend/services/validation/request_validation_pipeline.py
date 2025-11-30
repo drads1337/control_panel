@@ -17,7 +17,6 @@ from ...utils.ip_utils import get_real_ip
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class ValidationResult:
     """Result of request validation"""
@@ -25,7 +24,6 @@ class ValidationResult:
     reason: Optional[str] = None
     ip: Optional[str] = None
     user_agent: Optional[str] = None
-
 
 class RequestValidationPipeline:
     """
@@ -218,7 +216,6 @@ class RequestValidationPipeline:
             headers = dict(request.headers) if request else {}
         
         return self._validate_user_agent(user_agent, headers)
-
 
 # Singleton instance for easy access
 request_validation_pipeline = RequestValidationPipeline()

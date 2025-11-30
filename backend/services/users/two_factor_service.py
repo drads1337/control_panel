@@ -344,11 +344,3 @@ class TwoFactorService:
         admin_permissions = ["rbac.view", "employees.view", "system.view_health"]
         return any(rbac_service.check_permission(user.id, perm) for perm in admin_permissions)
 
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   two_factor_service = get_service('two_factor_service')
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   two_factor_service = get_service('two_factor_service')

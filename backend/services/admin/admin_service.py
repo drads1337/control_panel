@@ -455,11 +455,3 @@ class AdminService:
             self.logger.error(f"Error reactivating project: {str(e)}")
             return False, f"Failed to reactivate project: {str(e)}"
 
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   admin_service = get_service('admin_service')
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   admin_service = get_service('admin_service')

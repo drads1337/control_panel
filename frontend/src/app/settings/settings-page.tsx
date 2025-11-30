@@ -52,7 +52,9 @@ export default function SettingsPage() {
     try {
       setLoadingCurrentProject(true)
       const response = await api.get(`/api/projects/${user.project_id}`)
-      setCurrentProject(response.data)
+      // Handle cached response format: {data: {...}, cache_type: ..., cached_at: ..., ttl: ...}
+      const projectData = response.data?.data || response.data
+      setCurrentProject(projectData)
     } catch (error) {
       if (error instanceof AxiosError && error.response?.status !== 403) {
         toast.error('Failed to load current project')
@@ -152,31 +154,21 @@ export default function SettingsPage() {
               <div className="text-xs sm:text-sm text-muted-foreground">Loading project information...</div>
             ) : (
               <div className="space-y-2">
-                {currentProject?.unique_id ? (
+                {(currentProject?.unique_id || currentProject?.id) && (
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
                       <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">Unique ID</span>
-                      <code className="text-xs sm:text-sm font-mono font-medium truncate">{currentProject.unique_id}</code>
+                      <code className="text-xs sm:text-sm font-mono font-medium truncate">
+                        {currentProject.unique_id || currentProject.id}
+                      </code>
                     </div>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => copyToClipboard(currentProject.unique_id, 'Unique ID')}
-                      className="h-7 w-7 sm:h-8 sm:w-8 p-0 flex-shrink-0"
-                    >
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
-                      <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">Project ID</span>
-                      <code className="text-xs sm:text-sm font-mono font-medium">{user.project_id}</code>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => copyToClipboard(String(user.project_id), 'Project ID')}
+                      onClick={() => copyToClipboard(
+                        currentProject.unique_id || String(currentProject.id), 
+                        'Unique ID'
+                      )}
                       className="h-7 w-7 sm:h-8 sm:w-8 p-0 flex-shrink-0"
                     >
                       <Copy className="h-3 w-3" />

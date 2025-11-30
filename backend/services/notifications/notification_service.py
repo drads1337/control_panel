@@ -410,7 +410,3 @@ class NotificationService:
             self.logger.error(f"Error cleaning up notifications: {str(e)}")
             return 0, f"Failed to cleanup notifications: {str(e)}"
 
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   notification_service = get_service('notification_service')

@@ -35,7 +35,6 @@ except ImportError:
     celery_process_webhook = None
     logging.warning("Celery webhook tasks not available. Webhooks will use fallback mode.")
 
-
 class SSRFProtectedHTTPAdapter(HTTPAdapter):
     """
     Custom HTTP adapter that prevents SSRF attacks by:
@@ -90,7 +89,6 @@ class SSRFProtectedHTTPAdapter(HTTPAdapter):
             return True
         except ValueError:
             return False
-
 
 class WebhookExecutionService:
     """Service for executing webhook deliveries"""
@@ -370,10 +368,4 @@ class WebhookExecutionService:
         except Exception as e:
             self.logger.error(f"WEBHOOK_EXECUTION_ERROR: {e}")
             return False, str(e)
-
-
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   webhook_execution_service = get_service('webhook_execution_service')
 

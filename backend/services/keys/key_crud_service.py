@@ -40,7 +40,6 @@ if TYPE_CHECKING:
     from ...services.rbac.rbac_service import RBACService
     from ...services.cache.cache_service import CacheService
 
-
 class KeyCRUDService:
     """Service for handling basic CRUD operations on keys"""
 
@@ -732,15 +731,3 @@ class KeyCRUDService:
             db.session.rollback()
             self.logger.error(f"Failed to reset key: {str(e)}")
             return False, f"Failed to reset key: {str(e)}"
-
-
-# Singleton instance
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   key_crud_service = get_service('key_crud_service')
-
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   key_crud_service = get_service('key_crud_service')

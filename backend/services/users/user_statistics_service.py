@@ -21,7 +21,6 @@ from ...utils.service_helpers import get_service
 from ...utils.rbac_utils import RBACManager
 from ...utils.structured_logging import get_logger
 
-
 class UserStatisticsService:
     """Service for handling user statistics"""
 
@@ -323,11 +322,4 @@ class UserStatisticsService:
                 "current_page": page,
                 "per_page": per_page,
             }, None
-
-
-# Singleton instance
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   user_statistics_service = get_service('user_statistics_service')
 

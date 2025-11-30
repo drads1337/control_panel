@@ -395,11 +395,3 @@ class ActivityService:
             self.logger.error(f"Failed to get activity statistics: {e}")
             return {}
 
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   activity_service = get_service('activity_service')
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   activity_service = get_service('activity_service')

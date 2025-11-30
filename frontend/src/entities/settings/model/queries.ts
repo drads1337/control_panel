@@ -102,7 +102,7 @@ export function useSettingsQuery(): UseSettingsQueryReturn {
         if (!old) return old
         return { ...old, encryption_keys: newKeys }
       })
-      toast.success('Ключи успешно перегенерированы')
+      toast.success('Keys successfully regenerated')
     },
     onError: (err: any) => {
       const errorMessage = err instanceof Error ? err.message : 'Failed to regenerate keys'
@@ -122,7 +122,7 @@ export function useSettingsQuery(): UseSettingsQueryReturn {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: settingsKeys.project() })
-      toast.success('Ключи обновлены')
+      toast.success('Keys updated')
     },
     onError: (err: any) => {
       const errorMessage = err instanceof Error ? err.message : 'Failed to update keys'
@@ -142,7 +142,7 @@ export function useSettingsQuery(): UseSettingsQueryReturn {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: settingsKeys.project() })
-      toast.success('Мастер-ключ успешно перегенерирован')
+      toast.success('Master key successfully regenerated')
     },
     onError: (err: any) => {
       const errorMessage = err instanceof Error ? err.message : 'Failed to regenerate master key'

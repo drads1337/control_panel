@@ -368,11 +368,3 @@ class UserProfileService:
             self.logger.error(f"Error getting user dashboard data: {str(e)}")
             return {"error": "Failed to load dashboard data"}
 
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   user_profile_service = get_service('user_profile_service')
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   user_profile_service = get_service('user_profile_service')

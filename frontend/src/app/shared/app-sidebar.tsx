@@ -174,9 +174,11 @@ function AppSidebarContent() {
     return allSidebarItems.filter(item => canAccessNavigationItem(item, user, userRole))
   }, [navigationConfig?.navigation, user, userRole])
 
-  const { data: currentProject } = useQuery({
+  const { data: currentProjectResponse, isLoading: isProjectLoading, error: projectError } = useQuery({
     queryKey: projectKeys.detail(String(user?.project_id)),
-    queryFn: () => getProject(user!.project_id!),
+    queryFn: async () => {
+      return await getProject(user!.project_id!)
+    },
     enabled: !!user?.project_id && isInitialized,
     staleTime: 10 * 60 * 1000, // 10 minutes - project data doesn't change often
     gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
@@ -278,6 +280,7 @@ function AppSidebarContent() {
             <SidebarMenuButton
               size="lg"
               className="cursor-default"
+              tooltip={isCollapsed ? (currentProjectResponse as any)?.data?.name || (currentProjectResponse as any)?.name : undefined}
             >
               <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground shrink-0">
                 <Briefcase className="size-4" />
@@ -285,7 +288,14 @@ function AppSidebarContent() {
               {!isCollapsed && (
                 <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
                   <span className="truncate font-semibold">
-                    {currentProject?.name || 'Panel'}
+                    {(() => {
+                      if (isProjectLoading) return 'Loading...'
+                      if (projectError) return 'Error loading project'
+                      // Handle cache wrapper response: { data: {...} } or direct project object
+                      const projectResponse = currentProjectResponse as any
+                      const projectData = projectResponse?.data || projectResponse
+                      return projectData?.name || 'No project'
+                    })()}
                   </span>
                 </div>
               )}

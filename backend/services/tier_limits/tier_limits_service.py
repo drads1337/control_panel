@@ -15,7 +15,6 @@ from ...models.rbac import UserRole, Role
 from ...utils.service_exceptions import ValidationError, BusinessLogicError
 from ...utils.structured_logging import get_logger
 
-
 class TierLimitsService:
     """Service for checking tier-based limits"""
 

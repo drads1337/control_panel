@@ -241,6 +241,41 @@ def get_available_products_for_agents():
 def create_loader(validated_data=None):
     """Create a new agent"""
     try:
+        # Fallback: if validated_data is None, try to get data from request
+        # This can happen if validation middleware didn't run or failed silently
+        if not validated_data:
+            current_app.logger.warning(
+                f"validated_data is None in create_loader. "
+                f"Request method: {request.method}, "
+                f"Content-Type: {request.headers.get('Content-Type')}, "
+                f"Is JSON: {request.is_json}"
+            )
+            # Try to get raw JSON data as fallback
+            raw_data = request.get_json(silent=True) if request.is_json else None
+            if raw_data:
+                # Manually validate using the schema
+                try:
+                    from ..schemas.agent import AgentCreateSchema
+                    schema = AgentCreateSchema(**raw_data)
+                    validated_data = schema.model_dump()
+                    current_app.logger.info("Successfully validated request data using fallback method")
+                except Exception as e:
+                    current_app.logger.error(f"Failed to validate request data: {str(e)}")
+                    import traceback
+                    current_app.logger.error(f"Traceback: {traceback.format_exc()}")
+                    return jsonify({
+                        "error": "Invalid request data",
+                        "details": str(e),
+                        "success": False
+                    }), 400
+            else:
+                current_app.logger.error("No JSON data found in request body")
+                return jsonify({
+                    "error": "No data provided",
+                    "message": "Request body is required and must be valid JSON",
+                    "success": False
+                }), 400
+
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
 
@@ -266,25 +301,29 @@ def create_loader(validated_data=None):
             if not can_create:
                 return jsonify({"error": error_msg, "success": False}), 400
 
+        name = validated_data.get('name')
+        if not name:
+            return jsonify({"error": "Agent name is required", "success": False}), 400
+
         existing_agent = Agent.query.filter_by(
-            name=validated_data.name, project_id=user.project_id
+            name=name, project_id=user.project_id
         ).first()
         if existing_agent:
             return jsonify({"error": "Agent with this name already exists", "success": False}), 400
 
         new_agent = Agent(
-            name=validated_data.name,
-            description=validated_data.description,
-            status=validated_data.status,
-            logo=validated_data.logo,
-            banner=validated_data.banner,
-            background=validated_data.background,
-            file=validated_data.file or f"{validated_data.name.lower().replace(' ', '_')}_loader.exe",
-            changelog=validated_data.changelog or "Initial version",
-            notifications=validated_data.notifications or "New agent added!",
-            version=validated_data.version,
-            downloads=validated_data.downloads,
-            active_users=validated_data.active_users,
+            name=name,
+            description=validated_data.get('description', ''),
+            status=validated_data.get('status', 'active'),
+            logo=validated_data.get('logo'),
+            banner=validated_data.get('banner'),
+            background=validated_data.get('background'),
+            file=validated_data.get('file') or f"{name.lower().replace(' ', '_')}_loader.exe",
+            changelog=validated_data.get('changelog') or "Initial version",
+            notifications=validated_data.get('notifications') or "New agent added!",
+            version=validated_data.get('version', '1.0.0'),
+            downloads=validated_data.get('downloads', 0),
+            active_users=validated_data.get('active_users', 0),
             created_by=user.id,
             project_id=user.project_id,
         )
@@ -322,9 +361,6 @@ def create_loader(validated_data=None):
         try:
             from ..utils.service_helpers import get_service
             cache_service = get_service('cache_service')
-
-            cache_service = get_service('cache_service')
-            cache_service = get_service('cache_service')
             cache_service.invalidate_pattern(f"agents:project_id={user.project_id}:*")
         except ImportError:
             pass
@@ -333,9 +369,12 @@ def create_loader(validated_data=None):
             {"agent": agent_data, "success": True, "message": "Agent created successfully"}
         )
     except Exception as e:
+        import traceback
+        error_traceback = traceback.format_exc()
         current_app.logger.error(f"Error creating agent: {str(e)}")
+        current_app.logger.error(f"Traceback: {error_traceback}")
         db.session.rollback()
-        return jsonify({"error": "Failed to create agent", "success": False}), 500
+        return jsonify({"error": f"Failed to create agent: {str(e)}", "success": False}), 500
 
 @agents_bp.route("/<agent_identifier>", methods=["PUT"])
 @jwt_required()
@@ -594,6 +633,8 @@ def assign_products_to_agent(agent_identifier, validated_data=None):
         current_assigned_products = Product.query.filter(Product.id.in_(current_assigned_product_ids)).all() if current_assigned_product_ids else []
         current_product_unique_ids = {product.unique_id for product in current_assigned_products}
 
+        product_ids = validated_data.get('product_ids', [])
+
         for product_identifier in product_ids:
             # Find product by id or unique_id
             product = None
@@ -810,6 +851,9 @@ def update_loader_status(agent_identifier, validated_data=None):
         if not agent:
             return jsonify({"error": "Agent not found", "success": False}), 404
 
+        new_status = validated_data.get('status')
+        if not new_status:
+            return jsonify({"error": "Status is required", "success": False}), 400
 
         agent.status = new_status
         agent.updated_at = datetime.utcnow()
@@ -825,8 +869,7 @@ def update_loader_status(agent_identifier, validated_data=None):
             pass
 
         try:
-
-            activity_service = get_service('activity_service')
+            from ..utils.service_helpers import get_service
             activity_service = get_service('activity_service')
             activity_service.log_activity(
                 user,
@@ -858,7 +901,8 @@ def refresh_loader_cache():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project", "success": False}), 403
 
-
+        from ..utils.service_helpers import get_service
+        cache_service = get_service('cache_service')
         success = cache_service.force_refresh_loader_cache(user.project_id)
 
         if success:
@@ -979,7 +1023,6 @@ def update_loader_config(agent_identifier, validated_data=None):
 
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
-            return jsonify({"error": "Access denied", "success": False}), 403
 
         if not user.project_id:
             return jsonify({"error": "No project associated", "success": False}), 400
@@ -988,17 +1031,18 @@ def update_loader_config(agent_identifier, validated_data=None):
         if not agent:
             return jsonify({"error": "Agent not found", "success": False}), 404
 
+        login_type = validated_data.get('login_type')
+        if login_type:
+            agent.login_type = login_type
 
-        agent.login_type = login_type
+        if "invite_code_required" in validated_data:
+            agent.invite_code_required = bool(validated_data["invite_code_required"])
 
-        if "invite_code_required" in data:
-            agent.invite_code_required = bool(data["invite_code_required"])
+        if "custom_key_prefix" in validated_data:
+            agent.custom_key_prefix = validated_data["custom_key_prefix"]
 
-        if "custom_key_prefix" in data:
-            agent.custom_key_prefix = data["custom_key_prefix"]
-
-        if "key_prefix_format" in data:
-            agent.key_prefix_format = data["key_prefix_format"]
+        if "key_prefix_format" in validated_data:
+            agent.key_prefix_format = validated_data["key_prefix_format"]
 
         agent.updated_at = datetime.utcnow()
 

@@ -19,7 +19,6 @@ from ...models.core import Project, ProjectInviteCode, User
 from ...utils.rbac_utils import RBACManager
 from ...utils.service_exceptions import NotFoundError, ValidationError, ServiceError
 
-
 class ProjectInviteService:
     """
     Service for handling project invite code operations.
@@ -289,11 +288,4 @@ class ProjectInviteService:
             
             if not (invite_exists or referral_exists or product_invite_exists):
                 return code
-
-
-# Singleton instance
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   project_invite_service = get_service('project_invite_service')
 

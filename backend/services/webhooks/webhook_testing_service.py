@@ -13,7 +13,6 @@ import requests
 
 from ...models.webhooks import Webhook
 
-
 class WebhookTestingService:
     """Service for testing webhooks"""
 
@@ -189,10 +188,4 @@ class WebhookTestingService:
                 "response_text": None,
                 "error_message": str(e),
             }
-
-
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   webhook_testing_service = get_service('webhook_testing_service')
 

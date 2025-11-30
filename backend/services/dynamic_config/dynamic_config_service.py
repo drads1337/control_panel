@@ -539,8 +539,3 @@ class DynamicConfigService:
                 elif isinstance(feature_value, dict):
                     self._disable_all_features({"feature_flags": feature_value})
 
-
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   dynamic_config_service = get_service('dynamic_config_service')

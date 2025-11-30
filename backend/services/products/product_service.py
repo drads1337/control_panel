@@ -17,7 +17,7 @@ from ...models.core import User
 from ...models.products import Product, ProductExtraFile, ProductFileConfig, ProductFileDownload, ProductKeyPrice
 from ...models.keys import Key
 from ...models.agents import Agent, AgentProductAssignment, AgentDownloadLog
-from ...utils.service_exceptions import NotFoundError, PermissionDeniedError, ConflictError, ServiceError
+from ...utils.service_exceptions import NotFoundError, PermissionDeniedError, ConflictError, ServiceError, ValidationError
 
 # Type hints for dependencies (imported here to avoid circular imports)
 from typing import TYPE_CHECKING
@@ -619,7 +619,7 @@ class ProductService:
             self.logger.info(f"Product created successfully: {new_product.id} by user {user.id}")
             return new_product
 
-        except ConflictError:
+        except (ConflictError, ValidationError):
             db.session.rollback()
             raise
         except Exception as e:
@@ -819,11 +819,3 @@ class ProductService:
             "count": 0,
         }
 
-# Global instance for backward compatibility
-# Prefer using DI pattern via ServiceContainer:
-#   from ...utils.service_helpers import get_service
-#   product_service = get_service('product_service')
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   product_service = get_service('product_service')

@@ -540,11 +540,3 @@ class InviteService:
             self.logger.error(f"Error deleting unused codes: {str(e)}")
             return 0, 0
 
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   invite_service = get_service('invite_service')
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   invite_service = get_service('invite_service')

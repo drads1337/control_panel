@@ -84,8 +84,3 @@ class KeyValidationService:
         if count <= 0:
             raise ValidationError("Count must be greater than 0", field="count")
 
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   key_validation_service = get_service('key_validation_service')
-

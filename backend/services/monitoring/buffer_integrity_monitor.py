@@ -66,7 +66,6 @@ _redis_integrity_unsigned_keys = Gauge(
     registry=REGISTRY
 )
 
-
 class BufferIntegrityMonitor:
     """
     Monitoring service for Analytics Buffer and Redis Integrity.
@@ -218,11 +217,9 @@ class BufferIntegrityMonitor:
                 "error": str(e)
             }
 
-
 # Global instance
 _buffer_integrity_monitor = None
 _monitor_lock = threading.Lock()
-
 
 def get_buffer_integrity_monitor() -> BufferIntegrityMonitor:
     """Get global BufferIntegrityMonitor instance (singleton)"""

@@ -13,7 +13,6 @@ from ...models.security import SecurityRule
 
 logger = logging.getLogger(__name__)
 
-
 class SecurityRulesInitService:
     """Service for initializing default security rules"""
 
@@ -174,8 +173,3 @@ class SecurityRulesInitService:
         self.initialize_default_rules(project_id)
         return SecurityRule.query.filter_by(project_id=project_id).all()
 
-
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   security_rules_init_service = get_service('security_rules_init_service')

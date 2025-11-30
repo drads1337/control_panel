@@ -13,7 +13,6 @@ from ...models.webhooks import Webhook, WebhookLog
 from ...utils.data_masking import mask_key
 from ...utils.service_helpers import get_service
 
-
 class WebhookManagementService:
     """Service for managing webhook CRUD operations"""
 
@@ -328,12 +327,3 @@ class WebhookManagementService:
         except Exception as e:
             logging.error(f"WEBHOOK_LOG_ERROR webhook_id={webhook_id} error={e}")
 
-
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   webhook_management_service = get_service('webhook_management_service')
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   webhook_management_service = get_service('webhook_management_service')

@@ -31,7 +31,6 @@ if TYPE_CHECKING:
     from ...services.rbac.rbac_service import RBACService
     from ...services.cache.cache_service import CacheService
 
-
 class UserCRUDService:
     """Service for handling basic CRUD operations on users"""
 

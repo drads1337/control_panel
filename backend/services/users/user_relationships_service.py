@@ -31,7 +31,6 @@ from ...models.project_user import ProjectAdmin, ProjectUserRole
 from ...models.rbac import UserRole
 from ...utils.structured_logging import get_logger
 
-
 class UserRelationshipsService:
     """
     Service for accessing User relationships
@@ -232,11 +231,4 @@ class UserRelationshipsService:
         except Exception as e:
             self.logger.error(f"Error getting created backups for user {user_id}: {e}")
             return []
-
-
-# Singleton instance
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   user_relationships_service = get_service('user_relationships_service')
 

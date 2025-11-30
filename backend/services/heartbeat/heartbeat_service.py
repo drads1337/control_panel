@@ -332,7 +332,3 @@ class HeartbeatService:
             logging.error(f"HEARTBEAT_STATISTICS_ERROR: {e}")
             return {}
 
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   heartbeat_service = get_service('heartbeat_service')

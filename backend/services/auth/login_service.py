@@ -28,7 +28,6 @@ if TYPE_CHECKING:
     from ...services.webhooks.webhook_service import WebhookService
     from ...services.auth.auth_token_service import AuthTokenService
 
-
 class LoginService:
     """
     Service for handling login operations.
@@ -484,14 +483,3 @@ class LoginService:
             self.logger.error(f"Error in process_login: {str(e)}", exc_info=True)
             raise ServiceError("Authentication failed", status_code=500) from e
 
-
-# Singleton instance
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   login_service = get_service('login_service')
-
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   login_service = get_service('login_service')

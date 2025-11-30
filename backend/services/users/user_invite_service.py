@@ -15,7 +15,6 @@ from ...utils.service_helpers import get_service
 from ...utils.role_constants import RolePermissions
 from ...utils.structured_logging import get_logger
 
-
 class UserInviteService:
     """Service for handling user invitations"""
 
@@ -102,11 +101,4 @@ class UserInviteService:
         except Exception as e:
             self.logger.error(f"Error validating invite code: {str(e)}")
             return None, f"Failed to validate invite code: {str(e)}"
-
-
-# Singleton instance
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   user_invite_service = get_service('user_invite_service')
 

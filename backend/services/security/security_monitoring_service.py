@@ -16,7 +16,6 @@ from ...models.security import BlockedFingerprint, LoginAttempt, SecurityEvent
 from ...utils.ip_utils import get_location_from_ip
 from .security_types import SecurityContext, ThreatAssessment
 
-
 class SecurityMonitoringService:
     """
     Service for handling security monitoring operations.
@@ -357,14 +356,3 @@ class SecurityMonitoringService:
 
         return recommendations
 
-
-# Singleton instance
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   security_monitoring_service = get_service('security_monitoring_service')
-
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   security_monitoring_service = get_service('security_monitoring_service')

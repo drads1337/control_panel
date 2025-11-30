@@ -21,7 +21,6 @@ from ...utils.service_helpers import get_service
 
 logger = logging.getLogger(__name__)
 
-
 class CachedStatisticsService:
     """
     Service for managing cached statistics with cache invalidation.
@@ -146,11 +145,4 @@ class CachedStatisticsService:
             logger.debug(f"Invalidated statistics cache for project_id={project_id}")
         except Exception as e:
             logger.warning(f"Failed to invalidate statistics cache: {e}")
-
-
-# Singleton instance
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   cached_statistics_service = get_service('cached_statistics_service')
 

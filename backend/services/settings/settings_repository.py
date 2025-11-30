@@ -21,7 +21,6 @@ from ...utils.project_settings_migration import ProjectSettingsHelper
 
 logger = logging.getLogger(__name__)
 
-
 class SettingsRepository:
     """
     Repository for project settings database operations.

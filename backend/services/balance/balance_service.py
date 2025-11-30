@@ -393,11 +393,3 @@ class BalanceService:
             self.logger.error(f"Error checking balance access: {str(e)}")
             return False, "Failed to check access permissions"
 
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   balance_service = get_service('balance_service')
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   balance_service = get_service('balance_service')

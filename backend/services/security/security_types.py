@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional
 
-
 @dataclass
 class ThreatAssessment:
     """Data class for threat assessment results"""
@@ -18,7 +17,6 @@ class ThreatAssessment:
     level: str
     factors: List[str]
     recommendations: List[str]
-
 
 @dataclass
 class SecurityContext:

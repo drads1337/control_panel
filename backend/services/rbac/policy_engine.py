@@ -64,7 +64,6 @@ from .authorization_audit import DecisionOutcome
 
 logger = logging.getLogger(__name__)
 
-
 def _get_policy_cache_key(
     user_id: int,
     permission: str,
@@ -82,13 +81,11 @@ def _get_policy_cache_key(
         parts.append(f"resource_id:{resource_id}")
     return "|".join(parts)
 
-
 class DecisionType(Enum):
     """Type of authorization decision"""
     ALLOW = "allow"
     DENY = "deny"
     ABSTAIN = "abstain"  # Policy doesn't apply, continue to next policy
-
 
 @dataclass
 class Decision:
@@ -109,7 +106,6 @@ class Decision:
     def __post_init__(self):
         if self.context is None:
             self.context = {}
-
 
 class PolicyEngine:
     """
@@ -715,7 +711,6 @@ class PolicyEngine:
             policy_type="abstain",
             context={"product_id": product_id}
         )
-
 
 # Singleton instance
 policy_engine = PolicyEngine()

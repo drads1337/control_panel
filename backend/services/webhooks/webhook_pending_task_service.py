@@ -19,7 +19,6 @@ except ImportError:
     CELERY_AVAILABLE = False
     celery_process_webhook = None
 
-
 class WebhookPendingTaskService:
     """Service for managing pending webhook tasks"""
 
@@ -249,10 +248,4 @@ class WebhookPendingTaskService:
             db.session.rollback()
             self.logger.error(f"CLEANUP_OLD_PENDING_TASKS_ERROR: {e}")
             return 0
-
-
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   webhook_pending_task_service = get_service('webhook_pending_task_service')
 

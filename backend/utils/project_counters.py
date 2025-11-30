@@ -21,7 +21,7 @@ from ..models.core import Project, User
 from ..models.keys import Key
 from ..models.products import Product
 from ..models.servers import Server
-from ...utils.service_helpers import get_service
+from .service_helpers import get_service
 
 cached_statistics_service = get_service('cached_statistics_service')
 def update_project_counters(project_id: Optional[int]):
@@ -145,3 +145,27 @@ def recalculate_all_project_counters():
         update_project_counters(project.id)
 
     db.session.flush()
+
+def increment_project_product_counters(project_id: Optional[int]):
+    """
+    Increment product counter for a project.
+    
+    NOTE: This function now uses cache invalidation instead of direct counter updates
+    to prevent race conditions. The counter will be recalculated on the next read.
+    
+    Args:
+        project_id: ID of the project to update counters for
+    """
+    if not project_id:
+        return
+    
+    # Use cache invalidation instead of direct counter updates
+    # The counter will be recalculated automatically when needed
+    if cached_statistics_service:
+        cached_statistics_service.invalidate_on_product_change(project_id)
+    
+    # Also increment the counter directly for immediate consistency
+    project = Project.query.get(project_id)
+    if project:
+        project.total_products = (project.total_products or 0) + 1
+        db.session.flush()

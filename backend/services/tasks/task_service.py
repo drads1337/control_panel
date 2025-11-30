@@ -258,7 +258,3 @@ class TaskService:
             logging.error(f"Failed to cleanup old tasks: {e}")
             return 0
 
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   task_service = get_service('task_service')

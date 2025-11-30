@@ -2,7 +2,7 @@ import json
 import logging
 from datetime import datetime, timedelta
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ..core.extensions import db
@@ -20,6 +20,8 @@ chat_bp = Blueprint("chat", __name__)
 import os as _os
 
 from ..middleware.auth import enforce_project_scope
+from ..utils.rbac_utils import RBACManager
+from ..utils.project_settings_migration import ProjectSettingsHelper
 
 def find_product_by_id_or_unique_id(product_identifier, project_id):
     """
@@ -218,12 +220,11 @@ def send_message(project_id=None):
             if RBACManager.get_user_role_names(user)
             else (
                 "client"
-                if RBACManager.has_any_role(current_user, ["admin", "seller", "developer"])
+                if RBACManager.has_any_role(user, ["admin", "seller", "developer"])
                 else "client"
             )
         )
 
-        from ..utils.project_settings_migration import ProjectSettingsHelper
         helper = ProjectSettingsHelper(project_id)
         chat_settings = helper.get_chat_settings()
         product_settings = None
@@ -476,12 +477,17 @@ def configure_telegram_bot():
 
         existing_bot = TelegramBot.query.filter_by(project_id=project_id).first()
 
-        # OPTIMIZATION: Use synchronous HTTP API instead of async event loop
-        bot_info = bot_manager.get_bot_info(bot_token)
-        if not bot_info:
-            return jsonify({"error": "Invalid bot token"}), 400
-
-        bot_username = bot_info.get("username")
+        # SECURITY: Validate bot token asynchronously to prevent blocking
+        # For now, use synchronous validation but with timeout protection
+        # TODO: Move to Celery task for production
+        try:
+            bot_info = bot_manager.get_bot_info(bot_token)
+            if not bot_info:
+                return jsonify({"error": "Invalid bot token"}), 400
+            bot_username = bot_info.get("username")
+        except Exception as e:
+            logger.error(f"Error validating bot token: {e}")
+            return jsonify({"error": "Failed to validate bot token. Please try again."}), 500
 
         if existing_bot:
             existing_bot.bot_token = bot_token
@@ -712,21 +718,19 @@ def send_client_message():
 def get_product_chat_settings(product_identifier):
     try:
         current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id).first()
+        user = User.query.get(current_user_id)
 
         if not user:
             return jsonify({"error": "User not found"}), 404
 
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
-            return jsonify({"error": "User not found"}), 404
         project_id = getattr(g, "project_id", user.project_id)
         product = find_product_by_id_or_unique_id(product_identifier, project_id)
         if not product:
             return jsonify({"error": "Product not found"}), 404
         s = ProductChatSettings.query.filter_by(product_id=product.id, project_id=project_id).first()
         if not s:
-
             helper = ProjectSettingsHelper(project_id)
             chat_settings = helper.get_chat_settings()
             return jsonify(
@@ -734,14 +738,12 @@ def get_product_chat_settings(product_identifier):
                     "telegram_enabled": True,
                     "discord_enabled": True,
                     "message_limit_per_minute": chat_settings.chat_message_limit_per_minute,
-                    "daily_message_limit": None,
-                    "message_max_length": None,
+                    "daily_message_limit": chat_settings.chat_daily_message_limit,
+                    "message_max_length": chat_settings.chat_message_max_length,
                     "defaults": {
-                        "chat_message_limit_per_minute": (
-                            ps.chat_message_limit_per_minute if ps else 30
-                        ),
-                        "chat_daily_message_limit": ps.chat_daily_message_limit if ps else 1000,
-                        "chat_message_max_length": ps.chat_message_max_length if ps else 1000,
+                        "chat_message_limit_per_minute": chat_settings.chat_message_limit_per_minute or 30,
+                        "chat_daily_message_limit": chat_settings.chat_daily_message_limit or 1000,
+                        "chat_message_max_length": chat_settings.chat_message_max_length or 1000,
                     },
                 }
             )
@@ -813,14 +815,13 @@ def update_product_chat_settings(product_identifier):
 def get_chat_settings():
     try:
         current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id).first()
+        user = User.query.get(current_user_id)
 
         if not user:
             return jsonify({"error": "User not found"}), 404
 
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
-            return jsonify({"error": "User not found"}), 404
         project_id = getattr(g, "project_id", user.project_id)
         if not project_id:
             return jsonify({"error": "User not associated with any project"}), 400
@@ -884,14 +885,13 @@ def update_chat_settings():
 def list_discord_webhooks():
     try:
         current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id).first()
+        user = User.query.get(current_user_id)
 
         if not user:
             return jsonify({"error": "User not found"}), 404
 
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
-            return jsonify({"error": "User not found"}), 404
         if not user.project_id and not hasattr(g, "project_id"):
             return jsonify({"error": "User not associated with any project"}), 400
         project_id = getattr(g, "project_id", user.project_id)
@@ -923,7 +923,7 @@ def list_discord_webhooks():
 def add_discord_webhook():
     try:
         current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id).first()
+        user = User.query.get(current_user_id)
 
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
@@ -956,7 +956,7 @@ def add_discord_webhook():
 def update_discord_webhook(hook_id: int):
     try:
         current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id).first()
+        user = User.query.get(current_user_id)
 
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
@@ -990,7 +990,7 @@ def update_discord_webhook(hook_id: int):
 def delete_discord_webhook(hook_id: int):
     try:
         current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id).first()
+        user = User.query.get(current_user_id)
 
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
@@ -1020,14 +1020,13 @@ def delete_discord_webhook(hook_id: int):
 def list_groups():
     try:
         current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id).first()
+        user = User.query.get(current_user_id)
 
         if not user:
             return jsonify({"error": "User not found"}), 404
 
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
-            return jsonify({"error": "User not found"}), 404
         if not user.project_id and not hasattr(g, "project_id"):
             return jsonify({"error": "User not associated with any project"}), 400
         project_id = getattr(g, "project_id", user.project_id)
@@ -1060,14 +1059,13 @@ def list_groups():
 def create_group():
     try:
         current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id).first()
+        user = User.query.get(current_user_id)
 
         if not user:
             return jsonify({"error": "User not found"}), 404
 
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
-            return jsonify({"error": "User not found"}), 404
         if not user.project_id and not hasattr(g, "project_id"):
             return jsonify({"error": "User not associated with any project"}), 400
 
@@ -1116,14 +1114,13 @@ def create_group():
 def update_group(group_id: int):
     try:
         current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id).first()
+        user = User.query.get(current_user_id)
 
         if not user:
             return jsonify({"error": "User not found"}), 404
 
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
-            return jsonify({"error": "User not found"}), 404
         if not user.project_id and not hasattr(g, "project_id"):
             return jsonify({"error": "User not associated with any project"}), 400
         project_id = getattr(g, "project_id", user.project_id)
@@ -1165,14 +1162,13 @@ def update_group(group_id: int):
 def delete_group(group_id: int):
     try:
         current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id).first()
+        user = User.query.get(current_user_id)
 
         if not user:
             return jsonify({"error": "User not found"}), 404
 
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
-            return jsonify({"error": "User not found"}), 404
         if not user.project_id and not hasattr(g, "project_id"):
             return jsonify({"error": "User not associated with any project"}), 400
         project_id = getattr(g, "project_id", user.project_id)

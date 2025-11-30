@@ -413,15 +413,3 @@ class ProjectCRUDService:
             db.session.rollback()
             self.logger.error(f"Error deleting project: {str(e)}", exc_info=True)
             raise ServiceError("Failed to delete project", status_code=500) from e
-
-
-# Singleton instance
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   project_crud_service = get_service('project_crud_service')
-
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   project_crud_service = get_service('project_crud_service')

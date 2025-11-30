@@ -2,7 +2,7 @@
 File management Pydantic schemas
 """
 
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -86,7 +86,7 @@ class FolderCreateSchema(BaseSchema):
 
     name: str = Field(..., min_length=1, max_length=255, description="Folder name")
     parent_path: str = Field(default="/", description="Parent folder path")
-    product_id: Optional[int] = Field(default=None, description="Product ID (optional)")
+    product_id: Optional[Union[int, str]] = Field(default=None, description="Product ID (int) or unique_id (string, optional)")
 
     @field_validator("name")
     @classmethod

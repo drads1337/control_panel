@@ -7,7 +7,6 @@ import logging
 from datetime import datetime
 from typing import Dict, List
 
-
 class WebhookFormattingService:
     """Service for formatting webhook messages for different platforms"""
 
@@ -461,10 +460,4 @@ class WebhookFormattingService:
             )
 
         return embed
-
-
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   webhook_formatting_service = get_service('webhook_formatting_service')
 

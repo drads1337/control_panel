@@ -19,7 +19,6 @@ from .settings_repository import SettingsRepository
 
 logger = logging.getLogger(__name__)
 
-
 class SettingsService:
     """
     Service for managing project settings with caching.
@@ -80,16 +79,7 @@ class SettingsService:
         """
         return self.manager.invalidate_settings_cache(user_id)
 
-
 # Singleton instance for backward compatibility
 # Service instance should be obtained via ServiceContainer:
 #   from ...utils.service_helpers import get_service
 #   service = get_service('settings_service')
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   settings_service = get_service('settings_service')
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   settings_service = get_service('settings_service')

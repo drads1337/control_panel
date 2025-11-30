@@ -15,7 +15,6 @@ from ...utils.data_masking import mask_license_key
 from ...utils.rbac_utils import RBACManager
 from ...utils.structured_logging import get_logger
 
-
 class KeyExportService:
     """Service for handling key export operations"""
 
@@ -205,11 +204,4 @@ class KeyExportService:
         except Exception as e:
             self.logger.error(f"Failed to reveal key: {str(e)}")
             return None, f"Failed to reveal key: {str(e)}"
-
-
-# Singleton instance
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   key_export_service = get_service('key_export_service')
 

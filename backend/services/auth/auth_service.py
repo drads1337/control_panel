@@ -188,11 +188,3 @@ class AuthService:
         login_service = self._get_login_service()
         return login_service.process_login(username, password, ip, user_agent)
 
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   auth_service = get_service('auth_service')
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   auth_service = get_service('auth_service')

@@ -325,7 +325,3 @@ class ProjectService:
         project_invite_service = self._get_project_invite_service()
         return project_invite_service.get_latest_project_invite_code(user_id)
 
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   project_service = get_service('project_service')

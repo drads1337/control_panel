@@ -40,7 +40,6 @@ from ...utils.redis_client import redis_client
 # get_service is imported inside methods when needed
 logger = logging.getLogger(__name__)
 
-
 class PersistenceLayer:
     """
     Persistence layer for analytics buffer with fallback mechanisms.
@@ -125,10 +124,6 @@ class PersistenceLayer:
                 except (RuntimeError, ValueError):
                     # Fallback for contexts without Flask app
                     from ...services.analytics.analytics_buffer_service import AnalyticsBufferService
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   analytics_buffer_service = get_service('analytics_buffer_service')
                 analytics_buffer_service = get_service('analytics_buffer_service')
                 success = analytics_buffer_service.buffer_user_activity(
                     user_id=user_id,
@@ -243,10 +238,6 @@ class PersistenceLayer:
                 except (RuntimeError, ValueError):
                     # Fallback for contexts without Flask app
                     from ...services.analytics.analytics_buffer_service import AnalyticsBufferService
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   analytics_buffer_service = get_service('analytics_buffer_service')
                 success = analytics_buffer_service.buffer_key_analytics_update(
                     key_id=key_id,
                     product=product,
@@ -608,7 +599,6 @@ class PersistenceLayer:
                 "key_analytics_queue_size": len(self._key_analytics_queue),
                 "total_queue_size": len(self._activity_queue) + len(self._key_analytics_queue),
             }
-
 
 # Singleton instance
 persistence_layer = PersistenceLayer()

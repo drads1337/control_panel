@@ -29,7 +29,6 @@ if TYPE_CHECKING:
     from ...services.products.price_calculation_service import PriceCalculationService
     from ...services.balance.balance_service import BalanceService
 
-
 class KeyBulkOperationsService:
     """Service for handling bulk operations on keys"""
 
@@ -641,12 +640,3 @@ class KeyBulkOperationsService:
             self.logger.error(f"Failed to bulk delete expired agent keys: {str(e)}")
             return 0, f"Failed to bulk delete expired agent keys: {str(e)}"
 
-
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   key_bulk_operations_service = get_service('key_bulk_operations_service')
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   key_bulk_operations_service = get_service('key_bulk_operations_service')

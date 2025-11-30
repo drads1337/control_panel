@@ -29,7 +29,6 @@ except ImportError:
     MONITORING_AVAILABLE = False
     logger.warning("Buffer integrity monitoring not available")
 
-
 class AnalyticsBufferService:
     """
     Service for buffering analytics writes using Redis write-behind pattern.
@@ -764,8 +763,3 @@ class AnalyticsBufferService:
             except Exception as sync_error:
                 logger.error(f"Sync flush also failed: {sync_error}")
 
-
-# DEPRECATED: Global instance removed for DI pattern
-# Use ServiceContainer instead:
-#   from ...utils.service_helpers import get_service
-#   analytics_buffer_service = get_service('analytics_buffer_service')
