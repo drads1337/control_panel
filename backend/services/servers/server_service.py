@@ -20,7 +20,8 @@ from ...utils.rbac_utils import RBACManager
 class ServerService:
     """Service for handling server management operations"""
 
-    def __init__(self):
+    def __init__(self, cache_service=None):
+        self._cache_service = cache_service
         self.logger = logging.getLogger(__name__)
 
     def get_user_by_id(self, user_id: int) -> Optional[User]:
@@ -241,8 +242,8 @@ class ServerService:
             if project_id:
                 # Invalidate statistics cache instead of using deprecated counters
                 from ...utils.service_helpers import get_service
-                cache_service = get_service('cache_service')
-                cache_service = get_service('cache_service')
+                cache_service = self._cache_service or get_service('cache_service')
+                cache_service = self._cache_service or get_service('cache_service')
                 cache_service = get_service('cache_service')
                 cache_service.invalidate_pattern(f"stats:project_id={project_id}:*")
 

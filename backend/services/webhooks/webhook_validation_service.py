@@ -20,7 +20,9 @@ from ...utils.redis_client import get_redis_client_for_db
 class WebhookValidationService:
     """Service for validating webhook URLs, access, and creation data"""
 
-    def __init__(self):
+    def __init__(self, rbac_service=None, webhook_formatting_service=None):
+        self._webhook_formatting_service = webhook_formatting_service
+        self._rbac_service = rbac_service
         self.logger = logging.getLogger(__name__)
         # Cache DNS resolution results to prevent DNS rebinding attacks
         # TTL: 3600 seconds (1 hour) - balances security and flexibility

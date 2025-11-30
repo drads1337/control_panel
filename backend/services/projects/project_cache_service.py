@@ -25,7 +25,8 @@ class ProjectCacheService:
     Single Responsibility: Cache project data and provide cached retrieval methods.
     """
 
-    def __init__(self, cache_service=None, logger=None):
+    def __init__(self, cache_service=None, logger=None, project_crud_service=None):
+        self._project_crud_service = project_crud_service
         self.cache_service = cache_service
         self.logger = logger or logging.getLogger(__name__)
 

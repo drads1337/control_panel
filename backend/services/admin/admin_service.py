@@ -142,7 +142,7 @@ class AdminService:
                     deleted_project_names.append(project_name)
 
                     try:
-                        activity_service = get_service('activity_service')
+                        activity_service = self._activity_service or get_service('activity_service')
                         activity_service.log_activity(
                             admin_user,
                             "project_deleted",
@@ -364,7 +364,7 @@ class AdminService:
             db.session.commit()
 
             try:
-                activity_service = get_service('activity_service')
+                activity_service = self._activity_service or get_service('activity_service')
                 activity_service.log_activity(
                     admin_user,
                     "project_suspended",
@@ -424,7 +424,7 @@ class AdminService:
             db.session.commit()
 
             try:
-                activity_service = get_service('activity_service')
+                activity_service = self._activity_service or get_service('activity_service')
                 activity_service.log_activity(
                     admin_user,
                     "project_reactivated",

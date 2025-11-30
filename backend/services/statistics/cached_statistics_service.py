@@ -38,7 +38,7 @@ class CachedStatisticsService:
         """Get cache service instance via DI container"""
         if self.cache_service is not None:
             return self.cache_service
-        return get_service('cache_service')
+        return self._cache_service or get_service('cache_service')
 
     def invalidate_on_key_change(self, user_id: Optional[int], project_id: Optional[int] = None):
         """

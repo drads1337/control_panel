@@ -15,7 +15,8 @@ from ...utils.structured_logging import get_logger
 class KeyValidationService:
     """Service for validating key data and operations"""
 
-    def __init__(self):
+    def __init__(self, product_service=None):
+        self._product_service = product_service
         self.logger = get_logger("key_validation_service")
 
     def validate_key_data(

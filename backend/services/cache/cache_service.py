@@ -26,7 +26,8 @@ from ...utils.redis_client import get_redis_cache_client, RedisClient
 class CacheService:
     """Service for managing application-level caching with smart invalidation"""
 
-    def __init__(self):
+    def __init__(self, product_service=None):
+        self._product_service = product_service
         self.default_ttl = 60
         self.cache_prefix = "panel_cache"
         self._cache_wrapper = None

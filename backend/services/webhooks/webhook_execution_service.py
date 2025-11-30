@@ -93,7 +93,8 @@ class SSRFProtectedHTTPAdapter(HTTPAdapter):
 class WebhookExecutionService:
     """Service for executing webhook deliveries"""
 
-    def __init__(self):
+    def __init__(self, webhook_pending_task_service=None):
+        self._webhook_pending_task_service = webhook_pending_task_service
         self.logger = logging.getLogger(__name__)
         self.max_retries = 3
         self.retry_delay = 5

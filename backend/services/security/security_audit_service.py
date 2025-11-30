@@ -24,7 +24,9 @@ class SecurityAuditService:
     Single Responsibility: Blocking, access checks, and audit operations.
     """
 
-    def __init__(self, logger=None):
+    def __init__(self, logger=None, security_monitoring_service=None, security_rules_service=None):
+        self._security_rules_service = security_rules_service
+        self._security_monitoring_service = security_monitoring_service
         self.logger = logger or logging.getLogger(__name__)
 
     def create_enhanced_block(

@@ -14,6 +14,11 @@ from ...models import DeviceInfo, KeyAnalytics, Notification, User
 
 class AnalyticsTracker:
     """Handles analytics tracking and related functionality"""
+    def __init__(self, activity_service=None, analytics_buffer_service=None, heartbeat_service=None):
+        """Initialize AnalyticsTracker with dependencies"""
+        self._heartbeat_service = heartbeat_service
+        self._analytics_buffer_service = analytics_buffer_service
+        self._activity_service = activity_service
 
     def update_key_analytics(
         self, key_id: int, product: str, ip_address: str, serial: Optional[str] = None

@@ -12,7 +12,8 @@ from ..utils.service_helpers import get_service
 
 class ActivityLoggerMiddleware:
 
-    def __init__(self, app):
+    def __init__(self, app, activity_service=None):
+        self._activity_service = activity_service
         self.app = app
         self.app.before_request(self.before_request)
         self.app.after_request(self.after_request)

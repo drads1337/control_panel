@@ -18,7 +18,8 @@ from ...utils.structured_logging import get_logger
 class UserInviteService:
     """Service for handling user invitations"""
 
-    def __init__(self):
+    def __init__(self, rbac_service=None):
+        self._rbac_service = rbac_service
         self.logger = get_logger("user_invite_service")
 
     def invite_user(
@@ -41,8 +42,8 @@ class UserInviteService:
                 return None, "Email is required"
 
             allowed_roles = RolePermissions.ASSIGNABLE_ROLES.copy()
-            rbac_service = get_service('rbac_service')
-            rbac_service = get_service('rbac_service')
+            rbac_service = self._rbac_service or get_service('rbac_service')
+            rbac_service = self._rbac_service or get_service('rbac_service')
             rbac_service = get_service('rbac_service')
             can_view_all = rbac_service.check_permission(
                 current_user.id, "employees.view"

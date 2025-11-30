@@ -61,7 +61,8 @@ class Project(db.Model):
     active_users = db.Column(db.Integer, default=0, nullable=False)
     active_keys = db.Column(db.Integer, default=0, nullable=False)
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs, project_relationships_service=None):
+        self._project_relationships_service = project_relationships_service
         super(Project, self).__init__(**kwargs)
         if not self.unique_id:
             self.unique_id = generate_unique_project_id()

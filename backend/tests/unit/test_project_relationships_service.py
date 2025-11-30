@@ -14,6 +14,9 @@ from ...utils.service_helpers import get_service
 
 class TestProjectRelationshipsService:
     """Test suite for ProjectRelationshipsService"""
+    def __init__(self, project_relationships_service=None):
+        """Initialize TestProjectRelationshipsService with dependencies"""
+        self._project_relationships_service = project_relationships_service
 
     @pytest.fixture
     def service(self):

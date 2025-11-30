@@ -20,8 +20,9 @@ class UserOrchestrator:
     Coordinates specialized services to handle complete user lifecycle operations
     """
 
-    def __init__(self):
+    def __init__(self, user_orchestrator=None):
         """Initialize orchestrator with all required services"""
+        self._user_orchestrator = user_orchestrator
         self.user_crud_service = get_service('user_crud_service')
         self.user_role_service = get_service('user_role_service')
         self.user_permission_service = get_service('user_permission_service')

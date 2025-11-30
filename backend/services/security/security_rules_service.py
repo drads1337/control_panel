@@ -23,7 +23,9 @@ class SecurityRulesService:
     Single Responsibility: Evaluate and execute security rules.
     """
 
-    def __init__(self, logger=None):
+    def __init__(self, logger=None, security_audit_service=None, security_monitoring_service=None):
+        self._security_monitoring_service = security_monitoring_service
+        self._security_audit_service = security_audit_service
         self.logger = logger or logging.getLogger(__name__)
 
     def check_automated_rules(self, context: SecurityContext) -> List[Dict[str, Any]]:

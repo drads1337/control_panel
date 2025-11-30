@@ -18,7 +18,8 @@ from ...utils.structured_logging import get_logger
 class KeyExportService:
     """Service for handling key export operations"""
 
-    def __init__(self):
+    def __init__(self, rbac_service=None):
+        self._rbac_service = rbac_service
         self.logger = get_logger("key_export_service")
 
     def export_key(
@@ -98,7 +99,7 @@ class KeyExportService:
                 rbac_service = get_service('rbac_service')
                 is_own_key = key.user_id == user.id
                 if is_own_key:
-                    rbac_service = get_service('rbac_service')
+                    rbac_service = self._rbac_service or get_service('rbac_service')
                     rbac_service = get_service('rbac_service')
                     can_download_full_key = rbac_service.check_permission(user.id, "keys.view")
                 else:

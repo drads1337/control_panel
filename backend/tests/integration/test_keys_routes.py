@@ -15,6 +15,9 @@ from ...utils.service_helpers import get_service
 @pytest.mark.integration
 class TestKeysRoutes:
     """Test suite for Keys routes with specialized services"""
+    def __init__(self, key_crud_service=None):
+        """Initialize TestKeysRoutes with dependencies"""
+        self._key_crud_service = key_crud_service
 
     def test_get_keys_uses_crud_service(self, app: Flask, client, test_user, test_project, test_product):
         """Test that GET /api/keys uses key_crud_service"""

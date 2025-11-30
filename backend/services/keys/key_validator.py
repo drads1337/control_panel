@@ -19,6 +19,9 @@ logger = logging.getLogger(__name__)
 
 class KeyValidator:
     """Handles key validation and related checks"""
+    def __init__(self, webhook_service=None):
+        """Initialize KeyValidator with dependencies"""
+        self._webhook_service = webhook_service
 
     def validate_key_status(self, key_obj: Key) -> Tuple[bool, str]:
         """

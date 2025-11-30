@@ -19,7 +19,8 @@ logger = logging.getLogger(__name__)
 class PasswordResetService:
     """Service for handling password reset operations"""
     
-    def __init__(self):
+    def __init__(self, email_service=None):
+        self._email_service = email_service
         self.logger = logging.getLogger(__name__)
         self.token_ttl = 300  # 5 minutes
         

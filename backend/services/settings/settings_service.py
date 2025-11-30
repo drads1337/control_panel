@@ -29,7 +29,8 @@ class SettingsService:
     Single Responsibility: Facade for settings operations (backward compatibility).
     """
 
-    def __init__(self, repository=None, manager=None, cache_service=None, logger=None):
+    def __init__(self, repository=None, manager=None, cache_service=None, logger=None, settings_service=None):
+        self._settings_service = settings_service
         self.repository = repository or SettingsRepository()
         self.manager = manager or SettingsManager(
             repository=self.repository,

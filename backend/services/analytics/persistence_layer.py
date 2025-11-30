@@ -54,7 +54,8 @@ class PersistenceLayer:
     local disk storage is ephemeral and should not be relied upon.
     """
     
-    def __init__(self):
+    def __init__(self, analytics_buffer_service=None):
+        self._analytics_buffer_service = analytics_buffer_service
         # In-memory queue configuration
         self._max_queue_size = int(
             getattr(Config, 'ANALYTICS_MEMORY_QUEUE_SIZE', 10000)

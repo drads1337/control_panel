@@ -24,7 +24,9 @@ from ...utils.service_helpers import get_service
 class TwoFactorService:
     """Service for managing two-factor authentication"""
 
-    def __init__(self):
+    def __init__(self, activity_service=None, rbac_service=None):
+        self._rbac_service = rbac_service
+        self._activity_service = activity_service
         self.issuer_name = "Panel Security"
         self.backup_codes_count = 10
         self.session_timeout_minutes = 15
@@ -334,7 +336,7 @@ class TwoFactorService:
 
     def is_2fa_required(self, user: User) -> bool:
         """Check if 2FA is required for a user"""
-        rbac_service = get_service('rbac_service')
+        rbac_service = self._rbac_service or get_service('rbac_service')
         
         rbac_service = get_service('rbac_service')
         rbac_service = get_service('rbac_service')

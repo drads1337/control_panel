@@ -53,7 +53,7 @@ class SettingsManager:
             return self.cache_service
         try:
             from ...utils.service_helpers import get_service
-            return get_service('cache_service')
+            return self._cache_service or get_service('cache_service')
         except Exception:
             return None
 

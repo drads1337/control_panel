@@ -28,7 +28,8 @@ class DynamicConfigService:
     Redis stores plain JSON (protected by network isolation).
     """
 
-    def __init__(self):
+    def __init__(self, rbac_service=None):
+        self._rbac_service = rbac_service
         self.config_ttl = 3600
         self.redis_client = self._init_redis()
         
@@ -471,7 +472,7 @@ class DynamicConfigService:
                 # Use ServiceContainer to avoid circular imports
                 rbac_service = get_service('rbac_service')
 
-                rbac_service = get_service('rbac_service')
+                rbac_service = self._rbac_service or get_service('rbac_service')
                 rbac_service = get_service('rbac_service')
                 is_owner = rbac_service.check_permission(user.id, "system.manage_all_projects")
                 is_admin = rbac_service.check_permission(

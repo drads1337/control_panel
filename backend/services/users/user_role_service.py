@@ -17,7 +17,8 @@ from ...utils.structured_logging import get_logger
 class UserRoleService:
     """Service for handling user role operations"""
 
-    def __init__(self):
+    def __init__(self, rbac_service=None):
+        self._rbac_service = rbac_service
         self.logger = get_logger("user_role_service")
 
     def assign_user_role(self, user_id: int, project_id: int, role_name: str) -> None:
@@ -220,7 +221,7 @@ class UserRoleService:
 
             query = User.query.filter(User.id.in_(user_ids))
 
-            rbac_service = get_service('rbac_service')
+            rbac_service = self._rbac_service or get_service('rbac_service')
             rbac_service = get_service('rbac_service')
             can_view_all = rbac_service.check_permission(
                 current_user.id, "employees.view"

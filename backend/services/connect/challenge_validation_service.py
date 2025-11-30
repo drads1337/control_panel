@@ -20,6 +20,9 @@ logger = logging.getLogger(__name__)
 
 class ChallengeValidationService:
     """Handles challenge validation"""
+    def __init__(self, challenge_service=None):
+        """Initialize ChallengeValidationService with dependencies"""
+        self._challenge_service = challenge_service
 
     def validate_challenge_response(
         self, user_key: str, fingerprint: str, challenge_response: str, canary: str

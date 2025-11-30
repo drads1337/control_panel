@@ -497,5 +497,5 @@ class UserCRUDService:
 
 # Service instance should be obtained via ServiceContainer:
 #   from ...core.service_container import get_service
-#   service = get_service('user_crud_service')
+#   service = self._user_crud_service or get_service('user_crud_service')
 

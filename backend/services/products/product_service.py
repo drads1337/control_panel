@@ -197,7 +197,7 @@ class ProductService:
         if user_id:
             cache_key_params["user_id"] = user_id
 
-        cached_result = (self.cache_service or get_service('cache_service')).get_or_set(
+        cached_result = (self.cache_service or self._cache_service or get_service('cache_service')).get_or_set(
             cache_type="products", fetch_func=fetch_products, **cache_key_params
         )
 
@@ -447,7 +447,7 @@ class ProductService:
     def invalidate_product_cache(self, project_id: int, product_id: Optional[int] = None) -> bool:
         """Invalidate product cache for a project or specific product - INSTANT updates"""
         try:
-            deleted_count = (self.cache_service or get_service('cache_service')).invalidate_product_instantly(project_id, product_id)
+            deleted_count = (self.cache_service or self._cache_service or get_service('cache_service')).invalidate_product_instantly(project_id, product_id)
 
             self.logger.info(
                 f"INSTANT product cache invalidation completed: {deleted_count} keys deleted"
@@ -467,7 +467,7 @@ class ProductService:
 
                 total_deleted = 0
                 for pattern in patterns:
-                    deleted_count = (self.cache_service or get_service('cache_service')).invalidate_pattern(pattern)
+                    deleted_count = (self.cache_service or self._cache_service or get_service('cache_service')).invalidate_pattern(pattern)
                     total_deleted += deleted_count
 
                 self.logger.info(f"Fallback product cache invalidation: {total_deleted} keys deleted")
@@ -523,7 +523,7 @@ class ProductService:
         if user_id:
             cache_key_params["user_id"] = user_id
 
-        cached_result = (self.cache_service or get_service('cache_service')).get_or_set(
+        cached_result = (self.cache_service or self._cache_service or get_service('cache_service')).get_or_set(
             cache_type="products", fetch_func=fetch_simple_products, **cache_key_params
         )
 
@@ -797,7 +797,7 @@ class ProductService:
         if user_id:
             cache_key_params["user_id"] = user_id
 
-        cached_result = (self.cache_service or get_service('cache_service')).get_or_set(
+        cached_result = (self.cache_service or self._cache_service or get_service('cache_service')).get_or_set(
             cache_type="products", fetch_func=fetch_count, **cache_key_params
         )
 

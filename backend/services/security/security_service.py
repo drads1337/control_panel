@@ -27,7 +27,10 @@ class SecurityService:
     Delegates to specialized services following SRP principle.
     """
 
-    def __init__(self):
+    def __init__(self, security_audit_service=None, security_monitoring_service=None, security_rules_service=None):
+        self._security_rules_service = security_rules_service
+        self._security_monitoring_service = security_monitoring_service
+        self._security_audit_service = security_audit_service
         self.logger = logging.getLogger(__name__)
 
     def assess_threat(self, context: SecurityContext) -> ThreatAssessment:

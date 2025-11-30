@@ -14,6 +14,10 @@ from ...utils.service_helpers import get_service
 @pytest.mark.auth
 class TestAuthService:
     """Test suite for AuthService"""
+    def __init__(self, auth_service=None, webhook_service=None):
+        """Initialize TestAuthService with dependencies"""
+        self._webhook_service = webhook_service
+        self._auth_service = auth_service
 
     @pytest.fixture
     def auth_service(self):

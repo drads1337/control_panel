@@ -24,7 +24,8 @@ from ...utils.structured_logging import get_logger
 class UserStatisticsService:
     """Service for handling user statistics"""
 
-    def __init__(self):
+    def __init__(self, rbac_service=None):
+        self._rbac_service = rbac_service
         self.logger = get_logger("user_statistics_service")
 
     def get_users_stats(
@@ -45,8 +46,8 @@ class UserStatisticsService:
 
             query = User.query
 
-            rbac_service = get_service('rbac_service')
-            rbac_service = get_service('rbac_service')
+            rbac_service = self._rbac_service or get_service('rbac_service')
+            rbac_service = self._rbac_service or get_service('rbac_service')
             rbac_service = get_service('rbac_service')
             can_view_all = rbac_service.check_permission(
                 current_user.id, "employees.view"

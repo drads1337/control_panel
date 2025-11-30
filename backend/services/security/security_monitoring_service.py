@@ -23,7 +23,9 @@ class SecurityMonitoringService:
     Single Responsibility: Monitor security events, assess threats, and provide analytics.
     """
 
-    def __init__(self, logger=None):
+    def __init__(self, logger=None, security_audit_service=None, security_rules_service=None):
+        self._security_rules_service = security_rules_service
+        self._security_audit_service = security_audit_service
         self.logger = logger or logging.getLogger(__name__)
 
     def assess_threat(self, context: SecurityContext) -> ThreatAssessment:
@@ -253,9 +255,9 @@ class SecurityMonitoringService:
                         is_active=True
                     ).first()
                     if brute_force_rule:
-                        security_rules_service = get_service('security_rules_service')
+                        security_rules_service = self._security_rules_service or get_service('security_rules_service')
                         conditions = json.loads(brute_force_rule.conditions)
-                        security_rules_service = get_service('security_rules_service')
+                        security_rules_service = self._security_rules_service or get_service('security_rules_service')
                         if security_rules_service._evaluate_brute_force_conditions(conditions, context):
                             security_rules_service = get_service('security_rules_service')
                             # Rule already updates trigger in _evaluate_brute_force_conditions

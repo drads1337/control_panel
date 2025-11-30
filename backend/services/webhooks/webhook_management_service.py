@@ -16,7 +16,8 @@ from ...utils.service_helpers import get_service
 class WebhookManagementService:
     """Service for managing webhook CRUD operations"""
 
-    def __init__(self):
+    def __init__(self, webhook_crypto_service=None):
+        self._webhook_crypto_service = webhook_crypto_service
         self.logger = logging.getLogger(__name__)
 
     def create_webhook(

@@ -20,7 +20,9 @@ from ...utils.rbac_utils import RBACManager
 class UserProfileService:
     """Service for handling user profile operations"""
 
-    def __init__(self, logger=None, upload_folder=None):
+    def __init__(self, logger=None, upload_folder=None, activity_service=None, rbac_service=None):
+        self._rbac_service = rbac_service
+        self._activity_service = activity_service
         self.logger = logger or logging.getLogger(__name__)
         self.upload_folder = upload_folder or "uploads"
 

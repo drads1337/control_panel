@@ -33,8 +33,9 @@ class RequestValidationPipeline:
     that was previously duplicated across SecurityChecker, AuthService, and middleware.
     """
 
-    def __init__(self):
+    def __init__(self, security_service=None):
         """Initialize validation pipeline with configuration"""
+        self._security_service = security_service
         # User-Agent validation patterns
         self.bad_ua_keywords = ["wget", "python", "requests", "postman", "insomnia"]
         self.bad_headers = []
@@ -156,9 +157,9 @@ class RequestValidationPipeline:
 
         # Check if IP is blocked
         try:
-            security_service = get_service('security_service')
-            security_service = get_service('security_service')
-            security_service = get_service('security_service')
+            security_service = self._security_service or get_service('security_service')
+            security_service = self._security_service or get_service('security_service')
+            security_service = self._security_service or get_service('security_service')
             security_service = get_service('security_service')
             if security_service.is_ip_blocked(ip, project_id):
                 return False, "IP_BLOCKED"

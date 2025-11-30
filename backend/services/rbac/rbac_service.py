@@ -19,7 +19,8 @@ from .role_service import RoleService
 class RBACService:
     """Facade service for managing Role-Based Access Control - delegates to specialized services"""
 
-    def __init__(self):
+    def __init__(self, project_relationships_service=None):
+        self._project_relationships_service = project_relationships_service
 
         self.default_permissions = {
             "employees": {

@@ -187,7 +187,7 @@ class ProjectService:
             try:
                 project = project_crud_service._find_project_by_id_or_unique_id(project_id)
                 if project:
-                    project_cache_service = get_service('project_cache_service')
+                    project_cache_service = self._project_cache_service or get_service('project_cache_service')
                     project_cache_service.invalidate_project_cache(project.id)
             except Exception as e:
                 self.logger.warning(f"Failed to invalidate cache after project update: {e}")
@@ -220,7 +220,7 @@ class ProjectService:
             try:
                 project = project_crud_service._find_project_by_id_or_unique_id(project_id)
                 if project:
-                    project_cache_service = get_service('project_cache_service')
+                    project_cache_service = self._project_cache_service or get_service('project_cache_service')
                     project_cache_service.invalidate_project_cache(project.id)
             except Exception as e:
                 self.logger.warning(f"Failed to invalidate cache after project deletion: {e}")

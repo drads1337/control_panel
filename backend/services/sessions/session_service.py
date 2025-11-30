@@ -25,7 +25,8 @@ from ...utils.structured_logging import get_logger
 class SessionService:
     """Service for managing user sessions"""
 
-    def __init__(self):
+    def __init__(self, session_service=None):
+        self._session_service = session_service
         self.logger = get_logger("session_service")
 
         self.SESSION_TIMEOUT = 24 * 60 * 60

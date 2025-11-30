@@ -16,7 +16,8 @@ from ...utils.structured_logging import get_logger
 class NotificationService:
     """Service for handling notification operations"""
 
-    def __init__(self):
+    def __init__(self, rbac_service=None):
+        self._rbac_service = rbac_service
         self.logger = get_logger("notification_service")
 
     def create_notification(
@@ -286,7 +287,7 @@ class NotificationService:
                 # Use ServiceContainer to avoid circular imports
                 rbac_service = get_service('rbac_service')
 
-                rbac_service = get_service('rbac_service')
+                rbac_service = self._rbac_service or get_service('rbac_service')
                 rbac_service = get_service('rbac_service')
                 can_view_all = rbac_service.check_permission(
                     user.id, "employees.view"

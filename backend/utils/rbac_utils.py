@@ -16,6 +16,9 @@ from .service_helpers import get_service
 
 class RBACManager:
     """Centralized RBAC management"""
+    def __init__(self, rbac_service=None):
+        """Initialize RBACManager with dependencies"""
+        self._rbac_service = rbac_service
 
     @staticmethod
     def get_user_roles(user_id: int, project_id: int) -> List[str]:

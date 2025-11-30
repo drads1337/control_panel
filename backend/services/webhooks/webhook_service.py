@@ -14,7 +14,15 @@ from ...utils.service_exceptions import ServiceError
 class WebhookService:
     """Main service for managing webhook notifications - coordinates specialized services"""
 
-    def __init__(self):
+    def __init__(self, webhook_crypto_service=None, webhook_execution_service=None, webhook_formatting_service=None, webhook_logging_service=None, webhook_management_service=None, webhook_pending_task_service=None, webhook_testing_service=None, webhook_validation_service=None):
+        self._webhook_validation_service = webhook_validation_service
+        self._webhook_testing_service = webhook_testing_service
+        self._webhook_pending_task_service = webhook_pending_task_service
+        self._webhook_management_service = webhook_management_service
+        self._webhook_logging_service = webhook_logging_service
+        self._webhook_formatting_service = webhook_formatting_service
+        self._webhook_execution_service = webhook_execution_service
+        self._webhook_crypto_service = webhook_crypto_service
         self.logger = logging.getLogger(__name__)
 
     # ==================== CRUD Operations ====================

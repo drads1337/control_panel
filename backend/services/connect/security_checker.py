@@ -20,7 +20,8 @@ from ...utils.service_helpers import get_service
 class SecurityChecker:
     """Handles security validations and checks"""
 
-    def __init__(self):
+    def __init__(self, security_service=None):
+        self._security_service = security_service
         self.suspicious_threshold = 3
         self.suspicious_window = 3600
 
@@ -150,8 +151,8 @@ class SecurityChecker:
                 timestamp=datetime.utcnow(),
             )
 
-            security_service = get_service('security_service')
-            security_service = get_service('security_service')
+            security_service = self._security_service or get_service('security_service')
+            security_service = self._security_service or get_service('security_service')
             security_service = get_service('security_service')
             threat_assessment = security_service.assess_threat(context)
             triggered_rules = security_service.check_automated_rules(context)
