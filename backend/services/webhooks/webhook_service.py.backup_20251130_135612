@@ -287,4 +287,5 @@ class WebhookService:
 
 def get_webhook_service():
     """Get webhook service instance"""
+    from ...utils.service_helpers import get_service
     return get_service('webhook_service')

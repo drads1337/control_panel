@@ -1,4 +1,3 @@
-from ...utils.service_helpers import get_service
 """
 Settings Service
 Provides cached access to project settings and configuration.
@@ -83,4 +82,5 @@ class SettingsService:
 
 # Singleton instance for backward compatibility
 # Service instance should be obtained via ServiceContainer:
+#   from ...utils.service_helpers import get_service
 #   service = get_service('settings_service')

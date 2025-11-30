@@ -1,4 +1,3 @@
-from ...utils.service_helpers import get_service
 """
 User Profile Service
 Handles user profile operations: updates, password changes, avatar uploads, and profile data retrieval
@@ -246,6 +245,7 @@ class UserProfileService:
 
         user_permissions = []
         try:
+            from ...utils.service_helpers import get_service
             
             # Use ServiceContainer to avoid circular imports
             rbac_service = get_service('rbac_service')

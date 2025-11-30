@@ -1,4 +1,3 @@
-from ...utils.service_helpers import get_service
 """
 Webhook Validation Service
 Handles validation of webhook URLs, access, and creation data
@@ -211,6 +210,7 @@ class WebhookValidationService:
             # Lazy import to avoid circular dependencies
             # These are imported inside the function to break potential import cycles
             from ...utils.rbac_utils import RBACManager
+            from ...utils.service_helpers import get_service
             
             # Use ServiceContainer to avoid circular imports
             rbac_service = get_service('rbac_service')
@@ -336,6 +336,7 @@ class WebhookValidationService:
                 if valid_events is None:
                     # Lazy import to avoid circular dependencies
                     # Imported inside function to break potential import cycles
+                    from ...utils.service_helpers import get_service
                     formatting_service = get_service('webhook_formatting_service')
                     valid_events = formatting_service.get_valid_events()
                 

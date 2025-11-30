@@ -585,6 +585,7 @@ class PolicyEngine:
         
         # Delegate to ABAC service
         from .abac_service import ABACService
+        from ...utils.service_helpers import get_service
         
         abac_service = self._abac_service or get_service('abac_service')
         abac_result = abac_service.check_abac_rules(

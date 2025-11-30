@@ -827,6 +827,7 @@ def update_user_permissions(user_id, current_user, validated_data=None):
             f"RBAC_USER_PERMISSIONS_ADDED user_id={actual_user_id} added_count={added_count}"
         )
 
+        from ..utils.service_helpers import get_service
         cache_service.delete("rbac:user_permissions", user_id=actual_user_id)
 
         logging.info(
@@ -1434,6 +1435,7 @@ def get_rbac_status(current_user):
         # Get services once at the start (DI pattern)
         project_relationships_service = get_service('project_relationships_service')
         rbac_service = get_service('rbac_service')
+        from ..utils.service_helpers import get_service
         
         project_id = current_user.project_id
         

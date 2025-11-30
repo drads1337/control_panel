@@ -1,4 +1,3 @@
-from ..utils.service_helpers import get_service
 """
 Example of refactored Celery task using celery_db_session context manager.
 
@@ -38,6 +37,7 @@ except ImportError:
     paramiko = None
 
 from ...utils.celery_db_session import celery_db_session
+from ...utils.service_helpers import get_service
 from ...models.servers import Server
 from ...utils.project_settings_migration import ProjectSettingsHelper
 

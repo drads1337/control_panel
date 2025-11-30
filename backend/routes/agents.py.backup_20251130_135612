@@ -298,6 +298,7 @@ def create_loader(validated_data=None):
 
         # Check tier limits
         from ..models.core import Project
+        from ..utils.service_helpers import get_service
         
         project = Project.query.get(user.project_id)
         if project:
@@ -363,6 +364,7 @@ def create_loader(validated_data=None):
         }
 
         try:
+            from ..utils.service_helpers import get_service
             cache_service.invalidate_pattern(f"agents:project_id={user.project_id}:*")
         except ImportError:
             pass
@@ -452,6 +454,7 @@ def update_loader(agent_identifier):
         db.session.commit()
 
         try:
+            from ..utils.service_helpers import get_service
 
             cache_service.invalidate_pattern(f"agents:project_id={user.project_id}:*")
         except ImportError:
@@ -586,6 +589,7 @@ def delete_loader(agent_identifier):
         db.session.commit()
 
         try:
+            from ..utils.service_helpers import get_service
 
             cache_service.invalidate_pattern(f"agents:project_id={user.project_id}:*")
         except ImportError:
@@ -871,12 +875,14 @@ def update_loader_status(agent_identifier, validated_data=None):
         db.session.commit()
 
         try:
+            from ..utils.service_helpers import get_service
 
             cache_service.invalidate_pattern(f"agents:project_id={user.project_id}:*")
         except ImportError:
             pass
 
         try:
+            from ..utils.service_helpers import get_service
             activity_service.log_activity(
                 user,
                 "agent_status_updated",
@@ -910,6 +916,7 @@ def refresh_loader_cache():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project", "success": False}), 403
 
+        from ..utils.service_helpers import get_service
         success = cache_service.force_refresh_loader_cache(user.project_id)
 
         if success:

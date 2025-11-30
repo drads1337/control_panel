@@ -1,4 +1,3 @@
-from .service_helpers import get_service
 """
 Helper function for creating users with roles and product permissions using DI services.
 
@@ -115,6 +114,7 @@ tier_limits_service = get_service('tier_limits_service')
         # Check tier limits for users
         if project_id:
             from ..models.core import Project
+            from ..utils.service_helpers import get_service
             
             project = Project.query.get(project_id)
             if project:

@@ -500,4 +500,5 @@ class UserOrchestrator:
 
 # NOTE: Global singleton removed for better testability.
 # Use ServiceContainer to get service instances:
+#   from ...utils.service_helpers import get_service
 #   user_orchestrator = get_service('user_orchestrator')

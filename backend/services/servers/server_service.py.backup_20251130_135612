@@ -1,4 +1,3 @@
-from ...utils.service_helpers import get_service
 """
 Server Service
 Handles server management operations and all server-related business logic
@@ -242,6 +241,7 @@ class ServerService:
             project_id = server.project_id
             if project_id:
                 # Invalidate statistics cache instead of using deprecated counters
+                from ...utils.service_helpers import get_service
                 cache_service = self._cache_service or get_service('cache_service')
                 cache_service = self._cache_service or get_service('cache_service')
                 cache_service = get_service('cache_service')

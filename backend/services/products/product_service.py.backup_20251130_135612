@@ -550,6 +550,7 @@ class ProductService:
         try:
             # Check tier limits
             from ...models.core import Project
+            from ...utils.service_helpers import get_service
             
             project = Project.query.get(user.project_id)
             if project:

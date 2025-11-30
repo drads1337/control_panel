@@ -1,4 +1,3 @@
-from ...utils.service_helpers import get_service
 """
 Analytics Buffer Persistence Layer
 Provides fallback persistence mechanisms for analytics data when Redis is unavailable.
@@ -120,6 +119,7 @@ class PersistenceLayer:
         # Try Redis first
         if self._redis_available:
             try:
+                from ...utils.service_helpers import get_service
                 try:
                     analytics_buffer_service = get_service('analytics_buffer_service')
                 except (RuntimeError, ValueError):
@@ -233,6 +233,7 @@ class PersistenceLayer:
         # Try Redis first
         if self._redis_available:
             try:
+                from ...utils.service_helpers import get_service
                 try:
                     analytics_buffer_service = get_service('analytics_buffer_service')
                 except (RuntimeError, ValueError):
@@ -469,6 +470,7 @@ class PersistenceLayer:
                         data = item.get("data", {})
                         
                         # Try to write to Redis first
+                        from ...utils.service_helpers import get_service
                         try:
                             analytics_buffer_service = get_service('analytics_buffer_service')
                             success = analytics_buffer_service.buffer_user_activity(
@@ -508,6 +510,7 @@ class PersistenceLayer:
                         data = item.get("data", {})
                         
                         # Try to write to Redis first
+                        from ...utils.service_helpers import get_service
                         try:
                             analytics_buffer_service = get_service('analytics_buffer_service')
                             success = analytics_buffer_service.buffer_key_analytics_update(
