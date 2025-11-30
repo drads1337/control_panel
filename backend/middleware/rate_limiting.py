@@ -114,6 +114,9 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10, fail_cl
             from ..services.connect import ResponseBuilder, SecurityChecker
             from ..utils.redis_client import get_redis_client
 
+            # Get services once at the start (DI pattern)
+            security_service = get_service('security_service')
+            
             security_checker = SecurityChecker()
             response_builder = ResponseBuilder()
 
