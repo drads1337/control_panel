@@ -27,6 +27,8 @@ def topup_user_balance(current_user, validated_data=None):
     """Top up user balance"""
 
     if not validated_data:
+        # Get services once at the start (DI pattern)
+        balance_service = get_service('balance_service')
         return jsonify({"error": "No data provided"}), 400
 
     data = BalanceTopupSchema(**validated_data)
@@ -69,9 +71,7 @@ def topup_user_balance(current_user, validated_data=None):
     # Use numeric id for balance operations
     user_id = target_user.id
 
-    balance_service = get_service('balance_service')
     has_access, error_msg = balance_service.check_balance_access(current_user, target_user)
-    balance_service = get_service('balance_service')
     if not has_access:
         return jsonify({"error": error_msg or "Access denied"}), 403
 

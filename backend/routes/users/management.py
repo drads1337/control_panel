@@ -119,6 +119,8 @@ def add_user(current_user, validated_data=None, project_id=None):
     logger = logging.getLogger(__name__)
 
     if not validated_data:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
         return jsonify({"error": "No data provided"}), 400
 
     try:
@@ -128,7 +130,6 @@ def add_user(current_user, validated_data=None, project_id=None):
         user = create_user_with_roles_and_products(current_user, data, project_id=project_id)
 
         try:
-            activity_service = get_service('activity_service')
             activity_service.log_activity(
                 current_user,
                 "add_user",
@@ -175,6 +176,9 @@ def update_user(user_id, current_user, validated_data=None):
 
 
     if not validated_data:
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
+        user_profile_service = get_service('user_profile_service')
         return jsonify({"error": "No data provided"}), 400
 
     try:
@@ -185,7 +189,6 @@ def update_user(user_id, current_user, validated_data=None):
         if not target_user:
             return jsonify({"error": "User not found"}), 404
 
-        rbac_service = get_service('rbac_service')
         can_view_all = rbac_service.check_permission(
             current_user.id, "employees.view"
         ) or rbac_service.check_permission(current_user.id, "clients.view")
@@ -200,7 +203,6 @@ def update_user(user_id, current_user, validated_data=None):
             if project_id and target_user.project_id != project_id:
                 return jsonify({"error": "Access denied"}), 403
 
-        user_profile_service = get_service('user_profile_service')
         success, error = user_profile_service.update_user_profile(target_user, data)
         if not success:
             return jsonify({"error": error}), 400
@@ -209,7 +211,6 @@ def update_user(user_id, current_user, validated_data=None):
 
         role_names = []
         try:
-            rbac_service = get_service('rbac_service')
             rbac_roles = rbac_service.get_user_roles(target_user.id)
             role_names = [role["name"] for role in rbac_roles] if rbac_roles else []
         except Exception as e:
@@ -292,11 +293,12 @@ def bulk_action(current_user, project_id=None, validated_data=None):
 
     from ...utils.rbac_utils import RBACManager
 
-    rbac_service = get_service('rbac_service')
     can_view_all = rbac_service.check_permission(
         current_user.id, "employees.view"
     ) or rbac_service.check_permission(current_user.id, "clients.view")
     if not can_view_all:
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         query = query.filter_by(project_id=current_user.project_id)
     else:
 
@@ -503,12 +505,13 @@ def invite_user(current_user, validated_data=None):
     allowed_roles = RolePermissions.ASSIGNABLE_ROLES.copy()
     from ...utils.rbac_utils import RBACManager
 
-    rbac_service = get_service('rbac_service')
     can_view_all = rbac_service.check_permission(
         current_user.id, "employees.view"
     ) or rbac_service.check_permission(current_user.id, "clients.view")
     if not can_view_all:
 
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         allowed_roles = [r for r in allowed_roles if r not in RolePermissions.ADMIN_ROLES]
 
     if role not in allowed_roles:

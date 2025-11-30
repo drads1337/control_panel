@@ -42,10 +42,12 @@ def get_categories(project_id=None):
     """Get all remote control categories for the current project and product/product"""
     try:
         # Check tier limits
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        tier_limits_service = get_service('tier_limits_service')
         if project_id:
             project = Project.query.get(project_id)
             if project:
-                tier_limits_service = get_service('tier_limits_service')
                 enabled, error_msg = tier_limits_service.check_remote_control_enabled(project)
                 if not enabled:
                     return jsonify({"error": error_msg}), 403
@@ -104,13 +106,16 @@ def get_categories(project_id=None):
 def create_category(current_user, project_id=None, validated_data=None):
     """Create a new remote control category"""
     if not validated_data:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        tier_limits_service = get_service('tier_limits_service')
         return jsonify({"error": "No data provided"}), 400
 
     # Check tier limits
     if project_id:
         project = Project.query.get(project_id)
         if project:
-            tier_limits_service = get_service('tier_limits_service')
             enabled, error_msg = tier_limits_service.check_remote_control_enabled(project)
             if not enabled:
                 return jsonify({"error": error_msg}), 403
@@ -163,7 +168,6 @@ def create_category(current_user, project_id=None, validated_data=None):
         db.session.add(category)
         db.session.commit()
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user,
             "remote_category_created",

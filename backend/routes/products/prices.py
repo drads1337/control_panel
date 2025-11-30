@@ -95,6 +95,9 @@ def update_product_prices(product_identifier, validated_data=None):
     user = User.query.get(user_id)
 
     if not user:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        product_service = get_service('product_service')
         return jsonify({"error": "User not found"}), 404
 
     if not user.project_id:
@@ -167,13 +170,8 @@ def update_product_prices(product_identifier, validated_data=None):
 
         db.session.commit()
 
-        product_service = get_service('product_service')
-        product_service = get_service('product_service')
         product_service.invalidate_product_cache(user.project_id, product.id)
 
-        activity_service = get_service('activity_service')
-        activity_service = get_service('activity_service')
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "product_prices_updated",
@@ -256,6 +254,9 @@ def add_custom_period(product_identifier, validated_data=None):
     user = User.query.get(user_id)
 
     if not user:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        product_service = get_service('product_service')
         return jsonify({"error": "User not found"}), 404
 
     if not user.project_id:
@@ -308,10 +309,8 @@ def add_custom_period(product_identifier, validated_data=None):
         db.session.add(new_price)
         db.session.commit()
 
-        product_service = get_service('product_service')
         product_service.invalidate_product_cache(user.project_id, product.id)
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "product_custom_period_added",
@@ -353,6 +352,9 @@ def remove_custom_period(product_identifier, custom_period_id):
     user = User.query.get(user_id)
 
     if not user:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        product_service = get_service('product_service')
         return jsonify({"error": "User not found"}), 404
 
     if not user.project_id:
@@ -393,10 +395,8 @@ def remove_custom_period(product_identifier, custom_period_id):
         db.session.delete(custom_price)
         db.session.commit()
 
-        product_service = get_service('product_service')
         product_service.invalidate_product_cache(user.project_id, product.id)
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "product_custom_period_removed",

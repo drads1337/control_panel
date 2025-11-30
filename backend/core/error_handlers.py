@@ -44,8 +44,21 @@ def register_error_handlers(app: Flask) -> None:
 
         # SECURITY: Never expose tracebacks in production
         # Only show details in development mode (not production)
+        # Additional checks: Docker environment, explicit production flags
         from ..config.config import IS_PRODUCTION
-        is_safe_to_show_details = not IS_PRODUCTION and Config.FLASK_ENV != "production"
+        import os
+        
+        # SECURITY: Multiple checks to ensure production mode is enforced
+        # 1. Check IS_PRODUCTION flag
+        # 2. Check FLASK_ENV environment variable directly
+        # 3. Check for Docker/Kubernetes production indicators
+        flask_env_prod = Config.FLASK_ENV == "production"
+        docker_prod = os.environ.get("DOCKER_ENV") == "production" or os.environ.get("KUBERNETES_SERVICE_HOST") is not None
+        explicit_prod = os.environ.get("FORCE_PRODUCTION", "").lower() == "true"
+        
+        # If any production indicator is set, force production mode
+        is_production = IS_PRODUCTION or flask_env_prod or docker_prod or explicit_prod
+        is_safe_to_show_details = not is_production
         
         if is_safe_to_show_details:
             error_response["traceback"] = error_details.split("\n")
@@ -176,8 +189,17 @@ def register_error_handlers(app: Flask) -> None:
                 error_response["error_code"] = e.error_code
             
             # In development, include more details (but never in production)
+            # SECURITY: Multiple checks to ensure production mode is enforced
             from ..config.config import IS_PRODUCTION
-            is_safe_to_show_details = not IS_PRODUCTION and Config.FLASK_ENV != "production"
+            import os
+            
+            flask_env_prod = Config.FLASK_ENV == "production"
+            docker_prod = os.environ.get("DOCKER_ENV") == "production" or os.environ.get("KUBERNETES_SERVICE_HOST") is not None
+            explicit_prod = os.environ.get("FORCE_PRODUCTION", "").lower() == "true"
+            
+            # If any production indicator is set, force production mode
+            is_production = IS_PRODUCTION or flask_env_prod or docker_prod or explicit_prod
+            is_safe_to_show_details = not is_production
             
             if is_safe_to_show_details:
                 error_response["exception_type"] = type(e).__name__
@@ -227,8 +249,21 @@ def register_error_handlers(app: Flask) -> None:
 
         # SECURITY: Never expose tracebacks in production
         # Only show details in development mode (not production)
+        # Additional checks: Docker environment, explicit production flags
         from ..config.config import IS_PRODUCTION
-        is_safe_to_show_details = not IS_PRODUCTION and Config.FLASK_ENV != "production"
+        import os
+        
+        # SECURITY: Multiple checks to ensure production mode is enforced
+        # 1. Check IS_PRODUCTION flag
+        # 2. Check FLASK_ENV environment variable directly
+        # 3. Check for Docker/Kubernetes production indicators
+        flask_env_prod = Config.FLASK_ENV == "production"
+        docker_prod = os.environ.get("DOCKER_ENV") == "production" or os.environ.get("KUBERNETES_SERVICE_HOST") is not None
+        explicit_prod = os.environ.get("FORCE_PRODUCTION", "").lower() == "true"
+        
+        # If any production indicator is set, force production mode
+        is_production = IS_PRODUCTION or flask_env_prod or docker_prod or explicit_prod
+        is_safe_to_show_details = not is_production
         
         if is_safe_to_show_details:
             error_response["traceback"] = error_details.split("\n")

@@ -45,36 +45,64 @@ def get_user_crud_service():
 
 
 def get_user_role_service():
+    # Get services once at the start (DI pattern)
+    # Get services once at the start (DI pattern)
+    user_crud_service = get_service('user_crud_service')
     """Get UserRoleService instance."""
     return get_service('user_role_service')
 
 
 def get_user_permission_service():
+    # Get services once at the start (DI pattern)
+    # Get services once at the start (DI pattern)
+    user_crud_service = get_service('user_crud_service')
+    user_role_service = get_service('user_role_service')
     """Get UserPermissionService instance."""
     return get_service('user_permission_service')
 
 
 def get_user_statistics_service():
+    # Get services once at the start (DI pattern)
+    # Get services once at the start (DI pattern)
+    user_permission_service = get_service('user_permission_service')
+    user_role_service = get_service('user_role_service')
     """Get UserStatisticsService instance."""
     return get_service('user_statistics_service')
 
 
 def get_user_invite_service():
+    # Get services once at the start (DI pattern)
+    # Get services once at the start (DI pattern)
+    user_permission_service = get_service('user_permission_service')
+    user_statistics_service = get_service('user_statistics_service')
     """Get UserInviteService instance."""
     return get_service('user_invite_service')
 
 
 def get_user_profile_service():
+    # Get services once at the start (DI pattern)
+    # Get services once at the start (DI pattern)
+    user_invite_service = get_service('user_invite_service')
+    user_statistics_service = get_service('user_statistics_service')
     """Get UserProfileService instance."""
     return get_service('user_profile_service')
 
 
 def get_rbac_service():
+    # Get services once at the start (DI pattern)
+    # Get services once at the start (DI pattern)
+    user_invite_service = get_service('user_invite_service')
+    user_profile_service = get_service('user_profile_service')
     """Get RBACService instance."""
     return get_service('rbac_service')
 
 
 def get_activity_service():
+    # Get services once at the start (DI pattern)
+    # Get services once at the start (DI pattern)
+    rbac_service = get_service('rbac_service')
+    user_profile_service = get_service('user_profile_service')
+    rbac_service = get_service('rbac_service')
     """Get ActivityService instance."""
     return get_service('activity_service')
 

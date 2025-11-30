@@ -36,6 +36,11 @@ def bulk_create_keys(current_user, project_id=None, validated_data=None):
     logger = logging.getLogger(__name__)
     logger.info(f"🔑 Bulk create keys request - Origin: {request.headers.get('Origin')}")
 
+    # Get services once at the start (DI pattern)
+    activity_service = get_service('activity_service')
+    key_bulk_operations_service = get_service('key_bulk_operations_service')
+    product_service = get_service('product_service')
+    task_service = get_service('task_service')
     if not current_user:
         return jsonify({"error": "User not found"}), 404
     
@@ -48,7 +53,6 @@ def bulk_create_keys(current_user, project_id=None, validated_data=None):
     max_devices = validated_data.get("max_devices")
 
     # Get product service
-    product_service = get_service('product_service')
 
     # Exceptions are handled by global handler
     product = product_service.get_product(current_user, product_id)
@@ -63,7 +67,6 @@ def bulk_create_keys(current_user, project_id=None, validated_data=None):
     if count <= ASYNC_THRESHOLD:
 
         # Use product.id (actual database ID) instead of product_id (which might be unique_id)
-        key_bulk_operations_service = get_service('key_bulk_operations_service')
         created_count, error_message, created_keys = key_bulk_operations_service.bulk_create_keys(
             user=current_user,
             count=count,
@@ -82,7 +85,6 @@ def bulk_create_keys(current_user, project_id=None, validated_data=None):
         except ImportError:
             pass
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user,
             "bulk_create_keys",
@@ -116,7 +118,6 @@ def bulk_create_keys(current_user, project_id=None, validated_data=None):
             actual_product_id = product.id
             
             # Get task service
-            task_service = get_service('task_service')
             
             task_id = task_service.create_task(
                 task_type="bulk_create_keys",
@@ -183,6 +184,8 @@ def bulk_delete_keys(current_user, project_id=None, validated_data=None):
     """Bulk delete keys"""
 
     if not current_user:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
         return jsonify({"error": "User not found"}), 404
     
     if not validated_data:
@@ -205,7 +208,6 @@ def bulk_delete_keys(current_user, project_id=None, validated_data=None):
     except ImportError:
         pass
 
-    activity_service = get_service('activity_service')
     activity_service.log_activity(
         current_user, "bulk_delete_keys", details=f"Deleted {deleted_count} keys", ip=request.remote_addr
     )

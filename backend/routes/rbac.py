@@ -111,6 +111,8 @@ def admin_required(f):
     def decorated_function(*args, **kwargs):
         current_user = get_current_user()
         if not current_user:
+            # Get services once at the start (DI pattern)
+            rbac_service = get_service('rbac_service')
             return jsonify({"error": "Authentication required"}), 401
 
         from ..utils.rbac_utils import RBACManager
@@ -118,7 +120,6 @@ def admin_required(f):
             return jsonify({"error": "Static roles cannot manage RBAC"}), 403
 
 
-        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(current_user.id, "rbac.view"):
             return jsonify({"error": "Admin access required"}), 403
 
@@ -150,6 +151,7 @@ def token_required(f):
 def get_roles(current_user):
     """Get all roles for the current user's project"""
     try:
+        # Get services once at the start (DI pattern)
         rbac_service = get_service('rbac_service')
         
         if not current_user:
@@ -193,6 +195,7 @@ def get_roles(current_user):
 def create_role():
     """Create a new custom role"""
     try:
+        # Get services once at the start (DI pattern)
         rbac_service = get_service('rbac_service')
         current_user = get_current_user()
         if not current_user:
@@ -246,6 +249,7 @@ def create_role():
 def update_role(role_id):
     """Update an existing role"""
     try:
+        # Get services once at the start (DI pattern)
         rbac_service = get_service('rbac_service')
         current_user = get_current_user()
         if not current_user:
@@ -284,6 +288,7 @@ def update_role(role_id):
 def delete_role(role_id):
     """Delete a role"""
     try:
+        # Get services once at the start (DI pattern)
         rbac_service = get_service('rbac_service')
         current_user = get_current_user()
         if not current_user:
@@ -330,6 +335,7 @@ def delete_role(role_id):
 def get_permissions(current_user):
     """Get all permissions for the current user's project"""
     try:
+        # Get services once at the start (DI pattern)
         rbac_service = get_service('rbac_service')
         
         if not current_user:
@@ -366,6 +372,7 @@ def get_permissions(current_user):
 def create_permission():
     """Create a new permission"""
     try:
+        # Get services once at the start (DI pattern)
         rbac_service = get_service('rbac_service')
         current_user = get_current_user()
         if not current_user:
@@ -422,6 +429,7 @@ def create_permission():
 def update_permission(permission_id, validated_data=None):
     """Update an existing permission"""
     try:
+        # Get services once at the start (DI pattern)
         rbac_service = get_service('rbac_service')
         current_user = get_current_user()
         if not current_user:
@@ -459,6 +467,7 @@ def update_permission(permission_id, validated_data=None):
 def delete_permission(permission_id):
     """Delete a permission"""
     try:
+        # Get services once at the start (DI pattern)
         rbac_service = get_service('rbac_service')
         current_user = get_current_user()
         if not current_user:
@@ -496,10 +505,11 @@ def get_user_roles(user_id, current_user):
     """Get all roles assigned to a user"""
 
     if not current_user:
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         return jsonify({"error": "Authentication required"}), 401
 
     try:
-        rbac_service = get_service('rbac_service')
 
         target_user = find_user_by_id_or_unique_id(user_id, current_user.project_id)
 
@@ -527,6 +537,7 @@ def assign_role_to_user(user_id, current_user):
     """Assign a role to a user"""
 
     try:
+        # Get services once at the start (DI pattern)
         rbac_service = get_service('rbac_service')
         data = request.get_json()
         if not data:
@@ -574,6 +585,7 @@ def remove_role_from_user(user_id, role_id, current_user):
     """Remove a role from a user"""
 
     try:
+        # Get services once at the start (DI pattern)
         rbac_service = get_service('rbac_service')
 
         target_user = find_user_by_id_or_unique_id(user_id, current_user.project_id)
@@ -612,11 +624,12 @@ def get_user_permissions(user_id, current_user):
 
     logging.info(
         f"RBAC_PERMISSIONS_GET: Request for user_id={user_id} (type={type(user_id).__name__}) by current_user_id={current_user.id} "
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         f"(username={current_user.username}, project_id={current_user.project_id})"
     )
 
     try:
-        rbac_service = get_service('rbac_service')
 
         from ..utils.rbac_utils import RBACManager
 
@@ -734,6 +747,8 @@ def update_user_permissions(user_id, current_user, validated_data=None):
 
     try:
 
+        # Get services once at the start (DI pattern)
+        cache_service = get_service('cache_service')
         from ..utils.rbac_utils import RBACManager
 
         has_edit_permission = rbac_service.check_permission(current_user.id, "employees.edit")
@@ -813,7 +828,6 @@ def update_user_permissions(user_id, current_user, validated_data=None):
         )
 
         from ..utils.service_helpers import get_service
-        cache_service = get_service('cache_service')
         cache_service.delete("rbac:user_permissions", user_id=actual_user_id)
 
         logging.info(
@@ -823,7 +837,6 @@ def update_user_permissions(user_id, current_user, validated_data=None):
         return jsonify({"success": True, "user_id": actual_user_id, "permissions_count": len(permissions)})
 
     except Exception as e:
-        cache_service = get_service('cache_service')
         db.session.rollback()
         logging.error(
             f"RBAC_USER_PERMISSIONS_UPDATE_ERROR user_id={current_user.id if current_user else 'unknown'} target_user_id={user_id} error={e}",
@@ -838,6 +851,7 @@ def update_user_permissions(user_id, current_user, validated_data=None):
 def check_permission(current_user, validated_data=None):
     """Check if current user has a specific permission"""
     try:
+        # Get services once at the start (DI pattern)
         rbac_service = get_service('rbac_service')
         if not validated_data:
             return jsonify({"error": "No data provided"}), 400
@@ -867,6 +881,7 @@ def check_permission(current_user, validated_data=None):
 def get_role_users(current_user, role_id):
     """Get all users assigned to a role"""
     try:
+        # Get services once at the start (DI pattern)
         rbac_service = get_service('rbac_service')
 
         role = Role.query.filter_by(id=role_id, project_id=current_user.project_id).first()
@@ -890,6 +905,7 @@ def get_role_users(current_user, role_id):
 def get_rbac_statistics(current_user):
     """Get RBAC statistics for the project"""
     try:
+        # Get services once at the start (DI pattern)
         rbac_service = get_service('rbac_service')
         project_id = current_user.project_id
         statistics = rbac_service.get_rbac_statistics(project_id)
@@ -908,6 +924,7 @@ def get_rbac_statistics(current_user):
 def initialize_rbac(current_user):
     """Initialize RBAC system for the project"""
     try:
+        # Get services once at the start (DI pattern)
         rbac_service = get_service('rbac_service')
         project_id = current_user.project_id
 
@@ -1004,6 +1021,7 @@ def get_product_permissions(current_user, product_identifier):
 def create_product_permission(product_identifier):
     """Create a new permission for a specific product"""
     try:
+        # Get services once at the start (DI pattern)
         rbac_service = get_service('rbac_service')
         current_user = get_current_user()
         if not current_user:
@@ -1077,6 +1095,7 @@ def create_product_permission(product_identifier):
 def assign_product_permissions_to_role(role_id, product_identifier):
     """Assign product-specific permissions to a role"""
     try:
+        # Get services once at the start (DI pattern)
         rbac_service = get_service('rbac_service')
         current_user = get_current_user()
         if not current_user:
@@ -1170,6 +1189,7 @@ def assign_product_permissions_to_role(role_id, product_identifier):
 def get_files_for_rbac(current_user):
     """Get files for RBAC management"""
     try:
+        # Get services once at the start (DI pattern)
         rbac_service = get_service('rbac_service')
 
         if not rbac_service.check_permission(current_user.id, "files.view"):
@@ -1412,13 +1432,14 @@ def get_role_inheritance_chain(current_user, role_id):
 def get_rbac_status(current_user):
     """Get RBAC system status for the current user's project"""
     try:
+        # Get services once at the start (DI pattern)
+        project_relationships_service = get_service('project_relationships_service')
+        rbac_service = get_service('rbac_service')
         from ..utils.service_helpers import get_service
         
         project_id = current_user.project_id
         
         # Get services
-        project_relationships_service = get_service('project_relationships_service')
-        rbac_service = get_service('rbac_service')
         
         roles_count = Role.query.filter_by(project_id=project_id).count()
         permissions_count = Permission.query.filter_by(project_id=project_id).count()

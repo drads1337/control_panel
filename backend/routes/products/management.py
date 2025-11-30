@@ -58,12 +58,12 @@ def get_products_count(current_user, project_id=None):
     user = current_user or User.query.get(user_id)
 
     if not user:
+        # Get services once at the start (DI pattern)
+        product_service = get_service('product_service')
+        rbac_service = get_service('rbac_service')
         return jsonify({"error": "User not found"}), 404
 
     # Allow users with clients.view permission to access products even if they don't have a project_id
-    rbac_service = get_service('rbac_service')
-    rbac_service = get_service('rbac_service')
-    rbac_service = get_service('rbac_service')
     has_clients_view = rbac_service.check_permission(user.id, "clients.view")
     
     if not user.project_id and not has_clients_view:
@@ -77,8 +77,6 @@ def get_products_count(current_user, project_id=None):
 
     try:
         product_type = request.args.get("type", "all")
-        product_service = get_service('product_service')
-        product_service = get_service('product_service')
         
         result = product_service.get_products_count(
             project_id=scoped_project_id, product_type=product_type, user_id=user_id
@@ -107,11 +105,13 @@ def get_products(current_user=None, project_id=None):
     user = current_user or User.query.get(user_id)
 
     if not user:
+        # Get services once at the start (DI pattern)
+        product_service = get_service('product_service')
+        rbac_service = get_service('rbac_service')
         return jsonify({"error": "User not found"}), 404
 
     # Allow users with clients.view permission to access products even if they don't have a project_id
     # This is needed when editing users
-    rbac_service = get_service('rbac_service')
     has_clients_view = rbac_service.check_permission(user.id, "clients.view")
     
     if not user.project_id and not has_clients_view:
@@ -133,9 +133,7 @@ def get_products(current_user=None, project_id=None):
         product_type = request.args.get("type", "all")
         current_app.logger.info(f"Filtering products by type: {product_type}")
 
-        rbac_service = get_service('rbac_service')
         has_view_permission = rbac_service.check_permission(user.id, "products.view")
-        product_service = get_service('product_service')
 
         result = product_service.get_products_cached(
             project_id=scoped_project_id, product_type=product_type, user_id=user_id
@@ -345,6 +343,9 @@ def create_product(validated_data=None):
     user = User.query.get(user_id)
 
     if not user:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        product_service = get_service('product_service')
         return jsonify({"error": "User not found"}), 404
 
     if not user.project_id:
@@ -364,10 +365,8 @@ def create_product(validated_data=None):
             return jsonify({"error": "Invalid request data"}), 400
 
         # Exceptions are handled by global handler
-        product_service = get_service('product_service')
         new_product = product_service.create_product(user, validated_data)
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(user, "product_created", details=f"Created product: {new_product.id}")
 
         return (
@@ -408,6 +407,9 @@ def update_product_status(product_identifier, validated_data=None):
     user = User.query.get(user_id)
 
     if not user:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        product_service = get_service('product_service')
         return jsonify({"error": "User not found"}), 404
 
     if not user.project_id:
@@ -435,10 +437,8 @@ def update_product_status(product_identifier, validated_data=None):
         product.status = new_status
         db.session.commit()
 
-        product_service = get_service('product_service')
         product_service.invalidate_product_cache(user.project_id, product.id)
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "product_status_updated",
@@ -478,6 +478,9 @@ def update_product(product_identifier, validated_data=None):
     user = User.query.get(user_id)
 
     if not user:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        product_service = get_service('product_service')
         return jsonify({"error": "User not found"}), 404
 
     if not user.project_id:
@@ -515,10 +518,8 @@ def update_product(product_identifier, validated_data=None):
 
         db.session.commit()
 
-        product_service = get_service('product_service')
         product_service.invalidate_product_cache(user.project_id, product.id)
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "product_updated",
@@ -563,6 +564,9 @@ def delete_product(product_identifier):
     user = User.query.get(user_id)
 
     if not user:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        product_service = get_service('product_service')
         return jsonify({"error": "User not found"}), 404
 
     if not user.project_id:
@@ -591,10 +595,8 @@ def delete_product(product_identifier):
         db.session.delete(product)
         db.session.commit()
 
-        product_service = get_service('product_service')
         product_service.invalidate_product_cache(user.project_id, product_id)
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "product_deleted",
@@ -627,6 +629,8 @@ def get_classic_users_for_product(product_identifier, current_user=None):
     Get users who have permissions for a specific product.
     
     Replaces legacy endpoint: GET /api/clients/<product_id>/classic-users
+    # Get services once at the start (DI pattern)
+    rbac_service = get_service('rbac_service')
     """
     
     user_id = get_jwt_identity()
@@ -642,7 +646,6 @@ def get_classic_users_for_product(product_identifier, current_user=None):
     if not product:
         return jsonify({"error": "Product not found"}), 404
 
-    rbac_service = get_service('rbac_service')
     can_view_all = rbac_service.check_permission(user.id, "clients.view")
     if not can_view_all and product.project_id != user.project_id:
         return jsonify({"error": "Access denied"}), 403

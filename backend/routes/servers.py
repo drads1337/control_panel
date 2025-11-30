@@ -24,10 +24,13 @@ servers_bp = Blueprint("servers", __name__)
 @require_project_isolation
 def get_servers():
     current_user_id = get_jwt_identity()
-    server_service = get_service('server_service')
     current_user = server_service.get_user_by_id(current_user_id)
 
     if not current_user:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        server_service = get_service('server_service')
+        task_service = get_service('task_service')
         return jsonify({"error": "Access denied"}), 403
 
     page = request.args.get("page", 1, type=int)
@@ -51,7 +54,6 @@ def get_servers():
 
             server_obj = server_service.get_server_by_id(server_id, current_user)
             if server_obj:
-                task_service = get_service('task_service')
                 task_service.create_task(
                     task_type="server_status_check",
                     task_data={
@@ -72,13 +74,17 @@ def get_servers():
 @require_project_isolation
 def create_server(validated_data=None):
     current_user_id = get_jwt_identity()
-    server_service = get_service('server_service')
     current_user = server_service.get_user_by_id(current_user_id)
 
-    rbac_service = get_service('rbac_service')
     if not current_user or not rbac_service.check_permission(
         current_user.id, "system.manage_maintenance"
     ):
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        rbac_service = get_service('rbac_service')
+        server_service = get_service('server_service')
+        task_service = get_service('task_service')
         return jsonify({"error": "Access denied"}), 403
 
     if not validated_data:
@@ -108,7 +114,6 @@ def create_server(validated_data=None):
     if error:
         return jsonify({"error": error}), 400 if "already exists" in error else 500
 
-    task_service = get_service('task_service')
     task_service.create_task(
         task_type="server_status_check",
         task_data={
@@ -120,7 +125,6 @@ def create_server(validated_data=None):
         project_id=server.project_id,
     )
 
-    activity_service = get_service('activity_service')
     activity_service.log_activity(
         current_user,
         "create_server",
@@ -150,10 +154,13 @@ def create_server(validated_data=None):
 @require_project_isolation
 def delete_server(server_id):
     current_user_id = get_jwt_identity()
-    server_service = get_service('server_service')
     current_user = server_service.get_user_by_id(current_user_id)
 
     if not current_user:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        server_service = get_service('server_service')
         return jsonify({"error": "Access denied"}), 403
 
     server = server_service.get_server_by_id(server_id, current_user)
@@ -167,7 +174,6 @@ def delete_server(server_id):
     if not success:
         return jsonify({"error": error}), 500
 
-    activity_service = get_service('activity_service')
     activity_service.log_activity(
         current_user,
         "delete_server",
@@ -184,13 +190,16 @@ def delete_server(server_id):
 @require_project_isolation
 @require_permission("servers.manage")
 def start_server_route(server_id, current_user):
-    server_service = get_service('server_service')
     server = server_service.get_server_by_id(server_id, current_user)
 
     if not server:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        server_service = get_service('server_service')
+        task_service = get_service('task_service')
         return jsonify({"error": "Server not found"}), 404
 
-    task_service = get_service('task_service')
     task_id = task_service.create_task(
         task_type="server_start",
         task_data={
@@ -202,7 +211,6 @@ def start_server_route(server_id, current_user):
         project_id=current_user.project_id,
     )
 
-    activity_service = get_service('activity_service')
     activity_service.log_activity(
         current_user,
         "start_server",
@@ -225,17 +233,20 @@ def start_server_route(server_id, current_user):
 @require_project_isolation
 def stop_server_route(server_id):
     current_user_id = get_jwt_identity()
-    server_service = get_service('server_service')
     current_user = server_service.get_user_by_id(current_user_id)
 
     if not current_user:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        server_service = get_service('server_service')
+        task_service = get_service('task_service')
         return jsonify({"error": "Access denied"}), 403
 
     server = server_service.get_server_by_id(server_id, current_user)
     if not server:
         return jsonify({"error": "Server not found"}), 404
 
-    task_service = get_service('task_service')
     task_id = task_service.create_task(
         task_type="server_stop",
         task_data={
@@ -247,7 +258,6 @@ def stop_server_route(server_id):
         project_id=current_user.project_id,
     )
 
-    activity_service = get_service('activity_service')
     activity_service.log_activity(
         current_user,
         "stop_server",
@@ -270,17 +280,20 @@ def stop_server_route(server_id):
 @require_project_isolation
 def restart_server_route(server_id):
     current_user_id = get_jwt_identity()
-    server_service = get_service('server_service')
     current_user = server_service.get_user_by_id(current_user_id)
 
     if not current_user:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        server_service = get_service('server_service')
+        task_service = get_service('task_service')
         return jsonify({"error": "Access denied"}), 403
 
     server = server_service.get_server_by_id(server_id, current_user)
     if not server:
         return jsonify({"error": "Server not found"}), 404
 
-    task_service = get_service('task_service')
     task_id = task_service.create_task(
         task_type="server_restart",
         task_data={
@@ -292,7 +305,6 @@ def restart_server_route(server_id):
         project_id=current_user.project_id,
     )
 
-    activity_service = get_service('activity_service')
     activity_service.log_activity(
         current_user,
         "restart_server",
@@ -315,17 +327,19 @@ def restart_server_route(server_id):
 @require_project_isolation
 def get_server_status(server_id):
     current_user_id = get_jwt_identity()
-    server_service = get_service('server_service')
     current_user = server_service.get_user_by_id(current_user_id)
 
     if not current_user:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        server_service = get_service('server_service')
+        task_service = get_service('task_service')
         return jsonify({"error": "Access denied"}), 403
 
     server = server_service.get_server_by_id(server_id, current_user)
     if not server:
         return jsonify({"error": "Server not found"}), 404
 
-    task_service = get_service('task_service')
     task_id = task_service.create_task(
         task_type="server_status_check",
         task_data={
@@ -354,10 +368,14 @@ def get_server_status(server_id):
 @require_project_isolation
 def bulk_check_status(validated_data=None):
     current_user_id = get_jwt_identity()
-    server_service = get_service('server_service')
     current_user = server_service.get_user_by_id(current_user_id)
 
     if not current_user:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        server_service = get_service('server_service')
+        task_service = get_service('task_service')
         return jsonify({"error": "Access denied"}), 403
 
     if not validated_data:
@@ -366,7 +384,6 @@ def bulk_check_status(validated_data=None):
     server_ids = validated_data.server_ids
     servers = server_service.get_servers_by_ids(server_ids, current_user)
 
-    task_service = get_service('task_service')
     task_ids = []
     for server in servers:
 
@@ -382,7 +399,6 @@ def bulk_check_status(validated_data=None):
         )
         task_ids.append(task_id)
 
-    activity_service = get_service('activity_service')
     activity_service.log_activity(
         current_user,
         "bulk_check_status",
@@ -403,10 +419,12 @@ def bulk_check_status(validated_data=None):
 @require_project_isolation
 def get_server_stats():
     current_user_id = get_jwt_identity()
-    server_service = get_service('server_service')
     current_user = server_service.get_user_by_id(current_user_id)
 
     if not current_user:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        server_service = get_service('server_service')
         return jsonify({"error": "Access denied"}), 403
 
     stats = server_service.get_server_stats(current_user)

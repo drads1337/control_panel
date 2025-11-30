@@ -32,6 +32,9 @@ def get_user_info():
     Simple endpoint to get user info without any middleware
     """
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
 
@@ -40,7 +43,6 @@ def get_user_info():
 
         user_roles = RBACManager.get_user_role_names(user)
 
-        rbac_service = get_service('rbac_service')
         has_webhook_access = rbac_service.check_permission(user.id, "webhooks.view")
 
         return jsonify(
@@ -71,6 +73,10 @@ def get_webhooks():
     Get webhooks for a project
     """
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        tier_limits_service = get_service('tier_limits_service')
+        webhook_service = get_service('webhook_service')
         user_id = get_jwt_identity()
         logging.info(f"WEBHOOKS_GET: user_id={user_id}")
         user = User.query.get(user_id)
@@ -85,14 +91,12 @@ def get_webhooks():
         if user.project_id:
             project = Project.query.get(user.project_id)
             if project:
-                tier_limits_service = get_service('tier_limits_service')
                 enabled, error_msg = tier_limits_service.check_webhooks_enabled(project)
                 if not enabled:
                     return jsonify({"error": error_msg}), 403
 
         webhook_service = get_webhook_service()
 
-        webhook_service = get_service('webhook_service')
         has_access, error = webhook_service.validate_webhook_access(user_id)
         if not has_access:
             status_code = 403 if error in [
@@ -127,6 +131,9 @@ def create_webhook(validated_data=None):
     Create a new webhook
     """
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        tier_limits_service = get_service('tier_limits_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
 
@@ -137,7 +144,6 @@ def create_webhook(validated_data=None):
         if user.project_id:
             project = Project.query.get(user.project_id)
             if project:
-                tier_limits_service = get_service('tier_limits_service')
                 enabled, error_msg = tier_limits_service.check_webhooks_enabled(project)
                 if not enabled:
                     return jsonify({"error": error_msg}), 403

@@ -150,6 +150,8 @@ def get_me(current_user):
 
     user_permissions = []
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
         rbac_service = get_service('rbac_service')
         permissions_set = rbac_service.get_user_permissions(user.id)
         user_permissions = list(permissions_set) if permissions_set else []
@@ -181,6 +183,9 @@ def update_profile(current_user):
     data = request.get_json()
 
     if not data:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
         return jsonify({"error": "No data provided"}), 400
 
     # Use DI container to get service
@@ -190,7 +195,6 @@ def update_profile(current_user):
     if not success:
         return jsonify({"error": error}), 400
 
-    activity_service = get_service('activity_service')
     activity_service.log_activity(
         user,
         "profile_update",
@@ -284,6 +288,9 @@ def upload_avatar(current_user):
     user = current_user
 
     if "avatar" not in request.files:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        file_service = get_service('file_service')
         return jsonify({"error": "No file provided"}), 400
 
     file = request.files["avatar"]
@@ -316,7 +323,6 @@ def upload_avatar(current_user):
             # Validate file signature - expect image extensions
             expected_extensions = [ext.lstrip('.').lower() for ext in ALLOWED_EXTENSIONS]
             is_valid, validation_error = file_service.validate_file_signature(temp_file_path, expected_extensions)
-            file_service = get_service('file_service')
             
             if not is_valid:
                 os.unlink(temp_file_path)

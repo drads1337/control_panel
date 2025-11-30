@@ -118,6 +118,8 @@ def get_refcodes(current_user, project_id=None):
 def create_refcode(current_user, project_id=None, validated_data=None):
     """Create a new referral code"""
     if not validated_data:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
         return jsonify({"error": "No data provided"}), 400
 
     code = validated_data.code.strip() if validated_data.code else None
@@ -167,9 +169,6 @@ def create_refcode(current_user, project_id=None, validated_data=None):
         db.session.add(referral_code)
         db.session.commit()
 
-        activity_service = get_service('activity_service')
-        activity_service = get_service('activity_service')
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user,
             "create_referral_code",
@@ -208,6 +207,9 @@ def delete_refcode(code_id, current_user, project_id=None):
     """Delete a referral code"""
     try:
 
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        rbac_service = get_service('rbac_service')
         if project_id is None:
             project_id = current_user.project_id
 
@@ -218,8 +220,6 @@ def delete_refcode(code_id, current_user, project_id=None):
         if not project_id or referral_code.project_id != project_id:
 
 
-            rbac_service = get_service('rbac_service')
-            rbac_service = get_service('rbac_service')
             can_view_all = rbac_service.check_permission(
                 current_user.id, "employees.view"
             ) or rbac_service.check_permission(current_user.id, "clients.view")
@@ -230,7 +230,6 @@ def delete_refcode(code_id, current_user, project_id=None):
         db.session.delete(referral_code)
         db.session.commit()
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user,
             "delete_referral_code",
@@ -253,6 +252,8 @@ def delete_unused_refcodes(current_user, project_id=None):
     """Delete all unused referral codes"""
     try:
 
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
         if project_id is None:
             project_id = current_user.project_id
 
@@ -274,7 +275,6 @@ def delete_unused_refcodes(current_user, project_id=None):
 
         db.session.commit()
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user,
             "delete_unused_referral_codes",

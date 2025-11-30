@@ -48,6 +48,8 @@ def get_users(current_user, project_id=None):
 
     # project_id should be passed via kwargs from middleware
     if project_id is None:
+        # Get services once at the start (DI pattern)
+        user_crud_service = get_service('user_crud_service')
         project_id = request.args.get("project_id", type=int)
 
     page = request.args.get("page", 1, type=int)
@@ -56,7 +58,6 @@ def get_users(current_user, project_id=None):
     roles_filter = request.args.getlist("roles")
     search = request.args.get("search")
 
-    user_crud_service = get_service('user_crud_service')
     result = user_crud_service.get_users_with_key_counts(
         current_user=current_user,
         page=page,
@@ -87,6 +88,8 @@ def add_user(current_user, validated_data=None, project_id=None):
     data = validated_data if validated_data is not None else request.get_json()
 
     if not data:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
         return jsonify({"error": "No data provided"}), 400
 
     try:
@@ -97,7 +100,6 @@ def add_user(current_user, validated_data=None, project_id=None):
             return jsonify({"error": error}), 400
 
         try:
-            activity_service = get_service('activity_service')
             activity_service.log_activity(
                 current_user,
                 "add_user",
@@ -134,13 +136,14 @@ def add_user(current_user, validated_data=None, project_id=None):
 @require_role(RolePermissions.ADMIN_ROLES)
 def delete_user(user_id, current_user, project_id=None):
     """Delete a user safely"""
-    user_crud_service = get_service('user_crud_service')
     success, error = user_crud_service.delete_user_safely(current_user, user_id, project_id=project_id)
 
     if not success:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        user_crud_service = get_service('user_crud_service')
         return jsonify({"error": error}), 400 if "not found" in error.lower() else 403
 
-    activity_service = get_service('activity_service')
     activity_service.log_activity(
         current_user, "delete_user", details=f"Deleted user ID: {user_id}", ip=request.remote_addr
     )
@@ -161,11 +164,13 @@ def bulk_action(current_user, project_id=None):
     user_ids = data.get("user_ids", [])
 
     if not action or not user_ids:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        rbac_service = get_service('rbac_service')
         return jsonify({"error": "Action and user_ids are required"}), 400
 
     query = User.query.filter(User.id.in_(user_ids))
 
-    rbac_service = get_service('rbac_service')
     can_view_all = rbac_service.check_permission(
         current_user.id, "employees.view"
     ) or rbac_service.check_permission(current_user.id, "clients.view")
@@ -204,7 +209,6 @@ def bulk_action(current_user, project_id=None):
 
             db.session.commit()
 
-            activity_service = get_service('activity_service')
             activity_service.log_activity(
                 current_user,
                 "bulk_delete_users",
@@ -237,7 +241,6 @@ def bulk_action(current_user, project_id=None):
 
             db.session.commit()
 
-            activity_service = get_service('activity_service')
             activity_service.log_activity(
                 current_user,
                 "bulk_change_role",
@@ -265,11 +268,12 @@ def export_users(current_user, project_id=None):
 
     role_filter = request.args.get("role")
     if project_id is None:
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         project_id = request.args.get("project_id", type=int)
 
     query = User.query
 
-    rbac_service = get_service('rbac_service')
     can_view_all = rbac_service.check_permission(
         current_user.id, "employees.view"
     ) or rbac_service.check_permission(current_user.id, "clients.view")
@@ -376,10 +380,12 @@ def invite_user(current_user):
     message = data.get("message", "")
 
     if not email:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        rbac_service = get_service('rbac_service')
         return jsonify({"error": "Email is required"}), 400
 
     allowed_roles = RolePermissions.ASSIGNABLE_ROLES.copy()
-    rbac_service = get_service('rbac_service')
     can_view_all = rbac_service.check_permission(
         current_user.id, "employees.view"
     ) or rbac_service.check_permission(current_user.id, "clients.view")
@@ -405,7 +411,6 @@ def invite_user(current_user):
     db.session.add(ref)
     db.session.commit()
 
-    activity_service = get_service('activity_service')
     activity_service.log_activity(
         current_user,
         "invite_user",
@@ -430,11 +435,12 @@ def get_users_stats(current_user, project_id=None):
     """Get user statistics"""
     query = User.query
 
-    rbac_service = get_service('rbac_service')
     can_view_all = rbac_service.check_permission(
         current_user.id, "employees.view"
     ) or rbac_service.check_permission(current_user.id, "clients.view")
     if not can_view_all:
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         query = query.filter_by(project_id=current_user.project_id)
     elif project_id:
         query = query.filter_by(project_id=project_id)
@@ -475,9 +481,10 @@ def get_user_stats(user_id, current_user, project_id=None):
     target_user = User.query.get(user_id)
 
     if not target_user:
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         return jsonify({"error": "User not found"}), 404
 
-    rbac_service = get_service('rbac_service')
     can_view_all = rbac_service.check_permission(
         current_user.id, "employees.view"
     ) or rbac_service.check_permission(current_user.id, "clients.view")
@@ -572,9 +579,10 @@ def get_user_activities(user_id, current_user):
     target_user = User.query.get(user_id)
 
     if not target_user:
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         return jsonify({"error": "User not found"}), 404
 
-    rbac_service = get_service('rbac_service')
     can_view_all = rbac_service.check_permission(
         current_user.id, "employees.view"
     ) or rbac_service.check_permission(current_user.id, "clients.view")
@@ -626,9 +634,10 @@ def get_user_transactions(user_id, current_user):
     target_user = User.query.get(user_id)
 
     if not target_user:
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         return jsonify({"error": "User not found"}), 404
 
-    rbac_service = get_service('rbac_service')
     can_view_all = rbac_service.check_permission(
         current_user.id, "employees.view"
     ) or rbac_service.check_permission(current_user.id, "clients.view")

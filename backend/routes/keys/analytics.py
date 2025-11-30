@@ -29,6 +29,8 @@ def get_keys_usage():
     user = User.query.get(user_id)
 
     if not user:
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         return jsonify({"error": "User not found"}), 404
 
     if not user.project_id:
@@ -38,7 +40,6 @@ def get_keys_usage():
 
     if not RBACManager.is_owner(user) and not RBACManager.is_admin(user):
 
-        rbac_service = get_service('rbac_service')
         has_keys_view = rbac_service.check_permission(user.id, "keys.view")
         if not has_keys_view:
             query = query.filter_by(user_id=user.id)
@@ -284,12 +285,13 @@ def get_keys_stats():
     user = User.query.get(user_id)
 
     if not user:
+        # Get services once at the start (DI pattern)
+        key_statistics_service = get_service('key_statistics_service')
         return jsonify({"error": "User not found"}), 404
 
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    key_statistics_service = get_service('key_statistics_service')
     stats = key_statistics_service.get_key_stats(user)
 
     return jsonify(

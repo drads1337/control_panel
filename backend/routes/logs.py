@@ -23,6 +23,8 @@ def _get_logs_query_filter(user, user_id, project_id_param=None, project_id=None
     """
     Get the appropriate query filter based on user permissions.
     SECURITY: Always applies project_id filtering to prevent data leakage.
+    # Get services once at the start (DI pattern)
+    rbac_service = get_service('rbac_service')
     Returns: (query_filter_dict, can_view_all_project_logs)
     - query_filter_dict: dict with filters to apply (None means no project filter - for owners only)
     - can_view_all_project_logs: bool indicating if user can view all project logs (True if user has logs.view permission)
@@ -53,10 +55,7 @@ def _get_logs_query_filter(user, user_id, project_id_param=None, project_id=None
     logger = logging.getLogger(__name__)
     
     # Check permission - try multiple methods to ensure we get the correct result
-    rbac_service = get_service('rbac_service')
-    rbac_service = get_service('rbac_service')
     has_logs_view_check = rbac_service.check_permission(user_id, "logs.view")
-    rbac_service = get_service('rbac_service')
     user_permissions = rbac_service.get_user_permissions(user_id)
     has_logs_view_direct = "logs.view" in user_permissions
     
@@ -97,6 +96,10 @@ def get_logs(current_user=None, project_id=None):
     user = current_user or User.query.get(user_id)
 
     if not user:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
+        tier_limits_service = get_service('tier_limits_service')
         return jsonify({"error": "User not found"}), 404
 
     # Check tier limits
@@ -104,7 +107,6 @@ def get_logs(current_user=None, project_id=None):
         from ..models.core import Project
         project = Project.query.get(user.project_id)
         if project:
-            tier_limits_service = get_service('tier_limits_service')
             enabled, error_msg = tier_limits_service.check_logs_enabled(project)
             if not enabled:
                 return jsonify({"error": error_msg}), 403
@@ -116,7 +118,6 @@ def get_logs(current_user=None, project_id=None):
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        rbac_service = get_service('rbac_service')
         has_logs_view = rbac_service.check_permission(user_id, "logs.view")
 
         if not has_logs_view:
@@ -729,6 +730,9 @@ def export_logs(current_user=None, project_id=None):
     user = current_user or User.query.get(user_id)
 
     if not user:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         return jsonify({"error": "User not found"}), 404
 
     user_roles = RBACManager.get_user_role_names(user)
@@ -738,7 +742,6 @@ def export_logs(current_user=None, project_id=None):
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        rbac_service = get_service('rbac_service')
         has_logs_view = rbac_service.check_permission(user_id, "logs.view")
         if not has_logs_view:
             return jsonify({"error": "Insufficient permissions. logs.view permission required"}), 403
@@ -933,6 +936,9 @@ def cleanup_logs():
     user = User.query.get(user_id)
 
     if not user:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
         return jsonify({"error": "User not found"}), 404
 
     user_roles = RBACManager.get_user_role_names(user)
@@ -955,8 +961,6 @@ def cleanup_logs():
 
         db.session.commit()
 
-        activity_service = get_service('activity_service')
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "cleanup_logs",
@@ -982,6 +986,9 @@ def trigger_auto_cleanup():
     user = User.query.get(user_id)
 
     if not user:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        log_cleanup_service = get_service('log_cleanup_service')
         return jsonify({"error": "User not found"}), 404
 
     user_roles = RBACManager.get_user_role_names(user)
@@ -997,7 +1004,6 @@ def trigger_auto_cleanup():
 
     try:
 
-        log_cleanup_service = get_service('log_cleanup_service')
         result = log_cleanup_service.cleanup_old_logs(user.project_id)
 
         if result["success"]:

@@ -166,6 +166,10 @@ def mark_as_read(notification_id):
     user = User.query.get(user_id)
 
     if not user:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        notification_service = get_service('notification_service')
         return jsonify({"error": "User not found"}), 404
 
     if not user.project_id:
@@ -173,11 +177,9 @@ def mark_as_read(notification_id):
 
     success, error = notification_service.mark_notification_read(user, notification_id)
 
-    notification_service = get_service('notification_service')
     if not success:
         return jsonify({"error": error or "Failed to mark notification as read"}), 400
 
-    activity_service = get_service('activity_service')
     activity_service.log_activity(
         user,
         "mark_notification_read",
@@ -195,6 +197,9 @@ def increment_show_count(notification_id, current_user, project_id=None):
     """Increment the show count of a notification"""
 
     if not current_user:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         return jsonify({"error": "User not found"}), 404
 
     if not current_user.project_id:
@@ -206,7 +211,6 @@ def increment_show_count(notification_id, current_user, project_id=None):
     if not current_user or not notification:
         return jsonify({"error": "Notification not found"}), 404
 
-    rbac_service = get_service('rbac_service')
     can_view_all = rbac_service.check_permission(
         current_user.id, "employees.view"
     ) or rbac_service.check_permission(current_user.id, "clients.view")
@@ -705,6 +709,9 @@ def create_bulk_notifications(validated_data=None):
     user = User.query.get(user_id)
 
     if not user.project_id:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        project_relationships_service = get_service('project_relationships_service')
         return jsonify({"error": "User must be assigned to a project"}), 403
 
     can_send = rbac_service.check_permission(
@@ -716,7 +723,6 @@ def create_bulk_notifications(validated_data=None):
 
     try:
         # Get project relationships service
-        project_relationships_service = get_service('project_relationships_service')
         
         # Get users for the project using service
         project_users = project_relationships_service.get_users(user.project_id)

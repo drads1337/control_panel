@@ -150,6 +150,47 @@ def setup_redis_and_limiter(app: Flask) -> None:
     from ..routes.users import users_bp
 
     limiter.limit(rate_limits["connect"])(connect_bp)
+    
+    # SECURITY: Add fail-close behavior for auth endpoints
+    # Flask-Limiter uses fail-open by default, but auth endpoints are critical
+    # We add a before_request hook to check Redis availability
+    @auth_bp.before_request
+    def check_redis_for_auth_rate_limiting():
+        """Ensure Redis is available for rate limiting on auth endpoints"""
+        from flask import jsonify, request
+        from ..utils.redis_client import get_redis_client
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        
+        # Skip for OPTIONS requests
+        if request.method == "OPTIONS":
+            return None
+        
+        try:
+            redis_client = get_redis_client()
+            if not redis_client.is_available():
+                logger.error(
+                    f"SECURITY: Redis unavailable for auth rate limiting on {request.endpoint}. "
+                    f"Blocking request from {request.remote_addr}"
+                )
+                return jsonify({
+                    "error": "Rate limiting service unavailable",
+                    "message": "Request blocked for security. Please try again later."
+                }), 503  # Service Unavailable
+        except Exception as e:
+            # If we can't check Redis, fail-close (block the request)
+            logger.error(
+                f"SECURITY: Cannot verify Redis availability for auth rate limiting on {request.endpoint}. "
+                f"Blocking request from {request.remote_addr}: {e}"
+            )
+            return jsonify({
+                "error": "Rate limiting service unavailable",
+                "message": "Request blocked for security. Please try again later."
+            }), 503  # Service Unavailable
+        
+        return None  # Continue with request
+    
     limiter.limit(rate_limits["auth"])(auth_bp)
     limiter.limit(rate_limits["keys"])(keys_bp)
     limiter.limit(rate_limits["projects"])(projects_bp)

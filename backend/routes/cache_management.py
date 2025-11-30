@@ -22,18 +22,17 @@ def get_cache_stats():
     user = User.query.get(user_id)
 
     if not user:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        cache_service = get_service('cache_service')
+        rbac_service = get_service('rbac_service')
         return jsonify({"error": "User not found"}), 404
 
 
-    rbac_service = get_service('rbac_service')
     if not rbac_service.check_permission(user.id, "system.view_logs"):
-        rbac_service = get_service('rbac_service')
         return jsonify({"error": "Access denied"}), 403
 
     try:
-        cache_service = get_service('cache_service')
-        cache_service = get_service('cache_service')
-        cache_service = get_service('cache_service')
         stats = cache_service.get_cache_stats()
         return jsonify({"success": True, "stats": stats})
     except Exception as e:
@@ -48,13 +47,15 @@ def clear_cache():
     user = User.query.get(user_id)
 
     if not user:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        cache_service = get_service('cache_service')
         return jsonify({"error": "User not found"}), 404
 
     if not RBACManager.has_any_role(user, ["admin", "owner"]):
         return jsonify({"error": "Access denied"}), 403
 
     try:
-        cache_service = get_service('cache_service')
         deleted_count = cache_service.clear_all_cache()
         return jsonify(
             {
@@ -75,13 +76,15 @@ def cleanup_cache():
     user = User.query.get(user_id)
 
     if not user:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        cache_service = get_service('cache_service')
         return jsonify({"error": "User not found"}), 404
 
     if not RBACManager.has_any_role(user, ["admin", "owner"]):
         return jsonify({"error": "Access denied"}), 403
 
     try:
-        cache_service = get_service('cache_service')
         cleaned_count = cache_service.cleanup_expired_cache()
         return jsonify(
             {"success": True, "message": f"Cache cleanup completed", "cleaned_keys": cleaned_count}
@@ -98,6 +101,10 @@ def invalidate_cache_type(cache_type):
     user = User.query.get(user_id)
 
     if not user:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        cache_service = get_service('cache_service')
+        product_service = get_service('product_service')
         return jsonify({"error": "User not found"}), 404
 
     if not RBACManager.has_any_role(user, ["admin", "owner"]):
@@ -111,14 +118,12 @@ def invalidate_cache_type(cache_type):
 
         if cache_type == "products" and project_id:
 
-            product_service = get_service('product_service')
             deleted_count = product_service.invalidate_product_cache(project_id)
         else:
 
             pattern = f"{cache_type}:*"
             if project_id:
                 pattern = f"{cache_type}:project_id={project_id}:*"
-            cache_service = get_service('cache_service')
             deleted_count = cache_service.invalidate_pattern(pattern)
 
         return jsonify(

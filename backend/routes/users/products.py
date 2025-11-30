@@ -170,6 +170,10 @@ def toggle_user_product_access(user_identifier, product_identifier, current_user
     Toggle user access to a specific product.
     
     Replaces legacy endpoint: POST /api/clients/<user_id>/products/<product_id>/toggle
+    # Get services once at the start (DI pattern)
+    activity_service = get_service('activity_service')
+    cache_service = get_service('cache_service')
+    rbac_service = get_service('rbac_service')
     """
     target_user = find_user_by_id_or_unique_id(user_identifier, current_user.project_id)
 
@@ -182,7 +186,6 @@ def toggle_user_product_access(user_identifier, product_identifier, current_user
         return jsonify({"error": "Product not found"}), 404
 
 
-    rbac_service = get_service('rbac_service')
     if not rbac_service.check_permission(current_user.id, "clients.view"):
         if (
             current_user.project_id != target_user.project_id
@@ -215,11 +218,9 @@ def toggle_user_product_access(user_identifier, product_identifier, current_user
 
         try:
             from ...utils.service_helpers import get_service
-            cache_service = get_service('cache_service')
 
             product_service.invalidate_product_cache(target_user.project_id, actual_product_id)
 
-            cache_service = get_service('cache_service')
             cache_service.invalidate_product_instantly(target_user.project_id, actual_product_id)
 
             all_user_product_cache_patterns = [
@@ -243,7 +244,6 @@ def toggle_user_product_access(user_identifier, product_identifier, current_user
         except Exception as cache_error:
             logger.warning(f"Failed to invalidate product cache: {cache_error}")
 
-        activity_service = get_service('activity_service')
         action = "granted" if new_status else "revoked"
         activity_service.log_activity(
             current_user,

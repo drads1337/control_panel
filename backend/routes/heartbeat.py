@@ -135,6 +135,9 @@ def api_heartbeat():
     logging.info(f"HEARTBEAT_ATTEMPT ip={ip} user_agent={user_agent}")
 
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        heartbeat_service = get_service('heartbeat_service')
         if not request.is_json:
             logging.warning(f"HEARTBEAT_NO_JSON ip={ip} user_agent={user_agent}")
             return jsonify({"error": "Invalid request format"}), 400
@@ -196,7 +199,6 @@ def api_heartbeat():
                 return jsonify({"error": "Session ID required"}), 400
 
             # Get heartbeat service
-            heartbeat_service = get_service('heartbeat_service')
 
             # Run heartbeat processing
             is_valid, message, response_data = heartbeat_service.process_heartbeat(
@@ -259,6 +261,9 @@ def api_heartbeat_status():
     logging.info(f"HEARTBEAT_STATUS_ATTEMPT ip={ip} user_agent={user_agent}")
 
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        heartbeat_service = get_service('heartbeat_service')
         if not request.is_json:
             logging.warning(f"HEARTBEAT_STATUS_NO_JSON ip={ip} user_agent={user_agent}")
             return jsonify({"error": "Invalid request format"}), 400
@@ -319,7 +324,6 @@ def api_heartbeat_status():
                 return jsonify({"error": "Session ID required"}), 400
 
             # Get heartbeat service
-            heartbeat_service = get_service('heartbeat_service')
 
             # Run session status check
             is_valid, message, status_data = heartbeat_service.check_session_status(

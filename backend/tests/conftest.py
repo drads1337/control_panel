@@ -150,9 +150,10 @@ def mock_external_services(mocker, mock_redis):
     """Automatically mock external services for all tests"""
     try:
         # Try to mock auth service (may not exist for all tests)
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
         auth_service = get_service('auth_service')
-        auth_service = get_service('auth_service')
-        auth_service = get_service('auth_service')
+        webhook_service = get_service('webhook_service')
         mock_security = mocker.patch("backend.services.auth.auth_service.security_service", create=True)
         mock_security.is_ip_blocked = mocker.Mock(return_value=False)
         mock_security.check_session_limit = mocker.Mock(return_value=False)
@@ -170,7 +171,6 @@ def mock_external_services(mocker, mock_redis):
     try:
         mock_webhook = mocker.Mock()
         mock_webhook.trigger_webhook = mocker.Mock()
-        webhook_service = get_service('webhook_service')
         mocker.patch(
             "backend.services.webhooks.webhook_service.get_webhook_service",
             return_value=mock_webhook,

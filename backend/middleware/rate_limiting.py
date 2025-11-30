@@ -115,7 +115,6 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10, fail_cl
             from ..utils.redis_client import get_redis_client
 
             # Get services once at the start (DI pattern)
-            security_service = get_service('security_service')
             
             security_checker = SecurityChecker()
             response_builder = ResponseBuilder()
@@ -125,6 +124,9 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10, fail_cl
             user_key = req_json.get("user_key") or ""
 
             minute_key = f"rl_min:{user_key}:{ip}"
+            # Get services once at the start (DI pattern)
+            # Get services once at the start (DI pattern)
+            security_service = get_service('security_service')
             burst_key = f"rl_burst:{user_key}:{ip}"
 
             try:

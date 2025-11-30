@@ -57,6 +57,8 @@ def get_keys(current_user, project_id=None):
     logger = logging.getLogger(__name__)
 
     if not current_user:
+        # Get services once at the start (DI pattern)
+        key_crud_service = get_service('key_crud_service')
         return jsonify({"error": "Access denied"}), 403
 
     if not current_user.project_id:
@@ -88,7 +90,6 @@ def get_keys(current_user, project_id=None):
             logger.warning(f"❌ Product {filters['product_id']} not found for project {current_user.project_id}")
             return jsonify({"error": "Product not found or access denied"}), 404
 
-    key_crud_service = get_service('key_crud_service')
     result, error = key_crud_service.get_keys(current_user, filters)
     if error:
         return jsonify({"error": error}), 500
@@ -138,6 +139,10 @@ def create_key(current_user, project_id=None, validated_data=None):
     logger = logging.getLogger(__name__)
     logger.info(f"🔑 Create key request - Origin: {request.headers.get('Origin')}")
 
+    # Get services once at the start (DI pattern)
+    activity_service = get_service('activity_service')
+    key_crud_service = get_service('key_crud_service')
+    product_service = get_service('product_service')
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
@@ -160,7 +165,6 @@ def create_key(current_user, project_id=None, validated_data=None):
     product = None
     if validated_data.get("product_id"):
         # Exceptions are handled by global handler
-        product_service = get_service('product_service')
         product = product_service.get_product(current_user, validated_data["product_id"])
 
         is_access_code = product.login_type == "classic_login"
@@ -182,7 +186,6 @@ def create_key(current_user, project_id=None, validated_data=None):
         return jsonify({"error": "Product ID is required"}), 400
 
     # Exceptions are handled by global handler
-    key_crud_service = get_service('key_crud_service')
     key = key_crud_service.create_key(current_user, key_data)
 
     logger.info(f"🔑 Key {key.id} created and committed")
@@ -221,7 +224,6 @@ def create_key(current_user, project_id=None, validated_data=None):
     logger.info(f"🔑 Returning success response for key {key.id}, user {current_user.id}")
 
     try:
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user,
             "create_key",
@@ -243,6 +245,10 @@ def create_custom_key(current_user, project_id=None, validated_data=None):
     logger = logging.getLogger(__name__)
     logger.info(f"🔑 Create custom key request - Origin: {request.headers.get('Origin')}")
 
+    # Get services once at the start (DI pattern)
+    activity_service = get_service('activity_service')
+    balance_service = get_service('balance_service')
+    price_calculation_service = get_service('price_calculation_service')
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
@@ -306,7 +312,6 @@ def create_custom_key(current_user, project_id=None, validated_data=None):
         
         if not is_owner and not is_admin and product and key_project_id:
             # Get price calculation service
-            price_calculation_service = get_service('price_calculation_service')
             
             key_price = price_calculation_service.calculate_key_price(
                 product_id=product.id,
@@ -322,7 +327,6 @@ def create_custom_key(current_user, project_id=None, validated_data=None):
                 if current_user.token_balance < key_price:
                     return jsonify({"error": f"Insufficient balance. Required: {key_price} tokens, Available: {current_user.token_balance} tokens"}), 400
                 
-                balance_service = get_service('balance_service')
                 # Deduct balance without committing (we're inside a transaction)
                 success, error_msg, _ = balance_service.deduct_balance(
                     current_user=current_user,
@@ -382,7 +386,6 @@ def create_custom_key(current_user, project_id=None, validated_data=None):
         logger.info(f"🔑 Returning success response for custom key {key.id}, user {current_user.id}")
 
         try:
-            activity_service = get_service('activity_service')
             activity_service.log_activity(
                 current_user,
                 "create_custom_key",
@@ -410,6 +413,9 @@ def update_key(key_id, current_user, project_id=None, validated_data=None):
     """Update a key"""
 
     if not current_user:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        key_crud_service = get_service('key_crud_service')
         return jsonify({"error": "User not found"}), 404
 
     if not current_user.project_id:
@@ -428,12 +434,10 @@ def update_key(key_id, current_user, project_id=None, validated_data=None):
     # validated_data is already a dict from the validation middleware
     update_data = {k: v for k, v in validated_data.items() if v is not None}
 
-    key_crud_service = get_service('key_crud_service')
     key, error = key_crud_service.update_key(current_user, key.id, update_data)
     if error:
         return jsonify({"error": error}), 400
 
-    activity_service = get_service('activity_service')
     duration_str = f"{validated_data.get('duration')}h" if validated_data.get("duration") else "unchanged"
     activity_service.log_activity(
         current_user,
@@ -452,6 +456,9 @@ def delete_key(key_id, current_user, project_id=None):
     """Delete a key"""
 
     if not current_user:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        key_crud_service = get_service('key_crud_service')
         return jsonify({"error": "User not found"}), 404
 
     if not current_user.project_id:
@@ -469,7 +476,6 @@ def delete_key(key_id, current_user, project_id=None):
     if not can_manage_key(current_user, key, "keys.delete"):
         return jsonify({"error": "You do not have permission to delete this key"}), 403
 
-    key_crud_service = get_service('key_crud_service')
     success, error = key_crud_service.delete_key(current_user, key.id)
     if not success:
         return jsonify({"error": error}), 500
@@ -480,7 +486,6 @@ def delete_key(key_id, current_user, project_id=None):
     except ImportError:
         pass
 
-    activity_service = get_service('activity_service')
     activity_service.log_activity(
         current_user, "delete_key", details=f"Deleted key: {key.key[:8]}...", ip=request.remote_addr
     )
@@ -494,6 +499,8 @@ def delete_key(key_id, current_user, project_id=None):
 def reset_key(key_id, current_user, project_id=None):
     """Reset a key"""
     if not current_user:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
         return jsonify({"error": "User not found"}), 404
 
     if not current_user.project_id:
@@ -547,7 +554,6 @@ def reset_key(key_id, current_user, project_id=None):
 
         db.session.commit()
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user, "reset_key", details=f"Reset key: {key.key[:8]}...", ip=request.remote_addr
         )
@@ -565,6 +571,8 @@ def reset_key(key_id, current_user, project_id=None):
 def pause_key(key_id, current_user, project_id=None):
     """Pause a key"""
     if not current_user:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
         return jsonify({"error": "User not found"}), 404
 
     if not current_user.project_id:
@@ -591,7 +599,6 @@ def pause_key(key_id, current_user, project_id=None):
 
         db.session.commit()
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user, "pause_key", details=f"Paused key: {key.key[:8]}...", ip=request.remote_addr
         )
@@ -621,6 +628,8 @@ def pause_key(key_id, current_user, project_id=None):
 def resume_key(key_id, current_user, project_id=None):
     """Resume a key"""
     if not current_user:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
         return jsonify({"error": "User not found"}), 404
 
     if not current_user.project_id:
@@ -647,7 +656,6 @@ def resume_key(key_id, current_user, project_id=None):
 
         db.session.commit()
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user, "resume_key", details=f"Resumed key: {key.key[:8]}...", ip=request.remote_addr
         )
@@ -678,6 +686,8 @@ def resume_key(key_id, current_user, project_id=None):
 def extend_key(key_id, current_user, project_id=None, validated_data=None):
     """Extend a key"""
     if not current_user:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
         return jsonify({"error": "User not found"}), 404
 
     if not current_user.project_id:
@@ -704,7 +714,6 @@ def extend_key(key_id, current_user, project_id=None, validated_data=None):
 
         db.session.commit()
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user,
             "extend_key",
@@ -725,6 +734,9 @@ def extend_key(key_id, current_user, project_id=None, validated_data=None):
 def duplicate_key(key_id, current_user, project_id=None):
     """Duplicate a key"""
     if not current_user:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        key_generation_service = get_service('key_generation_service')
         return jsonify({"error": "User not found"}), 404
 
     if not current_user.project_id:
@@ -741,7 +753,6 @@ def duplicate_key(key_id, current_user, project_id=None):
         if not product:
             return jsonify({"error": "Product not found"}), 404
 
-        key_generation_service = get_service('key_generation_service')
         new_key_string = key_generation_service.generate_key_string(
             length=32, product=product, duration_hours=key.duration_hours, project_id=current_user.project_id
         )
@@ -761,7 +772,6 @@ def duplicate_key(key_id, current_user, project_id=None):
         db.session.add(duplicate_key)
         db.session.commit()
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user,
             "duplicate_key",
@@ -795,6 +805,8 @@ def duplicate_key(key_id, current_user, project_id=None):
 def move_key(key_id, current_user, project_id=None, validated_data=None):
     """Move a key to another user"""
     if not current_user:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
         return jsonify({"error": "User not found"}), 404
 
     if not current_user.project_id:
@@ -819,7 +831,6 @@ def move_key(key_id, current_user, project_id=None, validated_data=None):
         key.user_id = new_user_id
         db.session.commit()
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user,
             "move_key",
@@ -840,6 +851,8 @@ def move_key(key_id, current_user, project_id=None, validated_data=None):
 def block_key(key_id, current_user, project_id=None):
     """Block a key"""
     if not current_user:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
         return jsonify({"error": "User not found"}), 404
 
     if not current_user.project_id:
@@ -870,7 +883,6 @@ def block_key(key_id, current_user, project_id=None):
             
             db.session.commit()
             
-            activity_service = get_service('activity_service')
             activity_service.log_activity(
                 current_user, "unblock_key", details=f"Unblocked key: {key.key[:8]}...", ip=request.remote_addr
             )
@@ -902,7 +914,6 @@ def block_key(key_id, current_user, project_id=None):
 
             db.session.commit()
 
-            activity_service = get_service('activity_service')
             activity_service.log_activity(
                 current_user, "block_key", details=f"Blocked key: {key.key[:8]}...", ip=request.remote_addr
             )
@@ -934,6 +945,8 @@ def block_key(key_id, current_user, project_id=None):
 def unblock_key(key_id, current_user, project_id=None):
     """Unblock a key"""
     if not current_user:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
         return jsonify({"error": "User not found"}), 404
 
     if not current_user.project_id:
@@ -960,7 +973,6 @@ def unblock_key(key_id, current_user, project_id=None):
 
         db.session.commit()
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user, "unblock_key", details=f"Unblocked key: {key.key[:8]}...", ip=request.remote_addr
         )
@@ -990,6 +1002,8 @@ def unblock_key(key_id, current_user, project_id=None):
 def archive_key(key_id, current_user, project_id=None):
     """Archive a key"""
     if not current_user:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
         return jsonify({"error": "User not found"}), 404
 
     if not current_user.project_id:
@@ -1013,7 +1027,6 @@ def archive_key(key_id, current_user, project_id=None):
 
         db.session.commit()
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user, "archive_key", details=f"Archived key: {key.key[:8]}...", ip=request.remote_addr
         )
@@ -1031,6 +1044,8 @@ def archive_key(key_id, current_user, project_id=None):
 def restore_key(key_id, current_user, project_id=None):
     """Restore an archived key"""
     if not current_user:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
         return jsonify({"error": "User not found"}), 404
 
     if not current_user.project_id:
@@ -1054,7 +1069,6 @@ def restore_key(key_id, current_user, project_id=None):
 
         db.session.commit()
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user, "restore_key", details=f"Restored key: {key.key[:8]}...", ip=request.remote_addr
         )
@@ -1072,6 +1086,8 @@ def restore_key(key_id, current_user, project_id=None):
 def export_key(key_id, current_user, project_id=None):
     """Export a single key"""
     if not current_user:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
         return jsonify({"error": "User not found"}), 404
 
     if not current_user.project_id:
@@ -1111,7 +1127,6 @@ def export_key(key_id, current_user, project_id=None):
             "key_metadata": key.key_metadata,
         }
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user, "export_key", details=f"Exported key: {key.key[:8]}...", ip=request.remote_addr
         )
@@ -1135,6 +1150,8 @@ def download_key(key_id, current_user, project_id=None):
     """Download a key as JSON file
 
     SECURITY: Requires keys.view permission to download full key.
+    # Get services once at the start (DI pattern)
+    rbac_service = get_service('rbac_service')
     Users without permission will receive a masked key.
     """
     if not current_user:
@@ -1156,7 +1173,6 @@ def download_key(key_id, current_user, project_id=None):
         if not can_download_full_key:
 
             is_own_key = key.user_id == current_user.id
-            rbac_service = get_service('rbac_service')
             if is_own_key:
                 can_download_full_key = rbac_service.check_permission(current_user.id, "keys.view")
             else:
@@ -1210,6 +1226,8 @@ def get_key_details(key_id, current_user, project_id=None):
     """Get detailed information about a key
 
     SECURITY: By default, keys are masked. Full keys are only returned if:
+    # Get services once at the start (DI pattern)
+    rbac_service = get_service('rbac_service')
     - User has keys.view permission, OR
     - User is owner/admin, OR
     - It's the user's own key and they have keys.view permission
@@ -1259,7 +1277,6 @@ def get_key_details(key_id, current_user, project_id=None):
         if not can_view_full_key:
 
             is_own_key = key.user_id == current_user.id
-            rbac_service = get_service('rbac_service')
             if is_own_key:
 
                 can_view_full_key = rbac_service.check_permission(current_user.id, "keys.view")
@@ -1305,6 +1322,8 @@ def reveal_key(key_id, current_user, project_id=None):
     """Reveal full license key
 
     SECURITY: This endpoint requires keys.see_analytics or keys.copy permission to reveal full keys.
+    # Get services once at the start (DI pattern)
+    rbac_service = get_service('rbac_service')
     This is a security measure to prevent mass data leakage. Users must explicitly
     request to reveal a key, and the request is logged for audit purposes.
 
@@ -1329,7 +1348,6 @@ def reveal_key(key_id, current_user, project_id=None):
         if not can_reveal_key:
 
             is_own_key = key.user_id == current_user.id
-            rbac_service = get_service('rbac_service')
             if is_own_key:
                 can_reveal_key = (
                     rbac_service.check_permission(current_user.id, "keys.see_analytics") or
@@ -1342,7 +1360,6 @@ def reveal_key(key_id, current_user, project_id=None):
                 )
 
         if not can_reveal_key:
-            rbac_service = get_service('rbac_service')
             logging.warning(
                 f"🚫 Unauthorized key reveal attempt: user_id={current_user.id}, key_id={key_id}, "
                 f"key_owner={key.user_id}, has_keys_see_analytics={rbac_service.check_permission(current_user.id, 'keys.see_analytics')}, "

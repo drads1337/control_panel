@@ -32,6 +32,10 @@ def get_projects():
     Get list of projects with caching (N+1 problem fixed)
     """
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        cache_service = get_service('cache_service')
+        project_service = get_service('project_service')
         if not db.session.is_active:
             db.session.rollback()
 
@@ -85,13 +89,11 @@ def get_projects():
 
         if force_refresh:
             try:
-                cache_service = get_service('cache_service')
                 cache_service.invalidate_pattern("projects:*")
                 logging.info("Cache invalidated due to force_refresh parameter")
             except Exception as e:
                 logging.warning(f"Failed to invalidate cache: {e}")
 
-        project_service = get_service('project_service')
         logging.info(f"Calling project_service.get_projects_cached for user_id={user_id}")
         result = project_service.get_projects_cached(
             user_id=user_id, page=page, per_page=per_page, search=search
@@ -152,6 +154,9 @@ def create_project(current_user, validated_data=None):
     logging.debug("=== FRONTEND CREATE PROJECT CALLED ===")
     logging.debug(f"Request data: {validated_data}")
 
+    # Get services once at the start (DI pattern)
+    # Get services once at the start (DI pattern)
+    project_service = get_service('project_service')
     try:
         user = current_user
 
@@ -162,7 +167,6 @@ def create_project(current_user, validated_data=None):
         name = data.name.strip()
         description = data.description.strip() if data.description else ""
 
-        project_service = get_service('project_service')
         # Exceptions are handled by global handler
         project = project_service.create_project(
             user_id=user.id,
@@ -193,6 +197,9 @@ def create_project(current_user, validated_data=None):
 def get_project(project_id):
     """Get information about a specific project with caching"""
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        project_service = get_service('project_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
 
@@ -203,7 +210,6 @@ def get_project(project_id):
         if not user:
             return jsonify({"error": "Access denied"}), 403
 
-        project_service = get_service('project_service')
         result = project_service.get_project_cached(project_id=project_id, user_id=user_id)
 
         logging.info(f"Project service result: {result}")
@@ -233,6 +239,9 @@ def get_project(project_id):
 def update_project(project_id, validated_data=None):
     """Update project information"""
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        project_service = get_service('project_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
 
@@ -246,7 +255,6 @@ def update_project(project_id, validated_data=None):
         data = ProjectUpdateSchema(**validated_data)
         update_data = data.model_dump(exclude_none=True)
 
-        project_service = get_service('project_service')
         result = project_service.update_project(
             project_id=project_id,
             user_id=user_id,
@@ -283,9 +291,11 @@ def update_project(project_id, validated_data=None):
 def delete_project(project_id, current_user):
     """Delete project and all related data"""
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        project_service = get_service('project_service')
         user = current_user
 
-        project_service = get_service('project_service')
         result = project_service.delete_project(
             project_id=project_id,
             user_id=user.id,
@@ -310,13 +320,15 @@ def delete_project(project_id, current_user):
 def get_project_stats(project_id):
     """Get project statistics with caching"""
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        project_service = get_service('project_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
 
         if not user:
             return jsonify({"error": "Access denied"}), 403
 
-        project_service = get_service('project_service')
         result = project_service.get_project_stats_cached(project_id=project_id, user_id=user_id)
 
         if "error" in result:
@@ -339,6 +351,8 @@ def get_project_stats(project_id):
 def get_project_invite_codes(current_user):
     """Get all project invite codes for the current user's project"""
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
         project_service = get_service('project_service')
         result = project_service.get_project_invite_codes(user_id=current_user.id)
 
@@ -361,6 +375,8 @@ def get_project_invite_codes(current_user):
 def get_latest_project_invite_code(current_user):
     """Get the latest project invite code for the current user's project"""
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
         project_service = get_service('project_service')
         result = project_service.get_latest_project_invite_code(user_id=current_user.id)
 
@@ -384,13 +400,15 @@ def get_latest_project_invite_code(current_user):
 def create_project_invite_code(current_user, validated_data=None):
     """Create a new project invite code"""
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        project_service = get_service('project_service')
         if not validated_data:
             validated_data = {}
 
         data = ProjectInviteCodeCreateSchema(**validated_data)
         expires_in_days = data.expires_in_days
 
-        project_service = get_service('project_service')
         result = project_service.create_project_invite_code(
             user_id=current_user.id,
             expires_in_days=expires_in_days,
@@ -417,6 +435,8 @@ def create_project_invite_code(current_user, validated_data=None):
 def delete_project_invite_code(code_id, current_user):
     """Delete a project invite code"""
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
         project_service = get_service('project_service')
         result = project_service.delete_project_invite_code(
             code_id=code_id,

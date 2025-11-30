@@ -39,10 +39,11 @@ def get_user_tokens(user_id, current_user):
     target_user = User.query.get(user_id)
 
     if not target_user:
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         return jsonify({"error": "User not found"}), 404
 
 
-    rbac_service = get_service('rbac_service')
     can_view_all = rbac_service.check_permission(
         current_user.id, "employees.view"
     ) or rbac_service.check_permission(current_user.id, "clients.view")
@@ -86,6 +87,8 @@ def create_user_token(user_id, current_user, validated_data=None):
     target_user = User.query.get(user_id)
 
     if not target_user:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
         return jsonify({"error": "User not found"}), 404
 
 
@@ -117,7 +120,6 @@ def create_user_token(user_id, current_user, validated_data=None):
         db.session.add(api_key)
         db.session.commit()
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             current_user,
             "create_api_token",

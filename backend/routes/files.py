@@ -54,10 +54,12 @@ def find_product_by_id_or_unique_id(product_identifier, project_id):
 @enforce_project_scope
 def get_files():
     user_id = get_jwt_identity()
-    file_service = get_service('file_service')
     user = file_service.get_user_by_id(user_id)
     is_valid, error = file_service.validate_user_project(user)
     if not is_valid:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        file_service = get_service('file_service')
         return jsonify({"error": error}), 404 if error == "User not found" else 403
 
     page = request.args.get("page", 1, type=int)
@@ -73,11 +75,14 @@ def get_files():
 @enforce_project_scope
 def upload_file():
     user_id = get_jwt_identity()
-    file_service = get_service('file_service')
     user = file_service.get_user_by_id(user_id)
 
     is_valid, error = file_service.validate_user_project(user)
     if not is_valid:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        file_service = get_service('file_service')
         return jsonify({"error": error}), 404 if error == "User not found" else 403
 
     if "file" not in request.files:
@@ -91,7 +96,6 @@ def upload_file():
     if error:
         return jsonify({"error": error}), 400
 
-    activity_service = get_service('activity_service')
     activity_service.log_activity(
         user,
         "upload_file",
@@ -106,11 +110,14 @@ def upload_file():
 @enforce_project_scope
 def download_file(filename):
     user_id = get_jwt_identity()
-    file_service = get_service('file_service')
     user = file_service.get_user_by_id(user_id)
 
     is_valid, error = file_service.validate_user_project(user)
     if not is_valid:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        file_service = get_service('file_service')
         return jsonify({"error": error}), 404 if error == "User not found" else 403
 
     file_path, error = file_service.get_file_path_for_download(filename)
@@ -118,7 +125,6 @@ def download_file(filename):
         return jsonify({"error": error}), 404
 
     try:
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user, "download_file", details=f"Downloaded file: {filename}", ip=request.remote_addr
         )
@@ -133,10 +139,13 @@ def download_file(filename):
 @enforce_project_scope
 def delete_file(filename):
     user_id = get_jwt_identity()
-    file_service = get_service('file_service')
     user = file_service.get_user_by_id(user_id)
 
     if not user or not get_rbac_service().check_permission(user.id, "products.edit"):
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        file_service = get_service('file_service')
         return jsonify({"error": "Access denied"}), 403
 
     is_valid, error = file_service.validate_user_project(user)
@@ -150,7 +159,6 @@ def delete_file(filename):
     if not success:
         return jsonify({"error": error}), 404 if error == "File not found" else 500
 
-    activity_service = get_service('activity_service')
     activity_service.log_activity(
         user,
         "delete_file",
@@ -166,10 +174,13 @@ def delete_file(filename):
 @enforce_project_scope
 def bulk_action(validated_data=None):
     user_id = get_jwt_identity()
-    file_service = get_service('file_service')
     user = file_service.get_user_by_id(user_id)
 
     if not user or not get_rbac_service().check_permission(user.id, "products.edit"):
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        file_service = get_service('file_service')
         return jsonify({"error": "Access denied"}), 403
 
     is_valid, error = file_service.validate_user_project(user)
@@ -187,7 +198,6 @@ def bulk_action(validated_data=None):
         if error:
             return jsonify({"error": error}), 500
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "bulk_delete_files",
@@ -209,11 +219,13 @@ def bulk_action(validated_data=None):
 @enforce_project_scope
 def get_file_stats():
     user_id = get_jwt_identity()
-    file_service = get_service('file_service')
     user = file_service.get_user_by_id(user_id)
 
     is_valid, error = file_service.validate_user_project(user)
     if not is_valid:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        file_service = get_service('file_service')
         return jsonify({"error": error}), 404 if error == "User not found" else 403
 
     stats = file_service.get_file_stats(user)
@@ -224,11 +236,13 @@ def get_file_stats():
 @enforce_project_scope
 def get_storage_info():
     user_id = get_jwt_identity()
-    file_service = get_service('file_service')
     user = file_service.get_user_by_id(user_id)
 
     is_valid, error = file_service.validate_user_project(user)
     if not is_valid:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        file_service = get_service('file_service')
         if error == "User not found":
             return jsonify({"error": error}), 404
         return (
@@ -278,11 +292,13 @@ def get_storage_info():
 @enforce_project_scope
 def preview_file(filename):
     user_id = get_jwt_identity()
-    file_service = get_service('file_service')
     user = file_service.get_user_by_id(user_id)
 
     is_valid, error = file_service.validate_user_project(user)
     if not is_valid:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        file_service = get_service('file_service')
         return jsonify({"error": error}), 404 if error == "User not found" else 403
 
     preview_data, error = file_service.preview_file(user, filename)
@@ -300,6 +316,9 @@ def get_products():
 
     if not user:
 
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        product_service = get_service('product_service')
         return jsonify({"error": "User not found"}), 404
 
     if not user.project_id:
@@ -309,7 +328,6 @@ def get_products():
         return jsonify({"error": "User not associated with any project"}), 400
 
     try:
-        product_service = get_service('product_service')
         result = product_service.get_products_cached(
             project_id=user.project_id, product_type="all", user_id=user_id
         )
@@ -473,11 +491,13 @@ def get_product_configs(product_identifier):
 @enforce_project_scope
 def get_product_extra_files(product_identifier):
     user_id = get_jwt_identity()
-    file_service = get_service('file_service')
     user = file_service.get_user_by_id(user_id)
 
     is_valid, error = file_service.validate_user_project(user)
     if not is_valid:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        file_service = get_service('file_service')
         return jsonify({"error": error}), 404 if error == "User not found" else 403
 
     product = find_product_by_id_or_unique_id(product_identifier, user.project_id)
@@ -494,6 +514,10 @@ def get_product_extra_files(product_identifier):
 def download_product_config(config_id):
     logging.debug(f"[DEBUG] Request: GET /api/files/products/configs/{config_id}/download")
 
+    # Get services once at the start (DI pattern)
+    # Get services once at the start (DI pattern)
+    activity_service = get_service('activity_service')
+    file_service = get_service('file_service')
     auth_header = request.headers.get("Authorization")
     user_id = None
     user = None
@@ -541,14 +565,12 @@ def download_product_config(config_id):
         if not product:
             return jsonify({"error": "Product not found"}), 404
 
-        file_service = get_service('file_service')
         response, error = file_service.download_product_config(
             config, user, request.remote_addr, request.headers.get("User-Agent")
         )
         if error:
             return jsonify({"error": error}), 404
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "download_product_config",
@@ -565,6 +587,10 @@ def download_product_config(config_id):
 def download_product_config_by_string_id(config_id):
     logging.debug(f"[DEBUG] Request: GET /api/files/products/configs/{config_id}/download")
 
+    # Get services once at the start (DI pattern)
+    # Get services once at the start (DI pattern)
+    activity_service = get_service('activity_service')
+    file_service = get_service('file_service')
     auth_header = request.headers.get("Authorization")
     user_id = None
     user = None
@@ -608,14 +634,12 @@ def download_product_config_by_string_id(config_id):
         if not product or product.project_id != user.project_id:
             return jsonify({"error": "Access denied"}), 403
 
-        file_service = get_service('file_service')
         response, error = file_service.download_product_config(
             config, user, request.remote_addr, request.headers.get("User-Agent")
         )
         if error:
             return jsonify({"error": error}), 404
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "download_product_config_by_id",
@@ -631,11 +655,13 @@ def download_product_config_by_string_id(config_id):
 @files_bp.route("/products/extra-files/<int:file_id>/download", methods=["GET"])
 def download_product_extra_file(file_id):
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        file_service = get_service('file_service')
         extra_file = ProductExtraFile.query.get(file_id)
         if not extra_file:
             return jsonify({"error": "File not found"}), 404
 
-        file_service = get_service('file_service')
         response, error = file_service.download_product_extra_file(extra_file)
         if error:
             return jsonify({"error": error}), 404
@@ -654,6 +680,9 @@ def update_file_status(file_id, validated_data=None):
     user = User.query.get(user_id)
 
     if not user.project_id:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
         return jsonify({"error": "User must be assigned to a project"}), 403
 
     rbac_service = get_rbac_service()
@@ -678,7 +707,6 @@ def update_file_status(file_id, validated_data=None):
         extra_file.status = new_status
         db.session.commit()
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "update_file_status",
@@ -698,11 +726,13 @@ def update_file_status(file_id, validated_data=None):
 @enforce_project_scope
 def get_product_storage_info(product_identifier):
     user_id = get_jwt_identity()
-    file_service = get_service('file_service')
     user = file_service.get_user_by_id(user_id)
 
     is_valid, error = file_service.validate_user_project(user)
     if not is_valid:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        file_service = get_service('file_service')
         return jsonify({"error": error}), 404 if error == "User not found" else 403
 
     product = find_product_by_id_or_unique_id(product_identifier, user.project_id)
@@ -824,6 +854,9 @@ def update_product_config(config_id, validated_data=None):
 
     if not user:
 
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
         return jsonify({"error": "User not found"}), 404
 
     if not user.project_id:
@@ -865,7 +898,6 @@ def update_product_config(config_id, validated_data=None):
 
         db.session.commit()
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "update_product_config",
@@ -898,6 +930,9 @@ def rate_product_config(config_id, validated_data=None):
     user = User.query.get(user_id)
 
     if not user:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
         return jsonify({"error": "User not found"}), 404
 
     if not validated_data:
@@ -926,7 +961,6 @@ def rate_product_config(config_id, validated_data=None):
 
         db.session.commit()
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "rate_product_config",
@@ -1367,11 +1401,13 @@ def get_product_files():
 @enforce_project_scope
 def download_product_file(product_identifier, file_type):
     user_id = get_jwt_identity()
-    file_service = get_service('file_service')
     user = file_service.get_user_by_id(user_id)
 
     is_valid, error = file_service.validate_user_project(user)
     if not is_valid:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        file_service = get_service('file_service')
         return jsonify({"error": error}), 404 if error == "User not found" else 403
 
     try:
@@ -1395,11 +1431,14 @@ def download_product_file(product_identifier, file_type):
 @enforce_project_scope
 def delete_product_file(product_identifier, file_type):
     user_id = get_jwt_identity()
-    file_service = get_service('file_service')
     user = file_service.get_user_by_id(user_id)
 
     rbac_service = get_rbac_service()
     if not user or not rbac_service.check_permission(user.id, "products.edit"):
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        file_service = get_service('file_service')
         return jsonify({"error": "Access denied"}), 403
 
     is_valid, error = file_service.validate_user_project(user)
@@ -1417,7 +1456,6 @@ def delete_product_file(product_identifier, file_type):
         if not success:
             return jsonify({"error": error}), 404
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "delete_product_file",
@@ -1437,6 +1475,10 @@ def delete_product_file(product_identifier, file_type):
 def create_folder(validated_data=None):
     # CRITICAL: This should never be None if validation middleware ran correctly
     # If it's None, the validation middleware failed to catch an error condition
+    # Get services once at the start (DI pattern)
+    # Get services once at the start (DI pattern)
+    activity_service = get_service('activity_service')
+    file_service = get_service('file_service')
     if validated_data is None:
         logger.error("CRITICAL: create_folder received None for validated_data - validation middleware may have failed")
         logger.error(f"Request body: {request.get_data(as_text=True)[:500]}")
@@ -1464,7 +1506,6 @@ def create_folder(validated_data=None):
         }), 400
     
     user_id = get_jwt_identity()
-    file_service = get_service('file_service')
     user = file_service.get_user_by_id(user_id)
 
     is_valid, error = file_service.validate_user_project(user)
@@ -1500,7 +1541,6 @@ def create_folder(validated_data=None):
     if not success:
         return jsonify({"error": error}), 400
 
-    activity_service = get_service('activity_service')
     activity_service.log_activity(
         user,
         "create_folder",
@@ -1522,11 +1562,14 @@ def create_folder(validated_data=None):
 @jwt_required()
 def delete_folder(folder_path):
     user_id = get_jwt_identity()
-    file_service = get_service('file_service')
     user = file_service.get_user_by_id(user_id)
 
     is_valid, error = file_service.validate_user_project(user)
     if not is_valid:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        file_service = get_service('file_service')
         return jsonify({"error": error}), 404 if error == "User not found" else 403
 
     rbac_service = get_rbac_service()
@@ -1538,7 +1581,6 @@ def delete_folder(folder_path):
         status_code = 404 if error == "Folder not found" else 400
         return jsonify({"error": error}), status_code
 
-    activity_service = get_service('activity_service')
     activity_service.log_activity(
         user, "delete_folder", details=f"Deleted folder: {folder_path}", ip=request.remote_addr
     )
@@ -1548,6 +1590,10 @@ def delete_folder(folder_path):
 @files_bp.route("/product-files/config", methods=["POST"])
 def upload_product_config():
     logging.debug(f"[DEBUG] Request: POST /api/files/product-files/config")
+    # Get services once at the start (DI pattern)
+    # Get services once at the start (DI pattern)
+    activity_service = get_service('activity_service')
+    file_service = get_service('file_service')
     logging.debug(f"[DEBUG] Cookies: {list(request.cookies.keys()) if request.cookies else 'none'}")
 
     user_id = None
@@ -1623,7 +1669,6 @@ def upload_product_config():
     file_size = file.tell()
     file.seek(0)
 
-    file_service = get_service('file_service')
     can_upload, message = file_service.check_storage_limit(user, file_size)
     if not can_upload:
         return jsonify({"error": message}), 400
@@ -1635,7 +1680,6 @@ def upload_product_config():
         if error:
             return jsonify({"error": error}), 400
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "upload_product_config",
@@ -1661,6 +1705,10 @@ def upload_product_config():
 @require_project_isolation
 def upload_product_extra_file():
     logging.debug(f"[DEBUG] upload_product_extra_file called - endpoint: /api/files/product-files/extra")
+    # Get services once at the start (DI pattern)
+    # Get services once at the start (DI pattern)
+    activity_service = get_service('activity_service')
+    file_service = get_service('file_service')
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -1707,12 +1755,10 @@ def upload_product_extra_file():
         return jsonify({"error": "No file selected"}), 400
 
     try:
-        file_service = get_service('file_service')
         file_data, error = file_service.upload_product_extra_file(user, file, product, name, description)
         if error:
             return jsonify({"error": error}), 400
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "upload_product_extra_file",
@@ -1742,6 +1788,10 @@ def delete_product_config(config_id):
 
     rbac_service = get_rbac_service()
     if not user or not rbac_service.check_permission(user.id, "products.edit"):
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        file_service = get_service('file_service')
         return jsonify({"error": "Access denied"}), 403
 
     if not user.project_id:
@@ -1756,12 +1806,10 @@ def delete_product_config(config_id):
         return jsonify({"error": "Config not found"}), 404
 
     try:
-        file_service = get_service('file_service')
         success, error = file_service.delete_product_config(config, user)
         if not success:
             return jsonify({"error": error}), 500
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "delete_product_config",
@@ -1783,6 +1831,10 @@ def delete_product_extra_file(file_id):
 
     rbac_service = get_rbac_service()
     if not user or not rbac_service.check_permission(user.id, "products.edit"):
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        file_service = get_service('file_service')
         return jsonify({"error": "Access denied"}), 403
 
     if not user.project_id:
@@ -1797,12 +1849,10 @@ def delete_product_extra_file(file_id):
         return jsonify({"error": "File not found"}), 404
 
     try:
-        file_service = get_service('file_service')
         success, error = file_service.delete_product_extra_file(extra_file, user)
         if not success:
             return jsonify({"error": error}), 500
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "delete_product_extra_file",
@@ -1824,6 +1874,9 @@ def get_product_file_stats(product_identifier):
 
     if not user:
 
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        file_service = get_service('file_service')
         return jsonify({"error": "User not found"}), 404
 
     if not user.project_id:

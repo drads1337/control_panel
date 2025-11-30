@@ -1,6 +1,8 @@
 """
 Celery tasks for chat message processing
 Handles Telegram and Discord message sending asynchronously
+
+REFACTORED: Now uses celery_db_session context manager for safe database session management.
 """
 
 import json
@@ -18,10 +20,7 @@ except ImportError:
     class Task:
         pass
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
-from ..config.config import Config
+from ...utils.celery_db_session import celery_db_session
 from ..models.chat import ChatMessage, DiscordWebhook, TelegramBot
 
 logger = logging.getLogger(__name__)
@@ -34,48 +33,6 @@ if CELERY_AVAILABLE:
         logger.warning("Celery app not available")
 else:
     celery_app = None
-
-if CELERY_AVAILABLE and celery_app:
-    db_engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
-    Session = sessionmaker(bind=db_engine)
-else:
-    db_engine = None
-    Session = None
-
-
-class DatabaseTask(Task):
-    """
-    Base task class that provides database session management
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._db_session = None
-
-    def before_start(self, task_id, args, kwargs):
-        """Called before task execution"""
-        if Session:
-            self._db_session = Session()
-
-    def after_return(self, *args, **kwargs):
-        """Called after task execution"""
-        if self._db_session:
-            try:
-                self._db_session.commit()
-            except:
-                self._db_session.rollback()
-            finally:
-                self._db_session.close()
-                self._db_session = None
-
-    def on_failure(self, exc, task_id, args, kwargs, einfo):
-        """Called when task fails"""
-        if self._db_session:
-            try:
-                self._db_session.rollback()
-            finally:
-                self._db_session.close()
-                self._db_session = None
 
 
 def task_decorator(*args, **kwargs):
@@ -174,7 +131,6 @@ def _send_discord_message_task(
 
 @task_decorator(
     bind=True,
-    base=DatabaseTask,
     name="backend.tasks.chat_tasks.send_telegram_message",
     max_retries=3,
     default_retry_delay=60,
@@ -207,33 +163,20 @@ def send_telegram_message_task(
         # Update chat message if chat_message_id is provided
         if chat_message_id:
             try:
-                if self._db_session:
-                    session = self._db_session
-                else:
-                    session = Session()
+                with celery_db_session() as session:
+                    chat_message = session.query(ChatMessage).filter_by(id=chat_message_id).first()
+                    if chat_message:
+                        if success and telegram_message_id:
+                            chat_message.telegram_message_id = str(telegram_message_id)
+                            chat_message.is_sent_to_telegram = True
+                        else:
+                            # Mark as failed if we have error
+                            chat_message.is_sent_to_telegram = False
 
-                chat_message = session.query(ChatMessage).filter_by(id=chat_message_id).first()
-                if chat_message:
-                    if success and telegram_message_id:
-                        chat_message.telegram_message_id = str(telegram_message_id)
-                        chat_message.is_sent_to_telegram = True
-                    else:
-                        # Mark as failed if we have error
-                        chat_message.is_sent_to_telegram = False
-
-                    session.commit()
-
-                if not self._db_session:
-                    session.close()
+                        session.commit()
 
             except Exception as e:
-                logger.error(f"Error updating chat message {chat_message_id}: {e}")
-                if self._db_session:
-                    self._db_session.rollback()
-                else:
-                    if session:
-                        session.rollback()
-                        session.close()
+                logger.error(f"Error updating chat message {chat_message_id}: {e}", exc_info=True)
 
         logger.info(
             f"TELEGRAM_MESSAGE_SENT chat_message_id={chat_message_id} project_id={project_id} "
@@ -249,7 +192,6 @@ def send_telegram_message_task(
 
 @task_decorator(
     bind=True,
-    base=DatabaseTask,
     name="backend.tasks.chat_tasks.send_discord_message",
     max_retries=3,
     default_retry_delay=60,

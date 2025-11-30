@@ -241,16 +241,15 @@ def login(validated_data=None):
 def _handle_simple_login(data: dict, ip: str, user_agent: str):
     """Handle simple username/password login"""
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        auth_service = get_service('auth_service')
         username = data["username"]
         password = data["password"]
 
-        auth_service = get_service('auth_service')
         # Exceptions are handled by global handler
-        auth_service = get_service('auth_service')
-        auth_service = get_service('auth_service')
         response_data = auth_service.process_simple_login(username, password, ip, user_agent)
 
-        auth_service = get_service('auth_service')
         # Log suspicious activity for authentication errors (handled by exception handler)
         from ..utils.data_masking import mask_username
         masked_username = mask_username(username) if username else "unknown"
@@ -336,6 +335,12 @@ def register(validated_data=None):
     """User registration endpoint - creates user and project automatically (free tier)"""
     try:
 
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        project_crud_service = get_service('project_crud_service')
+        rbac_service = get_service('rbac_service')
+        user_crud_service = get_service('user_crud_service')
+        webhook_service = get_service('webhook_service')
         if not validated_data:
             return jsonify({"error": "REGISTRATION_FAILED", "message": "Invalid request data"}), 400
 
@@ -344,7 +349,6 @@ def register(validated_data=None):
             return jsonify({"error": "REGISTRATION_FAILED", "message": "Email is required for registration"}), 400
 
         # Create user first (without project_id)
-        user_crud_service = get_service('user_crud_service')
         user = user_crud_service.create_user(
             validated_data["username"], 
             validated_data["email"], 
@@ -352,7 +356,6 @@ def register(validated_data=None):
         )
         
         # Create project with free tier (user is now available)
-        project_crud_service = get_service('project_crud_service')
         project_name = validated_data.get("project_name") or f"Project_{validated_data['username']}"
         
         # Create project with free tier
@@ -368,7 +371,6 @@ def register(validated_data=None):
         user.project_id = project.id
         
         # Initialize RBAC for the project (creates default roles including owner)
-        rbac_service = get_service('rbac_service')
         rbac_service.initialize_default_data(project.id)
         
         # Assign owner role to user
@@ -404,7 +406,6 @@ def register(validated_data=None):
             }
 
             webhook_service.trigger_webhook("user.registered", webhook_data, user.project_id)
-            webhook_service = get_service('webhook_service')
             logging.info(f"Triggered webhook for user registration: {user.id}")
 
         except Exception as e:
@@ -431,6 +432,14 @@ def register(validated_data=None):
 def register_with_invite(validated_data=None):
     """User registration with invite code"""
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        invite_service = get_service('invite_service')
+        project_crud_service = get_service('project_crud_service')
+        rbac_service = get_service('rbac_service')
+        user_crud_service = get_service('user_crud_service')
+        user_permission_service = get_service('user_permission_service')
+        user_role_service = get_service('user_role_service')
         if not validated_data:
             return jsonify({"error": "INVALID_REQUEST", "message": "Invalid request data"}), 400
 
@@ -443,7 +452,6 @@ def register_with_invite(validated_data=None):
         if not username or not password or not invite_code:
             return jsonify({"error": "MISSING_FIELDS", "message": "Username, password, and invite code are required"}), 400
 
-        invite_service = get_service('invite_service')
         code_info, error = invite_service.validate_invite_code(invite_code)
         if not code_info:
             return jsonify({"error": "INVALID_INVITE_CODE", "message": error}), 400
@@ -492,7 +500,6 @@ def register_with_invite(validated_data=None):
             db.session.flush()
             
             # Create project with pro tier (invite code = pro tier)
-            project_crud_service = get_service('project_crud_service')
             new_project = project_crud_service.create_project(
                 user_id=temp_user.id,
                 name=project_name,
@@ -507,7 +514,6 @@ def register_with_invite(validated_data=None):
             temp_user.project_id = project_id
 
             # Initialize RBAC
-            rbac_service = get_service('rbac_service')
             rbac_service.initialize_default_data(project_id)
             
             # Assign owner role to user
@@ -545,7 +551,6 @@ def register_with_invite(validated_data=None):
                 f"token_balance={token_balance}, work_duration_days={work_duration_days}"
             )
 
-        user_crud_service = get_service('user_crud_service')
         # Exceptions are handled by global handler
         try:
             # Only create user if not already created (for new projects)
@@ -584,13 +589,11 @@ def register_with_invite(validated_data=None):
                 db.session.flush()
                 
                 # Assign RBAC roles if provided
-                user_role_service = get_service('user_role_service')
                 if rbac_role_ids and project_id:
                     user_role_service = get_user_role_service()
                     user_role_service.assign_roles_to_user(user.id, project_id, rbac_role_ids)
                 
                 # Assign product permissions - always try to assign if product_ids provided
-                user_permission_service = get_service('user_permission_service')
                 if project_id:
                     user_permission_service = get_user_permission_service()
                     # Process product_ids to filter out invalid values like 0
@@ -670,16 +673,15 @@ def register_with_invite(validated_data=None):
 def get_current_user():
     """Get current user information"""
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        user_profile_service = get_service('user_profile_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
 
-        user_profile_service = get_service('user_profile_service')
         if not user:
-            user_profile_service = get_service('user_profile_service')
             return jsonify({"error": "USER_NOT_FOUND"}), 404
 
-        user_profile_service = get_service('user_profile_service')
-        user_profile_service = get_service('user_profile_service')
         profile_data = user_profile_service.get_user_profile(user)
         return jsonify(profile_data)
 
@@ -694,6 +696,9 @@ def get_current_user():
 def update_profile(validated_data=None):
     """Update user profile"""
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        user_profile_service = get_service('user_profile_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
 
@@ -703,7 +708,6 @@ def update_profile(validated_data=None):
         if not validated_data:
             validated_data = {}
 
-        user_profile_service = get_service('user_profile_service')
         success, error = user_profile_service.update_user_profile(user, validated_data)
         if not success:
             return jsonify({"error": "UPDATE_FAILED", "message": error}), 400
@@ -721,6 +725,9 @@ def update_profile(validated_data=None):
 def change_password(validated_data=None):
     """Change user password"""
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        user_profile_service = get_service('user_profile_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
 
@@ -730,7 +737,6 @@ def change_password(validated_data=None):
         if not validated_data:
             return jsonify({"error": "PASSWORD_CHANGE_FAILED", "message": "Invalid request data"}), 400
 
-        user_profile_service = get_service('user_profile_service')
         success, error = user_profile_service.change_password(
             user, validated_data["current_password"], validated_data["new_password"]
         )
@@ -754,6 +760,8 @@ def logout():
     User logout
     
     SECURITY: This endpoint clears HttpOnly JWT cookies server-side.
+    # Get services once at the start (DI pattern)
+    auth_service = get_service('auth_service')
     Frontend should NOT manually delete cookies with tokens as they should
     have HttpOnly flag set. This prevents XSS attacks from stealing tokens.
     """
@@ -764,7 +772,6 @@ def logout():
         if user:
 
             try:
-                auth_service = get_service('auth_service')
                 auth_service.log_login_activity(
                     user,
                     request.remote_addr,
@@ -1054,6 +1061,9 @@ def register_with_code(validated_data=None):
 def validate_invite_code(validated_data=None):
     """Validate an invite code and return information about it"""
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        invite_service = get_service('invite_service')
         if not validated_data:
             return jsonify({"error": "Invite code is required"}), 400
 
@@ -1062,7 +1072,6 @@ def validate_invite_code(validated_data=None):
             return jsonify({"error": "Invite code is required"}), 400
 
         # Code is already normalized by InviteCodeValidateSchema
-        invite_service = get_service('invite_service')
         code_info, error = invite_service.validate_invite_code(invite_code)
         if not code_info:
             # Return the error message from service (could be validation error or "Invalid invite code")
@@ -1149,6 +1158,8 @@ def forgot_password(validated_data=None):
     
     ---
     tags:
+      # Get services once at the start (DI pattern)
+      password_reset_service = get_service('password_reset_service')
       - Authentication
     summary: Request password reset
     description: |
@@ -1185,9 +1196,7 @@ def forgot_password(validated_data=None):
         if not validated_data:
             return jsonify({"error": "INVALID_REQUEST", "message": "Email is required"}), 400
         
-        password_reset_service = get_service('password_reset_service')
         email = validated_data.get("email", "").lower().strip()
-        password_reset_service = get_service('password_reset_service')
         
         if not email:
             return jsonify({"error": "INVALID_REQUEST", "message": "Email is required"}), 400

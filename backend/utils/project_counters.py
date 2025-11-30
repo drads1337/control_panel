@@ -150,6 +150,8 @@ def increment_project_product_counters(project_id: Optional[int]):
     Increment product counter for a project.
     
     NOTE: This function now uses cache invalidation instead of direct counter updates
+    # Get services once at the start (DI pattern)
+    cached_statistics_service = get_service('cached_statistics_service')
     to prevent race conditions. The counter will be recalculated on the next read.
     
     Args:
@@ -162,7 +164,6 @@ def increment_project_product_counters(project_id: Optional[int]):
     # The counter will be recalculated automatically when needed
     # Get service inside function (DI pattern - avoid module-level service access)
     try:
-        cached_statistics_service = get_service('cached_statistics_service')
         cached_statistics_service.invalidate_on_product_change(project_id)
     except Exception:
         # Service might not be available in all contexts (e.g., migrations)

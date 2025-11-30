@@ -1,6 +1,8 @@
 """
 Celery tasks for webhook processing
 Handles webhook notifications asynchronously with proper error handling and retries
+
+REFACTORED: Now uses celery_db_session context manager for safe database session management.
 """
 
 import json
@@ -19,11 +21,7 @@ except ImportError:
     class Task:
         pass
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
-from ..config.config import Config
-from ..models.core import db
+from ...utils.celery_db_session import celery_db_session
 from ..models.webhooks import Webhook, WebhookLog
 
 logger = logging.getLogger(__name__)
@@ -36,48 +34,6 @@ if CELERY_AVAILABLE:
         logger.warning("Celery app not available")
 else:
     celery_app = None
-
-if CELERY_AVAILABLE and celery_app:
-    db_engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
-    Session = sessionmaker(bind=db_engine)
-else:
-    db_engine = None
-    Session = None
-
-
-class DatabaseTask(Task):
-    """
-    Base task class that provides database session management
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._db_session = None
-
-    def before_start(self, task_id, args, kwargs):
-        """Called before task execution"""
-        if Session:
-            self._db_session = Session()
-
-    def after_return(self, *args, **kwargs):
-        """Called after task execution"""
-        if self._db_session:
-            try:
-                self._db_session.commit()
-            except:
-                self._db_session.rollback()
-            finally:
-                self._db_session.close()
-                self._db_session = None
-
-    def on_failure(self, exc, task_id, args, kwargs, einfo):
-        """Called when task fails"""
-        if self._db_session:
-            try:
-                self._db_session.rollback()
-            finally:
-                self._db_session.close()
-                self._db_session = None
 
 
 def task_decorator(*args, **kwargs):
@@ -271,7 +227,6 @@ def _send_discord_message(webhook_data: Dict) -> Tuple[bool, Optional[str]]:
 
 @task_decorator(
     bind=True,
-    base=DatabaseTask,
     name="backend.tasks.webhook_tasks.process_webhook",
     max_retries=3,
     default_retry_delay=60,
@@ -321,44 +276,31 @@ def process_webhook(self, webhook_data: Dict[str, Any]) -> Dict[str, Any]:
 
         # Log webhook result
         try:
-            if self._db_session:
-                session = self._db_session
-            else:
-                session = Session()
+            with celery_db_session() as session:
+                log_entry = WebhookLog(
+                    webhook_id=webhook_id,
+                    event=event,
+                    success=success,
+                    error_message=error_message,
+                    payload=json.dumps(data),
+                    created_at=datetime.utcnow(),
+                )
 
-            log_entry = WebhookLog(
-                webhook_id=webhook_id,
-                event=event,
-                success=success,
-                error_message=error_message,
-                payload=json.dumps(data),
-                created_at=datetime.utcnow(),
-            )
+                session.add(log_entry)
 
-            session.add(log_entry)
+                # Update webhook statistics
+                webhook = session.query(Webhook).filter_by(id=webhook_id).first()
+                if webhook:
+                    if success:
+                        webhook.success_count += 1
+                    else:
+                        webhook.failure_count += 1
+                    webhook.last_triggered = datetime.utcnow()
 
-            # Update webhook statistics
-            webhook = session.query(Webhook).filter_by(id=webhook_id).first()
-            if webhook:
-                if success:
-                    webhook.success_count += 1
-                else:
-                    webhook.failure_count += 1
-                webhook.last_triggered = datetime.utcnow()
-
-            session.commit()
-
-            if not self._db_session:
-                session.close()
+                session.commit()
 
         except Exception as e:
-            logger.error(f"WEBHOOK_LOG_ERROR webhook_id={webhook_id} error={e}")
-            if self._db_session:
-                self._db_session.rollback()
-            else:
-                if session:
-                    session.rollback()
-                    session.close()
+            logger.error(f"WEBHOOK_LOG_ERROR webhook_id={webhook_id} error={e}", exc_info=True)
 
         logger.info(
             f"WEBHOOK_PROCESSED webhook_id={webhook_id} event={event} success={success} "

@@ -98,6 +98,9 @@ def api_config_request():
     This endpoint provides encrypted configuration data that clients need to function.
     
     Returns:
+        # Get services once at the start (DI pattern)
+        dynamic_config_service = get_service('dynamic_config_service')
+        heartbeat_service = get_service('heartbeat_service')
         Encrypted blob with configuration data or JSON error response
     """
     logging.debug("=== DYNAMIC CONFIG REQUEST RECEIVED ===")
@@ -184,7 +187,6 @@ def api_config_request():
 
     # Validate session if provided
     if session_id:
-        heartbeat_service = get_service('heartbeat_service')
         is_valid, message, status_data = heartbeat_service.check_session_status(session_id)
         if not is_valid:
             logging.warning(
@@ -221,7 +223,6 @@ def api_config_request():
         return jsonify({"error": f"Product is {product.status}"}), 403
 
     # Generate configuration
-    dynamic_config_service = get_service('dynamic_config_service')
     config_data = dynamic_config_service.generate_dynamic_config(
         user_key=user_key, product_name=product_name, project_id=project_id
     )
@@ -265,6 +266,8 @@ def api_config_validate():
     This endpoint validates that the client is using the correct configuration.
     
     Returns:
+        # Get services once at the start (DI pattern)
+        dynamic_config_service = get_service('dynamic_config_service')
         Encrypted blob with validation result or JSON error response
     """
     logging.debug("=== DYNAMIC CONFIG VALIDATION REQUEST RECEIVED ===")
@@ -352,7 +355,6 @@ def api_config_validate():
         return jsonify({"error": "Missing required parameters"}), 400
 
     # Validate configuration
-    dynamic_config_service = get_service('dynamic_config_service')
     is_valid = dynamic_config_service.validate_config_request(
         user_key=user_key,
         product_name=product_name,
@@ -401,9 +403,10 @@ def api_config_statistics():
     Get dynamic configuration statistics (admin only).
     
     Returns:
+        # Get services once at the start (DI pattern)
+        dynamic_config_service = get_service('dynamic_config_service')
         JSON response with configuration statistics or error
     """
-    dynamic_config_service = get_service('dynamic_config_service')
     stats = dynamic_config_service.get_config_statistics()
     return jsonify({"status": "success", "statistics": stats, "timestamp": int(time.time())})
 

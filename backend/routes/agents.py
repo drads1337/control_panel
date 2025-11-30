@@ -160,6 +160,9 @@ def get_loaders():
 def get_available_products_for_agents():
     """Get only multi-app products that can be assigned to agents (universal terminology)"""
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        product_service = get_service('product_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
 
@@ -169,7 +172,6 @@ def get_available_products_for_agents():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        product_service = get_service('product_service')
         product_service.invalidate_product_cache(user.project_id)
 
         result = product_service.get_products_cached(
@@ -243,6 +245,10 @@ def create_loader(validated_data=None):
     try:
         # Fallback: if validated_data is None, try to get data from request
         # This can happen if validation middleware didn't run or failed silently
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        cache_service = get_service('cache_service')
+        tier_limits_service = get_service('tier_limits_service')
         if not validated_data:
             current_app.logger.warning(
                 f"validated_data is None in create_loader. "
@@ -296,7 +302,6 @@ def create_loader(validated_data=None):
         
         project = Project.query.get(user.project_id)
         if project:
-            tier_limits_service = get_service('tier_limits_service')
             can_create, error_msg = tier_limits_service.check_agent_limit(project)
             if not can_create:
                 return jsonify({"error": error_msg, "success": False}), 400
@@ -360,7 +365,6 @@ def create_loader(validated_data=None):
 
         try:
             from ..utils.service_helpers import get_service
-            cache_service = get_service('cache_service')
             cache_service.invalidate_pattern(f"agents:project_id={user.project_id}:*")
         except ImportError:
             pass
@@ -383,6 +387,9 @@ def create_loader(validated_data=None):
 def update_loader(agent_identifier):
     """Update an existing agent"""
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        cache_service = get_service('cache_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
 
@@ -448,7 +455,6 @@ def update_loader(agent_identifier):
 
         try:
             from ..utils.service_helpers import get_service
-            cache_service = get_service('cache_service')
 
             cache_service.invalidate_pattern(f"agents:project_id={user.project_id}:*")
         except ImportError:
@@ -467,6 +473,9 @@ def update_loader(agent_identifier):
 def delete_loader(agent_identifier):
     """Delete a agent"""
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        cache_service = get_service('cache_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
 
@@ -581,7 +590,6 @@ def delete_loader(agent_identifier):
 
         try:
             from ..utils.service_helpers import get_service
-            cache_service = get_service('cache_service')
 
             cache_service.invalidate_pattern(f"agents:project_id={user.project_id}:*")
         except ImportError:
@@ -719,6 +727,9 @@ def assign_products_to_agent(agent_identifier, validated_data=None):
 def upload_loader_files(agent_identifier):
     """Upload files for a agent"""
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        file_service = get_service('file_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
 
@@ -778,7 +789,6 @@ def upload_loader_files(agent_identifier):
                         if ext and ext in ["png", "jpg", "jpeg", "gif", "webp"]:
                             expected_extensions = [ext]
                     
-                    file_service = get_service('file_service')
                     is_valid, validation_error = file_service.validate_file_signature(file_path, expected_extensions)
                     if not is_valid:
                         # Remove the invalid file
@@ -838,6 +848,10 @@ def upload_loader_files(agent_identifier):
 def update_loader_status(agent_identifier, validated_data=None):
     """Update agent status"""
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        cache_service = get_service('cache_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
 
@@ -862,7 +876,6 @@ def update_loader_status(agent_identifier, validated_data=None):
 
         try:
             from ..utils.service_helpers import get_service
-            cache_service = get_service('cache_service')
 
             cache_service.invalidate_pattern(f"agents:project_id={user.project_id}:*")
         except ImportError:
@@ -870,7 +883,6 @@ def update_loader_status(agent_identifier, validated_data=None):
 
         try:
             from ..utils.service_helpers import get_service
-            activity_service = get_service('activity_service')
             activity_service.log_activity(
                 user,
                 "agent_status_updated",
@@ -892,6 +904,9 @@ def update_loader_status(agent_identifier, validated_data=None):
 def refresh_loader_cache():
     """Force refresh agent cache for debugging"""
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        cache_service = get_service('cache_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
 
@@ -902,7 +917,6 @@ def refresh_loader_cache():
             return jsonify({"error": "User must be assigned to a project", "success": False}), 403
 
         from ..utils.service_helpers import get_service
-        cache_service = get_service('cache_service')
         success = cache_service.force_refresh_loader_cache(user.project_id)
 
         if success:

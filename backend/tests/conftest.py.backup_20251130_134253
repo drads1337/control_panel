@@ -1,0 +1,294 @@
+"""
+Pytest configuration and fixtures for testing
+
+IMPORTANT: This test suite uses PostgreSQL instead of SQLite to properly test
+PostgreSQL-specific features like JSONB, full-text search (tsvector), and other
+database-specific functionality.
+
+To run tests:
+1. Start PostgreSQL test container: docker-compose -f docker-compose.test.yml up -d
+2. Run tests: pytest
+3. Stop container: docker-compose -f docker-compose.test.yml down
+
+Alternatively, set USE_SQLITE=1 environment variable to use SQLite for faster local development.
+"""
+
+import os
+import secrets
+import time
+import tempfile
+from datetime import datetime
+from typing import Generator
+
+import pytest
+from faker import Faker
+from flask import Flask
+from flask_jwt_extended import create_access_token
+from sqlalchemy import text
+
+from backend.core.app import create_app
+from backend.core.extensions import db
+from backend.models.core import Project, User
+from backend.models.keys import Key
+from backend.utils.role_constants import UserRoles
+from ...utils.service_helpers import get_service
+
+fake = Faker()
+
+# Check if SQLite should be used (for faster local development)
+USE_SQLITE = os.environ.get("USE_SQLITE", "").lower() == "1"
+
+def wait_for_postgres(max_retries=30, retry_delay=1):
+    """Wait for PostgreSQL to be ready"""
+    if USE_SQLITE:
+        return
+    
+    try:
+        import psycopg2
+        from psycopg2 import OperationalError
+    except ImportError:
+        # psycopg2 not installed, skip wait (will fail during connection if DB is not ready)
+        return
+    
+    db_url = os.environ.get("DATABASE_URL")
+    if not db_url or not db_url.startswith("postgresql"):
+        return
+    
+    for i in range(max_retries):
+        try:
+            conn = psycopg2.connect(db_url)
+            conn.close()
+            return
+        except OperationalError:
+            if i < max_retries - 1:
+                time.sleep(retry_delay)
+            else:
+                raise Exception(f"PostgreSQL not ready after {max_retries} attempts")
+
+@pytest.fixture(scope="session")
+def app() -> Generator[Flask, None, None]:
+    """Create application for testing"""
+    
+    os.environ["SECRET_KEY"] = secrets.token_urlsafe(32)
+    os.environ["PANEL_MASTER_KEY"] = secrets.token_hex(32)
+    os.environ["JWT_SECRET_KEY"] = secrets.token_urlsafe(32)
+    os.environ["OFFLINE_TICKET_SECRET"] = secrets.token_hex(32)
+
+    if USE_SQLITE:
+        # Use SQLite for faster local development (doesn't test PostgreSQL features)
+        db_fd, db_path = tempfile.mkstemp()
+        os.environ["DATABASE_URL"] = f"sqlite:///{db_path}"
+    else:
+        # Use PostgreSQL for production-like testing
+        # Default test database URL (can be overridden via environment)
+        os.environ.setdefault(
+            "DATABASE_URL",
+            "postgresql://test_user:test_password@localhost:5433/panel_test"
+        )
+        wait_for_postgres()
+
+    os.environ["REDIS_HOST"] = "localhost"
+    os.environ["REDIS_PORT"] = "6379"
+    os.environ["REDIS_DB"] = "15"
+    os.environ["REDIS_PASSWORD"] = ""
+
+    import backend.core.app as app_module
+    original_check = app_module.check_redis_connection
+
+    def mock_redis_check():
+        """Mock Redis check to always return True for tests"""
+        return True
+
+    app_module.check_redis_connection = mock_redis_check
+
+    try:
+        app = create_app()
+        app.config["TESTING"] = True
+        app.config["WTF_CSRF_ENABLED"] = False
+        app.config["JWT_COOKIE_CSRF_PROTECT"] = False
+        app.config["JWT_TOKEN_LOCATION"] = ["cookies", "headers"]
+
+        with app.app_context():
+            from backend.models import (
+                core, keys, products, notifications, webhooks, rbac, 
+                security, remote_control, chat, agents
+            )
+
+            # Create all tables
+            db.create_all()
+            
+            yield app
+
+            # Clean up
+            db.session.remove()
+            
+            # Drop all tables (PostgreSQL-specific: use CASCADE to drop dependencies)
+            if not USE_SQLITE:
+                # For PostgreSQL, drop all tables with CASCADE
+                with db.engine.connect() as conn:
+                    conn.execute(text("DROP SCHEMA public CASCADE"))
+                    conn.execute(text("CREATE SCHEMA public"))
+                    conn.execute(text("GRANT ALL ON SCHEMA public TO test_user"))
+                    conn.execute(text("GRANT ALL ON SCHEMA public TO public"))
+                    conn.commit()
+            else:
+                db.drop_all()
+    finally:
+        app_module.check_redis_connection = original_check
+        
+        if USE_SQLITE:
+            os.close(db_fd)
+            os.unlink(db_path)
+
+@pytest.fixture
+def client(app: Flask):
+    """Create test client"""
+    return app.test_client()
+
+@pytest.fixture(autouse=True)
+def mock_external_services(mocker, mock_redis):
+    """Automatically mock external services for all tests"""
+    try:
+        # Try to mock auth service (may not exist for all tests)
+        # Get services once at the start (DI pattern)
+        auth_service = get_service('auth_service')
+        webhook_service = get_service('webhook_service')
+        mock_security = mocker.patch("backend.services.auth.auth_service.security_service", create=True)
+        mock_security.is_ip_blocked = mocker.Mock(return_value=False)
+        mock_security.check_session_limit = mocker.Mock(return_value=False)
+        mock_security.record_login_attempt = mocker.Mock()
+
+        mock_activity = mocker.patch("backend.services.auth.auth_service.activity_service", create=True)
+        mock_activity.log_activity = mocker.Mock()
+
+        mocker.patch("backend.services.auth.auth_service.get_real_ip", return_value="127.0.0.1", create=True)
+        mocker.patch("backend.services.auth.auth_service.get_location_from_ip", return_value=(None, None), create=True)
+    except (AttributeError, ImportError):
+        # If auth service doesn't exist, skip mocking
+        pass
+
+    try:
+        mock_webhook = mocker.Mock()
+        mock_webhook.trigger_webhook = mocker.Mock()
+        mocker.patch(
+            "backend.services.webhooks.webhook_service.get_webhook_service",
+            return_value=mock_webhook,
+            create=True
+        )
+    except (AttributeError, ImportError):
+        # If webhook service doesn't exist, skip mocking
+        pass
+
+    mocker.patch("redis.Redis", return_value=mock_redis)
+
+@pytest.fixture
+def db_session(app: Flask):
+    """Create database session for testing"""
+    yield db.session
+    db.session.rollback()
+
+@pytest.fixture
+def test_project(db_session) -> Project:
+    """Create a test project"""
+
+    import time
+    project = Project(
+        name=f"{fake.company()}_{int(time.time() * 1000)}",
+        status="active",
+        created_at=datetime.utcnow(),
+    )
+    db_session.add(project)
+    db_session.commit()
+    db_session.refresh(project)
+    return project
+
+@pytest.fixture
+def test_user(db_session, test_project: Project) -> User:
+    """Create a test user"""
+    from werkzeug.security import generate_password_hash
+
+    user = User(
+        username=fake.user_name(),
+        email=fake.email(),
+        password=generate_password_hash("test_password_123"),
+        role=UserRoles.CLIENT.value,
+        project_id=test_project.id,
+        created_at=datetime.utcnow(),
+        total_keys=0,
+        active_keys=0,
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+@pytest.fixture
+def test_admin_user(db_session, test_project: Project) -> User:
+    """Create a test admin user"""
+    from werkzeug.security import generate_password_hash
+
+    user = User(
+        username=fake.user_name(),
+        email=fake.email(),
+        password=generate_password_hash("admin_password_123"),
+        role=UserRoles.ADMIN.value,
+        project_id=test_project.id,
+        created_at=datetime.utcnow(),
+        total_keys=0,
+        active_keys=0,
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+@pytest.fixture
+def auth_headers(test_user: User, app: Flask):
+    """Create authentication headers with JWT token"""
+    with app.app_context():
+        access_token = create_access_token(identity=str(test_user.id))
+        return {"Authorization": f"Bearer {access_token}"}
+
+@pytest.fixture
+def admin_auth_headers(test_admin_user: User, app: Flask):
+    """Create authentication headers for admin user"""
+    with app.app_context():
+        access_token = create_access_token(identity=str(test_admin_user.id))
+        return {"Authorization": f"Bearer {access_token}"}
+
+@pytest.fixture
+def test_key(db_session, test_project: Project) -> Key:
+    """Create a test key"""
+    key = Key(
+        key=fake.uuid4().replace("-", "").upper()[:32],
+        project_id=test_project.id,
+        status=1,
+        created_at=datetime.utcnow(),
+        max_devices=1,
+    )
+    db_session.add(key)
+    db_session.commit()
+    db_session.refresh(key)
+    return key
+
+@pytest.fixture
+def mock_redis(mocker):
+    """Mock Redis client"""
+    from unittest.mock import MagicMock
+
+    mock_redis_client = MagicMock()
+    mock_redis_client.ping.return_value = True
+    mock_redis_client.get.return_value = None
+    mock_redis_client.set.return_value = True
+    mock_redis_client.setex.return_value = True
+    mock_redis_client.delete.return_value = True
+    mock_redis_client.exists.return_value = False
+
+    mock_pipeline = MagicMock()
+    mock_pipeline.__enter__ = MagicMock(return_value=mock_redis_client)
+    mock_pipeline.__exit__ = MagicMock(return_value=None)
+    mock_pipeline.setex = MagicMock(return_value=None)
+    mock_pipeline.execute = MagicMock(return_value=None)
+    mock_redis_client.pipeline = MagicMock(return_value=mock_pipeline)
+
+    return mock_redis_client

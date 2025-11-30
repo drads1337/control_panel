@@ -49,6 +49,7 @@ class TokenGenerationService:
         serial: str,
         user_id: Optional[int] = None,
         key_id: Optional[int] = None,
+        project_id: Optional[int] = None,
         expires_at: Optional[datetime] = None,
         is_classic: bool = False,
     ) -> str:
@@ -58,19 +59,37 @@ class TokenGenerationService:
         This function now stores tokens in the database for secure O(1) validation,
         preventing DoS attacks from token enumeration.
 
+        SECURITY: Uses per-project/user salt to prevent rainbow table attacks.
+        If TOKEN_STATIC_WORD is compromised, tokens from other projects/users
+        remain secure due to unique salt per project/user.
+
         Args:
             product: Product name
             user_key: User key
             serial: Device serial
             user_id: User ID (required for database storage)
             key_id: Key ID (optional, for regular tokens)
+            project_id: Project ID (optional, but recommended for enhanced security)
             expires_at: Token expiration datetime (optional)
             is_classic: Whether this is a classic token (default: False)
 
         Returns:
             Generated token (SHA256 hash)
         """
-        real = f"{product}-{user_key}-{serial}-{self.static_word}"
+        # SECURITY: Use per-project/user salt to prevent rainbow table attacks
+        # If TOKEN_STATIC_WORD is compromised, tokens from other projects remain secure
+        # Priority: project_id > user_id > static_word (fallback for backward compatibility)
+        if project_id is not None:
+            # Use project-specific salt for maximum security
+            unique_salt = f"{self.static_word}-project-{project_id}"
+        elif user_id is not None:
+            # Fallback to user-specific salt if project_id not available
+            unique_salt = f"{self.static_word}-user-{user_id}"
+        else:
+            # Legacy fallback: use static word only (less secure, but backward compatible)
+            unique_salt = self.static_word
+        
+        real = f"{product}-{user_key}-{serial}-{unique_salt}"
         token = hashlib.sha256(real.encode()).hexdigest()
 
         if user_id is not None:

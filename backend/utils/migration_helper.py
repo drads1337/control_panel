@@ -73,6 +73,8 @@ def generate_migration_suggestions(usage: List[Tuple[str, int, str]]) -> str:
     Generate migration suggestions based on found usages.
     
     Args:
+        # Get services once at the start (DI pattern)
+        cached_statistics_service = get_service('cached_statistics_service')
         usage: List of deprecated function usages
     
     Returns:
@@ -101,7 +103,6 @@ def generate_migration_suggestions(usage: List[Tuple[str, int, str]]) -> str:
     
     suggestions.append("\n📝 Fix guide:")
     suggestions.append("  2. Replace increment_* with: cached_statistics_service.invalidate_on_*_change()")
-    cached_statistics_service = get_service('cached_statistics_service')
     suggestions.append("  3. Replace decrement_* with: cached_statistics_service.invalidate_on_*_change()")
     suggestions.append("  4. The cache invalidation triggers recalculation on next access")
     suggestions.append("\n⚠️  These functions have been REMOVED due to race conditions.")

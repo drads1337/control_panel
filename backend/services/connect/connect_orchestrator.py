@@ -281,12 +281,15 @@ class ConnectOrchestrator:
                 key_validator.get_key_expiration_info(key_obj)
             )
 
+            # SECURITY: Pass project_id for per-project salt in token generation
+            # This prevents rainbow table attacks if TOKEN_STATIC_WORD is compromised
             token = self.token_generator.generate_connect_token(
                 product=fields.get("product"),
                 user_key=user_key,
                 serial=fields.get("serial"),
                 user_id=key_obj.user_id,
                 key_id=key_obj.id,
+                project_id=project_id,
                 expires_at=key_obj.expires_at,
                 is_classic=False,
             )

@@ -23,6 +23,8 @@ from .service_helpers import (
 
 def create_user_with_roles_and_products(
     current_user: User, data: Dict[str, Any], project_id: Optional[int] = None
+# Get services once at the start (DI pattern)
+tier_limits_service = get_service('tier_limits_service')
 ) -> User:
     """
     Create user with RBAC roles and product permissions using DI services.
@@ -116,7 +118,6 @@ def create_user_with_roles_and_products(
             
             project = Project.query.get(project_id)
             if project:
-                tier_limits_service = get_service('tier_limits_service')
                 can_create, error_msg = tier_limits_service.check_user_limit(project)
                 if not can_create:
                     raise BusinessLogicError(error_msg)

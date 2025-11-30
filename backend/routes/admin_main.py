@@ -24,6 +24,10 @@ def deactivate_expired_projects():
     This should be called by a scheduled task, not directly by users
     """
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        admin_service = get_service('admin_service')
+        rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         # Use DI container to get service
         user_crud_service = get_user_crud_service()
@@ -32,7 +36,6 @@ def deactivate_expired_projects():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_all_projects"):
             return (
                 jsonify(
@@ -41,7 +44,6 @@ def deactivate_expired_projects():
                 403,
             )
 
-        admin_service = get_service('admin_service')
         deactivated_count, cleaned_codes, error = admin_service.deactivate_expired_projects(user)
 
         if error:
@@ -67,6 +69,10 @@ def cleanup_expired_projects():
     This should be called by a scheduled task, not directly by users
     """
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        admin_service = get_service('admin_service')
+        rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         # Use DI container to get service
         user_crud_service = get_user_crud_service()
@@ -75,7 +81,6 @@ def cleanup_expired_projects():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_all_projects"):
             return (
                 jsonify(
@@ -84,7 +89,6 @@ def cleanup_expired_projects():
                 403,
             )
 
-        admin_service = get_service('admin_service')
         deleted_count, deleted_projects, error = admin_service.cleanup_expired_projects(user)
 
         if error:
@@ -107,6 +111,10 @@ def cleanup_expired_projects():
 def get_system_stats():
     """Get system statistics for admin dashboard"""
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        admin_service = get_service('admin_service')
+        rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         # Use DI container to get service
         user_crud_service = get_user_crud_service()
@@ -115,7 +123,6 @@ def get_system_stats():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_all_projects"):
             return (
                 jsonify(
@@ -124,7 +131,6 @@ def get_system_stats():
                 403,
             )
 
-        admin_service = get_service('admin_service')
         stats = admin_service.get_system_stats(user)
 
         if "error" in stats:
@@ -141,6 +147,10 @@ def get_system_stats():
 def get_expired_projects():
     """Get information about expired projects"""
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        admin_service = get_service('admin_service')
+        rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         # Use DI container to get service
         user_crud_service = get_user_crud_service()
@@ -149,7 +159,6 @@ def get_expired_projects():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_all_projects"):
             return (
                 jsonify(
@@ -158,7 +167,6 @@ def get_expired_projects():
                 403,
             )
 
-        admin_service = get_service('admin_service')
         projects_info = admin_service.get_expired_projects_info(user)
 
         return jsonify({"expired_projects": projects_info, "count": len(projects_info)})
@@ -172,6 +180,10 @@ def get_expired_projects():
 def suspend_project(project_id):
     """Suspend a project"""
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        admin_service = get_service('admin_service')
+        rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         # Use DI container to get service
         user_crud_service = get_user_crud_service()
@@ -180,7 +192,6 @@ def suspend_project(project_id):
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_all_projects"):
             return (
                 jsonify(
@@ -192,7 +203,6 @@ def suspend_project(project_id):
         data = request.get_json() or {}
         reason = data.get("reason", "")
 
-        admin_service = get_service('admin_service')
         success, error = admin_service.suspend_project(project_id, user, reason)
 
         if not success:
@@ -209,6 +219,10 @@ def suspend_project(project_id):
 def reactivate_project(project_id):
     """Reactivate a suspended or expired project"""
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        admin_service = get_service('admin_service')
+        rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         # Use DI container to get service
         user_crud_service = get_user_crud_service()
@@ -217,7 +231,6 @@ def reactivate_project(project_id):
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_all_projects"):
             return (
                 jsonify(
@@ -229,7 +242,6 @@ def reactivate_project(project_id):
         data = request.get_json() or {}
         new_expiry_date_str = data.get("new_expiry_date")
 
-        admin_service = get_service('admin_service')
         success, error = admin_service.reactivate_project(project_id, user, new_expiry_date_str=new_expiry_date_str)
 
         if not success:

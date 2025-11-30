@@ -45,7 +45,22 @@ class RedisIntegrityProtection:
         # HMAC adds CPU overhead without significant security benefit.
         # Disable if Redis traffic is already encrypted via TLS.
         from ..config.config import Config
-        self.protection_enabled = getattr(Config, 'REDIS_INTEGRITY_ENABLED', False)
+        
+        # Automatically disable if Redis uses TLS (redundant protection)
+        if getattr(Config, 'REDIS_PERSISTENT_SSL', False):
+            logger.info(
+                "Redis Integrity Protection automatically disabled: Redis uses TLS encryption. "
+                "HMAC signing is redundant in this configuration."
+            )
+            self.protection_enabled = False
+        else:
+            # Use explicit config if TLS is not enabled
+            self.protection_enabled = getattr(Config, 'REDIS_INTEGRITY_ENABLED', False)
+            if self.protection_enabled:
+                logger.info(
+                    "Redis Integrity Protection enabled. "
+                    "Consider using REDIS_PERSISTENT_SSL=true for better performance."
+                )
         
     def _get_signing_key(self) -> bytes:
         """

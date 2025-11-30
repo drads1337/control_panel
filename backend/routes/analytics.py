@@ -35,6 +35,10 @@ def get_dashboard_overview(current_user=None, project_id=None):
     Get comprehensive dashboard overview with analytics
     """
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        analytics_service = get_service('analytics_service')
+        rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         user = current_user or User.query.get(user_id)
 
@@ -42,7 +46,6 @@ def get_dashboard_overview(current_user=None, project_id=None):
             return jsonify({"error": "User not found"}), 404
 
 
-        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "analytics.view"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -52,7 +55,6 @@ def get_dashboard_overview(current_user=None, project_id=None):
 
         period_days = min(max(period_days, 1), 365)
 
-        analytics_service = get_service('analytics_service')
         analytics_data = analytics_service.get_dashboard_overview(
             project_id=project_id, period_days=period_days
         )
@@ -90,6 +92,9 @@ def get_owner_dashboard_overview():
     """
     user_id = None
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        analytics_service = get_service('analytics_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
 
@@ -104,7 +109,6 @@ def get_owner_dashboard_overview():
 
         period_days = min(max(period_days, 1), 365)
 
-        analytics_service = get_service('analytics_service')
         analytics_data = analytics_service.get_system_overview(period_days=period_days)
 
         if not analytics_data:
@@ -136,6 +140,10 @@ def get_sales_trends():
     Get sales trends and analytics
     """
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        analytics_service = get_service('analytics_service')
+        rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
 
@@ -145,7 +153,6 @@ def get_sales_trends():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "analytics.view"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -168,7 +175,6 @@ def get_sales_trends():
         if not user_roles or user_roles[0] != UserRoles.OWNER.value:
             project_id = user.project_id
 
-        analytics_service = get_service('analytics_service')
         start_date = datetime.utcnow() - timedelta(days=period_days)
         sales_data = analytics_service._get_sales_analytics(project_id, start_date)
 
@@ -205,6 +211,10 @@ def get_user_insights():
     Get user insights and analytics
     """
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        analytics_service = get_service('analytics_service')
+        rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
 
@@ -214,7 +224,6 @@ def get_user_insights():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "analytics.view"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -234,7 +243,6 @@ def get_user_insights():
         if not user_roles or user_roles[0] != UserRoles.OWNER.value:
             project_id = user.project_id
 
-        analytics_service = get_service('analytics_service')
         start_date = datetime.utcnow() - timedelta(days=period_days)
         user_data = analytics_service._get_user_analytics(project_id, start_date)
 
@@ -252,6 +260,10 @@ def get_geography_activations():
     Get activation geography analytics
     """
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        analytics_service = get_service('analytics_service')
+        rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
 
@@ -261,7 +273,6 @@ def get_geography_activations():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "analytics.view"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -281,7 +292,6 @@ def get_geography_activations():
         if not user_roles or user_roles[0] != UserRoles.OWNER.value:
             project_id = user.project_id
 
-        analytics_service = get_service('analytics_service')
         start_date = datetime.utcnow() - timedelta(days=period_days)
         geography_data = analytics_service._get_geography_analytics(project_id, start_date)
 
@@ -299,6 +309,10 @@ def get_popular_products():
     Get popular products analytics
     """
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        analytics_service = get_service('analytics_service')
+        rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
 
@@ -308,7 +322,6 @@ def get_popular_products():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "analytics.view"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -330,7 +343,6 @@ def get_popular_products():
         if not user_roles or user_roles[0] != UserRoles.OWNER.value:
             project_id = user.project_id
 
-        analytics_service = get_service('analytics_service')
         start_date = datetime.utcnow() - timedelta(days=period_days)
         products_data = analytics_service._get_popular_products(project_id, start_date)
 
@@ -354,6 +366,10 @@ def get_security_overview():
     Get security overview and analytics
     """
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        analytics_service = get_service('analytics_service')
+        rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
 
@@ -363,7 +379,6 @@ def get_security_overview():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "analytics.view"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -383,7 +398,6 @@ def get_security_overview():
         if not user_roles or user_roles[0] != UserRoles.OWNER.value:
             project_id = user.project_id
 
-        analytics_service = get_service('analytics_service')
         start_date = datetime.utcnow() - timedelta(days=period_days)
         security_data = analytics_service._get_security_analytics(project_id, start_date)
 
@@ -400,6 +414,10 @@ def get_system_health():
     Get system health metrics
     """
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        analytics_service = get_service('analytics_service')
+        rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
 
@@ -409,7 +427,6 @@ def get_system_health():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "analytics.view"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -426,7 +443,6 @@ def get_system_health():
         if not user_roles or user_roles[0] != UserRoles.OWNER.value:
             project_id = user.project_id
 
-        analytics_service = get_service('analytics_service')
         health_data = analytics_service._get_system_health(project_id)
 
         return jsonify({"status": "success", "data": health_data})
@@ -443,6 +459,10 @@ def generate_analytics_report():
     Generate comprehensive analytics report
     """
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        analytics_service = get_service('analytics_service')
+        rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
 
@@ -452,7 +472,6 @@ def generate_analytics_report():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "analytics.view"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -481,7 +500,6 @@ def generate_analytics_report():
         if not user_roles or user_roles[0] != UserRoles.OWNER.value:
             project_id = user.project_id
 
-        analytics_service = get_service('analytics_service')
         if report_type == "comprehensive":
             report_data = analytics_service.get_dashboard_overview(project_id, period_days)
         elif report_type == "sales":

@@ -26,7 +26,6 @@ logger = logging.getLogger(__name__)
 def get_challenge():
     """Generate challenge for authentication"""
     # Get services once at the start (DI pattern)
-    connect_service = get_service('connect_service')
     
     req_json = request.get_json(silent=True) or {}
 
@@ -35,6 +34,8 @@ def get_challenge():
     client_project_id = req_json.get("project_id")
 
     if not user_key or not fingerprint:
+        # Get services once at the start (DI pattern)
+        connect_service = get_service('connect_service')
         return jsonify({"error": "Missing user_key or fingerprint"}), 400
 
     ip = request.remote_addr
@@ -55,12 +56,13 @@ def api_connect():
     Main connect endpoint
 
     SECURITY: Rate limiting is applied by decorator, but note that user_key is inside
+    # Get services once at the start (DI pattern)
+    connect_service = get_service('connect_service')
+    security_service = get_service('security_service')
     encrypted blob, so rate limiting uses IP address. Additional IP-based rate limiting
     is applied before expensive decryption operations.
     """
     # Get services once at the start (DI pattern)
-    connect_service = get_service('connect_service')
-    security_service = get_service('security_service')
     
     logger.debug("=== CONNECT REQUEST RECEIVED ===")
     ip = request.remote_addr
@@ -202,6 +204,8 @@ def classic_connect():
     Classic connect endpoint for legacy authentication
 
     SECURITY: For username/password authentication, this endpoint now uses process_simple_login()
+    # Get services once at the start (DI pattern)
+    connect_service = get_service('connect_service')
     which provides full security protections:
     - ✅ Rate limiting via @connect_rate_limit decorator
     - ✅ Brute-force protection via record_login_attempt()
@@ -215,7 +219,6 @@ def classic_connect():
     For token authentication, security is handled via token validation and expiration checks.
     """
     # Get services once at the start (DI pattern)
-    connect_service = get_service('connect_service')
     
     logger.debug("=== CLASSIC CONNECT REQUEST RECEIVED ===")
     ip = request.remote_addr

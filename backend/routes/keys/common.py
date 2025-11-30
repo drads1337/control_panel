@@ -11,6 +11,8 @@ def can_manage_key(user: User, key: Key, action_permission: str) -> bool:
     Check if user can manage a key for a specific action.
 
     Args:
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         user: User making the request
         key: Key to check
         action_permission: Permission required for the action (e.g., 'keys.edit', 'keys.delete')
@@ -24,7 +26,6 @@ def can_manage_key(user: User, key: Key, action_permission: str) -> bool:
 
     is_own_key = key.user_id == user.id
 
-    rbac_service = get_service('rbac_service')
     if is_own_key:
         return rbac_service.check_permission(user.id, action_permission)
 

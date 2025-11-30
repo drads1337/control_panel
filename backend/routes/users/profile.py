@@ -93,9 +93,10 @@ def get_me(current_user):
 
     if not RBACManager.is_owner(user) and not user.project_id:
 
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         user_permissions = []
         try:
-            rbac_service = get_service('rbac_service')
             permissions_set = rbac_service.get_user_permissions(user.id)
             user_permissions = list(permissions_set) if permissions_set else []
         except Exception as e:
@@ -132,7 +133,6 @@ def get_me(current_user):
 
     user_permissions = []
     try:
-        rbac_service = get_service('rbac_service')
         permissions_set = rbac_service.get_user_permissions(user.id)
         user_permissions = list(permissions_set) if permissions_set else []
     except Exception as e:
@@ -162,13 +162,14 @@ def update_profile(current_user, validated_data=None):
     user = current_user
 
     # Use DI container to get service
-    user_profile_service = get_service('user_profile_service')
     success, error = user_profile_service.update_user_profile(user, update_data)
 
     if not success:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        user_profile_service = get_service('user_profile_service')
         return jsonify({"error": error}), 400
 
-    activity_service = get_service('activity_service')
     activity_service.log_activity(
         user,
         "profile_update",
@@ -203,6 +204,9 @@ def change_password(current_user):
     data = request.get_json()
 
     if not data:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        user_profile_service = get_service('user_profile_service')
         return jsonify({"error": "No data provided"}), 400
 
     current_password = data.get("current_password")
@@ -235,13 +239,11 @@ def change_password(current_user):
         return jsonify({"error": error_msg}), 400
 
     # Use DI container to get service
-    user_profile_service = get_service('user_profile_service')
     success, error = user_profile_service.change_password(user, current_password, new_password)
 
     if not success:
         return jsonify({"error": error}), 400
 
-    activity_service = get_service('activity_service')
     activity_service.log_activity(
         user,
         "password_change",

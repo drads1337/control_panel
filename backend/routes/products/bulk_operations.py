@@ -28,6 +28,9 @@ logger = logging.getLogger(__name__)
 def bulk_update_product_status(validated_data=None):
     """Bulk update product status"""
     try:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        product_service = get_service('product_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
 
@@ -78,11 +81,9 @@ def bulk_update_product_status(validated_data=None):
 
         db.session.commit()
 
-        product_service = get_service('product_service')
         for product in products:
             product_service.invalidate_product_cache(user.project_id, product.id)
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "bulk_update_product_status",
@@ -114,6 +115,9 @@ def bulk_update_product_status(validated_data=None):
 def bulk_delete_products(validated_data=None):
     """Bulk delete products"""
     try:
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        product_service = get_service('product_service')
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
 
@@ -170,11 +174,9 @@ def bulk_delete_products(validated_data=None):
 
         db.session.commit()
 
-        product_service = get_service('product_service')
         for product_id in product_ids_deleted:
             product_service.invalidate_product_cache(user.project_id, product_id)
 
-        activity_service = get_service('activity_service')
         activity_service.log_activity(
             user,
             "bulk_delete_products",

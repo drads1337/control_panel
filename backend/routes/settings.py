@@ -158,6 +158,8 @@ def is_ip_blocked(ip_address, project_id):
     Check if an IP address is blocked due to failed login attempts
 
     Args:
+        # Get services once at the start (DI pattern)
+        security_service = get_service('security_service')
         ip_address: IP address to check
         project_id: Project ID
 
@@ -165,7 +167,6 @@ def is_ip_blocked(ip_address, project_id):
         True if IP is blocked, False otherwise
     """
 
-    security_service = get_service('security_service')
     return security_service.is_ip_blocked(ip_address, project_id)
 
 def record_login_attempt(ip_address, username, success, project_id, user_agent=None):
@@ -173,13 +174,14 @@ def record_login_attempt(ip_address, username, success, project_id, user_agent=N
     Record login attempt for security monitoring
 
     Args:
+        # Get services once at the start (DI pattern)
+        security_service = get_service('security_service')
         ip_address: Client IP address
         username: Username attempting login
         success: Whether login was successful
         project_id: Project ID
         user_agent: Client user agent string
     """
-    security_service = get_service('security_service')
     security_service.record_login_attempt(ip_address, username, success, project_id, user_agent)
 
 def check_session_limit(user_id, project_id):
@@ -190,6 +192,8 @@ def check_session_limit(user_id, project_id):
 
     Note: Proper session tracking with JWT token validation should be implemented in the future
 
+    # Get services once at the start (DI pattern)
+    security_service = get_service('security_service')
     Args:
         user_id: User ID
         project_id: Project ID
@@ -197,7 +201,6 @@ def check_session_limit(user_id, project_id):
     Returns:
         True if session limit exceeded, False otherwise
     """
-    security_service = get_service('security_service')
     return security_service.check_session_limit(user_id, project_id)
 
 def get_or_create_project_keys(project_id):
@@ -243,13 +246,14 @@ def get_settings(current_user=None, project_id=None):
     Get project settings for the current user.
     
     Returns:
+        # Get services once at the start (DI pattern)
+        settings_service = get_service('settings_service')
         JSON response with settings data or error message
     """
     user_id = get_jwt_identity()
     # Get project_id from parameter (passed by middleware)
     logger.info("Getting settings", user_id=user_id, project_id=project_id)
 
-    settings_service = get_service('settings_service')
     result = settings_service.get_settings_cached(user_id=user_id, project_id=project_id)
 
     if result is None:
@@ -325,6 +329,9 @@ def update_settings():
     Update project settings.
     
     Returns:
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
+        settings_service = get_service('settings_service')
         JSON response with success message or error
     """
     user_id = get_jwt_identity()
@@ -348,7 +355,6 @@ def update_settings():
     )
     logger.debug("User role", user_id=user_id, project_id=project_id, role=user_role)
 
-    rbac_service = get_service('rbac_service')
     if not rbac_service.check_permission(user.id, "system.manage"):
         logger.debug(
             "Access denied for user",
@@ -552,7 +558,6 @@ def update_settings():
     db.session.commit()
 
     try:
-        settings_service = get_service('settings_service')
 
         settings_service.invalidate_settings_cache(user_id)
     except ImportError:
@@ -571,6 +576,9 @@ def regenerate_master_key():
     Regenerate project master key.
     
     Returns:
+        # Get services once at the start (DI pattern)
+        cache_service = get_service('cache_service')
+        rbac_service = get_service('rbac_service')
         JSON response with new key information or error
     """
     user_id = get_jwt_identity()
@@ -587,7 +595,6 @@ def regenerate_master_key():
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    rbac_service = get_service('rbac_service')
     if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
         return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -598,7 +605,6 @@ def regenerate_master_key():
 
     db.session.commit()
 
-    cache_service = get_service('cache_service')
     cache_service.invalidate_user_cache(user_id)
 
     return jsonify(
@@ -620,6 +626,9 @@ def regenerate_keys(validated_data=None):
     Regenerate project encryption keys.
     
     Returns:
+        # Get services once at the start (DI pattern)
+        cache_service = get_service('cache_service')
+        rbac_service = get_service('rbac_service')
         JSON response with new keys or error
     """
     user_id = get_jwt_identity()
@@ -636,7 +645,6 @@ def regenerate_keys(validated_data=None):
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    rbac_service = get_service('rbac_service')
     if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
         return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -676,7 +684,6 @@ def regenerate_keys(validated_data=None):
 
     db.session.commit()
 
-    cache_service = get_service('cache_service')
     cache_service.invalidate_user_cache(user_id)
 
     return jsonify(
@@ -700,6 +707,8 @@ def update_keys(validated_data=None):
     Update project encryption keys.
     
     Returns:
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         JSON response with success message or error
     """
     user_id = get_jwt_identity()
@@ -719,7 +728,6 @@ def update_keys(validated_data=None):
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    rbac_service = get_service('rbac_service')
     if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
         return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -748,6 +756,8 @@ def get_fingerprint_lists():
     Get list of blocked fingerprints.
     
     Returns:
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         JSON response with blocked fingerprints list or error
     """
     user_id = get_jwt_identity()
@@ -764,7 +774,6 @@ def get_fingerprint_lists():
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    rbac_service = get_service('rbac_service')
     if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
         return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -814,6 +823,8 @@ def add_to_fingerprint_blacklist(validated_data=None):
     Add fingerprint to blacklist.
     
     Returns:
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         JSON response with success message or error
     """
     user_id = get_jwt_identity()
@@ -834,7 +845,6 @@ def add_to_fingerprint_blacklist(validated_data=None):
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    rbac_service = get_service('rbac_service')
     if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
         return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -872,6 +882,8 @@ def remove_from_fingerprint_blacklist(fp_id):
     Remove fingerprint from blacklist.
     
     Args:
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         fp_id: Fingerprint ID to unblock
         
     Returns:
@@ -891,7 +903,6 @@ def remove_from_fingerprint_blacklist(fp_id):
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    rbac_service = get_service('rbac_service')
     if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
         return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -913,6 +924,9 @@ def remove_from_fingerprint_blacklist(fp_id):
 @require_project_isolation
 def get_blocked_ips():
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         project_id, error = get_user_project_id(user_id)
 
@@ -927,7 +941,6 @@ def get_blocked_ips():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -974,6 +987,9 @@ def get_blocked_ips():
 @require_project_isolation
 def block_ip(validated_data=None):
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         project_id, error = get_user_project_id(user_id)
 
@@ -991,7 +1007,6 @@ def block_ip(validated_data=None):
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1034,6 +1049,9 @@ def block_ip(validated_data=None):
 @require_project_isolation
 def unblock_ip(ip_id):
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         project_id, error = get_user_project_id(user_id)
 
@@ -1048,7 +1066,6 @@ def unblock_ip(ip_id):
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1076,6 +1093,9 @@ def unblock_ip(ip_id):
 @require_project_isolation
 def get_blocked_hwids():
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         project_id, error = get_user_project_id(user_id)
 
@@ -1090,7 +1110,6 @@ def get_blocked_hwids():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1140,6 +1159,9 @@ def get_blocked_hwids():
 @require_project_isolation
 def block_hwid(validated_data=None):
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         project_id, error = get_user_project_id(user_id)
 
@@ -1157,7 +1179,6 @@ def block_hwid(validated_data=None):
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1199,6 +1220,9 @@ def block_hwid(validated_data=None):
 @require_project_isolation
 def unblock_hwid(hwid_id):
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         project_id, error = get_user_project_id(user_id)
 
@@ -1213,7 +1237,6 @@ def unblock_hwid(hwid_id):
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1241,6 +1264,10 @@ def unblock_hwid(hwid_id):
 @require_project_isolation
 def get_security_analytics():
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
+        security_service = get_service('security_service')
         user_id = get_jwt_identity()
         project_id, error = get_user_project_id(user_id)
 
@@ -1255,8 +1282,6 @@ def get_security_analytics():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        rbac_service = get_service('rbac_service')
-        security_service = get_service('security_service')
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1275,6 +1300,10 @@ def get_security_analytics():
 @require_project_isolation
 def get_security_rules():
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
+        security_rules_init_service = get_service('security_rules_init_service')
         user_id = get_jwt_identity()
         project_id, error = get_user_project_id(user_id)
 
@@ -1289,12 +1318,10 @@ def get_security_rules():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
         # Ensure default rules exist
-        security_rules_init_service = get_service('security_rules_init_service')
         security_rules_init_service.ensure_default_rules(project_id)
 
         from ..models.security import SecurityRule
@@ -1371,6 +1398,9 @@ def get_security_rules():
 @require_project_isolation
 def create_security_rule(validated_data=None):
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         project_id, error = get_user_project_id(user_id)
 
@@ -1389,7 +1419,6 @@ def create_security_rule(validated_data=None):
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1424,6 +1453,9 @@ def create_security_rule(validated_data=None):
 @require_project_isolation
 def get_security_events():
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         project_id, error = get_user_project_id(user_id)
 
@@ -1438,7 +1470,6 @@ def get_security_events():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1491,6 +1522,10 @@ def get_security_events():
 def toggle_security_rule(rule_id):
     """Toggle security rule active status"""
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        activity_service = get_service('activity_service')
+        rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         project_id, error = get_user_project_id(user_id)
 
@@ -1505,7 +1540,6 @@ def toggle_security_rule(rule_id):
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1524,7 +1558,6 @@ def toggle_security_rule(rule_id):
         db.session.commit()
 
         # Log the activity
-        activity_service = get_service('activity_service')
         try:
             action = "security_rule_enabled" if rule.is_active else "security_rule_disabled"
             details = f'Security rule "{rule.name}" (ID: {rule.id}) {"enabled" if rule.is_active else "disabled"}'
@@ -1571,6 +1604,9 @@ def toggle_security_rule(rule_id):
 @require_project_isolation
 def update_security_rule(rule_id, validated_data=None):
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         project_id, error = get_user_project_id(user_id)
 
@@ -1589,7 +1625,6 @@ def update_security_rule(rule_id, validated_data=None):
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1648,6 +1683,9 @@ def update_security_rule(rule_id, validated_data=None):
 @require_project_isolation
 def delete_security_rule(rule_id):
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         project_id, error = get_user_project_id(user_id)
 
@@ -1662,7 +1700,6 @@ def delete_security_rule(rule_id):
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1690,6 +1727,9 @@ def delete_security_rule(rule_id):
 @require_project_isolation
 def reset_security_rules():
     try:
+        # Get services once at the start (DI pattern)
+        # Get services once at the start (DI pattern)
+        rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
         project_id, error = get_user_project_id(user_id)
 
@@ -1704,7 +1744,6 @@ def reset_security_rules():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-        rbac_service = get_service('rbac_service')
         if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
