@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback, useState, useEffect } from 'react'
 import { useNavigate, useLocation, type Location } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   LayoutDashboard,
   Briefcase,
@@ -18,7 +18,6 @@ import {
 } from 'lucide-react'
 import { NotificationList } from '@/components/animate-ui/components/community/notification-list'
 import { getUserNotifications, incrementNotificationShowCount } from '@/entities/notification'
-import { useQueryClient } from '@tanstack/react-query'
 import { useAuthContext } from '@/contexts/auth-context'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -30,12 +29,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useIsMobile } from '@/shared/hooks/use-mobile'
-import { getProject } from '@/entities/project'
-import { projectKeys } from '@/entities/project'
-import { useNavigationQuery } from '@/entities/navigation'
-import { canAccessNavigationItem, type NavigationItem } from '@/entities/navigation'
-import { getAvatarUrl } from '@/lib/utils'
-import { cn } from '@/lib/utils'
+import { getProject, projectKeys } from '@/entities/project'
+import { useNavigationQuery, canAccessNavigationItem, type NavigationItem } from '@/entities/navigation'
+import { getAvatarUrl, cn } from '@/lib/utils'
 import {
   Sidebar,
   SidebarContent,
@@ -51,8 +47,6 @@ import {
   SidebarRail,
   useSidebar as useAnimateSidebar,
 } from '@/components/animate-ui/components/radix/sidebar'
-import type { User as UserType } from '@/entities/user';
-import type { Project } from '@/entities/project';
 
 interface SidebarItem extends NavigationItem {
   title: string
@@ -103,22 +97,13 @@ const navigationUIMap: Record<string, { title: string; icon: React.ReactNode }> 
   }
 }
 
-function convertNavigationItemsToSidebarItems(navigationItems: NavigationItem[]): SidebarItem[] {
-  return navigationItems
+const convertNavigationItemsToSidebarItems = (navigationItems: NavigationItem[]): SidebarItem[] =>
+  navigationItems
     .map(item => {
       const uiMetadata = navigationUIMap[item.href]
-      if (!uiMetadata) {
-        return null
-      }
-
-      return {
-        ...item,
-        title: uiMetadata.title,
-        icon: uiMetadata.icon
-      } as SidebarItem
+      return uiMetadata ? { ...item, title: uiMetadata.title, icon: uiMetadata.icon } as SidebarItem : null
     })
     .filter((item): item is SidebarItem => item !== null)
-}
 
 interface AppSidebarNavigationItemProps {
   item: SidebarItem;
@@ -133,8 +118,7 @@ const AppSidebarNavigationItem = React.memo<AppSidebarNavigationItemProps>(({
   location,
   onNavigate,
 }) => {
-  const isActive = location.pathname === item.href || location.pathname.startsWith(`${item.href}/`);
-
+  const isActive = location.pathname === item.href || location.pathname.startsWith(`${item.href}/`)
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
@@ -147,9 +131,9 @@ const AppSidebarNavigationItem = React.memo<AppSidebarNavigationItemProps>(({
         {item.badge && <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>}
       </SidebarMenuButton>
     </SidebarMenuItem>
-  );
-});
-AppSidebarNavigationItem.displayName = 'AppSidebarNavigationItem';
+  )
+})
+AppSidebarNavigationItem.displayName = 'AppSidebarNavigationItem'
 
 function AppSidebarContent() {
   const navigate = useNavigate()
@@ -157,122 +141,81 @@ function AppSidebarContent() {
   const { user, logout, isInitialized } = useAuthContext()
   const { state } = useAnimateSidebar()
   const isMobile = useIsMobile()
+  const queryClient = useQueryClient()
+  const isCollapsed = state === 'collapsed'
 
   const { navigation: navigationConfig } = useNavigationQuery({
     enabled: isInitialized && !!user,
-    // Use default staleTime from query defaults (15 minutes)
   })
 
-  const userRole = user?.roles?.[0]
-
-  // Memoize sidebar items to avoid recalculation on every render
-  // Show all navigation items - access control happens on the pages themselves
   const sidebarItems = useMemo(() => {
-    if (!navigationConfig?.navigation) {
-      return []
-    }
-    const allSidebarItems = convertNavigationItemsToSidebarItems(navigationConfig.navigation)
-    // Don't filter by permissions - show all items, pages will handle access control
-    return allSidebarItems
+    if (!navigationConfig?.navigation) return []
+    return convertNavigationItemsToSidebarItems(navigationConfig.navigation)
   }, [navigationConfig?.navigation])
 
-  const { data: currentProjectResponse, isLoading: isProjectLoading, error: projectError } = useQuery({
+  const { data: currentProjectResponse, isLoading: isProjectLoading } = useQuery({
     queryKey: projectKeys.detail(String(user?.project_id)),
-    queryFn: async () => {
-      return await getProject(user!.project_id!)
-    },
+    queryFn: () => getProject(user!.project_id!),
     enabled: !!user?.project_id && isInitialized,
-    staleTime: 10 * 60 * 1000, // 10 minutes - project data doesn't change often
-    gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
-    refetchOnWindowFocus: false, // Don't refetch on window focus
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
     retry: (failureCount, error: any) => {
-      if (error?.response?.status === 401 || error?.response?.status === 403 || error?.response?.status === 404) {
-        return false
-      }
-      return failureCount < 2
-    },
-    meta: {
-      errorMessage: null,
+      const status = error?.response?.status
+      return status !== 401 && status !== 403 && status !== 404 && failureCount < 2
     },
   })
 
-  const handleLogout = () => {
-    logout()
-  }
+  const { data: notificationsData } = useQuery({
+    queryKey: ['notifications', 'sidebar', user?.id],
+    queryFn: () => getUserNotifications({ page: 1, per_page: 10, unread_only: true }),
+    enabled: isInitialized && !!user,
+    staleTime: 30 * 1000,
+    refetchInterval: 60 * 1000,
+    refetchOnWindowFocus: true,
+  })
 
-  const handleNavigation = useCallback((href: string) => {
-    navigate(href)
-  }, [navigate])
+  const notifications = useMemo(() => {
+    return (notificationsData?.notifications || []).filter(notification => {
+      const message = notification.message || ''
+      if (message.trim().startsWith('[')) return false
+      if (notification.show_count !== undefined && notification.show_count >= 1) return false
+      if (notification.is_read === true) return false
+      return true
+    })
+  }, [notificationsData?.notifications])
 
-  const queryClient = useQueryClient()
+  const [showNotifications, setShowNotifications] = useState(false)
+
+  useEffect(() => {
+    if (!isCollapsed) {
+      const timer = setTimeout(() => setShowNotifications(true), 300)
+      return () => clearTimeout(timer)
+    } else {
+      setShowNotifications(false)
+    }
+  }, [isCollapsed])
+
+  const handleNavigation = useCallback((href: string) => navigate(href), [navigate])
+  const handleLogout = () => logout()
 
   const handleNotificationClick = useCallback(async (notificationId: number) => {
     try {
       await incrementNotificationShowCount(notificationId)
-      // Invalidate notifications query to refetch and update the list
       queryClient.invalidateQueries({ queryKey: ['notifications', 'sidebar', user?.id] })
     } catch (error) {
       console.error('Failed to mark notification as viewed:', error)
     }
   }, [queryClient, user?.id])
 
-  const { data: notificationsData } = useQuery({
-    queryKey: ['notifications', 'sidebar', user?.id],
-    queryFn: () => getUserNotifications({ page: 1, per_page: 10, unread_only: true }),
-    enabled: isInitialized && !!user,
-    staleTime: 30 * 1000, // 30 seconds
-    refetchInterval: 60 * 1000, // Refetch every minute
-    refetchOnWindowFocus: true,
-  })
+  const projectName = useMemo(() => {
+    if (isProjectLoading) return 'Loading...'
+    const projectResponse = currentProjectResponse as any
+    const projectData = projectResponse?.data || projectResponse
+    return projectData?.name || 'No project'
+  }, [currentProjectResponse, isProjectLoading])
 
-  // Filter to show only:
-  // 1. "Send Notification" notifications (exclude product and agent notifications)
-  // 2. Only notifications for current user (backend already filters)
-  // 3. Only unread notifications (backend already filters with unread_only=true)
-  // 4. Hide "Send Notification" type notifications after first show (show_count >= 1)
-  const notifications = useMemo(() => {
-    const allNotifications = notificationsData?.notifications || []
-    
-    return allNotifications.filter(notification => {
-      const message = notification.message || ''
-      // Exclude notifications that start with "[" (product/agent notifications)
-      if (message.trim().startsWith('[')) {
-        return false
-      }
-      
-      // Hide "Send Notification" notifications after first show
-      // If show_count >= 1, don't show it anymore (user already saw it once)
-      if (notification.show_count !== undefined && notification.show_count >= 1) {
-        return false
-      }
-      
-      // Only show unread notifications (backend already filters, but extra safety check)
-      if (notification.is_read === true) {
-        return false
-      }
-      return true
-    })
-  }, [notificationsData?.notifications])
-
-  // На мобильных устройствах состояние 'collapsed' обычно не используется так же, как на десктопе
-  // (там сайдбар просто скрыт или открыт полностью), но проверка не помешает.
-  const isCollapsed = state === 'collapsed'
-  
-  // Показываем уведомления только после полного раскрытия сайдбара
-  const [showNotifications, setShowNotifications] = useState(false)
-  
-  useEffect(() => {
-    if (!isCollapsed) {
-      // Задержка для завершения анимации раскрытия сайдбара
-      const timer = setTimeout(() => {
-        setShowNotifications(true)
-      }, 300) // 300ms - время анимации сайдбара
-      return () => clearTimeout(timer)
-    } else {
-      // Сразу скрываем при сворачивании
-      setShowNotifications(false)
-    }
-  }, [isCollapsed])
+  const userRole = user?.roles?.[0]
+  const roleLabel = userRole ? userRole.charAt(0).toUpperCase() + userRole.slice(1) : 'User'
 
   return (
     <>
@@ -282,23 +225,14 @@ function AppSidebarContent() {
             <SidebarMenuButton
               size="lg"
               className="cursor-default"
-              tooltip={isCollapsed ? (currentProjectResponse as any)?.data?.name || (currentProjectResponse as any)?.name : undefined}
+              tooltip={isCollapsed ? projectName : undefined}
             >
               <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground shrink-0">
                 <Briefcase className="size-4" />
               </div>
               {!isCollapsed && (
                 <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
-                  <span className="truncate font-semibold">
-                    {(() => {
-                      if (isProjectLoading) return 'Loading...'
-                      if (projectError) return 'Error loading project'
-                      // Handle cache wrapper response: { data: {...} } or direct project object
-                      const projectResponse = currentProjectResponse as any
-                      const projectData = projectResponse?.data || projectResponse
-                      return projectData?.name || 'No project'
-                    })()}
-                  </span>
+                  <span className="truncate font-semibold">{projectName}</span>
                 </div>
               )}
             </SidebarMenuButton>
@@ -351,27 +285,15 @@ function AppSidebarContent() {
                   </Avatar>
                   {!isCollapsed && (
                     <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
-                      <span className="truncate font-semibold">
-                        {user?.username || 'User'}
-                      </span>
-                      <span className="truncate text-xs text-muted-foreground">
-                        {user?.roles && user.roles.length > 0 
-                          ? user.roles[0].charAt(0).toUpperCase() + user.roles[0].slice(1) 
-                          : 'User'
-                        }
-                      </span>
+                      <span className="truncate font-semibold">{user?.username || 'User'}</span>
+                      <span className="truncate text-xs text-muted-foreground">{roleLabel}</span>
                     </div>
                   )}
                   {!isCollapsed && <ChevronsUpDown className="ml-auto size-4 shrink-0" />}
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent
-                // АДАПТАЦИЯ: Убираем ml-2 на мобильном, чтобы не вылезало за край
-                className={cn(
-                  "w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg",
-                  !isMobile && "ml-2"
-                )}
-                // АДАПТАЦИЯ: На мобильном открываем ВВЕРХ (top), так как футер внизу экрана
+                className={cn("w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg", !isMobile && "ml-2")}
                 side={isMobile ? 'top' : 'right'}
                 align="end"
                 sideOffset={4}
@@ -385,15 +307,8 @@ function AppSidebarContent() {
                       </AvatarFallback>
                     </Avatar>
                     <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
-                      <span className="truncate font-semibold">
-                        {user?.username || 'User'}
-                      </span>
-                      <span className="truncate text-xs text-muted-foreground">
-                        {user?.roles && user.roles.length > 0 
-                          ? user.roles[0].charAt(0).toUpperCase() + user.roles[0].slice(1) 
-                          : 'User'
-                        }
-                      </span>
+                      <span className="truncate font-semibold">{user?.username || 'User'}</span>
+                      <span className="truncate text-xs text-muted-foreground">{roleLabel}</span>
                     </div>
                   </div>
                 </DropdownMenuLabel>
@@ -428,16 +343,12 @@ function AppSidebarContent() {
   )
 }
 
-export function AppSidebarInner() {
+export default function AppSidebar() {
   return (
-    // collapsible="icon" работает для десктопа. 
-    // На мобильном SidebarProvider превращает это в Drawer (шторку).
     <Sidebar collapsible="icon" variant="sidebar">
       <AppSidebarContent />
     </Sidebar>
   )
 }
 
-export default function AppSidebar() {
-  return <AppSidebarInner />
-}
+export const AppSidebarInner = AppSidebar

@@ -72,29 +72,6 @@ def run_migrations_offline():
         context.run_migrations()
 
 
-# Импортируем все модели, чтобы Alembic их видел
-from backend.models import (
-    APIKey, Agent, AgentChangelog, AgentConfiguration, AgentDownloadLog,
-    AgentNotification, AgentProductAssignment, Announcement, AttributeRule,
-    Billing, BlockedDeviceFingerprint, BlockedFingerprint, BlockedHWID,
-    BlockedIP, ChangelogEntry, ChatGroup, ChatGroupProduct, ChatMessage,
-    ConnectToken, DeveloperProductPermission, DeviceInfo, DiscordWebhook,
-    FileDownloadLog, FileMeta, Key, KeyAnalytics, LoginAttempt, Message,
-    Notification, Permission, Product, ProductChatSettings, ProductExtraFile,
-    ProductFileConfig, ProductFileDownload, ProductInviteCode, ProductKeyPrice,
-    ProductSecurityLog, ProductStatus, Project, ProjectAdmin, ProjectAPIKey,
-    ProjectEncryptionKeys, ProjectInviteCode, ProjectSettings, ProjectUserRole,
-    ReferralCode, RemoteCategory, RemoteFeature, RemoteFeatureLog, RemoteConfig,
-    ResourceAttribute, Role, RolePermission, SecurityAnalytics, SecurityEvent,
-    SecurityRule, Server, SystemBackup, SystemSettings, TelegramBot,
-    TokenTransaction, TwoFactorAuth, TwoFactorBackupCode, TwoFactorSession,
-    User, UserActionLog, UserActivity, UserAttribute, UserProductPermission,
-    UserRole, UserPermission, Webhook, WebhookLog
-)
-# Импортируем модели, чтобы они зарегистрировались в метаданных SQLAlchemy
-_ = [APIKey, Agent, Product, User, Project]
-
-
 def run_migrations_online():
     """Run migrations in 'online' mode.
 

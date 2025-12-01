@@ -127,7 +127,7 @@ def create_refcode(current_user, project_id=None, validated_data=None):
     work_duration_days = validated_data.work_duration_days
     product_ids = validated_data.product_ids
     rbac_role_ids = validated_data.rbac_role_ids
-    expires_days = validated_data.expires_days or validated_data.expires_in_days or 90
+    expires_days = validated_data.expires_in_days or 90
     try:
 
         if project_id is None:

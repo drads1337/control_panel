@@ -274,6 +274,7 @@ export class AuthService {
     username: string,
     email: string,
     password: string,
+    projectName?: string,
     referralCode?: string,
     abortController?: AbortController
   ): Promise<{
@@ -286,6 +287,10 @@ export class AuthService {
       username,
       email,
       password
+    }
+
+    if (projectName) {
+      requestBody.project_name = projectName
     }
 
     if (referralCode) {

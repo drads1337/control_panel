@@ -51,6 +51,7 @@ import redis
 from flask import current_app, has_app_context
 
 from ..config.config import Config, IS_PRODUCTION
+from .redis_config_factory import RedisConfigFactory
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +92,9 @@ class RedisClient:
     def _create_client(self, db: Optional[int] = None, instance: Optional[str] = None) -> redis.Redis:
         """
         Create a new Redis client with optimized settings.
+        
+        REFACTORED: Now uses RedisConfigFactory to separate configuration logic
+        from client operations, following Single Responsibility Principle.
 
         Args:
             db: Redis database number (None uses default from Config)
@@ -102,93 +106,22 @@ class RedisClient:
         Raises:
             RuntimeError: If Redis connection cannot be established
         """
-
         instance_type = instance if instance is not None else self._instance
         
-        if instance_type == "cache":
-            host = Config.REDIS_CACHE_HOST
-            port = Config.REDIS_CACHE_PORT
-            password = Config.REDIS_CACHE_PASSWORD
-            default_db = Config.REDIS_CACHE_DB
-        else:
-            host = Config.REDIS_PERSISTENT_HOST
-            port = Config.REDIS_PERSISTENT_PORT
-            password = Config.REDIS_PERSISTENT_PASSWORD
-            default_db = Config.REDIS_PERSISTENT_DB
+        # Use RedisConfigFactory to get configuration
+        config = RedisConfigFactory.get_config_for_instance(instance_type, db or self._db)
         
-
-        db_number = db if db is not None else (self._db if self._db is not None else default_db)
+        # Create client using factory
+        client = RedisConfigFactory.create_client(config)
         
-        redis_config = {
-            "host": host,
-            "port": port,
-            "db": db_number,
-            "decode_responses": True,
-            "socket_connect_timeout": 5,
-            "socket_timeout": 5,
-            "retry_on_timeout": True,
-            "health_check_interval": 30,
-            "max_connections": 20,
-        }
-
-
-        if password:
-            redis_config["password"] = password
-        else:
-
-            if instance_type == "persistent":
-                logger.warning(
-                    "[REDIS_SECURITY] Redis persistent instance has no password configured. "
-                    "This is a security risk in production. Set REDIS_PERSISTENT_PASSWORD environment variable."
-                )
-
-
-
-        if instance_type == "cache":
-            ssl_enabled = Config.REDIS_CACHE_SSL
-            ssl_cert_reqs = Config.REDIS_CACHE_SSL_CERT_REQS
-            ssl_ca_certs = Config.REDIS_CACHE_SSL_CA_CERTS
-        else:
-            ssl_enabled = Config.REDIS_PERSISTENT_SSL
-            ssl_cert_reqs = Config.REDIS_PERSISTENT_SSL_CERT_REQS
-            ssl_ca_certs = Config.REDIS_PERSISTENT_SSL_CA_CERTS
-        
-        if ssl_enabled:
-
-            import ssl
-            cert_reqs_map = {
-                "none": ssl.CERT_NONE,
-                "optional": ssl.CERT_OPTIONAL,
-                "required": ssl.CERT_REQUIRED,
-            }
-            cert_reqs = cert_reqs_map.get(ssl_cert_reqs.lower(), ssl.CERT_REQUIRED)
-            
-            redis_config["ssl"] = True
-            redis_config["ssl_cert_reqs"] = cert_reqs
-            if ssl_ca_certs:
-                redis_config["ssl_ca_certs"] = ssl_ca_certs
-            
-            logger.info(
-                f"[REDIS_SECURITY] TLS enabled for Redis {instance_type} instance "
-                f"(cert_reqs={ssl_cert_reqs})"
-            )
-        elif instance_type == "persistent" and IS_PRODUCTION:
-
+        # Log security warnings for persistent instance
+        if instance_type == "persistent" and not config.ssl_enabled and IS_PRODUCTION:
             logger.warning(
                 "[REDIS_SECURITY] Redis persistent instance TLS is not enabled in production. "
                 "This is a security risk. Set REDIS_PERSISTENT_SSL=true to enable encrypted connections. "
                 "Redis contains sensitive data (sessions, tokens, encrypted configs)."
             )
-
-        client = redis.Redis(**redis_config)
-
-        try:
-            client.ping()
-            logger.debug(f"Redis client initialized successfully ({instance_type} instance, DB {db_number})")
-        except Exception as e:
-            logger.error(f"Redis connection verification failed ({instance_type} instance, DB {db_number}): {e}")
-            raise RuntimeError(f"Redis is required but connection failed ({instance_type} instance, DB {db_number}): {e}")
-
+        
         return client
 
     def _check_health(self) -> bool:
@@ -506,12 +439,7 @@ def get_redis_cache_client() -> redis.Redis:
     cache_client = RedisClient(instance="cache")
     return cache_client.client
 
-
 redis_client = get_redis_wrapper()
-
-
-
-
 REDIS_DB_MAPPING = {
     "sessions": {"db": Config.REDIS_DB_SESSIONS, "instance": "persistent"},
     "rate_limit": {"db": Config.REDIS_DB_RATE_LIMIT, "instance": "persistent"},
@@ -519,7 +447,6 @@ REDIS_DB_MAPPING = {
     "analytics": {"db": Config.REDIS_DB_ANALYTICS, "instance": "persistent"},
     "cache": {"db": Config.REDIS_DB_CACHE, "instance": "cache"},
 }
-
 
 _db_clients: Dict[str, RedisClient] = {}
 
@@ -556,7 +483,6 @@ def get_redis_client_for_db(db_type: str) -> redis.Redis:
         )
         return get_redis_client()
     
-
     if db_type not in _db_clients:
         db_config = REDIS_DB_MAPPING[db_type]
         _db_clients[db_type] = RedisClient(db=db_config["db"], instance=db_config["instance"])

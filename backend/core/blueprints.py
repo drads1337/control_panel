@@ -2,7 +2,6 @@
 Blueprint registration module
 Centralizes all blueprint imports and registration logic
 """
-
 from flask import Flask
 
 from ..routes.admin.system import system_bp
@@ -39,49 +38,38 @@ from ..routes.webhooks import webhooks_bp
 
 def register_blueprints(app: Flask) -> None:
     """
-    Register all application blueprints with their URL prefixes
+    Register all application blueprints with their URL prefixes.
 
     Args:
         app: Flask application instance
     """
+    API_VERSION = "/api"
 
-    app.register_blueprint(auth_bp, url_prefix="/api/auth")
-    app.register_blueprint(admin_bp, url_prefix="/api")
-    app.register_blueprint(connect_bp, url_prefix="/api")
-    app.register_blueprint(projects_bp, url_prefix="/api")
-    app.register_blueprint(dashboard_bp, url_prefix="/api/dashboard")
-    app.register_blueprint(heartbeat_bp, url_prefix="/api")
-    app.register_blueprint(dynamic_config_bp, url_prefix="/api")
-
-    app.register_blueprint(users_bp, url_prefix="/api/users")
-    app.register_blueprint(profile_bp, url_prefix="/api/profile")
-    app.register_blueprint(keys_bp, url_prefix="/api/keys")
-    app.register_blueprint(sessions_bp, url_prefix="/api/sessions")
-
-
-    app.register_blueprint(system_bp, url_prefix="/api/admin")
-    app.register_blueprint(admin_users_bp, url_prefix="/api/admin/users")
-
-    app.register_blueprint(servers_bp, url_prefix="/api/servers")
-    app.register_blueprint(files_bp, url_prefix="/api/files")
-    
-
-
-
-
-    app.register_blueprint(products_bp, url_prefix="/api/products", name="products")
-    app.register_blueprint(agents_bp, url_prefix="/api/agents", name="agents")
-
-    app.register_blueprint(notifications_bp, url_prefix="/api/notifications")
-    app.register_blueprint(chat_bp, url_prefix="/api/chat")
-
-    app.register_blueprint(logs_bp, url_prefix="/api/logs")
-    app.register_blueprint(changelog_bp, url_prefix="/api/changelog")
-    app.register_blueprint(analytics_bp, url_prefix="/api/analytics")
-    app.register_blueprint(monitoring_bp, url_prefix="/api/monitoring")
-    app.register_blueprint(webhooks_bp, url_prefix="/api/webhooks")
-    app.register_blueprint(rbac_bp, url_prefix="/api/rbac")
-    app.register_blueprint(remote_control_bp, url_prefix="/api/remote-control")
-    app.register_blueprint(cache_bp, url_prefix="/api/cache")
-
+    app.register_blueprint(auth_bp, url_prefix=f"{API_VERSION}/auth")
+    app.register_blueprint(admin_bp, url_prefix=API_VERSION)
+    app.register_blueprint(connect_bp, url_prefix=API_VERSION)
+    app.register_blueprint(projects_bp, url_prefix=API_VERSION)
+    app.register_blueprint(dashboard_bp, url_prefix=f"{API_VERSION}/dashboard")
+    app.register_blueprint(heartbeat_bp, url_prefix=API_VERSION)
+    app.register_blueprint(dynamic_config_bp, url_prefix=API_VERSION)
+    app.register_blueprint(users_bp, url_prefix=f"{API_VERSION}/users")
+    app.register_blueprint(profile_bp, url_prefix=f"{API_VERSION}/profile")
+    app.register_blueprint(keys_bp, url_prefix=f"{API_VERSION}/keys")
+    app.register_blueprint(sessions_bp, url_prefix=f"{API_VERSION}/sessions")
+    app.register_blueprint(system_bp, url_prefix=f"{API_VERSION}/admin")
+    app.register_blueprint(admin_users_bp, url_prefix=f"{API_VERSION}/admin/users")
+    app.register_blueprint(servers_bp, url_prefix=f"{API_VERSION}/servers")
+    app.register_blueprint(files_bp, url_prefix=f"{API_VERSION}/files")
+    app.register_blueprint(products_bp, url_prefix=f"{API_VERSION}/products", name="products")
+    app.register_blueprint(agents_bp, url_prefix=f"{API_VERSION}/agents", name="agents")
+    app.register_blueprint(notifications_bp, url_prefix=f"{API_VERSION}/notifications")
+    app.register_blueprint(chat_bp, url_prefix=f"{API_VERSION}/chat")
+    app.register_blueprint(logs_bp, url_prefix=f"{API_VERSION}/logs")
+    app.register_blueprint(changelog_bp, url_prefix=f"{API_VERSION}/changelog")
+    app.register_blueprint(analytics_bp, url_prefix=f"{API_VERSION}/analytics")
+    app.register_blueprint(monitoring_bp, url_prefix=f"{API_VERSION}/monitoring")
+    app.register_blueprint(webhooks_bp, url_prefix=f"{API_VERSION}/webhooks")
+    app.register_blueprint(rbac_bp, url_prefix=f"{API_VERSION}/rbac")
+    app.register_blueprint(remote_control_bp, url_prefix=f"{API_VERSION}/remote-control")
+    app.register_blueprint(cache_bp, url_prefix=f"{API_VERSION}/cache")
     app.register_blueprint(settings_bp, url_prefix="")

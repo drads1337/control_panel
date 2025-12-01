@@ -1,39 +1,60 @@
 """
 Celery configuration and app initialization
 Provides distributed task queue system with Redis broker
+
+SECURITY: In production, Celery is a required dependency. Fallback mode
+is only allowed in development for easier local testing.
 """
-
 import os
+import logging
+from ..config.config import Config, IS_PRODUCTION
+logger = logging.getLogger(__name__)
+from datetime import timedelta
 
-try:
-    from celery import Celery
-    from celery.schedules import crontab
-    from datetime import timedelta
+if IS_PRODUCTION:
+    try:
+        from celery import Celery
+        from celery.schedules import crontab
+        CELERY_AVAILABLE = True
+    except ImportError as e:
+        raise RuntimeError(
+            "CRITICAL: Celery is required in production but not installed.\n"
+            "Install with: pip install celery\n"
+            "Fallback mode is not allowed in production for security and reliability reasons."
+        ) from e
+else:
+    try:
+        from celery import Celery
+        from celery.schedules import crontab
+        CELERY_AVAILABLE = True
+    except ImportError:
+        CELERY_AVAILABLE = False
+        logger.warning(
+            "Celery is not installed. Task queue will use fallback mode. "
+            "This is only allowed in development. Install Celery for production: pip install celery"
+        )
+        class Celery:
+            def __init__(self, *args, **kwargs):
+                pass
 
-    CELERY_AVAILABLE = True
-except ImportError:
-    CELERY_AVAILABLE = False
-
-    class Celery:
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def conf(self):
-            return type("obj", (object,), {"update": lambda self, x: None})()
-
-from ..config.config import Config
+            def conf(self):
+                return type("obj", (object,), {"update": lambda self, x: None})()
 
 def make_celery(app=None):
     """
     Create and configure Celery app instance
+    
+    SECURITY: In production, this will raise RuntimeError if Celery is not available.
+    Fallback mode is only allowed in development.
     """
     if not CELERY_AVAILABLE:
-        import logging
-
-        logging.warning("Celery is not installed. Task queue will use fallback mode.")
+        if IS_PRODUCTION:
+            raise RuntimeError(
+                "CRITICAL: Celery is required in production. "
+                "Cannot initialize application without Celery task queue."
+            )
+        logger.warning("Celery is not installed. Task queue will use fallback mode (development only).")
         return None
-
-
     redis_password_part = f":{Config.REDIS_PERSISTENT_PASSWORD}@" if Config.REDIS_PERSISTENT_PASSWORD else ""
     redis_url = (
         f"redis://{redis_password_part}{Config.REDIS_PERSISTENT_HOST}:"
@@ -44,9 +65,7 @@ def make_celery(app=None):
         "panel_tasks",
         broker=redis_url,
         backend=redis_url,
-
     )
-
     celery_app.conf.update(
 
         task_serializer="json",
@@ -119,9 +138,6 @@ def make_celery(app=None):
         },
 
         beat_schedule={
-
-
-
             "flush-analytics-buffer": {
                 "task": "backend.tasks.analytics_tasks.flush_analytics_buffer",
                 "schedule": timedelta(
@@ -133,7 +149,6 @@ def make_celery(app=None):
     )
 
     if app is not None:
-
         class ContextTask(celery_app.Task):
             """Make celery tasks work with Flask app context"""
 

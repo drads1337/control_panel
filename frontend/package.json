@@ -85,6 +85,7 @@
     "crypto-js": "^4.2.0",
     "date-fns": "^4.1.0",
     "dompurify": "^3.3.0",
+    "dotted-map": "^2.2.3",
     "embla-carousel-autoplay": "8.5.2",
     "embla-carousel-react": "8.5.2",
     "framer-motion": "^12.23.22",

@@ -16,8 +16,8 @@ FREE TIER LIMITS:
 
 PRO TIER LIMITS:
 - All limits: Unlimited (None)
-- All features: Enabled (True)
-- Storage: Uses project.storage_limit (default 10 GB)
+- All features: Enabled (True), except security (minimal)
+- Storage: Uses project.storage_limit (default 3 GB)
 
 See TIER_FEATURES.md for detailed documentation.
 """
@@ -61,7 +61,7 @@ class TierLimitsService:
         "max_storage_mb": None,
         "webhooks_enabled": True,
         "logs_enabled": True,
-        "security_enabled": True,
+        "security_enabled": "minimal",  # Minimal security features only
         "remote_control_enabled": True,
     }
 
@@ -219,12 +219,33 @@ class TierLimitsService:
         Returns:
             Tuple of (enabled: bool, error_message: Optional[str])
         """
-        if not self.is_free_tier(project):
+        if self.is_free_tier(project):
+            if not self.FREE_TIER_LIMITS["security_enabled"]:
+                return False, "Security features are not available on free tier"
             return True, None
         
-        if not self.FREE_TIER_LIMITS["security_enabled"]:
+        # For pro tier, only minimal security is available
+        if self.is_pro_tier(project):
+            if self.PRO_TIER_LIMITS["security_enabled"] == "minimal":
+                return True, None  # Minimal security is allowed
+        
+        # For other tiers, full security is available
+        return True, None
+    
+    def check_security_minimal_enabled(self, project: Project) -> Tuple[bool, Optional[str]]:
+        """
+        Check if minimal security features are enabled for this tier
+        
+        Returns:
+            Tuple of (enabled: bool, error_message: Optional[str])
+        """
+        if self.is_free_tier(project):
             return False, "Security features are not available on free tier"
         
+        if self.is_pro_tier(project):
+            return True, None  # Pro tier has minimal security
+        
+        # For other tiers, full security is available
         return True, None
 
     def check_remote_control_enabled(self, project: Project) -> Tuple[bool, Optional[str]]:
@@ -257,7 +278,7 @@ class TierLimitsService:
             if hasattr(project, 'storage_limit_mb'):
                 return project.storage_limit_mb
 
-            return 10 * 1024
+            return 3 * 1024  # 3 GB default for pro tier
         
 
         return project.storage_limit_mb if hasattr(project, 'storage_limit_mb') else 0

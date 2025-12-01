@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom"
 import { motion } from "framer-motion"
 
 import { cn } from "@/lib/utils"
-import { useRegisterForm } from "@/hooks/use-register-form"
+import { useSignUpForm } from "@/hooks/use-signup-form"
 import { usePerformanceDetection } from "@/hooks/use-performance-detection"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -14,19 +14,26 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 
 const FaultyTerminal = React.lazy(() => import("@/app/shared/faulty-terminal"))
 
-function SignUpFormComponent({
+interface InviteSignUpFormProps {
+  className?: string
+}
+
+function InviteSignUpFormComponent({
   className,
   ...props
-}: React.ComponentProps<"div">) {
+}: InviteSignUpFormProps) {
   const navigate = useNavigate()
   const {
     formData,
     errors,
     isLoading,
     error,
+    inviteCodeInfo,
     handleInputChange,
     handleSubmit,
-  } = useRegisterForm()
+    checkInviteCode,
+    setInviteCodeInfo
+  } = useSignUpForm()
 
   const { recommendedSettings } = usePerformanceDetection()
 
@@ -34,12 +41,23 @@ function SignUpFormComponent({
     navigate('/login')
   }, [navigate])
 
+  const handleInviteCodeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    handleInputChange('inviteCode', value)
+
+    if (value.trim()) {
+      checkInviteCode(value)
+    } else {
+      setInviteCodeInfo(null)
+    }
+  }, [handleInputChange, checkInviteCode, setInviteCodeInfo])
+
   const handleSignInClick = useCallback(() => {
     navigate('/login')
   }, [navigate])
 
-  const handleInviteCodeClick = useCallback(() => {
-    navigate('/signup-invite')
+  const handleRegularSignUpClick = useCallback(() => {
+    navigate('/signup')
   }, [navigate])
 
   return (
@@ -69,11 +87,11 @@ function SignUpFormComponent({
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back to login
                 </button>
-                
+
                 <div className="flex flex-col items-center text-center">
                   <h1 className="text-2xl font-bold">Create account</h1>
                   <p className="text-muted-foreground text-balance">
-                    Sign up with your email to get started
+                    Sign up with your invite code to join
                   </p>
                 </div>
               </div>
@@ -85,7 +103,54 @@ function SignUpFormComponent({
                 </Alert>
               )}
 
-              {/* Username */}
+              {/* Invite Code Field */}
+              <div className="grid gap-2">
+                <Label htmlFor="inviteCode">Invite Code *</Label>
+                <Input
+                  id="inviteCode"
+                  type="text"
+                  placeholder="Enter your invite code"
+                  value={formData.inviteCode}
+                  onChange={handleInviteCodeChange}
+                  className={errors.inviteCode ? "border-red-500" : ""}
+                  disabled={isLoading}
+                  required
+                />
+                {errors.inviteCode && (
+                  <p className="text-sm text-red-500">{errors.inviteCode}</p>
+                )}
+                {inviteCodeInfo && (
+                  <div className="text-sm">
+                    {inviteCodeInfo.code_type === 'project_invite' ? (
+                      <span className="text-green-600">✓ Project invite code</span>
+                    ) : (
+                      <span className="text-blue-600">✓ User invite code for {inviteCodeInfo.role} role</span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Project Name Field (Conditional) */}
+              {inviteCodeInfo?.code_type === 'project_invite' && inviteCodeInfo.requires_project_name && (
+                <div className="grid gap-2">
+                  <Label htmlFor="projectName">Project Name *</Label>
+                  <Input
+                    id="projectName"
+                    type="text"
+                    placeholder="Enter project name"
+                    value={formData.projectName}
+                    onChange={(e) => handleInputChange('projectName', e.target.value)}
+                    className={errors.projectName ? "border-red-500" : ""}
+                    disabled={isLoading}
+                    required
+                  />
+                  {errors.projectName && (
+                    <p className="text-sm text-red-500">{errors.projectName}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Username Field */}
               <div className="grid gap-2">
                 <Label htmlFor="username">Username *</Label>
                 <Input
@@ -103,9 +168,9 @@ function SignUpFormComponent({
                 )}
               </div>
 
-              {/* Email */}
+              {/* Email Field */}
               <div className="grid gap-2">
-                <Label htmlFor="email">Email *</Label>
+                <Label htmlFor="email">Email <span className="text-muted-foreground font-normal">(optional)</span></Label>
                 <Input
                   id="email"
                   type="email"
@@ -114,32 +179,16 @@ function SignUpFormComponent({
                   onChange={(e) => handleInputChange('email', e.target.value)}
                   className={errors.email ? "border-red-500" : ""}
                   disabled={isLoading}
-                  required
                 />
                 {errors.email && (
                   <p className="text-sm text-red-500">{errors.email}</p>
                 )}
+                <p className="text-xs text-muted-foreground">
+                  Recommended for password recovery
+                </p>
               </div>
 
-              {/* Project Name */}
-              <div className="grid gap-2">
-                <Label htmlFor="projectName">Project Name *</Label>
-                <Input
-                  id="projectName"
-                  type="text"
-                  placeholder="Enter project name"
-                  value={formData.projectName}
-                  onChange={(e) => handleInputChange('projectName', e.target.value)}
-                  className={errors.projectName ? "border-red-500" : ""}
-                  disabled={isLoading}
-                  required
-                />
-                {errors.projectName && (
-                  <p className="text-sm text-red-500">{errors.projectName}</p>
-                )}
-              </div>
-
-              {/* Password */}
+              {/* Password Field */}
               <div className="grid gap-2">
                 <Label htmlFor="password">Password *</Label>
                 <Input 
@@ -157,7 +206,7 @@ function SignUpFormComponent({
                 )}
               </div>
 
-              {/* Confirm Password */}
+              {/* Confirm Password Field */}
               <div className="grid gap-2">
                 <Label htmlFor="confirmPassword">Confirm Password *</Label>
                 <Input 
@@ -175,10 +224,11 @@ function SignUpFormComponent({
                 )}
               </div>
 
+              {/* Submit Button */}
               <Button 
                 type="submit" 
                 className="w-full mt-2" 
-                disabled={isLoading}
+                disabled={isLoading || !inviteCodeInfo}
               >
                 {isLoading ? (
                   <>
@@ -205,9 +255,9 @@ function SignUpFormComponent({
                 <button
                   type="button"
                   className="text-muted-foreground underline underline-offset-4 hover:text-primary bg-transparent border-none p-0 cursor-pointer text-xs"
-                  onClick={handleInviteCodeClick}
+                  onClick={handleRegularSignUpClick}
                 >
-                  Have an invite code?
+                  Don&apos;t have an invite code?
                 </button>
               </div>
             </div>
@@ -248,4 +298,4 @@ function SignUpFormComponent({
   )
 }
 
-export const SignUpForm = React.memo(SignUpFormComponent)
+export const InviteSignUpForm = React.memo(InviteSignUpFormComponent)

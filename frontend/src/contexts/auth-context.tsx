@@ -10,8 +10,8 @@ interface AuthContextType {
   error: string | null
   isInitialized: boolean
   login: (username: string, password: string) => Promise<void>
-  register: (username: string, email: string, password: string, referralCode?: string) => Promise<void>
-  registerWithInvite: (username: string, password: string, inviteCode: string, projectName?: string) => Promise<void>
+  register: (username: string, email: string, password: string, projectName?: string, referralCode?: string) => Promise<void>
+  registerWithInvite: (username: string, password: string, inviteCode: string, email?: string, projectName?: string) => Promise<void>
   logout: () => void
   clearError: () => void
   updateUser: (userData: any) => void

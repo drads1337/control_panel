@@ -17,7 +17,6 @@ class ReferralCodeCreateSchema(BaseSchema):
     work_duration_days: Optional[int] = Field(default=None, ge=0, description="Work duration in days")
     product_ids: List[int] = Field(default_factory=list, description="List of product IDs")
     rbac_role_ids: List[int] = Field(default_factory=list, description="List of RBAC role IDs")
-    expires_days: Optional[int] = Field(default=None, ge=1, le=3650, description="Expiration in days (deprecated, use expires_in_days)")
     expires_in_days: Optional[int] = Field(default=90, ge=1, le=3650, description="Expiration in days")
 
     @field_validator("code")
@@ -51,9 +50,9 @@ class ReferralCodeCreateSchema(BaseSchema):
         valid_ids = [rid for rid in v if isinstance(rid, int) and rid > 0]
         return valid_ids
 
-    @field_validator("expires_days", "expires_in_days")
+    @field_validator("expires_in_days")
     @classmethod
-    def validate_expires_days(cls, v: Optional[int]) -> Optional[int]:
+    def validate_expires_in_days(cls, v: Optional[int]) -> Optional[int]:
         """Validate expiration days"""
         if v is not None and (v < 1 or v > 3650):
             raise ValueError("Expiration days must be between 1 and 3650")

@@ -667,15 +667,8 @@ class SessionService:
         
         return False, session_count
     
-    def _check_session_limit(self, user_id: int) -> bool:
-        """
-        DEPRECATED: Use _check_and_enforce_session_limit_atomic instead.
-        
-        This method is kept for backward compatibility but is not atomic.
-        The new method combines checking and enforcement in a single atomic operation.
-        """
-        limit_exceeded, _ = self._check_and_enforce_session_limit_atomic(user_id)
-        return limit_exceeded
+    # DEPRECATED method _check_session_limit removed.
+    # Use _check_and_enforce_session_limit_atomic instead.
     
     def _check_session_limit_db_only(self, user_id: int) -> bool:
         """

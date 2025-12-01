@@ -209,34 +209,36 @@ class Config:
     REDIS_CACHE_SSL_CERT_REQS = os.environ.get("REDIS_CACHE_SSL_CERT_REQS", "required")
     REDIS_CACHE_SSL_CA_CERTS = os.environ.get("REDIS_CACHE_SSL_CA_CERTS", None)
     
-
+    # Redis Cluster/Sentinel support for cache instance
+    REDIS_CACHE_MODE = os.environ.get("REDIS_CACHE_MODE", "standalone").lower()  # standalone, cluster, sentinel
+    REDIS_CACHE_CLUSTER_NODES = os.environ.get("REDIS_CACHE_CLUSTER_NODES", None)  # Comma-separated: host1:port1,host2:port2
+    REDIS_CACHE_SENTINEL_HOSTS = os.environ.get("REDIS_CACHE_SENTINEL_HOSTS", None)  # Comma-separated: host1:port1,host2:port2
+    REDIS_CACHE_SENTINEL_MASTER = os.environ.get("REDIS_CACHE_SENTINEL_MASTER", "mymaster")
+    REDIS_CACHE_SENTINEL_PASSWORD = os.environ.get("REDIS_CACHE_SENTINEL_PASSWORD", None)
 
     REDIS_PERSISTENT_HOST = os.environ.get("REDIS_PERSISTENT_HOST", os.environ.get("REDIS_HOST", "127.0.0.1"))
     REDIS_PERSISTENT_PORT = int(os.environ.get("REDIS_PERSISTENT_PORT", os.environ.get("REDIS_PORT", 6379)))
     REDIS_PERSISTENT_DB = int(os.environ.get("REDIS_PERSISTENT_DB", 0))
     REDIS_PERSISTENT_PASSWORD = os.environ.get("REDIS_PERSISTENT_PASSWORD", os.environ.get("REDIS_PASSWORD", None))
 
-
     REDIS_PERSISTENT_SSL = os.environ.get("REDIS_PERSISTENT_SSL", "false").lower() == "true"
     REDIS_PERSISTENT_SSL_CERT_REQS = os.environ.get("REDIS_PERSISTENT_SSL_CERT_REQS", "required")
     REDIS_PERSISTENT_SSL_CA_CERTS = os.environ.get("REDIS_PERSISTENT_SSL_CA_CERTS", None)
     
-
-
-
-
-
+    # Redis Cluster/Sentinel support for persistent instance
+    REDIS_PERSISTENT_MODE = os.environ.get("REDIS_PERSISTENT_MODE", "standalone").lower()  # standalone, cluster, sentinel
+    REDIS_PERSISTENT_CLUSTER_NODES = os.environ.get("REDIS_PERSISTENT_CLUSTER_NODES", None)  # Comma-separated: host1:port1,host2:port2
+    REDIS_PERSISTENT_SENTINEL_HOSTS = os.environ.get("REDIS_PERSISTENT_SENTINEL_HOSTS", None)  # Comma-separated: host1:port1,host2:port2
+    REDIS_PERSISTENT_SENTINEL_MASTER = os.environ.get("REDIS_PERSISTENT_SENTINEL_MASTER", "mymaster")
+    REDIS_PERSISTENT_SENTINEL_PASSWORD = os.environ.get("REDIS_PERSISTENT_SENTINEL_PASSWORD", None)
+    
     REDIS_INTEGRITY_ENABLED = os.environ.get("REDIS_INTEGRITY_ENABLED", "false").lower() == "true"
     
-
     REDIS_HOST = REDIS_PERSISTENT_HOST
     REDIS_PORT = REDIS_PERSISTENT_PORT
     REDIS_DB = REDIS_PERSISTENT_DB
     REDIS_PASSWORD = REDIS_PERSISTENT_PASSWORD
     
-
-
-
     REDIS_DB_SESSIONS = int(os.environ.get("REDIS_DB_SESSIONS", 0))
     REDIS_DB_RATE_LIMIT = int(os.environ.get("REDIS_DB_RATE_LIMIT", 1))
     REDIS_DB_DYNAMIC_CONFIG = int(os.environ.get("REDIS_DB_DYNAMIC_CONFIG", 2))
@@ -252,17 +254,12 @@ class Config:
         RATE_LIMIT_BURST = 10
 
     CHALLENGE_TTL = 120
-
-
     NONCE_TTL = int(os.environ.get("NONCE_TTL", 30))
-
     CANARY_TTL = int(os.environ.get("CANARY_TTL", CHALLENGE_TTL))
-
     PROJECT_ID_CACHE_TTL = int(os.environ.get("PROJECT_ID_CACHE_TTL", CHALLENGE_TTL))
     SUSPICIOUS_THRESHOLD = 3
     SUSPICIOUS_WINDOW = 3600
     PROGRESSIVE_DELAY = True
-
     STORAGE_CONFIG = {
         "default_backend": os.environ.get("STORAGE_BACKEND", "local"),
         "backends": {
@@ -275,7 +272,6 @@ class Config:
             },
         },
         "redis": {
-
             "host": REDIS_CACHE_HOST,
             "port": REDIS_CACHE_PORT,
             "db": REDIS_CACHE_DB,
@@ -283,7 +279,6 @@ class Config:
             "cache_ttl": int(os.environ.get("STORAGE_CACHE_TTL", 3600)),
         },
     }
-
     ENABLE_STRUCTURED_LOGGING = (
         os.environ.get("ENABLE_STRUCTURED_LOGGING", "false").lower() == "true"
     )
@@ -293,16 +288,6 @@ class Config:
 
     HEALTH_CHECK_TIMEOUT = int(os.environ.get("HEALTH_CHECK_TIMEOUT", 5))
     HEALTH_CHECK_INTERVAL = int(os.environ.get("HEALTH_CHECK_INTERVAL", 30))
-
-    SLOW_QUERY_THRESHOLD_MS = float(
-        os.environ.get("SLOW_QUERY_THRESHOLD_MS", 1000.0)
-    )
-    ENABLE_SLOW_QUERY_MONITORING = (
-        os.environ.get("ENABLE_SLOW_QUERY_MONITORING", "true").lower() == "true"
-    )
-
-
-
     ANALYTICS_BUFFER_ENABLED = (
         os.environ.get("ANALYTICS_BUFFER_ENABLED", "true").lower() == "true"
     )
@@ -321,8 +306,6 @@ class Config:
     ANALYTICS_BUFFER_BATCH_SIZE = int(
         os.environ.get("ANALYTICS_BUFFER_BATCH_SIZE", 100)
     )
-
-
     CONNECT_WARNING_RPS = int(
         os.environ.get("CONNECT_WARNING_RPS", 100)
     )
@@ -405,7 +388,6 @@ class Config:
             for k, v in _product_extensions_dict.items()
         }
     except (json.JSONDecodeError, AttributeError):
-
         ALLOWED_PRODUCT_FILE_EXTENSIONS = {
             "logo": {"png", "jpg", "jpeg", "gif"},
             "banner": {"png", "jpg", "jpeg", "gif"},
@@ -417,15 +399,11 @@ class Config:
                 "doc", "docx", "xls", "xlsx", "ppt", "pptx"
             },
         }
-
     ALLOWED_LOADER_EXTENSIONS = set(
         os.environ.get("ALLOWED_LOADER_EXTENSIONS", "png,jpg,jpeg,gif,exe,apk,so,dmg,deb,rpm").split(",")
     )
-
     WEBSOCKET_MAX_MESSAGE_SIZE = int(os.environ.get("WEBSOCKET_MAX_MESSAGE_SIZE", 1024 * 1024))
-
     CELERY_WORKER_CONFIG = {
-
         "server_tasks": {
             "workers": int(os.environ.get("CELERY_SERVER_TASKS_WORKERS", 3)),
             "concurrency": int(os.environ.get("CELERY_SERVER_TASKS_CONCURRENCY", 4)),
@@ -450,22 +428,9 @@ class Config:
             "description": "Handles general/default tasks",
         },
     }
-    
-
-
-
-
-
     TRUSTED_PROXY_IPS = os.environ.get("TRUSTED_PROXY_IPS", "127.0.0.1,::1").split(",")
     TRUSTED_PROXY_IPS = [ip.strip() for ip in TRUSTED_PROXY_IPS if ip.strip()]
-    
-
-
-
-
     MTLS_REQUIRE_WSGI_VARS = os.environ.get("MTLS_REQUIRE_WSGI_VARS", "true").lower() == "true"
-    
-
     MAIL_SERVER = os.environ.get("MAIL_SERVER", "smtp.gmail.com")
     MAIL_PORT = int(os.environ.get("MAIL_PORT", 587))
     MAIL_USE_TLS = os.environ.get("MAIL_USE_TLS", "true").lower() == "true"

@@ -5,6 +5,7 @@ Provides JSON-based logging with correlation IDs, metrics, and distributed traci
 
 import json
 import logging
+import os
 import threading
 import time
 import uuid
@@ -33,8 +34,9 @@ class StructuredFormatter(logging.Formatter):
             "module": record.module,
             "function": record.funcName,
             "line": record.lineno,
-            "thread_id": threading.get_ident(),
             "process_id": record.process,
+            # thread_id removed: threading.get_ident() is not reliable for async workers (Gunicorn+Gevent, Uvicorn)
+            # Use process_id and correlation_id for request tracking instead
         }
 
         request_id = request_id_var.get()
@@ -164,7 +166,17 @@ class StructuredLogger:
 
     def _log_with_context(self, level: str, message: str, **kwargs):
         """Log with additional context"""
-
+        from ..config.config import Config, IS_PRODUCTION
+        
+        # Log sampling for info level in production to reduce log volume
+        # This prevents flooding log aggregation systems (ELK/Datadog) on high-load
+        if level == "info" and IS_PRODUCTION:
+            import random
+            # Sample rate: 10% of info logs in production (configurable via env)
+            sample_rate = float(os.environ.get("LOG_SAMPLE_RATE", "0.1"))
+            if random.random() > sample_rate:
+                return  # Skip this log entry
+        
         exc_info = kwargs.pop("exc_info", None)
         extra = {
             "request_id": request_id_var.get(),

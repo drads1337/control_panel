@@ -14,6 +14,7 @@ from typing import Dict, Optional
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
+import psycopg2
 
 from ...core.extensions import db
 from ...models.core import Project, ProjectEncryptionKeys, User
@@ -33,6 +34,24 @@ class SettingsRepository:
         try:
             return User.query.get(user_id)
         except Exception as e:
+            # Check if this is a transaction aborted error
+            error_str = str(e).lower()
+            is_transaction_aborted = (
+                isinstance(e, psycopg2.errors.InFailedSqlTransaction) or
+                (hasattr(e, 'orig') and isinstance(e.orig, psycopg2.errors.InFailedSqlTransaction)) or
+                'current transaction is aborted' in error_str or
+                'commands ignored until end of transaction block' in error_str
+            )
+            
+            if is_transaction_aborted:
+                logger.warning(f"Transaction aborted, rolling back and retrying user query for user_id {user_id}: {str(e)}")
+                db.session.rollback()
+                # Retry the query after rollback
+                try:
+                    return User.query.get(user_id)
+                except Exception as retry_error:
+                    logger.error(f"Database error querying user {user_id} after rollback: {retry_error}")
+                    raise
             logger.error(f"Database error querying user {user_id}: {e}")
             raise
 
@@ -41,6 +60,24 @@ class SettingsRepository:
         try:
             return Project.query.get(project_id)
         except Exception as e:
+            # Check if this is a transaction aborted error
+            error_str = str(e).lower()
+            is_transaction_aborted = (
+                isinstance(e, psycopg2.errors.InFailedSqlTransaction) or
+                (hasattr(e, 'orig') and isinstance(e.orig, psycopg2.errors.InFailedSqlTransaction)) or
+                'current transaction is aborted' in error_str or
+                'commands ignored until end of transaction block' in error_str
+            )
+            
+            if is_transaction_aborted:
+                logger.warning(f"Transaction aborted, rolling back and retrying project query for project_id {project_id}: {str(e)}")
+                db.session.rollback()
+                # Retry the query after rollback
+                try:
+                    return Project.query.get(project_id)
+                except Exception as retry_error:
+                    logger.error(f"Database error querying project {project_id} after rollback: {retry_error}")
+                    raise
             logger.error(f"Database error querying project {project_id}: {e}")
             raise
 
@@ -51,6 +88,26 @@ class SettingsRepository:
                 return Project.query.filter_by(is_active=True).order_by(Project.id.asc()).first()
             return Project.query.order_by(Project.id.asc()).first()
         except Exception as e:
+            # Check if this is a transaction aborted error
+            error_str = str(e).lower()
+            is_transaction_aborted = (
+                isinstance(e, psycopg2.errors.InFailedSqlTransaction) or
+                (hasattr(e, 'orig') and isinstance(e.orig, psycopg2.errors.InFailedSqlTransaction)) or
+                'current transaction is aborted' in error_str or
+                'commands ignored until end of transaction block' in error_str
+            )
+            
+            if is_transaction_aborted:
+                logger.warning(f"Transaction aborted, rolling back and retrying project lookup: {str(e)}")
+                db.session.rollback()
+                # Retry the query after rollback
+                try:
+                    if active_only:
+                        return Project.query.filter_by(is_active=True).order_by(Project.id.asc()).first()
+                    return Project.query.order_by(Project.id.asc()).first()
+                except Exception as retry_error:
+                    logger.error(f"Error looking up projects after rollback: {retry_error}")
+                    raise
             logger.error(f"Error looking up projects: {e}")
             raise
 
@@ -159,6 +216,24 @@ class SettingsRepository:
         try:
             return ProjectEncryptionKeys.query.filter_by(project_id=project_id).first()
         except Exception as e:
+            # Check if this is a transaction aborted error
+            error_str = str(e).lower()
+            is_transaction_aborted = (
+                isinstance(e, psycopg2.errors.InFailedSqlTransaction) or
+                (hasattr(e, 'orig') and isinstance(e.orig, psycopg2.errors.InFailedSqlTransaction)) or
+                'current transaction is aborted' in error_str or
+                'commands ignored until end of transaction block' in error_str
+            )
+            
+            if is_transaction_aborted:
+                logger.warning(f"Transaction aborted, rolling back and retrying encryption keys query for project_id {project_id}: {str(e)}")
+                db.session.rollback()
+                # Retry the query after rollback
+                try:
+                    return ProjectEncryptionKeys.query.filter_by(project_id=project_id).first()
+                except Exception as retry_error:
+                    logger.error(f"Error getting encryption keys for project_id {project_id} after rollback: {retry_error}")
+                    return None
             logger.error(f"Error getting encryption keys for project_id {project_id}: {e}")
             return None
 

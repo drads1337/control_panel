@@ -470,17 +470,14 @@ class AnalyticsService:
             storage_health = self._check_storage_health()
             disk_usage = 100 - storage_health.get("free_percentage", 0)
 
-            cpu_usage = self._get_cpu_usage()
-
-            memory_usage = self._get_memory_usage()
+            # CPU and memory usage removed.
+            # Use Kubernetes/Docker/Prometheus Node Exporter for system resource monitoring.
 
             network_status = self._check_network_status()
 
             last_backup = datetime.utcnow().isoformat()
 
             return {
-                "cpu_usage": round(cpu_usage, 1),
-                "memory_usage": round(memory_usage, 1),
                 "disk_usage": round(disk_usage, 1),
                 "network_status": network_status,
                 "database_status": database_status,
@@ -655,69 +652,8 @@ class AnalyticsService:
                 "message": f"Storage error: {str(e)}",
             }
 
-    def _get_cpu_usage(self) -> float:
-        """Get CPU usage percentage"""
-        try:
-            import psutil
-
-            return psutil.cpu_percent(interval=0.1)
-        except ImportError:
-
-            try:
-
-                with open("/proc/stat", "r") as f:
-                    line1 = f.readline()
-                    if line1.startswith("cpu "):
-                        fields1 = line1.split()
-                        total1 = sum(int(f) for f in fields1[1:])
-                        idle1 = int(fields1[4])
-
-                time.sleep(0.1)
-
-                with open("/proc/stat", "r") as f:
-                    line2 = f.readline()
-                    if line2.startswith("cpu "):
-                        fields2 = line2.split()
-                        total2 = sum(int(f) for f in fields2[1:])
-                        idle2 = int(fields2[4])
-
-                        total_delta = total2 - total1
-                        idle_delta = idle2 - idle1
-                        if total_delta > 0:
-                            usage = 100.0 * (1.0 - (idle_delta / total_delta))
-                            return max(0.0, min(100.0, usage))
-            except (IOError, ValueError, IndexError, AttributeError):
-                pass
-
-            return 25.0
-
-    def _get_memory_usage(self) -> float:
-        """Get memory usage percentage"""
-        try:
-            import psutil
-
-            return psutil.virtual_memory().percent
-        except ImportError:
-
-            try:
-                with open("/proc/meminfo", "r") as f:
-                    meminfo = {}
-                    for line in f:
-                        parts = line.split()
-                        if len(parts) >= 2:
-                            meminfo[parts[0].rstrip(":")] = int(parts[1])
-
-                    total = meminfo.get("MemTotal", 0)
-                    available = meminfo.get("MemAvailable", meminfo.get("MemFree", 0))
-
-                    if total > 0:
-                        used = total - available
-                        usage = 100.0 * (used / total)
-                        return max(0.0, min(100.0, usage))
-            except (IOError, ValueError, KeyError):
-                pass
-
-            return 45.0
+    # CPU and memory usage methods removed.
+    # Use Kubernetes/Docker/Prometheus Node Exporter for system resource monitoring.
 
     def _check_network_status(self) -> str:
         """Check network connectivity status"""

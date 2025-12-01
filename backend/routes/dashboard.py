@@ -15,7 +15,6 @@ from ..models.servers import Server
 from ..services.monitoring.prometheus_metrics_reader import prometheus_metrics_reader
 from ..utils.rbac_utils import RBACManager
 from ..utils.role_constants import UserRoles
-from ..utils.slow_query_monitor import get_slow_query_monitor
 from ..utils.service_helpers import get_service
 
 dashboard_bp = Blueprint("dashboard", __name__)
@@ -324,71 +323,8 @@ def get_dashboard_stats(project_id=None):
             "announcements": announcements_data,
         }
 
-        if RBACManager.is_owner(user):
-            try:
-                slow_query_monitor = get_slow_query_monitor()
-                query_stats = slow_query_monitor.get_statistics()
-                slow_queries = slow_query_monitor.get_slow_queries(limit=10)
-                top_slow_patterns = slow_query_monitor.get_top_slow_patterns(limit=5)
-
-                response["slow_queries"] = {
-                    "summary": {
-                        "total_queries": query_stats["stats"]["total_queries"],
-                        "slow_queries": query_stats["stats"]["slow_queries"],
-                        "avg_query_time_ms": round(
-                            query_stats["stats"].get("avg_query_time_ms", 0), 2
-                        ),
-                        "max_query_time_ms": round(
-                            query_stats["stats"].get("max_query_time_ms", 0), 2
-                        ),
-                        "slow_query_ratio": round(
-                            (
-                                (
-                                    query_stats["stats"]["slow_queries"]
-                                    / query_stats["stats"]["total_queries"]
-                                    * 100
-                                )
-                                if query_stats["stats"]["total_queries"] > 0
-                                else 0
-                            ),
-                            2,
-                        ),
-                        "threshold_ms": slow_query_monitor.slow_query_threshold_ms,
-                    },
-                    "recent_slow_queries": [
-                        {
-                            "timestamp": q["timestamp"],
-                            "duration_ms": q["duration_ms"],
-                            "query_type": q["query_type"],
-                            "tables": q["tables"],
-                            "endpoint": q.get("endpoint"),
-                            "statement_preview": (
-                                q["statement"][:100] + "..."
-                                if len(q["statement"]) > 100
-                                else q["statement"]
-                            ),
-                        }
-                        for q in slow_queries[:10]
-                    ],
-                    "top_slow_patterns": [
-                        {
-                            "fingerprint": p["fingerprint"],
-                            "sample_query": (
-                                p["sample_query"][:150] + "..."
-                                if len(p["sample_query"]) > 150
-                                else p["sample_query"]
-                            ),
-                            "count": p["count"],
-                            "avg_duration_ms": round(p["avg_duration_ms"], 2),
-                            "max_duration_ms": round(p["max_duration_ms"], 2),
-                            "tables": p["tables"],
-                        }
-                        for p in top_slow_patterns
-                    ],
-                }
-            except Exception as e:
-                logging.warning(f"Failed to get slow query stats for owner dashboard: {e}")
-                response["slow_queries"] = None
+        # Slow query monitoring removed.
+        # Use APM tools (Datadog, NewRelic) or PostgreSQL's pg_stat_statements for query monitoring.
 
         return jsonify(response)
 
@@ -665,51 +601,9 @@ def _authenticated_api_metrics(project_id=None):
                 }
             )
 
+        # System load data (CPU, RAM, Disk) removed.
+        # Use Kubernetes/Docker/Prometheus Node Exporter for system resource monitoring.
         system_load_data = []
-        try:
-            import psutil
-
-            current_cpu = psutil.cpu_percent(interval=0.1)
-            current_memory = psutil.virtual_memory().percent
-            current_disk = psutil.disk_usage("/").percent
-
-            for i in range(12):
-                hour = datetime.utcnow() - timedelta(hours=11 - i)
-
-                variation = (i % 3) * 2
-                cpu = max(0, min(100, current_cpu + variation))
-                memory = max(0, min(100, current_memory + variation))
-                disk = max(0, min(100, current_disk + variation))
-
-                network = max(0, min(100, 15 + variation))
-
-                system_load_data.append(
-                    {
-                        "time": hour.strftime("%H:00"),
-                        "cpu": round(cpu, 1),
-                        "memory": round(memory, 1),
-                        "disk": round(disk, 1),
-                        "network": round(network, 1),
-                    }
-                )
-        except ImportError:
-
-            logging.warning("psutil not available, using placeholder system load data")
-            for i in range(12):
-                hour = datetime.utcnow() - timedelta(hours=11 - i)
-                system_load_data.append(
-                    {
-                        "time": hour.strftime("%H:00"),
-                        "cpu": 0,
-                        "memory": 0,
-                        "disk": 0,
-                        "network": 0,
-                    }
-                )
-        except Exception as e:
-            logging.error(f"Error getting system load data: {str(e)}")
-
-            system_load_data = []
 
         user_activity_data = []
         for i in range(7):
@@ -832,61 +726,8 @@ def _authenticated_api_metrics(project_id=None):
             "user_activity_data": user_activity_data,
         }
 
-        if RBACManager.is_owner(user):
-            try:
-                slow_query_monitor = get_slow_query_monitor()
-                query_stats = slow_query_monitor.get_statistics()
-                top_slow_patterns = slow_query_monitor.get_top_slow_patterns(limit=5)
-                table_stats = slow_query_monitor.get_table_statistics()
-
-                response_data["slow_queries"] = {
-                    "stats": {
-                        "total_queries": query_stats["stats"]["total_queries"],
-                        "slow_queries": query_stats["stats"]["slow_queries"],
-                        "avg_query_time_ms": round(
-                            query_stats["stats"].get("avg_query_time_ms", 0), 2
-                        ),
-                        "max_query_time_ms": round(
-                            query_stats["stats"].get("max_query_time_ms", 0), 2
-                        ),
-                        "slow_query_ratio": round(
-                            (
-                                (
-                                    query_stats["stats"]["slow_queries"]
-                                    / query_stats["stats"]["total_queries"]
-                                    * 100
-                                )
-                                if query_stats["stats"]["total_queries"] > 0
-                                else 0
-                            ),
-                            2,
-                        ),
-                    },
-                    "top_slow_patterns": [
-                        {
-                            "fingerprint": p["fingerprint"],
-                            "sample_query": p["sample_query"],
-                            "count": p["count"],
-                            "avg_duration_ms": round(p["avg_duration_ms"], 2),
-                            "max_duration_ms": round(p["max_duration_ms"], 2),
-                            "tables": p["tables"],
-                        }
-                        for p in top_slow_patterns
-                    ],
-                    "table_stats": {
-                        table: {
-                            "total_queries": stats["total_queries"],
-                            "slow_queries": stats["slow_queries"],
-                            "avg_duration_ms": stats["avg_duration_ms"],
-                            "max_duration_ms": stats["max_duration_ms"],
-                        }
-                        for table, stats in list(table_stats.items())[:10]
-                    },
-                    "threshold_ms": slow_query_monitor.slow_query_threshold_ms,
-                }
-            except Exception as e:
-                logging.warning(f"Failed to get slow query stats for owner dashboard: {e}")
-                response_data["slow_queries"] = None
+        # Slow query monitoring removed.
+        # Use APM tools (Datadog, NewRelic) or PostgreSQL's pg_stat_statements for query monitoring.
 
         return jsonify(response_data)
 

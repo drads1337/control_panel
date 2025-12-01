@@ -345,10 +345,10 @@ def create_product(validated_data=None):
     user = User.query.get(user_id)
 
     if not user:
-
-        activity_service = get_service('activity_service')
-        product_service = get_service('product_service')
         return jsonify({"error": "User not found"}), 404
+
+    activity_service = get_service('activity_service')
+    product_service = get_service('product_service')
 
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
@@ -365,8 +365,6 @@ def create_product(validated_data=None):
 
         if not validated_data:
             return jsonify({"error": "Invalid request data"}), 400
-
-
         new_product = product_service.create_product(user, validated_data)
 
         activity_service.log_activity(user, "product_created", details=f"Created product: {new_product.id}")
@@ -405,13 +403,13 @@ def create_product(validated_data=None):
 @validate_request(ProductStatusUpdateSchema)
 def update_product_status(product_identifier, validated_data=None):
     """Update product status"""
+    activity_service = get_service('activity_service')
+    product_service = get_service('product_service')
+    
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
     if not user:
-
-        activity_service = get_service('activity_service')
-        product_service = get_service('product_service')
         return jsonify({"error": "User not found"}), 404
 
     if not user.project_id:
@@ -437,7 +435,11 @@ def update_product_status(product_identifier, validated_data=None):
 
         old_status = product.status
         product.status = new_status
+        product.is_active = new_status == "active"
         db.session.commit()
+        
+        # Refresh the object to ensure we have the latest data from DB
+        db.session.refresh(product)
 
         product_service.invalidate_product_cache(user.project_id, product.id)
 
@@ -476,13 +478,13 @@ def update_product_status(product_identifier, validated_data=None):
 @validate_request(ProductUpdateSchema, allow_empty=True)
 def update_product(product_identifier, validated_data=None):
     """Update a product"""
+    activity_service = get_service('activity_service')
+    product_service = get_service('product_service')
+    
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
     if not user:
-
-        activity_service = get_service('activity_service')
-        product_service = get_service('product_service')
         return jsonify({"error": "User not found"}), 404
 
     if not user.project_id:
@@ -562,13 +564,13 @@ def update_product(product_identifier, validated_data=None):
 @enforce_project_scope
 def delete_product(product_identifier):
     """Delete a product"""
+    activity_service = get_service('activity_service')
+    product_service = get_service('product_service')
+    
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
     if not user:
-
-        activity_service = get_service('activity_service')
-        product_service = get_service('product_service')
         return jsonify({"error": "User not found"}), 404
 
     if not user.project_id:
@@ -631,9 +633,8 @@ def get_classic_users_for_product(product_identifier, current_user=None):
     Get users who have permissions for a specific product.
     
     Replaces legacy endpoint: GET /api/clients/<product_id>/classic-users
-    # Get services once at the start (DI pattern)
-    rbac_service = get_service('rbac_service')
     """
+    rbac_service = get_service('rbac_service')
     
     user_id = get_jwt_identity()
     user = current_user or User.query.get(user_id)

@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from "react"
 import { AlertCircle, Loader2 } from "lucide-react"
 import { useNavigate } from "react-router-dom"
+import { motion } from "framer-motion"
 
 import { cn } from "@/lib/utils"
 import { useLoginForm } from "@/hooks/use-login-form"
@@ -50,28 +51,40 @@ function LoginFormComponent({
   }, [])
 
   return (
-    <div className={cn("flex flex-col gap-6", className)} {...props}>
+    <motion.div 
+      className={cn("flex flex-col gap-6", className)} 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.15, ease: [0.4, 0, 0.2, 1] }}
+    >
       <Card className="@container/card overflow-hidden p-0">
         <CardContent className="grid p-0 md:grid-cols-2">
-          <form className="p-6 md:p-8" onSubmit={handleSubmit}>
-            <div className="flex flex-col gap-6">
-              <div className="flex flex-col items-center text-center">
+          <motion.form 
+            className="p-6 md:p-8" 
+            onSubmit={handleSubmit}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.15, ease: [0.4, 0, 0.2, 1] }}
+          >
+            <div className="flex flex-col">
+              <div className="flex flex-col items-center text-center mb-6">
                 <h1 className="text-2xl font-bold">Welcome back</h1>
                 <p className="text-muted-foreground text-balance">
                   Login to your Panel account
                 </p>
               </div>
 
-              {}
               {error && (
-                <Alert variant="destructive">
+                <Alert variant="destructive" className="mb-6">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
 
-              <div className="space-y-2">
-                <Label htmlFor="username">Username or Email</Label>
+              <div className="space-y-2 mb-6">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="username">Username or Email</Label>
+                </div>
                 <Input
                   id="username"
                   type="text"
@@ -89,7 +102,7 @@ function LoginFormComponent({
                 )}
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2 mb-6">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password">Password</Label>
                   <button
@@ -117,7 +130,7 @@ function LoginFormComponent({
                 )}
               </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button type="submit" className="w-full mb-6" disabled={isLoading}>
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -139,7 +152,7 @@ function LoginFormComponent({
                 </button>
               </div>
             </div>
-          </form>
+          </motion.form>
 
           <div className="bg-muted relative hidden md:block">
             <React.Suspense
@@ -171,7 +184,7 @@ function LoginFormComponent({
           </div>
         </CardContent>
       </Card>
-    </div>
+    </motion.div>
   )
 }
 

@@ -13,10 +13,12 @@ from ...middleware.validation import validate_request
 from ...schemas.balance import BalanceTopupSchema, BalanceDeductSchema, BalanceTransactionsQuerySchema
 from ...utils.role_constants import RolePermissions
 from ...utils.service_helpers import get_service
+from ...utils.idempotency import require_idempotency
 
 logger = logging.getLogger(__name__)
 balance_bp = Blueprint("users_balance", __name__)
 
+@require_idempotency(ttl=3600, required=True)  # 1 hour TTL, required for financial operations
 @balance_bp.route("/topup", methods=["POST"])
 @jwt_required()
 @require_user
@@ -26,9 +28,9 @@ balance_bp = Blueprint("users_balance", __name__)
 def topup_user_balance(current_user, validated_data=None):
     """Top up user balance"""
 
+    balance_service = get_service('balance_service')
+    
     if not validated_data:
-
-        balance_service = get_service('balance_service')
         return jsonify({"error": "No data provided"}), 400
 
     data = BalanceTopupSchema(**validated_data)
@@ -87,6 +89,7 @@ def topup_user_balance(current_user, validated_data=None):
 
     return jsonify({"message": f"Successfully topped up {amount} tokens", **result_data})
 
+@require_idempotency(ttl=3600, required=True)  # 1 hour TTL, required for financial operations
 @balance_bp.route("/deduct", methods=["POST"])
 @jwt_required()
 @require_user
@@ -96,6 +99,8 @@ def topup_user_balance(current_user, validated_data=None):
 def deduct_user_balance(current_user, validated_data=None):
     """Deduct from user balance"""
 
+    balance_service = get_service('balance_service')
+    
     if not validated_data:
         return jsonify({"error": "No data provided"}), 400
 
@@ -164,6 +169,8 @@ def deduct_user_balance(current_user, validated_data=None):
 def get_user_transactions(current_user, validated_params=None):
     """Get transaction history for a user with pagination"""
 
+    balance_service = get_service('balance_service')
+    
     if not validated_params:
 
         user_id = request.args.get("user_id")

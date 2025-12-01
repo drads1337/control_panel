@@ -128,8 +128,7 @@ class ProjectCRUDService:
                 storage_limit_bytes = 500 * (1024 ** 2)
                 subscription_expires_at = None
             else:
-
-                storage_limit_bytes = 10 * (1024 ** 3)
+                storage_limit_bytes = 3 * (1024 ** 3)
                 subscription_expires_at = datetime.utcnow() + timedelta(days=30)
             
             project = Project(
@@ -144,12 +143,7 @@ class ProjectCRUDService:
 
             db.session.add(project)
             db.session.flush()
-            
-
-
-            
             db.session.commit()
-
             try:
                 if not self._activity_service:
                     raise ServiceError(
@@ -167,7 +161,6 @@ class ProjectCRUDService:
             except Exception as e:
                 self.logger.warning(f"Failed to log project creation activity: {e}")
 
-
             try:
                 if not self._security_rules_init_service:
                     raise ServiceError(
@@ -179,10 +172,6 @@ class ProjectCRUDService:
                 self.logger.info(f"Initialized default security rules for project {project.id}")
             except Exception as e:
                 self.logger.warning(f"Failed to initialize security rules for project {project.id}: {e}")
-
-
-
-
             return project
 
         except (NotFoundError, ValidationError, ConflictError):
@@ -279,9 +268,9 @@ class ProjectCRUDService:
                     subscription_expires_at = None
                     project.subscription_expires_at = subscription_expires_at
                 elif subscription_status == "pro":
-
-                    if project.storage_limit < 10 * (1024 ** 3):
-                        project.storage_limit = 10 * (1024 ** 3)
+                    # Pro tier: keep current limit or set default 3 GB
+                    if project.storage_limit < 3 * (1024 ** 3):
+                        project.storage_limit = 3 * (1024 ** 3)
 
             if storage_limit_gb is not None:
                 if storage_limit_gb < 0:
@@ -354,15 +343,12 @@ class ProjectCRUDService:
             if not user:
                 raise NotFoundError("User", resource_id=str(user_id))
 
-
             is_owner = RBACManager.is_owner(user)
             if not is_owner:
                 raise ServiceError("Only owners can delete projects", status_code=403)
 
             project_name = project.name
             project_id_int = project.id
-
-
             try:
                 if not self._activity_service:
                     raise ServiceError(

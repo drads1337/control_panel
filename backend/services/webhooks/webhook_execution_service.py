@@ -26,14 +26,35 @@ from ...core.extensions import db
 from ...models.webhooks import WebhookPendingTask
 from ...utils.service_exceptions import ServiceError
 
-
+# Check Celery availability from central location
 try:
-    from ...tasks.webhook_tasks import process_webhook as celery_process_webhook
-    CELERY_AVAILABLE = True
+    from ...core.celery_app import CELERY_AVAILABLE
 except ImportError:
     CELERY_AVAILABLE = False
-    celery_process_webhook = None
-    logging.warning("Celery webhook tasks not available. Webhooks will use fallback mode.")
+
+# Lazy import of webhook tasks - only when needed
+_webhook_tasks_imported = False
+_celery_process_webhook = None
+
+def _import_webhook_tasks():
+    """Lazy import of webhook tasks"""
+    global _webhook_tasks_imported, _celery_process_webhook
+    
+    if _webhook_tasks_imported:
+        return _celery_process_webhook
+    
+    if CELERY_AVAILABLE:
+        try:
+            from ...tasks.webhook_tasks import process_webhook
+            _celery_process_webhook = process_webhook
+            _webhook_tasks_imported = True
+        except ImportError:
+            # Only log warning if Celery is supposed to be available
+            if CELERY_AVAILABLE:
+                logging.warning("Celery webhook tasks not available. Webhooks will use fallback mode.")
+            _webhook_tasks_imported = True  # Mark as imported to avoid repeated warnings
+    
+    return _celery_process_webhook
 
 class SSRFProtectedHTTPAdapter(HTTPAdapter):
     """
@@ -41,15 +62,32 @@ class SSRFProtectedHTTPAdapter(HTTPAdapter):
     1. Validating IP addresses before connecting
     2. Blocking connections to private/internal IP ranges
     3. Using cached IP addresses when available
+    
+    SECURITY: This adapter enforces that only pre-validated IP addresses
+    from the allowed_ips list can be connected to. This prevents DNS rebinding
+    and TOCTOU attacks by using cached IP addresses from validation time.
     """
     
     def __init__(self, allowed_ips: Optional[List[str]] = None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.allowed_ips = allowed_ips or []
         self.logger = logging.getLogger(__name__)
+        
+        if not self.allowed_ips:
+            self.logger.warning(
+                "SSRFProtectedHTTPAdapter initialized with no allowed_ips. "
+                "This should not happen in production - all connections will be blocked."
+            )
     
     def init_poolmanager(self, *args, **kwargs):
-
+        """
+        Initialize connection pool manager.
+        
+        SECURITY: We rely on DNS resolution happening before this point,
+        and the fact that we use cached IP addresses from validation.
+        The actual IP validation happens in send_custom_webhook where
+        we ensure only validated_ips are used.
+        """
         return super().init_poolmanager(*args, **kwargs)
     
     def _validate_ip(self, ip_address: str) -> bool:
@@ -164,6 +202,8 @@ class WebhookExecutionService:
                     "message_template": webhook.message_template,
                 }
 
+                # Lazy import webhook tasks
+                celery_process_webhook = _import_webhook_tasks()
 
                 if CELERY_AVAILABLE and celery_process_webhook:
                     try:
@@ -365,11 +405,20 @@ class WebhookExecutionService:
                 if not validated_ips:
                     return False, "Failed to validate webhook URL"
 
+            # SECURITY: Log validated IPs for audit trail
+            self.logger.debug(
+                f"WEBHOOK_SSRF_PROTECTION: Using {len(validated_ips)} validated IP(s) "
+                f"for {url}: {validated_ips}"
+            )
 
             session = requests.Session()
             adapter = SSRFProtectedHTTPAdapter(allowed_ips=validated_ips)
             session.mount("https://", adapter)
             session.mount("http://", adapter)
+            
+            # SECURITY: Ensure redirects are disabled at session level as well
+            # (requests library may have default redirect handling)
+            session.max_redirects = 0
 
             error_message = None
             for attempt in range(self.max_retries):
@@ -381,16 +430,29 @@ class WebhookExecutionService:
                         json=payload,
                         headers=headers,
                         timeout=self.timeout,
-                        allow_redirects=False
+                        allow_redirects=False  # SECURITY: Critical - prevents SSRF via redirects
                     )
 
-
+                    # SECURITY: Double-check for redirects even with allow_redirects=False
+                    # Some HTTP libraries may still follow redirects in edge cases
                     if response.status_code in [301, 302, 303, 307, 308]:
+                        redirect_location = response.headers.get('Location', '')
                         self.logger.warning(
                             f"WEBHOOK_SSRF_BLOCKED: Redirect detected for {url} "
-                            f"(Status {response.status_code}). Redirects are blocked for security."
+                            f"(Status {response.status_code}, Location: {redirect_location}). "
+                            f"Redirects are blocked for security."
                         )
                         error_message = "Redirect detected and blocked for security"
+                        continue
+                    
+                    # SECURITY: Verify response didn't come from a redirect
+                    # (check if final URL differs from requested URL)
+                    if hasattr(response, 'url') and response.url != url:
+                        self.logger.warning(
+                            f"WEBHOOK_SSRF_BLOCKED: URL changed from {url} to {response.url}. "
+                            f"This should not happen with allow_redirects=False."
+                        )
+                        error_message = "Unexpected URL change detected (possible redirect)"
                         continue
 
                     if response.status_code in [200, 201, 202, 204]:

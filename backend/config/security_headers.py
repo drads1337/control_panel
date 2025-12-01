@@ -21,6 +21,7 @@ Note: Some headers are also set in nginx.conf, but having them in Flask provides
 """
 
 import logging
+import os
 from flask import Flask, request
 
 logger = logging.getLogger(__name__)
@@ -54,23 +55,75 @@ def setup_security_headers(app: Flask) -> None:
 
 
 
-        csp_policy = (
-            "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; "
-            "style-src 'self' 'unsafe-inline' https:; "
-            "img-src 'self' data: https: blob:; "
-            "font-src 'self' data: https:; "
-            "connect-src 'self' https: wss: ws:; "
-            "frame-ancestors 'none'; "
-            "base-uri 'self'; "
-            "form-action 'self'; "
-            "upgrade-insecure-requests; "
-            "block-all-mixed-content; "
-            "object-src 'none'; "
-            "media-src 'self' https:; "
-            "worker-src 'self' blob:; "
-            "require-trusted-types-for 'script';"
-        )
+        # Get CSP policy from environment or use default
+        csp_policy = os.environ.get('CSP_POLICY')
+        
+        if not csp_policy:
+            # Build CSP policy from individual directives (configurable)
+            csp_directives = []
+            
+            # default-src
+            default_src = os.environ.get('CSP_DEFAULT_SRC', "'self'")
+            csp_directives.append(f"default-src {default_src}")
+            
+            # script-src
+            script_src = os.environ.get('CSP_SCRIPT_SRC', "'self' 'unsafe-inline' 'unsafe-eval' https:")
+            csp_directives.append(f"script-src {script_src}")
+            
+            # style-src
+            style_src = os.environ.get('CSP_STYLE_SRC', "'self' 'unsafe-inline' https:")
+            csp_directives.append(f"style-src {style_src}")
+            
+            # img-src
+            img_src = os.environ.get('CSP_IMG_SRC', "'self' data: https: blob:")
+            csp_directives.append(f"img-src {img_src}")
+            
+            # font-src
+            font_src = os.environ.get('CSP_FONT_SRC', "'self' data: https:")
+            csp_directives.append(f"font-src {font_src}")
+            
+            # connect-src
+            connect_src = os.environ.get('CSP_CONNECT_SRC', "'self' https: wss: ws:")
+            csp_directives.append(f"connect-src {connect_src}")
+            
+            # frame-ancestors
+            frame_ancestors = os.environ.get('CSP_FRAME_ANCESTORS', "'none'")
+            csp_directives.append(f"frame-ancestors {frame_ancestors}")
+            
+            # base-uri
+            base_uri = os.environ.get('CSP_BASE_URI', "'self'")
+            csp_directives.append(f"base-uri {base_uri}")
+            
+            # form-action
+            form_action = os.environ.get('CSP_FORM_ACTION', "'self'")
+            csp_directives.append(f"form-action {form_action}")
+            
+            # upgrade-insecure-requests (optional)
+            if os.environ.get('CSP_UPGRADE_INSECURE_REQUESTS', 'true').lower() == 'true':
+                csp_directives.append("upgrade-insecure-requests")
+            
+            # block-all-mixed-content (optional)
+            if os.environ.get('CSP_BLOCK_MIXED_CONTENT', 'true').lower() == 'true':
+                csp_directives.append("block-all-mixed-content")
+            
+            # object-src
+            object_src = os.environ.get('CSP_OBJECT_SRC', "'none'")
+            csp_directives.append(f"object-src {object_src}")
+            
+            # media-src
+            media_src = os.environ.get('CSP_MEDIA_SRC', "'self' https:")
+            csp_directives.append(f"media-src {media_src}")
+            
+            # worker-src
+            worker_src = os.environ.get('CSP_WORKER_SRC', "'self' blob:")
+            csp_directives.append(f"worker-src {worker_src}")
+            
+            # require-trusted-types-for (optional)
+            if os.environ.get('CSP_REQUIRE_TRUSTED_TYPES', 'true').lower() == 'true':
+                csp_directives.append("require-trusted-types-for 'script'")
+            
+            csp_policy = "; ".join(csp_directives)
+        
         response.headers['Content-Security-Policy'] = csp_policy
         
 

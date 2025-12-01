@@ -1,8 +1,8 @@
-"""Initial migration - создание всех таблиц
+"""Initial migration - create all tables
 
-Revision ID: 85667c704001
+Revision ID: eb35e1487b67
 Revises: 
-Create Date: 2025-11-28 15:14:03.718995
+Create Date: 2025-11-30 19:22:55.190222
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '85667c704001'
+revision = 'eb35e1487b67'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -38,8 +38,10 @@ def upgrade():
     sa.Column('total_servers', sa.Integer(), nullable=False),
     sa.Column('active_users', sa.Integer(), nullable=False),
     sa.Column('active_keys', sa.Integer(), nullable=False),
+    sa.Column('secret_key', sa.String(length=64), nullable=True),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('name'),
+    sa.UniqueConstraint('secret_key'),
     sa.UniqueConstraint('unique_id')
     )
     op.create_table('system_settings',
@@ -203,7 +205,8 @@ def upgrade():
     op.create_table('project_encryption_keys',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('project_id', sa.Integer(), nullable=False),
-    sa.Column('aes_key', sa.Text(), nullable=False),
+    sa.Column('aes_key', sa.Text(), nullable=True),
+    sa.Column('aes_key_encrypted', sa.Text(), nullable=True),
     sa.Column('public_key_cert', sa.Text(), nullable=False),
     sa.Column('private_key_encrypted', sa.Text(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=True),

@@ -497,8 +497,12 @@ def init_services(app):
     container.register('activity_service', ActivityService, scope=ServiceScope.SINGLETON)
     
 
+    from ..services.auth.login_service import LoginService
+    from ..services.auth.auth_token_service import AuthTokenService
     from ..services.auth.auth_service import AuthService
 
+    container.register('login_service', LoginService, scope=ServiceScope.SINGLETON)
+    container.register('auth_token_service', lambda: AuthTokenService(), scope=ServiceScope.SINGLETON)
     container.register('auth_service', AuthService, scope=ServiceScope.SINGLETON)
     
 
@@ -693,27 +697,14 @@ def init_services(app):
     container.register('invite_service', lambda: InviteService(), scope=ServiceScope.SINGLETON)
     
 
-
-    from ..services.auth.login_service import LoginService
-    from ..services.auth.auth_token_service import AuthTokenService
     from ..services.auth.password_reset_service import PasswordResetService
 
-    container.register('login_service', LoginService, scope=ServiceScope.SINGLETON)
-    container.register('auth_token_service', lambda: AuthTokenService(), scope=ServiceScope.SINGLETON)
-
     container.register('password_reset_service', PasswordResetService, scope=ServiceScope.SINGLETON)
-    
-
     from ..services.monitoring.prometheus_metrics_reader import PrometheusMetricsReader
     container.register('prometheus_metrics_reader', lambda: PrometheusMetricsReader(), scope=ServiceScope.SINGLETON)
-    
-
     from ..services.validation.request_validation_pipeline import RequestValidationPipeline
 
     container.register('request_validation_pipeline', RequestValidationPipeline, scope=ServiceScope.SINGLETON)
-    
-
-
     from ..services.webhooks.webhook_formatting_service import WebhookFormattingService
     from ..services.webhooks.webhook_logging_service import WebhookLoggingService
     from ..services.webhooks.webhook_testing_service import WebhookTestingService

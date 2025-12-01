@@ -15,13 +15,44 @@ from flask import current_app
 from ...config.config import Config
 from ...core.extensions import db
 
+# Check Celery availability from central location
 try:
-    from ...tasks.server_tasks import server_restart, server_start, server_status_check, server_stop
-
-    CELERY_AVAILABLE = True
+    from ...core.celery_app import CELERY_AVAILABLE
 except ImportError:
     CELERY_AVAILABLE = False
-    logging.warning("Celery tasks not available. Task processing may be limited.")
+
+# Lazy import of tasks - only when needed
+_server_tasks_imported = False
+_server_restart = None
+_server_start = None
+_server_status_check = None
+_server_stop = None
+
+def _import_server_tasks():
+    """Lazy import of server tasks"""
+    global _server_tasks_imported, _server_restart, _server_start, _server_status_check, _server_stop
+    
+    if _server_tasks_imported:
+        return
+    
+    if CELERY_AVAILABLE:
+        try:
+            from ...tasks.server_tasks import (
+                server_restart,
+                server_start,
+                server_status_check,
+                server_stop,
+            )
+            _server_restart = server_restart
+            _server_start = server_start
+            _server_status_check = server_status_check
+            _server_stop = server_stop
+            _server_tasks_imported = True
+        except ImportError:
+            # Only log warning if Celery is supposed to be available
+            if CELERY_AVAILABLE:
+                logging.warning("Celery tasks not available. Task processing may be limited.")
+            _server_tasks_imported = True  # Mark as imported to avoid repeated warnings
 
 class TaskService:
     """Service for managing async tasks with status tracking"""
@@ -76,12 +107,14 @@ class TaskService:
         task_key = f"task:{task_id}"
         self.redis_client.setex(task_key, self.task_timeout, json.dumps(task_info))
 
+        # Lazy import server tasks
+        _import_server_tasks()
 
         server_task_types = {
-            "server_start": server_start,
-            "server_stop": server_stop,
-            "server_restart": server_restart,
-            "server_status_check": server_status_check,
+            "server_start": _server_start,
+            "server_stop": _server_stop,
+            "server_restart": _server_restart,
+            "server_status_check": _server_status_check,
         }
 
 
@@ -93,15 +126,15 @@ class TaskService:
 
 
         if task_type in server_task_types:
-            if not CELERY_AVAILABLE:
+            server_id = task_data.get("server_id")
+            celery_task = server_task_types[task_type]
+
+            if not CELERY_AVAILABLE or celery_task is None:
                 error_msg = f"Celery is not available. Cannot create task {task_id} of type {task_type}. Celery workers must be running."
                 logging.error(error_msg)
 
                 self.update_task_status(task_id, "failed", error=error_msg)
                 raise RuntimeError(error_msg)
-
-            server_id = task_data.get("server_id")
-            celery_task = server_task_types[task_type]
 
             try:
                 celery_task.apply_async(

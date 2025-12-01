@@ -13,20 +13,13 @@ import {
   DialogTrigger,
   DialogFooter,
 } from '@/components/ui/dialog'
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
 import { generateProjectInviteCode, getProjectInviteCodes, getLatestProjectInviteCode, deleteUnusedProjectInviteCodes } from '@/entities/user'
-import { Copy, Plus, Loader2, Trash2, RefreshCw, Filter, FolderPlus } from 'lucide-react'
+import { Copy, Plus, Loader2, Trash2, Filter } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ProjectInviteCode, CreateProjectInviteCodeData } from '@/entities/user';
-import type { Project } from '@/entities/project';
 
 export function ProjectInviteCodeManager() {
-  const { token, user } = useAuthContext()
+  const { user } = useAuthContext()
   const [inviteCodes, setInviteCodes] = useState<ProjectInviteCode[]>([])
   const [latestCode, setLatestCode] = useState<ProjectInviteCode | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -126,19 +119,46 @@ export function ProjectInviteCodeManager() {
 
   const copyToClipboard = async (text: string) => {
     try {
-      await navigator.clipboard.writeText(text)
-      toast.success('Code copied to clipboard!')
+      // Try modern Clipboard API first
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text)
+        toast.success('Code copied!')
+        return
+      }
+      
+      // Fallback for older browsers or non-secure contexts
+      const textArea = document.createElement('textarea')
+      textArea.value = text
+      textArea.style.position = 'fixed'
+      textArea.style.left = '-999999px'
+      textArea.style.top = '-999999px'
+      textArea.style.opacity = '0'
+      document.body.appendChild(textArea)
+      textArea.focus()
+      textArea.select()
+      
+      try {
+        const successful = document.execCommand('copy')
+        if (successful) {
+          toast.success('Code copied!')
+        } else {
+          throw new Error('execCommand failed')
+        }
+      } finally {
+        document.body.removeChild(textArea)
+      }
     } catch (error) {
-      toast.error('Failed to copy code.')
+      console.error('Copy failed:', error)
+      toast.error('Failed to copy. Please select and copy manually.')
     }
   }
 
   const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Never'
+    if (!dateString) return null
     return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
+      month: 'short',
       day: 'numeric',
+      year: 'numeric',
     })
   }
 
@@ -177,193 +197,152 @@ export function ProjectInviteCodeManager() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6 px-2 sm:px-0">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Project Creation Codes</h2>
-          <p className="text-sm sm:text-base text-gray-600 mt-1">Manage codes that allow users to create new projects</p>
+        <h2 className="text-lg font-semibold">Project Creation Codes</h2>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={showOnlyUnused ? "default" : "outline"}
+            size="sm"
+            onClick={() => setShowOnlyUnused(!showOnlyUnused)}
+          >
+            <Filter className="h-4 w-4 mr-1.5" />
+            {showOnlyUnused ? 'All' : 'Unused'}
+          </Button>
+          <Dialog open={showGenerateDialog} onOpenChange={setShowGenerateDialog}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Plus className="h-4 w-4 mr-1.5" />
+                New
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create Code</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <div>
+                  <Label htmlFor="expiresInDays">Expiration (days)</Label>
+                  <Input
+                    id="expiresInDays"
+                    type="number"
+                    min="1"
+                    max="365"
+                    value={expiresInDays}
+                    onChange={(e) => setExpiresInDays(Number(e.target.value))}
+                    className="mt-2"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowGenerateDialog(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleGenerateCode} disabled={isGenerating}>
+                  {isGenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Create
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
       {latestCode && (
-        <Card>
-          <CardHeader className="p-4 sm:p-6">
-            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <FolderPlus className="h-4 w-4 sm:h-5 sm:w-5" />
-              Latest Project Creation Code
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 sm:p-6 pt-0">
-            <div className="flex items-center gap-2">
-              <Input
-                readOnly
-                value={latestCode.code}
-                className="font-mono text-xs sm:text-sm flex-1 min-w-0"
-                placeholder="Project creation code"
-              />
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => copyToClipboard(latestCode.code)}
-                aria-label="Copy invite code to clipboard"
-                className="shrink-0"
-              >
-                <Copy className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="mt-2 text-xs sm:text-sm text-gray-600 flex flex-col sm:flex-row gap-1 sm:gap-4">
-              <span>Created: {formatDate(latestCode.created_at)}</span>
-              {latestCode.expires_at && (
-                <span>
-                  Expires: {formatDate(latestCode.expires_at)}
-                </span>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <Card>
-        <CardHeader className="p-4 sm:p-6">
-          <CardTitle className="text-base sm:text-lg">Actions</CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 sm:p-6 pt-0">
-          <div className="flex flex-wrap gap-2">
-            <Dialog open={showGenerateDialog} onOpenChange={setShowGenerateDialog}>
-              <DialogTrigger asChild>
-                <Button size="sm">
-                  <Plus className="mr-2 h-4 w-4" />
-                  New Project Code
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Create Project Creation Code</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-3 py-2">
-                  <div>
-                    <Label htmlFor="expiresInDays">Expiration Days</Label>
-                    <Input
-                      id="expiresInDays"
-                      type="number"
-                      min="1"
-                      max="365"
-                      value={expiresInDays}
-                      onChange={(e) => setExpiresInDays(Number(e.target.value))}
-                      className="mt-2"
-                    />
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    This code will allow users to create new projects in the system.
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setShowGenerateDialog(false)}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleGenerateCode} disabled={isGenerating}>
-                    {isGenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Create Code
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-
+        <div className="border rounded-lg p-4 space-y-3">
+          <div className="text-sm text-muted-foreground">Latest Code</div>
+          <div className="flex items-center gap-2">
+            <Input
+              readOnly
+              value={latestCode.code}
+              className="font-mono text-sm cursor-pointer"
+              onClick={(e) => {
+                (e.target as HTMLInputElement).select()
+                copyToClipboard(latestCode.code)
+              }}
+            />
             <Button
-              variant="destructive"
-              size="sm"
-              onClick={handleDeleteUnusedCodes}
-              disabled={isDeleting || getUnusedCodesCount() === 0}
+              variant="ghost"
+              size="icon"
+              onClick={() => copyToClipboard(latestCode.code)}
             >
-              {isDeleting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="mr-2 h-4 w-4" />
-              )}
-              Delete Unused ({getUnusedCodesCount()})
-            </Button>
-
-            <Button
-              variant={showOnlyUnused ? "default" : "outline"}
-              size="sm"
-              onClick={() => setShowOnlyUnused(!showOnlyUnused)}
-            >
-              <Filter className="mr-2 h-4 w-4" />
-              {showOnlyUnused ? 'Show All' : 'Only Unused'}
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchInviteCodes}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="mr-2 h-4 w-4" />
-              )}
-              Refresh List
+              <Copy className="h-4 w-4" />
             </Button>
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            {latestCode.created_at && <span>{formatDate(latestCode.created_at)}</span>}
+            {latestCode.expires_at && <span>Expires {formatDate(latestCode.expires_at)}</span>}
+          </div>
+        </div>
+      )}
 
-      <Card>
-        <CardHeader className="p-4 sm:p-6">
-          <CardTitle className="text-base sm:text-lg">
-            {showOnlyUnused ? 'Unused Project Codes' : 'All Project Codes'}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 sm:p-6 pt-0">
-          {isLoading ? (
-            <div className="flex flex-col sm:flex-row items-center justify-center py-8 gap-2">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              <span className="text-sm sm:text-base text-muted-foreground">Loading codes...</span>
-            </div>
-          ) : getFilteredCodes().length > 0 ? (
-            <div className="space-y-3">
-              {getFilteredCodes().map((code, index) => (
-                <div key={`${code.code}-${index}`} className="flex items-center justify-between gap-2 p-3 border rounded-lg">
-                  <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                    <span className="font-mono text-xs sm:text-sm font-medium truncate">{code.code}</span>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {getStatusBadge(code)}
-                      <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 hidden sm:inline-flex">
-                        Project Creation
-                      </Badge>
-                    </div>
-                    <span className="text-xs text-muted-foreground hidden sm:inline">
-                      {code.created_at && formatDate(code.created_at)}
-                    </span>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => copyToClipboard(code.code)}
-                    className="shrink-0 h-8 w-8"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground px-4">
-              <FolderPlus className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-4 text-gray-300" />
-              <p className="text-base sm:text-lg font-medium mb-2">
-                {showOnlyUnused ? 'No unused project creation codes' : 'No project creation codes'}
-              </p>
-              <p className="text-xs sm:text-sm">
-                {showOnlyUnused 
-                  ? 'All codes have been used or there are no codes yet.'
-                  : 'Create your first project creation code to get started.'
-                }
-              </p>
-            </div>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            {getFilteredCodes().length} {showOnlyUnused ? 'unused' : ''} code{getFilteredCodes().length !== 1 ? 's' : ''}
+          </div>
+          {getUnusedCodesCount() > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDeleteUnusedCodes}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-1.5" />
+              )}
+              Delete Unused
+            </Button>
           )}
-        </CardContent>
-      </Card>
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : getFilteredCodes().length > 0 ? (
+          <div className="space-y-1">
+            {getFilteredCodes().map((code, index) => (
+              <div
+                key={`${code.code}-${index}`}
+                className="flex items-center justify-between gap-3 p-3 border rounded hover:bg-muted/50 transition-colors"
+              >
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <span 
+                    className="font-mono text-sm truncate cursor-pointer select-all hover:text-primary"
+                    onClick={() => copyToClipboard(code.code)}
+                    title="Click to copy"
+                  >
+                    {code.code}
+                  </span>
+                  {getStatusBadge(code)}
+                  {code.created_at && (
+                    <span className="text-xs text-muted-foreground hidden sm:inline">
+                      {formatDate(code.created_at)}
+                    </span>
+                  )}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => copyToClipboard(code.code)}
+                  className="h-8 w-8"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12 text-muted-foreground">
+            <p className="text-sm">
+              {showOnlyUnused ? 'No unused codes' : 'No codes yet'}
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

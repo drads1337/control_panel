@@ -330,11 +330,12 @@ def update_settings():
     Update project settings.
     
     Returns:
-        # Get services once at the start (DI pattern)
-        rbac_service = get_service('rbac_service')
-        settings_service = get_service('settings_service')
         JSON response with success message or error
     """
+    # Get services once at the start (DI pattern)
+    rbac_service = get_service('rbac_service')
+    settings_service = get_service('settings_service')
+    
     user_id = get_jwt_identity()
     project_id, error = get_user_project_id(user_id)
 

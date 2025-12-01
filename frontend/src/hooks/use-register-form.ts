@@ -1,58 +1,38 @@
 import { useState, useCallback, useRef, useMemo } from 'react'
 import { useAuthContext } from '@/contexts/auth-context'
-import { enhancedApi as api } from '@/shared/api/enhanced-client'
 
-interface SignUpFormData {
+interface RegisterFormData {
   username: string
   email: string
   password: string
   confirmPassword: string
-  inviteCode: string
   projectName: string
 }
 
-interface SignUpFormErrors {
+interface RegisterFormErrors {
   username?: string
   email?: string
   password?: string
   confirmPassword?: string
-  inviteCode?: string
   projectName?: string
   general?: string
 }
 
-interface InviteCodeInfo {
-  code_type: 'referral' | 'project_invite'
-  role?: string
-  roles?: string[]
-  project_id?: number
-  product_ids?: number[]
-  token_balance?: number
-  expires_at?: string
-  requires_project_name?: boolean
-}
-
-export function useSignUpForm() {
-  const { registerWithInvite, isLoading: authIsLoading, error: authError } = useAuthContext()
-  const [formData, setFormData] = useState<SignUpFormData>({
+export function useRegisterForm() {
+  const { register, isLoading: authIsLoading, error: authError } = useAuthContext()
+  const [formData, setFormData] = useState<RegisterFormData>({
     username: '',
     email: '',
     password: '',
     confirmPassword: '',
-    inviteCode: '',
     projectName: ''
   })
-  const [errors, setErrors] = useState<SignUpFormErrors>({})
-  const [inviteCodeInfo, setInviteCodeInfo] = useState<InviteCodeInfo | null>(null)
+  const [errors, setErrors] = useState<RegisterFormErrors>({})
   const [error, setError] = useState<string>('')
   const isSubmitting = useRef(false)
 
   const validateForm = useCallback((): boolean => {
-    const newErrors: SignUpFormErrors = {}
-
-    if (!formData.inviteCode.trim()) {
-      newErrors.inviteCode = 'Invite code is required'
-    }
+    const newErrors: RegisterFormErrors = {}
 
     if (!formData.username.trim()) {
       newErrors.username = 'Username is required'
@@ -60,8 +40,9 @@ export function useSignUpForm() {
       newErrors.username = 'Username must be at least 3 characters'
     }
 
-    // Email is optional but validate if provided
-    if (formData.email.trim()) {
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required'
+    } else {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
       if (!emailRegex.test(formData.email.trim())) {
         newErrors.email = 'Please enter a valid email address'
@@ -80,15 +61,15 @@ export function useSignUpForm() {
       newErrors.confirmPassword = 'Passwords do not match'
     }
 
-    if (inviteCodeInfo?.code_type === 'project_invite' && inviteCodeInfo.requires_project_name && !formData.projectName.trim()) {
+    if (!formData.projectName.trim()) {
       newErrors.projectName = 'Project name is required'
     }
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
-  }, [formData, inviteCodeInfo])
+  }, [formData])
 
-  const handleInputChange = useCallback((field: keyof SignUpFormData, value: string) => {
+  const handleInputChange = useCallback((field: keyof RegisterFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
 
     if (errors[field]) {
@@ -111,36 +92,6 @@ export function useSignUpForm() {
     }
   }, [errors, error, formData.password])
 
-  const checkInviteCode = useCallback(async (code: string) => {
-    if (!code || code.trim().length === 0) {
-      setInviteCodeInfo(null)
-      return
-    }
-
-    try {
-
-      const response = await api.post('/api/auth/validate_invite_code', {
-        invite_code: code.trim()
-      })
-
-      setInviteCodeInfo(response.data)
-      setError('')
-
-      if (response.data.code_type === 'referral' || !response.data.requires_project_name) {
-        setFormData(prev => ({ ...prev, projectName: '' }))
-      }
-    } catch (err: unknown) {
-      const { getErrorMessage, isAxiosError } = await import('@/lib/error-utils')
-      setInviteCodeInfo(null)
-      if (isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
-        const errorData = err.response.data as { error?: string }
-        setError(errorData.error || getErrorMessage(err))
-      } else {
-        setError(getErrorMessage(err))
-      }
-    }
-  }, [])
-
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -148,31 +99,18 @@ export function useSignUpForm() {
       return
     }
 
-    if (formData.inviteCode.trim()) {
-      await checkInviteCode(formData.inviteCode.trim())
-    }
-
     if (!validateForm()) {
-      return
-    }
-
-    if (!inviteCodeInfo) {
-      setError('Please enter a valid invite code')
       return
     }
 
     isSubmitting.current = true
 
     try {
-
-      await registerWithInvite(
+      await register(
         formData.username.trim(),
+        formData.email.trim(),
         formData.password,
-        formData.inviteCode.trim(),
-        formData.email.trim() || undefined,
-        inviteCodeInfo?.code_type === 'project_invite' && formData.projectName.trim()
-          ? formData.projectName.trim()
-          : undefined
+        formData.projectName.trim()
       )
     } catch (err: unknown) {
       const { getErrorMessage } = await import('@/lib/error-utils')
@@ -180,7 +118,7 @@ export function useSignUpForm() {
     } finally {
       isSubmitting.current = false
     }
-  }, [formData, validateForm, registerWithInvite, authIsLoading, inviteCodeInfo, checkInviteCode])
+  }, [formData, validateForm, register, authIsLoading])
 
   const clearErrors = useCallback(() => {
     setErrors({})
@@ -194,13 +132,11 @@ export function useSignUpForm() {
     errors,
     isLoading: authIsLoading || isSubmitting.current,
     error: displayError,
-    inviteCodeInfo,
     handleInputChange,
     handleSubmit,
-    clearErrors,
-    checkInviteCode,
-    setInviteCodeInfo
-  }), [formData, errors, authIsLoading, displayError, inviteCodeInfo, handleInputChange, handleSubmit, clearErrors, checkInviteCode])
+    clearErrors
+  }), [formData, errors, authIsLoading, displayError, handleInputChange, handleSubmit, clearErrors])
 
   return result
-} 
+}
+

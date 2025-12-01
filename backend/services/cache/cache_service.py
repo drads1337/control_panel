@@ -76,7 +76,7 @@ class CacheService:
         key_data = f"{cache_type}:{':'.join(f'{k}={v}' for k, v in sorted_kwargs)}"
 
         if len(key_data) > 200:
-            key_hash = hashlib.md5(key_data.encode()).hexdigest()
+            key_hash = hashlib.sha256(key_data.encode()).hexdigest()
             key_data = f"{cache_type}:{key_hash}"
 
         return f"{self.cache_prefix}:{key_data}"
@@ -97,7 +97,7 @@ class CacheService:
 
         if len(normalized) > 100:
             import hashlib
-            pattern_hash = hashlib.md5(normalized.encode()).hexdigest()
+            pattern_hash = hashlib.sha256(normalized.encode()).hexdigest()
             return f"{self.cache_prefix}:pattern_set:{pattern_hash}"
         return f"{self.cache_prefix}:pattern_set:{normalized}"
 
@@ -311,7 +311,8 @@ class CacheService:
         - O(M) deletion where M is keys matching pattern (not all keys)
         - No blocking of Redis during SCAN
         
-        Falls back to SCAN if pattern set doesn't exist (backward compatibility).
+        SECURITY: SCAN fallback is limited to prevent Redis blocking in production.
+        If pattern set doesn't exist, we log a warning and return 0 (keys will expire via TTL).
         """
         try:
 
@@ -349,34 +350,14 @@ class CacheService:
                     )
                     return deleted_count
             except Exception as e:
-                logging.debug(f"Pattern set not found or error for {pattern_set_key}: {e}, falling back to SCAN")
-            
-
-
-            cursor = 0
-            scanned_keys = set()
-            
-            while True:
-                result = cache_wrapper.scan(cursor, match=full_pattern, count=100)
-                cursor, keys = result
-
-                if keys:
-                    scanned_keys.update(keys)
-
-                if cursor == 0:
-                    break
-            
-            if scanned_keys:
-                keys_list = [k.decode() if isinstance(k, bytes) else k for k in scanned_keys]
-                deleted_count = cache_wrapper.delete(*keys_list)
-                logging.info(
-                    f"Cache invalidation (SCAN fallback) completed for pattern: {full_pattern} "
-                    f"({deleted_count} keys deleted)"
+                logging.warning(
+                    f"Pattern set not found for {pattern_set_key}: {e}. "
+                    f"Pattern sets should be created automatically. "
+                    f"Keys matching this pattern will expire via TTL instead."
                 )
-            else:
-                logging.debug(f"No keys found matching pattern: {full_pattern}")
-
-            return deleted_count
+                # Don't use SCAN fallback - it can block Redis in production
+                # Keys will expire naturally via TTL
+                return 0
 
         except Exception as e:
             logging.error(f"Cache invalidation error for pattern {pattern}: {e}")
@@ -679,9 +660,10 @@ class CacheService:
 
     def cleanup_expired_cache(self) -> int:
         """
-        Clean up expired cache entries using SCAN (production-safe).
+        Clean up expired cache entries using SCAN with iteration limits (production-safe).
         
         SECURITY: Uses SCAN instead of KEYS to avoid blocking Redis.
+        Limited to max 1000 iterations to prevent long-running operations.
         KEYS() blocks Redis and is not suitable for production.
         """
         try:
@@ -691,16 +673,25 @@ class CacheService:
 
             cursor = 0
             scanned_keys = set()
+            max_iterations = 1000  # Limit iterations to prevent blocking
+            iteration_count = 0
             
-            while True:
+            while iteration_count < max_iterations:
                 result = cache_wrapper.scan(cursor, match=pattern, count=100)
                 cursor, keys = result
+                iteration_count += 1
                 
                 if keys:
                     scanned_keys.update(keys)
                 
                 if cursor == 0:
                     break
+            
+            if iteration_count >= max_iterations:
+                logging.warning(
+                    f"Cache cleanup reached iteration limit ({max_iterations}). "
+                    f"Some keys may not have been scanned. Consider using shorter TTLs."
+                )
             
             cleaned_count = 0
             for key in scanned_keys:
@@ -721,9 +712,10 @@ class CacheService:
 
     def clear_all_cache(self) -> int:
         """
-        Clear all cache entries using SCAN (production-safe).
+        Clear all cache entries using SCAN with iteration limits (production-safe).
         
         SECURITY: Uses SCAN instead of KEYS to avoid blocking Redis.
+        Limited to max 1000 iterations to prevent long-running operations.
         KEYS() blocks Redis and is not suitable for production.
         """
         try:
@@ -733,16 +725,25 @@ class CacheService:
 
             cursor = 0
             scanned_keys = set()
+            max_iterations = 1000  # Limit iterations to prevent blocking
+            iteration_count = 0
             
-            while True:
+            while iteration_count < max_iterations:
                 result = cache_wrapper.scan(cursor, match=pattern, count=100)
                 cursor, keys = result
+                iteration_count += 1
                 
                 if keys:
                     scanned_keys.update(keys)
                 
                 if cursor == 0:
                     break
+            
+            if iteration_count >= max_iterations:
+                logging.warning(
+                    f"Clear all cache reached iteration limit ({max_iterations}). "
+                    f"Some keys may not have been cleared."
+                )
             
             if scanned_keys:
                 keys_list = [k.decode() if isinstance(k, bytes) else k for k in scanned_keys]
@@ -855,9 +856,10 @@ class CacheService:
 
     def get_cache_stats(self) -> Dict[str, Any]:
         """
-        Get cache statistics using SCAN (production-safe).
+        Get cache statistics using SCAN with iteration limits (production-safe).
         
         SECURITY: Uses SCAN instead of KEYS to avoid blocking Redis.
+        Limited to max 1000 iterations to prevent long-running operations.
         KEYS() blocks Redis and is not suitable for production.
         """
         try:
@@ -867,16 +869,25 @@ class CacheService:
 
             cursor = 0
             scanned_keys = set()
+            max_iterations = 1000  # Limit iterations to prevent blocking
+            iteration_count = 0
             
-            while True:
+            while iteration_count < max_iterations:
                 result = cache_wrapper.scan(cursor, match=pattern, count=100)
                 cursor, keys = result
+                iteration_count += 1
                 
                 if keys:
                     scanned_keys.update(keys)
                 
                 if cursor == 0:
                     break
+            
+            if iteration_count >= max_iterations:
+                logging.warning(
+                    f"Cache stats reached iteration limit ({max_iterations}). "
+                    f"Statistics may be incomplete."
+                )
             
             total_memory = 0
             for key in scanned_keys:
@@ -897,6 +908,7 @@ class CacheService:
                 "smart_cache_enabled": self.smart_cache_enabled,
                 "stale_while_revalidate": self.stale_while_revalidate,
                 "timestamp": datetime.utcnow().isoformat(),
+                "scan_limit_reached": iteration_count >= max_iterations,
             }
         except Exception as e:
             logging.error(f"Cache stats error: {e}")

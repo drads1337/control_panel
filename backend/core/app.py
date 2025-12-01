@@ -22,7 +22,6 @@ from ..utils.db_replica import init_replica_binds
 from ..utils.monitoring import setup_monitoring_endpoints
 from ..utils.query_isolation import init_query_isolation
 from ..utils.postgresql_rls import init_postgresql_rls
-from ..utils.slow_query_monitor import setup_slow_query_monitoring
 from ..utils.storage_manager import init_storage_manager
 from ..utils.structured_logging import get_logger, setup_structured_logging
 
@@ -256,9 +255,6 @@ def setup_storage_and_monitoring(app: Flask) -> None:
             endpoints=["/api/health", "/api/metrics", "/api/status"],
         )
 
-    if Config.ENABLE_SLOW_QUERY_MONITORING:
-        setup_slow_query_monitoring(app)
-        logger.info("Slow query monitoring initialized")
 
 def setup_migrations(app: Flask) -> None:
     """Setup Flask-Migrate"""
@@ -367,30 +363,42 @@ def create_app() -> Flask:
     with app.app_context():
         init_replica_binds(app)
 
-    try:
-        from .celery_app import CELERY_AVAILABLE, make_celery
+    # Celery is required in production
+    from .celery_app import CELERY_AVAILABLE, make_celery
+    from ..config.config import IS_PRODUCTION
 
-        if CELERY_AVAILABLE:
-            celery_instance = make_celery(app)
-            if celery_instance:
-
-                try:
-                    from ..tasks import server_tasks
-                    from ..tasks import key_tasks
-
-                    logger.info("Celery tasks loaded successfully")
-                except ImportError as e:
-                    logger.warning(
-                        f"Could not import Celery tasks: {e}. Tasks may not be available."
-                    )
-            else:
+    if CELERY_AVAILABLE:
+        celery_instance = make_celery(app)
+        if celery_instance:
+            try:
+                from ..tasks import server_tasks
+                from ..tasks import key_tasks
+                logger.info("Celery tasks loaded successfully")
+            except ImportError as e:
+                if IS_PRODUCTION:
+                    raise RuntimeError(
+                        f"CRITICAL: Failed to import Celery tasks in production: {e}. "
+                        "All task modules must be importable in production."
+                    ) from e
                 logger.warning(
-                    "Celery initialization returned None. Task queue will use fallback mode."
+                    f"Could not import Celery tasks: {e}. Tasks may not be available."
                 )
         else:
-            logger.info("Celery not installed. Task queue will use fallback Redis queue mode.")
-    except ImportError as e:
-        logger.warning(f"Celery not available: {e}. Task queue will use fallback mode.")
+            if IS_PRODUCTION:
+                raise RuntimeError(
+                    "CRITICAL: Celery initialization failed in production. "
+                    "Task queue is required for production operation."
+                )
+            logger.warning(
+                "Celery initialization returned None. Task queue will use fallback Redis queue mode (development only)."
+            )
+    else:
+        if IS_PRODUCTION:
+            raise RuntimeError(
+                "CRITICAL: Celery is required in production but not available. "
+                "Install with: pip install celery"
+            )
+        logger.info("Celery not installed. Task queue will use fallback Redis queue mode (development only).")
 
     return app
 

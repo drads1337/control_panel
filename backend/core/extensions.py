@@ -94,31 +94,11 @@ class RedisExtension:
             app: Flask application instance
         """
         from ..config.config import Config
+        from ..utils.redis_client import RedisClient
 
-
-        redis_config = {
-            "host": Config.REDIS_PERSISTENT_HOST,
-            "port": Config.REDIS_PERSISTENT_PORT,
-            "db": Config.REDIS_PERSISTENT_DB,
-            "decode_responses": True,
-            "socket_connect_timeout": 5,
-            "socket_timeout": 5,
-            "retry_on_timeout": True,
-            "health_check_interval": 30,
-            "max_connections": 20,
-        }
-
-        if Config.REDIS_PERSISTENT_PASSWORD:
-            redis_config["password"] = Config.REDIS_PERSISTENT_PASSWORD
-
-        self._client = redis.Redis(**redis_config)
-
-
-        try:
-            self._client.ping()
-        except Exception as e:
-            raise RuntimeError(f"Redis is required but connection failed: {e}")
-
+        # Use RedisClient for consistent Cluster/Sentinel support
+        redis_client_wrapper = RedisClient(instance="persistent")
+        self._client = redis_client_wrapper.client
 
         app.extensions["redis"] = self
 
@@ -133,7 +113,4 @@ class RedisExtension:
         if self._client is None:
             raise RuntimeError("Redis extension not initialized. Call init_app() first.")
         return self._client
-
-
-
 redis_ext = RedisExtension()

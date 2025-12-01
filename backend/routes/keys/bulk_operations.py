@@ -21,9 +21,11 @@ from ...schemas.key import (
     KeyBulkExtendSchema,
 )
 from ...utils.service_helpers import get_service
+from ...utils.idempotency import require_idempotency
 
 bulk_operations_bp = Blueprint("keys_bulk", __name__)
 
+@require_idempotency(ttl=7200, required=True)  # 2 hours TTL, required for bulk operations
 @validate_request(KeyBulkCreateSchema)
 @bulk_operations_bp.route("/bulk", methods=["POST"])
 @jwt_required()

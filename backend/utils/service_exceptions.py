@@ -16,8 +16,6 @@ Usage:
         
         return user  # Just return the result, no tuple
 """
-
-
 class ServiceError(Exception):
     """Base exception for all service errors"""
     
@@ -26,7 +24,6 @@ class ServiceError(Exception):
         self.status_code = status_code
         self.context = context or {}
         super().__init__(self.message)
-
 
 class ValidationError(ServiceError):
     """Raised when input validation fails"""

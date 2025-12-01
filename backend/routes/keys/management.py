@@ -19,6 +19,7 @@ from ...utils.service_helpers import get_service
 from ...utils.data_masking import mask_license_key
 from ...utils.rbac_utils import RBACManager
 from ...utils.role_constants import UserRoles
+from ...utils.idempotency import require_idempotency
 from .common import can_manage_key
 
 management_bp = Blueprint("keys_management", __name__)
@@ -130,6 +131,7 @@ def get_keys(current_user, project_id=None):
         }
     )
 
+@require_idempotency(ttl=1800, required=False)  # 30 minutes TTL, optional but recommended
 @management_bp.route("", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period

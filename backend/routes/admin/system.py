@@ -133,7 +133,8 @@ def get_system_info():
     try:
         import platform
 
-        import psutil
+        # System resource metrics (CPU, RAM, Disk) removed.
+        # Use Kubernetes/Docker/Prometheus Node Exporter for system resource monitoring.
 
         system_info = {
             "platform": platform.platform(),
@@ -143,11 +144,6 @@ def get_system_info():
             "machine": platform.machine(),
             "processor": platform.processor(),
             "python_version": platform.python_version(),
-            "cpu_count": psutil.cpu_count(),
-            "memory_total": psutil.virtual_memory().total,
-            "memory_available": psutil.virtual_memory().available,
-            "disk_usage": psutil.disk_usage("/").percent,
-            "uptime": psutil.boot_time(),
         }
 
         db_info = {

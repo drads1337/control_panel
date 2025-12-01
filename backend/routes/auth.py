@@ -43,7 +43,7 @@ from ..schemas.user import UserProfileUpdateSchema
 from ..utils.rbac_utils import RBACManager
 from ..utils.role_constants import UserRoles
 from ..utils.validators import AuthValidator, InviteValidator, UserValidator
-from ..utils.service_exceptions import SecurityError, ValidationError, ConflictError, ServiceError
+from ..utils.service_exceptions import AuthenticationError, SecurityError, ValidationError, ConflictError, ServiceError
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
@@ -273,6 +273,10 @@ def _handle_simple_login(data: dict, ip: str, user_agent: str):
             }), 403
 
         raise
+    except AuthenticationError as e:
+        # AuthenticationError should return 401, not 500
+        log_suspicious(ip, "SIMPLE_LOGIN_ERROR", "Invalid credentials")
+        return jsonify({"error": "AUTHENTICATION_ERROR", "message": "Invalid credentials"}), 401
     except Exception as e:
         import traceback
 
@@ -471,8 +475,6 @@ def register_with_invite(validated_data=None):
 
 
             from werkzeug.security import generate_password_hash
-            from ..models.core import User
-            from ..utils.service_exceptions import ConflictError
             
 
             if User.query.filter_by(username=username).first():
@@ -508,19 +510,21 @@ def register_with_invite(validated_data=None):
                 subscription_status="pro"
             )
             project_id = new_project.id
-            
-
             temp_user.project_id = project_id
-
-
             rbac_service.initialize_default_data(project_id)
-            
-
             from ..models.rbac import Role, UserRole
-            owner_role = Role.query.filter_by(name="owner", project_id=project_id).first()
-            if owner_role:
-                user_role = UserRole(user_id=temp_user.id, role_id=owner_role.id)
+            # Assign "admin" role instead of "owner" when creating project via invite code
+            # The "owner" role should only be for system owners, not project creators via invite codes
+            admin_role = Role.query.filter_by(name="admin", project_id=project_id).first()
+            if admin_role:
+                user_role = UserRole(user_id=temp_user.id, role_id=admin_role.id)
                 db.session.add(user_role)
+            else:
+                # Fallback to owner if admin role doesn't exist (shouldn't happen after RBAC init)
+                owner_role = Role.query.filter_by(name="owner", project_id=project_id).first()
+                if owner_role:
+                    user_role = UserRole(user_id=temp_user.id, role_id=owner_role.id)
+                    db.session.add(user_role)
 
 
             invite = ProjectInviteCode.query.filter_by(code=invite_code).first()
@@ -554,10 +558,9 @@ def register_with_invite(validated_data=None):
         try:
 
             if not user_already_created:
-
+                from werkzeug.security import generate_password_hash
+                
                 if code_type == "referral":
-                    from werkzeug.security import generate_password_hash
-                    from ..models.core import User
                     from ..utils.service_helpers import get_user_role_service, get_user_permission_service
                     from ..models.keys import ReferralCode
                     from datetime import timedelta
@@ -618,22 +621,10 @@ def register_with_invite(validated_data=None):
                     db.session.commit()
                 else:
 
-                    default_role = UserRoles.ADMIN.value
-                    user = user_crud_service.create_user(
-                        username, email, password, project_id, default_role
-                    )
-                    
-
                     success, error = invite_service.use_invite_code(invite_code, user.id)
                     if not success:
                         logger.warning(f"Failed to mark invite code as used: {error}")
             else:
-
-                default_role = UserRoles.ADMIN.value
-                user = user_crud_service.create_user(
-                    username, email, password, project_id, default_role
-                )
-                
 
                 success, error = invite_service.use_invite_code(invite_code, user.id)
                 if not success:

@@ -16,7 +16,7 @@ from ...core.extensions import db
 from ...models.core import Project, User
 from ...models.keys import Key
 from ...services.keys import KeyValidator
-from ...utils.service_exceptions import ValidationError, NotFoundError, ServiceError, SecurityError
+from ...utils.service_exceptions import ValidationError, NotFoundError, ServiceError, SecurityError, AuthenticationError
 from .analytics_tracker import AnalyticsTracker
 from .challenge_validation_service import ChallengeValidationService
 from .device_manager import DeviceManager
@@ -407,10 +407,15 @@ class ConnectService:
                 )
                 return response_data, 200
 
+        except AuthenticationError as e:
+            logger.warning(f"CLASSIC_CONNECT_AUTH_ERROR ip={ip} error={e.message}")
+            return {
+                "error": "INVALID_CREDENTIALS",
+                "msg": e.message or "Invalid username or password",
+            }, 401
         except Exception as e:
             logger.error(f"CLASSIC_CONNECT_ERROR ip={ip} error={e}")
             import traceback
 
             logger.error(f"CLASSIC_CONNECT_ERROR_TRACEBACK: {traceback.format_exc()}")
             return {"error": "Internal server error"}, 500
-

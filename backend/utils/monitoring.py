@@ -16,47 +16,14 @@ from prometheus_client import CollectorRegistry, Gauge, generate_latest, REGISTR
 from sqlalchemy import text
 
 from ..core.extensions import db
-from ..utils.slow_query_monitor import get_slow_query_monitor
 from ..utils.storage_manager import get_storage_manager
 from ..utils.structured_logging import get_logger, metrics
 
 logger = get_logger(__name__)
 
 
-_system_metrics_initialized = False
-_system_metrics_lock = threading.Lock()
-
-
-_system_cpu_percent = Gauge(
-    'system_cpu_percent',
-    'CPU usage percentage',
-    registry=REGISTRY
-)
-_system_memory_percent = Gauge(
-    'system_memory_percent',
-    'Memory usage percentage',
-    registry=REGISTRY
-)
-_system_memory_available_bytes = Gauge(
-    'system_memory_available_bytes',
-    'Available memory in bytes',
-    registry=REGISTRY
-)
-_system_disk_percent = Gauge(
-    'system_disk_percent',
-    'Disk usage percentage',
-    registry=REGISTRY
-)
-_system_disk_free_bytes = Gauge(
-    'system_disk_free_bytes',
-    'Free disk space in bytes',
-    registry=REGISTRY
-)
-_system_load_average = Gauge(
-    'system_load_average',
-    'System load average (1 minute)',
-    registry=REGISTRY
-)
+# System resource metrics (CPU, RAM, Disk) removed.
+# Use Kubernetes/Docker/Prometheus Node Exporter for system resource monitoring.
 
 
 _redis_available = Gauge(
@@ -205,29 +172,12 @@ class DatabaseHealthCheck:
 
             duration = time.time() - start_time
 
-            slow_query_monitor = get_slow_query_monitor()
-            slow_query_stats = slow_query_monitor.get_statistics()
-
-            slow_query_ratio = 0.0
-            if slow_query_stats["stats"]["total_queries"] > 0:
-                slow_query_ratio = (
-                    slow_query_stats["stats"]["slow_queries"]
-                    / slow_query_stats["stats"]["total_queries"]
-                ) * 100
-
-            is_healthy = duration < 1.0 and slow_query_ratio < 5.0
+            is_healthy = duration < 1.0
 
             return {
                 "healthy": is_healthy,
                 "query_time_ms": round(duration * 1000, 2),
-                "slow_query_ratio": round(slow_query_ratio, 2),
-                "avg_query_time_ms": round(
-                    slow_query_stats["stats"].get("avg_query_time_ms", 0), 2
-                ),
-                "max_query_time_ms": round(
-                    slow_query_stats["stats"].get("max_query_time_ms", 0), 2
-                ),
-                "details": f"Database queries completed in {duration:.2f}s, slow query ratio: {slow_query_ratio:.2f}%",
+                "details": f"Database queries completed in {duration:.2f}s",
             }
         except Exception as e:
             return {
@@ -300,34 +250,8 @@ class StorageHealthCheck:
         except Exception as e:
             return {"healthy": False, "error": str(e), "details": "Storage system check failed"}
 
-class SystemHealthCheck:
-    """System resource health check"""
-
-    @staticmethod
-    def check_resources():
-        """Check system resources"""
-        try:
-
-            cpu_percent = psutil.cpu_percent(interval=1)
-
-            memory = psutil.virtual_memory()
-
-            disk = psutil.disk_usage("/")
-
-            load_avg = psutil.getloadavg() if hasattr(psutil, "getloadavg") else None
-
-            return {
-                "healthy": cpu_percent < 90 and memory.percent < 90 and disk.percent < 90,
-                "cpu_percent": cpu_percent,
-                "memory_percent": memory.percent,
-                "memory_available_gb": round(memory.available / (1024**3), 2),
-                "disk_percent": disk.percent,
-                "disk_free_gb": round(disk.free / (1024**3), 2),
-                "load_average": load_avg,
-                "details": f"CPU: {cpu_percent}%, Memory: {memory.percent}%, Disk: {disk.percent}%",
-            }
-        except Exception as e:
-            return {"healthy": False, "error": str(e), "details": "System resource check failed"}
+# SystemHealthCheck removed.
+# System resource monitoring should be handled by Kubernetes/Docker/Prometheus Node Exporter.
 
 class ProductHealthCheck:
     """Product-specific health checks"""
@@ -354,29 +278,8 @@ class ProductHealthCheck:
         except Exception as e:
             return {"healthy": False, "error": str(e), "details": "Product health check failed"}
 
-def _update_system_metrics():
-    """Update Prometheus system resource metrics"""
-    try:
-        cpu_percent = psutil.cpu_percent(interval=0.1)
-        memory = psutil.virtual_memory()
-        disk = psutil.disk_usage("/")
-        
-        _system_cpu_percent.set(cpu_percent)
-        _system_memory_percent.set(memory.percent)
-        _system_memory_available_bytes.set(memory.available)
-        _system_disk_percent.set(disk.percent)
-        _system_disk_free_bytes.set(disk.free)
-        
-
-        try:
-            load_avg = psutil.getloadavg()
-            if load_avg:
-                _system_load_average.set(load_avg[0])
-        except (AttributeError, OSError):
-
-            pass
-    except Exception as e:
-        logger.debug(f"Error updating system metrics: {e}")
+# System resource metrics update removed.
+# Use Kubernetes/Docker/Prometheus Node Exporter for system resource monitoring.
 
 
 def _update_redis_health_metrics():
@@ -461,7 +364,8 @@ class MonitoringSystem:
 
         self.add_health_check("storage_system", StorageHealthCheck.check_storage, critical=True)
 
-        self.add_health_check("system_resources", SystemHealthCheck.check_resources, critical=False)
+        # System resource health check removed.
+        # Use Kubernetes/Docker/Prometheus Node Exporter for system resource monitoring.
 
         self.add_health_check(
             "product", ProductHealthCheck.check_product, critical=True
@@ -526,11 +430,6 @@ class MonitoringSystem:
     def get_metrics_summary(self) -> Dict[str, Any]:
         """Get metrics summary for monitoring"""
         try:
-
-            cpu_percent = psutil.cpu_percent()
-            memory = psutil.virtual_memory()
-            disk = psutil.disk_usage("/")
-
             from models.core import Project, User, UserActivity
 
             total_users = User.query.count()
@@ -541,12 +440,6 @@ class MonitoringSystem:
 
             return {
                 "timestamp": datetime.utcnow().isoformat(),
-                "system": {
-                    "cpu_percent": cpu_percent,
-                    "memory_percent": memory.percent,
-                    "disk_percent": disk.percent,
-                    "load_average": psutil.getloadavg() if hasattr(psutil, "getloadavg") else None,
-                },
                 "product": {
                     "total_users": total_users,
                     "total_projects": total_projects,
@@ -651,42 +544,6 @@ def setup_monitoring_endpoints(app):
     def get_metrics():
         """Metrics endpoint for Prometheus scraping (JSON format for backward compatibility)"""
         return jsonify(monitoring_system.get_metrics_summary())
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     @app.route("/api/status", methods=["GET"])
     def status():
@@ -710,101 +567,9 @@ def setup_monitoring_endpoints(app):
             }
         )
 
-    @app.route("/api/monitoring/slow-queries", methods=["GET"])
-    def get_slow_queries():
-        """Get recent slow queries"""
-        try:
-            limit = int(request.args.get("limit", 50))
-            min_duration_ms = request.args.get("min_duration_ms")
-            min_duration_ms = float(min_duration_ms) if min_duration_ms else None
-
-            slow_query_monitor = get_slow_query_monitor()
-            queries = slow_query_monitor.get_slow_queries(
-                limit=limit, min_duration_ms=min_duration_ms
-            )
-
-            return jsonify(
-                {
-                    "slow_queries": queries,
-                    "count": len(queries),
-                    "threshold_ms": slow_query_monitor.slow_query_threshold_ms,
-                    "timestamp": datetime.utcnow().isoformat(),
-                }
-            )
-        except Exception as e:
-            logger.error(f"Error getting slow queries: {e}")
-            return jsonify({"error": str(e)}), 500
-
-    @app.route("/api/monitoring/query-stats", methods=["GET"])
-    def get_query_stats():
-        """Get query statistics"""
-        try:
-            slow_query_monitor = get_slow_query_monitor()
-            stats = slow_query_monitor.get_statistics()
-
-            return jsonify(stats)
-        except Exception as e:
-            logger.error(f"Error getting query stats: {e}")
-            return jsonify({"error": str(e)}), 500
-
-    @app.route("/api/monitoring/query-patterns", methods=["GET"])
-    def get_query_patterns():
-        """Get query patterns for analysis"""
-        try:
-            limit = int(request.args.get("limit", 20))
-            min_count = int(request.args.get("min_count", 5))
-
-            slow_query_monitor = get_slow_query_monitor()
-            patterns = slow_query_monitor.get_query_patterns(limit=limit, min_count=min_count)
-
-            return jsonify(
-                {
-                    "patterns": patterns,
-                    "count": len(patterns),
-                    "timestamp": datetime.utcnow().isoformat(),
-                }
-            )
-        except Exception as e:
-            logger.error(f"Error getting query patterns: {e}")
-            return jsonify({"error": str(e)}), 500
-
-    @app.route("/api/monitoring/top-slow-patterns", methods=["GET"])
-    def get_top_slow_patterns():
-        """Get top slowest query patterns"""
-        try:
-            limit = int(request.args.get("limit", 10))
-
-            slow_query_monitor = get_slow_query_monitor()
-            patterns = slow_query_monitor.get_top_slow_patterns(limit=limit)
-
-            return jsonify(
-                {
-                    "patterns": patterns,
-                    "count": len(patterns),
-                    "timestamp": datetime.utcnow().isoformat(),
-                }
-            )
-        except Exception as e:
-            logger.error(f"Error getting top slow patterns: {e}")
-            return jsonify({"error": str(e)}), 500
-
-    @app.route("/api/monitoring/table-stats", methods=["GET"])
-    def get_table_stats():
-        """Get statistics per table"""
-        try:
-            slow_query_monitor = get_slow_query_monitor()
-            table_stats = slow_query_monitor.get_table_statistics()
-
-            return jsonify(
-                {
-                    "table_stats": table_stats,
-                    "count": len(table_stats),
-                    "timestamp": datetime.utcnow().isoformat(),
-                }
-            )
-        except Exception as e:
-            logger.error(f"Error getting table stats: {e}")
-            return jsonify({"error": str(e)}), 500
+    # Slow query monitoring endpoints removed.
+    # Use APM tools (Datadog, NewRelic) or PostgreSQL's pg_stat_statements
+    # for query performance monitoring instead of application-level monitoring.
 
     logger.info(
         "Monitoring endpoints initialized",

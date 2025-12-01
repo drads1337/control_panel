@@ -96,8 +96,8 @@ def get_notifications():
 
         return jsonify({"error": "User not found"}), 404
 
-    if not user.project_id:
-
+    # Allow owners to access even without project_id
+    if not user.project_id and not RBACManager.is_owner(user):
         return jsonify({"error": "User must be assigned to a project"}), 403
 
     page = request.args.get("page", 1, type=int)
@@ -107,12 +107,15 @@ def get_notifications():
 
     query = Notification.query.filter_by(is_deleted=False)
 
-
-
-
-    query = query.filter(Notification.project_id == user.project_id).filter(
-        Notification.user_id == user_id
-    )
+    # For owners without project_id, return empty results
+    # For regular users or owners with project_id, filter by project and user
+    if user.project_id:
+        query = query.filter(Notification.project_id == user.project_id).filter(
+            Notification.user_id == user_id
+        )
+    else:
+        # Owner without project_id - return empty results
+        query = query.filter(False)  # This will return no results
 
     if unread_only:
         query = query.filter_by(is_read=False)

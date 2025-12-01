@@ -52,34 +52,55 @@ class EnvelopeKeyManager:
     
     Uses KEK (Key Encryption Key) from environment to encrypt/decrypt
     DEK (Data Encryption Key) which are project-specific keys.
+    
+    KEY ROTATION SUPPORT:
+    Supports zero-downtime key rotation by maintaining multiple KEK versions.
+    - PROJECT_MASTER_KEY: Current/primary KEK (used for encryption)
+    - PROJECT_MASTER_KEY_OLD: Previous KEK (used for decryption of old data)
+    
+    During rotation:
+    1. Set PROJECT_MASTER_KEY_OLD to current key
+    2. Set PROJECT_MASTER_KEY to new key
+    3. System continues to decrypt old data with OLD key
+    4. New data is encrypted with new key
+    5. Background migration can re-encrypt old data gradually
     """
     
     _kek: Optional[bytes] = None
+    _kek_old: Optional[bytes] = None
     _fernet: Optional[Fernet] = None
+    _fernet_old: Optional[Fernet] = None
     
     @classmethod
-    def _get_kek_from_env(cls) -> bytes:
+    def _get_kek_from_env(cls, use_old: bool = False) -> Optional[bytes]:
         """
         Get KEK (Key Encryption Key) from environment variable.
         
+        Args:
+            use_old: If True, get old KEK from PROJECT_MASTER_KEY_OLD (for rotation)
+        
         Returns:
-            KEK as bytes
+            KEK as bytes, or None if old key is not set
             
         Raises:
-            ValueError: If PROJECT_MASTER_KEY is not set or invalid
+            ValueError: If primary PROJECT_MASTER_KEY is not set or invalid
         """
-        kek_hex = os.getenv('PROJECT_MASTER_KEY')
+        env_var = 'PROJECT_MASTER_KEY_OLD' if use_old else 'PROJECT_MASTER_KEY'
+        kek_hex = os.getenv(env_var)
+        
         if not kek_hex:
+            if use_old:
+                # Old key is optional - only needed during rotation
+                return None
             raise ValueError(
                 "PROJECT_MASTER_KEY environment variable is required. "
                 "This is the master key that encrypts all project keys. "
                 "Generate with: python -c 'import secrets; print(secrets.token_hex(32))'"
             )
         
-
         if len(kek_hex) != 64:
             raise ValueError(
-                f"PROJECT_MASTER_KEY must be 64 hex characters (32 bytes), got {len(kek_hex)}"
+                f"{env_var} must be 64 hex characters (32 bytes), got {len(kek_hex)}"
             )
         
         try:
@@ -88,47 +109,70 @@ class EnvelopeKeyManager:
                 raise ValueError("KEK must be exactly 32 bytes")
             return kek_bytes
         except ValueError as e:
-            raise ValueError(f"Invalid PROJECT_MASTER_KEY format: {e}")
+            raise ValueError(f"Invalid {env_var} format: {e}")
     
     @classmethod
-    def _get_kek(cls) -> bytes:
+    def _get_kek(cls, use_old: bool = False) -> Optional[bytes]:
         """
         Get or cache KEK from environment.
         
+        Args:
+            use_old: If True, get old KEK (for rotation support)
+        
         Returns:
-            KEK as bytes
+            KEK as bytes, or None if old key is not set
         """
-        if cls._kek is None:
-            cls._kek = cls._get_kek_from_env()
-        return cls._kek
+        if use_old:
+            if cls._kek_old is None:
+                cls._kek_old = cls._get_kek_from_env(use_old=True)
+            return cls._kek_old
+        else:
+            if cls._kek is None:
+                cls._kek = cls._get_kek_from_env(use_old=False)
+            return cls._kek
     
     @classmethod
-    def _get_fernet(cls) -> Fernet:
+    def _get_fernet(cls, use_old: bool = False) -> Optional[Fernet]:
         """
         Get or create Fernet instance for KEK encryption.
         
         Fernet uses AES-128 in CBC mode with HMAC-SHA256 for authentication.
         We derive a 32-byte key from KEK using PBKDF2 for Fernet compatibility.
         
-        Returns:
-            Fernet instance
-        """
-        if cls._fernet is None:
-            kek = cls._get_kek()
-            
-
-
-            kdf = PBKDF2HMAC(
-                algorithm=hashes.SHA256(),
-                length=32,
-                salt=b'envelope_encryption_salt',
-                iterations=100000,
-                backend=default_backend()
-            )
-            fernet_key = base64.urlsafe_b64encode(kdf.derive(kek))
-            cls._fernet = Fernet(fernet_key)
+        Args:
+            use_old: If True, get Fernet instance for old KEK (for rotation)
         
-        return cls._fernet
+        Returns:
+            Fernet instance, or None if old key is not set
+        """
+        if use_old:
+            if cls._fernet_old is None:
+                kek = cls._get_kek(use_old=True)
+                if kek is None:
+                    return None
+                kdf = PBKDF2HMAC(
+                    algorithm=hashes.SHA256(),
+                    length=32,
+                    salt=b'envelope_encryption_salt',
+                    iterations=100000,
+                    backend=default_backend()
+                )
+                fernet_key = base64.urlsafe_b64encode(kdf.derive(kek))
+                cls._fernet_old = Fernet(fernet_key)
+            return cls._fernet_old
+        else:
+            if cls._fernet is None:
+                kek = cls._get_kek(use_old=False)
+                kdf = PBKDF2HMAC(
+                    algorithm=hashes.SHA256(),
+                    length=32,
+                    salt=b'envelope_encryption_salt',
+                    iterations=100000,
+                    backend=default_backend()
+                )
+                fernet_key = base64.urlsafe_b64encode(kdf.derive(kek))
+                cls._fernet = Fernet(fernet_key)
+            return cls._fernet
     
     @classmethod
     def encrypt_dek(cls, dek: bytes) -> str:
@@ -154,20 +198,50 @@ class EnvelopeKeyManager:
         """
         Decrypt a Data Encryption Key (DEK) with KEK.
         
+        Supports key rotation: tries current key first, then old key if available.
+        This enables zero-downtime key rotation.
+        
         Args:
             encrypted_dek: Encrypted DEK as base64-encoded string
             
         Returns:
             Plain DEK as bytes
+            
+        Raises:
+            ValueError: If decryption fails with both current and old keys
         """
+        encrypted_bytes = base64.b64decode(encrypted_dek.encode('utf-8'))
+        
+        # Try current key first
         try:
-            fernet = cls._get_fernet()
-            encrypted_bytes = base64.b64decode(encrypted_dek.encode('utf-8'))
+            fernet = cls._get_fernet(use_old=False)
             dek = fernet.decrypt(encrypted_bytes)
             return dek
         except Exception as e:
-            logger.error(f"Failed to decrypt DEK: {e}", exc_info=True)
-            raise ValueError(f"DEK decryption failed: {e}") from e
+            logger.debug(f"Decryption with current key failed: {e}")
+            
+            # Try old key if available (for rotation support)
+            fernet_old = cls._get_fernet(use_old=True)
+            if fernet_old is not None:
+                try:
+                    dek = fernet_old.decrypt(encrypted_bytes)
+                    logger.info(
+                        "Successfully decrypted DEK with old key. "
+                        "Consider re-encrypting with new key for migration."
+                    )
+                    return dek
+                except Exception as e2:
+                    logger.error(
+                        f"Decryption failed with both current and old keys. "
+                        f"Current key error: {e}, Old key error: {e2}",
+                        exc_info=True
+                    )
+                    raise ValueError(
+                        f"DEK decryption failed with both current and old keys: {e2}"
+                    ) from e2
+            else:
+                logger.error(f"Failed to decrypt DEK: {e}", exc_info=True)
+                raise ValueError(f"DEK decryption failed: {e}") from e
     
     @classmethod
     def encrypt_dek_string(cls, dek_string: str) -> str:
@@ -218,12 +292,27 @@ class EnvelopeKeyManager:
     @classmethod
     def clear_cache(cls):
         """
-        Clear cached KEK and Fernet instance.
+        Clear cached KEK and Fernet instances.
         
-        Useful for testing or when KEK needs to be reloaded.
+        Useful for testing or when KEK needs to be reloaded (e.g., after rotation).
         """
         cls._kek = None
+        cls._kek_old = None
         cls._fernet = None
+        cls._fernet_old = None
+    
+    @classmethod
+    def has_old_key(cls) -> bool:
+        """
+        Check if old KEK is available (for rotation support).
+        
+        Returns:
+            True if PROJECT_MASTER_KEY_OLD is set and valid
+        """
+        try:
+            return cls._get_kek(use_old=True) is not None
+        except Exception:
+            return False
 
 
 

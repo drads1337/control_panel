@@ -112,7 +112,7 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10, fail_cl
         def check_rate_limit():
             """Blocking rate limit check"""
             from ..services.connect import ResponseBuilder, SecurityChecker
-            from ..utils.redis_client import get_redis_client
+            from ..utils.redis_client import get_redis_wrapper
 
 
             
@@ -136,7 +136,7 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10, fail_cl
 
             try:
 
-                redis_client = get_redis_client()
+                redis_client = get_redis_wrapper()
                 
 
                 if not redis_client.is_available():
@@ -214,7 +214,7 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10, fail_cl
 
 
                     if fail_close:
-                        from ...services.connect import ResponseBuilder
+                        from ..services.connect import ResponseBuilder
                         response_builder = ResponseBuilder()
                         error_response = response_builder.build_error_response(
                             "Rate limiting service unavailable. Request blocked for security."
@@ -245,7 +245,7 @@ def connect_rate_limit(rate_limit: int = 60, rate_limit_burst: int = 10, fail_cl
 
 
                     if fail_close:
-                        from ...services.connect import ResponseBuilder
+                        from ..services.connect import ResponseBuilder
                         response_builder = ResponseBuilder()
                         error_response = response_builder.build_error_response(
                             "Rate limiting service unavailable. Request blocked for security."

@@ -94,7 +94,7 @@ export default function ProjectsList({ projects, loadingProjects }: ProjectsList
                        project.subscription_status_display === 'active' ? 'Active' :
                        project.subscription_status_display === 'expired' ? 'Expired' :
                        project.subscription_status_display === 'expiring_soon' ? 'Expiring Soon' :
-                       project.subscription_status_display.replace('_', ' ')}
+                       project.subscription_status_display?.replace('_', ' ') || project.subscription_status || 'Unknown'}
                     </Badge>
                   </div>
 
