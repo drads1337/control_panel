@@ -53,7 +53,7 @@ export default function ProjectsList({ projects, loadingProjects }: ProjectsList
                     )}
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <Badge variant="outline" className="font-mono text-[10px] sm:text-xs">
+                    <Badge variant="outline" className="font-sans text-[10px] sm:text-xs">
                       {project.unique_id}
                     </Badge>
                     <Button

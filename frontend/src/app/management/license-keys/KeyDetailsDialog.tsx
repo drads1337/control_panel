@@ -243,7 +243,7 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
                       <div className="space-y-2">
                         <Label htmlFor="key" className="text-sm">Key</Label>
                         <div className="flex items-center gap-2">
-                          <p className="font-mono text-xs bg-secondary p-2 rounded flex-1 break-all">
+                          <p className="font-sans text-xs bg-secondary p-2 rounded flex-1 break-all">
                             {(keyDetails?.key || keyData)?.key}
                           </p>
                           {(keyDetails?.key?.key_masked || isMaskedKey((keyDetails?.key || keyData)?.key || '')) && keyId ? (
@@ -358,7 +358,7 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                             <div className="space-y-1">
                               <span className="text-xs font-medium text-muted-foreground">HWID:</span>
-                              <p className="font-mono text-xs bg-background p-1.5 rounded break-all">{device.device_id || device.serial || 'Not specified'}</p>
+                              <p className="font-sans text-xs bg-background p-1.5 rounded break-all">{device.device_id || device.serial || 'Not specified'}</p>
                             </div>
                             <div className="space-y-1">
                               <span className="text-xs font-medium text-muted-foreground">IP Address:</span>
@@ -406,7 +406,7 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
                 {(keyDetails?.key || keyData)?.fingerprint && (
                   <div className="space-y-2">
                     <Label className="text-sm">Fingerprint</Label>
-                    <p className="font-mono text-xs bg-secondary p-2 rounded break-all">
+                    <p className="font-sans text-xs bg-secondary p-2 rounded break-all">
                       {(keyDetails?.key || keyData)?.fingerprint}
                     </p>
                   </div>

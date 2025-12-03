@@ -220,7 +220,7 @@ export function InviteCodeManager({ projectId }: InviteCodeManagerProps) {
               <Input
                 readOnly
                 value={latestCode.code}
-                className="font-mono text-xs sm:text-sm flex-1 min-w-0"
+                className="font-sans text-xs sm:text-sm flex-1 min-w-0"
               />
               <Button
                 variant="outline"
@@ -350,7 +350,7 @@ export function InviteCodeManager({ projectId }: InviteCodeManagerProps) {
                   <div key={`${code.code}-${index}`}>
                     <div className="flex items-center justify-between gap-2 py-1">
                       <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
-                        <span className="font-mono text-xs truncate">{code.code}</span>
+                        <span className="font-sans text-xs truncate">{code.code}</span>
                         <div className="flex items-center gap-1 shrink-0">
                           {getStatusBadge(code)}
                           {code.role && (

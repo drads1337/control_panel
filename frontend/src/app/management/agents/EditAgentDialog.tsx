@@ -4,8 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Spinner } from '@/components/ui/spinner';
 import { usePermissions } from '@/hooks/use-permissions';
+import { ConditionalRender } from '@/components/rbac/conditional-render';
 import { updateAgent } from '@/entities/agent';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
@@ -84,60 +84,60 @@ const EditAgentDialog: React.FC<EditAgentDialogProps> = ({ open, onOpenChange, o
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] sm:max-w-[600px] max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-hidden">
+      <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-hidden">
         <DialogHeader className="flex-shrink-0 text-left">
-          <DialogTitle className="text-base">Edit Agent</DialogTitle>
-          <DialogDescription className="mt-1 text-xs truncate pr-4">
-            Edit the information for the agent "{agent.name}".
+          <DialogTitle className="text-base">
+            Edit Agent
+          </DialogTitle>
+          <DialogDescription className="mt-1 text-xs">
+            {agent.name}
           </DialogDescription>
         </DialogHeader>
 
-        {/* Form container acts as flex parent */}
+        {/* Form container takes remaining space and handles scrolling */}
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 space-y-4 mt-2">
           
           {/* Scrollable content area */}
-          <div className="flex-1 overflow-y-auto pr-1 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="flex-1 overflow-y-auto pr-1 -mr-1">
+            <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name" className="text-sm font-medium">Name *</Label>
+                <Label htmlFor="name" className="text-sm">Agent Name</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="Agent Name"
+                  placeholder="Agent name"
                   required
                   className="text-base sm:text-sm"
                 />
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="version" className="text-sm font-medium">Version *</Label>
+                <Label htmlFor="version" className="text-sm">Version</Label>
                 <Input
                   id="version"
                   value={formData.version}
                   onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}
                   placeholder="1.0.0"
-                  required
                   className="text-base sm:text-sm"
                 />
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="description" className="text-sm font-medium">Description *</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Detailed description of the agent"
-                rows={3}
-                required
-                className="text-base sm:text-sm resize-none"
-              />
+              <div className="space-y-2">
+                <Label htmlFor="description" className="text-sm">Description</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Detailed description of the agent"
+                  rows={3}
+                  className="text-base sm:text-sm resize-none"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Footer pinned to bottom */}
-          <DialogFooter className="flex-shrink-0 flex-col-reverse sm:flex-row gap-2 sm:gap-0 mt-2">
+          <DialogFooter className="flex-shrink-0 flex-col-reverse sm:flex-row gap-2 sm:gap-0 pt-2 border-t mt-auto">
             <Button 
               type="button" 
               variant="outline" 
@@ -146,13 +146,19 @@ const EditAgentDialog: React.FC<EditAgentDialogProps> = ({ open, onOpenChange, o
             >
               Cancel
             </Button>
-            <Button 
-              type="submit" 
-              disabled={loading || !formData.name?.trim() || !formData.description?.trim() || !formData.version?.trim()}
-              className="w-full sm:w-auto"
-            >
-              {loading ? (<><Spinner className="mr-2 h-4 w-4 animate-spin" />Saving...</>) : 'Save Changes'}
-            </Button>
+            <ConditionalRender permission="agents.edit" fallback={null}>
+              <Button 
+                type="button"
+                disabled={loading}
+                className="w-full sm:w-auto"
+                onClick={async (e) => {
+                  e.preventDefault();
+                  await handleSubmit(e as any);
+                }}
+              >
+                {loading ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </ConditionalRender>
           </DialogFooter>
         </form>
       </DialogContent>

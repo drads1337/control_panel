@@ -154,7 +154,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
                         )}>
                           {product.name}
                         </span>
-                        <span className="text-[10px] text-muted-foreground font-mono">
+                        <span className="text-[10px] text-muted-foreground font-sans">
                           ID: {product.id}
                         </span>
                       </div>

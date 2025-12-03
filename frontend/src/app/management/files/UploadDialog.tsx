@@ -166,7 +166,7 @@ const UploadProductFilesDialog: React.FC<UploadProductFilesDialogProps> = ({ ope
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
                 <h4 className="font-semibold text-base truncate">{product.name}</h4>
-                <Badge variant="outline" className="h-5 text-[10px] font-mono">v{product.version}</Badge>
+                <Badge variant="outline" className="h-5 text-[10px] font-sans">v{product.version}</Badge>
               </div>
               <p className="text-sm text-muted-foreground truncate">
                 {product.description ? sanitizeString(product.description) : 'No description provided'}

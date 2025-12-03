@@ -18,8 +18,8 @@ const ProductItem = React.memo<{
   return (
     <div 
       className={cn(
-        "flex items-center space-x-3 p-3 transition-colors active:bg-accent/50",
-        isSelected ? "bg-accent/30" : "hover:bg-muted/50"
+        "flex items-center gap-2 p-2 transition-colors cursor-pointer",
+        isSelected ? "bg-accent/20" : "hover:bg-muted/20"
       )}
       onClick={() => onToggle(product.id)}
     >
@@ -27,31 +27,19 @@ const ProductItem = React.memo<{
         id={`${prefix}-product-${product.id}`}
         checked={isSelected}
         onCheckedChange={() => onToggle(product.id)}
-        className="border-muted-foreground/40"
       />
       <div className="flex-1 min-w-0">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+        <div className="flex items-center gap-1.5">
           <Label 
             htmlFor={`${prefix}-product-${product.id}`} 
-            className="font-medium cursor-pointer text-sm sm:text-base truncate"
+            className="font-medium cursor-pointer text-xs truncate"
             onClick={(e) => e.stopPropagation()}
           >
             {product.name}
           </Label>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-normal">
-              v{product.version}
-            </Badge>
-            {product.is_multi_app ? (
-              <Badge variant="default" className="text-[10px] h-5 px-1.5">
-                Multi-App
-              </Badge>
-            ) : (
-              <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
-                Library
-              </Badge>
-            )}
-          </div>
+          <Badge variant="outline" className="text-xs h-4 px-1 font-normal">
+            v{product.version}
+          </Badge>
         </div>
       </div>
     </div>
@@ -213,16 +201,15 @@ const AssignProductsDialog: React.FC<AssignProductsDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] flex flex-col p-0 overflow-hidden gap-0">
-        <DialogHeader className="p-4 sm:p-6 pb-2 sm:pb-4 border-b flex-shrink-0">
-          <DialogTitle className="text-base sm:text-lg">Assign Products</DialogTitle>
-          <DialogDescription className="mt-1 text-xs">
+      <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DialogHeader className="px-4 pt-4 pb-3 border-b flex-shrink-0">
+          <DialogTitle className="text-sm font-medium">Assign Products</DialogTitle>
+          <DialogDescription className="mt-0.5 text-xs">
             Manage product assignments for this agent.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
-          {/* Assigned Products Section */}
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
           {assignedProducts.length > 0 && (
             <div className="space-y-3">
               <SectionHeader
@@ -234,8 +221,7 @@ const AssignProductsDialog: React.FC<AssignProductsDialogProps> = ({
                 onToggle={handleSelectAllAssigned}
                 badgeVariant="secondary"
               />
-
-              <div className="border rounded-md divide-y overflow-hidden bg-card">
+              <div className="border rounded-md divide-y">
                 {assignedProducts.map((product) => (
                   <ProductItem
                     key={product.id}
@@ -249,7 +235,6 @@ const AssignProductsDialog: React.FC<AssignProductsDialogProps> = ({
             </div>
           )}
 
-          {/* Available Products Section */}
           <div className="space-y-3">
             <SectionHeader
               title="Available for Assignment"
@@ -260,8 +245,7 @@ const AssignProductsDialog: React.FC<AssignProductsDialogProps> = ({
               onToggle={handleSelectAll}
               badgeVariant="secondary"
             />
-
-            <div className="border rounded-md overflow-hidden bg-card min-h-[100px]">
+            <div className="border rounded-md min-h-[100px]">
               {loading ? (
                 <div className="text-center py-8">
                   <Spinner className="h-6 w-6 mx-auto mb-2" />
@@ -291,39 +275,37 @@ const AssignProductsDialog: React.FC<AssignProductsDialogProps> = ({
           </div>
         </div>
 
-        <DialogFooter className="p-4 border-t bg-background flex-shrink-0 flex-col-reverse sm:flex-row gap-2 sm:gap-0">
+        <DialogFooter className="px-4 py-3 border-t flex-shrink-0 flex-col-reverse sm:flex-row gap-1.5">
           <Button 
             variant="outline" 
             onClick={handleClose}
-            className="w-full sm:w-auto"
+            className="w-full sm:w-auto h-8 text-xs"
           >
             Cancel
           </Button>
-          
-          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row gap-1.5 w-full sm:w-auto">
             {selectedAssignedProducts.length > 0 && onUnassign && (
               <Button
                 variant="destructive"
                 onClick={handleUnassign}
                 disabled={unassigning}
-                className="w-full sm:w-auto order-2 sm:order-1"
+                className="w-full sm:w-auto h-8 text-xs order-2 sm:order-1"
               >
                 {unassigning ? (
-                  <><Spinner className="mr-2 h-4 w-4 animate-spin" />Removing...</>
+                  <><Spinner className="mr-1.5 h-3.5 w-3.5 animate-spin" />Removing...</>
                 ) : (
                   `Remove (${selectedAssignedProducts.length})`
                 )}
               </Button>
             )}
-            
             {selectedProducts.length > 0 && (
               <Button
                 onClick={handleAssign}
                 disabled={assigning}
-                className="w-full sm:w-auto order-1 sm:order-2"
+                className="w-full sm:w-auto h-8 text-xs order-1 sm:order-2"
               >
                 {assigning ? (
-                  <><Spinner className="mr-2 h-4 w-4 animate-spin" />Assigning...</>
+                  <><Spinner className="mr-1.5 h-3.5 w-3.5 animate-spin" />Assigning...</>
                 ) : (
                   `Assign (${selectedProducts.length})`
                 )}

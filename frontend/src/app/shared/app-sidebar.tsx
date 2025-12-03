@@ -1,5 +1,7 @@
-import React, { useMemo, useCallback, useState, useEffect } from 'react'
-import { useNavigate, useLocation, type Location } from 'react-router-dom'
+"use client"
+
+import * as React from "react"
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   LayoutDashboard,
@@ -15,6 +17,7 @@ import {
   Settings,
   User,
   ChevronsUpDown,
+  ChevronRight,
 } from 'lucide-react'
 import { NotificationList } from '@/components/animate-ui/components/community/notification-list'
 import { getUserNotifications, incrementNotificationShowCount } from '@/entities/notification'
@@ -28,6 +31,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/animate-ui/primitives/radix/collapsible'
 import { useIsMobile } from '@/shared/hooks/use-mobile'
 import { getProject, projectKeys } from '@/entities/project'
 import { useNavigationQuery, canAccessNavigationItem, type NavigationItem } from '@/entities/navigation'
@@ -37,63 +45,65 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
-  SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuBadge,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
   SidebarRail,
-  useSidebar as useAnimateSidebar,
+  useSidebar,
 } from '@/components/animate-ui/components/radix/sidebar'
 
-interface SidebarItem extends NavigationItem {
+interface SidebarItem extends Omit<NavigationItem, 'icon'> {
   title: string
-  icon: React.ReactNode
+  icon: React.ComponentType<{ className?: string }>
   badge?: string
+  items?: Array<{ title: string; url: string }>
 }
 
-const navigationUIMap: Record<string, { title: string; icon: React.ReactNode }> = {
+const navigationUIMap: Record<string, { title: string; icon: React.ComponentType<{ className?: string }> }> = {
   '/owner-dashboard': {
     title: 'Dashboard',
-    icon: <LayoutDashboard />
+    icon: LayoutDashboard
   },
   '/dashboard': {
     title: 'Dashboard',
-    icon: <LayoutDashboard />
+    icon: LayoutDashboard
   },
   '/projects': {
     title: 'Projects',
-    icon: <Briefcase />
+    icon: Briefcase
   },
   '/servers': {
     title: 'Servers',
-    icon: <Database />
+    icon: Database
   },
   '/management-page': {
     title: 'Management',
-    icon: <KeyRound />
+    icon: KeyRound
   },
   '/users-management': {
     title: 'Users',
-    icon: <Users />
+    icon: Users
   },
   '/remote-control': {
     title: 'Remote Control',
-    icon: <Terminal />
+    icon: Terminal
   },
   '/security': {
     title: 'Security',
-    icon: <Shield />
+    icon: Shield
   },
   '/webhooks': {
     title: 'Webhooks',
-    icon: <Webhook />
+    icon: Webhook
   },
   '/logs': {
     title: 'Logs',
-    icon: <ScrollText />
+    icon: ScrollText
   }
 }
 
@@ -101,45 +111,217 @@ const convertNavigationItemsToSidebarItems = (navigationItems: NavigationItem[])
   navigationItems
     .map(item => {
       const uiMetadata = navigationUIMap[item.href]
-      return uiMetadata ? { ...item, title: uiMetadata.title, icon: uiMetadata.icon } as SidebarItem : null
+      return uiMetadata ? { ...item, title: uiMetadata.title, icon: uiMetadata.icon, items: [] } as SidebarItem : null
     })
     .filter((item): item is SidebarItem => item !== null)
 
-interface AppSidebarNavigationItemProps {
-  item: SidebarItem;
-  isCollapsed: boolean;
-  location: Location;
-  onNavigate: (href: string) => void;
+interface TeamSwitcherProps {
+  projectName: string
+  isLoading: boolean
+  isCollapsed: boolean
+  isMobile: boolean
 }
 
-const AppSidebarNavigationItem = React.memo<AppSidebarNavigationItemProps>(({
-  item,
-  isCollapsed,
-  location,
-  onNavigate,
-}) => {
-  const isActive = location.pathname === item.href || location.pathname.startsWith(`${item.href}/`)
+function TeamSwitcher({ projectName, isLoading, isCollapsed, isMobile }: TeamSwitcherProps) {
+  const displayName = isLoading ? 'Loading...' : projectName
+
   return (
-    <SidebarMenuItem>
-      <SidebarMenuButton
-        onClick={() => onNavigate(item.href)}
-        isActive={isActive}
-        tooltip={isCollapsed ? item.title : undefined}
-      >
-        {item.icon}
-        <span>{item.title}</span>
-        {item.badge && <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>}
-      </SidebarMenuButton>
-    </SidebarMenuItem>
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          size="lg"
+          className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground cursor-default"
+          tooltip={isCollapsed ? displayName : undefined}
+        >
+          <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+            <Briefcase className="size-4" />
+          </div>
+          {!isCollapsed && (
+            <div className="grid flex-1 text-left text-sm leading-tight">
+              <span className="truncate font-semibold">{displayName}</span>
+            </div>
+          )}
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    </SidebarMenu>
   )
-})
-AppSidebarNavigationItem.displayName = 'AppSidebarNavigationItem'
+}
+
+interface NavMainProps {
+  items: SidebarItem[]
+  location: ReturnType<typeof useLocation>
+  isCollapsed: boolean
+  onNavigate: (href: string) => void
+}
+
+function NavMain({ items, location, isCollapsed, onNavigate }: NavMainProps) {
+  return (
+    <SidebarGroup>
+      <SidebarGroupLabel>Main</SidebarGroupLabel>
+      <SidebarMenu>
+        {items.map((item) => {
+          const isActive = location.pathname === item.href || location.pathname.startsWith(`${item.href}/`)
+          const IconComponent = navigationUIMap[item.href]?.icon
+          
+          return (
+            <Collapsible
+              key={item.href}
+              asChild
+              defaultOpen={isActive}
+              className="group/collapsible"
+            >
+              <SidebarMenuItem>
+                {item.items && item.items.length > 0 ? (
+                  <>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton tooltip={isCollapsed ? item.title : undefined} isActive={isActive}>
+                        {IconComponent && <IconComponent className="size-4" />}
+                        <span>{item.title}</span>
+                        <ChevronRight className="ml-auto transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {item.items.map((subItem) => (
+                          <SidebarMenuSubItem key={subItem.title}>
+                            <SidebarMenuSubButton asChild>
+                              <Link to={subItem.url}>
+                                <span>{subItem.title}</span>
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </>
+                ) : (
+                  <SidebarMenuButton asChild tooltip={isCollapsed ? item.title : undefined} isActive={isActive}>
+                    <Link to={item.href}>
+                      {IconComponent && <IconComponent className="size-4" />}
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                )}
+              </SidebarMenuItem>
+            </Collapsible>
+          )
+        })}
+      </SidebarMenu>
+    </SidebarGroup>
+  )
+}
+
+interface NavUserProps {
+  user: any
+  isCollapsed: boolean
+  isMobile: boolean
+  onNavigate: (href: string) => void
+  onLogout: () => void
+  notifications: any[]
+  showNotifications: boolean
+  onNotificationClick: (notificationId: number) => void
+}
+
+function NavUser({
+  user,
+  isCollapsed,
+  isMobile,
+  onNavigate,
+  onLogout,
+  notifications,
+  showNotifications,
+  onNotificationClick,
+}: NavUserProps) {
+  const userRole = user?.roles?.[0]
+  const roleLabel = userRole ? userRole.charAt(0).toUpperCase() + userRole.slice(1) : 'User'
+
+  return (
+    <>
+      {showNotifications && notifications.length > 0 && (
+        <div className="mb-2">
+          <NotificationList
+            notifications={notifications}
+            limit={3}
+            onNotificationClick={onNotificationClick}
+          />
+        </div>
+      )}
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <SidebarMenuButton
+                size="lg"
+                className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              >
+                <Avatar className="h-8 w-8 rounded-lg">
+                  <AvatarImage src={getAvatarUrl(user?.avatar)} alt={user?.username || 'User'} />
+                  <AvatarFallback className="rounded-lg">
+                    {user?.username?.charAt(0).toUpperCase() || 'U'}
+                  </AvatarFallback>
+                </Avatar>
+                {!isCollapsed && (
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-semibold">{user?.username || 'User'}</span>
+                    <span className="truncate text-xs">{roleLabel}</span>
+                  </div>
+                )}
+                {!isCollapsed && <ChevronsUpDown className="ml-auto size-4" />}
+              </SidebarMenuButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              className={cn("w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg", !isMobile && "ml-2")}
+              side={isMobile ? 'bottom' : 'right'}
+              align="end"
+              sideOffset={4}
+            >
+              <DropdownMenuLabel className="p-0 font-normal">
+                <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+                  <Avatar className="h-8 w-8 rounded-lg">
+                    <AvatarImage src={getAvatarUrl(user?.avatar)} alt={user?.username || 'User'} />
+                    <AvatarFallback className="rounded-lg">
+                      {user?.username?.charAt(0).toUpperCase() || 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-semibold">{user?.username || 'User'}</span>
+                    <span className="truncate text-xs">{roleLabel}</span>
+                  </div>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onNavigate('/profile')}>
+                <User className="h-4 w-4 mr-2" />
+                Profile
+              </DropdownMenuItem>
+              {canAccessNavigationItem(
+                { href: '/settings', permission: 'project.view' },
+                user,
+                userRole
+              ) && (
+                <DropdownMenuItem onClick={() => onNavigate('/settings')}>
+                  <Settings className="h-4 w-4 mr-2" />
+                  Settings
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={onLogout}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Log out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    </>
+  )
+}
 
 function AppSidebarContent() {
   const navigate = useNavigate()
   const location = useLocation()
   const { user, logout, isInitialized } = useAuthContext()
-  const { state } = useAnimateSidebar()
+  const { state } = useSidebar()
   const isMobile = useIsMobile()
   const queryClient = useQueryClient()
   const isCollapsed = state === 'collapsed'
@@ -148,7 +330,7 @@ function AppSidebarContent() {
     enabled: isInitialized && !!user,
   })
 
-  const sidebarItems = useMemo(() => {
+  const sidebarItems = React.useMemo(() => {
     if (!navigationConfig?.navigation) return []
     return convertNavigationItemsToSidebarItems(navigationConfig.navigation)
   }, [navigationConfig?.navigation])
@@ -174,7 +356,7 @@ function AppSidebarContent() {
     refetchOnWindowFocus: true,
   })
 
-  const notifications = useMemo(() => {
+  const notifications = React.useMemo(() => {
     return (notificationsData?.notifications || []).filter(notification => {
       const message = notification.message || ''
       if (message.trim().startsWith('[')) return false
@@ -184,9 +366,9 @@ function AppSidebarContent() {
     })
   }, [notificationsData?.notifications])
 
-  const [showNotifications, setShowNotifications] = useState(false)
+  const [showNotifications, setShowNotifications] = React.useState(false)
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!isCollapsed) {
       const timer = setTimeout(() => setShowNotifications(true), 300)
       return () => clearTimeout(timer)
@@ -195,10 +377,10 @@ function AppSidebarContent() {
     }
   }, [isCollapsed])
 
-  const handleNavigation = useCallback((href: string) => navigate(href), [navigate])
-  const handleLogout = () => logout()
+  const handleNavigation = React.useCallback((href: string) => navigate(href), [navigate])
+  const handleLogout = React.useCallback(() => logout(), [logout])
 
-  const handleNotificationClick = useCallback(async (notificationId: number) => {
+  const handleNotificationClick = React.useCallback(async (notificationId: number) => {
     try {
       await incrementNotificationShowCount(notificationId)
       queryClient.invalidateQueries({ queryKey: ['notifications', 'sidebar', user?.id] })
@@ -207,135 +389,43 @@ function AppSidebarContent() {
     }
   }, [queryClient, user?.id])
 
-  const projectName = useMemo(() => {
-    if (isProjectLoading) return 'Loading...'
+  const projectName = React.useMemo(() => {
     const projectResponse = currentProjectResponse as any
     const projectData = projectResponse?.data || projectResponse
     return projectData?.name || 'No project'
-  }, [currentProjectResponse, isProjectLoading])
-
-  const userRole = user?.roles?.[0]
-  const roleLabel = userRole ? userRole.charAt(0).toUpperCase() + userRole.slice(1) : 'User'
+  }, [currentProjectResponse])
 
   return (
     <>
       <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              size="lg"
-              className="cursor-default"
-              tooltip={isCollapsed ? projectName : undefined}
-            >
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground shrink-0">
-                <Briefcase className="size-4" />
-              </div>
-              {!isCollapsed && (
-                <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
-                  <span className="truncate font-semibold">{projectName}</span>
-                </div>
-              )}
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <TeamSwitcher
+          projectName={projectName}
+          isLoading={isProjectLoading}
+          isCollapsed={isCollapsed}
+          isMobile={isMobile}
+        />
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {sidebarItems.map((item) => (
-                <AppSidebarNavigationItem
-                  key={item.href}
-                  item={item}
-                  isCollapsed={isCollapsed}
-                  location={location}
-                  onNavigate={handleNavigation}
-                />
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        <NavMain
+          items={sidebarItems}
+          location={location}
+          isCollapsed={isCollapsed}
+          onNavigate={handleNavigation}
+        />
       </SidebarContent>
 
       <SidebarFooter>
-        {showNotifications && notifications.length > 0 && (
-          <div className="mb-2">
-            <NotificationList
-              notifications={notifications}
-              limit={3}
-              onNotificationClick={handleNotificationClick}
-            />
-          </div>
-        )}
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuButton
-                  size="lg"
-                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-                >
-                  <Avatar className="h-8 w-8 rounded-lg shrink-0">
-                    <AvatarImage src={getAvatarUrl(user?.avatar)} alt={user?.username || 'User'} />
-                    <AvatarFallback className="rounded-lg bg-sidebar-accent text-sidebar-foreground">
-                      {user?.username?.charAt(0).toUpperCase() || 'U'}
-                    </AvatarFallback>
-                  </Avatar>
-                  {!isCollapsed && (
-                    <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
-                      <span className="truncate font-semibold">{user?.username || 'User'}</span>
-                      <span className="truncate text-xs text-muted-foreground">{roleLabel}</span>
-                    </div>
-                  )}
-                  {!isCollapsed && <ChevronsUpDown className="ml-auto size-4 shrink-0" />}
-                </SidebarMenuButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                className={cn("w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg", !isMobile && "ml-2")}
-                side={isMobile ? 'top' : 'right'}
-                align="end"
-                sideOffset={4}
-              >
-                <DropdownMenuLabel className="p-0 font-normal">
-                  <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                    <Avatar className="h-8 w-8 rounded-lg shrink-0">
-                      <AvatarImage src={getAvatarUrl(user?.avatar)} alt={user?.username || 'User'} />
-                      <AvatarFallback className="rounded-lg">
-                        {user?.username?.charAt(0).toUpperCase() || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
-                      <span className="truncate font-semibold">{user?.username || 'User'}</span>
-                      <span className="truncate text-xs text-muted-foreground">{roleLabel}</span>
-                    </div>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => handleNavigation('/profile')}>
-                  <User className="h-4 w-4 mr-2" />
-                  Profile
-                </DropdownMenuItem>
-                {canAccessNavigationItem(
-                  { href: '/settings', permission: 'project.view' },
-                  user,
-                  userRole
-                ) && (
-                  <DropdownMenuItem onClick={() => handleNavigation('/settings')}>
-                    <Settings className="h-4 w-4 mr-2" />
-                    Settings
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout}>
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Log out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <NavUser
+          user={user}
+          isCollapsed={isCollapsed}
+          isMobile={isMobile}
+          onNavigate={handleNavigation}
+          onLogout={handleLogout}
+          notifications={notifications}
+          showNotifications={showNotifications}
+          onNotificationClick={handleNotificationClick}
+        />
       </SidebarFooter>
 
       <SidebarRail />
@@ -343,9 +433,9 @@ function AppSidebarContent() {
   )
 }
 
-export default function AppSidebar() {
+export default function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
-    <Sidebar collapsible="icon" variant="sidebar">
+    <Sidebar collapsible="icon" {...props}>
       <AppSidebarContent />
     </Sidebar>
   )

@@ -91,7 +91,7 @@ export default function CryptographicKeys({ settings, isSaving }: CryptographicK
             </div>
           </div>
           <div className="p-2 sm:p-3 rounded-lg bg-muted/30 border border-border/50">
-            <code className="text-[10px] sm:text-xs font-mono text-muted-foreground break-all">
+            <code className="text-[10px] sm:text-xs font-sans text-muted-foreground break-all">
               {keys.aes_key}
             </code>
           </div>
@@ -123,7 +123,7 @@ export default function CryptographicKeys({ settings, isSaving }: CryptographicK
             </div>
           </div>
           <div className="p-2 sm:p-3 rounded-lg bg-muted/30 border border-border/50">
-            <code className="text-[10px] sm:text-xs font-mono text-muted-foreground break-all">
+            <code className="text-[10px] sm:text-xs font-sans text-muted-foreground break-all">
               {keys.public_key}
             </code>
           </div>

@@ -316,7 +316,7 @@ export function SearchBar({ className = '', placeholder = 'Search the system...'
         >
           <Search className="mr-2 h-4 w-4" />
           <span className="flex-1 text-left">{placeholder}</span>
-          <div className="ml-auto flex items-center gap-1 px-1.5 py-0.5 rounded border bg-muted/50 text-xs font-mono">
+          <div className="ml-auto flex items-center gap-1 px-1.5 py-0.5 rounded border bg-muted/50 text-xs font-sans">
             {platformIsMac ? (
               <>
                 <Command className="h-3 w-3" />
@@ -412,10 +412,10 @@ export function SearchBar({ className = '', placeholder = 'Search the system...'
                 <p className="text-sm mt-1">Use ↑↓ to navigate, Enter to select</p>
                 <div className="mt-4 flex items-center justify-center gap-4 text-xs">
                   <div className="flex items-center gap-1">
-                    <kbd className="px-1.5 py-0.5 rounded border bg-muted font-mono">
+                    <kbd className="px-1.5 py-0.5 rounded border bg-muted font-sans">
                       {platformIsMac ? '⌘' : 'Ctrl'}
                     </kbd>
-                    <kbd className="px-1.5 py-0.5 rounded border bg-muted font-mono">K</kbd>
+                    <kbd className="px-1.5 py-0.5 rounded border bg-muted font-sans">K</kbd>
                     <span className="ml-1">to open</span>
                   </div>
                 </div>

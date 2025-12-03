@@ -223,7 +223,7 @@ const ChangelogManagementDialog: React.FC<ChangelogManagementDialogProps> = ({
                   <div className="flex items-start gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        <Badge variant="outline" className="text-xs font-mono bg-primary/5 text-primary border-primary/20">
+                        <Badge variant="outline" className="text-xs font-sans bg-primary/5 text-primary border-primary/20">
                           v{entry.version}
                         </Badge>
                         <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">

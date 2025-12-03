@@ -16,7 +16,7 @@ export const KeyDisplay: React.FC<KeyDisplayProps> = React.memo(({
 }) => {
   return (
     <div className="flex items-center space-x-2">
-      <code className="font-mono text-sm bg-muted px-2 py-1 rounded">
+      <code className="font-sans text-sm bg-muted px-2 py-1 rounded">
         {isVisible ? keyValue : '••••••••••••••••'}
       </code>
       <KeyVisibilityToggle

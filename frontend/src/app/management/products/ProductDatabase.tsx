@@ -183,7 +183,7 @@ const ProductDatabase: React.FC<ProductDatabaseProps> = ({
     
     return (
       <div className={cn(
-        "flex flex-col p-4 border rounded-lg bg-card text-card-foreground shadow-sm mb-3 transition-colors",
+        "flex flex-col p-4 border rounded-lg bg-card text-card-foreground shadow-sm transition-colors",
         isSelected ? "border-primary/50 bg-primary/5" : "border-border"
       )}>
         <div className="flex justify-between items-start mb-3 border-b pb-3">
@@ -281,7 +281,7 @@ const ProductDatabase: React.FC<ProductDatabaseProps> = ({
            )}
         </div>
         <div className="mt-2 pt-2 border-t text-xs">
-          <span className="font-medium text-foreground">ID:</span> <span className="font-mono opacity-70">{product.id}</span>
+          <span className="font-medium text-foreground">ID:</span> <span className="font-sans opacity-70">{product.id}</span>
         </div>
       </div>
     );
@@ -296,7 +296,7 @@ const ProductDatabase: React.FC<ProductDatabaseProps> = ({
   }
 
   return (
-    <div className="space-y-4">
+    <div className={cn("space-y-4", isMobile && "pb-6")}>
       {!loading && filteredProducts.length === 0 && products.length === 0 ? (
         <ProductDatabaseEmptyState 
           onCreateProduct={() => setShowCreateDialog(true)}
@@ -434,7 +434,7 @@ const ProductDatabase: React.FC<ProductDatabaseProps> = ({
               </div>
             )}
           </CardHeader>
-          <CardContent className={cn("pt-0", !isMobile && "-mt-3")}>
+          <CardContent className={cn("pt-0", !isMobile && "-mt-3", isMobile && "pb-8")}>
             {loading ? (
               <Spinner message="Loading products..." />
             ) : filteredProducts.length === 0 ? (
@@ -486,7 +486,7 @@ const ProductDatabase: React.FC<ProductDatabaseProps> = ({
 
                 {/* Mobile View: Cards */}
                 {isMobile && (
-                  <div className="mt-2">
+                  <div className="mt-2 space-y-3 mb-4">
                     {filteredProducts.map(product => (
                       <MobileProductCard key={product.id} product={product} />
                     ))}

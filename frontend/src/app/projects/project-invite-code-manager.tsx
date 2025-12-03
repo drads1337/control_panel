@@ -255,7 +255,7 @@ export function ProjectInviteCodeManager() {
             <Input
               readOnly
               value={latestCode.code}
-              className="font-mono text-sm cursor-pointer"
+              className="font-sans text-sm cursor-pointer"
               onClick={(e) => {
                 (e.target as HTMLInputElement).select()
                 copyToClipboard(latestCode.code)
@@ -311,7 +311,7 @@ export function ProjectInviteCodeManager() {
               >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   <span 
-                    className="font-mono text-sm truncate cursor-pointer select-all hover:text-primary"
+                    className="font-sans text-sm truncate cursor-pointer select-all hover:text-primary"
                     onClick={() => copyToClipboard(code.code)}
                     title="Click to copy"
                   >

@@ -69,7 +69,7 @@ const SessionRow = React.memo<{
       <td className="p-3">
         <div className="flex items-center gap-2">
           <Monitor className="h-4 w-4 text-muted-foreground" />
-          <span className="font-mono text-sm">{session.last_ip || 'Unknown'}</span>
+          <span className="font-sans text-sm">{session.last_ip || 'Unknown'}</span>
         </div>
       </td>
       <td className="p-3">

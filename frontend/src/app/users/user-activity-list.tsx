@@ -194,7 +194,7 @@ export function UserActivityList({ className }: UserActivityListProps) {
                         {activity.ip_address && (
                           <div className="flex items-center gap-1.5 min-w-[100px]">
                             <Monitor className="h-3.5 w-3.5" />
-                            <span className="font-mono">{activity.ip_address}</span>
+                            <span className="font-sans">{activity.ip_address}</span>
                           </div>
                         )}
                         {(activity.country || activity.city) && (

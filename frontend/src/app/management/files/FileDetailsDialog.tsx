@@ -92,7 +92,7 @@ const FileDetailsDialog: React.FC<FileDetailsDialogProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <Label className="text-xs sm:text-sm font-medium text-muted-foreground">File ID</Label>
-                <div className="text-sm font-mono mt-0.5 break-all">
+                <div className="text-sm font-sans mt-0.5 break-all">
                   {selectedFile.id}
                 </div>
               </div>

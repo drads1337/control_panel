@@ -65,7 +65,7 @@ export default function CurrentProjectInfo({ currentProject }: CurrentProjectInf
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
               <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">Unique ID</span>
-              <code className="text-xs sm:text-sm font-mono font-medium truncate">{currentProject.unique_id}</code>
+              <code className="text-xs sm:text-sm font-sans font-medium truncate">{currentProject.unique_id}</code>
             </div>
             <Button
               variant="ghost"
@@ -79,7 +79,7 @@ export default function CurrentProjectInfo({ currentProject }: CurrentProjectInf
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
               <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">Project ID</span>
-              <code className="text-xs sm:text-sm font-mono font-medium truncate">{currentProject.unique_id}</code>
+              <code className="text-xs sm:text-sm font-sans font-medium truncate">{currentProject.unique_id}</code>
             </div>
             <Button
               variant="ghost"

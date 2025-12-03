@@ -204,7 +204,7 @@ const productColumns: ColumnDef<z.infer<typeof productSchema>>[] = [
     cell: ({ row }) => (
       <div className="flex items-center gap-2">
         <Key className="h-4 w-4 text-muted-foreground" />
-        <Badge variant="outline" className="font-mono">
+        <Badge variant="outline" className="font-sans">
           {row.original.keys.toLocaleString()}
         </Badge>
       </div>
@@ -295,7 +295,7 @@ const userColumns: ColumnDef<z.infer<typeof userSchema>>[] = [
     cell: ({ row }) => (
       <div className="flex items-center gap-2">
         <Activity className="h-4 w-4 text-muted-foreground" />
-        <Badge variant="outline" className="font-mono">
+        <Badge variant="outline" className="font-sans">
           {row.original.activities.toLocaleString()}
         </Badge>
       </div>

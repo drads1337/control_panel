@@ -207,7 +207,7 @@ const renderMobileFileCard = (
             key={file.id} 
             style={style}
             className={cn(
-                "flex flex-col p-4 border rounded-lg bg-card text-card-foreground shadow-sm mb-3 transition-colors",
+                "flex flex-col p-4 border rounded-lg bg-card text-card-foreground shadow-sm transition-colors",
                 props.isSelected ? "border-primary/50 bg-primary/5" : "border-border"
             )}
             onClick={() => {
@@ -401,7 +401,7 @@ const FilesList: React.FC<FilesListProps> = ({
   }
 
   return (
-    <div className={isMobile ? "flex flex-col gap-2" : "divide-y"}>
+    <div className={cn(isMobile ? "flex flex-col gap-2 mb-4" : "divide-y")}>
       {files.map((file, index) => renderItem(file, index))}
     </div>
   );
@@ -853,7 +853,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
   }
 
   return (
-    <div className="space-y-6">
+    <div className={cn("space-y-6", isMobile && "pb-6")}>
       {!hasItems && !loading && (
         <Card className="border-dashed border-2 border-muted-foreground/25">
           <CardContent className="p-12">
@@ -1051,7 +1051,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
               </div>
             </div>
           </CardHeader>
-          <CardContent className="pt-0">
+          <CardContent className={cn("pt-0", isMobile && "pb-8")}>
             {refreshing ? <Spinner message="Loading files..." /> : filteredFiles.length === 0 ? (
               <div className="flex items-center justify-center py-12"><div className="text-center"><FolderOpen className="h-10 w-10 text-muted-foreground mx-auto mb-3" /><div className="text-sm text-muted-foreground">No files found</div></div></div>
             ) : (

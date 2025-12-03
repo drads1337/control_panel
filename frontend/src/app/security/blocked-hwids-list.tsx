@@ -74,7 +74,7 @@ const HWIDItem = React.memo(({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-0">
-            <h4 className="font-medium font-mono text-xs sm:text-xs break-all sm:truncate sm:max-w-none">
+            <h4 className="font-medium font-sans text-xs sm:text-xs break-all sm:truncate sm:max-w-none">
               {hwid.hwid}
             </h4>
             <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">

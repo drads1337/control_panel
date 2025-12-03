@@ -81,7 +81,7 @@ const IPItem = React.memo(({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-0">
-            <h4 className="font-medium text-xs sm:text-sm font-mono break-all sm:truncate">
+            <h4 className="font-medium text-xs sm:text-sm font-sans break-all sm:truncate">
               {ip.ip_address}
             </h4>
             <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">

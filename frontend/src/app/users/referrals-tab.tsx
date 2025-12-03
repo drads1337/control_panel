@@ -62,7 +62,7 @@ const MobileReferralCard = React.memo(({
             <Key className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h4 className="font-mono font-semibold text-sm tracking-wide">
+            <h4 className="font-sans font-semibold text-sm tracking-wide">
               {refCode.code}
             </h4>
             <span className={cn("mt-1 text-[10px] px-1.5 py-0.5 rounded border inline-block font-medium", getStatusColor())}>
@@ -153,7 +153,7 @@ const ReferralRow = React.memo(({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            <h4 className="font-medium text-sm truncate font-mono">{refCode.code}</h4>
+            <h4 className="font-medium text-sm truncate font-sans">{refCode.code}</h4>
             <span className={cn(
               "text-[10px] px-1.5 py-0.5 rounded border",
               refCode.used 

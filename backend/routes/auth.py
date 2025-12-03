@@ -373,15 +373,21 @@ def register(validated_data=None):
 
         user.project_id = project.id
         
-
         rbac_service.initialize_default_data(project.id)
         
-
         from ..models.rbac import Role, UserRole
-        owner_role = Role.query.filter_by(name="owner", project_id=project.id).first()
-        if owner_role:
-            user_role = UserRole(user_id=user.id, role_id=owner_role.id)
+        # Assign "admin" role to the user who creates the project
+        # The "owner" role should only be for system owners, not project creators
+        admin_role = Role.query.filter_by(name="admin", project_id=project.id).first()
+        if admin_role:
+            user_role = UserRole(user_id=user.id, role_id=admin_role.id)
             db.session.add(user_role)
+        else:
+            # Fallback to owner if admin role doesn't exist (shouldn't happen after RBAC init)
+            owner_role = Role.query.filter_by(name="owner", project_id=project.id).first()
+            if owner_role:
+                user_role = UserRole(user_id=user.id, role_id=owner_role.id)
+                db.session.add(user_role)
         
         db.session.commit()
 

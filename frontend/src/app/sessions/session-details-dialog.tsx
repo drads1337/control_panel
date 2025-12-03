@@ -173,7 +173,7 @@ export function SessionDetailsDialog({
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-500">Last IP</label>
-                      <p className="text-sm font-mono">{sessionDetails.user.last_ip || 'Unknown'}</p>
+                      <p className="text-sm font-sans">{sessionDetails.user.last_ip || 'Unknown'}</p>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-500">Location</label>
@@ -305,7 +305,7 @@ export function SessionDetailsDialog({
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
                           <span className="font-medium">IP Address:</span>
-                          <p className="text-gray-600 font-mono">{sessionDetails.user.last_ip || 'Unknown'}</p>
+                          <p className="text-gray-600 font-sans">{sessionDetails.user.last_ip || 'Unknown'}</p>
                         </div>
                         <div>
                           <span className="font-medium">Country:</span>

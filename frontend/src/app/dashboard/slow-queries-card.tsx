@@ -122,7 +122,7 @@ export function SlowQueriesCard({ data }: SlowQueriesCardProps) {
                           </span>
                         )}
                       </div>
-                      <p className="text-xs sm:text-sm font-mono bg-muted p-2 rounded break-all">
+                      <p className="text-xs sm:text-sm font-sans bg-muted p-2 rounded break-all">
                         {query.statement_preview}
                       </p>
                       {query.tables && query.tables.length > 0 && (
@@ -184,7 +184,7 @@ export function SlowQueriesCard({ data }: SlowQueriesCardProps) {
                       </span>
                     </div>
                   </div>
-                  <p className="text-xs sm:text-sm font-mono bg-muted p-2 rounded break-all mb-2">
+                  <p className="text-xs sm:text-sm font-sans bg-muted p-2 rounded break-all mb-2">
                     {pattern.sample_query}
                   </p>
                   {pattern.tables && pattern.tables.length > 0 && (

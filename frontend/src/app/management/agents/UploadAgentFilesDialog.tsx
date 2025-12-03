@@ -63,24 +63,19 @@ const UploadAgentFilesDialog: React.FC<UploadAgentFilesDialogProps> = ({ open, o
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] sm:max-w-[900px] max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-hidden">
-        <DialogHeader className="flex-shrink-0 text-left">
-          <DialogTitle className="text-base">Upload Files for Agent</DialogTitle>
-          <DialogDescription className="mt-1 text-xs truncate pr-4">
+      <DialogContent className="w-[95vw] sm:max-w-[600px] max-h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DialogHeader className="flex-shrink-0 text-left px-4 pt-4 pb-3">
+          <DialogTitle className="text-sm font-medium">Upload Files</DialogTitle>
+          <DialogDescription className="mt-0.5 text-xs truncate pr-4">
             Upload files for the agent "{agent.name}".
           </DialogDescription>
         </DialogHeader>
 
-        {/* Form acts as the flex container filling available space */}
-        <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 space-y-4 mt-2">
-          
-          {/* Scrollable Content Area */}
-          <div className="flex-1 overflow-y-auto pr-1 -mr-1 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-              <div className="space-y-2 sm:space-y-3">
-                <Label className="text-sm font-medium">
-                  Agent Logo
-                </Label>
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 overflow-y-auto px-4 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Agent Logo</Label>
                 <FileUpload
                   onFilesSelect={(files) => handleFilesSelect(files, 'logo')}
                   multiple={false}
@@ -91,10 +86,8 @@ const UploadAgentFilesDialog: React.FC<UploadAgentFilesDialogProps> = ({ open, o
                   showProgress={false}
                 />
               </div>
-              <div className="space-y-2 sm:space-y-3">
-                <Label className="text-sm font-medium">
-                  Agent Banner
-                </Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Agent Banner</Label>
                 <FileUpload
                   onFilesSelect={(files) => handleFilesSelect(files, 'banner')}
                   multiple={false}
@@ -105,10 +98,8 @@ const UploadAgentFilesDialog: React.FC<UploadAgentFilesDialogProps> = ({ open, o
                   showProgress={false}
                 />
               </div>
-              <div className="space-y-2 sm:space-y-3">
-                <Label className="text-sm font-medium">
-                  Agent Background
-                </Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Agent Background</Label>
                 <FileUpload
                   onFilesSelect={(files) => handleFilesSelect(files, 'background')}
                   multiple={false}
@@ -119,10 +110,8 @@ const UploadAgentFilesDialog: React.FC<UploadAgentFilesDialogProps> = ({ open, o
                   showProgress={false}
                 />
               </div>
-              <div className="space-y-2 sm:space-y-3">
-                <Label className="text-sm font-medium">
-                  Agent File (required)
-                </Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Agent File (required)</Label>
                 <FileUpload
                   onFilesSelect={(files) => handleFilesSelect(files, 'file')}
                   multiple={false}
@@ -131,22 +120,19 @@ const UploadAgentFilesDialog: React.FC<UploadAgentFilesDialogProps> = ({ open, o
                   maxFiles={1}
                   showPreview={false}
                   showProgress={false}
-                  className="min-h-[100px] sm:min-h-[140px]"
                 />
                 {selectedFiles.file && (
-                  <div className="flex items-center gap-2 text-xs sm:text-sm text-green-600 dark:text-green-400">
+                  <div className="flex items-center gap-2 text-xs text-green-600 dark:text-green-400">
                     <span>✓</span>
-                    <span className="truncate max-w-[200px] sm:max-w-xs">
-                      File selected: {selectedFiles.file.name}
-                    </span>
+                    <span className="truncate">{selectedFiles.file.name}</span>
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="bg-muted/50 rounded-lg p-3 sm:p-4 space-y-2">
-              <h4 className="text-sm font-medium text-foreground">File Requirements:</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground">
+            <div className="bg-muted/20 rounded p-2 border">
+              <h4 className="text-xs font-medium mb-1.5">File Requirements:</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs text-muted-foreground">
                 <div>Logo: PNG, JPG, JPEG, GIF (up to 5MB)</div>
                 <div>Banner: PNG, JPG, JPEG, GIF (up to 10MB)</div>
                 <div>Background: PNG, JPG, JPEG, GIF (up to 15MB)</div>
@@ -155,14 +141,14 @@ const UploadAgentFilesDialog: React.FC<UploadAgentFilesDialogProps> = ({ open, o
             </div>
 
             {loading && (
-              <div className="space-y-2 px-1">
-                <div className="flex items-center justify-between text-xs sm:text-sm">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
                   <span>Uploading files...</span>
                   <span>{uploadProgress}%</span>
                 </div>
-                <div className="w-full bg-muted rounded-full h-2">
+                <div className="w-full bg-muted rounded-full h-1">
                   <div 
-                    className="bg-primary h-2 rounded-full transition-all duration-300 ease-out"
+                    className="bg-primary h-1 rounded-full transition-all duration-300"
                     style={{ width: `${uploadProgress}%` }}
                   />
                 </div>
@@ -170,26 +156,25 @@ const UploadAgentFilesDialog: React.FC<UploadAgentFilesDialogProps> = ({ open, o
             )}
           </div>
 
-          {/* Footer pinned to bottom */}
-          <DialogFooter className="flex-shrink-0 flex-col-reverse sm:flex-row gap-2 sm:gap-0 border-t pt-4">
+          <DialogFooter className="flex-shrink-0 flex-col-reverse sm:flex-row gap-1.5 px-4 py-3 border-t">
             <Button 
               type="button" 
               variant="outline" 
               onClick={() => onOpenChange(false)} 
               disabled={loading}
-              className="w-full sm:w-auto"
+              className="w-full sm:w-auto h-8 text-xs"
             >
               Cancel
             </Button>
             <Button 
               type="submit" 
               disabled={loading || !selectedFiles.file}
-              className="w-full sm:w-auto min-w-[140px]"
+              className="w-full sm:w-auto h-8 text-xs"
             >
               {loading ? (
-                <><Spinner className="mr-2 h-4 w-4 animate-spin" />Uploading...</>
+                <><Spinner className="mr-1.5 h-3.5 w-3.5 animate-spin" />Uploading...</>
               ) : (
-                'Upload Files'
+                'Upload'
               )}
             </Button>
           </DialogFooter>

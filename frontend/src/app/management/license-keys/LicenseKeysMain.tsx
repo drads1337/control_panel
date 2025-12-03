@@ -159,7 +159,7 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToProductData
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-6 sm:pb-0">
       {}
       <ConditionalRender permission="keys.create" fallback={null}>
         <LicenseKeyCreationGrid products={products} onKeyCreated={handleKeyCreated} />

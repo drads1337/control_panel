@@ -60,23 +60,20 @@ const AgentConfigDialog: React.FC<AgentConfigDialogProps> = ({ open, onOpenChang
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-hidden">
-        <DialogHeader className="flex-shrink-0 text-left">
-          <DialogTitle className="text-base truncate pr-4">{agent.name}</DialogTitle>
-          <DialogDescription className="mt-1 text-xs">
+      <DialogContent className="w-[95vw] sm:max-w-[450px] max-h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DialogHeader className="flex-shrink-0 text-left px-4 pt-4 pb-3">
+          <DialogTitle className="text-sm font-medium truncate pr-4">{agent.name}</DialogTitle>
+          <DialogDescription className="mt-0.5 text-xs">
             Configure authentication and key generation settings
           </DialogDescription>
         </DialogHeader>
 
-        {/* Form acts as the flex container for scrollable content + footer */}
-        <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 space-y-4 mt-2">
-          
-          {/* Scrollable Content Area */}
-          <div className="flex-1 overflow-y-auto pr-1 -mr-1 space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="login_type" className="text-sm font-medium">Authentication Type</Label>
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 overflow-y-auto px-4 space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="login_type" className="text-xs">Authentication Type</Label>
               <Select value={config.login_type} onValueChange={(value) => setConfig(prev => ({ ...prev, login_type: value as any }))}>
-                <SelectTrigger className="w-full text-base sm:text-sm">
+                <SelectTrigger className="w-full h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -87,8 +84,8 @@ const AgentConfigDialog: React.FC<AgentConfigDialogProps> = ({ open, onOpenChang
             </div>
 
             {config.login_type === 'invite_code' && (
-              <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer" onClick={() => setConfig(prev => ({ ...prev, invite_code_required: !prev.invite_code_required }))}>
-                <Label htmlFor="invite_code_required" className="cursor-pointer flex-1">Require invite code</Label>
+              <div className="flex items-center justify-between p-2 border rounded">
+                <Label htmlFor="invite_code_required" className="cursor-pointer flex-1 text-xs">Require invite code</Label>
                 <Switch
                   id="invite_code_required"
                   checked={config.invite_code_required}
@@ -99,57 +96,54 @@ const AgentConfigDialog: React.FC<AgentConfigDialogProps> = ({ open, onOpenChang
 
             {config.login_type === 'license_generation' && (
               <>
-                <div className="space-y-2">
-                  <Label htmlFor="custom_key_prefix" className="text-sm font-medium">Custom Key Prefix</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="custom_key_prefix" className="text-xs">Custom Key Prefix</Label>
                   <Input
                     id="custom_key_prefix"
                     value={config.custom_key_prefix}
                     onChange={(e) => setConfig(prev => ({ ...prev, custom_key_prefix: e.target.value }))}
                     placeholder="Optional"
-                    className="text-base sm:text-sm"
+                    className="h-8 text-xs"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="key_prefix_format" className="text-sm font-medium">Format</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="key_prefix_format" className="text-xs">Format</Label>
                   <Input
                     id="key_prefix_format"
                     value={config.key_prefix_format}
                     onChange={(e) => setConfig(prev => ({ ...prev, key_prefix_format: e.target.value }))}
                     placeholder="{name}-{duration}-{custom}"
-                    className="text-base sm:text-sm"
+                    className="h-8 text-xs"
                   />
                 </div>
 
-                <div className="p-3 bg-muted rounded-lg">
-                  <h4 className="font-medium mb-2 text-xs uppercase tracking-wider text-muted-foreground">Format Examples:</h4>
-                  <div className="space-y-1.5 text-xs text-muted-foreground font-mono">
-                    <div className="break-all">• {'{name}-{duration}-{custom}'} → Agent-24H-abc123</div>
-                    <div className="break-all">• {'{name}_{duration}_{custom}'} → Agent_24H_abc123</div>
-                    <div className="break-all">• {'{name}-{custom}'} → Agent-abc123</div>
-                    <div className="break-all">• {'{custom}-{name}'} → abc123-Agent</div>
+                <div className="p-2 bg-muted/20 rounded border">
+                  <h4 className="font-medium mb-1.5 text-xs text-muted-foreground">Format Examples:</h4>
+                  <div className="space-y-0.5 text-xs text-muted-foreground font-sans">
+                    <div className="break-all">{'{name}-{duration}-{custom}'} → Agent-24H-abc123</div>
+                    <div className="break-all">{'{name}_{duration}_{custom}'} → Agent_24H_abc123</div>
                   </div>
                 </div>
               </>
             )}
           </div>
 
-          {/* Footer pinned to bottom */}
-          <DialogFooter className="flex-shrink-0 flex-col-reverse sm:flex-row gap-2 sm:gap-0 mt-2">
+          <DialogFooter className="flex-shrink-0 flex-col-reverse sm:flex-row gap-1.5 px-4 py-3 border-t">
             <Button 
               type="button" 
               variant="outline" 
               onClick={() => onOpenChange(false)}
-              className="w-full sm:w-auto"
+              className="w-full sm:w-auto h-8 text-xs"
             >
               Cancel
             </Button>
             <Button 
               type="submit" 
               disabled={loading}
-              className="w-full sm:w-auto"
+              className="w-full sm:w-auto h-8 text-xs"
             >
-              {loading ? (<><Spinner className="mr-2 h-4 w-4 animate-spin" />Saving...</>) : 'Save'}
+              {loading ? (<><Spinner className="mr-1.5 h-3.5 w-3.5 animate-spin" />Saving...</>) : 'Save'}
             </Button>
           </DialogFooter>
         </form>

@@ -306,7 +306,7 @@ export const TopupBalanceDialog: React.FC<TopupBalanceDialogProps> = ({
                               {t.type === 'credit' ? '+' : '-'}
                             </span>
                           </td>
-                          <td className={`p-2 text-right font-mono ${
+                          <td className={`p-2 text-right font-sans ${
                             t.type === 'credit' ? 'text-green-600' : 'text-red-600'
                           }`}>
                             {t.amount}

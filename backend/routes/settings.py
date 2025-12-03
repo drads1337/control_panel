@@ -597,6 +597,10 @@ def regenerate_master_key():
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
+    # Get services once at the start (DI pattern)
+    cache_service = get_service('cache_service')
+    rbac_service = get_service('rbac_service')
+
     if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
         return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -646,6 +650,10 @@ def regenerate_keys(validated_data=None):
 
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
+
+    # Get services once at the start (DI pattern)
+    cache_service = get_service('cache_service')
+    rbac_service = get_service('rbac_service')
 
     if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
         return jsonify({"error": "Insufficient permissions"}), 403
