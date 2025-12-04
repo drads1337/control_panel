@@ -490,14 +490,12 @@ def get_product_configs(product_identifier):
 @jwt_required()
 @enforce_project_scope
 def get_product_extra_files(product_identifier):
+    file_service = get_service('file_service')
     user_id = get_jwt_identity()
     user = file_service.get_user_by_id(user_id)
 
     is_valid, error = file_service.validate_user_project(user)
     if not is_valid:
-
-
-        file_service = get_service('file_service')
         return jsonify({"error": error}), 404 if error == "User not found" else 403
 
     product = find_product_by_id_or_unique_id(product_identifier, user.project_id)
@@ -654,11 +652,51 @@ def download_product_config_by_string_id(config_id):
 
 @files_bp.route("/products/extra-files/<int:file_id>/download", methods=["GET"])
 def download_product_extra_file(file_id):
+    logging.debug(f"[DEBUG] Request: GET /api/files/products/extra-files/{file_id}/download")
+
+    activity_service = get_service('activity_service')
+    file_service = get_service('file_service')
+    auth_header = request.headers.get("Authorization")
+    user_id = None
+    user = None
+
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+        logging.debug(
+            f"[DEBUG] Processing token for GET /api/files/products/extra-files/{file_id}/download"
+        )
+
+        try:
+            from flask_jwt_extended import decode_token as jwt_decode_token
+
+            decoded = jwt_decode_token(token)
+            user_id = decoded["sub"]
+            user = User.query.get(user_id)
+
+            if not user:
+                logging.debug(f"[DEBUG] User not found for user_id={user_id}")
+                return jsonify({"error": "User not found"}), 404
+
+            if not user.project_id:
+                return jsonify({"error": "User must be assigned to a project"}), 403
+            logging.debug(f"[DEBUG] JWT validation successful for user {user_id}")
+        except Exception as e:
+            logging.debug(f"[DEBUG] JWT verification failed: {e}")
+            pass
+
+    if not user:
+        logging.debug(f"[DEBUG] Access denied - no valid user found")
+        return jsonify({"error": "Access denied"}), 403
+
+    if not user.project_id:
+        return jsonify({"error": "User must be assigned to a project"}), 403
+
     try:
-
-
-        file_service = get_service('file_service')
-        extra_file = ProductExtraFile.query.get(file_id)
+        extra_file = (
+            ProductExtraFile.query.join(Product)
+            .filter(ProductExtraFile.id == file_id, Product.project_id == user.project_id)
+            .first()
+        )
         if not extra_file:
             return jsonify({"error": "File not found"}), 404
 
@@ -669,6 +707,7 @@ def download_product_extra_file(file_id):
         return response
 
     except Exception as e:
+        logging.error(f"Error downloading extra file: {e}")
         return jsonify({"error": f"Failed to download extra file: {str(e)}"}), 500
 
 @files_bp.route("/products/extra-files/<int:file_id>/status", methods=["PUT"])
@@ -1400,14 +1439,12 @@ def get_product_files():
 @jwt_required()
 @enforce_project_scope
 def download_product_file(product_identifier, file_type):
+    file_service = get_service('file_service')
     user_id = get_jwt_identity()
     user = file_service.get_user_by_id(user_id)
 
     is_valid, error = file_service.validate_user_project(user)
     if not is_valid:
-
-
-        file_service = get_service('file_service')
         return jsonify({"error": error}), 404 if error == "User not found" else 403
 
     try:
@@ -1430,15 +1467,13 @@ def download_product_file(product_identifier, file_type):
 @jwt_required()
 @enforce_project_scope
 def delete_product_file(product_identifier, file_type):
+    activity_service = get_service('activity_service')
+    file_service = get_service('file_service')
     user_id = get_jwt_identity()
     user = file_service.get_user_by_id(user_id)
 
     rbac_service = get_rbac_service()
     if not user or not rbac_service.check_permission(user.id, "products.edit"):
-
-
-        activity_service = get_service('activity_service')
-        file_service = get_service('file_service')
         return jsonify({"error": "Access denied"}), 403
 
     is_valid, error = file_service.validate_user_project(user)
@@ -1779,29 +1814,43 @@ def upload_product_extra_file():
     except Exception as e:
         return jsonify({"error": f"Failed to upload product extra file: {str(e)}"}), 500
 
-@files_bp.route("/product-files/config/<int:config_id>", methods=["DELETE"])
+@files_bp.route("/product-files/config/<config_identifier>", methods=["DELETE"])
 @jwt_required()
 @require_project_isolation
-def delete_product_config(config_id):
+def delete_product_config(config_identifier):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
+    activity_service = get_service('activity_service')
+    file_service = get_service('file_service')
     rbac_service = get_rbac_service()
     if not user or not rbac_service.check_permission(user.id, "products.edit"):
-
-
-        activity_service = get_service('activity_service')
-        file_service = get_service('file_service')
         return jsonify({"error": "Access denied"}), 403
 
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    config = (
-        ProductFileConfig.query.join(Product)
-        .filter(ProductFileConfig.id == config_id, Product.project_id == user.project_id)
-        .first()
-    )
+    # Try to find by integer id first, then by unique_id
+    config = None
+    if isinstance(config_identifier, int) or (isinstance(config_identifier, str) and config_identifier.isdigit()):
+        try:
+            config_id_int = int(config_identifier)
+            config = (
+                ProductFileConfig.query.join(Product)
+                .filter(ProductFileConfig.id == config_id_int, Product.project_id == user.project_id)
+                .first()
+            )
+        except (ValueError, TypeError):
+            pass
+    
+    # If not found by id, try unique_id
+    if not config:
+        config = (
+            ProductFileConfig.query.join(Product)
+            .filter(ProductFileConfig.unique_id == str(config_identifier), Product.project_id == user.project_id)
+            .first()
+        )
+    
     if not config:
         return jsonify({"error": "Config not found"}), 404
 
@@ -1822,29 +1871,43 @@ def delete_product_config(config_id):
     except Exception as e:
         return jsonify({"error": f"Failed to delete product config: {str(e)}"}), 500
 
-@files_bp.route("/product-files/extra/<int:file_id>", methods=["DELETE"])
+@files_bp.route("/product-files/extra/<file_identifier>", methods=["DELETE"])
 @jwt_required()
 @require_project_isolation
-def delete_product_extra_file(file_id):
+def delete_product_extra_file(file_identifier):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
+    activity_service = get_service('activity_service')
+    file_service = get_service('file_service')
     rbac_service = get_rbac_service()
     if not user or not rbac_service.check_permission(user.id, "products.edit"):
-
-
-        activity_service = get_service('activity_service')
-        file_service = get_service('file_service')
         return jsonify({"error": "Access denied"}), 403
 
     if not user.project_id:
         return jsonify({"error": "User must be assigned to a project"}), 403
 
-    extra_file = (
-        ProductExtraFile.query.join(Product)
-        .filter(ProductExtraFile.id == file_id, Product.project_id == user.project_id)
-        .first()
-    )
+    # Try to find by integer id first, then by unique_id
+    extra_file = None
+    if isinstance(file_identifier, int) or (isinstance(file_identifier, str) and file_identifier.isdigit()):
+        try:
+            file_id_int = int(file_identifier)
+            extra_file = (
+                ProductExtraFile.query.join(Product)
+                .filter(ProductExtraFile.id == file_id_int, Product.project_id == user.project_id)
+                .first()
+            )
+        except (ValueError, TypeError):
+            pass
+    
+    # If not found by id, try unique_id
+    if not extra_file:
+        extra_file = (
+            ProductExtraFile.query.join(Product)
+            .filter(ProductExtraFile.unique_id == str(file_identifier), Product.project_id == user.project_id)
+            .first()
+        )
+    
     if not extra_file:
         return jsonify({"error": "File not found"}), 404
 

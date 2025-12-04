@@ -252,6 +252,7 @@ def create_custom_key(current_user, project_id=None, validated_data=None):
     activity_service = get_service('activity_service')
     balance_service = get_service('balance_service')
     price_calculation_service = get_service('price_calculation_service')
+    product_service = get_service('product_service')
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 

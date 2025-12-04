@@ -6,7 +6,7 @@ Handles bulk operations like bulk delete, bulk reset, bulk pause/resume, etc.
 import logging
 from datetime import datetime, timedelta
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ...middleware.auth import require_project_isolation, require_project_with_grace_period
@@ -37,6 +37,8 @@ def bulk_create_keys(current_user, project_id=None, validated_data=None):
 
     logger = logging.getLogger(__name__)
     logger.info(f"🔑 Bulk create keys request - Origin: {request.headers.get('Origin')}")
+    logger.info(f"🔑 Function called with validated_data: {validated_data}, type: {type(validated_data)}")
+    logger.info(f"🔑 Function kwargs inspection: validated_data in locals: {'validated_data' in locals()}")
 
 
     activity_service = get_service('activity_service')
@@ -47,7 +49,46 @@ def bulk_create_keys(current_user, project_id=None, validated_data=None):
         return jsonify({"error": "User not found"}), 404
     
     if not validated_data:
-        return jsonify({"error": "No data provided"}), 400
+        logger.error(f"🔑 Bulk create keys: validated_data is None. Request body: {request.get_data(as_text=True)[:200] if request.get_data() else 'empty'}, Content-Type: {request.headers.get('Content-Type')}")
+        
+        # Fallback: try to get data from request directly (shouldn't be needed if validation works)
+        try:
+            fallback_data = request.get_json(silent=True, force=True)
+            if fallback_data and isinstance(fallback_data, dict):
+                logger.warning(f"🔑 Using fallback data from request.get_json(): {fallback_data}")
+                # Try to validate manually
+                try:
+                    validated_data = KeyBulkCreateSchema(**fallback_data).model_dump()
+                    logger.info(f"🔑 Successfully validated fallback data: {validated_data}")
+                except Exception as e:
+                    logger.error(f"🔑 Failed to validate fallback data: {str(e)}")
+                    from pydantic import ValidationError
+                    if isinstance(e, ValidationError):
+                        error_messages = []
+                        for error in e.errors():
+                            field = ".".join(str(loc) for loc in error.get("loc", []))
+                            msg = error.get("msg", "Validation error")
+                            error_messages.append(f"{field}: {msg}")
+                        return jsonify({
+                            "error": "VALIDATION_ERROR",
+                            "message": "Request validation failed",
+                            "details": error_messages[0] if error_messages else str(e)
+                        }), 400
+                    return jsonify({
+                        "error": "VALIDATION_ERROR",
+                        "message": "Request validation failed"
+                    }), 400
+            else:
+                return jsonify({
+                    "error": "VALIDATION_ERROR",
+                    "message": "Request body is required and must be valid JSON"
+                }), 400
+        except Exception as e:
+            logger.error(f"🔑 Error in fallback data retrieval: {str(e)}")
+            return jsonify({
+                "error": "VALIDATION_ERROR",
+                "message": "Request body is required and must be valid JSON"
+            }), 400
 
     product_id = validated_data.get("product_id")
     count = validated_data.get("count")
@@ -185,9 +226,10 @@ def bulk_create_keys(current_user, project_id=None, validated_data=None):
 def bulk_delete_keys(current_user, project_id=None, validated_data=None):
     """Bulk delete keys"""
 
+    activity_service = get_service('activity_service')
+    key_bulk_operations_service = get_service('key_bulk_operations_service')
+    
     if not current_user:
-
-        activity_service = get_service('activity_service')
         return jsonify({"error": "User not found"}), 404
     
     if not validated_data:
@@ -224,6 +266,9 @@ def bulk_delete_keys(current_user, project_id=None, validated_data=None):
 def bulk_reset_keys(current_user, project_id=None, validated_data=None):
     """Bulk reset keys"""
 
+    activity_service = get_service('activity_service')
+    key_bulk_operations_service = get_service('key_bulk_operations_service')
+    
     if not current_user:
         return jsonify({"error": "User not found"}), 404
     
@@ -254,6 +299,9 @@ def bulk_reset_keys(current_user, project_id=None, validated_data=None):
 def bulk_pause_keys(current_user, project_id=None, validated_data=None):
     """Bulk pause keys"""
 
+    activity_service = get_service('activity_service')
+    key_bulk_operations_service = get_service('key_bulk_operations_service')
+    
     if not current_user:
         return jsonify({"error": "User not found"}), 404
     
@@ -283,6 +331,9 @@ def bulk_pause_keys(current_user, project_id=None, validated_data=None):
 def bulk_resume_keys(current_user, project_id=None):
     """Bulk resume keys"""
 
+    activity_service = get_service('activity_service')
+    key_bulk_operations_service = get_service('key_bulk_operations_service')
+    
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
@@ -314,6 +365,9 @@ def bulk_resume_keys(current_user, project_id=None):
 def bulk_add_hours(current_user, project_id=None, validated_data=None):
     """Bulk add hours to keys"""
 
+    activity_service = get_service('activity_service')
+    key_bulk_operations_service = get_service('key_bulk_operations_service')
+    
     if not current_user:
         return jsonify({"error": "User not found"}), 404
     
@@ -348,6 +402,9 @@ def bulk_add_hours(current_user, project_id=None, validated_data=None):
 def bulk_pause_keys_by_product(current_user, project_id=None, validated_data=None):
     """Bulk pause keys by product"""
 
+    activity_service = get_service('activity_service')
+    key_bulk_operations_service = get_service('key_bulk_operations_service')
+    
     if not current_user:
         return jsonify({"error": "User not found"}), 404
     
@@ -381,6 +438,9 @@ def bulk_pause_keys_by_product(current_user, project_id=None, validated_data=Non
 def bulk_resume_keys_by_product(current_user, project_id=None, validated_data=None):
     """Bulk resume keys by product"""
 
+    activity_service = get_service('activity_service')
+    key_bulk_operations_service = get_service('key_bulk_operations_service')
+    
     if not current_user:
         return jsonify({"error": "User not found"}), 404
     
@@ -414,6 +474,9 @@ def bulk_resume_keys_by_product(current_user, project_id=None, validated_data=No
 def bulk_reset_keys_by_product(current_user, project_id=None, validated_data=None):
     """Bulk reset keys by product"""
 
+    activity_service = get_service('activity_service')
+    key_bulk_operations_service = get_service('key_bulk_operations_service')
+    
     if not current_user:
         return jsonify({"error": "User not found"}), 404
     
@@ -446,6 +509,9 @@ def bulk_reset_keys_by_product(current_user, project_id=None, validated_data=Non
 def bulk_add_hours_by_product(current_user, project_id=None):
     """Bulk add hours to keys by product"""
 
+    activity_service = get_service('activity_service')
+    key_bulk_operations_service = get_service('key_bulk_operations_service')
+    
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
@@ -490,6 +556,9 @@ def bulk_add_hours_by_product(current_user, project_id=None):
 def bulk_delete_keys_by_filters(current_user, project_id=None, validated_data=None):
     """Bulk delete keys by filters"""
 
+    activity_service = get_service('activity_service')
+    key_bulk_operations_service = get_service('key_bulk_operations_service')
+    
     if not current_user:
         return jsonify({"error": "User not found"}), 404
     
@@ -524,6 +593,9 @@ def bulk_delete_keys_by_filters(current_user, project_id=None, validated_data=No
 def bulk_reset_keys_by_filters(current_user, project_id=None):
     """Bulk reset keys by filters"""
 
+    activity_service = get_service('activity_service')
+    key_bulk_operations_service = get_service('key_bulk_operations_service')
+    
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
@@ -556,6 +628,9 @@ def bulk_reset_keys_by_filters(current_user, project_id=None):
 def bulk_extend_keys_by_filters(current_user, project_id=None, validated_data=None):
     """Bulk extend keys by filters"""
 
+    activity_service = get_service('activity_service')
+    key_bulk_operations_service = get_service('key_bulk_operations_service')
+    
     if not current_user:
         return jsonify({"error": "User not found"}), 404
     

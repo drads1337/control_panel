@@ -12,7 +12,7 @@ from ...models.core import User
 from ...models.products import Product
 from ...models.keys import DeviceInfo, Key
 from ...models.agents import Agent
-from ...utils.service_exceptions import NotFoundError, PermissionDeniedError
+from ...utils.service_exceptions import NotFoundError, PermissionDeniedError, ServiceError
 from ...utils.rbac_utils import RBACManager
 from ...utils.role_constants import UserRoles
 from ...utils.structured_logging import get_logger
@@ -223,8 +223,6 @@ class KeyBulkOperationsService:
                 total_price = key_price * count
                 
                 if total_price > 0:
-
-                    from ...core.extensions import db
                     db.session.refresh(user)
                     
 
@@ -292,7 +290,7 @@ class KeyBulkOperationsService:
 
 
 
-                    from ...services.statistics import cached_statistics_service
+                    cached_statistics_service = get_service('cached_statistics_service')
                     cached_statistics_service.invalidate_on_key_change(user.id, user.project_id)
 
                     created_keys.append(key)

@@ -94,8 +94,8 @@ class ValidationMiddleware:
                     content_type = request.headers.get('Content-Type', '').lower()
                     is_json_request = (
                         request.is_json or 
-                        content_type == 'product/json' or
-                        content_type.startswith('product/json;')
+                        content_type == 'application/json' or
+                        content_type.startswith('application/json;')
                     )
                     logger.debug(f"Content-Type: {content_type}, is_json: {request.is_json}, is_json_request: {is_json_request}")
 
@@ -119,7 +119,7 @@ class ValidationMiddleware:
                         logger.debug(f"Processing JSON request for {request.method} {request.path}")
 
                         json_data = None
-                        if content_type == 'product/json' or content_type.startswith('product/json;'):
+                        if content_type == 'application/json' or content_type.startswith('application/json;'):
 
                             try:
                                 raw_data = request.get_data(as_text=True)
@@ -197,16 +197,24 @@ class ValidationMiddleware:
                                     validated_data = schema_class(**json_data).model_dump(
                                         exclude_unset=True
                                     )
-                                logger.debug(f"Validation successful for {request.method} {request.path}, validated_data: {validated_data}")
+                                logger.info(f"✅ Validation successful for {request.method} {request.path}, validated_data keys: {list(validated_data.keys()) if validated_data else 'None'}")
                             except ValidationError as e:
                                 logger.warning(f"ValidationError for {request.method} {request.path}: {e.errors()}")
                                 logger.warning(f"JSON data that failed validation: {json_data}")
+                                
+                                # Format validation errors into a readable message
+                                error_messages = []
+                                for error in e.errors():
+                                    field = ".".join(str(loc) for loc in error.get("loc", []))
+                                    msg = error.get("msg", "Validation error")
+                                    error_messages.append(f"{field}: {msg}")
+                                
                                 return (
                                     jsonify(
                                         {
                                             "error": "VALIDATION_ERROR",
-                                            "message": "Request validation failed",
-                                            "details": _sanitize_validation_errors(e.errors()),
+                                            "message": error_messages[0] if error_messages else "Request validation failed",
+                                            "details": error_messages if len(error_messages) > 1 else None,
                                         }
                                     ),
                                     400,
@@ -243,14 +251,7 @@ class ValidationMiddleware:
                             jsonify(
                                 {
                                     "error": "VALIDATION_ERROR",
-                                    "message": "Request validation failed - no data provided",
-                                    "debug_info": {
-                                        "content_type": request.headers.get('Content-Type'),
-                                        "has_body": bool(request.get_data()),
-                                        "body_preview": request.get_data(as_text=True)[:100] if request.get_data() else None,
-                                        "is_json": request.is_json,
-                                        "is_json_request": is_json_request,
-                                    }
+                                    "message": "Request validation failed - no data provided"
                                 }
                             ),
                             400,
@@ -279,12 +280,7 @@ class ValidationMiddleware:
                             jsonify(
                                 {
                                     "error": "VALIDATION_ERROR",
-                                    "message": "Request validation failed - internal error",
-                                    "debug_info": {
-                                        "content_type": request.headers.get('Content-Type'),
-                                        "has_body": bool(request.get_data()),
-                                        "body_preview": request.get_data(as_text=True)[:100] if request.get_data() else None,
-                                    }
+                                    "message": "Request validation failed - internal error"
                                 }
                             ),
                             500,
@@ -312,19 +308,14 @@ class ValidationMiddleware:
                             jsonify(
                                 {
                                     "error": "VALIDATION_ERROR",
-                                    "message": "Request validation failed - internal validation error",
-                                    "debug_info": {
-                                        "content_type": request.headers.get('Content-Type'),
-                                        "has_body": bool(request.get_data()),
-                                        "body_preview": request.get_data(as_text=True)[:100] if request.get_data() else None,
-                                    }
+                                    "message": "Request validation failed - internal validation error"
                                 }
                             ),
                             500,
                         )
                     
 
-                    logger.debug(f"Validation middleware passing validated_data: {validated_data} for {request.method} {request.path}")
+                    logger.info(f"✅ Validation middleware passing validated_data to function: {type(validated_data)}, keys: {list(validated_data.keys()) if isinstance(validated_data, dict) else 'N/A'} for {request.method} {request.path}")
                     
 
                     if validated_data is None:
@@ -336,12 +327,7 @@ class ValidationMiddleware:
                             jsonify(
                                 {
                                     "error": "VALIDATION_ERROR",
-                                    "message": "Request validation failed - internal validation error",
-                                    "debug_info": {
-                                        "content_type": request.headers.get('Content-Type'),
-                                        "has_body": bool(request.get_data()),
-                                        "body_preview": request.get_data(as_text=True)[:100] if request.get_data() else None,
-                                    }
+                                    "message": "Request validation failed - internal validation error"
                                 }
                             ),
                             500,
@@ -372,12 +358,7 @@ class ValidationMiddleware:
 
                     error_response = {
                         "error": "VALIDATION_ERROR",
-                        "message": "Request validation failed - invalid request data",
-                        "debug_info": {
-                            "content_type": request.headers.get('Content-Type'),
-                            "has_body": bool(request.get_data()),
-                            "body_preview": request.get_data(as_text=True)[:100] if request.get_data() else None,
-                        }
+                        "message": "Request validation failed - invalid request data"
                     }
 
                     if current_app.debug:
