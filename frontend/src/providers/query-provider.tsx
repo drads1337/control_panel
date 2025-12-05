@@ -2,6 +2,7 @@ import React, { useMemo, useEffect } from 'react'
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query'
 import { useAuthContext } from '@/contexts/auth-context'
 import { handleQueryError, handleMutationError } from '@/lib/error-handler'
+import { setupQueryErrorHandler } from '@/shared/api/query-error-handler'
 
 interface QueryProviderProps {
   children: React.ReactNode
@@ -13,15 +14,11 @@ export function QueryProvider({ children }: QueryProviderProps) {
     const client = new QueryClient({
       defaultOptions: {
         queries: {
-          // Default stale time: 10 minutes - data is considered fresh for 10 minutes (increased for better performance)
           staleTime: 10 * 60 * 1000,
 
-          // Default garbage collection time: 30 minutes - unused queries are kept in cache for 30 minutes (increased for better performance)
           gcTime: 30 * 60 * 1000,
 
-          // Disable refetch on mount if data is fresh - improves initial load performance
           refetchOnMount: (query) => {
-            // Only refetch if data is stale
             return query.state.dataUpdatedAt === 0 || query.isStale()
           },
 
@@ -80,6 +77,8 @@ export function QueryProvider({ children }: QueryProviderProps) {
       },
     })
 
+    setupQueryErrorHandler(client)
+
     client.setQueryDefaults(['sessions', 'realtime'], {
       staleTime: 0,
       refetchInterval: 10 * 1000,
@@ -100,7 +99,6 @@ export function QueryProvider({ children }: QueryProviderProps) {
       refetchOnReconnect: false,
     })
 
-    // Static data that rarely changes - cache for longer
     client.setQueryDefaults(['products', 'list'], {
       staleTime: 15 * 60 * 1000,
       gcTime: 60 * 60 * 1000,
@@ -119,17 +117,15 @@ export function QueryProvider({ children }: QueryProviderProps) {
       refetchOnWindowFocus: false,
     })
 
-    // Settings are relatively static
     client.setQueryDefaults(['settings'], {
       staleTime: 10 * 60 * 1000,
       gcTime: 30 * 60 * 1000,
       refetchOnWindowFocus: false,
     })
 
-    // Navigation config - rarely changes, cache aggressively
     client.setQueryDefaults(['navigation', 'config'], {
-      staleTime: 15 * 60 * 1000, // 15 minutes - navigation rarely changes
-      gcTime: 60 * 60 * 1000, // Keep in cache for 1 hour
+      staleTime: 15 * 60 * 1000,
+      gcTime: 60 * 60 * 1000,
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,
     })

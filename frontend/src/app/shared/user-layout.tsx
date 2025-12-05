@@ -5,6 +5,7 @@ import { usePageConfig } from '@/hooks/use-page-config'
 import { AppLayout } from '@/app/shared/app-layout'
 import { AnimatedPage } from '@/app/shared/page-transition'
 import { Spinner } from '@/components/ui/spinner'
+import { PageErrorBoundary } from '@/components/error-boundary'
 import { 
   RouteGuard, 
   AdminRouteGuard, 
@@ -98,12 +99,16 @@ export function UserLayout() {
             } />
             <Route path="/remote-control" element={
               <RemoteControlGuard>
-                <RemoteControl />
+                <PageErrorBoundary pageName="Remote Control">
+                  <RemoteControl />
+                </PageErrorBoundary>
               </RemoteControlGuard>
             } />
             <Route path="/webhooks" element={
               <WebhooksGuard>
-                <Webhooks />
+                <PageErrorBoundary pageName="Webhooks">
+                  <Webhooks />
+                </PageErrorBoundary>
               </WebhooksGuard>
             } />
             <Route path="*" element={<NotFoundPage />} />

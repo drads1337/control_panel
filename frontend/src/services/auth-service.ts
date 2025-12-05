@@ -4,60 +4,26 @@ import { API_ENDPOINTS } from '@/shared/api/config'
 import { clearCsrfToken } from '@/lib/csrf'
 import type { User } from '@/entities/user'
 
+/**
+ * SECURITY: Этот сервис больше НЕ использует localStorage для хранения данных пользователя.
+ * 
+ * Изменения для безопасности:
+ * - Удалено хранение пользователя в localStorage (защита от XSS)
+ * - Используется только memory cache (Map)
+ * - React Query управляет кэшированием данных пользователя
+ * 
+ * Это защищает от:
+ * - XSS атак (кража токенов/данных из localStorage)
+ * - Утечки PII (Personally Identifiable Information)
+ * - Устаревших данных пользователя
+ */
+
 const CACHE_TTL = 15 * 60 * 1000
 const API_CALL_DEBOUNCE = 3000
 
 const userCache = new Map<string, { user: User; timestamp: number }>()
 
 let lastApiCall = 0
-
-function saveUserToLocalStorage(user: User): void {
-  try {
-    const cacheData = {
-      user,
-      timestamp: Date.now()
-    }
-    const serialized = JSON.stringify(cacheData)
-    localStorage.setItem('user_cache', serialized)
-
-  } catch (error) {
-
-  }
-}
-
-function getUserFromLocalStorage(): { user: User; timestamp: number } | null {
-  try {
-    const cached = localStorage.getItem('user_cache')
-
-    if (cached) {
-      const data = JSON.parse(cached)
-      const timeDiff = Date.now() - data.timestamp
-
-      if (data.user && data.timestamp && timeDiff < CACHE_TTL) {
-
-        return data
-      } else {
-
-        localStorage.removeItem('user_cache')
-      }
-    } else {
-
-    }
-  } catch (error) {
-
-    localStorage.removeItem('user_cache')
-  }
-  return null
-}
-
-function clearUserFromLocalStorage(): void {
-  try {
-    localStorage.removeItem('user_cache')
-
-  } catch (error) {
-
-  }
-}
 
 function getUserFromMemoryCache(cacheKey: string = 'current_user'): User | null {
   const cached = userCache.get(cacheKey)
@@ -73,7 +39,14 @@ function saveUserToMemoryCache(user: User, cacheKey: string = 'current_user'): v
 
 function clearAllCaches(): void {
   userCache.clear()
-  clearUserFromLocalStorage()
+  
+  // Очищаем старые данные из localStorage при выходе (одноразовая очистка для миграции)
+  // Это гарантирует, что старые данные не останутся после обновления
+  try {
+    localStorage.removeItem('user_cache')
+  } catch (error) {
+    // Ignore localStorage errors
+  }
 }
 
 function shouldDebounceApiCall(): boolean {
@@ -88,13 +61,8 @@ function shouldDebounceApiCall(): boolean {
 export class AuthService {
 
   async getCurrentUser(abortController?: AbortController): Promise<User | null> {
-
-    const localStorageUser = getUserFromLocalStorage()
-    if (localStorageUser) {
-
-      saveUserToMemoryCache(localStorageUser.user)
-      return localStorageUser.user
-    }
+    // SECURITY: Используем только memory cache
+    // localStorage больше не используется для безопасности
 
     const cachedUser = getUserFromMemoryCache()
     if (cachedUser) {
@@ -102,7 +70,6 @@ export class AuthService {
     }
 
     if (shouldDebounceApiCall()) {
-
       return null
     }
 
@@ -115,7 +82,6 @@ export class AuthService {
       const userData = response.data
 
       saveUserToMemoryCache(userData)
-      saveUserToLocalStorage(userData)
       return userData
     } catch (error: unknown) {
       const { isAxiosError, getErrorStatus } = await import('@/lib/error-utils')
@@ -178,7 +144,6 @@ export class AuthService {
       const { getErrorStatus, isAxiosError } = await import('@/lib/error-utils')
       const status = getErrorStatus(error)
       
-      // Check if this is a PROJECT_INACTIVE error - don't try CLASSIC_CONNECT for this
       if (isAxiosError(error) && error.response?.data && typeof error.response.data === 'object') {
         const errorData = error.response.data as { error_code?: string; error?: string }
         if (errorData.error_code === 'PROJECT_INACTIVE' || errorData.error === 'PROJECT_INACTIVE') {
@@ -226,12 +191,10 @@ export class AuthService {
         const userData = response.data
 
         saveUserToMemoryCache(userData)
-        saveUserToLocalStorage(userData)
         return userData
       }
     } catch (error: unknown) {
       if (error instanceof Error && error.name !== 'AbortError' && error.name !== 'CanceledError') {
-        // Error handling can be added here if needed
       }
     }
 
@@ -257,17 +220,12 @@ export class AuthService {
     clearAllCaches()
   }
 
-  getCachedUser(): { user: User; timestamp: number } | null {
-    return getUserFromLocalStorage()
-  }
-
   getCachedUserFromMemory(): User | null {
     return getUserFromMemoryCache()
   }
 
-  saveUserToCache(user: User): void {
+  saveUserToCache(user: User): void { 
     saveUserToMemoryCache(user)
-    saveUserToLocalStorage(user)
   }
 
   async register(

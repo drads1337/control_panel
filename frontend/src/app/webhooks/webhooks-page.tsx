@@ -1,22 +1,23 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useAuthContext } from '../../contexts/auth-context';
-import { WebhookPermissionsProvider, useWebhookPermissions } from '../../contexts/webhook-permissions-context';
-import { Plus, RefreshCw } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Spinner } from '@/components/ui/spinner';
-import { toast } from 'sonner';
-import { WebhookTable } from './webhook-table';
-import { WebhookStats } from './webhook-stats';
-import { CreateWebhookDialog } from './create-webhook-dialog';
-import { EditWebhookDialog } from './edit-webhook-dialog';
-import { WebhookLogsDialog } from './webhook-logs-dialog';
-import { WebhookAccessDenied } from './webhook-access-denied';
-import { useWebhookActions } from './hooks/use-webhook-actions';
-import type { WebhookData, WebhookFormData, SecretsVisibility } from './types';
+import React, { useEffect } from 'react'
+import { useAuthContext } from '../../contexts/auth-context'
+import { WebhookPermissionsProvider, useWebhookPermissions } from '../../contexts/webhook-permissions-context'
+import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
+import { toast } from 'sonner'
+import { WebhookTable } from './webhook-table'
+import { WebhookStats } from './webhook-stats'
+import { CreateWebhookDialog } from './create-webhook-dialog'
+import { EditWebhookDialog } from './edit-webhook-dialog'
+import { WebhookLogsDialog } from './webhook-logs-dialog'
+import { WebhookAccessDenied } from './webhook-access-denied'
+import { useWebhookActions } from './hooks/use-webhook-actions'
+import { useWebhookDialogs } from './hooks/use-webhook-dialogs'
+import { WebhooksPageHeader } from './components/webhooks-page-header'
+import type { WebhookData } from './types'
 
 function WebhooksPageContent() {
-  const { isAuthenticated, user, isInitialized } = useAuthContext();
-  const webhookPermissions = useWebhookPermissions();
+  const { isAuthenticated, isInitialized } = useAuthContext()
+  const webhookPermissions = useWebhookPermissions()
 
   const {
     webhooks,
@@ -31,153 +32,84 @@ function WebhooksPageContent() {
     handleTestWebhook: testWebhook,
     handleToggleStatus: toggleStatus,
     handleRefresh,
-  } = useWebhookActions();
+  } = useWebhookActions()
 
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [logsDialogOpen, setLogsDialogOpen] = useState(false);
-  const [editingWebhook, setEditingWebhook] = useState<WebhookData | null>(null);
-  const [viewingLogsWebhook, setViewingLogsWebhook] = useState<WebhookData | null>(null);
-
-  const [formData, setFormData] = useState<WebhookFormData>({
-    name: '',
-    webhook_type: 'custom',
-    url: '',
-    events: [],
-    secret: '',
-    is_active: true,
-    headers: {},
-    telegram_bot_token: '',
-    telegram_chat_id: '',
-    discord_webhook_url: '',
-    discord_bot_token: '',
-    discord_channel_id: ''
-  });
-
-  const [secretsVisibility, setSecretsVisibility] = useState<SecretsVisibility>({
-    createTelegramToken: false,
-    createDiscordToken: false,
-    createSecret: false,
-    editTelegramToken: false,
-    editDiscordToken: false,
-    editSecret: false
-  });
-
-  const [customHeaders, setCustomHeaders] = useState<Array<{ key: string, value: string }>>([]);
-  
-  const [originalWebhookData, setOriginalWebhookData] = useState<WebhookData | null>(null);
+  const {
+    createDialogOpen,
+    editDialogOpen,
+    logsDialogOpen,
+    editingWebhook,
+    viewingLogsWebhook,
+    formData,
+    setFormData,
+    secretsVisibility,
+    setSecretsVisibility,
+    customHeaders,
+    setCustomHeaders,
+    originalWebhookData,
+    openCreateDialog,
+    closeCreateDialog,
+    openEditDialog,
+    closeEditDialog,
+    openLogsDialog,
+    closeLogsDialog,
+    resetForm
+  } = useWebhookDialogs()
 
   useEffect(() => {
     if (isAuthenticated) {
-      loadData();
+      loadData()
     }
-  }, [isAuthenticated, loadData]);
+  }, [isAuthenticated, loadData])
 
   const handleCreateWebhook = async () => {
-    const success = await createWebhook(formData, customHeaders);
+    const success = await createWebhook(formData, customHeaders)
     if (success) {
-      setCreateDialogOpen(false);
-      resetForm();
+      closeCreateDialog()
     }
-  };
+  }
 
   const handleEditWebhook = async () => {
-    if (!editingWebhook) return;
+    if (!editingWebhook) return
 
-    const success = await editWebhook(editingWebhook.id, formData, customHeaders, originalWebhookData);
+    const success = await editWebhook(editingWebhook.id, formData, customHeaders, originalWebhookData)
     if (success) {
-      setEditDialogOpen(false);
-      setEditingWebhook(null);
-      setOriginalWebhookData(null);
-      resetForm();
+      closeEditDialog()
     }
-  };
+  }
 
   const handleDeleteWebhook = async (webhookId: number) => {
-    await deleteWebhook(webhookId);
-  };
+    await deleteWebhook(webhookId)
+  }
 
   const handleTestWebhook = async (webhookId: number) => {
-    await testWebhook(webhookId);
-  };
+    await testWebhook(webhookId)
+  }
 
   const handleToggleStatus = async (webhook: WebhookData) => {
-    await toggleStatus(webhook);
-  };
+    await toggleStatus(webhook)
+  }
 
   const handleEditClick = (webhook: WebhookData) => {
     if (!webhookPermissions.canEdit) {
-      toast.error("You don't have permission to edit webhooks");
-      return;
+      toast.error("You don't have permission to edit webhooks")
+      return
     }
-
-    setOriginalWebhookData(webhook);
-    setEditingWebhook(webhook);
-    setFormData({
-      name: webhook.name,
-      webhook_type: webhook.webhook_type,
-      url: webhook.url || '',
-      events: webhook.events,
-      secret: webhook.secret || '',
-      is_active: webhook.is_active,
-      headers: webhook.headers || {},
-      telegram_bot_token: webhook.telegram_bot_token || '',
-      telegram_chat_id: webhook.telegram_chat_id || '',
-      discord_webhook_url: webhook.discord_webhook_url || '',
-      discord_bot_token: webhook.discord_bot_token || '',
-      discord_channel_id: webhook.discord_channel_id || ''
-    });
-
-    const headersArray = Object.entries(webhook.headers || {}).map(([key, value]) => ({
-      key,
-      value
-    }));
-    setCustomHeaders(headersArray);
-
-    setEditDialogOpen(true);
-  };
+    openEditDialog(webhook)
+  }
 
   const handleLogsClick = (webhook: WebhookData) => {
     if (!webhookPermissions.canViewLogs) {
-      toast.error("You don't have permission to view webhook logs");
-      return;
+      toast.error("You don't have permission to view webhook logs")
+      return
     }
-
-    setViewingLogsWebhook(webhook);
-    setLogsDialogOpen(true);
-  };
+    openLogsDialog(webhook)
+  }
 
   const handleCopyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success('Copied to clipboard');
-  };
-
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      webhook_type: 'custom',
-      url: '',
-      events: [],
-      secret: '',
-      is_active: true,
-      headers: {},
-      telegram_bot_token: '',
-      telegram_chat_id: '',
-      discord_webhook_url: '',
-      discord_bot_token: '',
-      discord_channel_id: ''
-    });
-    setCustomHeaders([]);
-    setOriginalWebhookData(null);
-    setSecretsVisibility({
-      createTelegramToken: false,
-      createDiscordToken: false,
-      createSecret: false,
-      editTelegramToken: false,
-      editDiscordToken: false,
-      editSecret: false
-    });
-  };
+    navigator.clipboard.writeText(text)
+    toast.success('Copied to clipboard')
+  }
 
   if (!isInitialized) {
     return (
@@ -221,27 +153,13 @@ function WebhooksPageContent() {
 
   return (
     <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 px-2 xs:px-3 sm:px-4 md:px-0">
-      <div className="mb-3 xs:mb-4 sm:mb-5 md:mb-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl xs:text-2xl sm:text-2xl md:text-3xl font-bold tracking-tight text-foreground leading-tight">Webhooks</h1>
-            <p className="text-xs xs:text-sm sm:text-sm md:text-base text-muted-foreground mt-1 xs:mt-1.5 sm:mt-2 leading-snug">
-              Configure webhooks to receive real-time notifications about events in your system.
-            </p>
-            {webhookPermissions.canCreate && (
-              <div className="mt-2 xs:mt-2.5 sm:mt-3 hidden sm:block">
-                <Button onClick={() => setCreateDialogOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Webhook
-                </Button>
-              </div>
-            )}
-          </div>
-          <Button variant="ghost" size="icon" onClick={handleRefresh} disabled={loading || refreshing}>
-            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-          </Button>
-        </div>
-      </div>
+      <WebhooksPageHeader
+        canCreate={webhookPermissions.canCreate}
+        onCreateClick={openCreateDialog}
+        onRefresh={handleRefresh}
+        loading={loading}
+        refreshing={refreshing}
+      />
 
       {stats && webhooks.length > 0 && <WebhookStats stats={stats} loading={loading} />}
 
@@ -249,10 +167,10 @@ function WebhooksPageContent() {
         webhooks={webhooks}
         onCreateClick={() => {
           if (!webhookPermissions.canCreate) {
-            toast.error("You don't have permission to create webhooks");
-            return;
+            toast.error("You don't have permission to create webhooks")
+            return
           }
-          setCreateDialogOpen(true);
+          openCreateDialog()
         }}
         onEditClick={handleEditClick}
         onDeleteClick={handleDeleteWebhook}
@@ -265,7 +183,7 @@ function WebhooksPageContent() {
       {webhookPermissions.canCreate && (
         <CreateWebhookDialog
           open={createDialogOpen}
-          onOpenChange={setCreateDialogOpen}
+          onOpenChange={closeCreateDialog}
           formData={formData}
           setFormData={setFormData}
           secretsVisibility={secretsVisibility}
@@ -280,7 +198,7 @@ function WebhooksPageContent() {
       {webhookPermissions.canEdit && (
         <EditWebhookDialog
           open={editDialogOpen}
-          onOpenChange={setEditDialogOpen}
+          onOpenChange={closeEditDialog}
           editingWebhook={editingWebhook}
           formData={formData}
           setFormData={setFormData}
@@ -296,7 +214,7 @@ function WebhooksPageContent() {
       {webhookPermissions.canViewLogs && (
         <WebhookLogsDialog
           open={logsDialogOpen}
-          onOpenChange={setLogsDialogOpen}
+          onOpenChange={closeLogsDialog}
           webhook={viewingLogsWebhook}
         />
       )}

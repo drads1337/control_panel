@@ -27,14 +27,6 @@ export function useAuthInit(
       return
     }
 
-    const cachedUser = authService.getCachedUser()
-    if (cachedUser?.user) {
-      setUser(cachedUser.user)
-      updateState({ isLoading: false, isInitialized: true })
-      onInitialized?.()
-      return
-    }
-
     const memoryCachedUser = authService.getCachedUserFromMemory()
     if (memoryCachedUser) {
       setUser(memoryCachedUser)

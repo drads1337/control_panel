@@ -114,32 +114,8 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs"
 
-export const schema = z.object({
-  id: z.number(),
-  header: z.string(),
-  type: z.string(),
-  status: z.string(),
-  target: z.string(),
-  limit: z.string(),
-  reviewer: z.string(),
-})
-
-export const productSchema = z.object({
-  product: z.string(),
-  keys: z.number(),
-})
-
-export const announcementSchema = z.object({
-  id: z.number(),
-  title: z.string(),
-  content: z.string(),
-  created_at: z.string(),
-})
-
-export const userSchema = z.object({
-  username: z.string(),
-  activities: z.number(),
-})
+// Схемы вынесены в отдельный файл для улучшения модульности
+import { productSchema, userSchema, announcementSchema, schema, type ProductData, type UserData, type AnnouncementData, type TableData } from './schemas'
 
 function DragHandle({ id }: { id: number }) {
   const { attributes, listeners } = useSortable({
@@ -160,7 +136,7 @@ function DragHandle({ id }: { id: number }) {
   )
 }
 
-const productColumns: ColumnDef<z.infer<typeof productSchema>>[] = [
+const productColumns: ColumnDef<ProductData>[] = [
   {
     id: "select",
     header: ({ table }) => (
@@ -251,7 +227,7 @@ const productColumns: ColumnDef<z.infer<typeof productSchema>>[] = [
   },
 ]
 
-const userColumns: ColumnDef<z.infer<typeof userSchema>>[] = [
+const userColumns: ColumnDef<UserData>[] = [
   {
     id: "select",
     header: ({ table }) => (
@@ -342,7 +318,7 @@ const userColumns: ColumnDef<z.infer<typeof userSchema>>[] = [
   },
 ]
 
-const announcementColumns: ColumnDef<z.infer<typeof announcementSchema>>[] = [
+const announcementColumns: ColumnDef<AnnouncementData>[] = [
   {
     id: "select",
     header: ({ table }) => (
@@ -440,7 +416,7 @@ const announcementColumns: ColumnDef<z.infer<typeof announcementSchema>>[] = [
   },
 ]
 
-const columns: ColumnDef<z.infer<typeof schema>>[] = [
+const columns: ColumnDef<TableData>[] = [
   {
     id: "drag",
     header: () => null,
@@ -614,7 +590,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
   },
 ]
 
-const DraggableRow = React.memo(function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
+const DraggableRow = React.memo(function DraggableRow({ row }: { row: Row<TableData> }) {
   const { transform, transition, setNodeRef, isDragging } = useSortable({
     id: row.original.id,
   })
@@ -640,9 +616,9 @@ const DraggableRow = React.memo(function DraggableRow({ row }: { row: Row<z.infe
 })
 
 interface DataTableProps {
-  data?: z.infer<typeof productSchema>[]
-  announcements?: z.infer<typeof announcementSchema>[]
-  topUsers?: z.infer<typeof userSchema>[]
+  data?: ProductData[]
+  announcements?: AnnouncementData[]
+  topUsers?: UserData[]
 }
 
 export function DataTable({ data, announcements, topUsers }: DataTableProps) {
