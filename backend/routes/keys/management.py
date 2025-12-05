@@ -20,6 +20,7 @@ from ...utils.data_masking import mask_license_key
 from ...utils.rbac_utils import RBACManager
 from ...utils.role_constants import UserRoles
 from ...utils.idempotency import require_idempotency
+from ...services.keys.key_filter_specification import KeyFilterSpecification
 from .common import can_manage_key
 
 management_bp = Blueprint("keys_management", __name__)
@@ -48,6 +49,31 @@ def find_key_by_id_or_unique_id(key_identifier, project_id):
     key = Key.query.filter_by(unique_id=str(key_identifier), project_id=project_id).first()
     return key
 
+def find_product_by_id_or_unique_id(product_identifier, project_id):
+    """
+    Helper function to find a product by either id (int) or unique_id (string)
+    
+    Args:
+        product_identifier: Either an integer id or string unique_id
+        project_id: Project ID to filter by
+    
+    Returns:
+        Product object or None if not found
+    """
+
+    if isinstance(product_identifier, int) or (isinstance(product_identifier, str) and product_identifier.isdigit()):
+        try:
+            product_id_int = int(product_identifier)
+            product = Product.query.filter_by(id=product_id_int, project_id=project_id).first()
+            if product:
+                return product
+        except (ValueError, TypeError):
+            pass
+    
+
+    product = Product.query.filter_by(unique_id=str(product_identifier), project_id=project_id).first()
+    return product
+
 @management_bp.route("", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period
@@ -72,11 +98,21 @@ def get_keys(current_user, project_id=None):
     status_arg = request.args.get("status")
     status_filter = None if (status_arg is None or status_arg.lower() == "all") else status_arg
     
+    product_id_param = request.args.get("product_id")
+    product_id_for_filter = None
+    
+    if product_id_param:
+        product = find_product_by_id_or_unique_id(product_id_param, current_user.project_id)
+        if not product:
+            logger.warning(f"❌ Product {product_id_param} not found for project {current_user.project_id}")
+            return jsonify({"error": "Product not found or access denied"}), 404
+        product_id_for_filter = product.id
+    
     filters = {
         "page": request.args.get("page", 1, type=int),
         "per_page": request.args.get("per_page", 20, type=int),
         "status": status_filter,
-        "product_id": request.args.get("product_id", type=int),
+        "product_id": product_id_for_filter,
         "search": request.args.get("search"),
         "my_keys": my_keys,
     }
@@ -85,12 +121,6 @@ def get_keys(current_user, project_id=None):
         f"🔑 GET /api/keys - user_id={current_user.id}, project_id={current_user.project_id}, "
         f"filters={filters}, query_params={dict(request.args)}"
     )
-
-    if filters["product_id"]:
-        product = Product.query.filter_by(id=filters["product_id"], project_id=current_user.project_id).first()
-        if not product:
-            logger.warning(f"❌ Product {filters['product_id']} not found for project {current_user.project_id}")
-            return jsonify({"error": "Product not found or access denied"}), 404
 
     result, error = key_crud_service.get_keys(current_user, filters)
     if error:
@@ -130,6 +160,135 @@ def get_keys(current_user, project_id=None):
             "per_page": per_page,
         }
     )
+
+@management_bp.route("/countByFilters", methods=["GET"])
+@jwt_required()
+@require_project_with_grace_period
+@require_project_isolation
+def count_keys_by_filters(current_user, project_id=None):
+    """Get count of keys matching the specified filters"""
+    
+    logger = logging.getLogger(__name__)
+    rbac_service = get_service('rbac_service')
+    
+    if not current_user:
+        return jsonify({"error": "Access denied"}), 403
+
+    if not current_user.project_id:
+        return jsonify({"error": "User must be assigned to a project"}), 403
+
+    # Build filters from query parameters
+    filters = {}
+    
+    # Product filter
+    product_id_param = request.args.get("product_id")
+    if product_id_param:
+        try:
+            product_id_int = int(product_id_param)
+            product = Product.query.filter_by(id=product_id_int, project_id=current_user.project_id).first()
+            if product:
+                filters["product_id"] = product.id
+        except (ValueError, TypeError):
+            pass
+    
+    # Product IDs filter (for agent-based filtering)
+    product_ids_param = request.args.getlist("product_ids")
+    if product_ids_param:
+        try:
+            product_ids = [int(pid) for pid in product_ids_param if pid]
+            if product_ids:
+                filters["product_ids"] = product_ids
+        except (ValueError, TypeError):
+            pass
+    
+    # Agent ID filter
+    agent_id_param = request.args.get("agent_id")
+    if agent_id_param:
+        try:
+            filters["agent_id"] = int(agent_id_param)
+        except (ValueError, TypeError):
+            pass
+    
+    # Status filter
+    status_arg = request.args.get("status")
+    if status_arg and status_arg.lower() != "all":
+        filters["status"] = status_arg
+    
+    # Activation status filter
+    activation_status = request.args.get("activation_status")
+    if activation_status and activation_status.lower() != "all":
+        filters["activation_status"] = activation_status
+    
+    # Date filters
+    date_from = request.args.get("date_from")
+    if date_from:
+        filters["date_from"] = date_from
+    
+    date_to = request.args.get("date_to")
+    if date_to:
+        filters["date_to"] = date_to
+    
+    # Device filters
+    device_usage = request.args.get("device_usage")
+    if device_usage and device_usage.lower() != "all":
+        filters["device_usage"] = device_usage
+    
+    max_devices = request.args.get("max_devices")
+    if max_devices and max_devices.lower() != "all":
+        filters["max_devices"] = max_devices
+    
+    logger.info(
+        f"🔍 Count keys by filters - user_id={current_user.id}, project_id={current_user.project_id}, "
+        f"filters={filters}"
+    )
+    
+    try:
+        # Build query with project isolation
+        query = Key.query.filter_by(project_id=current_user.project_id)
+        
+        # Apply RBAC permissions (similar to get_keys)
+        is_owner = RBACManager.is_owner(current_user)
+        is_admin = RBACManager.is_admin(current_user)
+        
+        if not is_owner and not is_admin:
+            has_keys_view = rbac_service.check_permission(current_user.id, "keys.view")
+            if not has_keys_view:
+                query = query.filter_by(user_id=current_user.id)
+                logger.info(
+                    f"🔒 Filtering keys by user_id={current_user.id} (user doesn't have keys.view permission)"
+                )
+            else:
+                logger.info(
+                    f"👁️ User {current_user.id} has keys.view permission - showing all keys in project"
+                )
+        
+        # Apply filters using KeyFilterSpecification
+        filter_spec = KeyFilterSpecification(filters, logger=logger)
+        query = filter_spec.apply(query)
+        
+        # Get count
+        count = query.count()
+        
+        # Build breakdown (optional, can be expanded later)
+        breakdown = {
+            "total": count,
+            "filters_applied": filters
+        }
+        
+        logger.info(
+            f"✅ Count keys by filters response - count={count}"
+        )
+        
+        return jsonify({
+            "count": count,
+            "breakdown": breakdown
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Error counting keys by filters: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({"error": f"Failed to count keys: {str(e)}"}), 500
 
 @require_idempotency(ttl=1800, required=False)  # 30 minutes TTL, optional but recommended
 @management_bp.route("", methods=["POST"])

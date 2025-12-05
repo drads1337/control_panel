@@ -339,7 +339,9 @@ class CacheService:
                     keys_list = [k.decode() if isinstance(k, bytes) else k for k in keys]
                     
 
-                    deleted_count = cache_wrapper.delete(*keys_list)
+                    deleted_count = cache_wrapper.client.delete(*keys_list) if keys_list else 0
+                    if deleted_count is None:
+                        deleted_count = 0
                     
 
                     cache_wrapper.client.delete(pattern_set_key)
@@ -434,7 +436,9 @@ class CacheService:
             
 
             for pattern in patterns:
-                total_deleted += self.invalidate_pattern(pattern)
+                deleted = self.invalidate_pattern(pattern)
+                if deleted is not None:
+                    total_deleted += deleted
             
 
             if self.use_markers and marker_key:
@@ -747,7 +751,9 @@ class CacheService:
             
             if scanned_keys:
                 keys_list = [k.decode() if isinstance(k, bytes) else k for k in scanned_keys]
-                deleted_count = cache_wrapper.delete(*keys_list)
+                deleted_count = cache_wrapper.client.delete(*keys_list) if keys_list else 0
+                if deleted_count is None:
+                    deleted_count = 0
                 logging.info(f"Cleared all cache: {deleted_count} keys deleted (scanned {len(scanned_keys)} keys)")
                 return deleted_count
             else:

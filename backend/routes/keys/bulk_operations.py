@@ -357,6 +357,39 @@ def bulk_resume_keys(current_user, project_id=None):
 
     return jsonify({"message": f"Successfully resumed {affected_count} keys"})
 
+@validate_request(KeyBulkActionSchema)
+@bulk_operations_bp.route("/bulk/activate", methods=["POST"])
+@jwt_required()
+@require_project_with_grace_period
+@require_project_isolation
+def bulk_activate_keys(current_user, project_id=None, validated_data=None):
+    """Bulk activate keys"""
+
+    activity_service = get_service('activity_service')
+    key_bulk_operations_service = get_service('key_bulk_operations_service')
+    
+    if not current_user:
+        return jsonify({"error": "User not found"}), 404
+    
+    if not validated_data:
+        return jsonify({"error": "No data provided"}), 400
+
+    key_ids = validated_data.get("key_ids")
+
+    affected_count, error = key_bulk_operations_service.bulk_activate_keys(current_user, key_ids)
+
+    if error:
+        return jsonify({"error": error}), 500
+
+    if affected_count == 0:
+        return jsonify({"message": "No keys found or access denied, or all keys were already activated"}), 200
+
+    activity_service.log_activity(
+        current_user, "bulk_activate_keys", details=f"Activated {affected_count} keys", ip=request.remote_addr
+    )
+
+    return jsonify({"message": f"Successfully activated {affected_count} keys"})
+
 @validate_request(KeyBulkExtendSchema)
 @bulk_operations_bp.route("/bulk/add_hours", methods=["POST"])
 @jwt_required()
@@ -401,7 +434,9 @@ def bulk_add_hours(current_user, project_id=None, validated_data=None):
 @require_project_isolation
 def bulk_pause_keys_by_product(current_user, project_id=None, validated_data=None):
     """Bulk pause keys by product"""
-
+    import logging
+    
+    logger = logging.getLogger(__name__)
     activity_service = get_service('activity_service')
     key_bulk_operations_service = get_service('key_bulk_operations_service')
     
@@ -409,9 +444,38 @@ def bulk_pause_keys_by_product(current_user, project_id=None, validated_data=Non
         return jsonify({"error": "User not found"}), 404
     
     if not validated_data:
-        return jsonify({"error": "No data provided"}), 400
+        logger.warning(
+            f"validated_data is None in bulk_pause_keys_by_product. "
+            f"Request method: {request.method}, "
+            f"Content-Type: {request.headers.get('Content-Type')}, "
+            f"Is JSON: {request.is_json}, "
+            f"Request data length: {len(request.get_data()) if request.get_data() else 0}"
+        )
+        
+        # Fallback: try to get data from request directly
+        raw_data = request.get_json(silent=True, force=True)
+        if raw_data and isinstance(raw_data, dict):
+            try:
+                validated_data = KeyBulkProductActionSchema(**raw_data).model_dump()
+                logger.info("Successfully validated request data using fallback method")
+            except Exception as e:
+                logger.error(f"Failed to validate request data: {str(e)}")
+                return jsonify({
+                    "error": "Invalid request data",
+                    "message": "Request body must contain a valid product_id",
+                    "details": str(e)
+                }), 400
+        else:
+            logger.error(f"No JSON data found in request body. Raw data: {request.get_data(as_text=True)[:200] if request.get_data() else 'empty'}")
+            return jsonify({
+                "error": "No data provided",
+                "message": "Request body is required and must be valid JSON with product_id field"
+            }), 400
 
     product_id = validated_data.get("product_id")
+    
+    if not product_id:
+        return jsonify({"error": "product_id is required"}), 400
 
     affected_count, error, product_name = key_bulk_operations_service.bulk_pause_keys_by_product(current_user, product_id)
 
@@ -547,6 +611,85 @@ def bulk_add_hours_by_product(current_user, project_id=None):
             "message": f"Successfully added {hours} hours to {affected_count} keys for product: {product_name}"
         }
     )
+
+@validate_request(KeyBulkProductActionSchema)
+@bulk_operations_bp.route("/bulk/activate/by_product", methods=["POST"])
+@jwt_required()
+@require_project_with_grace_period
+@require_project_isolation
+def bulk_activate_keys_by_product(current_user, project_id=None, validated_data=None):
+    """Bulk activate keys by product"""
+
+    activity_service = get_service('activity_service')
+    key_bulk_operations_service = get_service('key_bulk_operations_service')
+    
+    if not current_user:
+        return jsonify({"error": "User not found"}), 404
+    
+    if not validated_data:
+        return jsonify({"error": "No data provided"}), 400
+
+    product_id = validated_data.get("product_id")
+
+    affected_count, error, product_name = key_bulk_operations_service.bulk_activate_keys_by_product(current_user, product_id)
+
+    if error:
+        return jsonify({"error": error}), 500 if error != "Product not found or access denied" else 404
+
+    if affected_count == 0:
+        return jsonify({"message": "No keys found for this product, or all keys were already activated"}), 200
+
+    activity_service.log_activity(
+        current_user,
+        "bulk_activate_keys_by_product",
+        details=f"Activated {affected_count} keys for product: {product_name}",
+        ip=request.remote_addr,
+    )
+
+    return jsonify({"message": f"Successfully activated {affected_count} keys for product: {product_name}"})
+
+@validate_request(KeyBulkProductActionSchema)
+@bulk_operations_bp.route("/bulk/delete/by_product", methods=["POST"])
+@jwt_required()
+@require_project_with_grace_period
+@require_project_isolation
+def bulk_delete_keys_by_product(current_user, project_id=None, validated_data=None):
+    """Bulk delete keys by product"""
+
+    activity_service = get_service('activity_service')
+    key_bulk_operations_service = get_service('key_bulk_operations_service')
+    
+    if not current_user:
+        return jsonify({"error": "User not found"}), 404
+    
+    if not validated_data:
+        return jsonify({"error": "No data provided"}), 400
+
+    product_id = validated_data.get("product_id")
+
+    affected_count, error, product_name = key_bulk_operations_service.bulk_delete_keys_by_product(current_user, product_id)
+
+    if error:
+        return jsonify({"error": error}), 500 if error != "Product not found or access denied" else 404
+
+    if affected_count == 0:
+        return jsonify({"message": "No keys found for this product"}), 200
+
+    try:
+        from ...routes.files import clear_storage_cache
+
+        clear_storage_cache(current_user.project_id)
+    except ImportError:
+        pass
+
+    activity_service.log_activity(
+        current_user,
+        "bulk_delete_keys_by_product",
+        details=f"Deleted {affected_count} keys for product: {product_name}",
+        ip=request.remote_addr,
+    )
+
+    return jsonify({"message": f"Successfully deleted {affected_count} keys for product: {product_name}"})
 
 @validate_request(KeyBulkFilterActionSchema)
 @bulk_operations_bp.route("/bulk/deleteByFilters", methods=["POST"])

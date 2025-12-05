@@ -22,7 +22,6 @@ export const QuickOperations: React.FC<QuickOperationsProps> = ({
   return (
     <div className="w-full space-y-3">
       <div className="flex items-center gap-2">
-        <Zap className="h-4 w-4 text-blue-500" />
         <span className="text-sm font-medium text-blue-700">Quick Operations (all keys)</span>
       </div>
       <div className="grid grid-cols-2 gap-2">

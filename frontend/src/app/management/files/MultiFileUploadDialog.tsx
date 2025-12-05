@@ -137,7 +137,6 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
               {/* Basic Settings Group */}
               <div className="bg-muted/30 rounded-lg border p-3">
                 <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border/50">
-                  <Settings2 className="w-4 h-4 text-primary" />
                   <span className="text-sm font-medium">Basic Settings</span>
                 </div>
                 
@@ -258,7 +257,7 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
               {/* File Info Form */}
               <div className="bg-muted/30 rounded-lg border p-3">
                 <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border/50">
-                  <Info className="w-4 h-4 text-primary" />
+                 
                   <span className="text-sm font-medium">File Information</span>
                 </div>
 

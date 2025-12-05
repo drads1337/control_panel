@@ -72,8 +72,8 @@ const CreateReferralDialog: React.FC<CreateReferralDialogProps> = ({
         <div className="flex-1 flex flex-col min-h-0 mt-2">
           
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto pr-1 -mr-1 space-y-4 pb-2">
-            <div className="space-y-2">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-4 px-1 pb-4">
+            <div className="space-y-2 pr-1">
               <Label htmlFor="referral-code" className="text-sm font-medium">Referral Code *</Label>
               <div className="flex space-x-2">
                 <Input
@@ -99,7 +99,7 @@ const CreateReferralDialog: React.FC<CreateReferralDialogProps> = ({
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-1">
               <div className="space-y-2">
                 <Label htmlFor="expires-days" className="text-sm font-medium">Code Expires (days)</Label>
                 <Input
@@ -129,7 +129,7 @@ const CreateReferralDialog: React.FC<CreateReferralDialogProps> = ({
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 pr-1">
               <Label htmlFor="token-balance" className="text-sm font-medium">Token Balance</Label>
               <Input
                 id="token-balance"
@@ -142,7 +142,7 @@ const CreateReferralDialog: React.FC<CreateReferralDialogProps> = ({
               />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 pr-1">
               <Label className="text-sm font-medium">RBAC Role *</Label>
               {rbacLoading ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
@@ -178,7 +178,7 @@ const CreateReferralDialog: React.FC<CreateReferralDialogProps> = ({
               )}
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 pr-1">
               <Label className="text-sm font-medium">Product Access</Label>
               {productsLoading ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">

@@ -74,7 +74,6 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
       <DialogContent className="w-[95vw] sm:max-w-[600px] max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-hidden">
         <DialogHeader className="flex-shrink-0 text-left">
           <DialogTitle className="flex items-center gap-2 text-base">
-            <CloudUpload className="w-5 h-5 text-primary shrink-0" />
             Upload File
           </DialogTitle>
           <DialogDescription className="mt-1 text-xs truncate pr-4">
@@ -89,12 +88,12 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
         <div className="flex-1 flex flex-col min-h-0 mt-4">
           
           {/* Scrollable Inputs Area */}
-          <div className="flex-1 overflow-y-auto pr-1 -mr-1 space-y-4 pb-2">
-            <div className="space-y-2">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-4 px-1 pb-4">
+            <div className="space-y-2 pr-1">
               <Label className="text-sm font-medium">File to upload</Label>
               <div 
                 className={cn(
-                  "border-2 border-dashed rounded-lg p-4 sm:p-6 text-center transition-colors",
+                  "border-2 border-dashed rounded-lg p-4 sm:p-6 text-center transition-colors min-h-[120px] flex flex-col items-center justify-center",
                   dragOver ? "border-primary bg-primary/5" : "border-muted-foreground/25"
                 )}
                 onDragOver={onDragOver}
@@ -107,7 +106,7 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
                   }
                 }}
               >
-                <CloudUpload className="h-8 w-8 sm:h-10 sm:w-10 mx-auto mb-3 text-muted-foreground" />
+                <CloudUpload className="h-8 w-8 sm:h-10 sm:w-10 mx-auto mb-3 text-muted-foreground shrink-0" />
                 <p className="text-xs text-muted-foreground mb-2 hidden sm:block">
                   Drag and drop a file here or click to select
                 </p>
@@ -118,7 +117,7 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
                   variant="outline" 
                   size="sm"
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full sm:w-auto"
+                  className="w-full sm:w-auto shrink-0"
                 >
                   Select file
                 </Button>
@@ -144,7 +143,7 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
             </div>
 
             {!showConfigsFolder && (
-              <div className="grid gap-2">
+              <div className="grid gap-2 pr-1">
                 <Label htmlFor="upload-category" className="text-sm">File type</Label>
                 <Select 
                   value={uploadForm.category} 
@@ -168,14 +167,14 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
             )}
 
             {showConfigsFolder && (
-              <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-100 dark:border-blue-900">
+              <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-100 dark:border-blue-900 pr-1">
                 <p className="text-xs text-blue-700 dark:text-blue-300">
                   Files will be uploaded to the <strong>configs</strong> folder for user settings
                 </p>
               </div>
             )}
 
-            <div className="grid gap-2">
+            <div className="grid gap-2 pr-1">
               <Label htmlFor="upload-name" className="text-sm">Name (optional)</Label>
               <Input
                 id="upload-name"
@@ -186,7 +185,7 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
               />
             </div>
 
-            <div className="grid gap-2">
+            <div className="grid gap-2 pr-1">
               <Label htmlFor="upload-description" className="text-sm">Description</Label>
               <Textarea
                 id="upload-description"
@@ -200,7 +199,7 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
 
             {!showConfigsFolder && uploadForm.category === 'config' && (
               <ConditionalRender permission="products.files_manage_configs" fallback={null}>
-                <div className="grid gap-2">
+                <div className="grid gap-2 pr-1">
                   <Label htmlFor="upload-version" className="text-sm">Version</Label>
                   <Input
                     id="upload-version"
@@ -214,7 +213,7 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
             )}
 
             {uploading && (
-              <div className="space-y-2 pt-2">
+              <div className="space-y-2 pt-2 pb-2 pr-1">
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>Uploading...</span>
                   <span>{Math.round(uploadProgress)}%</span>

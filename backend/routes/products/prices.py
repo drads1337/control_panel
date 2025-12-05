@@ -84,20 +84,17 @@ def get_product_prices(product_identifier):
         current_app.logger.error(f"Error fetching product prices: {str(e)}")
         return jsonify({"error": f"Failed to fetch prices: {str(e)}"}), 500
 
-@validate_request(ProductPricesUpdateSchema)
 @prices_bp.route("/<product_identifier>/prices", methods=["PUT"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
+@validate_request(ProductPricesUpdateSchema)
 def update_product_prices(product_identifier, validated_data=None):
     """Update prices for a product"""
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
     if not user:
-
-        activity_service = get_service('activity_service')
-        product_service = get_service('product_service')
         return jsonify({"error": "User not found"}), 404
 
     if not user.project_id:
@@ -117,6 +114,9 @@ def update_product_prices(product_identifier, validated_data=None):
             403,
         )
 
+    activity_service = get_service('activity_service')
+    product_service = get_service('product_service')
+
     try:
 
         product = find_product_by_id_or_unique_id(product_identifier, user.project_id)
@@ -126,7 +126,10 @@ def update_product_prices(product_identifier, validated_data=None):
         if not validated_data:
             return jsonify({"error": "No data provided"}), 400
 
-        prices_data = validated_data.prices
+        prices_data = validated_data.get("prices")
+        
+        if not prices_data:
+            return jsonify({"error": "Prices data is required"}), 400
 
         for period, price_value in prices_data.items():
 
@@ -254,9 +257,6 @@ def add_custom_period(product_identifier, validated_data=None):
     user = User.query.get(user_id)
 
     if not user:
-
-        activity_service = get_service('activity_service')
-        product_service = get_service('product_service')
         return jsonify({"error": "User not found"}), 404
 
     if not user.project_id:
@@ -276,6 +276,9 @@ def add_custom_period(product_identifier, validated_data=None):
             403,
         )
 
+    activity_service = get_service('activity_service')
+    product_service = get_service('product_service')
+
     try:
 
         product = find_product_by_id_or_unique_id(product_identifier, user.project_id)
@@ -285,9 +288,12 @@ def add_custom_period(product_identifier, validated_data=None):
         if not validated_data:
             return jsonify({"error": "No data provided"}), 400
 
-        period_name = validated_data.period_name
-        price_value = validated_data.price
-        meta_data = validated_data.meta_data
+        period_name = validated_data.get("period_name")
+        price_value = validated_data.get("price")
+        meta_data = validated_data.get("meta_data")
+        
+        if not period_name or price_value is None:
+            return jsonify({"error": "Period name and price are required"}), 400
 
         existing_price = ProductKeyPrice.query.filter_by(
             product_id=product.id, period=period_name, project_id=user.project_id
@@ -352,9 +358,6 @@ def remove_custom_period(product_identifier, custom_period_id):
     user = User.query.get(user_id)
 
     if not user:
-
-        activity_service = get_service('activity_service')
-        product_service = get_service('product_service')
         return jsonify({"error": "User not found"}), 404
 
     if not user.project_id:
@@ -373,6 +376,9 @@ def remove_custom_period(product_identifier, custom_period_id):
             ),
             403,
         )
+
+    activity_service = get_service('activity_service')
+    product_service = get_service('product_service')
 
     try:
 

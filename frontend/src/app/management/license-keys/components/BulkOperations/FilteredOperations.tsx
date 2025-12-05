@@ -24,7 +24,6 @@ export const FilteredOperations: React.FC<FilteredOperationsProps> = ({
   return (
     <div className="w-full space-y-3">
       <div className="flex items-center gap-2">
-        <Target className="h-4 w-4 text-green-600" />
         <span className="text-sm font-medium text-green-700">
           Filtered Operations ({keysCount} keys)
         </span>

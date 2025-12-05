@@ -90,26 +90,28 @@ export async function getKeysCountByFilters(
 }
 
 export async function bulkPauseKeys(productId: number): Promise<{ message: string }> {
-
-  const response = await api.post(API_ENDPOINTS.KEYS_BULK_PAUSE, { product_id: productId })
+  if (!productId || isNaN(productId) || productId <= 0) {
+    throw new Error('Invalid product ID')
+  }
+  const response = await api.post(API_ENDPOINTS.KEYS_BULK_PAUSE_BY_PRODUCT, { product_id: productId })
   return response.data
 }
 
 export async function bulkActivateKeys(productId: number): Promise<{ message: string }> {
 
-  const response = await api.post(API_ENDPOINTS.KEYS_BULK_ACTIVATE, { product_id: productId })
+  const response = await api.post(API_ENDPOINTS.KEYS_BULK_ACTIVATE_BY_PRODUCT, { product_id: productId })
   return response.data
 }
 
 export async function bulkDeleteKeys(productId: number): Promise<{ message: string }> {
 
-  const response = await api.post(API_ENDPOINTS.KEYS_BULK_DELETE, { product_id: productId })
+  const response = await api.post(API_ENDPOINTS.KEYS_BULK_DELETE_BY_PRODUCT, { product_id: productId })
   return response.data
 }
 
 export async function bulkAddHoursToKeys(productId: number, hours: number): Promise<{ message: string }> {
 
-  const response = await api.post(API_ENDPOINTS.KEYS_BULK_ADD_HOURS, { product_id: productId, hours })
+  const response = await api.post(API_ENDPOINTS.KEYS_BULK_ADD_HOURS_BY_PRODUCT, { product_id: productId, hours })
   return response.data
 }
 

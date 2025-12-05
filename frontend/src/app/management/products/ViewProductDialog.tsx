@@ -40,8 +40,7 @@ const ViewProductDialog: React.FC<ViewProductDialogProps> = ({
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
-            <Package className="h-5 w-5 text-primary" />
-            {product.name}
+            Name: <span className="font-medium">{product.name}</span>
           </DialogTitle>
           <DialogDescription>
             {product.description ? sanitizeString(product.description) : 'No description'}

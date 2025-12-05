@@ -1520,7 +1520,6 @@ def create_folder(validated_data=None):
         logger.error(f"Content-Type: {request.headers.get('Content-Type')}")
         logger.error(f"Request is_json: {request.is_json}")
         
-
         try:
             raw_body = request.get_data(as_text=True)
             if raw_body:
@@ -1547,7 +1546,6 @@ def create_folder(validated_data=None):
     if not is_valid:
         return jsonify({"error": error}), 404 if error == "User not found" else 403
 
-
     if not validated_data or not isinstance(validated_data, dict):
         logger.warning(f"create_folder: Invalid validated_data - {validated_data}, type: {type(validated_data)}")
         return jsonify({
@@ -1561,8 +1559,6 @@ def create_folder(validated_data=None):
     
     parent_path = validated_data.get("parent_path", "/")
     product_id_param = validated_data.get("product_id")
-
-
     product_id = None
     if product_id_param is not None:
         from ..models.products import Product
@@ -1602,7 +1598,6 @@ def delete_folder(folder_path):
     is_valid, error = file_service.validate_user_project(user)
     if not is_valid:
 
-
         activity_service = get_service('activity_service')
         file_service = get_service('file_service')
         return jsonify({"error": error}), 404 if error == "User not found" else 403
@@ -1625,7 +1620,6 @@ def delete_folder(folder_path):
 @files_bp.route("/product-files/config", methods=["POST"])
 def upload_product_config():
     logging.debug(f"[DEBUG] Request: POST /api/files/product-files/config")
-
 
     activity_service = get_service('activity_service')
     file_service = get_service('file_service')
@@ -1662,7 +1656,6 @@ def upload_product_config():
                 )
             except Exception as e:
                 logging.debug(f"[DEBUG] JWT verification from Bearer token failed: {e}")
-
                 pass
 
     if not user:

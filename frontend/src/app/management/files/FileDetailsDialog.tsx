@@ -45,7 +45,6 @@ const FileDetailsDialog: React.FC<FileDetailsDialogProps> = ({
       <DialogContent className="w-[95vw] sm:max-w-[600px] max-h-[85vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
-            <Eye className="w-5 h-5 text-primary shrink-0" />
             File Information
           </DialogTitle>
           <DialogDescription className="text-xs sm:text-sm">

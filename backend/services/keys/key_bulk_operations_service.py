@@ -443,6 +443,38 @@ class KeyBulkOperationsService:
             self.logger.error(f"Failed to bulk extend keys: {str(e)}")
             return 0, f"Failed to bulk extend keys: {str(e)}"
 
+    def bulk_activate_keys(self, user: User, key_ids: List[int]) -> Tuple[int, Optional[str]]:
+        """Activate multiple keys"""
+        try:
+            keys = self._get_keys_by_ids(user, key_ids)
+            if not keys:
+                return 0, "No keys found or access denied"
+
+            affected_count = 0
+            now = datetime.utcnow()
+            
+            for key in keys:
+                # Only activate keys that haven't been activated yet
+                if key.activated_at is None:
+                    key.activated_at = now
+                    # Set expires_at if not already set or if it's in the past
+                    if not key.expires_at or key.expires_at < now:
+                        duration_hours = key.duration_hours or 24
+                        key.expires_at = key.activated_at + timedelta(hours=duration_hours)
+                    affected_count += 1
+
+            if affected_count > 0:
+                db.session.commit()
+                self.logger.info(f"Bulk activated {affected_count} keys for user {user.id}")
+            else:
+                self.logger.info(f"No keys needed activation for user {user.id}")
+
+            return affected_count, None
+        except Exception as e:
+            db.session.rollback()
+            self.logger.error(f"Failed to bulk activate keys: {str(e)}")
+            return 0, f"Failed to bulk activate keys: {str(e)}"
+
     def bulk_delete_keys_by_filters(
         self, user: User, filters: Dict[str, Any]
     ) -> Tuple[int, Optional[str]]:
@@ -614,6 +646,68 @@ class KeyBulkOperationsService:
         except Exception as e:
             self.logger.error(f"Failed to bulk add hours by product: {str(e)}")
             return 0, f"Failed to add hours: {str(e)}", None
+
+    def bulk_activate_keys_by_product(
+        self, user: User, product_id: int
+    ) -> Tuple[int, Optional[str], Optional[str]]:
+        """Bulk activate keys by product"""
+        try:
+
+            if not self._product_service:
+                raise ServiceError(
+                    "Product Service dependency not injected",
+                    status_code=500
+                )
+            product_service = self._product_service
+
+            product = product_service.get_product(user, product_id)
+
+            keys = Key.query.filter_by(product_id=product_id, project_id=user.project_id).all()
+            if not keys:
+                return 0, None, product.name
+
+            key_ids = [key.id for key in keys]
+            affected_count, error = self.bulk_activate_keys(user, key_ids)
+
+            return affected_count, error, product.name
+
+        except (NotFoundError, PermissionDeniedError) as e:
+
+            raise
+        except Exception as e:
+            self.logger.error(f"Failed to bulk activate keys by product: {str(e)}")
+            return 0, f"Failed to activate keys: {str(e)}", None
+
+    def bulk_delete_keys_by_product(
+        self, user: User, product_id: int
+    ) -> Tuple[int, Optional[str], Optional[str]]:
+        """Bulk delete keys by product"""
+        try:
+
+            if not self._product_service:
+                raise ServiceError(
+                    "Product Service dependency not injected",
+                    status_code=500
+                )
+            product_service = self._product_service
+
+            product = product_service.get_product(user, product_id)
+
+            keys = Key.query.filter_by(product_id=product_id, project_id=user.project_id).all()
+            if not keys:
+                return 0, None, product.name
+
+            key_ids = [key.id for key in keys]
+            affected_count, error = self.bulk_delete_keys(user, key_ids)
+
+            return affected_count, error, product.name
+
+        except (NotFoundError, PermissionDeniedError) as e:
+
+            raise
+        except Exception as e:
+            self.logger.error(f"Failed to bulk delete keys by product: {str(e)}")
+            return 0, f"Failed to delete keys: {str(e)}", None
 
     def bulk_delete_unused_loader_keys(
         self, user: User, agent_id: int

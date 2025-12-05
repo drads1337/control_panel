@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 from flask import current_app, request
+from prometheus_client import Counter, Histogram, Gauge, REGISTRY
 
 from ...core.extensions import db
 from ...models.core import User, UserActivity
@@ -21,6 +22,40 @@ from ...utils.rbac_utils import RBACManager
 from ...utils.redis_client import get_redis_client
 from ...utils.role_constants import UserRoles
 from ...utils.structured_logging import get_logger
+
+# Prometheus metrics for session management performance
+_session_limit_checks_total = Counter(
+    'session_limit_checks_total',
+    'Total number of session limit checks',
+    ['path'],  # 'fast' or 'slow'
+    registry=REGISTRY
+)
+
+_session_limit_check_duration_seconds = Histogram(
+    'session_limit_check_duration_seconds',
+    'Duration of session limit check operation',
+    ['path'],
+    registry=REGISTRY
+)
+
+_session_lock_acquisitions_total = Counter(
+    'session_lock_acquisitions_total',
+    'Total number of lock acquisition attempts',
+    ['status'],  # 'success' or 'failed'
+    registry=REGISTRY
+)
+
+_session_lock_wait_seconds = Histogram(
+    'session_lock_wait_seconds',
+    'Time spent waiting for lock acquisition',
+    registry=REGISTRY
+)
+
+_session_limit_exceeded_total = Counter(
+    'session_limit_exceeded_total',
+    'Total number of times session limit was exceeded',
+    registry=REGISTRY
+)
 
 class SessionService:
     """Service for managing user sessions"""
@@ -40,6 +75,39 @@ class SessionService:
         self.LOCK_TIMEOUT = 5
         self.LOCK_RETRY_DELAY = 0.1
         self.LOCK_MAX_RETRIES = 10
+        
+        # Lua script for atomic session count check and increment
+        # Returns: [can_proceed (1/0), current_count, needs_db_refresh (1/0)]
+        self._session_count_lua = """
+        local cache_key = KEYS[1]
+        local max_sessions = tonumber(ARGV[1])
+        local cache_ttl = tonumber(ARGV[2])
+        
+        local current_count = redis.call('GET', cache_key)
+        if current_count == false then
+            -- Cache miss, need to check DB
+            return {0, 0, 1}
+        end
+        
+        current_count = tonumber(current_count)
+        if current_count == nil then
+            -- Invalid cache value, need to refresh
+            return {0, 0, 1}
+        end
+        
+        if current_count >= max_sessions then
+            -- Limit reached
+            return {0, current_count, 0}
+        end
+        
+        -- Can proceed, increment count atomically
+        local new_count = redis.call('INCR', cache_key)
+        if new_count == 1 then
+            redis.call('EXPIRE', cache_key, cache_ttl)
+        end
+        
+        return {1, new_count, 0}
+        """
 
     def create_session(
         self,
@@ -59,10 +127,6 @@ class SessionService:
             user = User.query.get(user_id)
             if not user:
                 raise ValueError("User not found")
-
-
-
-
             limit_exceeded, decremented_count = self._check_and_enforce_session_limit_atomic(user_id)
             if limit_exceeded:
                 raise ValueError("Maximum number of sessions reached")
@@ -82,9 +146,6 @@ class SessionService:
             }
 
             self._store_session(session_data)
-            
-
-
             try:
                 from ...models.core import UserActivity
                 login_activity = UserActivity(
@@ -97,11 +158,11 @@ class SessionService:
                 db.session.add(login_activity)
                 db.session.commit()
                 
-
-                self._increment_session_count_cache(user_id, decremented_count)
+                # Note: Session count is already incremented atomically in 
+                # _check_and_enforce_session_limit_atomic via Lua script (fast path)
+                # or manually in slow path. No need to increment again here.
             except Exception as e:
                 self.logger.warning(f"Failed to record login activity: {e}")
-
 
             self.logger.info(
                 f"Session created for user {user_id}",
@@ -470,6 +531,9 @@ class SessionService:
         """
         Atomically check session limit and enforce it if needed.
         
+        OPTIMIZED: Uses Redis Lua script for atomic operations, reducing round-trips
+        and lock contention. Only acquires lock when DB refresh or session cleanup is needed.
+        
         SECURITY: This method combines limit checking and enforcement in a single
         atomic operation to prevent race conditions. It returns both whether the
         limit is exceeded AND the current count after enforcement (used for cache).
@@ -482,57 +546,111 @@ class SessionService:
             - limit_exceeded: True if limit reached and couldn't free space, False otherwise
             - current_count_after_enforcement: Current session count after any cleanup
         """
-        lock_key = f"session_limit_lock:{user_id}"
+        start_time = time.time()
         cache_key = f"session_count:{user_id}"
-        lock_identifier = str(uuid.uuid4())
+        lock_key = f"session_limit_lock:{user_id}"
         
         redis_client = None
         try:
             redis_client = get_redis_client()
         except Exception as e:
             self.logger.warning(f"Redis unavailable for session limit check, falling back to DB: {e}")
-
-            return self._check_session_limit_db_only_atomic(user_id)
+            result = self._check_session_limit_db_only_atomic(user_id)
+            _session_limit_check_duration_seconds.labels(path='db_fallback').observe(time.time() - start_time)
+            return result
         
-
-        lock_acquired = False
-        for attempt in range(self.LOCK_MAX_RETRIES):
-
-            lock_acquired = redis_client.set(
-                lock_key,
-                lock_identifier,
-                nx=True,
-                ex=self.LOCK_TIMEOUT
+        # Step 1: Fast path - try atomic check/increment via Lua script
+        # This avoids lock contention for the common case (cache hit, under limit)
+        try:
+            result = redis_client.eval(
+                self._session_count_lua,
+                1,
+                cache_key,
+                str(self.MAX_SESSIONS_PER_USER),
+                "60"
             )
             
+            # Lua script returns: [can_proceed (1/0), current_count, needs_db_refresh (1/0)]
+            can_proceed = int(result[0]) if result and len(result) > 0 else 0
+            current_count = int(result[1]) if result and len(result) > 1 else 0
+            needs_db_refresh = int(result[2]) if result and len(result) > 2 else 0
+            
+            if can_proceed == 1:
+                # Fast path: cache hit, under limit, already incremented atomically
+                _session_limit_checks_total.labels(path='fast').inc()
+                _session_limit_check_duration_seconds.labels(path='fast').observe(time.time() - start_time)
+                return False, current_count
+            
+            if needs_db_refresh == 1:
+                # Cache miss or invalid - need to refresh from DB (with lock)
+                _session_limit_checks_total.labels(path='slow').inc()
+                result = self._refresh_session_count_from_db(user_id, redis_client, cache_key, lock_key)
+                _session_limit_check_duration_seconds.labels(path='slow').observe(time.time() - start_time)
+                return result
+            
+            # Limit reached - need to check if we can free space (with lock)
+            _session_limit_exceeded_total.inc()
+            _session_limit_checks_total.labels(path='slow').inc()
+            result = self._try_free_session_slot(user_id, redis_client, cache_key, lock_key, current_count)
+            _session_limit_check_duration_seconds.labels(path='slow').observe(time.time() - start_time)
+            return result
+            
+        except Exception as e:
+            self.logger.warning(f"Lua script execution failed, falling back to DB: {e}")
+            result = self._check_session_limit_db_only_atomic(user_id)
+            _session_limit_check_duration_seconds.labels(path='db_fallback').observe(time.time() - start_time)
+            return result
+    
+    def _refresh_session_count_from_db(
+        self, user_id: int, redis_client, cache_key: str, lock_key: str
+    ) -> Tuple[bool, int]:
+        """
+        Refresh session count from database with lock to prevent race conditions.
+        Only called when cache is missing or invalid.
+        """
+        lock_identifier = str(uuid.uuid4())
+        lock_acquired = False
+        lock_wait_start = time.time()
+        
+        # Try to acquire lock with minimal retries (cache miss is rare)
+        for attempt in range(min(3, self.LOCK_MAX_RETRIES)):
+            lock_acquired = redis_client.set(lock_key, lock_identifier, nx=True, ex=self.LOCK_TIMEOUT)
             if lock_acquired:
+                _session_lock_acquisitions_total.labels(status='success').inc()
+                _session_lock_wait_seconds.observe(time.time() - lock_wait_start)
                 break
-                
-
-            time.sleep(self.LOCK_RETRY_DELAY * (2 ** attempt))
+            if attempt < 2:  # Don't sleep on last attempt
+                time.sleep(self.LOCK_RETRY_DELAY)
         
         if not lock_acquired:
-            self.logger.warning(
-                f"Could not acquire lock for session limit check for user {user_id} after {self.LOCK_MAX_RETRIES} attempts"
-            )
-
+            # If we can't get lock, fall back to DB-only (safe but slower)
+            _session_lock_acquisitions_total.labels(status='failed').inc()
+            _session_lock_wait_seconds.observe(time.time() - lock_wait_start)
+            self.logger.debug(f"Could not acquire lock for cache refresh for user {user_id}, using DB-only")
             return self._check_session_limit_db_only_atomic(user_id)
         
         try:
-
+            # Double-check cache (another process might have refreshed it)
             cached_count = redis_client.get(cache_key)
             if cached_count is not None:
                 try:
                     session_count = int(cached_count)
+                    # Cache was refreshed by another process, use it
+                    redis_client.delete(lock_key)
+                    # Check if we can proceed
+                    if session_count < self.MAX_SESSIONS_PER_USER:
+                        new_count = redis_client.incr(cache_key)
+                        if new_count == 1:
+                            redis_client.expire(cache_key, 60)
+                        return False, new_count
+                    else:
+                        # Still at limit, try to free slot
+                        return self._try_free_session_slot(user_id, redis_client, cache_key, lock_key, session_count)
                 except (ValueError, TypeError):
-                    session_count = None
-            else:
-                session_count = None
+                    pass  # Invalid cache, continue to DB refresh
             
-
-            if session_count is None:
+            # Refresh from DB
                 cutoff_time = datetime.utcnow() - timedelta(hours=24)
-
                 session_count = (
                     UserActivity.query.filter(
                         UserActivity.user_id == user_id,
@@ -542,52 +660,109 @@ class SessionService:
                     .count()
                 )
                 
-
+            # Update cache
                 redis_client.setex(cache_key, 60, str(session_count))
             
-
-
-            if session_count >= self.MAX_SESSIONS_PER_USER:
-
-                cutoff_time = datetime.utcnow() - timedelta(hours=24)
-                oldest_session = (
-                    UserActivity.query.filter(
-                        UserActivity.user_id == user_id,
-                        UserActivity.action == "login",
-                        UserActivity.created_at >= cutoff_time,
-                    )
-                    .order_by(UserActivity.created_at.asc())
-                    .first()
-                )
+            # Check if we can proceed
+            if session_count < self.MAX_SESSIONS_PER_USER:
+                new_count = redis_client.incr(cache_key)
+                return False, new_count
+            else:
+                # At limit, try to free slot
+                return self._try_free_session_slot(user_id, redis_client, cache_key, lock_key, session_count)
                 
-                if oldest_session:
-                    self.logger.info(
-                        f"Session limit reached for user {user_id}, terminating oldest session",
-                        user_id=user_id,
-                        oldest_session_id=oldest_session.id,
-                    )
-                    
-
-                    oldest_session.action = "logout_forced"
-                    oldest_session.details = "Session terminated due to session limit enforcement"
-                    db.session.commit()
-                    
-
-                    new_count = session_count - 1
-                    redis_client.setex(cache_key, 60, str(new_count))
-                    
-
-
-                    return False, new_count
-                else:
-
-                    return True, session_count
+        finally:
+            # Release lock
+            lua_script = """
+            if redis.call("get", KEYS[1]) == ARGV[1] then
+                return redis.call("del", KEYS[1])
+            else
+                return 0
+            end
+            """
+            try:
+                redis_client.eval(lua_script, 1, lock_key, lock_identifier)
+            except Exception as e:
+                self.logger.warning(f"Failed to release lock for user {user_id}: {e}")
+    
+    def _try_free_session_slot(
+        self, user_id: int, redis_client, cache_key: str, lock_key: str, current_count: int
+    ) -> Tuple[bool, int]:
+        """
+        Try to free a session slot by terminating the oldest session.
+        Requires lock to be held by caller.
+        """
+        lock_identifier = str(uuid.uuid4())
+        lock_acquired = False
+        lock_wait_start = time.time()
+        
+        # Try to acquire lock
+        for attempt in range(min(3, self.LOCK_MAX_RETRIES)):
+            lock_acquired = redis_client.set(lock_key, lock_identifier, nx=True, ex=self.LOCK_TIMEOUT)
+            if lock_acquired:
+                _session_lock_acquisitions_total.labels(status='success').inc()
+                _session_lock_wait_seconds.observe(time.time() - lock_wait_start)
+                break
+            if attempt < 2:
+                time.sleep(self.LOCK_RETRY_DELAY)
+        
+        if not lock_acquired:
+            # Can't get lock, return limit exceeded
+            _session_lock_acquisitions_total.labels(status='failed').inc()
+            _session_lock_wait_seconds.observe(time.time() - lock_wait_start)
+            return True, current_count
+        
+        try:
+            # Re-check count (might have changed)
+            cached_count = redis_client.get(cache_key)
+            if cached_count is not None:
+                try:
+                    current_count = int(cached_count)
+                except (ValueError, TypeError):
+                    pass
             
+            if current_count < self.MAX_SESSIONS_PER_USER:
+                # Count changed, we can proceed now
+                new_count = redis_client.incr(cache_key)
+                if new_count == 1:
+                    redis_client.expire(cache_key, 60)
+                return False, new_count
+            
+            # Still at limit, try to free oldest session
+            cutoff_time = datetime.utcnow() - timedelta(hours=24)
+            oldest_session = (
+                UserActivity.query.filter(
+                    UserActivity.user_id == user_id,
+                    UserActivity.action == "login",
+                    UserActivity.created_at >= cutoff_time,
+                )
+                .order_by(UserActivity.created_at.asc())
+                .first()
+            )
+            
+            if oldest_session:
+                self.logger.info(
+                    f"Session limit reached for user {user_id}, terminating oldest session",
+                    user_id=user_id,
+                    oldest_session_id=oldest_session.id,
+                )
 
-            return False, session_count
+                oldest_session.action = "logout_forced"
+                oldest_session.details = "Session terminated due to session limit enforcement"
+                db.session.commit()
+                
+                new_count = current_count - 1
+                redis_client.setex(cache_key, 60, str(new_count))
+                
+                # Increment for new session
+                new_count = redis_client.incr(cache_key)
+                return False, new_count
+            else:
+                # No sessions to free
+                return True, current_count
             
         finally:
-
+            # Release lock
             lua_script = """
             if redis.call("get", KEYS[1]) == ARGV[1] then
                 return redis.call("del", KEYS[1])
@@ -603,7 +778,9 @@ class SessionService:
     
     def _increment_session_count_cache(self, user_id: int, base_count: int):
         """
-        Increment session count in cache after successful session creation.
+        DEPRECATED: Session count is now incremented atomically in 
+        _check_and_enforce_session_limit_atomic via Lua script.
+        This method is kept for backward compatibility but is no longer called.
         
         Args:
             user_id: User ID

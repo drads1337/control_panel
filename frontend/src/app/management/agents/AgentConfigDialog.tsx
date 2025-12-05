@@ -69,8 +69,8 @@ const AgentConfigDialog: React.FC<AgentConfigDialogProps> = ({ open, onOpenChang
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
-          <div className="flex-1 overflow-y-auto px-4 space-y-3">
-            <div className="space-y-1.5">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 space-y-3 pb-4">
+            <div className="space-y-1.5 pr-1">
               <Label htmlFor="login_type" className="text-xs">Authentication Type</Label>
               <Select value={config.login_type} onValueChange={(value) => setConfig(prev => ({ ...prev, login_type: value as any }))}>
                 <SelectTrigger className="w-full h-8 text-xs">
@@ -84,7 +84,7 @@ const AgentConfigDialog: React.FC<AgentConfigDialogProps> = ({ open, onOpenChang
             </div>
 
             {config.login_type === 'invite_code' && (
-              <div className="flex items-center justify-between p-2 border rounded">
+              <div className="flex items-center justify-between p-2 border rounded pr-1">
                 <Label htmlFor="invite_code_required" className="cursor-pointer flex-1 text-xs">Require invite code</Label>
                 <Switch
                   id="invite_code_required"
@@ -96,7 +96,7 @@ const AgentConfigDialog: React.FC<AgentConfigDialogProps> = ({ open, onOpenChang
 
             {config.login_type === 'license_generation' && (
               <>
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 pr-1">
                   <Label htmlFor="custom_key_prefix" className="text-xs">Custom Key Prefix</Label>
                   <Input
                     id="custom_key_prefix"
@@ -107,7 +107,7 @@ const AgentConfigDialog: React.FC<AgentConfigDialogProps> = ({ open, onOpenChang
                   />
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 pr-1">
                   <Label htmlFor="key_prefix_format" className="text-xs">Format</Label>
                   <Input
                     id="key_prefix_format"
@@ -118,7 +118,7 @@ const AgentConfigDialog: React.FC<AgentConfigDialogProps> = ({ open, onOpenChang
                   />
                 </div>
 
-                <div className="p-2 bg-muted/20 rounded border">
+                <div className="p-2 bg-muted/20 rounded border pr-1">
                   <h4 className="font-medium mb-1.5 text-xs text-muted-foreground">Format Examples:</h4>
                   <div className="space-y-0.5 text-xs text-muted-foreground font-sans">
                     <div className="break-all">{'{name}-{duration}-{custom}'} → Agent-24H-abc123</div>

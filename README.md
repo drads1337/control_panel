@@ -79,6 +79,17 @@ pytest
 
 ## Production
 
+**Security Pre-Flight Check (REQUIRED):**
+
+Before starting the application in production, run the security pre-flight check:
+
+```bash
+cd backend
+python -m backend.scripts.security_preflight_check
+```
+
+This validates all critical security settings (RLS, encryption keys, Redis security, etc.) and **hard fails** if any are misconfigured. See [backend/docs/SECURITY_PREFLIGHT_CHECK.md](./backend/docs/SECURITY_PREFLIGHT_CHECK.md) for details.
+
 **Frontend:**
 ```bash
 cd frontend
@@ -88,6 +99,8 @@ npm run build:prod
 **Backend API:**
 ```bash
 cd backend
+# Run pre-flight check first
+python -m backend.scripts.security_preflight_check && \
 gunicorn -c scripts/gunicorn.conf.py scripts.wsgi:application
 ```
 
@@ -178,6 +191,10 @@ The application supports password reset via email. Configure email settings in `
 - [PRODUCTION_DEPLOYMENT_CHECKLIST.md](./PRODUCTION_DEPLOYMENT_CHECKLIST.md) - Production deployment checklist
 - [API_RESPONSE_MIGRATION_EXAMPLES.md](./API_RESPONSE_MIGRATION_EXAMPLES.md) - Examples of migrating to API Response Helper
 - [DOCUMENTATION_INDEX.md](./DOCUMENTATION_INDEX.md) - Complete documentation index
+
+**Backend Documentation:**
+- [backend/docs/PERFORMANCE_AND_SCALABILITY.md](./backend/docs/PERFORMANCE_AND_SCALABILITY.md) - Performance analysis and scalability recommendations
+- [backend/docs/SECURITY_PREFLIGHT_CHECK.md](./backend/docs/SECURITY_PREFLIGHT_CHECK.md) - Security pre-flight check documentation
 
 ## API Documentation
 
