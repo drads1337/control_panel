@@ -16,7 +16,7 @@ import { WebhooksPageHeader } from './components/webhooks-page-header'
 import type { WebhookData } from './types'
 
 function WebhooksPageContent() {
-  const { isAuthenticated, isInitialized } = useAuthContext()
+  const { isAuthenticated, isInitialized, user } = useAuthContext()
   const webhookPermissions = useWebhookPermissions()
 
   const {

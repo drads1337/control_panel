@@ -40,12 +40,9 @@ function saveUserToMemoryCache(user: User, cacheKey: string = 'current_user'): v
 function clearAllCaches(): void {
   userCache.clear()
   
-  // Очищаем старые данные из localStorage при выходе (одноразовая очистка для миграции)
-  // Это гарантирует, что старые данные не останутся после обновления
   try {
     localStorage.removeItem('user_cache')
   } catch (error) {
-    // Ignore localStorage errors
   }
 }
 
