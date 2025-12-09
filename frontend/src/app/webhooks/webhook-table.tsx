@@ -13,7 +13,8 @@ import {
   Copy,
   CheckCircle,
   XCircle,
-  Clock
+  Clock,
+  RefreshCw
 } from 'lucide-react';
 import {
   Table,
@@ -36,6 +37,8 @@ interface WebhookTableProps {
   onToggleStatus: (webhook: WebhookData) => void;
   onLogsClick: (webhook: WebhookData) => void;
   onCopyToClipboard: (text: string) => void;
+  onRefresh?: () => void;
+  refreshing?: boolean;
 }
 
 export function WebhookTable({
@@ -46,12 +49,11 @@ export function WebhookTable({
   onTestClick,
   onToggleStatus,
   onLogsClick,
-  onCopyToClipboard
+  onCopyToClipboard,
+  onRefresh,
+  refreshing = false
 }: WebhookTableProps) {
   const { hasPermission } = usePermissions();
-
-  const canEdit = hasPermission('webhooks.edit');
-  const canToggle = canEdit;
 
   // Вспомогательная функция для рендера цели (Target) чтобы не дублировать логику
   const renderTarget = (webhook: WebhookData) => {
@@ -109,8 +111,6 @@ export function WebhookTable({
     }
     return null;
   };
-  
-  const canCreate = hasPermission('webhooks.create');
 
   return (
     <Card>
@@ -122,8 +122,31 @@ export function WebhookTable({
               {webhooks.length || 0} total
             </CardDescription>
           </div>
+          <div className="flex items-center gap-2">
+            {onRefresh && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onRefresh}
+                disabled={refreshing}
+              >
+                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+              </Button>
+            )}
+            <ConditionalRender permission="webhooks.create" fallback={null}>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={onCreateClick}
+                className="hidden sm:flex"
+              >
+                <Plus className="h-4 w-4 mr-1.5" />
+                Create Webhook
+              </Button>
+            </ConditionalRender>
+          </div>
         </div>
-        {canCreate && (
+        <ConditionalRender permission="webhooks.create" fallback={null}>
           <Button
             variant="default"
             size="icon"
@@ -132,7 +155,7 @@ export function WebhookTable({
           >
             <Plus className="h-4 w-4" />
           </Button>
-        )}
+        </ConditionalRender>
       </CardHeader>
       <CardContent className="pt-0 sm:-mt-3">
         {webhooks.length === 0 ? (
@@ -178,7 +201,6 @@ export function WebhookTable({
                           <Switch
                             checked={webhook.is_active}
                             onCheckedChange={() => onToggleStatus(webhook)}
-                            disabled={!canToggle}
                             className="scale-75 origin-right" 
                           />
                         </ConditionalRender>
@@ -208,13 +230,15 @@ export function WebhookTable({
                   {/* Footer: Stats & Actions */}
                   <div className="pt-3 border-t flex flex-col gap-3">
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
-                       <div className="flex gap-3">
-                          <div className="flex items-center gap-1 text-green-600">
-                            <CheckCircle className="h-3 w-3" /> {webhook.success_count}
-                          </div>
-                          <div className="flex items-center gap-1 text-red-600">
-                            <XCircle className="h-3 w-3" /> {webhook.failure_count}
-                          </div>
+                       <div className="flex gap-3 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1.5">
+                            <span className="h-1.5 w-1.5 rounded-full bg-green-500"></span>
+                            {webhook.success_count}
+                          </span>
+                          <span className="flex items-center gap-1.5">
+                            <span className="h-1.5 w-1.5 rounded-full bg-red-500"></span>
+                            {webhook.failure_count}
+                          </span>
                        </div>
                        <div className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
@@ -249,7 +273,6 @@ export function WebhookTable({
               ))}
             </div>
 
-            {/* --- DESKTOP VIEW (Table) --- */}
             <div className="hidden sm:block rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -300,7 +323,6 @@ export function WebhookTable({
                             <Switch
                               checked={webhook.is_active}
                               onCheckedChange={() => onToggleStatus(webhook)}
-                              disabled={!canToggle}
                             />
                             <Badge variant={webhook.is_active ? 'default' : 'secondary'}>
                               {webhook.is_active ? 'Active' : 'Inactive'}
@@ -309,15 +331,15 @@ export function WebhookTable({
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-4 text-sm">
-                          <div className="flex items-center gap-1 text-green-600">
-                            <CheckCircle className="h-3 w-3" />
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1.5">
+                            <span className="h-1.5 w-1.5 rounded-full bg-green-500"></span>
                             {webhook.success_count}
-                          </div>
-                          <div className="flex items-center gap-1 text-red-600">
-                            <XCircle className="h-3 w-3" />
+                          </span>
+                          <span className="flex items-center gap-1.5">
+                            <span className="h-1.5 w-1.5 rounded-full bg-red-500"></span>
                             {webhook.failure_count}
-                          </div>
+                          </span>
                         </div>
                       </TableCell>
                       <TableCell>

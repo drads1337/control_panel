@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Clock, RefreshCw } from 'lucide-react';
+import { Clock, RefreshCw, X } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -177,22 +177,21 @@ export function WebhookLogsDialog({
             )}
           </div>
 
-          <DialogFooter className="p-6 pt-4 border-t flex flex-col gap-2 sm:flex-row sm:justify-end shrink-0">
+          <DialogFooter className="p-6 pt-4 border-t flex flex-row justify-end gap-2 shrink-0">
             <Button 
-              variant="outline" 
+              variant="ghost" 
               onClick={loadWebhookLogs}
               disabled={loading}
-              className="w-full sm:w-auto"
+              size="icon"
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             </Button>
             <Button 
-              variant="outline" 
+              variant="ghost" 
               onClick={() => onOpenChange(false)}
-              className="w-full sm:w-auto"
+              size="icon"
             >
-              Close
+              <X className="h-4 w-4" />
             </Button>
           </DialogFooter>
         </DialogContent>

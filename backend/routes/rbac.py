@@ -169,8 +169,22 @@ def get_roles(current_user):
             if not success:
                 logging.error(f"Failed to initialize RBAC for project {project_id}")
                 return jsonify({"error": "Failed to initialize RBAC system"}), 500
+        else:
+            # Sync system roles to ensure all default roles exist (e.g., if moderator was added later)
+            # This will also invalidate cache if new roles are created
+            rbac_service.sync_system_roles(project_id)
+            
+            # Force cache invalidation to ensure fresh data
+            try:
+                cache_service = get_service('cache_service')
+                if cache_service:
+                    cache_service.invalidate_rbac_project_instantly(project_id)
+                    logging.info(f"Invalidated RBAC cache for project {project_id}")
+            except Exception as cache_error:
+                logging.warning(f"Failed to invalidate RBAC cache: {cache_error}")
 
-        roles = rbac_service.get_roles(project_id)
+        # Force refresh to bypass cache after sync
+        roles = rbac_service.get_roles(project_id, force_refresh=True)
 
         filtered_roles = []
         for role in roles:
@@ -423,9 +437,9 @@ def create_permission():
         logging.error(f"RBAC_PERMISSION_CREATION_ERROR user_id={current_user.id} error={e}")
         return jsonify({"error": "Failed to create permission"}), 500
 
-@validate_request(PermissionUpdateSchema)
 @rbac_bp.route("/permissions/<int:permission_id>", methods=["PUT"])
 @jwt_required()
+@validate_request(PermissionUpdateSchema)
 def update_permission(permission_id, validated_data=None):
     """Update an existing permission"""
     try:
@@ -443,7 +457,11 @@ def update_permission(permission_id, validated_data=None):
         if not rbac_service.check_permission(current_user.id, "rbac.view"):
             return jsonify({"error": "Admin access required"}), 403
 
-        update_data = validated_data.model_dump(exclude_unset=True)
+        # Handle both dict (from validation middleware) and Pydantic model
+        if isinstance(validated_data, dict):
+            update_data = validated_data
+        else:
+            update_data = validated_data.model_dump(exclude_unset=True) if hasattr(validated_data, 'model_dump') else validated_data
         updated_permission = rbac_service.update_permission(
             permission_id, current_user.project_id, **update_data
         )
@@ -738,17 +756,16 @@ def get_user_permissions(user_id, current_user):
 
         return jsonify({"success": True, "user_id": user_id, "permissions": [], "error": str(e)})
 
-@validate_request(UserPermissionsAssignSchema)
 @rbac_bp.route("/users/<user_id>/permissions", methods=["PUT"])
 @jwt_required()
 @token_required
 @require_project_isolation
+@validate_request(UserPermissionsAssignSchema)
 def update_user_permissions(user_id, current_user, validated_data=None):
     """Update individual permissions for a user (overrides role permissions)"""
 
     try:
-
-
+        rbac_service = get_service_from_g('rbac_service')
         cache_service = get_service('cache_service')
         from ..utils.rbac_utils import RBACManager
 
@@ -778,7 +795,11 @@ def update_user_permissions(user_id, current_user, validated_data=None):
         if not validated_data:
             return jsonify({"error": "No data provided"}), 400
 
-        permissions = validated_data.permissions
+        # Handle both dict (from validation middleware) and Pydantic model
+        if isinstance(validated_data, dict):
+            permissions = validated_data.get("permissions", [])
+        else:
+            permissions = validated_data.permissions if hasattr(validated_data, 'permissions') else []
 
         if len(permissions) == 0:
             logging.warning(
@@ -1226,6 +1247,7 @@ def get_files_for_rbac(current_user):
 def get_notifications_for_rbac(current_user):
     """Get notifications for RBAC management"""
     try:
+        rbac_service = get_service_from_g('rbac_service')
 
         if not rbac_service.check_permission(current_user.id, "notifications.view"):
             return jsonify({"error": "Insufficient permissions"}), 403
@@ -1263,6 +1285,7 @@ def get_notifications_for_rbac(current_user):
 def get_changelog_for_rbac(current_user):
     """Get changelog for RBAC management"""
     try:
+        rbac_service = get_service_from_g('rbac_service')
 
         if not rbac_service.check_permission(current_user.id, "changelog.view"):
             return jsonify({"error": "Insufficient permissions"}), 403
@@ -1299,6 +1322,7 @@ def get_changelog_for_rbac(current_user):
 def get_billing_for_rbac(current_user):
     """Get billing information for RBAC management"""
     try:
+        rbac_service = get_service_from_g('rbac_service')
 
         if not rbac_service.check_permission(current_user.id, "billing.view"):
             return jsonify({"error": "Insufficient permissions"}), 403
@@ -1341,6 +1365,7 @@ def top_up_balance():
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
 
+        rbac_service = get_service_from_g('rbac_service')
         if not rbac_service.check_permission(current_user.id, "billing.top_up"):
             return jsonify({"error": "Insufficient permissions"}), 403
 
@@ -1394,6 +1419,7 @@ def top_up_balance():
 def get_role_hierarchy(current_user):
     """Get role hierarchy for the current user's project"""
     try:
+        rbac_service = get_service_from_g('rbac_service')
         project_id = current_user.project_id
         hierarchy = rbac_service.get_role_hierarchy(project_id)
 
@@ -1410,6 +1436,7 @@ def get_role_hierarchy(current_user):
 def get_role_inheritance_chain(current_user, role_id):
     """Get inheritance chain for a specific role"""
     try:
+        rbac_service = get_service_from_g('rbac_service')
 
         role = Role.query.filter_by(id=role_id, project_id=current_user.project_id).first()
         if not role:
@@ -1521,6 +1548,7 @@ def create_abac_rule():
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
 
+        rbac_service = get_service_from_g('rbac_service')
         from ..utils.rbac_utils import RBACManager
 
         if not rbac_service.check_permission(current_user.id, "rbac.view"):
@@ -1574,6 +1602,7 @@ def set_user_attribute(user_id):
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
 
+        rbac_service = get_service_from_g('rbac_service')
         from ..utils.rbac_utils import RBACManager
 
         if not rbac_service.check_permission(current_user.id, "rbac.view"):
@@ -1624,6 +1653,7 @@ def set_resource_attribute(resource_type, resource_id):
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
 
+        rbac_service = get_service_from_g('rbac_service')
         from ..utils.rbac_utils import RBACManager
 
         if not rbac_service.check_permission(current_user.id, "rbac.view"):

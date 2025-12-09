@@ -171,11 +171,13 @@ def toggle_user_product_access(user_identifier, product_identifier, current_user
     Toggle user access to a specific product.
     
     Replaces legacy endpoint: POST /api/clients/<user_id>/products/<product_id>/toggle
+    """
     # Get services once at the start (DI pattern)
     activity_service = get_service('activity_service')
     cache_service = get_service('cache_service')
     rbac_service = get_service('rbac_service')
-    """
+    product_service = get_service('product_service')
+    
     target_user = find_user_by_id_or_unique_id(user_identifier, current_user.project_id)
 
     if not target_user:

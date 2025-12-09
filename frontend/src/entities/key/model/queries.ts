@@ -29,6 +29,7 @@ interface UseKeysParams {
   product_id?: number
   search?: string
   my_keys?: boolean
+  enabled?: boolean // Загружать данные только когда таб активен
 }
 
 interface UseKeysReturn {
@@ -115,7 +116,7 @@ export function useKeysQuery(initialParams: UseKeysParams = {}): UseKeysReturn {
       )
     },
     staleTime: 2 * 60 * 1000,
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && (initialParams.enabled ?? true), // Загружаем только если таб активен и пользователь авторизован (по умолчанию true)
     placeholderData: keepPreviousData,
   })
 

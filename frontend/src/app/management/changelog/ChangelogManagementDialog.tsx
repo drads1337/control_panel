@@ -30,19 +30,19 @@ const ChangelogManagementDialog: React.FC<ChangelogManagementDialogProps> = ({
     return null;
   }
 
-  const { hasPermission } = usePermissions();
+  const { hasPermission, hasAnyPermission } = usePermissions();
 
   const canViewChangelog = isAgent 
-    ? hasPermission('agents.changelog_view') || hasPermission('products.changelog_view')
+    ? hasAnyPermission(['agents.changelog_view', 'products.changelog_view'])
     : hasPermission('products.changelog_view');
   const canCreateChangelog = isAgent
-    ? hasPermission('agents.changelog_create') || hasPermission('products.changelog_create')
+    ? hasAnyPermission(['agents.changelog_create', 'products.changelog_create'])
     : hasPermission('products.changelog_create');
   const canEditChangelog = isAgent
-    ? hasPermission('agents.changelog_edit') || hasPermission('products.changelog_edit')
+    ? hasAnyPermission(['agents.changelog_edit', 'products.changelog_edit'])
     : hasPermission('products.changelog_edit');
   const canDeleteChangelog = isAgent
-    ? hasPermission('agents.changelog_delete') || hasPermission('products.changelog_delete')
+    ? hasAnyPermission(['agents.changelog_delete', 'products.changelog_delete'])
     : hasPermission('products.changelog_delete');
 
   if (!canViewChangelog) {
@@ -193,7 +193,6 @@ const ChangelogManagementDialog: React.FC<ChangelogManagementDialogProps> = ({
                 onClick={() => setShowCreateDialog(true)} 
                 size="sm"
                 className="h-8 gap-1"
-                disabled={!canCreateChangelog}
               >
                 <Plus className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Create Entry</span>

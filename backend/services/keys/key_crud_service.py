@@ -478,6 +478,17 @@ class KeyCRUDService:
 
                 key_metadata = self._parse_key_metadata(key.key_metadata)
 
+                # Extract creator information from key_metadata
+                created_by = None
+                creator_username = None
+                if key_metadata and isinstance(key_metadata, dict):
+                    created_by = key_metadata.get("created_by")
+                    if created_by:
+                        # Look up the creator user
+                        creator_user = User.query.filter_by(id=created_by).first()
+                        if creator_user:
+                            creator_username = creator_user.username
+
                 keys.append(
                     KeyListItem(
                         id=key.unique_id,
@@ -497,6 +508,8 @@ class KeyCRUDService:
                         activated_at=key.activated_at.isoformat() if key.activated_at else None,
                         duration_hours=key.duration_hours,
                         key_metadata=key_metadata,
+                        created_by=created_by,
+                        creator_username=creator_username,
                     )
                 )
 

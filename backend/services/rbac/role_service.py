@@ -49,11 +49,30 @@ class RoleService:
             if name.lower() == "owner":
                 raise ValueError("Owner role cannot be created through RBAC management")
 
+            # Normalize role name (strip whitespace, lowercase for comparison)
+            normalized_name = name.strip()
+            if not normalized_name:
+                raise ValueError("Role name cannot be empty or only whitespace")
 
-            existing = Role.query.filter_by(name=name, project_id=project_id).first()
+            # Check for existing role (case-insensitive comparison with normalized name)
+            from sqlalchemy import func
+            existing = Role.query.filter(
+                func.lower(func.trim(Role.name)) == func.lower(normalized_name),
+                Role.project_id == project_id
+            ).first()
 
             if existing:
-                raise ValueError(f"Role '{name}' already exists")
+                # Provide more helpful error message
+                role_type = "system role" if existing.is_system_role else "custom role"
+                user_count = existing.users.count()
+                user_info = f" ({user_count} user{'s' if user_count != 1 else ''} assigned)" if user_count > 0 else ""
+                raise ValueError(
+                    f"A role with the name '{normalized_name}' already exists as a {role_type}{user_info}. "
+                    f"Please choose a different name or edit the existing role (ID: {existing.id})."
+                )
+            
+            # Use normalized name for the role
+            name = normalized_name
 
             hierarchy_level = 0
             if parent_role_id:
@@ -164,11 +183,30 @@ class RoleService:
                         )
 
             if "name" in kwargs:
+                # Normalize role name
+                normalized_name = kwargs["name"].strip()
+                if not normalized_name:
+                    raise ValueError("Role name cannot be empty or only whitespace")
+                
+                # Check for existing role with same name (case-insensitive, excluding current role)
+                from sqlalchemy import func
+                existing = Role.query.filter(
+                    func.lower(func.trim(Role.name)) == func.lower(normalized_name),
+                    Role.project_id == role.project_id,
+                    Role.id != role_id
+                ).first()
 
-                existing = Role.query.filter_by(name=kwargs["name"], project_id=role.project_id).first()
-
-                if existing and existing.id != role_id:
-                    raise ValueError(f"Role '{kwargs['name']}' already exists")
+                if existing:
+                    role_type = "system role" if existing.is_system_role else "custom role"
+                    user_count = existing.users.count()
+                    user_info = f" ({user_count} user{'s' if user_count != 1 else ''} assigned)" if user_count > 0 else ""
+                    raise ValueError(
+                        f"A role with the name '{normalized_name}' already exists as a {role_type}{user_info}. "
+                        f"Please choose a different name or edit the existing role (ID: {existing.id})."
+                    )
+                
+                # Use normalized name
+                kwargs["name"] = normalized_name
 
                 role.name = kwargs["name"]
 
@@ -331,7 +369,7 @@ class RoleService:
             logging.error(f"RBAC_ROLE_DELETION_ERROR role_id={role_id} error={e}")
             raise ValueError(f"Failed to delete role: {str(e)}")
 
-    def get_roles(self, project_id: int) -> List[Dict]:
+    def get_roles(self, project_id: int, force_refresh: bool = False) -> List[Dict]:
         """Get all roles for a project (excluding system roles from RBAC management)"""
         try:
 
@@ -342,9 +380,12 @@ class RoleService:
                     status_code=500
                 )
             cache_service = self._cache_service
-            cached_data = cache_service.get("rbac:roles", project_id=project_id)
-            if cached_data:
-                return cached_data.get("data", [])
+            
+            # Skip cache if force_refresh is True
+            if not force_refresh:
+                cached_data = cache_service.get("rbac:roles", project_id=project_id)
+                if cached_data:
+                    return cached_data.get("data", [])
 
 
             roles = Role.query.filter_by(project_id=project_id).order_by(Role.name).all()
@@ -440,6 +481,13 @@ class RoleService:
             db.session.add(user_role)
             db.session.commit()
 
+            if not self._cache_service:
+                from ...utils.service_exceptions import ServiceError
+                raise ServiceError(
+                    "CacheService dependency not injected",
+                    status_code=500
+                )
+            cache_service = self._cache_service
             cache_service.invalidate_rbac_user_instantly(user_id)
 
             logging.info(
@@ -468,6 +516,13 @@ class RoleService:
             db.session.delete(user_role)
             db.session.commit()
 
+            if not self._cache_service:
+                from ...utils.service_exceptions import ServiceError
+                raise ServiceError(
+                    "CacheService dependency not injected",
+                    status_code=500
+                )
+            cache_service = self._cache_service
             cache_service.invalidate_rbac_user_instantly(user_id)
 
             logging.info(f"RBAC_ROLE_REMOVED user_id={user_id} role_id={role_id}")
@@ -645,6 +700,15 @@ class RoleService:
                 roles.append(role)
 
         db.session.commit()
+        
+        # Invalidate cache if any roles were created
+        if roles and self._cache_service:
+            try:
+                self._cache_service.invalidate_rbac_project_instantly(project_id)
+                logging.debug(f"Invalidated RBAC cache for project {project_id} after creating {len(roles)} roles")
+            except Exception as cache_error:
+                logging.warning(f"Failed to invalidate RBAC cache after role creation: {cache_error}")
+        
         return roles
 
     def _would_create_circular_inheritance(
@@ -666,12 +730,17 @@ class RoleService:
     def _invalidate_users_with_role_cache(self, role_id: int) -> None:
         """Invalidate cache for all users with a specific role (granular invalidation with instant markers)"""
         try:
+            if not self._cache_service:
+                from ...utils.service_exceptions import ServiceError
+                raise ServiceError(
+                    "CacheService dependency not injected",
+                    status_code=500
+                )
+            cache_service = self._cache_service
 
             user_roles = UserRole.query.filter_by(role_id=role_id).all()
             for user_role in user_roles:
-
                 cache_service.invalidate_rbac_user_instantly(user_role.user_id)
             logging.debug(f"Invalidated cache for {len(user_roles)} users with role_id={role_id}")
         except Exception as e:
             logging.error(f"Error invalidating users cache for role_id={role_id}: {e}")
-

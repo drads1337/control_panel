@@ -12,7 +12,7 @@ export async function getLogs(
   page: number = 1,
   perPage: number = 50,
   action?: string,
-  userId?: number,
+  username?: string,
   dateFrom?: string,
   dateTo?: string,
   ip?: string,
@@ -24,7 +24,7 @@ export async function getLogs(
   }
 
   if (action && action.trim() !== '') params.action = action
-  if (userId) params.user_id = userId.toString()
+  if (username && username.trim() !== '') params.username = username
   if (dateFrom && dateFrom.trim() !== '') params.date_from = dateFrom
   if (dateTo && dateTo.trim() !== '') params.date_to = dateTo
   if (ip && ip.trim() !== '') params.ip = ip
@@ -95,14 +95,14 @@ export async function getRealtimeLogs(): Promise<{ logs: any[]; count: number; t
 
 export async function exportLogs(
   action?: string,
-  userId?: number,
+  userId?: string,
   dateFrom?: string,
   dateTo?: string
 ): Promise<Blob> {
   const params: Record<string, string> = {}
 
   if (action && action.trim() !== '') params.action = action
-  if (userId) params.user_id = userId.toString()
+  if (userId && userId.trim() !== '') params.username = userId
   if (dateFrom && dateFrom.trim() !== '') params.date_from = dateFrom
   if (dateTo && dateTo.trim() !== '') params.date_to = dateTo
 

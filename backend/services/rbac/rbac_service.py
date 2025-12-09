@@ -21,8 +21,9 @@ from .role_service import RoleService
 class RBACService:
     """Facade service for managing Role-Based Access Control - delegates to specialized services"""
 
-    def __init__(self, project_relationships_service=None):
+    def __init__(self, project_relationships_service=None, cache_service=None):
         self._project_relationships_service = project_relationships_service
+        self._cache_service = cache_service
 
         self.default_permissions = {
             "employees": {
@@ -34,7 +35,6 @@ class RBACService:
             },
             "clients": {
                 "view": "View clients",
-                "create": "Create client",
                 "send_notification": "Send notification to client",
                 "edit": "Edit client",
                 "delete": "Delete client",
@@ -180,6 +180,125 @@ class RBACService:
                     "rbac.create_role",
                     "rbac.edit",
                     "rbac.delete",
+
+                    "referrals.view",
+                    "referrals.create",
+                    "referrals.delete",
+
+                    "keys.view",
+                    "keys.create",
+                    "keys.edit",
+                    "keys.delete",
+                    "keys.generate",
+                    "keys.reset_pc_binding",
+                    "keys.pause_resume",
+                    "keys.extend",
+                    "keys.block",
+                    "keys.copy",
+                    "keys.see_analytics",
+
+                    "analytics.view",
+                    "analytics.export",
+
+                    "webhooks.view",
+                    "webhooks.create",
+                    "webhooks.edit",
+                    "webhooks.delete",
+                    "webhooks.test",
+                    "webhooks.view_logs",
+
+                    "security.view_fingerprints",
+                    "security.block_fingerprints",
+                    "security.unblock_fingerprints",
+                    "security.view_ips",
+                    "security.block_ips",
+                    "security.unblock_ips",
+                    "security.view_hwids",
+                    "security.block_hwids",
+                    "security.unblock_hwids",
+                    "security.manage_rules",
+                    "security.view_logs",
+
+                    "remote_control.view",
+                    "remote_control.create",
+                    "remote_control.edit",
+                    "remote_control.delete",
+                    "remote_control.toggle",
+
+                    "system.view_health",
+                    "system.view_logs",
+
+                    "billing.view_balance",
+                    "billing.top_up_balance",
+                    "billing.deduct_balance",
+                    "billing.view_transactions",
+
+                    "products.view",
+                    "products.create",
+                    "products.edit",
+                    "products.upload_files",
+                    "products.manage_prices",
+                    "products.notifications_view",
+                    "products.notifications_create",
+                    "products.notifications_edit",
+                    "products.notifications_delete",
+                    "products.changelog_view",
+                    "products.changelog_create",
+                    "products.changelog_edit",
+                    "products.changelog_delete",
+                    "products.status",
+                    "products.delete",
+                    "products.files_view",
+                    "products.files_upload",
+                    "products.files_delete",
+                    "products.files_download",
+                    "products.files_manage_configs",
+                    "products.files_manage_resources",
+
+                    "agents.view",
+                    "agents.create",
+                    "agents.edit",
+                    "agents.configuration_settings",
+                    "agents.assign_products",
+                    "agents.upload_files",
+                    "agents.multi_upload_files",
+                    "agents.notifications_view",
+                    "agents.notifications_create",
+                    "agents.notifications_edit",
+                    "agents.notifications_delete",
+                    "agents.changelog_view",
+                    "agents.changelog_create",
+                    "agents.changelog_edit",
+                    "agents.changelog_delete",
+                    "agents.status",
+                    "agents.delete",
+                    "agents.files_view",
+                    "agents.files_upload",
+                    "agents.files_multi_upload",
+                    "agents.files_delete",
+                    "agents.files_download",
+                    "agents.files_manage_configs",
+                    "agents.files_manage_resources",
+
+                    "logs.view",
+                ],
+            },
+            "moderator": {
+                "description": "Moderator access with management capabilities",
+                "permissions": [
+                    "employees.view",
+                    "employees.create",
+                    "employees.edit",
+                    "employees.send_notification",
+                    "employees.delete",
+
+                    "clients.view",
+                    "clients.create",
+                    "clients.edit",
+                    "clients.send_notification",
+                    "clients.delete",
+
+                    "rbac.view",
 
                     "referrals.view",
                     "referrals.create",
@@ -447,11 +566,15 @@ class RBACService:
             },
         }
 
-        self.permission_service = PermissionService(default_permissions=self.default_permissions)
+        self.permission_service = PermissionService(
+            default_permissions=self.default_permissions,
+            cache_service=self._cache_service
+        )
         self.role_service = RoleService(
             permission_service=self.permission_service,
             default_roles=self.default_roles,
             get_all_permissions_func=self._get_all_permissions,
+            cache_service=self._cache_service,
         )
         self.abac_service = ABACService()
 
@@ -470,6 +593,41 @@ class RBACService:
 
         except Exception as e:
             logging.error(f"RBAC_INITIALIZATION_ERROR project_id={project_id} error={e}")
+            return False
+
+    def sync_system_roles(self, project_id: int) -> bool:
+        """Sync system roles - add any missing default roles to an existing project"""
+        try:
+            from ...models.rbac import Permission
+            from ...utils.service_helpers import get_service
+            
+            # Get all existing permissions for the project
+            permissions = Permission.query.filter_by(project_id=project_id).all()
+            if not permissions:
+                # If no permissions exist, do full initialization
+                return self.initialize_default_data(project_id)
+            
+            # Create any missing system roles (method checks for existing roles and only creates missing ones)
+            roles_created = self.role_service._create_roles(project_id, permissions)
+            
+            if roles_created:
+                logging.info(
+                    f"RBAC_SYNCED project_id={project_id} added_roles={len(roles_created)} role_names={[r.name for r in roles_created]}"
+                )
+                
+                # Invalidate cache to ensure new roles are visible
+                try:
+                    cache_service = get_service('cache_service')
+                    if cache_service:
+                        cache_service.invalidate_rbac_project_instantly(project_id)
+                        logging.info(f"RBAC cache invalidated for project {project_id} after role sync")
+                except Exception as cache_error:
+                    logging.warning(f"Failed to invalidate RBAC cache: {cache_error}")
+            
+            return True
+
+        except Exception as e:
+            logging.error(f"RBAC_SYNC_ERROR project_id={project_id} error={e}")
             return False
 
     def _create_permissions(self, project_id: int) -> List[Permission]:
@@ -513,9 +671,9 @@ class RBACService:
         """Delete a role - delegates to RoleService"""
         return self.role_service.delete_role(role_id, project_id, force, reassign_to_role_id)
 
-    def get_roles(self, project_id: int) -> List[Dict]:
+    def get_roles(self, project_id: int, force_refresh: bool = False) -> List[Dict]:
         """Get all roles for a project - delegates to RoleService"""
-        return self.role_service.get_roles(project_id)
+        return self.role_service.get_roles(project_id, force_refresh=force_refresh)
 
     def get_permissions(self, project_id: int) -> Dict:
         """Get all permissions for a project - delegates to PermissionService"""

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth';
 import { getProducts } from '@/entities/product';
@@ -50,6 +50,11 @@ export function useFileManagerLogic({ onSwitchToProductDatabase }: UseFileManage
   const [targetType, setTargetType] = useState<'product' | 'agent'>('product');
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [lastProductsLoad, setLastProductsLoad] = useState<number>(0);
+  
+  // Ref для отслеживания последнего загруженного ID, чтобы избежать повторных загрузок
+  const lastLoadedIdRef = useRef<string | number | null>(null);
+  const isLoadingRef = useRef(false);
+  const isSwitchingTypeRef = useRef(false);
 
   // Hooks
   const fileSelection = useFileManagerSelection();
@@ -138,6 +143,18 @@ export function useFileManagerLogic({ onSwitchToProductDatabase }: UseFileManage
     const targetId = selectedProduct?.id || selectedAgent?.id;
     if (!targetId) return;
 
+    // Проверяем, не загружаем ли мы уже этот же ID
+    const currentId = `${targetId}-${fileFilters.categoryFilter}-${fileFilters.searchTerm}`;
+    
+    // Если уже загружаем или уже загрузили эти данные - пропускаем
+    if (isLoadingRef.current || lastLoadedIdRef.current === currentId) {
+      return;
+    }
+
+    // Устанавливаем флаги сразу, чтобы предотвратить повторные вызовы
+    isLoadingRef.current = true;
+    lastLoadedIdRef.current = currentId;
+
     try {
       setRefreshing(true);
       const targetTypeForApi = selectedAgent ? 'agent' : selectedProduct ? 'product' : 'auto';
@@ -155,13 +172,24 @@ export function useFileManagerLogic({ onSwitchToProductDatabase }: UseFileManage
         setFiles([]);
       }
     } catch (error: unknown) {
+      // При ошибке сбрасываем lastLoadedIdRef, чтобы можно было повторить попытку
+      lastLoadedIdRef.current = null;
       const errorMessage = getErrorMessage(error);
       toast.error(`Failed to load files: ${errorMessage}`);
       setFiles([]);
     } finally {
       setRefreshing(false);
+      isLoadingRef.current = false;
     }
   }, [selectedProduct, selectedAgent, fileFilters.categoryFilter, fileFilters.searchTerm]);
+
+  // Ref для хранения актуальной функции загрузки (чтобы не включать её в зависимости эффектов)
+  const loadProductFilesRef = useRef(loadProductFiles);
+  
+  // Обновляем ref при изменении функции
+  useEffect(() => {
+    loadProductFilesRef.current = loadProductFiles;
+  }, [loadProductFiles]);
 
   // File operations
   const handleFileDownload = useCallback(async (file: FileItem) => {
@@ -405,10 +433,24 @@ export function useFileManagerLogic({ onSwitchToProductDatabase }: UseFileManage
     }
   }, [isAuthenticated, loadInitialData]);
 
+  // Сброс выбора при изменении targetType
+  useEffect(() => {
+    isSwitchingTypeRef.current = true;
+    setSelectedProduct(null);
+    setSelectedAgent(null);
+    setFiles([]);
+    lastLoadedIdRef.current = null; // Сбрасываем ref при смене типа
+  }, [targetType]);
+
+  // Автоматический выбор первого элемента при изменении targetType или списка элементов
   useEffect(() => {
     if (targetType === 'product' && filteredProductsForSelect.length > 0 && !selectedProduct) {
       setSelectedProduct(filteredProductsForSelect[0]);
       setSelectedAgent(null);
+      // Сбрасываем флаг после установки выбора
+      setTimeout(() => {
+        isSwitchingTypeRef.current = false;
+      }, 50);
     } else if (targetType === 'agent') {
       const allItems = [...agents, ...filteredProductsForSelect];
       if (allItems.length > 0 && !selectedProduct && !selectedAgent) {
@@ -416,35 +458,59 @@ export function useFileManagerLogic({ onSwitchToProductDatabase }: UseFileManage
         if (firstAgent) {
           setSelectedAgent(firstAgent);
           setSelectedProduct(null);
+          // Сбрасываем флаг после установки выбора
+          setTimeout(() => {
+            isSwitchingTypeRef.current = false;
+          }, 50);
         } else if (filteredProductsForSelect.length > 0) {
           setSelectedProduct(filteredProductsForSelect[0]);
           setSelectedAgent(null);
+          // Сбрасываем флаг после установки выбора
+          setTimeout(() => {
+            isSwitchingTypeRef.current = false;
+          }, 50);
         }
       }
     }
   }, [filteredProductsForSelect, agents, selectedProduct, selectedAgent, targetType]);
 
+  // Загрузка файлов при изменении выбранного продукта/агента или фильтров
   useEffect(() => {
-    if ((selectedProduct || selectedAgent) && isAuthenticated) {
-      loadProductFiles();
+    if (!(selectedProduct || selectedAgent) || !isAuthenticated) {
+      return;
     }
-  }, [selectedProduct, selectedAgent, isAuthenticated, loadProductFiles]);
 
-  useEffect(() => {
+    // Не загружаем во время переключения типа
+    if (isSwitchingTypeRef.current) {
+      return;
+    }
+
+    const targetId = selectedProduct?.id || selectedAgent?.id;
+    if (!targetId) return;
+
+    // Проверяем, не загружаем ли мы уже этот же ID с теми же фильтрами
+    const currentId = `${targetId}-${fileFilters.categoryFilter}-${fileFilters.searchTerm}`;
+    if (lastLoadedIdRef.current === currentId) {
+      return;
+    }
+
+    // Используем таймаут для debounce при изменении фильтров
     const timeoutId = setTimeout(() => {
-      if ((selectedProduct || selectedAgent) && isAuthenticated) {
-        loadProductFiles();
+      // Повторная проверка перед загрузкой (на случай если ID изменился во время таймаута)
+      if (isSwitchingTypeRef.current) {
+        return;
+      }
+      const currentTargetId = selectedProduct?.id || selectedAgent?.id;
+      const currentIdCheck = `${currentTargetId}-${fileFilters.categoryFilter}-${fileFilters.searchTerm}`;
+      
+      // Проверяем еще раз перед загрузкой
+      if (currentTargetId === targetId && lastLoadedIdRef.current !== currentIdCheck && !isLoadingRef.current) {
+        loadProductFilesRef.current();
       }
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [fileFilters.searchTerm, fileFilters.categoryFilter, selectedProduct, selectedAgent, isAuthenticated, loadProductFiles]);
-
-  useEffect(() => {
-    setSelectedProduct(null);
-    setSelectedAgent(null);
-    setFiles([]);
-  }, [targetType]);
+  }, [selectedProduct?.id, selectedAgent?.id, isAuthenticated, fileFilters.searchTerm, fileFilters.categoryFilter]);
 
   return {
     // State

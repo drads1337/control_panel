@@ -14,6 +14,7 @@ interface UseKeysDataParams {
   };
   currentPage: number;
   canViewKeys: boolean;
+  enabled?: boolean; // Загружать данные только когда таб активен
 }
 
 interface UseKeysDataReturn {
@@ -35,6 +36,7 @@ export function useKeysData({
   filters,
   currentPage,
   canViewKeys,
+  enabled = true,
 }: UseKeysDataParams): UseKeysDataReturn {
   const queryClient = useQueryClient();
 
@@ -47,6 +49,7 @@ export function useKeysData({
     product_id: filters.productId !== 'all' ? parseInt(filters.productId) : undefined,
     search: filters.search || undefined,
     my_keys: showMyKeysOnly,
+    enabled: enabled, // Передаем флаг условной загрузки
   });
 
   const keys = keysQuery.keys || [];

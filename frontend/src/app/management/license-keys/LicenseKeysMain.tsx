@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
@@ -23,16 +23,32 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToProductData
   const { user } = useAuthContext();
   const { hasPermission } = usePermissions();
 
-  const canViewKeys = hasPermission('keys.view');
-  const canCreateKeys = hasPermission('keys.create');
-  const canEditKeys = hasPermission('keys.edit');
-  const canDeleteKeys = hasPermission('keys.delete');
-  const canGenerateKeys = hasPermission('keys.generate');
-  const canResetPcBinding = hasPermission('keys.reset_pc_binding');
-  const canPauseResume = hasPermission('keys.pause_resume');
-  const canExtend = hasPermission('keys.extend');
-  const canBlock = hasPermission('keys.block');
-  const canManage = hasPermission('keys.manage');
+  // Мемоизируем все проверки разрешений
+  const permissions = useMemo(() => ({
+    canViewKeys: hasPermission('keys.view'),
+    canCreateKeys: hasPermission('keys.create'),
+    canEditKeys: hasPermission('keys.edit'),
+    canDeleteKeys: hasPermission('keys.delete'),
+    canGenerateKeys: hasPermission('keys.generate'),
+    canResetPcBinding: hasPermission('keys.reset_pc_binding'),
+    canPauseResume: hasPermission('keys.pause_resume'),
+    canExtend: hasPermission('keys.extend'),
+    canBlock: hasPermission('keys.block'),
+    canManage: hasPermission('keys.manage'),
+  }), [hasPermission]);
+
+  const {
+    canViewKeys,
+    canCreateKeys,
+    canEditKeys,
+    canDeleteKeys,
+    canGenerateKeys,
+    canResetPcBinding,
+    canPauseResume,
+    canExtend,
+    canBlock,
+    canManage,
+  } = permissions;
 
   const [viewMode, setViewMode] = useState<'my' | 'all'>('my');
   const [filters, setFilters] = useState({ status: 'all', productId: 'all', search: '' });
@@ -53,6 +69,9 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToProductData
     setIsInitialLoad(true);
   }, [filters, viewMode]);
 
+  // Загружаем данные только когда таб активен
+  const isTabActive = activeTab === 'license-keys';
+  
   const {
     keys,
     loading,
@@ -83,6 +102,7 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToProductData
     filters,
     currentPage,
     canViewKeys,
+    enabled: isTabActive, // Загружаем данные только если таб активен
   });
 
   useEffect(() => {
@@ -93,21 +113,39 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToProductData
 
   const productsLoadedRef = React.useRef(false);
 
+  // Загружаем продукты только когда таб активен
   useEffect(() => {
-    if (activeTab === 'license-keys') {
-      if (!productsLoadedRef.current) {
-        loadProducts();
-        productsLoadedRef.current = true;
-      }
+    if (isTabActive && !productsLoadedRef.current && products.length === 0) {
+      loadProducts();
+      productsLoadedRef.current = true;
     }
-  }, [activeTab, loadProducts]);
+  }, [isTabActive, loadProducts, products.length]);
 
-  const handleClearFilters = () => {
+  // Мемоизируем колбэки для оптимизации - ВСЕ ХУКИ ДОЛЖНЫ БЫТЬ ПЕРЕД УСЛОВНЫМИ ВОЗВРАТАМИ
+  const handleClearFilters = useCallback(() => {
     setFilters({ status: 'all', productId: 'all', search: '' });
-  };
+  }, []);
 
-  const hasAnyKeyPermission = canViewKeys || canCreateKeys || canEditKeys || canDeleteKeys || canGenerateKeys || canResetPcBinding || canPauseResume || canExtend || canBlock || canManage;
+  const handleFiltersChange = useCallback((newFilters: typeof filters) => {
+    setFilters(newFilters);
+  }, []);
 
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage(page);
+  }, []);
+
+  const handleViewModeChange = useCallback((mode: 'my' | 'all') => {
+    if (canViewKeys) {
+      setViewMode(mode);
+    }
+  }, [canViewKeys]);
+
+  const hasAnyKeyPermission = useMemo(() => 
+    canViewKeys || canCreateKeys || canEditKeys || canDeleteKeys || canGenerateKeys || canResetPcBinding || canPauseResume || canExtend || canBlock || canManage,
+    [canViewKeys, canCreateKeys, canEditKeys, canDeleteKeys, canGenerateKeys, canResetPcBinding, canPauseResume, canExtend, canBlock, canManage]
+  );
+
+  // Условные возвраты только ПОСЛЕ всех хуков
   if (!hasAnyKeyPermission) {
     return (
       <div className="p-8">
@@ -168,7 +206,7 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToProductData
       {}
       <LicenseKeysFilters
         filters={filters}
-        onFiltersChange={setFilters}
+        onFiltersChange={handleFiltersChange}
         products={products}
         onClearFilters={handleClearFilters}
       />
@@ -187,7 +225,7 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToProductData
             onSelectAll={handleSelectAll}
             onKeyAction={handleKeyAction}
             onViewDetails={handleViewDetails}
-            onPageChange={(page) => setCurrentPage(page)}
+            onPageChange={handlePageChange}
             canEdit={canEditKeys}
             canDelete={canDeleteKeys}
             canReset={canResetPcBinding}
@@ -198,7 +236,7 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToProductData
             canManage={canManage}
             canViewAll={canViewKeys}
             viewMode={viewMode}
-            onViewModeChange={canViewKeys ? setViewMode : undefined}
+            onViewModeChange={canViewKeys ? handleViewModeChange : undefined}
             currentUserId={user?.id}
           />
 

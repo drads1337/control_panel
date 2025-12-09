@@ -98,6 +98,38 @@ def update_project_user_counters_on_status_change(
 
     db.session.flush()
 
+def increment_project_user_counters(project_id: Optional[int], is_active: bool = True):
+    """
+    Increment user counters for a project when a new user is created.
+    
+    NOTE: This function now uses cache invalidation instead of direct counter updates
+    to prevent race conditions. The counter will be recalculated on the next read.
+    
+    Args:
+        project_id: ID of the project to update counters for
+        is_active: Whether the new user is active (default: True)
+    """
+    if not project_id:
+        return
+    
+    # Invalidate cache to ensure fresh data on next read
+    try:
+        from flask import current_app
+        if hasattr(current_app, 'service_container'):
+            cached_statistics_service = current_app.service_container.get('cached_statistics_service')
+            cached_statistics_service.invalidate_on_user_change(project_id)
+    except (RuntimeError, AttributeError, Exception):
+        # If cache service is not available, continue with direct update
+        pass
+    
+    # Direct counter update as fallback
+    project = Project.query.get(project_id)
+    if project:
+        project.total_users = (project.total_users or 0) + 1
+        if is_active:
+            project.active_users = (project.active_users or 0) + 1
+        db.session.flush()
+
 def update_project_key_counters_on_status_change(
     project_id: Optional[int],
     old_status: int,

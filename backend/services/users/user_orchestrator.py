@@ -8,7 +8,7 @@ import logging
 from typing import Any, Dict, List, Optional, Tuple
 
 from ...core.extensions import db
-from ...utils.service_exceptions import ValidationError, NotFoundError, PermissionDeniedError, BusinessLogicError, ServiceError
+from ...utils.service_exceptions import ValidationError, NotFoundError, PermissionDeniedError, BusinessLogicError, ServiceError, ConflictError
 from ...models.core import User
 
 logger = logging.getLogger(__name__)
@@ -177,10 +177,12 @@ class UserOrchestrator:
 
         self._check_update_permissions(current_user, target_user)
 
-
-        success, error = self.user_profile_service.update_user_profile(target_user, user_data)
-        if not success:
-            raise BusinessLogicError(error or "Failed to update user profile")
+        try:
+            updated_profile = self.user_profile_service.update_user_profile(target_user, user_data)
+        except (ConflictError, ValidationError) as e:
+            raise BusinessLogicError(str(e))
+        except ServiceError as e:
+            raise BusinessLogicError(str(e))
 
 
         if "rbac_role_ids" in user_data:

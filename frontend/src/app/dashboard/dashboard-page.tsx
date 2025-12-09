@@ -17,6 +17,7 @@ import { Spinner } from '@/components/ui/spinner'
 // Lazy load heavy components with charts to reduce initial bundle size
 const ChartAreaInteractive = React.lazy(() => import('@/app/dashboard/chart-area-interactive').then(module => ({ default: module.ChartAreaInteractive })))
 const DataTable = React.lazy(() => import('@/app/dashboard/data-table').then(module => ({ default: module.DataTable })))
+const TopCountriesCard = React.lazy(() => import('@/app/dashboard/top-countries-card').then(module => ({ default: module.TopCountriesCard })))
 const OwnerLoadStatusCard = React.lazy(() => import('./owner-load-status-card').then(module => ({ default: module.OwnerLoadStatusCard })))
 
 interface DashboardPageProps {
@@ -130,13 +131,18 @@ export function DashboardPage({ type }: DashboardPageProps) {
             <Suspense fallback={<div className="flex items-center justify-center min-h-[250px] sm:min-h-[400px]"><Spinner size="lg" message="Loading charts..." /></div>}>
               <ChartAreaInteractive />
             </Suspense>
-            <Suspense fallback={<div className="flex items-center justify-center min-h-[250px] sm:min-h-[400px]"><Spinner size="lg" message="Loading data table..." /></div>}>
-              <DataTable 
-                data={(data as DashboardData)?.top_products || []} 
-                announcements={(data as DashboardData)?.announcements || []}
-                topUsers={(data as DashboardData)?.top_users || []}
-              />
-            </Suspense>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+              <Suspense fallback={<div className="flex items-center justify-center min-h-[250px] sm:min-h-[400px]"><Spinner size="lg" message="Loading data table..." /></div>}>
+                <DataTable 
+                  data={(data as DashboardData)?.top_products || []} 
+                  announcements={(data as DashboardData)?.announcements || []}
+                  topUsers={(data as DashboardData)?.top_users || []}
+                />
+              </Suspense>
+              <Suspense fallback={<div className="flex items-center justify-center min-h-[250px] sm:min-h-[400px]"><Spinner size="lg" message="Loading countries..." /></div>}>
+                <TopCountriesCard data={data as DashboardData} />
+              </Suspense>
+            </div>
           </>
         )
 
@@ -150,6 +156,10 @@ export function DashboardPage({ type }: DashboardPageProps) {
 
             <Suspense fallback={<div className="flex items-center justify-center min-h-[150px] sm:min-h-[200px]"><Spinner size="lg" message="Loading status..." /></div>}>
               <OwnerLoadStatusCard loadStatus={(data as OwnerDashboardStats)?.load_status} />
+            </Suspense>
+
+            <Suspense fallback={<div className="flex items-center justify-center min-h-[250px] sm:min-h-[400px]"><Spinner size="lg" message="Loading countries..." /></div>}>
+              <TopCountriesCard data={data as OwnerDashboardStats} />
             </Suspense>
 
             <Card>

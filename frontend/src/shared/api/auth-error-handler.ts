@@ -21,9 +21,10 @@ export function registerAuthErrorHandler(handler: AuthErrorHandler): () => void 
 
 export function handleAuthError(error: AuthError): void {
   if (registeredHandler) {
+    console.info(`[AuthErrorHandler] Handler registered, calling handler for ${error.status}: ${error.message}`)
     registeredHandler(error)
   } else {
-
+    console.warn(`[AuthErrorHandler] No handler registered for auth error ${error.status}: ${error.message}. User may not be redirected to login.`)
   }
 }
 

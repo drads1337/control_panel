@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Plus, Edit, Trash2, Calendar, Tag } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
-import { getProductChangelog, deleteChangelogEntry } from '@/entities/changelog';
+import { getProductChangelog, getAgentChangelog, deleteChangelogEntry } from '@/entities/changelog';
 import { useAuth } from '@/hooks/use-auth';
 import { usePermissions } from '@/hooks/use-permissions';
 import { ConditionalRender } from '@/components/rbac/conditional-render';
@@ -18,15 +18,24 @@ import type { ChangelogEntry } from '@/entities/changelog';
 interface ChangelogManagerProps {
   product: Product | null;
   onUpdate?: () => void;
+  isAgent?: boolean;
 }
 
-const ChangelogManager: React.FC<ChangelogManagerProps> = ({ product, onUpdate }) => {
+const ChangelogManager: React.FC<ChangelogManagerProps> = ({ product, onUpdate, isAgent = false }) => {
   const { hasPermission } = usePermissions();
 
-  const canViewChangelog = hasPermission('changelog.view');
-  const canCreateChangelog = hasPermission('changelog.create');
-  const canEditChangelog = hasPermission('changelog.edit');
-  const canDeleteChangelog = hasPermission('changelog.delete');
+  const canViewChangelog = isAgent 
+    ? hasPermission('agents.changelog_view') || hasPermission('products.changelog_view')
+    : hasPermission('products.changelog_view');
+  const canCreateChangelog = isAgent
+    ? hasPermission('agents.changelog_create') || hasPermission('products.changelog_create')
+    : hasPermission('products.changelog_create');
+  const canEditChangelog = isAgent
+    ? hasPermission('agents.changelog_edit') || hasPermission('products.changelog_edit')
+    : hasPermission('products.changelog_edit');
+  const canDeleteChangelog = isAgent
+    ? hasPermission('agents.changelog_delete') || hasPermission('products.changelog_delete')
+    : hasPermission('products.changelog_delete');
   const [changelog, setChangelog] = useState<ChangelogEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +48,9 @@ const ChangelogManager: React.FC<ChangelogManagerProps> = ({ product, onUpdate }
     try {
       setLoading(true);
       setError(null);
-      const response = await getProductChangelog(product.id);
+      const response = isAgent 
+        ? await getAgentChangelog(product.id)
+        : await getProductChangelog(product.id);
       setChangelog(response.changelog);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error loading changelog');
@@ -120,7 +131,13 @@ const ChangelogManager: React.FC<ChangelogManagerProps> = ({ product, onUpdate }
             Manage changelog entries for the product.
           </p>
         </div>
-        <ConditionalRender permission="changelog.create" fallback={null}>
+        <ConditionalRender 
+          permissions={isAgent 
+            ? ['agents.changelog_create', 'products.changelog_create']
+            : ['products.changelog_create']
+          } 
+          fallback={null}
+        >
           <Button 
             onClick={handleCreateEntry} 
             disabled={!canCreateChangelog}
@@ -152,7 +169,13 @@ const ChangelogManager: React.FC<ChangelogManagerProps> = ({ product, onUpdate }
               <p className="text-sm sm:text-base text-muted-foreground max-w-md mx-auto">
                 Create the first changelog entry to display the history of changes.
               </p>
-              <ConditionalRender permission="changelog.create" fallback={null}>
+              <ConditionalRender 
+                permissions={isAgent 
+                  ? ['agents.changelog_create', 'products.changelog_create']
+                  : ['products.changelog_create']
+                } 
+                fallback={null}
+              >
                 <Button 
                   onClick={handleCreateEntry} 
                   className="mt-4 w-full sm:w-auto" 
@@ -187,7 +210,13 @@ const ChangelogManager: React.FC<ChangelogManagerProps> = ({ product, onUpdate }
                   
                   {/* Actions */}
                   <div className="flex gap-2 self-end sm:self-start shrink-0">
-                    <ConditionalRender permission="changelog.edit" fallback={null}>
+                    <ConditionalRender 
+                      permissions={isAgent 
+                        ? ['agents.changelog_edit', 'products.changelog_edit']
+                        : ['products.changelog_edit']
+                      } 
+                      fallback={null}
+                    >
                       <Button
                         variant="outline"
                         size="sm"
@@ -198,7 +227,13 @@ const ChangelogManager: React.FC<ChangelogManagerProps> = ({ product, onUpdate }
                         <Edit className="h-4 w-4" />
                       </Button>
                     </ConditionalRender>
-                    <ConditionalRender permission="changelog.delete" fallback={null}>
+                    <ConditionalRender 
+                      permissions={isAgent 
+                        ? ['agents.changelog_delete', 'products.changelog_delete']
+                        : ['products.changelog_delete']
+                      } 
+                      fallback={null}
+                    >
                       <Button
                         variant="outline"
                         size="sm"
@@ -241,6 +276,7 @@ const ChangelogManager: React.FC<ChangelogManagerProps> = ({ product, onUpdate }
         onSave={handleSaveEntry}
         onEntryCreated={() => handleSaveEntry(null as any)}
         onEntryUpdated={() => handleSaveEntry(null as any)}
+        isAgent={isAgent}
       />
     </div>
   );

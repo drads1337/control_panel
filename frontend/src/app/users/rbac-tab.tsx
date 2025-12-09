@@ -5,9 +5,10 @@ import { Spinner } from '@/components/ui/spinner';
 import { Badge } from '@/components/ui/badge';
 import CreateRoleDialog from './create-role-dialog';
 import EditRoleDialog from './edit-role-dialog';
-import { Plus, Shield, Key, Edit, Trash2 } from 'lucide-react';
+import { Plus, Shield, Key, Edit, Trash2, RefreshCw } from 'lucide-react';
 import { useRBACTab } from '@/hooks/use-rbac-tab';
 import { sanitizeString } from '@/lib/sanitization';
+import { cn } from '@/lib/utils';
 
 const RBACTab: React.FC = () => {
   const {
@@ -29,6 +30,8 @@ const RBACTab: React.FC = () => {
     handleDeleteRole,
     handleEditRole,
     resetRoleForm,
+    refetchRoles,
+    refetchPermissions,
   } = useRBACTab();
 
   const handleCreateDialogOpen = (open: boolean) => {
@@ -56,16 +59,27 @@ const RBACTab: React.FC = () => {
                 {roles.length || 0} total
               </CardDescription>
             </div>
-            <Button 
-              variant="default" 
-              size="sm"
-              onClick={() => handleCreateDialogOpen(true)}
-              disabled={rbacLoading}
-              className="h-8 md:h-9"
-            >
-              <Plus className="h-4 w-4 md:mr-1.5" />
-              <span className="hidden sm:inline">Add</span>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => refetchRoles()}
+                disabled={rbacLoading}
+                className="h-8 w-8"
+              >
+                <RefreshCw className={cn("h-4 w-4", rbacLoading && "animate-spin")} />
+              </Button>
+              <Button 
+                variant="default" 
+                size="sm"
+                onClick={() => handleCreateDialogOpen(true)}
+                disabled={rbacLoading}
+                className="h-8 md:h-9"
+              >
+                <Plus className="h-4 w-4 md:mr-1.5" />
+                <span className="hidden sm:inline">Add</span>
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="pt-0 -mt-2 md:px-6 px-4">
@@ -155,6 +169,17 @@ const RBACTab: React.FC = () => {
               <CardDescription className="mt-1 text-xs">
                 {Object.values(permissions).reduce((acc, perms) => acc + perms.length, 0) || 0} total
               </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => refetchPermissions()}
+                disabled={rbacLoading}
+                className="h-8 w-8"
+              >
+                <RefreshCw className={cn("h-4 w-4", rbacLoading && "animate-spin")} />
+              </Button>
             </div>
           </div>
         </CardHeader>

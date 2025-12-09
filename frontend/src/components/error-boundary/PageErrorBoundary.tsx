@@ -9,6 +9,12 @@ interface PageErrorBoundaryProps {
   onError?: (error: Error, errorInfo: React.ErrorInfo) => void
 }
 
+interface WidgetErrorBoundaryProps {
+  children: ReactNode
+  widgetName?: string
+  onError?: (error: Error, errorInfo: React.ErrorInfo) => void
+}
+
 /**
  * Error Boundary specifically for page-level error handling
  * Provides a more user-friendly fallback UI for page errors
@@ -71,7 +77,7 @@ export function WidgetErrorBoundary({
   children, 
   widgetName = 'Widget',
   onError 
-}: PageErrorBoundaryProps) {
+}: WidgetErrorBoundaryProps) {
   const fallback = (
     <Card className="border-destructive/50">
       <CardContent className="p-4">

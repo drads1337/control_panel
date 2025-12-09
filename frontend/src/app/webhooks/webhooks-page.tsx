@@ -1,9 +1,9 @@
 import React, { useEffect } from 'react'
 import { useAuthContext } from '../../contexts/auth-context'
-import { WebhookPermissionsProvider, useWebhookPermissions } from '../../contexts/webhook-permissions-context'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { toast } from 'sonner'
+import { Plus, RefreshCw } from 'lucide-react'
 import { WebhookTable } from './webhook-table'
 import { WebhookStats } from './webhook-stats'
 import { CreateWebhookDialog } from './create-webhook-dialog'
@@ -13,11 +13,13 @@ import { WebhookAccessDenied } from './webhook-access-denied'
 import { useWebhookActions } from './hooks/use-webhook-actions'
 import { useWebhookDialogs } from './hooks/use-webhook-dialogs'
 import { WebhooksPageHeader } from './components/webhooks-page-header'
+import { ConditionalRender } from '@/components/rbac/conditional-render'
+import { usePermissions } from '@/hooks/use-permissions'
 import type { WebhookData } from './types'
 
 function WebhooksPageContent() {
   const { isAuthenticated, isInitialized, user } = useAuthContext()
-  const webhookPermissions = useWebhookPermissions()
+  const { hasPermission, hasAnyPermission } = usePermissions()
 
   const {
     webhooks,
@@ -91,7 +93,7 @@ function WebhooksPageContent() {
   }
 
   const handleEditClick = (webhook: WebhookData) => {
-    if (!webhookPermissions.canEdit) {
+    if (!hasPermission('webhooks.edit')) {
       toast.error("You don't have permission to edit webhooks")
       return
     }
@@ -99,7 +101,7 @@ function WebhooksPageContent() {
   }
 
   const handleLogsClick = (webhook: WebhookData) => {
-    if (!webhookPermissions.canViewLogs) {
+    if (!hasPermission('webhooks.view_logs')) {
       toast.error("You don't have permission to view webhook logs")
       return
     }
@@ -125,7 +127,17 @@ function WebhooksPageContent() {
     return <WebhookAccessDenied message="You need to be logged in to view the webhooks panel." />;
   }
 
-  if (!webhookPermissions.canViewWebhooks) {
+  // Check if user has any webhook permission
+  const hasAnyWebhookPermission = hasAnyPermission([
+    'webhooks.view',
+    'webhooks.create',
+    'webhooks.edit',
+    'webhooks.delete',
+    'webhooks.test',
+    'webhooks.view_logs'
+  ])
+
+  if (!hasAnyWebhookPermission) {
     return <WebhookAccessDenied message="You don't have permission to access the webhooks panel." />;
   }
 
@@ -153,20 +165,15 @@ function WebhooksPageContent() {
 
   return (
     <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 px-2 xs:px-3 sm:px-4 md:px-0">
-      <WebhooksPageHeader
-        canCreate={webhookPermissions.canCreate}
-        onCreateClick={openCreateDialog}
-        onRefresh={handleRefresh}
-        loading={loading}
-        refreshing={refreshing}
-      />
+      <WebhooksPageHeader />
 
-      {stats && webhooks.length > 0 && <WebhookStats stats={stats} loading={loading} />}
+      {stats && <WebhookStats stats={stats} loading={loading} />}
+
 
       <WebhookTable
         webhooks={webhooks}
         onCreateClick={() => {
-          if (!webhookPermissions.canCreate) {
+          if (!hasPermission('webhooks.create')) {
             toast.error("You don't have permission to create webhooks")
             return
           }
@@ -178,9 +185,11 @@ function WebhooksPageContent() {
         onToggleStatus={handleToggleStatus}
         onLogsClick={handleLogsClick}
         onCopyToClipboard={handleCopyToClipboard}
+        onRefresh={handleRefresh}
+        refreshing={refreshing}
       />
 
-      {webhookPermissions.canCreate && (
+      <ConditionalRender permission="webhooks.create" fallback={null}>
         <CreateWebhookDialog
           open={createDialogOpen}
           onOpenChange={closeCreateDialog}
@@ -193,9 +202,9 @@ function WebhooksPageContent() {
           saving={loading}
           onCreateWebhook={handleCreateWebhook}
         />
-      )}
+      </ConditionalRender>
 
-      {webhookPermissions.canEdit && (
+      <ConditionalRender permission="webhooks.edit" fallback={null}>
         <EditWebhookDialog
           open={editDialogOpen}
           onOpenChange={closeEditDialog}
@@ -209,23 +218,19 @@ function WebhooksPageContent() {
           saving={loading}
           onUpdateWebhook={handleEditWebhook}
         />
-      )}
+      </ConditionalRender>
 
-      {webhookPermissions.canViewLogs && (
+      <ConditionalRender permission="webhooks.view_logs" fallback={null}>
         <WebhookLogsDialog
           open={logsDialogOpen}
           onOpenChange={closeLogsDialog}
           webhook={viewingLogsWebhook}
         />
-      )}
+      </ConditionalRender>
     </div>
   );
 }
 
 export default function WebhooksPage() {
-  return (
-    <WebhookPermissionsProvider>
-      <WebhooksPageContent />
-    </WebhookPermissionsProvider>
-  );
+  return <WebhooksPageContent />
 }

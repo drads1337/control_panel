@@ -137,16 +137,6 @@ const AgentManager: React.FC<AgentManagerProps> = ({
 
   const clearSelection = () => setSelectedAgents([]);
 
-  const allSelected = selectedAgents.length === filteredAgents.length && filteredAgents.length > 0;
-
-  const handleSelectAll = () => {
-    if (allSelected) {
-      clearSelection();
-    } else {
-      setSelectedAgents(filteredAgents.map((a) => a.id));
-    }
-  };
-
   const handleBulkAction = async () => {
     if (!bulkAction || selectedAgents.length === 0) return;
 
@@ -505,19 +495,6 @@ const AgentManager: React.FC<AgentManagerProps> = ({
               </div>
             ) : (
               <>
-                <div className={cn("flex items-center gap-2 mb-2 pb-2 border-b", isMobile && "mt-2")}>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSelectAll}
-                    disabled={filteredAgents.length === 0}
-                    className={cn(isMobile && "w-full")}
-                  >
-                    <Check className="h-4 w-4 mr-1" />
-                    Select All
-                  </Button>
-                </div>
-                
                 {/* Desktop View: Table */}
                 {!isMobile && (
                   <AgentsTable

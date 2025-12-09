@@ -6,7 +6,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,9 +18,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus } from 'lucide-react'
 import { RemoteCategory, RemoteFeature } from '@/lib/remote-control-api'
 import { ConditionalRender } from '@/components/rbac/conditional-render'
+
+interface FeatureFormData {
+  name: string
+  description: string
+  category_id: string
+  enabled: boolean
+}
 
 interface FeatureDialogsProps {
   categories: RemoteCategory[]
@@ -31,18 +36,12 @@ interface FeatureDialogsProps {
   editDialogOpen: boolean
   setEditDialogOpen: (open: boolean) => void
   editingFeature: RemoteFeature | null
-  formData: {
-    name: string
-    description: string
-    category_id: string
-    enabled: boolean
-  }
-  setFormData: (data: any) => void
+  formData: FeatureFormData
+  setFormData: (data: FeatureFormData | ((prev: FeatureFormData) => FeatureFormData)) => void
   onAddFeature: () => void
   onUpdateFeature: () => void
   onEditFeature: (feature: RemoteFeature) => void
-  canCreate: boolean
-  canEdit: boolean
+  onResetForm: () => void
 }
 
 export default function FeatureDialogs({
@@ -58,66 +57,68 @@ export default function FeatureDialogs({
   onAddFeature,
   onUpdateFeature,
   onEditFeature,
-  canCreate,
-  canEdit
+  onResetForm
 }: FeatureDialogsProps) {
+  const isFormValid = formData.name.trim().length >= 1 && 
+                      formData.description.trim().length >= 1 &&
+                      formData.category_id.length >= 1
+
+  const handleCloseAddDialog = (open: boolean) => {
+    setAddDialogOpen(open)
+    if (!open) {
+      onResetForm()
+    }
+  }
+
+  const handleCloseEditDialog = (open: boolean) => {
+    setEditDialogOpen(open)
+    if (!open) {
+      onResetForm()
+    }
+  }
+
+  // Pre-fill category when add dialog opens
+  React.useEffect(() => {
+    if (addDialogOpen && currentCategoryId && !formData.category_id) {
+      setFormData((prev) => ({ ...prev, category_id: currentCategoryId }))
+    }
+  }, [addDialogOpen, currentCategoryId, formData.category_id, setFormData])
+
   return (
     <>
-      {/* Add Dialog */}
       <ConditionalRender permission="remote_control.create" fallback={null}>
-        <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button
-              onClick={() => {
-                setFormData((prev: any) => ({ 
-                  ...prev, 
-                  category_id: currentCategoryId,
-                  name: '',
-                  description: '',
-                  enabled: false
-                }))
-              }}
-              variant="default"
-              size="sm"
-              disabled={!canCreate}
-              title={!canCreate ? "You don't have permission to create features" : ""}
-            >
-              <Plus className="h-4 w-4 mr-1.5" />
-              Add
-            </Button>
-          </DialogTrigger>
-          {/* АДАПТАЦИЯ: w-[95vw] для мобильных, max-h для защиты от переполнения */}
-          <DialogContent className="w-[95vw] sm:max-w-[400px] max-h-[90vh] overflow-y-auto">
+        <Dialog open={addDialogOpen} onOpenChange={handleCloseAddDialog}>
+          <DialogContent className="w-[95vw] sm:max-w-[400px]">
             <DialogHeader>
               <DialogTitle className="text-base">Add Feature</DialogTitle>
               <DialogDescription className="text-xs">
-                Create a new feature (e.g. Aimbot, Wallhack, ESP, etc.)
+                Create a new feature
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
                 <Label htmlFor="name">Name</Label>
                 <Input
                   id="name"
                   value={formData.name}
-                  onChange={(e) => setFormData((prev: any) => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g. Aimbot, Wallhack, Player ESP"
+                  onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                  placeholder="Feature name"
                 />
               </div>
-              <div className="grid gap-2">
+              <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
                 <Input
                   id="description"
                   value={formData.description}
-                  onChange={(e) => setFormData((prev: any) => ({ ...prev, description: e.target.value }))}
-                  placeholder="e.g. Automatically aim at enemies"
+                  onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+                  placeholder="Feature description"
                 />
               </div>
-              <div className="grid gap-2">
+              <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
                 <Select
                   value={formData.category_id}
-                  onValueChange={(value) => setFormData((prev: any) => ({ ...prev, category_id: value }))}
+                  onValueChange={(value) => setFormData((prev) => ({ ...prev, category_id: value }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a category" />
@@ -135,26 +136,24 @@ export default function FeatureDialogs({
                 <Switch
                   id="enabled"
                   checked={formData.enabled}
-                  onCheckedChange={(checked) => setFormData((prev: any) => ({ ...prev, enabled: checked }))}
+                  onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, enabled: checked }))}
                 />
                 <Label htmlFor="enabled">Enable</Label>
               </div>
             </div>
-            {/* АДАПТАЦИЯ: flex-col для мобильных кнопок */}
-            <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <DialogFooter>
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => setAddDialogOpen(false)}
-                className="w-full sm:w-auto"
+                onClick={() => handleCloseAddDialog(false)}
               >
                 Cancel
               </Button>
               <Button 
                 size="sm" 
                 onClick={onAddFeature} 
-                disabled={!canCreate}
-                className="w-full sm:w-auto"
+                disabled={!isFormValid}
+                title={!isFormValid ? "Please fill in all required fields" : ""}
               >
                 Add
               </Button>
@@ -163,41 +162,39 @@ export default function FeatureDialogs({
         </Dialog>
       </ConditionalRender>
 
-      {/* Edit Dialog */}
       <ConditionalRender permission="remote_control.edit" fallback={null}>
-        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-          {/* АДАПТАЦИЯ: w-[95vw] для мобильных, max-h для защиты от переполнения */}
-          <DialogContent className="w-[95vw] sm:max-w-[400px] max-h-[90vh] overflow-y-auto">
+        <Dialog open={editDialogOpen} onOpenChange={handleCloseEditDialog}>
+          <DialogContent className="w-[95vw] sm:max-w-[400px]">
             <DialogHeader>
               <DialogTitle className="text-base">Edit Feature</DialogTitle>
               <DialogDescription className="text-xs">
-                Update feature settings and properties
+                Update feature settings
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
                 <Label htmlFor="edit-name">Name</Label>
                 <Input
                   id="edit-name"
                   value={formData.name}
-                  onChange={(e) => setFormData((prev: any) => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g. Aimbot, Wallhack, Player ESP"
+                  onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                  placeholder="Feature name"
                 />
               </div>
-              <div className="grid gap-2">
+              <div className="space-y-2">
                 <Label htmlFor="edit-description">Description</Label>
                 <Input
                   id="edit-description"
                   value={formData.description}
-                  onChange={(e) => setFormData((prev: any) => ({ ...prev, description: e.target.value }))}
-                  placeholder="e.g. Automatically aim at enemies"
+                  onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+                  placeholder="Feature description"
                 />
               </div>
-              <div className="grid gap-2">
+              <div className="space-y-2">
                 <Label htmlFor="edit-category">Category</Label>
                 <Select
                   value={formData.category_id}
-                  onValueChange={(value) => setFormData((prev: any) => ({ ...prev, category_id: value }))}
+                  onValueChange={(value) => setFormData((prev) => ({ ...prev, category_id: value }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a category" />
@@ -215,26 +212,24 @@ export default function FeatureDialogs({
                 <Switch
                   id="edit-enabled"
                   checked={formData.enabled}
-                  onCheckedChange={(checked) => setFormData((prev: any) => ({ ...prev, enabled: checked }))}
+                  onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, enabled: checked }))}
                 />
                 <Label htmlFor="edit-enabled">Enabled</Label>
               </div>
             </div>
-            {/* АДАПТАЦИЯ: flex-col для мобильных кнопок */}
-            <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <DialogFooter>
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => setEditDialogOpen(false)}
-                className="w-full sm:w-auto"
+                onClick={() => handleCloseEditDialog(false)}
               >
                 Cancel
               </Button>
               <Button 
                 size="sm" 
                 onClick={onUpdateFeature} 
-                disabled={!canEdit}
-                className="w-full sm:w-auto"
+                disabled={!isFormValid}
+                title={!isFormValid ? "Please fill in all required fields" : ""}
               >
                 Save
               </Button>

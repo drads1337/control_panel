@@ -104,6 +104,7 @@ class AnalyticsService:
                 "revenue_analytics": sales_analytics,
                 "system_health": system_health,
                 "security_metrics": security_analytics,
+                "top_countries": geography_analytics.get("top_countries", []),
                 "generated_at": datetime.utcnow().isoformat(),
             }
 
@@ -885,14 +886,39 @@ class AnalyticsService:
             return {}
 
     def _get_system_geography_analytics(self, start_date: datetime) -> Dict:
-        """Get system-wide geography analytics (mock data)"""
+        """Get system-wide geography analytics"""
         try:
+            # Get top countries by requests from UserActivity
+            top_countries_query = (
+                db.session.query(
+                    UserActivity.country,
+                    func.count(UserActivity.id).label("request_count")
+                )
+                .filter(
+                    and_(
+                        UserActivity.country.isnot(None),
+                        UserActivity.created_at >= start_date,
+                    )
+                )
+                .group_by(UserActivity.country)
+                .order_by(desc(func.count(UserActivity.id)))
+                .limit(10)
+            )
 
-            return {"top_countries": [], "top_cities": [], "total_countries": 0}
+            top_countries = [
+                {"country": country, "requests": count} 
+                for country, count in top_countries_query.all()
+            ]
+
+            return {
+                "top_countries": top_countries,
+                "top_cities": [],
+                "total_countries": len(top_countries),
+            }
 
         except Exception as e:
             logging.error(f"ANALYTICS_SYSTEM_GEOGRAPHY_ANALYTICS_ERROR error={e}")
-            return {}
+            return {"top_countries": [], "top_cities": [], "total_countries": 0}
 
     def _get_system_popular_products(self, start_date: datetime) -> List[Dict]:
         """Get system-wide popular products"""

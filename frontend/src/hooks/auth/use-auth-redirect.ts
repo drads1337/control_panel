@@ -53,10 +53,15 @@ export function useAuthRedirect(params: UseAuthRedirectParams) {
         return
       }
 
-      if (!isAuthenticated && currentPath !== '/login' && currentPath !== '/signup') {
+      // Увеличиваем задержку перед редиректом на /login, чтобы дать время
+      // на восстановление сессии при перезагрузке страницы
+      // Проверяем только если действительно нет пользователя и мы не на страницах входа
+      if (!isAuthenticated && !user && currentPath !== '/login' && currentPath !== '/signup') {
+        // Делаем редирект только если действительно нет пользователя
+        // use-auth-init должен успеть восстановить сессию за это время
         navigateRef.current('/login')
       }
-    }, 100)
+    }, 1000) // Увеличиваем задержку до 1 секунды, чтобы дать время на восстановление сессии
 
     return () => {
       if (redirectTimeoutRef.current) {

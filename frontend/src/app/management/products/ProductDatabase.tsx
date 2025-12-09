@@ -156,16 +156,6 @@ const ProductDatabase: React.FC<ProductDatabaseProps> = ({
   }, [onCreateRequested, onCreateHandled, openCreateDialog]);
 
   const { filters, filteredProducts, updateFilters, resetFilters } = useProductFilters(products);
-  
-  const allSelected = selectedProducts.length === filteredProducts.length && filteredProducts.length > 0;
-  
-  const handleSelectAll = () => {
-    if (allSelected) {
-      clearSelection();
-    } else {
-      setSelectedProducts(filteredProducts.map((p) => p.id));
-    }
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -446,26 +436,12 @@ const ProductDatabase: React.FC<ProductDatabaseProps> = ({
               </div>
             ) : (
               <>
-                <div className={cn("flex items-center gap-2 mb-2 pb-2 border-b", isMobile && "mt-2")}>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSelectAll}
-                    disabled={filteredProducts.length === 0}
-                    className={cn(isMobile && "w-full")}
-                  >
-                    <Check className="h-4 w-4 mr-1" />
-                    Select All
-                  </Button>
-                </div>
-                
                 {/* Desktop View: Table */}
                 {!isMobile && (
                   <ProductsTable
                     products={filteredProducts}
                     selectedProducts={selectedProducts}
                     onToggleProductSelection={toggleProductSelection}
-                    onSelectAll={handleSelectAll}
                     onViewProduct={handleViewProduct}
                     onEditProduct={handleEditProduct}
                     onUploadProduct={handleUploadProduct}

@@ -18,6 +18,8 @@ export interface LicenseKey extends BaseEntity {
   fingerprint: string | null
   generation_type?: 'license_key' | 'access_code'
   is_access_code?: boolean
+  created_by?: number | null
+  creator_username?: string | null
 }
 
 export interface LicenseKeysResponse extends PaginatedResponse<LicenseKey> {

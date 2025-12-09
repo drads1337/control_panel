@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { WebhookForm } from './webhook-form';
-import { usePermissions } from '@/hooks/use-permissions';
+import { ConditionalRender } from '@/components/rbac/conditional-render';
 import type { WebhookFormData, SecretsVisibility } from './types';
 
 interface CreateWebhookDialogProps {
@@ -38,15 +38,9 @@ export function CreateWebhookDialog({
   saving,
   onCreateWebhook
 }: CreateWebhookDialogProps) {
-  const { hasPermission } = usePermissions();
-  const canCreate = hasPermission('webhooks.create');
-
-  if (!canCreate) {
-    return null;
-  }
-
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <ConditionalRender permission="webhooks.create" fallback={null}>
+      <Dialog open={open} onOpenChange={onOpenChange}>
       {/* 
          АДАПТАЦИЯ: 
          1. w-[95vw] - почти полная ширина на мобильном.
@@ -90,5 +84,6 @@ export function CreateWebhookDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    </ConditionalRender>
   );
 }

@@ -71,8 +71,8 @@ export default function ManagementPage() {
         <>
           {availableTabs.length > 1 ? (
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <div className="relative mb-4">
-                <TabsList className={`grid w-full h-14 bg-muted border border-border rounded-lg p-1`} style={{gridTemplateColumns: `repeat(${availableTabs.length}, 1fr)`}}>
+              <div className="relative mb-3 xs:mb-4">
+                <TabsList className={`grid w-full h-12 xs:h-14 bg-muted border border-border rounded-lg p-1`} style={{gridTemplateColumns: `repeat(${availableTabs.length}, 1fr)`}}>
                   {availableTabs.map((tab) => {
                     const Icon = tab.icon;
                     return (
@@ -90,8 +90,8 @@ export default function ManagementPage() {
               </div>
 
               <TabsContents>
-                {canViewKeys && (
-                  <TabsContent value="license-keys" className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4 md:mt-0">
+                {canViewKeys && activeTab === 'license-keys' && (
+                  <TabsContent value="license-keys" className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6">
                     <ManagementTabContent 
                       tabValue="license-keys"
                       wrapInTabsContent={false}
@@ -99,8 +99,8 @@ export default function ManagementPage() {
                   </TabsContent>
                 )}
 
-                {canViewFiles && (
-                  <TabsContent value="file-manager" className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4 md:mt-0">
+                {canViewFiles && activeTab === 'file-manager' && (
+                  <TabsContent value="file-manager" className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6">
                     <ManagementTabContent 
                       tabValue="file-manager"
                       wrapInTabsContent={false}
@@ -108,8 +108,8 @@ export default function ManagementPage() {
                   </TabsContent>
                 )}
 
-                {canViewProducts && (
-                  <TabsContent value="product-database" className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4 md:mt-0">
+                {canViewProducts && activeTab === 'product-database' && (
+                  <TabsContent value="product-database" className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6">
                     <ManagementTabContent 
                       tabValue="product-database"
                       wrapInTabsContent={false}
@@ -117,8 +117,8 @@ export default function ManagementPage() {
                   </TabsContent>
                 )}
 
-                {canViewAgents && (
-                  <TabsContent value="agent-manager" className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4 md:mt-0">
+                {canViewAgents && activeTab === 'agent-manager' && (
+                  <TabsContent value="agent-manager" className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6">
                     <ManagementTabContent 
                       tabValue="agent-manager"
                       wrapInTabsContent={false}
@@ -130,7 +130,7 @@ export default function ManagementPage() {
           ) : (
             <>
               {canViewKeys && activeTab === 'license-keys' && (
-                <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4">
+                <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-3 xs:mt-4">
                   <ManagementTabContent 
                     tabValue="license-keys"
                     wrapInTabsContent={false}
@@ -138,7 +138,7 @@ export default function ManagementPage() {
                 </div>
               )}
               {canViewFiles && activeTab === 'file-manager' && (
-                <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4">
+                <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-3 xs:mt-4">
                   <ManagementTabContent 
                     tabValue="file-manager"
                     wrapInTabsContent={false}
@@ -146,7 +146,7 @@ export default function ManagementPage() {
                 </div>
               )}
               {canViewProducts && activeTab === 'product-database' && (
-                <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4">
+                <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-3 xs:mt-4">
                   <ManagementTabContent 
                     tabValue="product-database"
                     wrapInTabsContent={false}
@@ -154,7 +154,7 @@ export default function ManagementPage() {
                 </div>
               )}
               {canViewAgents && activeTab === 'agent-manager' && (
-                <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4">
+                <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-3 xs:mt-4">
                   <ManagementTabContent 
                     tabValue="agent-manager"
                     wrapInTabsContent={false}

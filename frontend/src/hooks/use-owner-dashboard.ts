@@ -61,6 +61,10 @@ export interface OwnerDashboardStats {
     two_factor_enabled: number
     last_security_scan: string
   }
+  top_countries: Array<{
+    country: string
+    requests: number
+  }>
   load_status?: {
     overall_status: 'normal' | 'warning' | 'critical'
     project_id: number | null

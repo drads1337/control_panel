@@ -16,7 +16,7 @@ interface LicenseKeysFiltersProps {
   onClearFilters: () => void;
 }
 
-const LicenseKeysFilters: React.FC<LicenseKeysFiltersProps> = ({
+const LicenseKeysFilters: React.FC<LicenseKeysFiltersProps> = React.memo(({
   filters,
   onFiltersChange,
   products,
@@ -145,6 +145,8 @@ const LicenseKeysFilters: React.FC<LicenseKeysFiltersProps> = ({
         )}
     </div>
   );
-};
+});
+
+LicenseKeysFilters.displayName = 'LicenseKeysFilters';
 
 export default LicenseKeysFilters;

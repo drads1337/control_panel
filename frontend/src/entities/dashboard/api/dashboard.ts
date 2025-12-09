@@ -48,6 +48,10 @@ export interface DashboardData {
     product: string
     keys: number
   }>
+  top_countries: Array<{
+    country: string
+    requests: number
+  }>
   announcements: Array<{
     id: number
     title: string

@@ -11,6 +11,7 @@ interface UseKeysManagementParams {
   };
   currentPage: number;
   canViewKeys: boolean;
+  enabled?: boolean; // Загружать данные только когда таб активен
 }
 
 interface UseKeysManagementReturn {
@@ -58,12 +59,14 @@ export function useKeysManagement({
   filters,
   currentPage,
   canViewKeys,
+  enabled = true,
 }: UseKeysManagementParams): UseKeysManagementReturn {
   const keysData = useKeysData({
     viewMode,
     filters,
     currentPage,
     canViewKeys,
+    enabled,
   });
 
   const keysUI = useKeysUI({

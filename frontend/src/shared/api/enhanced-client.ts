@@ -210,6 +210,8 @@ async function handleError(error: AxiosError): Promise<never> {
                        fullUrl?.includes('/api/users/me') ||
                        requestUrl?.endsWith('/me') ||
                        fullUrl?.endsWith('/me')
+  const isUsersDeleteEndpoint = (requestUrl?.includes('/api/users/') || fullUrl?.includes('/api/users/')) && 
+                                config?.method?.toUpperCase() === 'DELETE'
 
   // Check for CSRF-related errors early and silently reject them
   // This includes both response errors and network errors for CSRF token endpoint
@@ -357,15 +359,23 @@ async function handleError(error: AxiosError): Promise<never> {
 
       const isManagementPage = window.location.pathname === '/management-page'
 
+      // Handle authentication errors for all endpoints except special cases
+      // DELETE requests to /api/users/ are now handled here to ensure proper redirect on token expiration
       if (!isWebhooksEndpoint && !isManagementPage && !isMeEndpoint) {
         const authErrorMessage = (errorData && typeof errorData === 'object' && 'message' in errorData && typeof errorData.message === 'string')
           ? errorData.message
-          : 'Unauthorized access'
+          : (errorData?.error || 'Unauthorized access')
+        
+        console.warn(`[API] Authentication error (${error.response?.status}) for ${config?.method} ${url}: ${authErrorMessage}`)
+        console.warn(`[API] Calling handleAuthError - will redirect to login if handler is registered`)
+        
         handleAuthError({
           status: error.response?.status || 401,
           message: authErrorMessage,
           response: errorData
         })
+      } else {
+        console.warn(`[API] Authentication error (${error.response?.status}) for ${config?.method} ${url} skipped - endpoint in exclusion list`)
       }
     }
   }
@@ -474,6 +484,7 @@ enhancedApi.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     const url = config.url || ''
     const fullUrl = config.baseURL ? `${config.baseURL}${url}` : url
+    const method = config.method?.toUpperCase()
     
     // Log requests to problematic endpoints
     const isRbacPermissionsEndpoint = url.includes('/api/rbac/users/') && url.includes('/permissions')
@@ -496,8 +507,71 @@ enhancedApi.interceptors.request.use(
         const { getCsrfHeaders } = await import('@/lib/csrf')
         const csrfHeaders = await getCsrfHeaders()
         Object.assign(config.headers, csrfHeaders)
-      } catch (error) {
-        // Silently handle CSRF token fetch errors - it's not critical for all requests
+        
+        // Check if CSRF token is missing for DELETE/PUT/POST requests (these require CSRF)
+        const method = config.method?.toUpperCase()
+        if ((method === 'DELETE' || method === 'PUT' || method === 'POST') && !csrfHeaders['X-CSRFToken']) {
+          console.warn(`[API] CSRF token missing for ${method} request to ${url}, attempting retry...`)
+          
+          // Try to clear CSRF cache and retry once
+          const { clearCsrfToken, getCsrfToken } = await import('@/lib/csrf')
+          clearCsrfToken()
+          
+          try {
+            // Wait a bit before retry to allow cache to clear
+            await new Promise(resolve => setTimeout(resolve, 100))
+            // Try to get CSRF token directly
+            try {
+              const csrfToken = await getCsrfToken()
+              if (csrfToken) {
+                config.headers['X-CSRFToken'] = csrfToken
+                console.info(`[API] CSRF token obtained on retry for ${method} request to ${url}`)
+              } else {
+                // CSRF token is empty - allow request to proceed and let server handle auth
+                // Server will return 401 if not authenticated, which is better than blocking here
+                console.warn(`[API] CSRF token unavailable for ${method} request to ${url} - proceeding without token, server will validate`)
+              }
+            } catch (csrfError: any) {
+              // If CSRF token fetch fails, allow request to proceed
+              // Server will return appropriate error if authentication is required
+              console.warn(`[API] Failed to get CSRF token for ${method} request to ${url} - proceeding without token, server will validate:`, csrfError.message)
+            }
+          } catch (retryError: any) {
+            // Allow request to proceed - server will handle authentication/CSRF validation
+            console.warn(`[API] Failed to get CSRF token on retry for ${method} request to ${url} - proceeding without token, server will validate:`, retryError.message)
+          }
+        }
+      } catch (error: any) {
+        // Log CSRF token fetch errors for DELETE/PUT/POST requests
+        const method = config.method?.toUpperCase()
+        if (method === 'DELETE' || method === 'PUT' || method === 'POST') {
+          console.warn(`[API] Failed to get CSRF token for ${method} request to ${url}:`, error.message || error)
+          
+          // Try to clear CSRF cache and retry once
+          try {
+            const { clearCsrfToken, getCsrfToken } = await import('@/lib/csrf')
+            clearCsrfToken()
+            // Wait a bit before retry to allow cache to clear
+            await new Promise(resolve => setTimeout(resolve, 100))
+            try {
+              const csrfToken = await getCsrfToken()
+              if (csrfToken) {
+                config.headers['X-CSRFToken'] = csrfToken
+                console.info(`[API] CSRF token obtained on retry after error for ${method} request to ${url}`)
+              } else {
+                // CSRF token is empty - allow request to proceed, server will validate
+                console.warn(`[API] CSRF token unavailable after retry for ${method} request to ${url} - proceeding without token, server will validate`)
+              }
+            } catch (csrfError: any) {
+              // Allow request to proceed - server will handle authentication/CSRF validation
+              console.warn(`[API] Failed to get CSRF token on retry for ${method} request to ${url} - proceeding without token, server will validate:`, csrfError.message)
+            }
+          } catch (retryError: any) {
+            // Allow request to proceed - server will handle authentication/CSRF validation
+            console.warn(`[API] Retry failed for CSRF token for ${method} request to ${url} - proceeding without token, server will validate:`, retryError.message)
+          }
+        }
+        // Silently handle CSRF token fetch errors for GET requests
         // Some endpoints (like login) are CSRF-exempt anyway
       }
     }
@@ -507,7 +581,19 @@ enhancedApi.interceptors.request.use(
       delete config.headers['Content-Type']
     }
 
-    const method = config.method?.toUpperCase()
+    // Log DELETE requests to /api/users/ for debugging (after CSRF token is added)
+    const isUsersDeleteEndpoint = (url.includes('/api/users/') || fullUrl?.includes('/api/users/')) && method === 'DELETE'
+    if (isUsersDeleteEndpoint) {
+      const hasCsrfToken = config.headers?.['X-CSRFToken'] || config.headers?.['x-csrftoken']
+      console.log(`[API] DELETE request to ${url}:`, {
+        url,
+        method,
+        hasCsrfToken: !!hasCsrfToken,
+        csrfTokenValue: config.headers?.['X-CSRFToken'] ? 'present' : 'missing',
+        withCredentials: config.withCredentials,
+        headerKeys: Object.keys(config.headers || {}),
+      })
+    }
     if (method && ['POST', 'PUT', 'PATCH'].includes(method) && config.data) {
       try {
 

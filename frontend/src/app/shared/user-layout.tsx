@@ -54,7 +54,11 @@ export function UserLayout() {
         <Suspense fallback={<Spinner fullscreen size="lg" message="Loading page..." />}>
           <Routes>
             <Route path="/" element={<SmartDashboardRouter />} />
-            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/dashboard" element={
+              <AnalyticsGuard fallbackPath="/profile">
+                <Dashboard />
+              </AnalyticsGuard>
+            } />
             <Route path="/owner-dashboard" element={
               <OwnerRouteGuard>
                 <OwnerDashboard />

@@ -224,7 +224,8 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
                     <div className="text-sm text-muted-foreground text-center py-4">No products available</div>
                   ) : (
                     products.map((product) => {
-                      const hasAccess = form.selected_products.includes(product.id);
+                      const productId = Number(product.id);
+                      const hasAccess = form.selected_products.some(id => Number(id) === productId);
                       return (
                         <div 
                           key={product.id} 
@@ -234,12 +235,12 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
                             if (hasAccess) {
                               setForm({
                                 ...form,
-                                selected_products: form.selected_products.filter(id => id !== product.id)
+                                selected_products: form.selected_products.filter(id => Number(id) !== productId)
                               })
                             } else {
                               setForm({
                                 ...form,
-                                selected_products: [...form.selected_products, product.id]
+                                selected_products: [...form.selected_products, productId]
                               })
                             }
                           }}
@@ -291,7 +292,9 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
                             <div 
                               key={perm.id} 
                               className="flex items-center space-x-2 p-1.5 hover:bg-accent/50 rounded cursor-pointer transition-colors"
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
                                 if (loading) return;
                                 const newPermissions = isChecked
                                   ? form.selected_permissions.filter(p => p !== perm.name)

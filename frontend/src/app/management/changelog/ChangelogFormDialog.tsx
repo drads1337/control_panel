@@ -41,14 +41,14 @@ const ChangelogFormDialog: React.FC<ChangelogFormDialogProps> = ({
   onSave,
   isAgent = false,
 }) => {
-  const { hasPermission } = usePermissions();
+  const { hasPermission, hasAnyPermission } = usePermissions();
 
   const isEditMode = !!entry;
   const canCreateChangelog = isAgent
-    ? hasPermission('agents.changelog_create') || hasPermission('products.changelog_create')
+    ? hasAnyPermission(['agents.changelog_create', 'products.changelog_create'])
     : hasPermission('products.changelog_create');
   const canEditChangelog = isAgent
-    ? hasPermission('agents.changelog_edit') || hasPermission('products.changelog_edit')
+    ? hasAnyPermission(['agents.changelog_edit', 'products.changelog_edit'])
     : hasPermission('products.changelog_edit');
 
   const hasPermissionForAction = isEditMode ? canEditChangelog : canCreateChangelog;

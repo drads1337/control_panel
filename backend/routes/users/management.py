@@ -32,6 +32,7 @@ from ...utils.service_helpers import (
     get_user_crud_service,
     get_user_profile_service,
 )
+from ...utils.service_exceptions import BusinessLogicError, ConflictError, ServiceError, ValidationError
 from ...utils.user_creation_helper import create_user_with_roles_and_products
 
 management_bp = Blueprint("users_management", __name__)
@@ -119,12 +120,10 @@ def add_user(current_user, validated_data=None, project_id=None):
     logger = logging.getLogger(__name__)
 
     if not validated_data:
-
-        activity_service = get_service('activity_service')
         return jsonify({"error": "No data provided"}), 400
 
     try:
-
+        activity_service = get_service('activity_service')
         data = validated_data.model_dump(exclude_none=True) if hasattr(validated_data, 'model_dump') else validated_data
 
         user = create_user_with_roles_and_products(current_user, data, project_id=project_id)
@@ -153,22 +152,29 @@ def add_user(current_user, validated_data=None, project_id=None):
             ),
             201,
         )
+    except ConflictError as e:
+        # Handle conflict errors (e.g., username already exists) with proper HTTP response
+        logger.warning(f"Conflict error in add_user endpoint: {str(e)}")
+        return jsonify({"error": str(e)}), 409
+    except BusinessLogicError as e:
+        # Handle business logic errors (e.g., insufficient balance) with proper HTTP response
+        logger.warning(f"Business logic error in add_user endpoint: {str(e)}")
+        return jsonify({"error": str(e)}), 400
     except Exception as e:
-
-
+        # Handle unexpected errors
         logger.error(f"Unexpected error in add_user endpoint: {str(e)}", exc_info=True)
         import traceback
         logger.error(f"Traceback: {traceback.format_exc()}")
-        raise
+        return jsonify({"error": "Failed to create user"}), 500
 
-@management_bp.route("/<int:user_id>", methods=["PUT"])
+@management_bp.route("/<user_id>", methods=["PUT"])
 @jwt_required()
 @require_user
 @enforce_project_scope
 @require_role(RolePermissions.ADMIN_ROLES)
 @validate_request(UserUpdateSchema)
 @serialize_response(UserAdminResponse)
-def update_user(user_id, current_user, validated_data=None):
+def update_user(user_id, current_user, validated_data=None, project_id=None):
     """Update a user with roles and product permissions"""
     import logging
 
@@ -176,16 +182,16 @@ def update_user(user_id, current_user, validated_data=None):
 
 
     if not validated_data:
-
-        rbac_service = get_service('rbac_service')
-        user_profile_service = get_service('user_profile_service')
         return jsonify({"error": "No data provided"}), 400
 
     try:
+        rbac_service = get_service('rbac_service')
+        user_profile_service = get_service('user_profile_service')
+        activity_service = get_service('activity_service')
 
         data = validated_data.model_dump(exclude_none=True) if hasattr(validated_data, 'model_dump') else validated_data
 
-        target_user = User.query.get(user_id)
+        target_user = find_user_by_id_or_unique_id(user_id, current_user.project_id)
         if not target_user:
             return jsonify({"error": "User not found"}), 404
 
@@ -203,9 +209,12 @@ def update_user(user_id, current_user, validated_data=None):
             if project_id and target_user.project_id != project_id:
                 return jsonify({"error": "Access denied"}), 403
 
-        success, error = user_profile_service.update_user_profile(target_user, data)
-        if not success:
-            return jsonify({"error": error}), 400
+        try:
+            updated_profile = user_profile_service.update_user_profile(target_user, data)
+        except (ConflictError, ValidationError) as e:
+            return jsonify({"error": str(e)}), 400
+        except ServiceError as e:
+            return jsonify({"error": str(e)}), e.status_code if hasattr(e, 'status_code') else 500
 
         db.session.refresh(target_user)
 
@@ -273,6 +282,7 @@ def delete_user(user_id, current_user, project_id=None):
         else:
             return jsonify({"error": error}), 400
 
+    activity_service = get_service('activity_service')
     activity_service.log_activity(
         current_user, "delete_user", details=f"Deleted user ID: {target_user.id}", ip=request.remote_addr
     )
@@ -287,22 +297,25 @@ def delete_user(user_id, current_user, project_id=None):
 @require_role(RolePermissions.USER_CREATION_ROLES)
 def bulk_action(current_user, project_id=None, validated_data=None):
     """Perform bulk actions on users"""
+    if not validated_data:
+        return jsonify({"error": "No data provided"}), 400
 
+    rbac_service = get_service('rbac_service')
+    activity_service = get_service('activity_service')
+    from ...utils.rbac_utils import RBACManager
+
+    action = validated_data.action
+    user_ids = validated_data.user_ids
+    new_role = validated_data.new_role
 
     query = User.query.filter(User.id.in_(user_ids))
-
-    from ...utils.rbac_utils import RBACManager
 
     can_view_all = rbac_service.check_permission(
         current_user.id, "employees.view"
     ) or rbac_service.check_permission(current_user.id, "clients.view")
     if not can_view_all:
-
-        rbac_service = get_service('rbac_service')
         query = query.filter_by(project_id=current_user.project_id)
     else:
-
-
         if project_id:
             query = query.filter_by(project_id=project_id)
 
@@ -348,6 +361,8 @@ def bulk_action(current_user, project_id=None, validated_data=None):
             return jsonify({"error": f"Failed to delete users: {str(e)}"}), 500
 
     elif action == "change_role":
+        if not new_role:
+            return jsonify({"error": "new_role is required for change_role action"}), 400
 
         if new_role not in RolePermissions.ASSIGNABLE_ROLES:
             return (
@@ -360,6 +375,28 @@ def bulk_action(current_user, project_id=None, validated_data=None):
             )
 
         try:
+            from ...models.rbac import Role, UserRole
+
+            # Find the role by name for the current project
+            role_obj = Role.query.filter_by(
+                name=new_role, 
+                project_id=current_user.project_id
+            ).first()
+
+            if not role_obj:
+                return jsonify({"error": f"Role '{new_role}' not found for this project"}), 404
+
+            # Update user roles
+            for user in users:
+                if RBACManager.is_admin(user) or RBACManager.is_owner(user):
+                    continue
+
+                # Remove existing non-system roles
+                UserRole.query.filter_by(user_id=user.id).delete()
+
+                # Assign new role
+                user_role = UserRole(user_id=user.id, role_id=role_obj.id)
+                db.session.add(user_role)
 
             db.session.commit()
 
@@ -390,6 +427,8 @@ def export_users(current_user, project_id=None):
     from flask import Response
     from io import StringIO
 
+    rbac_service = get_service('rbac_service')
+    
     role_filter = request.args.get("role")
     if project_id is None:
         project_id = request.args.get("project_id", type=int)
@@ -498,20 +537,26 @@ def export_users(current_user, project_id=None):
 @require_role(RolePermissions.USER_CREATION_ROLES)
 def invite_user(current_user, validated_data=None):
     """Create an invitation for a new user"""
+    if not validated_data:
+        return jsonify({"error": "No data provided"}), 400
+
     from datetime import datetime, timedelta
     import secrets
     import string
 
-    allowed_roles = RolePermissions.ASSIGNABLE_ROLES.copy()
+    rbac_service = get_service('rbac_service')
+    activity_service = get_service('activity_service')
     from ...utils.rbac_utils import RBACManager
+
+    email = validated_data.email
+    role = validated_data.role
+
+    allowed_roles = RolePermissions.ASSIGNABLE_ROLES.copy()
 
     can_view_all = rbac_service.check_permission(
         current_user.id, "employees.view"
     ) or rbac_service.check_permission(current_user.id, "clients.view")
     if not can_view_all:
-
-
-        rbac_service = get_service('rbac_service')
         allowed_roles = [r for r in allowed_roles if r not in RolePermissions.ADMIN_ROLES]
 
     if role not in allowed_roles:
@@ -562,6 +607,7 @@ def get_users_stats(current_user, project_id=None):
     query = User.query
 
     from ...utils.rbac_utils import RBACManager
+    rbac_service = get_service('rbac_service')
 
     can_view_all = rbac_service.check_permission(
         current_user.id, "employees.view"
@@ -612,6 +658,7 @@ def get_user_stats(user_id, current_user, project_id=None):
         return jsonify({"error": "User not found"}), 404
 
     from ...utils.rbac_utils import RBACManager
+    rbac_service = get_service('rbac_service')
 
     can_view_all = rbac_service.check_permission(
         current_user.id, "employees.view"
@@ -714,6 +761,7 @@ def get_user_activities(user_id, current_user):
         return jsonify({"error": "User not found"}), 404
 
     from ...utils.rbac_utils import RBACManager
+    rbac_service = get_service('rbac_service')
 
     can_view_all = rbac_service.check_permission(
         current_user.id, "employees.view"
@@ -774,6 +822,7 @@ def get_user_transactions(user_id, current_user):
         return jsonify({"error": "User not found"}), 404
 
     from ...utils.rbac_utils import RBACManager
+    rbac_service = get_service('rbac_service')
 
     can_view_all = rbac_service.check_permission(
         current_user.id, "employees.view"

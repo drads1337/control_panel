@@ -10,15 +10,8 @@ These models replace Dict[str, Any] return types to provide:
 
 from datetime import datetime
 from typing import List, Optional
-
 from pydantic import Field
-
 from ..common import BaseSchema
-
-
-
-
-
 
 class KeyListItem(BaseSchema):
     """Single key item in a list response"""
@@ -40,6 +33,8 @@ class KeyListItem(BaseSchema):
     activated_at: Optional[str] = Field(default=None, description="Activation timestamp (ISO format)")
     duration_hours: Optional[int] = Field(default=None, description="Key duration in hours")
     key_metadata: Optional[dict] = Field(default=None, description="Additional key metadata")
+    created_by: Optional[int] = Field(default=None, description="User ID who created the key")
+    creator_username: Optional[str] = Field(default=None, description="Username of the user who created the key")
 
 
 class KeyListResponse(BaseSchema):

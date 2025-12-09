@@ -704,9 +704,12 @@ def update_profile(validated_data=None):
         if not validated_data:
             validated_data = {}
 
-        success, error = user_profile_service.update_user_profile(user, validated_data)
-        if not success:
-            return jsonify({"error": "UPDATE_FAILED", "message": error}), 400
+        try:
+            updated_profile = user_profile_service.update_user_profile(user, validated_data)
+        except (ConflictError, ValidationError) as e:
+            return jsonify({"error": "UPDATE_FAILED", "message": str(e)}), 400
+        except ServiceError as e:
+            return jsonify({"error": "UPDATE_FAILED", "message": str(e)}), e.status_code if hasattr(e, 'status_code') else 500
 
         return jsonify({"message": "Profile updated successfully"})
 

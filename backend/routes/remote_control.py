@@ -96,20 +96,33 @@ def get_categories(project_id=None):
         logging.error(f"Error getting categories: {e}", exc_info=True)
         return jsonify({"error": f"Failed to get categories: {str(e)}"}), 500
 
-@validate_request(RemoteCategoryCreateSchema)
 @remote_control_bp.route("/categories", methods=["POST"])
 @jwt_required()
 @require_user
 @require_project_with_grace_period
 @enforce_project_scope
 @require_any_permission(["remote_control.create", "remote_control.edit"])
+@validate_request(RemoteCategoryCreateSchema)
 def create_category(current_user, project_id=None, validated_data=None):
     """Create a new remote control category"""
+    activity_service = get_service('activity_service')
+    tier_limits_service = get_service('tier_limits_service')
+    
+    if validated_data is None:
+        logging.error(f"create_category: validated_data is None")
+        logging.error(f"Request method: {request.method}, path: {request.path}")
+        logging.error(f"Request data: {request.get_data(as_text=True)[:500]}")
+        logging.error(f"Content-Type: {request.headers.get('Content-Type')}")
+        return jsonify({"error": "No data provided"}), 400
+    
+    if not isinstance(validated_data, dict):
+        logging.error(f"create_category: validated_data is not a dict: {type(validated_data)}")
+        return jsonify({"error": "Invalid data format"}), 400
+    
     if not validated_data:
-
-
-        activity_service = get_service('activity_service')
-        tier_limits_service = get_service('tier_limits_service')
+        logging.error(f"create_category: validated_data is empty dict")
+        logging.error(f"Request data: {request.get_data(as_text=True)[:500]}")
+        logging.error(f"Content-Type: {request.headers.get('Content-Type')}")
         return jsonify({"error": "No data provided"}), 400
 
 
@@ -120,22 +133,39 @@ def create_category(current_user, project_id=None, validated_data=None):
             if not enabled:
                 return jsonify({"error": error_msg}), 403
 
-    name = validated_data.name
-    product_id = validated_data.product_id
-    description = validated_data.description
-    color = validated_data.color
+    name = validated_data.get('name')
+    product_id = validated_data.get('product_id')
+    description = validated_data.get('description', '')
+    color = validated_data.get('color', '#3b82f6')
+    
+    if not name:
+        return jsonify({"error": "Category name is required"}), 400
+    if not product_id:
+        return jsonify({"error": "Product ID is required"}), 400
+    
     try:
         if project_id is None:
             return (
                 jsonify({"error": "Project ID is required. Please specify project_id parameter."}),
                 400,
             )
+            
+        product = None
 
-
-
-        product = Product.query.filter_by(id=product_id, project_id=project_id).first()
+        if isinstance(product_id, int) or (isinstance(product_id, str) and product_id.isdigit()):
+            try:
+                product_id_int = int(product_id)
+                product = Product.query.filter_by(id=product_id_int, project_id=project_id).first()
+            except (ValueError, TypeError):
+                pass
+        
+        if not product:
+            product = Product.query.filter_by(unique_id=str(product_id), project_id=project_id).first()
+        
         if not product:
             return jsonify({"error": "Product not found or does not belong to this project"}), 404
+        
+        product_id = product.id
 
         existing_category = RemoteCategory.query.filter_by(
             name=name, project_id=project_id, product_id=product_id
@@ -192,15 +222,17 @@ def create_category(current_user, project_id=None, validated_data=None):
         logging.error(f"Error creating category: {e}", exc_info=True)
         return jsonify({"error": "Failed to create category"}), 500
 
-@validate_request(RemoteCategoryUpdateSchema)
 @remote_control_bp.route("/categories/<int:category_id>", methods=["PUT"])
 @jwt_required()
 @require_user
 @require_project_with_grace_period
 @enforce_project_scope
 @require_any_permission(["remote_control.create", "remote_control.edit"])
+@validate_request(RemoteCategoryUpdateSchema)
 def update_category(category_id, current_user, project_id=None, validated_data=None):
     """Update a remote control category"""
+    activity_service = get_service('activity_service')
+    
     if not validated_data:
         return jsonify({"error": "No data provided"}), 400
     try:
@@ -219,16 +251,19 @@ def update_category(category_id, current_user, project_id=None, validated_data=N
             return jsonify({"error": "No data provided"}), 400
 
 
-        if validated_data.product_id is not None and validated_data.product_id != category.product_id:
-            product = Product.query.filter_by(id=validated_data.product_id, project_id=project_id).first()
+        product_id_value = validated_data.get('product_id')
+        if product_id_value is not None and product_id_value != category.product_id:
+            product = Product.query.filter_by(id=product_id_value, project_id=project_id).first()
             if not product:
                 return jsonify({"error": "Product not found or does not belong to this project"}), 404
 
-        product_id = validated_data.product_id if validated_data.product_id is not None else category.product_id
+        product_id = product_id_value if product_id_value is not None else category.product_id
         
-        if validated_data.name is not None:
+        old_name = category.name
+        name_value = validated_data.get('name')
+        if name_value is not None:
             existing_category = RemoteCategory.query.filter(
-                RemoteCategory.name == validated_data.name,
+                RemoteCategory.name == name_value,
                 RemoteCategory.project_id == project_id,
                 RemoteCategory.product_id == product_id,
                 RemoteCategory.id != category_id,
@@ -236,15 +271,16 @@ def update_category(category_id, current_user, project_id=None, validated_data=N
 
             if existing_category:
                 return jsonify({"error": "Category with this name already exists for this product"}), 400
-            old_name = category.name
-            category.name = validated_data.name
+            category.name = name_value
 
-        if validated_data.description is not None:
-            category.description = validated_data.description
-        if validated_data.color is not None:
-            category.color = validated_data.color
-        if validated_data.product_id is not None and validated_data.product_id != category.product_id:
-            category.product_id = validated_data.product_id
+        description_value = validated_data.get('description')
+        if description_value is not None:
+            category.description = description_value
+        color_value = validated_data.get('color')
+        if color_value is not None:
+            category.color = color_value
+        if product_id_value is not None and product_id_value != category.product_id:
+            category.product_id = product_id_value
         category.updated_at = datetime.utcnow()
 
         db.session.commit()
@@ -278,6 +314,8 @@ def update_category(category_id, current_user, project_id=None, validated_data=N
 @require_any_permission(["remote_control.create", "remote_control.edit"])
 def delete_category(category_id, current_user, project_id=None):
     """Delete a remote control category"""
+    activity_service = get_service('activity_service')
+    
     try:
         if project_id is None:
             return (
@@ -377,24 +415,26 @@ def get_features(project_id=None):
         logging.error(f"Error getting features: {e}", exc_info=True)
         return jsonify({"error": f"Failed to get features: {str(e)}"}), 500
 
-@validate_request(RemoteFeatureCreateSchema)
 @remote_control_bp.route("/features", methods=["POST"])
 @jwt_required()
 @require_user
 @require_project_with_grace_period
 @enforce_project_scope
 @require_any_permission(["remote_control.create", "remote_control.edit"])
+@validate_request(RemoteFeatureCreateSchema)
 def create_feature(current_user, project_id=None, validated_data=None):
     """Create a new remote control feature"""
+    activity_service = get_service('activity_service')
+    
     if not validated_data:
         return jsonify({"error": "No data provided"}), 400
 
-    name = validated_data.name
-    category_id = validated_data.category_id
-    description = validated_data.description
-    enabled = validated_data.enabled
-    status = validated_data.status
-    configuration = validated_data.configuration
+    name = validated_data.get('name')
+    category_id = validated_data.get('category_id')
+    description = validated_data.get('description', '')
+    enabled = validated_data.get('enabled', False)
+    status = validated_data.get('status', 'offline')
+    configuration = validated_data.get('configuration')
     try:
         if project_id is None:
             return (
@@ -457,15 +497,17 @@ def create_feature(current_user, project_id=None, validated_data=None):
         logging.error(f"Error creating feature: {e}", exc_info=True)
         return jsonify({"error": "Failed to create feature"}), 500
 
-@validate_request(RemoteFeatureUpdateSchema)
 @remote_control_bp.route("/features/<int:feature_id>", methods=["PUT"])
 @jwt_required()
 @require_user
 @require_project_with_grace_period
 @enforce_project_scope
 @require_any_permission(["remote_control.create", "remote_control.edit"])
+@validate_request(RemoteFeatureUpdateSchema)
 def update_feature(feature_id, current_user, project_id=None, validated_data=None):
     """Update a remote control feature"""
+    activity_service = get_service('activity_service')
+    
     if not validated_data:
         return jsonify({"error": "No data provided"}), 400
     try:
@@ -480,12 +522,13 @@ def update_feature(feature_id, current_user, project_id=None, validated_data=Non
         if not feature:
             return jsonify({"error": "Feature not found"}), 404
 
-        if not validated_data:
-            return jsonify({"error": "No data provided"}), 400
-
-        if validated_data.category_id is not None:
+        old_name = feature.name
+        old_enabled = feature.enabled
+        
+        category_id_value = validated_data.get('category_id')
+        if category_id_value is not None:
             category = RemoteCategory.query.filter_by(
-                id=validated_data.category_id, project_id=project_id
+                id=category_id_value, project_id=project_id
             ).first()
 
             if not category:
@@ -501,9 +544,10 @@ def update_feature(feature_id, current_user, project_id=None, validated_data=Non
                 return jsonify({"error": "Existing category not found"}), 404
             new_product_id = category.product_id
 
-        if validated_data.name is not None:
+        name_value = validated_data.get('name')
+        if name_value is not None:
             existing_feature = RemoteFeature.query.filter(
-                RemoteFeature.name == validated_data.name,
+                RemoteFeature.name == name_value,
                 RemoteFeature.project_id == project_id,
                 RemoteFeature.product_id == new_product_id,
                 RemoteFeature.id != feature_id,
@@ -511,23 +555,25 @@ def update_feature(feature_id, current_user, project_id=None, validated_data=Non
 
             if existing_feature:
                 return jsonify({"error": "Feature with this name already exists for this product"}), 400
-            old_name = feature.name
-            feature.name = validated_data.name
+            feature.name = name_value
 
-        if validated_data.description is not None:
-            feature.description = validated_data.description
-        if validated_data.enabled is not None:
-            old_enabled = feature.enabled
-            feature.enabled = validated_data.enabled
-        if validated_data.category_id is not None:
-            feature.category_id = validated_data.category_id
+        description_value = validated_data.get('description')
+        if description_value is not None:
+            feature.description = description_value
+        enabled_value = validated_data.get('enabled')
+        if enabled_value is not None:
+            feature.enabled = enabled_value
+        if category_id_value is not None:
+            feature.category_id = category_id_value
             feature.product_id = new_product_id
-        if validated_data.status is not None:
-            feature.status = validated_data.status
+        status_value = validated_data.get('status')
+        if status_value is not None:
+            feature.status = status_value
         feature.updated_at = datetime.utcnow()
 
-        if validated_data.configuration is not None:
-            feature.set_configuration(validated_data.configuration)
+        configuration_value = validated_data.get('configuration')
+        if configuration_value is not None:
+            feature.set_configuration(configuration_value)
 
         db.session.commit()
 
@@ -560,6 +606,8 @@ def update_feature(feature_id, current_user, project_id=None, validated_data=Non
 @require_any_permission(["remote_control.create", "remote_control.edit"])
 def delete_feature(feature_id, current_user, project_id=None):
     """Delete a remote control feature"""
+    activity_service = get_service('activity_service')
+    
     try:
         if project_id is None:
             return (
@@ -601,6 +649,8 @@ def delete_feature(feature_id, current_user, project_id=None):
 @require_any_permission(["remote_control.create", "remote_control.edit"])
 def toggle_feature(feature_id, current_user, project_id=None):
     """Toggle a remote control feature on/off"""
+    activity_service = get_service('activity_service')
+    
     try:
         if project_id is None:
             return (

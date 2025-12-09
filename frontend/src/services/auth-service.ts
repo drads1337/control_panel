@@ -72,7 +72,7 @@ export class AuthService {
 
     try {
       const response = await api.get(API_ENDPOINTS.ME, {
-        timeout: 3000,
+        timeout: 5000, // Увеличиваем таймаут для более надежной работы при перезагрузке
         signal: abortController?.signal
       })
 
@@ -87,12 +87,59 @@ export class AuthService {
       }
 
       const status = getErrorStatus(error)
+      
+      // 401 означает, что пользователь действительно не авторизован
+      // В этом случае возвращаем null, чтобы показать, что сессия истекла
+      if (status === 401) {
+        return null
+      }
+      
       if (status === 429) {
         const cached = getUserFromMemoryCache()
         if (cached) {
           return cached
         }
         throw new Error('Rate limited and no cached data available')
+      }
+      
+      // Для других ошибок (сетевые, таймауты, 500 и т.д.) пробуем повторить запрос
+      // Это помогает при перезагрузке страницы, когда CSRF токен еще не загружен
+      // или есть временные сетевые проблемы
+      if (status === 403 || status === 0 || !status || (status >= 500 && status < 600)) {
+        // 403 может быть CSRF ошибкой, 0 или отсутствие status - сетевая ошибка
+        // 5xx - серверные ошибки, которые могут быть временными
+        // Делаем несколько попыток с увеличивающейся задержкой
+        const maxRetries = 2
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          // Увеличивающаяся задержка: 300ms, 600ms
+          await new Promise(resolve => setTimeout(resolve, 300 * attempt))
+          
+          if (abortController?.signal.aborted) {
+            return null
+          }
+          
+          try {
+            const retryResponse = await api.get(API_ENDPOINTS.ME, {
+              timeout: 5000,
+              signal: abortController?.signal
+            })
+            
+            const retryUserData = retryResponse.data
+            saveUserToMemoryCache(retryUserData)
+            return retryUserData
+          } catch (retryError: unknown) {
+            const retryStatus = getErrorStatus(retryError)
+            // Если при повторной попытке получили 401, значит пользователь не авторизован
+            if (retryStatus === 401) {
+              return null
+            }
+            // Если это последняя попытка, возвращаем null
+            if (attempt === maxRetries) {
+              return null
+            }
+            // Иначе продолжаем попытки
+          }
+        }
       }
     }
 

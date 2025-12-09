@@ -16,7 +16,8 @@ from ...models.core import (
     UserActivity,
     UserProductPermission,
 )
-from ...models.keys import Key
+from ...models.keys import Key, TokenTransaction
+from ...models.notifications import Notification
 from ...models.rbac import Role, UserRole, UserPermission
 from ...models.project_user import ProjectUserRole
 from ...utils.fulltext_search import fulltext_search_filter
@@ -401,23 +402,43 @@ class UserCRUDService:
             if not target_user:
                 return False, "User not found"
 
-            can_delete_all = rbac_service.check_permission(
+            # Check if user has delete permissions
+            has_employee_delete = rbac_service.check_permission(
                 current_user.id, "employees.delete"
-            ) or rbac_service.check_permission(current_user.id, "clients.delete")
-            if not can_delete_all:
-                if current_user.project_id != target_user.project_id:
-                    return False, "Access denied"
+            )
+            has_client_delete = rbac_service.check_permission(
+                current_user.id, "clients.delete"
+            )
+            
+            if not (has_employee_delete or has_client_delete):
+                return False, "Access denied: insufficient permissions to delete users"
 
-                if RBACManager.is_admin(target_user) or RBACManager.is_owner(target_user):
-                    return False, "Cannot delete owner or admin users"
-            else:
+            # Determine if target user is an employee or client
+            # Check if user has employee role
+            employee_role = Role.query.filter_by(name="employee", project_id=target_user.project_id).first()
+            is_employee = False
+            if employee_role:
+                user_role = UserRole.query.filter_by(
+                    user_id=target_user_id,
+                    role_id=employee_role.id
+                ).first()
+                is_employee = user_role is not None
 
-                scoped_project_id = project_id or current_user.project_id
-                if scoped_project_id and scoped_project_id != target_user.project_id:
-                    return False, "Access denied"
+            # Check permissions based on user type
+            if is_employee and not has_employee_delete:
+                return False, "Access denied: insufficient permissions to delete employees"
+            
+            if not is_employee and not has_client_delete:
+                return False, "Access denied: insufficient permissions to delete clients"
 
-                if RBACManager.is_admin(target_user) or RBACManager.is_owner(target_user):
-                    return False, "Cannot delete owner or admin users"
+            # Check project scope
+            scoped_project_id = project_id or current_user.project_id
+            if scoped_project_id and scoped_project_id != target_user.project_id:
+                return False, "Access denied"
+
+            # Prevent deletion of admin or owner users
+            if RBACManager.is_admin(target_user) or RBACManager.is_owner(target_user):
+                return False, "Cannot delete owner or admin users"
 
             if current_user.id == target_user.id:
                 return False, "Cannot delete yourself"
@@ -428,6 +449,8 @@ class UserCRUDService:
             UserProductPermission.query.filter_by(user_id=target_user_id).delete()
             DeveloperProductPermission.query.filter_by(user_id=target_user_id).delete()
             UserActivity.query.filter_by(user_id=target_user_id).delete()
+            TokenTransaction.query.filter_by(user_id=target_user_id).delete()
+            Notification.query.filter_by(user_id=target_user_id).delete()
 
             UserRole.query.filter_by(user_id=target_user_id).delete()
             UserPermission.query.filter_by(user_id=target_user_id).delete()

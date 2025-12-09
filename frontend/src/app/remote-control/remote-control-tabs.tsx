@@ -1,10 +1,13 @@
 import React from 'react'
 import { Tabs, TabsContent, TabsContents } from '@/components/animate-ui/components/radix/tabs'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Plus } from 'lucide-react'
 import CategoryTabs from './category-tabs'
 import FeatureList from './feature-list'
 import FeatureDialogs from './feature-dialogs'
 import { RemoteCategory, RemoteFeature } from '@/lib/remote-control-api'
+import { ConditionalRender } from '@/components/rbac/conditional-render'
 
 interface RemoteControlTabsProps {
   categories: RemoteCategory[]
@@ -23,7 +26,7 @@ interface RemoteControlTabsProps {
     category_id: string
     enabled: boolean
   }
-  setFormData: (data: any) => void
+  setFormData: (data: RemoteControlTabsProps['formData'] | ((prev: RemoteControlTabsProps['formData']) => RemoteControlTabsProps['formData'])) => void
   onAddCategory: () => void
   onManageCategories: () => void
   onFeatureToggle: (featureId: string) => void
@@ -31,11 +34,8 @@ interface RemoteControlTabsProps {
   onDeleteFeature: (featureId: string) => void
   onAddFeature: () => void
   onUpdateFeature: () => void
+  onResetForm: () => void
   getCategoryFeatures: (categoryId: string) => RemoteFeature[]
-  canCreate: boolean
-  canEdit: boolean
-  canDelete: boolean
-  canToggle: boolean
 }
 
 export default function RemoteControlTabs({
@@ -58,85 +58,172 @@ export default function RemoteControlTabs({
   onDeleteFeature,
   onAddFeature,
   onUpdateFeature,
-  getCategoryFeatures,
-  canCreate,
-  canEdit,
-  canDelete,
-  canToggle
+  onResetForm,
+  getCategoryFeatures
 }: RemoteControlTabsProps) {
-  return (
-    // АДАПТАЦИЯ: mt-2 для мобильных (отступ от кнопок табов), -mt-4 для десктопа (эффект склеивания)
-    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-2 sm:-mt-4">
-      <CategoryTabs
-        categories={categories}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        onAddCategory={onAddCategory}
-        onManageCategories={onManageCategories}
-        canCreate={canCreate}
-      />
 
-      {categories.length > 0 && (
-        <TabsContents>
-          {categories.map(category => (
-            // АДАПТАЦИЯ: mt-2 для мобильных, mt-0 для десктопа
-            <TabsContent key={category.id} value={category.id} className="mt-2 sm:mt-0">
-              <Card>
-                <CardHeader className="pb-3 sm:pb-0">
-                  {/* АДАПТАЦИЯ: flex-col на мобильных, flex-row на десктопе */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
-                    <div className="pr-0 sm:pr-4">
-                      <CardTitle className="text-base">{category.name}</CardTitle>
-                      <CardDescription className="mt-1 text-xs break-words">
-                        {category.description}
-                      </CardDescription>
-                    </div>
-                    
-                    {/* Контейнер для кнопки добавления фичи */}
-                    <div className="shrink-0">
-                      <FeatureDialogs
-                        categories={categories}
-                        currentCategoryId={category.id}
-                        addDialogOpen={addDialogOpen}
-                        setAddDialogOpen={setAddDialogOpen}
-                        editDialogOpen={editDialogOpen}
-                        setEditDialogOpen={setEditDialogOpen}
-                        editingFeature={editingFeature}
-                        formData={formData}
-                        setFormData={setFormData}
-                        onAddFeature={onAddFeature}
-                        onUpdateFeature={onUpdateFeature}
-                        onEditFeature={onEditFeature}
-                        canCreate={canCreate}
-                        canEdit={canEdit}
-                      />
-                    </div>
-                  </div>
-                </CardHeader>
-                
-                {/* АДАПТАЦИЯ: Убран отрицательный отступ на мобильных, так как макет вертикальный */}
-                <CardContent className="pt-0 pb-4 sm:-mt-3">
-                  <FeatureList
-                    features={getCategoryFeatures(category.id)}
-                    loading={loading}
-                    onFeatureToggle={onFeatureToggle}
-                    onEditFeature={onEditFeature}
-                    onDeleteFeature={onDeleteFeature}
-                    onAddFeature={() => {
-                      setFormData((prev: any) => ({ ...prev, category_id: category.id }))
-                      setAddDialogOpen(true)
-                    }}
-                    canCreate={canCreate}
-                    canEdit={canEdit}
-                    canDelete={canDelete}
-                    canToggle={canToggle}
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
-          ))}
-        </TabsContents>
-      )}
-    </Tabs>
+  // Helper to open Add Dialog with pre-filled category
+  const handleOpenAddDialog = (categoryId: string) => {
+    setFormData((prev) => ({ ...prev, category_id: categoryId }))
+    setAddDialogOpen(true)
+  }
+
+  if (categories.length === 0) {
+    return (
+      <>
+        <CategoryTabs
+          categories={categories}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          onAddCategory={onAddCategory}
+          onManageCategories={onManageCategories}
+        />
+        <FeatureDialogs
+          categories={categories}
+          currentCategoryId={activeTab}
+          addDialogOpen={addDialogOpen}
+          setAddDialogOpen={setAddDialogOpen}
+          editDialogOpen={editDialogOpen}
+          setEditDialogOpen={setEditDialogOpen}
+          editingFeature={editingFeature}
+          formData={formData}
+          setFormData={setFormData}
+          onAddFeature={onAddFeature}
+          onUpdateFeature={onUpdateFeature}
+          onEditFeature={onEditFeature}
+          onResetForm={onResetForm}
+        />
+      </>
+    )
+  }
+
+  // Render category content
+  const renderCategoryContent = (category: RemoteCategory) => (
+    <div className="space-y-4">
+      {/* Compact Header for Content */}
+      <div className="flex items-center justify-between pb-2 mb-2 border-b">
+        <div className="flex flex-col justify-center min-w-0">
+          <div className="flex items-baseline gap-2">
+            <h3 className="text-sm font-semibold leading-none">
+              {category.name ? category.name : <span className="text-muted-foreground italic">Unnamed</span>}
+            </h3>
+            {category.description && (
+              <span className="text-[10px] text-muted-foreground truncate hidden sm:inline-block">
+                — {category.description}
+              </span>
+            )}
+          </div>
+          {/* Mobile only description */}
+          {category.description && (
+            <span className="text-[10px] text-muted-foreground truncate sm:hidden mt-0.5">
+              {category.description}
+            </span>
+          )}
+        </div>
+
+        <ConditionalRender permission="remote_control.create" fallback={null}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleOpenAddDialog(category.id)}
+            className="h-6 px-2 text-xs hover:bg-muted"
+            title="Add Feature to this category"
+          >
+            <Plus className="h-3 w-3 sm:mr-1.5" />
+            <span className="hidden sm:inline">Add Feature</span>
+          </Button>
+        </ConditionalRender>
+      </div>
+      
+      <FeatureList
+        features={getCategoryFeatures(category.id)}
+        loading={loading}
+        onFeatureToggle={onFeatureToggle}
+        onEditFeature={onEditFeature}
+        onDeleteFeature={onDeleteFeature}
+        onAddFeature={() => handleOpenAddDialog(category.id)}
+      />
+    </div>
+  )
+
+  // If only one category, show content without tabs
+  if (categories.length === 1) {
+    const category = categories[0]
+    return (
+      <>
+        <CategoryTabs
+          categories={categories}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          onAddCategory={onAddCategory}
+          onManageCategories={onManageCategories}
+        />
+        <Card className="border-border bg-card mt-2">
+          <CardContent className="p-4 sm:p-6 min-h-[400px]">
+            {renderCategoryContent(category)}
+          </CardContent>
+        </Card>
+        <FeatureDialogs
+          categories={categories}
+          currentCategoryId={activeTab}
+          addDialogOpen={addDialogOpen}
+          setAddDialogOpen={setAddDialogOpen}
+          editDialogOpen={editDialogOpen}
+          setEditDialogOpen={setEditDialogOpen}
+          editingFeature={editingFeature}
+          formData={formData}
+          setFormData={setFormData}
+          onAddFeature={onAddFeature}
+          onUpdateFeature={onUpdateFeature}
+          onEditFeature={onEditFeature}
+          onResetForm={onResetForm}
+        />
+      </>
+    )
+  }
+
+  return (
+    <>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <CategoryTabs
+          categories={categories}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          onAddCategory={onAddCategory}
+          onManageCategories={onManageCategories}
+        />
+
+        {categories.length > 0 && (
+          <Card className="border-border bg-card mt-2">
+            <CardContent className="p-4 sm:p-6 min-h-[400px]">
+              <TabsContents>
+                {categories.map(category => (
+                  <TabsContent key={category.id} value={category.id} className="space-y-4 outline-none">
+                    {renderCategoryContent(category)}
+                  </TabsContent>
+                ))}
+              </TabsContents>
+            </CardContent>
+          </Card>
+        )}
+      </Tabs>
+
+      {/* Dialogs are rendered once at the root, not inside the loop */}
+      <FeatureDialogs
+        categories={categories}
+        currentCategoryId={activeTab} // Use activeTab as current context
+        addDialogOpen={addDialogOpen}
+        setAddDialogOpen={setAddDialogOpen}
+        editDialogOpen={editDialogOpen}
+        setEditDialogOpen={setEditDialogOpen}
+        editingFeature={editingFeature}
+        formData={formData}
+        setFormData={setFormData}
+        onAddFeature={onAddFeature}
+        onUpdateFeature={onUpdateFeature}
+        onEditFeature={onEditFeature}
+        onResetForm={onResetForm}
+      />
+    </>
   )
 }

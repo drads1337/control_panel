@@ -138,8 +138,15 @@ export const KeyRow: React.FC<KeyRowProps> = React.memo(({
       </TableCell>
       
       <TableCell className="text-left">
-        <div className="text-sm text-muted-foreground">
-          {keyData.created_at ? new Date(keyData.created_at).toLocaleDateString() : 'Unknown'}
+        <div className="text-sm">
+          <div className="text-muted-foreground">
+            {keyData.created_at ? new Date(keyData.created_at).toLocaleDateString() : 'Unknown'}
+          </div>
+          {keyData.creator_username && (
+            <div className="text-xs text-muted-foreground mt-1">
+              by {keyData.creator_username}
+            </div>
+          )}
         </div>
       </TableCell>
       

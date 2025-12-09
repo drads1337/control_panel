@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { useWebhookPermissions } from '@/contexts/webhook-permissions-context';
+import { usePermissions } from '@/hooks/use-permissions';
 import { webhookAPI } from '@/entities/webhook';
 import { toast } from 'sonner';
 import { getErrorMessage, isAxiosError } from '@/lib/error-utils';
@@ -7,7 +7,7 @@ import { filterMaskedValues } from '@/lib/webhook-utils';
 import type { WebhookData, WebhookFormData, WebhookStats } from '../types';
 
 export function useWebhookActions() {
-  const webhookPermissions = useWebhookPermissions();
+  const { hasPermission } = usePermissions();
 
   const [webhooks, setWebhooks] = useState<WebhookData[]>([]);
   const [stats, setStats] = useState<WebhookStats | null>(null);
@@ -68,7 +68,7 @@ export function useWebhookActions() {
     formData: WebhookFormData,
     customHeaders: Array<{ key: string, value: string }>
   ) => {
-    if (!webhookPermissions.canCreate) {
+    if (!hasPermission('webhooks.create')) {
       toast.error("You don't have permission to create webhooks");
       return false;
     }
@@ -100,7 +100,7 @@ export function useWebhookActions() {
       setError(errorMessage);
       return false;
     }
-  }, [webhookPermissions.canCreate, loadData]);
+  }, [hasPermission, loadData]);
 
   const handleEditWebhook = useCallback(async (
     webhookId: number,
@@ -108,7 +108,7 @@ export function useWebhookActions() {
     customHeaders: Array<{ key: string, value: string }>,
     originalWebhookData: WebhookData | null
   ) => {
-    if (!webhookPermissions.canEdit) {
+    if (!hasPermission('webhooks.edit')) {
       toast.error("You don't have permission to edit webhooks");
       return false;
     }
@@ -142,10 +142,10 @@ export function useWebhookActions() {
       setError(errorMessage);
       return false;
     }
-  }, [webhookPermissions.canEdit, loadData]);
+  }, [hasPermission, loadData]);
 
   const handleDeleteWebhook = useCallback(async (webhookId: number) => {
-    if (!webhookPermissions.canDelete) {
+    if (!hasPermission('webhooks.delete')) {
       toast.error("You don't have permission to delete webhooks");
       return false;
     }
@@ -167,10 +167,10 @@ export function useWebhookActions() {
       setError(errorMessage);
       return false;
     }
-  }, [webhookPermissions.canDelete, loadData]);
+  }, [hasPermission, loadData]);
 
   const handleTestWebhook = useCallback(async (webhookId: number) => {
-    if (!webhookPermissions.canTest) {
+    if (!hasPermission('webhooks.test')) {
       toast.error("You don't have permission to test webhooks");
       return;
     }
@@ -192,10 +192,10 @@ export function useWebhookActions() {
       }
       toast.error(errorMessage);
     }
-  }, [webhookPermissions.canTest]);
+  }, [hasPermission]);
 
   const handleToggleStatus = useCallback(async (webhook: WebhookData) => {
-    if (!webhookPermissions.canEdit) {
+    if (!hasPermission('webhooks.edit')) {
       toast.error("You don't have permission to edit webhooks");
       return;
     }
@@ -263,7 +263,7 @@ export function useWebhookActions() {
         });
       }
     }
-  }, [webhookPermissions.canEdit, stats]);
+  }, [hasPermission, stats]);
 
   const handleRefresh = useCallback(async () => {
     await loadData(false);

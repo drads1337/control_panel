@@ -52,7 +52,7 @@ interface LicenseKeysListProps {
   currentUserId?: number;
 }
 
-const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
+const LicenseKeysList: React.FC<LicenseKeysListProps> = React.memo(({
   keys,
   loading,
   showKey,
@@ -79,8 +79,14 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
   onViewModeChange,
   currentUserId
 }) => {
-  const allSelected = keys.length > 0 && keys.every(key => selectedKeys.has(key.id));
-  const someSelected = keys.some(key => selectedKeys.has(key.id));
+  const allSelected = React.useMemo(
+    () => keys.length > 0 && keys.every(key => selectedKeys.has(key.id)),
+    [keys, selectedKeys]
+  );
+  const someSelected = React.useMemo(
+    () => keys.some(key => selectedKeys.has(key.id)),
+    [keys, selectedKeys]
+  );
 
   const parentRef = useRef<HTMLDivElement>(null);
   const scrollPositionRef = useRef<number>(0);
@@ -109,17 +115,17 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
     }
   }, [loading, pagination.page]);
 
-  const isOwnKey = (key: LicenseKey) => {
+  const isOwnKey = React.useCallback((key: LicenseKey) => {
     return key.user_id === currentUserId;
-  };
+  }, [currentUserId]);
 
-  const canPerformAction = (key: LicenseKey, actionPermission: boolean) => {
+  const canPerformAction = React.useCallback((key: LicenseKey, actionPermission: boolean) => {
     if (!actionPermission) return false;
     if (isOwnKey(key)) return true;
     return canManage;
-  };
+  }, [isOwnKey, canManage]);
 
-  const getStatusType = (status: number, is_expired?: boolean): StatusType => {
+  const getStatusType = React.useCallback((status: number, is_expired?: boolean): StatusType => {
     if (status === KEY_STATUS.BLOCKED) return 'blocked';
     if (status === KEY_STATUS.ACTIVE && is_expired) return 'expired';
     switch (status) {
@@ -129,7 +135,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
       case KEY_STATUS.PAUSED: return 'inactive';
       default: return 'inactive';
     }
-  };
+  }, []);
 
   if (loading) {
     return (
@@ -201,7 +207,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                 <TableHead className="text-left">Status</TableHead>
                 <TableHead className="text-left">Time</TableHead>
                 <TableHead className="text-left">Devices</TableHead>
-                <TableHead className="text-left">Created</TableHead>
+                <TableHead className="text-left">Created By</TableHead>
                 <TableHead className="w-auto text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -381,6 +387,8 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
       )}
     </div>
   );
-};
+});
+
+LicenseKeysList.displayName = 'LicenseKeysList';
 
 export default LicenseKeysList;

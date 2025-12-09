@@ -13,6 +13,7 @@ from ..core.extensions import db
 from ..models.core import User
 from ..models.keys import TokenTransaction
 from ..utils.service_exceptions import ValidationError, ConflictError, NotFoundError, BusinessLogicError, ServiceError
+from ..utils.rbac_utils import RBACManager
 from .service_helpers import (
     get_service,
     get_user_crud_service,
@@ -103,7 +104,9 @@ def create_user_with_roles_and_products(
             current_user.id, "employees.create"
         ) or rbac_service.check_permission(current_user.id, "clients.create")
         
-        if has_moderator_permission and token_balance > 0:
+        is_admin_or_owner = RBACManager.is_admin(current_user)
+        
+        if has_moderator_permission and token_balance > 0 and not is_admin_or_owner:
             if current_user.token_balance < token_balance:
                 raise BusinessLogicError(
                     f"Insufficient balance. Required: {token_balance}, Available: {current_user.token_balance}"

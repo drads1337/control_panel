@@ -126,11 +126,27 @@ def get_logs(current_user=None, project_id=None):
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 50, type=int)
     action_filter = request.args.get("action")
-    user_filter = request.args.get("user_id", type=int)
+    username_filter = request.args.get("username")
+    user_id_filter = request.args.get("user_id", type=int)
     date_from = request.args.get("date_from")
     date_to = request.args.get("date_to")
     ip_filter = request.args.get("ip")
     project_id_param = request.args.get("project_id", type=int)
+    
+    # Convert username to user_id if username is provided
+    user_filter = None
+    if username_filter:
+        if is_owner and not project_id_param:
+            filtered_user = User.query.filter_by(username=username_filter).first()
+        else:
+            project_id_for_check = project_id_param if is_owner and project_id_param else (project_id or user.project_id)
+            filtered_user = User.query.filter_by(username=username_filter, project_id=project_id_for_check).first()
+        if filtered_user:
+            user_filter = filtered_user.id
+        else:
+            return jsonify({"error": "User not found or access denied"}), 404
+    elif user_id_filter:
+        user_filter = user_id_filter
 
     query = UserActivity.query
 
@@ -199,16 +215,7 @@ def get_logs(current_user=None, project_id=None):
     logger.info(f"=" * 80)
 
     if can_view_all_project_logs and user_filter:
-
-        if is_owner and not project_id_param:
-            filtered_user = User.query.filter_by(id=user_filter).first()
-        else:
-            project_id_for_check = project_id_param if is_owner and project_id_param else (project_id or user.project_id)
-            filtered_user = User.query.filter_by(id=user_filter, project_id=project_id_for_check).first()
-        if filtered_user:
-            query = query.filter_by(user_id=user_filter)
-        else:
-            return jsonify({"error": "User not found or access denied"}), 404
+        query = query.filter_by(user_id=user_filter)
 
     if action_filter:
         query = query.filter_by(action=action_filter)
@@ -747,10 +754,26 @@ def export_logs(current_user=None, project_id=None):
             return jsonify({"error": "Insufficient permissions. logs.view permission required"}), 403
 
     action_filter = request.args.get("action")
-    user_filter = request.args.get("user_id", type=int)
+    username_filter = request.args.get("username")
+    user_id_filter = request.args.get("user_id", type=int)
     date_from = request.args.get("date_from")
     date_to = request.args.get("date_to")
     project_id_param = request.args.get("project_id", type=int)
+    
+    # Convert username to user_id if username is provided
+    user_filter = None
+    if username_filter:
+        if is_owner and not project_id_param:
+            filtered_user = User.query.filter_by(username=username_filter).first()
+        else:
+            project_id_for_check = project_id_param if is_owner and project_id_param else (project_id or user.project_id)
+            filtered_user = User.query.filter_by(username=username_filter, project_id=project_id_for_check).first()
+        if filtered_user:
+            user_filter = filtered_user.id
+        else:
+            return jsonify({"error": "User not found or access denied"}), 404
+    elif user_id_filter:
+        user_filter = user_id_filter
 
 
     date_from_obj = None
@@ -786,15 +809,7 @@ def export_logs(current_user=None, project_id=None):
 
 
     if can_view_all_project_logs and user_filter:
-        if is_owner and not project_id_param:
-            filtered_user = User.query.filter_by(id=user_filter).first()
-        else:
-            project_id_for_check = project_id_param if is_owner and project_id_param else (project_id or user.project_id)
-            filtered_user = User.query.filter_by(id=user_filter, project_id=project_id_for_check).first()
-        if filtered_user:
-            query = query.filter_by(user_id=user_filter)
-        else:
-            return jsonify({"error": "User not found or access denied"}), 404
+        query = query.filter_by(user_id=user_filter)
 
     if action_filter:
         query = query.filter_by(action=action_filter)

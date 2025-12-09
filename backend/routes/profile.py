@@ -30,6 +30,7 @@ from ..middleware.serialization import serialize_response
 from ..utils.rbac_utils import RBACManager
 from ..config.config import Config
 from ..schemas.user import UserPrivateResponse
+from ..utils.service_exceptions import ConflictError, ServiceError, ValidationError
 
 profile_bp = Blueprint("profile", __name__)
 
@@ -190,10 +191,12 @@ def update_profile(current_user):
 
 
     user_profile_service = get_user_profile_service()
-    success, error = user_profile_service.update_user_profile(user, data)
-
-    if not success:
-        return jsonify({"error": error}), 400
+    try:
+        updated_profile = user_profile_service.update_user_profile(user, data)
+    except (ConflictError, ValidationError) as e:
+        return jsonify({"error": str(e)}), 400
+    except ServiceError as e:
+        return jsonify({"error": str(e)}), e.status_code if hasattr(e, 'status_code') else 500
 
     activity_service.log_activity(
         user,

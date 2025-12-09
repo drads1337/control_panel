@@ -8,7 +8,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 
 from ...models import User
-from ...middleware.auth import require_project_isolation, require_role, require_user
+from ...middleware.auth import require_project_isolation, require_role, require_user, require_any_permission
 from ...middleware.validation import validate_request
 from ...schemas.balance import BalanceTopupSchema, BalanceDeductSchema, BalanceTransactionsQuerySchema
 from ...utils.role_constants import RolePermissions
@@ -163,7 +163,7 @@ def deduct_user_balance(current_user, validated_data=None):
 @balance_bp.route("/transactions", methods=["GET"])
 @jwt_required()
 @require_user
-@require_role(RolePermissions.BALANCE_MANAGEMENT_ROLES)
+@require_any_permission(['billing.view_balance', 'billing.top_up_balance', 'employees.edit', 'clients.edit'])
 @require_project_isolation
 @validate_request(BalanceTransactionsQuerySchema, data_type="query")
 def get_user_transactions(current_user, validated_params=None):

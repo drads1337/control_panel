@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { WebhookForm } from './webhook-form';
-import { usePermissions } from '@/hooks/use-permissions';
+import { ConditionalRender } from '@/components/rbac/conditional-render';
 import type { WebhookData, WebhookFormData, SecretsVisibility } from './types';
 
 interface EditWebhookDialogProps {
@@ -40,15 +40,13 @@ export function EditWebhookDialog({
   saving,
   onUpdateWebhook
 }: EditWebhookDialogProps) {
-  const { hasPermission } = usePermissions();
-  const canEdit = hasPermission('webhooks.edit');
-
-  if (!editingWebhook || !canEdit) {
+  if (!editingWebhook) {
     return null;
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <ConditionalRender permission="webhooks.edit" fallback={null}>
+      <Dialog open={open} onOpenChange={onOpenChange}>
       {/* 
           АДАПТАЦИЯ: 
           1. w-[95vw] для мобильных.
@@ -92,5 +90,6 @@ export function EditWebhookDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    </ConditionalRender>
   );
 }

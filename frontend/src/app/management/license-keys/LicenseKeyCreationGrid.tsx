@@ -17,7 +17,7 @@ interface LicenseKeyCreationGridProps {
   onKeyCreated: (createdKeyId?: number) => void;
 }
 
-const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ products, onKeyCreated }) => {
+const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = React.memo(({ products, onKeyCreated }) => {
   const { hasPermission } = usePermissions();
   const { user } = useAuthContext();
   const canCreate = hasPermission('keys.create');
@@ -325,6 +325,8 @@ const LicenseKeyCreationGrid: React.FC<LicenseKeyCreationGridProps> = ({ product
       </div>
     </div>
   );
-};
+});
+
+LicenseKeyCreationGrid.displayName = 'LicenseKeyCreationGrid';
 
 export default LicenseKeyCreationGrid;

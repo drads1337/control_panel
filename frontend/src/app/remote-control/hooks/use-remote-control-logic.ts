@@ -431,6 +431,7 @@ export function useRemoteControlLogic() {
     setCategoryDialogOpen,
     editingFeature,
     editingCategory,
+    setEditingCategory,
     formData,
     setFormData,
     categoryFormData,

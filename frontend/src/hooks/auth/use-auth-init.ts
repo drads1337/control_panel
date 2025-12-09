@@ -39,13 +39,16 @@ export function useAuthInit(
     const controller = new AbortController()
     abortControllerRef.current = controller
 
+    // Увеличиваем таймаут fallback, чтобы дать больше времени на восстановление сессии
     const fallbackTimeout = setTimeout(() => {
       if (isInitializing.current) {
+        // При таймауте не устанавливаем isAuthenticated: false сразу
+        // Позволяем use-auth-redirect решить, нужен ли редирект
         updateState({ isLoading: false, isInitialized: true })
         isInitializing.current = false
         onInitialized?.()
       }
-    }, 5000)
+    }, 8000) // Увеличиваем до 8 секунд
 
     const cleanup = () => {
       if (!controller.signal.aborted) {
@@ -58,51 +61,62 @@ export function useAuthInit(
       isInitializing.current = false
     }
 
-    authService
-      .getCurrentUser(controller)
-      .then(userData => {
-        if (!controller.signal.aborted && userData) {
-          setUser(userData)
-          updateState({
-            isLoading: false,
-            isInitialized: true,
-            error: null
-          })
-          onInitialized?.()
-        } else if (!userData) {
-          updateState({
-            user: null,
-            isAuthenticated: false,
-            token: null,
-            isLoading: false,
-            isInitialized: true,
-            error: null
-          })
-          onInitialized?.()
-        }
-      })
-      .catch(error => {
-        if (error.name !== 'AbortError' && !controller.signal.aborted) {
-          updateState({
-            user: null,
-            isAuthenticated: false,
-            token: null,
-            isLoading: false,
-            isInitialized: true,
-            error: null
-          })
-          onInitialized?.()
-        }
-      })
-      .finally(() => {
-        clearTimeout(fallbackTimeout)
-        if (abortControllerRef.current === controller) {
-          abortControllerRef.current = null
-        }
-        isInitializing.current = false
-      })
+    // Добавляем небольшую задержку перед первым запросом, чтобы дать время
+    // cookies и CSRF токену восстановиться после перезагрузки страницы
+    const initDelay = setTimeout(() => {
+      if (controller.signal.aborted) {
+        return
+      }
 
-    return cleanup
+      authService
+        .getCurrentUser(controller)
+        .then(userData => {
+          if (!controller.signal.aborted && userData) {
+            setUser(userData)
+            updateState({
+              isLoading: false,
+              isInitialized: true,
+              error: null
+            })
+            onInitialized?.()
+          } else if (!userData) {
+            // Если userData null после всех попыток, устанавливаем user: null
+            // setUser(null) автоматически установит isAuthenticated: false
+            setUser(null)
+            updateState({
+              isLoading: false,
+              isInitialized: true,
+              error: null
+            })
+            onInitialized?.()
+          }
+        })
+        .catch(error => {
+          if (error.name !== 'AbortError' && !controller.signal.aborted) {
+            // При ошибке после всех попыток устанавливаем user: null
+            // setUser(null) автоматически установит isAuthenticated: false
+            setUser(null)
+            updateState({
+              isLoading: false,
+              isInitialized: true,
+              error: null
+            })
+            onInitialized?.()
+          }
+        })
+        .finally(() => {
+          clearTimeout(fallbackTimeout)
+          if (abortControllerRef.current === controller) {
+            abortControllerRef.current = null
+          }
+          isInitializing.current = false
+        })
+    }, 200) // Задержка 200ms для восстановления cookies
+
+    return () => {
+      clearTimeout(initDelay)
+      cleanup()
+    }
 
   }, [])
 }

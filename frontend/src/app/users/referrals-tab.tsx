@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import CreateReferralDialog from './create-referral-dialog';
-import ReferralsFilters from './referrals-filters';
 import { useAuthContext } from '@/contexts/auth-context';
 import { Plus, RefreshCw, Key, Copy, Trash2, MoreVertical, Layers, Coins, Clock, Calendar, Check } from 'lucide-react';
 import { useReferralsTab } from '@/hooks/use-referrals-tab';
@@ -222,12 +221,6 @@ const ReferralsTab: React.FC = () => {
   const { user } = useAuthContext();
   const isAdmin = user?.roles?.includes('owner') || user?.roles?.includes('admin') || user?.roles?.includes('moderator');
 
-  const [filters, setFilters] = useState({
-    status: 'all',
-    productId: 'all',
-    search: '',
-  });
-
   const [copiedCodeId, setCopiedCodeId] = useState<number | null>(null);
 
   const {
@@ -252,50 +245,6 @@ const ReferralsTab: React.FC = () => {
     refetchReferralCodes,
   } = useReferralsTab();
 
-  const filteredReferralCodes = useMemo(() => {
-    return referralCodes.filter((refCode) => {
-      // Filter by status
-      if (filters.status !== 'all') {
-        if (filters.status === 'active' && (refCode.used || refCode.is_expired)) {
-          return false;
-        }
-        if (filters.status === 'used' && !refCode.used) {
-          return false;
-        }
-        if (filters.status === 'expired' && !refCode.is_expired) {
-          return false;
-        }
-      }
-
-      // Filter by product
-      if (filters.productId !== 'all') {
-        const productIdNum = parseInt(filters.productId, 10);
-        if (!refCode.product_ids || !refCode.product_ids.includes(productIdNum)) {
-          return false;
-        }
-      }
-
-      // Filter by search
-      if (filters.search) {
-        const searchLower = filters.search.toLowerCase();
-        const codeMatch = refCode.code?.toLowerCase().includes(searchLower);
-        if (!codeMatch) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-  }, [referralCodes, filters]);
-
-  const handleClearFilters = () => {
-    setFilters({
-      status: 'all',
-      productId: 'all',
-      search: '',
-    });
-  };
-
   const handleCopyCode = async (code: string, codeId: number) => {
     try {
       await copyToClipboard(code);
@@ -317,19 +266,13 @@ const ReferralsTab: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <ReferralsFilters
-        filters={filters}
-        onFiltersChange={setFilters}
-        products={availableProducts}
-        onClearFilters={handleClearFilters}
-      />
       <Card className={cn(isMobile && "border-0 shadow-none bg-transparent")}>
         <CardHeader className={cn("pb-4", isMobile && "px-0 pt-0")}>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-base">Referral Codes</CardTitle>
               <CardDescription className="mt-1 text-xs">
-                {filteredReferralCodes.length || 0} of {referralCodes.length || 0} codes
+                {referralCodes.length || 0} codes
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -367,12 +310,12 @@ const ReferralsTab: React.FC = () => {
                 Error: {referralCodesError instanceof Error ? referralCodesError.message : 'An error occurred'}
               </div>
             </div>
-          ) : filteredReferralCodes.length === 0 ? (
+          ) : referralCodes.length === 0 ? (
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
                 <Key className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
                 <div className="text-sm text-muted-foreground">
-                  {referralCodes.length === 0 ? 'No referral codes found' : 'No codes match the filters'}
+                  No referral codes found
                 </div>
               </div>
             </div>
@@ -381,7 +324,7 @@ const ReferralsTab: React.FC = () => {
               {/* Desktop View */}
               {!isMobile && (
                 <div className="divide-y border rounded-md">
-                  {filteredReferralCodes.map((refCode) => (
+                  {referralCodes.map((refCode) => (
                     <ReferralRow 
                       key={refCode.id} 
                       refCode={refCode} 
@@ -398,7 +341,7 @@ const ReferralsTab: React.FC = () => {
               {/* Mobile View */}
               {isMobile && (
                 <div className="flex flex-col gap-1">
-                  {filteredReferralCodes.map((refCode) => (
+                  {referralCodes.map((refCode) => (
                     <MobileReferralCard 
                       key={refCode.id} 
                       refCode={refCode} 

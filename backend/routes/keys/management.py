@@ -1313,10 +1313,11 @@ def download_key(key_id, current_user, project_id=None):
     """Download a key as JSON file
 
     SECURITY: Requires keys.view permission to download full key.
-    # Get services once at the start (DI pattern)
-    rbac_service = get_service('rbac_service')
     Users without permission will receive a masked key.
     """
+    # Get services once at the start (DI pattern)
+    rbac_service = get_service('rbac_service')
+    
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
@@ -1389,8 +1390,6 @@ def get_key_details(key_id, current_user, project_id=None):
     """Get detailed information about a key
 
     SECURITY: By default, keys are masked. Full keys are only returned if:
-    # Get services once at the start (DI pattern)
-    rbac_service = get_service('rbac_service')
     - User has keys.view permission, OR
     - User is owner/admin, OR
     - It's the user's own key and they have keys.view permission
@@ -1398,6 +1397,9 @@ def get_key_details(key_id, current_user, project_id=None):
     This endpoint uses a more lenient rate limit (60/min) to allow users
     to view multiple keys in quick succession without hitting rate limits.
     """
+    # Get services once at the start (DI pattern)
+    rbac_service = get_service('rbac_service')
+    
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
@@ -1485,14 +1487,15 @@ def reveal_key(key_id, current_user, project_id=None):
     """Reveal full license key
 
     SECURITY: This endpoint requires keys.see_analytics or keys.copy permission to reveal full keys.
-    # Get services once at the start (DI pattern)
-    rbac_service = get_service('rbac_service')
     This is a security measure to prevent mass data leakage. Users must explicitly
     request to reveal a key, and the request is logged for audit purposes.
 
     Returns:
         Full key value if user has permission, otherwise returns masked key.
     """
+    # Get services once at the start (DI pattern)
+    rbac_service = get_service('rbac_service')
+    
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 

@@ -31,6 +31,8 @@ interface UseRBACTabReturn {
   handleDeleteRole: (roleId: number) => Promise<void>;
   handleEditRole: (role: Role) => void;
   resetRoleForm: () => void;
+  refetchRoles: () => Promise<any>;
+  refetchPermissions: () => Promise<any>;
 }
 
 export function useRBACTab(): UseRBACTabReturn {
@@ -54,6 +56,8 @@ export function useRBACTab(): UseRBACTabReturn {
     isCreating,
     isUpdating,
     isDeleting,
+    refetchRoles,
+    refetchPermissions,
   } = useRBAC();
 
   const resetRoleForm = useCallback(() => {
@@ -130,5 +134,7 @@ export function useRBACTab(): UseRBACTabReturn {
     handleDeleteRole,
     handleEditRole,
     resetRoleForm,
+    refetchRoles,
+    refetchPermissions,
   };
 }

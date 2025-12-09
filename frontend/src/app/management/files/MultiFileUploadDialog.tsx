@@ -20,6 +20,8 @@ import { cn } from '@/lib/utils';
 interface MultiFileUploadDialogProps {
   product: Product | null;
   onUploadComplete?: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 interface FileWithPreview {
@@ -34,11 +36,15 @@ interface FileWithPreview {
 
 const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
   product,
-  onUploadComplete
+  onUploadComplete,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange
 }) => {
   const { hasPermission } = usePermissions();
   const canUploadFiles = hasPermission('products.files_upload') || hasPermission('products.upload_files');
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setOpen = controlledOnOpenChange || setInternalOpen;
   const [uploadForm, setUploadForm] = useState({
     name: '',
     description: '',
@@ -94,8 +100,8 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
 
       setTimeout(() => {
         onUploadComplete?.();
+        setOpen(false);
       }, 1000);
-      setOpen(false);
       setSelectedFiles([]);
       resetStats();
     } catch (error) {
@@ -103,20 +109,8 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
     }
   };
 
-  return (
-    <ConditionalRender permission="products.files_upload" fallback={null}>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          <Button 
-            variant="outline" 
-            size="sm"
-            disabled={!canUploadFiles}
-            className="whitespace-nowrap"
-          >
-            Multi-Upload
-          </Button>
-        </DialogTrigger>
-      <DialogContent className="w-[95vw] sm:max-w-[800px] max-h-[90vh] flex flex-col p-0 overflow-hidden gap-0">
+  const dialogContent = (
+    <DialogContent className="w-[95vw] sm:max-w-[800px] max-h-[90vh] flex flex-col p-0 overflow-hidden gap-0">
         <DialogHeader className="p-4 sm:p-6 pb-2 sm:pb-4 border-b flex-shrink-0">
           <DialogTitle className="text-base sm:text-lg">
             Multi-File Upload
@@ -345,7 +339,35 @@ const MultiFileUploadDialog: React.FC<MultiFileUploadDialogProps> = ({
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+  );
+
+  if (controlledOpen !== undefined) {
+    // Controlled mode - no trigger button
+    return (
+      <ConditionalRender permission="products.files_upload" fallback={null}>
+        <Dialog open={open} onOpenChange={setOpen}>
+          {dialogContent}
+        </Dialog>
+      </ConditionalRender>
+    );
+  }
+
+  // Uncontrolled mode - with trigger button
+  return (
+    <ConditionalRender permission="products.files_upload" fallback={null}>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <Button 
+            variant="outline" 
+            size="sm"
+            disabled={!canUploadFiles}
+            className="whitespace-nowrap"
+          >
+            Multi-Upload
+          </Button>
+        </DialogTrigger>
+        {dialogContent}
+      </Dialog>
     </ConditionalRender>
   );
 };

@@ -25,7 +25,7 @@ export const logKeys = {
 
 export interface LogFilters {
   action?: string | undefined
-  userId?: number
+  userId?: string
   dateFrom?: string
   dateTo?: string
   ip?: string

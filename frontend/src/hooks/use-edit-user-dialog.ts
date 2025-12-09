@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { enhancedApi, getErrorMessage } from '@/shared/api/enhanced-client';
 import { getErrorMessage as getErrorMessageUtil, getErrorStatus } from '@/lib/error-utils';
 import { updateUser } from '@/entities/user/api/user';
-import { getProducts } from '@/entities/product/api/product';
+import { getProducts, toggleUserProductAccess } from '@/entities/product/api/product';
 import { toast } from 'sonner';
 import type { User } from '@/entities/user';
 
@@ -190,9 +190,14 @@ export function useEditUserDialog(user: User | null, open: boolean, onSuccess: (
       if (Array.isArray(response.data)) {
         const accessibleProducts = response.data
           .filter((product: any) => product.has_access === true)
-          .map((product: any) => product.product_id || product.id)
+          .map((product: any) => {
+            const id = product.product_id || product.id;
+            const numId = Number(id);
+            return isNaN(numId) ? null : numId;
+          })
+          .filter((id): id is number => id !== null);
         
-        return accessibleProducts
+        return accessibleProducts;
       }
       return []
     } catch (error: unknown) {
@@ -407,49 +412,181 @@ export function useEditUserDialog(user: User | null, open: boolean, onSuccess: (
 
       try {
         const currentProductAccess = await loadUserProductAccess(numericUserId);
-        const currentProductSet = new Set(currentProductAccess);
-        const newProductSet = new Set(form.selected_products || []);
+        // Normalize all IDs to numbers for proper comparison
+        const currentProductSet = new Set(currentProductAccess.map(id => {
+          const numId = Number(id);
+          return isNaN(numId) ? null : numId;
+        }).filter((id): id is number => id !== null));
+        
+        const formProducts = (form.selected_products || []).map(id => {
+          const numId = Number(id);
+          return isNaN(numId) ? null : numId;
+        }).filter((id): id is number => id !== null);
+        const newProductSet = new Set(formProducts);
 
-        const productsToAdd = form.selected_products.filter(productId => !currentProductSet.has(productId));
-        const productsToRemove = currentProductAccess.filter(productId => !newProductSet.has(productId));
+        // Products to add: in form but not in current
+        const productsToAdd = formProducts.filter(productId => !currentProductSet.has(productId));
+        // Products to remove: in current but not in form
+        const productsToRemove = Array.from(currentProductSet).filter(productId => !newProductSet.has(productId));
 
-        for (const productId of productsToAdd) {
+        const productErrors: string[] = [];
+
+        // Helper function to add delay between requests to avoid rate limiting/auth issues
+        const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+        // Add products (toggle from false to true)
+        let hasAuthError = false;
+        for (let i = 0; i < productsToAdd.length; i++) {
+          const productId = productsToAdd[i];
+          
+          // Add small delay between requests (except for the first one)
+          if (i > 0) {
+            await delay(100); // 100ms delay between requests
+          }
+          
           try {
-            const productIdStr = String(productId);
-            if (!productIdStr || productIdStr === 'undefined' || productIdStr === 'null') {
-              continue;
+            const response = await toggleUserProductAccess(numericUserId, productId);
+            // Verify the response indicates access was granted
+            if (response.has_access !== true) {
+              console.warn(`Product ${productId} toggle did not grant access. Response:`, response);
+              // If toggle resulted in false, toggle again (edge case where product was already enabled)
+              if (response.has_access === false) {
+                await delay(100);
+                const retryResponse = await toggleUserProductAccess(numericUserId, productId);
+                if (retryResponse.has_access !== true) {
+                  productErrors.push(`Product ${productId}: Failed to enable access after retry`);
+                }
+              }
             }
-            await enhancedApi.post(`/api/users/${numericUserId}/products/${productIdStr}/toggle`);
-          } catch (error) {
+          } catch (error: any) {
+            const errorMessage = getErrorMessage(error);
+            const status = getErrorStatus(error);
+            
+            if (status === 401) {
+              hasAuthError = true;
+              productErrors.push(`Authentication failed. Please refresh the page and try again.`);
+              console.error(`Authentication error when adding product access for product ${productId}:`, error);
+              // Stop processing if we get an auth error
+              break;
+            } else if (status === 403) {
+              productErrors.push(`Product ${productId}: Access denied. You don't have permission to modify product access.`);
+              console.error(`Permission denied when adding product access for product ${productId}:`, error);
+            } else {
+              productErrors.push(`Product ${productId}: ${errorMessage}`);
+              console.error(`Failed to add product access for product ${productId}:`, error);
+            }
           }
         }
 
-        for (const productId of productsToRemove) {
-          try {
-            const productIdStr = String(productId);
-            if (!productIdStr || productIdStr === 'undefined' || productIdStr === 'null') {
-              continue;
+        // Remove products (toggle from true to false)
+        if (!hasAuthError) {
+          for (let i = 0; i < productsToRemove.length; i++) {
+            const productId = productsToRemove[i];
+            
+            // Add small delay between requests (except for the first one)
+            if (i > 0) {
+              await delay(100); // 100ms delay between requests
             }
-            await enhancedApi.post(`/api/users/${numericUserId}/products/${productIdStr}/toggle`);
-          } catch (error) {
+            
+            try {
+              const response = await toggleUserProductAccess(numericUserId, productId);
+              // Verify the response indicates access was revoked
+              if (response.has_access !== false) {
+                console.warn(`Product ${productId} toggle did not revoke access. Response:`, response);
+                // If toggle resulted in true, toggle again (edge case where product was already disabled)
+                if (response.has_access === true) {
+                  await delay(100);
+                  const retryResponse = await toggleUserProductAccess(numericUserId, productId);
+                  if (retryResponse.has_access !== false) {
+                    productErrors.push(`Product ${productId}: Failed to disable access after retry`);
+                  }
+                }
+              }
+            } catch (error: any) {
+              const errorMessage = getErrorMessage(error);
+              const status = getErrorStatus(error);
+              
+              if (status === 401) {
+                hasAuthError = true;
+                productErrors.push(`Authentication failed. Please refresh the page and try again.`);
+                console.error(`Authentication error when removing product access for product ${productId}:`, error);
+                // Stop processing if we get an auth error
+                break;
+              } else if (status === 403) {
+                productErrors.push(`Product ${productId}: Access denied. You don't have permission to modify product access.`);
+                console.error(`Permission denied when removing product access for product ${productId}:`, error);
+              } else {
+                productErrors.push(`Product ${productId}: ${errorMessage}`);
+                console.error(`Failed to remove product access for product ${productId}:`, error);
+              }
+            }
           }
+        }
+
+        if (hasAuthError) {
+          toast.error('Authentication failed. Please refresh the page and log in again.');
+          setLoading(false);
+          return;
+        }
+
+        if (productErrors.length > 0) {
+          toast.warning(`Some product access changes failed: ${productErrors.slice(0, 3).join(', ')}${productErrors.length > 3 ? '...' : ''}`);
         }
       } catch (error) {
         const errorMessage = getErrorMessage(error);
+        console.error('Failed to update product access:', error);
         toast.warning(`User updated but failed to update product access: ${errorMessage}`);
       }
 
       try {
         const permissionsToSend = form.selected_permissions || [];
 
+        if (permissionsToSend.length === 0) {
+          toast.error('At least one permission is required');
+          setLoading(false);
+          return;
+        }
+
+        // Ensure permissions is an array of strings
+        if (!Array.isArray(permissionsToSend)) {
+          toast.error('Invalid permissions format. Expected an array of permission names.');
+          setLoading(false);
+          return;
+        }
+
         await enhancedApi.put(`/api/rbac/users/${numericUserId}/permissions`, {
           permissions: permissionsToSend
         });
-      } catch (error) {
+      } catch (error: any) {
         const errorMessage = getErrorMessage(error);
+        const status = getErrorStatus(error);
+        console.error('Failed to update permissions:', error);
+
+        if (status === 401) {
+          toast.error('Authentication failed. Please refresh the page and log in again.');
+          setLoading(false);
+          return;
+        }
+
+        if (status === 400) {
+          const errorData = error?.response?.data;
+          let detailedMessage = errorMessage;
+          
+          if (errorData?.error) {
+            detailedMessage = errorData.error;
+          } else if (errorData?.message) {
+            detailedMessage = errorData.message;
+          }
+          
+          toast.error(`Failed to update permissions: ${detailedMessage}`);
+          setLoading(false);
+          return;
+        }
 
         if (!errorMessage.includes('Static roles cannot manage RBAC')) {
-          toast.warning(`User updated but failed to update permissions: ${errorMessage}`);
+          toast.error(`Failed to update permissions: ${errorMessage}`);
+          setLoading(false);
+          return;
         }
       }
 

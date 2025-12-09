@@ -532,11 +532,18 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
         await fetchUsersWithTracking({
           roles: activeRolesFilter
         });
-      } catch (error) {
+      } catch (error: any) {
+        // Check if this is an authentication error (401)
+        const isAuthError = error?.response?.status === 401 || error?.isAuthError
+        const category = isAuthError ? 'authentication' : 'client'
+        
+        // Global error handler will handle authentication errors and redirect to login
+        // We just need to show appropriate error message
         await handleError(error, {
-          category: 'client',
-          userMessage: 'Failed to delete user',
-          metadata: { userId, action: 'delete_user' }
+          category,
+          userMessage: isAuthError ? 'Your session has expired. Please log in again.' : 'Failed to delete user',
+          metadata: { userId, action: 'delete_user' },
+          skipToast: isAuthError // Don't show toast for auth errors - redirect will happen
         })
       }
     }

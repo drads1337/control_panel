@@ -77,6 +77,22 @@ class WebhookCreateSchema(BaseSchema):
             raise ValueError("Webhook name cannot be empty")
         return v.strip()
 
+    @field_validator("url", mode="before")
+    @classmethod
+    def validate_url(cls, v) -> Optional[HttpUrl]:
+        """Convert empty strings to None for URL"""
+        if v == "" or v is None:
+            return None
+        return v
+
+    @field_validator("discord_webhook_url", mode="before")
+    @classmethod
+    def validate_discord_webhook_url(cls, v) -> Optional[HttpUrl]:
+        """Convert empty strings to None for Discord webhook URL"""
+        if v == "" or v is None:
+            return None
+        return v
+
 
 class WebhookUpdateSchema(BaseSchema):
     """Schema for updating a webhook"""
@@ -157,4 +173,20 @@ class WebhookUpdateSchema(BaseSchema):
         if not v or not v.strip():
             raise ValueError("Webhook name cannot be empty")
         return v.strip()
+
+    @field_validator("url", mode="before")
+    @classmethod
+    def validate_url(cls, v) -> Optional[HttpUrl]:
+        """Convert empty strings to None for URL"""
+        if v == "" or v is None:
+            return None
+        return v
+
+    @field_validator("discord_webhook_url", mode="before")
+    @classmethod
+    def validate_discord_webhook_url(cls, v) -> Optional[HttpUrl]:
+        """Convert empty strings to None for Discord webhook URL"""
+        if v == "" or v is None:
+            return None
+        return v
 

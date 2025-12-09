@@ -6,7 +6,6 @@ interface ProductsTableProps {
   products: Product[];
   selectedProducts: number[];
   onToggleProductSelection: (productId: number) => void;
-  onSelectAll: (selected: boolean) => void;
   onViewProduct: (product: Product) => void;
   onEditProduct: (product: Product) => void;
   onUploadProduct: (product: Product) => void;
@@ -28,7 +27,6 @@ export const ProductsTable: React.FC<ProductsTableProps> = ({
   products,
   selectedProducts,
   onToggleProductSelection,
-  onSelectAll,
   onViewProduct,
   onEditProduct,
   onUploadProduct,

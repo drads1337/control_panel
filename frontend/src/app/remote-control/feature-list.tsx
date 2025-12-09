@@ -2,7 +2,7 @@ import React from 'react'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Spinner } from '@/components/ui/spinner'
-import { Plus, Edit, Trash2, Settings } from 'lucide-react'
+import { Plus, Edit, Trash2 } from 'lucide-react'
 import { RemoteFeature } from '@/lib/remote-control-api'
 import { ConditionalRender } from '@/components/rbac/conditional-render'
 
@@ -12,11 +12,7 @@ interface FeatureListProps {
   onFeatureToggle: (featureId: string) => void
   onEditFeature: (feature: RemoteFeature) => void
   onDeleteFeature: (featureId: string) => void
-  onAddFeature: (categoryId: string) => void
-  canCreate: boolean
-  canEdit: boolean
-  canDelete: boolean
-  canToggle: boolean
+  onAddFeature: () => void
 }
 
 const FeatureItem = React.memo(({ 
@@ -24,73 +20,57 @@ const FeatureItem = React.memo(({
   loading, 
   onFeatureToggle,
   onEditFeature,
-  onDeleteFeature,
-  canEdit,
-  canDelete,
-  canToggle
+  onDeleteFeature
 }: { 
   feature: RemoteFeature;
   loading: boolean;
   onFeatureToggle: (featureId: string) => void;
   onEditFeature: (feature: RemoteFeature) => void;
   onDeleteFeature: (featureId: string) => void;
-  canEdit: boolean;
-  canDelete: boolean;
-  canToggle: boolean;
 }) => {
   return (
-    <div className="flex items-center justify-between p-2.5 border-b hover:bg-accent/50 transition-colors">
-      {/* АДАПТАЦИЯ: pr-2 добавляет отступ от кнопок на мобильном */}
-      <div className="flex items-center gap-3 flex-1 min-w-0 pr-2">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h4 className="font-medium text-sm truncate">
-              {feature.name}
-            </h4>
-            {feature.enabled && (
-              // АДАПТАЦИЯ: hidden sm:inline - скрываем текст "Enabled" на телефоне, 
-              // так как Switch уже показывает состояние. Экономит место.
-              <span className="text-xs text-muted-foreground hidden sm:inline">• Enabled</span>
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground truncate mt-0.5">
-            {feature.description}
-          </p>
-        </div>
+    <div className="group flex items-center justify-between py-1.5 px-1 border-b last:border-0 hover:bg-muted/30 transition-colors rounded-sm">
+      <div className="flex-1 min-w-0 pr-2 space-y-0.5">
+        <h4 className="font-medium text-xs leading-none">{feature.name}</h4>
+        <p className="text-[10px] text-muted-foreground truncate leading-none">
+          {feature.description}
+        </p>
       </div>
       
-      {/* АДАПТАЦИЯ: shrink-0 гарантирует, что кнопки не будут сплющиваться */}
-      <div className="flex items-center gap-1 shrink-0">
+      <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          <ConditionalRender permission="remote_control.edit" fallback={null}>
+            <Button 
+              variant="ghost" 
+              size="icon"
+              className="h-6 w-6 text-muted-foreground hover:text-foreground"
+              onClick={() => onEditFeature(feature)}
+              disabled={loading}
+            >
+              <Edit className="h-3 w-3" />
+            </Button>
+          </ConditionalRender>
+          <ConditionalRender permission="remote_control.delete" fallback={null}>
+            <Button 
+              variant="ghost" 
+              size="icon"
+              className="h-6 w-6 text-muted-foreground hover:text-destructive"
+              onClick={() => onDeleteFeature(feature.id)}
+              disabled={loading}
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          </ConditionalRender>
+        </div>
+
         <ConditionalRender permission="remote_control.toggle" fallback={null}>
           <Switch
+            className="scale-75 origin-right data-[state=checked]:bg-primary"
             checked={feature.enabled}
             onCheckedChange={() => onFeatureToggle(feature.id)}
-            disabled={!canToggle || loading}
-            // АДАПТАЦИЯ: scale-90 sm:scale-100 опционально уменьшает свитч на телефоне, если нужно
+            disabled={loading}
           />
         </ConditionalRender>
-        {canEdit && (
-          <Button 
-            variant="ghost" 
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => onEditFeature(feature)}
-            disabled={loading}
-          >
-            <Edit className="h-4 w-4" />
-          </Button>
-        )}
-        {canDelete && (
-          <Button 
-            variant="ghost" 
-            size="icon"
-            className="h-8 w-8 text-destructive hover:text-destructive"
-            onClick={() => onDeleteFeature(feature.id)}
-            disabled={loading}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        )}
       </div>
     </div>
   );
@@ -104,43 +84,37 @@ export default function FeatureList({
   onFeatureToggle,
   onEditFeature,
   onDeleteFeature,
-  onAddFeature,
-  canCreate,
-  canEdit,
-  canDelete,
-  canToggle
+  onAddFeature
 }: FeatureListProps) {
   if (loading) {
     return (
-      <Spinner message="Loading features..." />
+      <div className="flex justify-center py-4">
+        <Spinner size="sm" /> 
+      </div>
     )
   }
 
   if (features.length === 0) {
     return (
-      <div className="flex items-center justify-center py-6">
-        <div className="text-center px-4">
-          <Settings className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-          <div className="text-sm text-muted-foreground">No features in this category</div>
-          <ConditionalRender permission="remote_control.create" fallback={null}>
-            <Button
-              onClick={() => onAddFeature('')}
-              variant="default"
-              size="sm"
-              className="mt-3"
-              disabled={!canCreate}
-            >
-              <Plus className="h-4 w-4 mr-1.5" />
-              Add Feature
-            </Button>
-          </ConditionalRender>
-        </div>
+      <div className="flex flex-col items-center justify-center py-6 border border-dashed rounded-md bg-muted/10">
+        <p className="text-xs text-muted-foreground mb-2">No features here</p>
+        <ConditionalRender permission="remote_control.create" fallback={null}>
+          <Button
+            onClick={onAddFeature}
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs px-2.5"
+          >
+            <Plus className="h-3 w-3 mr-1.5" />
+            Add Feature
+          </Button>
+        </ConditionalRender>
       </div>
     )
   }
 
   return (
-    <div className="divide-y">
+    <div className="flex flex-col">
       {features.map((feature) => (
         <FeatureItem
           key={feature.id}
@@ -149,9 +123,6 @@ export default function FeatureList({
           onFeatureToggle={onFeatureToggle}
           onEditFeature={onEditFeature}
           onDeleteFeature={onDeleteFeature}
-          canEdit={canEdit}
-          canDelete={canDelete}
-          canToggle={canToggle}
         />
       ))}
     </div>

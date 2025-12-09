@@ -164,8 +164,8 @@ export default function SecurityTabs({
         <>
           {availableTabs.length > 1 ? (
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <div className="relative mb-4">
-                <TabsList className={`grid w-full h-14 bg-muted border border-border rounded-lg p-1`} style={{gridTemplateColumns: `repeat(${availableTabs.length}, 1fr)`}}>
+              <div className="relative mb-3 xs:mb-4">
+                <TabsList className={`grid w-full h-12 xs:h-14 bg-muted border border-border rounded-lg p-1`} style={{gridTemplateColumns: `repeat(${availableTabs.length}, 1fr)`}}>
                   {availableTabs.map((tab) => {
                     const Icon = tab.icon
                     return (
@@ -184,7 +184,7 @@ export default function SecurityTabs({
 
               <TabsContents>
                 {canViewHWIDs && (
-                  <TabsContent value="blocked-hwids" className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4 md:mt-0">
+                  <TabsContent value="blocked-hwids" className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6">
                     <BlockedHWIDsList
                       blockedHWIDs={blockedHWIDs}
                       loading={loading}
@@ -199,7 +199,7 @@ export default function SecurityTabs({
                 )}
 
                 {canViewIPs && (
-                  <TabsContent value="blocked-ips" className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4 md:mt-0">
+                  <TabsContent value="blocked-ips" className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6">
                     <BlockedIPsList
                       blockedIPs={blockedIPs}
                       loading={loading}
@@ -214,7 +214,7 @@ export default function SecurityTabs({
                 )}
 
                 {canManageRules && (
-                  <TabsContent value="rules" className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4 md:mt-0">
+                  <TabsContent value="rules" className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6">
                     <SecurityRules onRefresh={onRefreshRules} loading={loading} />
                   </TabsContent>
                 )}
@@ -223,7 +223,7 @@ export default function SecurityTabs({
           ) : (
             <>
               {canViewHWIDs && activeTab === 'blocked-hwids' && (
-                <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4">
+                <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-3 xs:mt-4">
                   <BlockedHWIDsList
                     blockedHWIDs={blockedHWIDs}
                     loading={loading}
@@ -237,7 +237,7 @@ export default function SecurityTabs({
                 </div>
               )}
               {canViewIPs && activeTab === 'blocked-ips' && (
-                <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4">
+                <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-3 xs:mt-4">
                   <BlockedIPsList
                     blockedIPs={blockedIPs}
                     loading={loading}
@@ -251,7 +251,7 @@ export default function SecurityTabs({
                 </div>
               )}
               {canManageRules && activeTab === 'rules' && (
-                <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-2 xs:mt-3 sm:mt-4">
+                <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6 mt-3 xs:mt-4">
                   <SecurityRules onRefresh={onRefreshRules} loading={loading} />
                 </div>
               )}

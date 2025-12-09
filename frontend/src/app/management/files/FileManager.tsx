@@ -441,10 +441,15 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
   const [currentPath, setCurrentPath] = useState<string>('/');
   const [showConfigsFolder, setShowConfigsFolder] = useState(false);
   const [targetType, setTargetType] = useState<'product' | 'agent'>('product');
+  const [multiUploadDialogOpen, setMultiUploadDialogOpen] = useState(false);
 
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [lastProductsLoad, setLastProductsLoad] = useState<number>(0);
   const PRODUCTS_LOAD_COOLDOWN = 5000;
+
+  // Ref для отслеживания последнего загруженного ID, чтобы избежать повторных загрузок
+  const lastLoadedIdRef = React.useRef<string | number | null>(null);
+  const isLoadingRef = React.useRef(false);
 
   const fileSelection = useFileManagerSelection();
   const fileDialogs = useFileManagerDialogs();
@@ -511,20 +516,35 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
   }, [filteredProductsForSelect, agents, selectedProduct, selectedAgent, targetType]);
 
   useEffect(() => {
-    if ((selectedProduct || selectedAgent) && isAuthenticated) {
-      loadProductFiles();
+    if (!(selectedProduct || selectedAgent) || !isAuthenticated) {
+      return;
     }
-  }, [selectedProduct, selectedAgent, isAuthenticated]);
 
-  useEffect(() => {
+    const targetId = selectedProduct?.id || selectedAgent?.id;
+    if (!targetId) return;
+
+    // Проверяем, не загружаем ли мы уже этот же ID с теми же фильтрами
+    const currentId = `${targetId}-${fileFilters.categoryFilter}-${fileFilters.searchTerm}`;
+    
+    // Если уже загрузили эти данные - не загружаем снова
+    if (lastLoadedIdRef.current === currentId) {
+      return;
+    }
+
+    // Используем таймаут для debounce при изменении фильтров
     const timeoutId = setTimeout(() => {
-      if ((selectedProduct || selectedAgent) && isAuthenticated) {
+      // Повторная проверка перед загрузкой (на случай если ID изменился во время таймаута)
+      const currentTargetId = selectedProduct?.id || selectedAgent?.id;
+      const currentIdCheck = `${currentTargetId}-${fileFilters.categoryFilter}-${fileFilters.searchTerm}`;
+      
+      // Проверяем еще раз перед загрузкой
+      if (currentTargetId === targetId && lastLoadedIdRef.current !== currentIdCheck && !isLoadingRef.current) {
         loadProductFiles();
       }
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [fileFilters.searchTerm, fileFilters.categoryFilter, selectedProduct, selectedAgent, isAuthenticated]);
+  }, [fileFilters.searchTerm, fileFilters.categoryFilter, selectedProduct?.id, selectedAgent?.id, isAuthenticated]);
 
   useEffect(() => {
     if (!showTargetTypeToggle) {
@@ -540,6 +560,7 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
     setSelectedProduct(null);
     setSelectedAgent(null);
     setFiles([]);
+    lastLoadedIdRef.current = null; // Сбрасываем ref при смене типа
   }, [targetType]);
 
   const loadInitialData = async (retryCount = 0) => {
@@ -604,6 +625,18 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
     const targetId = selectedProduct?.id || selectedAgent?.id;
     if (!targetId) return;
 
+    // Проверяем, не загружаем ли мы уже этот же ID
+    const currentId = `${targetId}-${fileFilters.categoryFilter}-${fileFilters.searchTerm}`;
+    
+    // Если уже загружаем или уже загрузили эти данные - пропускаем
+    if (isLoadingRef.current || lastLoadedIdRef.current === currentId) {
+      return;
+    }
+
+    // Устанавливаем флаги сразу, чтобы предотвратить повторные вызовы
+    isLoadingRef.current = true;
+    lastLoadedIdRef.current = currentId;
+
     try {
       setRefreshing(true);
       const targetTypeForApi = selectedAgent ? 'agent' : selectedProduct ? 'product' : 'auto';
@@ -621,11 +654,14 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
         setFiles([]);
       }
     } catch (error: unknown) {
+      // При ошибке сбрасываем lastLoadedIdRef, чтобы можно было повторить попытку
+      lastLoadedIdRef.current = null;
       const errorMessage = getErrorMessage(error)
       toast.error(`Failed to load files: ${errorMessage}`);
       setFiles([]);
     } finally {
       setRefreshing(false);
+      isLoadingRef.current = false;
     }
   };
 
@@ -657,7 +693,6 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
   });
 
   const toggleFileSelection = fileSelection.toggleFileSelection;
-  const selectAllFiles = () => fileSelection.selectAllFiles(fileFilters.filteredFiles);
   const clearSelection = fileSelection.clearSelection;
   const handleFileUpload = fileUpload.handleFileUpload;
   const resetUploadForm = fileUpload.resetUploadForm;
@@ -998,33 +1033,34 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
                   </CardDescription>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:flex-nowrap">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={selectAllFiles} 
-                    disabled={filteredFiles.length === 0} 
-                    className="flex-1 sm:flex-none min-w-0 text-sm sm:text-sm h-10 sm:h-9 touch-manipulation px-3"
-                  >
-                    <Check className="h-4 w-4 sm:h-4 sm:w-4 mr-1.5 sm:mr-1.5 shrink-0" /> 
-                    <span className="truncate">Select All</span>
-                  </Button>
                   <ConditionalRender permission="products.files_upload" fallback={null}>
-                    <Button 
-                      variant="default" 
-                      size="sm" 
-                      onClick={fileDialogs.openUploadDialog} 
-                      disabled={!canUploadFiles} 
-                      className="flex-1 sm:flex-none min-w-0 text-sm sm:text-sm h-10 sm:h-9 touch-manipulation px-3"
-                    >
-                      <Upload className="h-4 w-4 sm:h-4 sm:w-4 mr-1.5 sm:mr-1.5 shrink-0" /> 
-                      <span className="truncate">Upload</span>
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button 
+                          variant="default" 
+                          size="sm" 
+                          disabled={!canUploadFiles || !selectedProduct} 
+                          className="flex-1 sm:flex-none min-w-0 text-sm sm:text-sm h-10 sm:h-9 touch-manipulation px-3"
+                        >
+                          <Upload className="h-4 w-4 sm:h-4 sm:w-4 mr-1.5 sm:mr-1.5 shrink-0" /> 
+                          <span className="truncate">Upload</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem onClick={fileDialogs.openUploadDialog} disabled={!selectedProduct}>
+                          <File className="h-4 w-4 mr-2" />
+                          Single Upload
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => setMultiUploadDialogOpen(true)} 
+                          disabled={!selectedProduct}
+                        >
+                          <Folder className="h-4 w-4 mr-2" />
+                          Multi Upload
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </ConditionalRender>
-                  {selectedProduct && (
-                    <div className="w-full sm:w-auto">
-                      <MultiFileUploadDialog product={selectedProduct} onUploadComplete={loadProductFiles} />
-                    </div>
-                  )}
                 </div>
               </div>
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-2 mt-1 sm:mt-4">
@@ -1104,6 +1140,13 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
         onFileSelect={(file) => { fileUpload.setUploadForm(prev => ({ ...prev, name: file.name })); }}
         onUpload={handleFileUpload}
         onResetForm={resetUploadForm}
+      />
+
+      <MultiFileUploadDialog 
+        product={selectedProduct} 
+        onUploadComplete={loadProductFiles}
+        open={multiUploadDialogOpen}
+        onOpenChange={setMultiUploadDialogOpen}
       />
     </div>
   );

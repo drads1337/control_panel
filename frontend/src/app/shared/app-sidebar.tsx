@@ -331,9 +331,16 @@ function AppSidebarContent() {
   })
 
   const sidebarItems = React.useMemo(() => {
-    if (!navigationConfig?.navigation) return []
-    return convertNavigationItemsToSidebarItems(navigationConfig.navigation)
-  }, [navigationConfig?.navigation])
+    if (!navigationConfig?.navigation || !user) return []
+    
+    // Filter navigation items based on user permissions
+    const userRole = user?.roles?.[0]
+    const accessibleItems = navigationConfig.navigation.filter(item => 
+      canAccessNavigationItem(item, user, userRole)
+    )
+    
+    return convertNavigationItemsToSidebarItems(accessibleItems)
+  }, [navigationConfig?.navigation, user])
 
   const { data: currentProjectResponse, isLoading: isProjectLoading } = useQuery({
     queryKey: projectKeys.detail(String(user?.project_id)),

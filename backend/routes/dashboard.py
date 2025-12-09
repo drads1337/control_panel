@@ -268,6 +268,46 @@ def get_dashboard_stats(project_id=None):
             {"username": username, "activities": count} for username, count in top_users_query.all()
         ]
 
+        # Get top countries by requests
+        if project_filter:
+            top_countries_query = (
+                db.session.query(
+                    UserActivity.country,
+                    func.count(UserActivity.id).label("request_count")
+                )
+                .filter(
+                    and_(
+                        UserActivity.project_id == project_filter,
+                        UserActivity.country.isnot(None),
+                        UserActivity.created_at >= week_ago,
+                    )
+                )
+                .group_by(UserActivity.country)
+                .order_by(desc(func.count(UserActivity.id)))
+                .limit(10)
+            )
+        else:
+            top_countries_query = (
+                db.session.query(
+                    UserActivity.country,
+                    func.count(UserActivity.id).label("request_count")
+                )
+                .filter(
+                    and_(
+                        UserActivity.country.isnot(None),
+                        UserActivity.created_at >= week_ago,
+                    )
+                )
+                .group_by(UserActivity.country)
+                .order_by(desc(func.count(UserActivity.id)))
+                .limit(10)
+            )
+
+        top_countries = [
+            {"country": country, "requests": count} 
+            for country, count in top_countries_query.all()
+        ]
+
         daily_stats = []
         for i in range(7):
             date = (datetime.utcnow() - timedelta(days=6 - i)).date()
@@ -320,6 +360,7 @@ def get_dashboard_stats(project_id=None):
             "daily_stats": daily_stats,
             "top_users": top_users,
             "top_products": top_products,
+            "top_countries": top_countries,
             "announcements": announcements_data,
         }
 
