@@ -11,8 +11,20 @@ const config = {
   theme: {
     extend: {
       colors: {
-        // Основные цвета системы
-        primary: {
+        // Design colors from design-main 2 - EXACT MATCH
+        primary: "#E2E8F0", // Crisp Silver (Slate 200)
+        "primary-hover": "#CBD5E1", 
+        "background-light": "#F8FAFC", 
+        "background-dark": "#0F1115", // Deep Charcoal/Black
+        "surface-light": "#ffffff",
+        "surface-dark": "#181B21", // Sophisticated Charcoal Panel
+        "border-light": "#e2e8f0",
+        "border-dark": "#2D333B", // Crisp Silver/Steel Grey borders
+        "text-primary-dark": "#F1F5F9", 
+        "text-secondary-dark": "#94A3B8", // Cool Grey
+        "inactive-dark": "#475569",
+        // Основные цвета системы (legacy support)
+        "primary-legacy": {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
         },
@@ -247,6 +259,12 @@ const config = {
       fontFamily: {
         sans: "var(--font-sans)",
         mono: "var(--font-mono)",
+        display: ["Outfit", "sans-serif"],
+        body: ["Outfit", "sans-serif"],
+        "mono-numbers": ["JetBrains Mono", "monospace"],
+      },
+      boxShadow: {
+        'glow': '0 0 10px rgba(226, 232, 240, 0.1)',
       },
       screens: {
         "3xl": "1600px",

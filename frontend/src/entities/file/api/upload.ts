@@ -1,7 +1,7 @@
-import { enhancedApi as api } from '@/shared/api/enhanced-client'
-import { API_ENDPOINTS } from '@/shared/api/config'
+import { enhancedApi as api } from '@/lib/api/enhanced-client'
+import { API_ENDPOINTS } from '@/lib/api/config'
 import { getProducts } from '@/entities/product'
-import { getErrorMessage, isAxiosError } from '@/lib/error-utils'
+import { apiCallWithErrorData } from '@/lib/api/api-wrapper'
 
 export async function uploadProductConfig(
   file: File, 
@@ -26,24 +26,15 @@ export async function uploadProductConfig(
   formData.append('version', version)
   formData.append('is_public', isPublic.toString())
 
-  try {
-
-    const response = await api.post(`${API_ENDPOINTS.FILES}/product-files/config`, formData)
-    return response.data
-  } catch (error: unknown) {
-    if (isAxiosError(error) && error.response?.data && typeof error.response.data === 'object') {
-      const errorData = error.response.data as { error?: string }
-      throw new Error(errorData.error || getErrorMessage(error))
-    }
-    throw new Error(getErrorMessage(error))
-  }
+  return apiCallWithErrorData(() => api.post(`${API_ENDPOINTS.FILES}/product-files/config`, formData))
 }
 
 export async function uploadProductExtraFile(
   file: File, 
   productId: number, 
   name: string = '', 
-  description: string = ''
+  description: string = '',
+  onProgress?: (progress: number) => void
 ): Promise<any> {
 
   if (!file) {
@@ -58,27 +49,46 @@ export async function uploadProductExtraFile(
     throw new Error('File object is incomplete')
   }
 
-  try {
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('product_id', productId.toString())
-    formData.append('name', name)
-    formData.append('description', description)
+  // SECURITY: Use chunked upload for files > 100MB to prevent browser memory issues
+  const { shouldUseChunkedUpload, uploadFileInChunks } = await import('@/shared/utils/chunked-upload')
+  const CHUNKED_UPLOAD_THRESHOLD = 100 * 1024 * 1024 // 100MB
 
-    const fileEntry = formData.get('file')
-    if (!fileEntry || !(fileEntry instanceof File)) {
-      throw new Error('Failed to append file to FormData')
+  if (shouldUseChunkedUpload(file.size, CHUNKED_UPLOAD_THRESHOLD)) {
+    const formData = {
+      product_id: productId.toString(),
+      name,
+      description,
     }
 
-    const response = await api.post(`${API_ENDPOINTS.FILES}/product-files/extra`, formData)
-    return response.data
-  } catch (err: unknown) {
-    if (isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
-      const errorData = err.response.data as { error?: string }
-      throw new Error(errorData.error || getErrorMessage(err))
+    const result = await uploadFileInChunks(
+      file,
+      `${API_ENDPOINTS.FILES}/product-files/extra`,
+      formData,
+      {
+        onProgress,
+      }
+    )
+
+    if (!result.success) {
+      throw new Error(result.error || 'Chunked upload failed')
     }
-    throw new Error(getErrorMessage(err))
+
+    return result.result
   }
+
+  // Regular upload for smaller files
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('product_id', productId.toString())
+  formData.append('name', name)
+  formData.append('description', description)
+
+  const fileEntry = formData.get('file')
+  if (!fileEntry || !(fileEntry instanceof File)) {
+    throw new Error('Failed to append file to FormData')
+  }
+
+  return apiCallWithErrorData(() => api.post(`${API_ENDPOINTS.FILES}/product-files/extra`, formData))
 }
 
 export async function uploadProductFiles(
@@ -99,7 +109,7 @@ export async function uploadProductFiles(
 
   const { getCsrfHeaders } = await import('@/lib/csrf')
   const csrfHeaders = await getCsrfHeaders()
-  const { getApiUrl } = await import('@/shared/api')
+  const { getApiUrl } = await import('@/lib/api')
   // Use universal endpoint - products instead of products
   const url = getApiUrl(`${API_ENDPOINTS.PRODUCTS}/${productId}/files`)
 

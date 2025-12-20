@@ -1,4 +1,10 @@
 {
+  "name": "panel",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "security:check": "node scripts/check-security.js"
+  },
   "dependencies": {
     "framer-motion": "^12.23.12"
   }

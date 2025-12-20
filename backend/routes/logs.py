@@ -1036,11 +1036,19 @@ def trigger_auto_cleanup():
     except Exception as e:
         return jsonify({"error": f"Failed to trigger auto cleanup: {str(e)}"}), 500
 
-@logs_bp.route("/search", methods=["GET"])
+@logs_bp.route("/search", methods=["POST"])
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
 def search_logs():
+    """
+    Search logs using POST to prevent PII leakage in URL query parameters.
+    SECURITY: Using POST instead of GET prevents sensitive search terms from appearing in:
+    - Server access logs
+    - Browser history
+    - Referrer headers
+    - Network monitoring tools
+    """
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
@@ -1052,9 +1060,12 @@ def search_logs():
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
-    search_term = request.args.get("q")
-    page = request.args.get("page", 1, type=int)
-    per_page = request.args.get("per_page", 20, type=int)
+    # SECURITY: Read search parameters from request body instead of query string
+    data = request.get_json() or {}
+    search_term = data.get("q") or data.get("search_term")
+    page = data.get("page", 1)
+    per_page = data.get("per_page", 20)
+    project_id_param = data.get("project_id")
 
     if not search_term:
         return jsonify({"error": "Search term is required"}), 400
@@ -1063,7 +1074,8 @@ def search_logs():
 
     user_roles = RBACManager.get_user_role_names(user)
     is_owner = user_roles and user_roles[0] == "owner"
-    project_id_param = request.args.get("project_id", type=int)
+    if project_id_param:
+        project_id_param = int(project_id_param)
 
     if not is_owner:
 

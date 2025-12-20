@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { LoginForm } from '../auth/login-form'
-import { AuthContext } from '@/contexts/auth-context'
+import { AuthContext } from '@/app/providers/auth-provider'
 
 vi.mock('../shared/faulty-terminal', () => ({
   default: () => <div data-testid="faulty-terminal">Terminal</div>

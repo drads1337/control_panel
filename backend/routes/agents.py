@@ -235,18 +235,14 @@ def get_available_products_for_agents():
         current_app.logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": f"Failed to get available products: {str(e)}", "success": False}), 500
 
-@validate_request(AgentCreateSchema)
 @agents_bp.route("", methods=["POST"])
+@validate_request(AgentCreateSchema)
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
 def create_loader(validated_data=None):
     """Create a new agent"""
     try:
-
-
-
-
         cache_service = get_service('cache_service')
         tier_limits_service = get_service('tier_limits_service')
         if not validated_data:
@@ -599,8 +595,8 @@ def delete_loader(agent_identifier):
         db.session.rollback()
         return jsonify({"error": "Failed to delete agent", "success": False}), 500
 
-@validate_request(AgentProductAssignSchema)
 @agents_bp.route("/<agent_identifier>/assign-products", methods=["POST"])
+@validate_request(AgentProductAssignSchema)
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
@@ -613,8 +609,50 @@ def assign_products_to_agent(agent_identifier, validated_data=None):
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        if not validated_data:
-            return jsonify({"error": "No data provided"}), 400
+        # This check should never be hit if validation middleware works correctly,
+        # but it's a safety check in case validation fails silently
+        if validated_data is None:
+            # Fallback: parse JSON directly here to avoid silent middleware failures
+            request_body = request.get_data(as_text=True) or ""
+            current_app.logger.error(
+                f"assign_products_to_agent: validated_data is None. "
+                f"Attempting fallback JSON parse. "
+                f"Request method: {request.method}, Path: {request.path}, "
+                f"Content-Type: {request.headers.get('Content-Type')}, "
+                f"Has JSON: {request.is_json}, "
+                f"Request body length: {len(request_body)}, "
+                f"Request data: {request_body[:200]}"
+            )
+            try:
+                parsed = request.get_json(silent=True, force=True) or {}
+            except Exception:
+                parsed = {}
+            if not isinstance(parsed, dict):
+                return jsonify({
+                    "error": "Invalid request data",
+                    "message": "Request body must be valid JSON with 'product_ids' field"
+                }), 400
+            if "product_ids" not in parsed:
+                return jsonify({
+                    "error": "Invalid request data",
+                    "message": "Request body must include 'product_ids' field"
+                }), 400
+            validated_data = parsed
+        
+        if not isinstance(validated_data, dict):
+            current_app.logger.error(
+                f"assign_products_to_agent: validated_data is not a dict (type: {type(validated_data)}). "
+                f"Validated data: {validated_data}"
+            )
+            return jsonify({"error": "Invalid request data", "message": "Request validation failed"}), 400
+        
+        # Ensure product_ids exists in validated_data
+        if 'product_ids' not in validated_data:
+            current_app.logger.error(
+                f"assign_products_to_agent: product_ids missing from validated_data. "
+                f"Validated data keys: {list(validated_data.keys())}"
+            )
+            return jsonify({"error": "Invalid request data", "message": "The 'product_ids' field is required"}), 400
 
 
         if not user.project_id:
@@ -836,8 +874,8 @@ def upload_loader_files(agent_identifier):
         db.session.rollback()
         return jsonify({"error": "Failed to upload files", "success": False}), 500
 
-@validate_request(AgentStatusUpdateSchema)
 @agents_bp.route("/<agent_identifier>/status", methods=["PUT"])
+@validate_request(AgentStatusUpdateSchema)
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
@@ -1010,8 +1048,8 @@ def get_loader_stats():
         current_app.logger.error(f"Error getting agent stats: {str(e)}")
         return jsonify({"error": "Failed to get agent stats", "success": False}), 500
 
-@validate_request(AgentLoginTypeUpdateSchema)
 @agents_bp.route("/<agent_identifier>/config", methods=["PUT"])
+@validate_request(AgentLoginTypeUpdateSchema)
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation

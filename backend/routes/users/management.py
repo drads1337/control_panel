@@ -107,6 +107,56 @@ def get_users(current_user, project_id=None):
         logger.error(f"Error in get_users endpoint: {str(e)}", exc_info=True)
         return jsonify({"error": "Failed to get users"}), 500
 
+@management_bp.route("/search", methods=["POST"])
+@jwt_required()
+@require_user
+@require_project_with_grace_period
+@enforce_project_scope
+@require_any_permission(['employees.view', 'clients.view'])
+def search_users(current_user, project_id=None):
+    """
+    Search users using POST to prevent PII leakage in URL query parameters.
+    SECURITY: Using POST instead of GET prevents sensitive search terms from appearing in:
+    - Server access logs
+    - Browser history
+    - Referrer headers
+    - Network monitoring tools
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    try:
+        # SECURITY: Read search parameters from request body instead of query string
+        data = request.get_json() or {}
+        
+        if project_id is None:
+            project_id = data.get("project_id", type=int)
+
+        page = data.get("page", 1)
+        per_page = data.get("per_page", 20)
+        role_filter = data.get("role")
+        roles_filter = data.get("roles", [])
+        search = data.get("search")
+
+        user_crud_service = get_user_crud_service()
+        result = user_crud_service.get_users_with_key_counts(
+            current_user=current_user,
+            page=page,
+            per_page=per_page,
+            role_filter=role_filter,
+            roles_filter=roles_filter if isinstance(roles_filter, list) else [roles_filter] if roles_filter else [],
+            search=search,
+            project_id=project_id,
+        )
+
+        if isinstance(result, tuple) and len(result) == 2:
+            return jsonify(result[0]), result[1]
+
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error in search_users endpoint: {str(e)}", exc_info=True)
+        return jsonify({"error": "Failed to search users"}), 500
+
 @management_bp.route("/add", methods=["POST"])
 @jwt_required()
 @require_user

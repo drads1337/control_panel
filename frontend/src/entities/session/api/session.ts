@@ -1,5 +1,5 @@
-import { enhancedApi as api } from '@/shared/api/enhanced-client'
-import { API_ENDPOINTS } from '@/shared/api/config'
+import { enhancedApi as api } from '@/lib/api/enhanced-client'
+import { API_ENDPOINTS } from '@/lib/api/config'
 import type { SessionsResponse, SessionStats, SessionDetails, Session } from '@/entities/session';
 import type {
   SessionsResponse as SessionTypesResponse,

@@ -1,4 +1,4 @@
-import { BaseEntity } from '@/shared/api'
+import { BaseEntity } from '@/lib/api'
 
 /**
  * Product interface - universal term for products, software, or products

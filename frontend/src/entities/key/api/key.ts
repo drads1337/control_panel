@@ -1,7 +1,7 @@
-import { enhancedApi as api } from '@/shared/api/enhanced-client'
-import { API_ENDPOINTS } from '@/shared/api/config'
+import { enhancedApi as api } from '@/lib/api/enhanced-client'
+import { API_ENDPOINTS } from '@/lib/api/config'
 import { preventDuplicateRequest } from '@/lib/request-manager'
-import { getErrorMessage, getErrorStatus, isAxiosError, isErrorWithMessage } from '@/lib/error-utils'
+import { getErrorMessage, getErrorStatus, isAxiosError, isErrorWithMessage } from '@/lib/utils/error-utils'
 import type { LicenseKeysResponse, CreateKeyData, BulkCreateKeysData, CreateAgentKeyData, BulkCreateAgentKeysData, LicenseKey, KeysStats } from '@/entities/key';
 import type {
   LicenseKeysResponse as LicenseKeysResponseType,
@@ -21,6 +21,13 @@ export async function getLicenseKeys(
   search?: string,
   myKeys?: boolean
 ): Promise<LicenseKeysResponseType> {
+  // SECURITY WARNING: search parameter may contain PII (license keys, usernames, etc.)
+  // Passing search terms in URL query parameters exposes them to:
+  // - Server access logs
+  // - Browser history
+  // - Referrer headers
+  // - Network monitoring tools
+  // Consider using POST requests with body for search queries in the future
   const params: any = {
     page: page.toString(),
     per_page: perPage.toString(),
@@ -37,6 +44,24 @@ export async function getLicenseKeys(
     const response = await api.get(API_ENDPOINTS.KEYS, { params })
     return response.data
   })
+}
+
+export async function searchLicenseKeys(params: {
+  page?: number
+  per_page?: number
+  status?: string
+  product_id?: number
+  search: string
+  my_keys?: boolean
+}): Promise<LicenseKeysResponseType> {
+  // SECURITY: Using POST to prevent PII leakage in URL query parameters
+  // This prevents sensitive search terms from appearing in:
+  // - Server access logs
+  // - Browser history
+  // - Referrer headers
+  // - Network monitoring tools
+  const response = await api.post(API_ENDPOINTS.KEYS_SEARCH, params)
+  return response.data
 }
 
 export async function createLicenseKey(data: CreateKeyDataType): Promise<{ message: string; key: LicenseKeyType }> {

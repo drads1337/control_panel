@@ -1,8 +1,8 @@
 import React from 'react'
 import { Navigate } from 'react-router-dom'
-import { useAuthContext } from '@/contexts/auth-context'
+import { useAuthContext } from '@/app/providers/auth-provider'
 import { Spinner } from '@/components/ui/spinner'
-import { hasAnyRole, hasAllRoles, canAccessFeature, hasPermission } from '@/lib/rbac-utils'
+import { hasAnyRole, hasAllRoles, canAccessFeature, hasPermission } from '@/lib/rbac'
 
 interface WithRoleGuardOptions {
   requiredRoles?: string[]

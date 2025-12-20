@@ -309,17 +309,9 @@ class ConnectService:
                         status_code=500,
                         context={"username": username, "ip": ip}
                     )
-                response_data, error_code, error_message = self._auth_service.process_simple_login(
+                response_data = self._auth_service.process_simple_login(
                     username, password, ip, user_agent
                 )
-
-                if not response_data:
-
-                    status_code = 401 if error_code == "INVALID_CREDENTIALS" else 403
-                    return {
-                        "error": error_code or "INVALID_CREDENTIALS",
-                        "msg": error_message or "Invalid username or password",
-                    }, status_code
 
                 user_id = response_data.get("user_id")
                 if user_id:
@@ -407,6 +399,28 @@ class ConnectService:
                 )
                 return response_data, 200
 
+        except SecurityError as e:
+            error_code = getattr(e, 'error_code', 'SECURITY_ERROR')
+            error_message = getattr(e, 'message', str(e)) or "Access denied due to security constraints"
+            
+            if error_code == "ACCOUNT_EXPIRED":
+                logger.warning(f"CLASSIC_CONNECT_EXPIRED_ACCOUNT ip={ip} error={error_message}")
+                return {
+                    "error": "ACCOUNT_EXPIRED",
+                    "msg": "Your account has expired. Please contact the administrator for assistance.",
+                }, 403
+            elif error_code == "PROJECT_INACTIVE":
+                logger.warning(f"CLASSIC_CONNECT_INACTIVE_PROJECT ip={ip} error={error_message}")
+                return {
+                    "error": "PROJECT_INACTIVE",
+                    "msg": "Project is paused. Please contact the administrator for additional information.",
+                }, 403
+            
+            logger.warning(f"CLASSIC_CONNECT_SECURITY_ERROR ip={ip} error_code={error_code} error={error_message}")
+            return {
+                "error": error_code,
+                "msg": error_message,
+            }, 403
         except AuthenticationError as e:
             logger.warning(f"CLASSIC_CONNECT_AUTH_ERROR ip={ip} error={e.message}")
             return {

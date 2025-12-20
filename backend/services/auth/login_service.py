@@ -267,6 +267,14 @@ class LoginService:
                 )
                 raise SecurityError("Project is inactive", error_code="PROJECT_INACTIVE")
 
+            # Check if user account has expired
+            if not user.is_active:
+                self.logger.warning(
+                    f"SECURITY_VIOLATION: Expired user {user.username} (ID: {user.id}) attempted to login. "
+                    f"Expires at: {user.expires_at}"
+                )
+                raise SecurityError("Account has expired", error_code="ACCOUNT_EXPIRED")
+
 
             validation_result = request_validation_pipeline.validate_request(
                 ip=ip,

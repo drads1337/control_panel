@@ -75,10 +75,10 @@ class ValidationMiddleware:
                 logger.info(f"Function: {func.__name__}, Schema: {schema_class.__name__}")
                 validated_data = None
                 try:
-
-                    request_data = request.get_data()
+                    # Get request data - use as_text=True to avoid consuming the stream
+                    request_data = request.get_data(as_text=True)
                     logger.debug(f"Request data length: {len(request_data) if request_data else 0}, allow_empty: {allow_empty}")
-                    if not request_data and not allow_empty:
+                    if not request_data or (not request_data.strip() and not allow_empty):
                         logger.debug(f"Empty request body detected for {request.method} {request.path}")
                         return (
                             jsonify(
@@ -333,6 +333,22 @@ class ValidationMiddleware:
                             500,
                         )
                     
+                    # Final safety check before assignment
+                    if validated_data is None or not isinstance(validated_data, dict):
+                        logger.critical(
+                            f"CRITICAL: validated_data is invalid at final assignment for {request.method} {request.path}. "
+                            f"Type: {type(validated_data)}, Value: {validated_data}"
+                        )
+                        import traceback
+                        logger.critical(f"Stack trace:\n{traceback.format_stack()}")
+                        return (
+                            jsonify({
+                                "error": "VALIDATION_ERROR",
+                                "message": "Request validation failed - invalid data format"
+                            }),
+                            500,
+                        )
+                    
                     kwargs["validated_data"] = validated_data
 
                     return func(*args, **kwargs)
@@ -353,8 +369,7 @@ class ValidationMiddleware:
                     logger.error(f"Unexpected error in validation middleware for {request.method} {request.path}: {str(e)}\n{error_traceback}")
                     logger.error(f"Request data: {request.get_data(as_text=True)[:200]}")
                     logger.error(f"Content-Type: {request.headers.get('Content-Type')}")
-
-
+                    logger.error(f"validated_data at exception: {validated_data}")
 
                     error_response = {
                         "error": "VALIDATION_ERROR",
@@ -365,12 +380,14 @@ class ValidationMiddleware:
                         error_response["details"] = str(e)
                         error_response["traceback"] = error_traceback.split("\n")
 
-
+                    # Ensure we always return an error response - never allow function to proceed with None validated_data
                     try:
-                        return jsonify(error_response), 400
+                        response = jsonify(error_response), 400
+                        logger.debug(f"Returning validation error response for {request.method} {request.path}")
+                        return response
                     except Exception as return_error:
                         logger.critical(f"CRITICAL: Failed to return error response: {str(return_error)}")
-
+                        # Re-raise to ensure function is not called
                         raise
 
             return wrapper
