@@ -88,6 +88,9 @@ export const API_ENDPOINTS = {
   LOGS_EXPORT: '/api/logs/export',
   LOGS_CLEANUP: '/api/logs/cleanup',
 
+  USERS_SEARCH: '/api/users/search',
+  KEYS_SEARCH: '/api/keys/search',
+
   PROFILE_ACTIVITY: '/api/profile/activity',
   PROFILE_ACTIVITY_STATS: '/api/profile/activity/stats',
 

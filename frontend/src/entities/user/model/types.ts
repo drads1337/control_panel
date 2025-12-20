@@ -1,4 +1,4 @@
-import { BaseEntity, PaginatedResponse } from '@/shared/api'
+import { BaseEntity, PaginatedResponse } from '@/lib/api'
 
 export interface User extends BaseEntity {
   username: string
@@ -7,6 +7,7 @@ export interface User extends BaseEntity {
   first_name: string | null
   last_name: string | null
   email: string | null
+  bio: string | null
   avatar: string | null
   expires_at: string | null
   last_login: string | null

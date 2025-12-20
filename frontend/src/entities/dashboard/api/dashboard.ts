@@ -1,7 +1,7 @@
-import { enhancedApi as api } from '@/shared/api/enhanced-client'
-import { API_ENDPOINTS } from '@/shared/api/config'
+import { enhancedApi as api } from '@/lib/api/enhanced-client'
+import { API_ENDPOINTS } from '@/lib/api/config'
 import type { ApiMetrics } from '../model/types'
-import type { LoadStatusData } from '@/hooks/use-load-status'
+import type { LoadStatusData } from '@/features/dashboard/hooks/use-load-status'
 
 export interface DashboardData {
   overview: {

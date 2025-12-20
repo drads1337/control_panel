@@ -17,6 +17,7 @@ from ..schemas.file import (
     FileRatingSchema,
     FolderCreateSchema,
 )
+from ..services.files.chunked_upload_service import ChunkedUploadService
 
 logger = logging.getLogger(__name__)
 
@@ -1991,3 +1992,238 @@ def get_product_file_stats(product_identifier):
             ],
         }
     )
+
+
+# ============================================================================
+# Chunked Upload Endpoints
+# ============================================================================
+
+@files_bp.route("/product-files/extra/chunk", methods=["POST"])
+@jwt_required()
+@require_project_isolation
+def upload_product_extra_file_chunk():
+    """
+    Upload a chunk of a product extra file
+    
+    SECURITY: This endpoint handles chunked uploads for large files (>100MB)
+    to prevent browser memory issues. Chunks are stored temporarily and
+    assembled when finalize endpoint is called.
+    """
+    chunked_service = ChunkedUploadService()
+    file_service = get_service('file_service')
+    activity_service = get_service('activity_service')
+    
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    if not user.project_id:
+        return jsonify({"error": "User must be assigned to a project"}), 403
+
+    if "file" not in request.files:
+        return jsonify({"error": "No file chunk provided"}), 400
+
+    file_chunk = request.files["file"]
+    upload_id = request.form.get("upload_id")
+    chunk_index = request.form.get("chunk_index")
+    total_chunks = request.form.get("total_chunks")
+    file_name = request.form.get("file_name")
+    file_size = request.form.get("file_size")
+    chunk_size = request.form.get("chunk_size")
+    product_id_param = request.form.get("product_id")
+    name = request.form.get("name", "")
+    description = request.form.get("description", "")
+
+    if not all([upload_id, chunk_index, total_chunks, file_name, file_size, product_id_param]):
+        return jsonify({"error": "Missing required parameters"}), 400
+
+    try:
+        chunk_index = int(chunk_index)
+        total_chunks = int(total_chunks)
+        file_size = int(file_size)
+        chunk_size = int(chunk_size) if chunk_size else len(file_chunk.read())
+        file_chunk.seek(0)
+    except (ValueError, TypeError) as e:
+        return jsonify({"error": f"Invalid parameter format: {str(e)}"}), 400
+
+    # Find product
+    product = find_product_by_id_or_unique_id(product_id_param, user.project_id)
+    if not product:
+        return jsonify({"error": "Product not found or access denied"}), 404
+
+    # Initialize upload on first chunk
+    if chunk_index == 0:
+        metadata = {
+            "product_id": product.id,
+            "name": name,
+            "description": description,
+        }
+        success, error = chunked_service.initialize_upload(
+            upload_id=upload_id,
+            filename=file_name,
+            file_size=file_size,
+            total_chunks=total_chunks,
+            user_id=user.id,
+            project_id=user.project_id,
+            metadata=metadata,
+        )
+        if not success:
+            return jsonify({"error": error}), 400
+
+    # Save chunk
+    chunk_data = file_chunk.read()
+    success, error = chunked_service.save_chunk(
+        upload_id=upload_id,
+        chunk_index=chunk_index,
+        chunk_data=chunk_data,
+        chunk_size=chunk_size,
+    )
+    if not success:
+        return jsonify({"error": error}), 400
+
+    return jsonify({
+        "message": f"Chunk {chunk_index + 1}/{total_chunks} uploaded successfully",
+        "chunk_index": chunk_index,
+        "total_chunks": total_chunks,
+    }), 200
+
+
+@files_bp.route("/product-files/extra/finalize", methods=["POST"])
+@jwt_required()
+@require_project_isolation
+def finalize_product_extra_file_upload():
+    """
+    Finalize chunked upload by assembling chunks into final file
+    
+    SECURITY: This endpoint assembles all chunks into the final file,
+    validates it, and stores it in the product's extra files directory.
+    """
+    chunked_service = ChunkedUploadService()
+    file_service = get_service('file_service')
+    activity_service = get_service('activity_service')
+    
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    if not user.project_id:
+        return jsonify({"error": "User must be assigned to a project"}), 403
+
+    upload_id = request.form.get("upload_id")
+    file_name = request.form.get("file_name")
+    file_size = request.form.get("file_size")
+    total_chunks = request.form.get("total_chunks")
+    product_id_param = request.form.get("product_id")
+    name = request.form.get("name", "")
+    description = request.form.get("description", "")
+
+    if not all([upload_id, file_name, file_size, total_chunks, product_id_param]):
+        return jsonify({"error": "Missing required parameters"}), 400
+
+    try:
+        file_size = int(file_size)
+        total_chunks = int(total_chunks)
+    except (ValueError, TypeError):
+        return jsonify({"error": "Invalid parameter format"}), 400
+
+    # Get upload metadata
+    metadata = chunked_service.get_upload_metadata(upload_id)
+    if not metadata:
+        return jsonify({"error": "Upload session not found or expired"}), 404
+
+    # Verify user and project match
+    if metadata["user_id"] != user.id or metadata["project_id"] != user.project_id:
+        return jsonify({"error": "Unauthorized access to upload session"}), 403
+
+    # Find product
+    product = find_product_by_id_or_unique_id(product_id_param, user.project_id)
+    if not product:
+        return jsonify({"error": "Product not found or access denied"}), 404
+
+    # Check storage limit
+    can_upload, message = file_service.check_storage_limit(user, file_size)
+    if not can_upload:
+        chunked_service.cleanup_upload(upload_id)
+        return jsonify({"error": message}), 400
+
+    # Prepare final file path
+    from werkzeug.utils import secure_filename
+    import os
+    from datetime import datetime
+    
+    original_filename = secure_filename(file_name)
+    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    name_part, ext = os.path.splitext(original_filename)
+    unique_filename = f"{name_part}_{timestamp}{ext}"
+    
+    upload_path = os.path.join(
+        file_service.get_upload_path(), "products", str(product.id), "extra"
+    )
+    os.makedirs(upload_path, exist_ok=True)
+    final_path = os.path.join(upload_path, unique_filename)
+
+    # Assemble file from chunks
+    success, error, file_info = chunked_service.assemble_file(upload_id, final_path)
+    if not success:
+        return jsonify({"error": error}), 400
+
+    # Validate file signature
+    ext_lower = ext.lstrip('.').lower() if ext else None
+    expected_extensions = [ext_lower] if ext_lower and ext_lower in ['png', 'jpg', 'jpeg', 'gif', 'webp'] else None
+    is_valid, validation_error = file_service.validate_file_signature(final_path, expected_extensions)
+    if not is_valid:
+        try:
+            os.remove(final_path)
+        except Exception:
+            pass
+        return jsonify({"error": validation_error or "File validation failed"}), 400
+
+    # Create database record
+    try:
+        extra_file = ProductExtraFile(
+            product_id=product.id,
+            name=name or unique_filename,
+            filename=unique_filename,
+            file_size=file_info["size"],
+            description=description,
+            uploaded_by=user.id,
+        )
+        db.session.add(extra_file)
+        db.session.commit()
+
+        file_data = {
+            "id": extra_file.id,
+            "name": extra_file.name,
+            "filename": extra_file.filename,
+            "size": extra_file.file_size,
+            "size_human": file_service.format_file_size(extra_file.file_size),
+            "description": extra_file.description,
+            "uploaded_by": user.username,
+            "uploaded_at": extra_file.uploaded_at.isoformat(),
+        }
+
+        activity_service.log_activity(
+            user,
+            "upload_product_extra_file",
+            details=f"Uploaded product extra file (chunked): {file_data['name']} ({file_data['size_human']}) for product {product.id}",
+            ip=request.remote_addr,
+        )
+
+        file_service.clear_storage_cache(user.project_id)
+
+        return jsonify({
+            "message": "File uploaded successfully",
+            "file": file_data,
+        }), 201
+    except Exception as e:
+        logger.error(f"Error creating product extra file record: {e}")
+        try:
+            os.remove(final_path)
+        except Exception:
+            pass
+        db.session.rollback()
+        return jsonify({"error": f"Failed to create file record: {str(e)}"}), 500

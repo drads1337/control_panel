@@ -6,7 +6,7 @@ import { cva, VariantProps } from 'class-variance-authority';
 import { PanelLeftIcon } from 'lucide-react';
 import { type Transition } from 'motion/react';
 
-import { useIsMobile } from '@/shared/hooks/use-mobile';
+import { useIsMobile } from '@/lib/hooks';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -416,7 +416,7 @@ function SidebarContent({ className, ...props }: SidebarContentProps) {
       data-slot="sidebar-content"
       data-sidebar="content"
       className={cn(
-        'flex min-h-0 flex-1 flex-col gap-2 overflow-auto group-data-[collapsible=icon]:overflow-hidden',
+        'flex min-h-0 flex-1 flex-col gap-2 overflow-auto group-data-[collapsible=icon]:overflow-hidden p-2',
         className,
       )}
       {...props}
@@ -431,7 +431,7 @@ function SidebarGroup({ className, ...props }: SidebarGroupProps) {
     <div
       data-slot="sidebar-group"
       data-sidebar="group"
-      className={cn('relative flex w-full min-w-0 flex-col p-2', className)}
+      className={cn('relative flex w-full min-w-0 flex-col', className)}
       {...props}
     />
   );
@@ -512,7 +512,7 @@ function SidebarMenu({ className, ...props }: SidebarMenuProps) {
     <ul
       data-slot="sidebar-menu"
       data-sidebar="menu"
-      className={cn('flex w-full min-w-0 flex-col gap-0.5', className)}
+      className={cn('flex w-full min-w-0 flex-col gap-0.5 group-data-[collapsible=icon]:items-center', className)}
       {...props}
     />
   );
@@ -560,7 +560,7 @@ const sidebarMenuButtonVariants = cva(
       size: {
         default: 'h-9 text-sm px-2.5 py-2',
         sm: 'h-7 text-xs',
-        lg: 'h-12 text-sm group-data-[collapsible=icon]:p-0!',
+        lg: 'h-12 text-sm group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2!',
       },
     },
     defaultVariants: {

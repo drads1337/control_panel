@@ -185,6 +185,9 @@ Desktop.ini
 # Backup copies (created by copy_project_files.py)
 backend_copy/
 frontend_copy/
+frontend_copy_part1/
+frontend_copy_part2/
+*_tree.md
 
 # Local configuration
 config.local.py

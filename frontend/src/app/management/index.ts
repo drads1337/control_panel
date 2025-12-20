@@ -1,12 +1,7 @@
-
-export * from './products';
-export * from './agents';
+// Export only existing modules
 export * from './changelog';
 export * from './notifications';
 export * from './files';
-export * from './license-keys';
 
-export { default as ManagementPage } from './management-page';
-
-export { default as PriceManager } from './PriceManager';
+// Export management components
 export { default as UsersManagement } from './users-management'; 

@@ -1,6 +1,6 @@
-import { enhancedApi as api } from '@/shared/api/enhanced-client'
-import { API_ENDPOINTS } from '@/shared/api/config'
-import type { WebhookData, WebhookFormData, WebhookStats, WebhookLog } from '@/app/webhooks/types'
+import { enhancedApi as api } from '@/lib/api/enhanced-client'
+import { API_ENDPOINTS } from '@/lib/api/config'
+import type { WebhookData, WebhookFormData, WebhookStats, WebhookLog } from "@/features/webhooks-control/types"
 
 export interface CreateWebhookRequest {
   name: string

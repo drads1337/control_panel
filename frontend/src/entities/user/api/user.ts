@@ -1,5 +1,5 @@
-import { enhancedApi as api } from '@/shared/api/enhanced-client'
-import { API_ENDPOINTS } from '@/shared/api/config'
+import { enhancedApi as api } from '@/lib/api/enhanced-client'
+import { API_ENDPOINTS } from '@/lib/api/config'
 import type { UsersResponse, CreateUserData, UpdateUserData, User } from '@/entities/user';
 import type {
   UsersResponse as UserTypesResponse,
@@ -17,6 +17,13 @@ export async function getUsers(params?: {
   search?: string
   project_id?: number
 }): Promise<UserTypesResponse> {
+  // SECURITY WARNING: search parameter may contain PII (emails, usernames, names, etc.)
+  // Passing search terms in URL query parameters exposes them to:
+  // - Server access logs
+  // - Browser history
+  // - Referrer headers
+  // - Network monitoring tools
+  // Consider using POST requests with body for search queries in the future
 
   const requestParams: Record<string, any> = {}
   if (params?.page) requestParams.page = params.page.toString()
@@ -30,6 +37,18 @@ export async function getUsers(params?: {
 
   const response = await api.get(API_ENDPOINTS.USERS, { params: requestParams })
 
+  return response.data
+}
+
+export async function searchUsers(params: {
+  page?: number
+  per_page?: number
+  role?: string
+  roles?: string[]
+  search: string
+  project_id?: number
+}): Promise<UserTypesResponse> {
+  const response = await api.post(API_ENDPOINTS.USERS_SEARCH, params)
   return response.data
 }
 

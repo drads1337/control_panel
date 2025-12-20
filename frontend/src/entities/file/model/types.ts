@@ -1,4 +1,4 @@
-import { BaseEntity } from '@/shared/api'
+import { BaseEntity } from '@/lib/api'
 
 export interface FileItem {
   id: string

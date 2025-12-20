@@ -1,11 +1,3 @@
-export { AppHeader } from './app-header';
-export { AppLayout } from './app-layout';
+// Export only files that exist in this directory
 export { default as AppSidebar } from './app-sidebar';
-export { ColorPicker } from './ColorPicker';
-export { DataTable } from '../dashboard/data-table';
-export { default as FaultyTerminal } from './faulty-terminal';
-export { GuestLayout } from './guest-layout';
-export { PageTransition } from './page-transition';
-export { Pagination } from './pagination';
-export { ThemeProvider } from './theme-provider';
-export { UserLayout } from './user-layout';
+export { ColorInitializer } from './color-initializer';
