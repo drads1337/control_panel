@@ -10,8 +10,8 @@ import {
   SellerRender, 
   DeveloperRender 
 } from './conditional-render'
-import { usePermissions } from '@/lib/hooks'
-import { useRBACApi } from '@/features/user-administration/hooks/use-rbac-api'
+import { usePermissions } from '@/hooks/use-permissions'
+import { useRBACApi } from '@/hooks/use-rbac-api'
 
 export function RBACExample() {
   const { 

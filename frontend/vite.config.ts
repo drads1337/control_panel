@@ -75,10 +75,6 @@ export default defineConfig(({ mode }) => {
       // Ensure proper handling of CommonJS modules like lodash
       // Dedupe React to prevent multiple instances and bundling issues
       dedupe: ['react', 'react-dom', 'lodash'],
-      // Fix react-map-gl v8 package resolution issue
-      conditions: ['import', 'module', 'browser', 'default'],
-      // Fix react-map-gl package exports resolution
-      mainFields: ['module', 'main'],
     },
     build: {
       // Use modern ES2020 target for better tree-shaking and smaller bundles
@@ -266,8 +262,6 @@ export default defineConfig(({ mode }) => {
         'lodash/get',
         'lodash/isNaN', // Fix recharts lodash import issue
         'recharts', // Pre-bundle recharts to fix lodash compatibility
-        'react-map-gl/mapbox',
-        'mapbox-gl',
       ],
       // Exclude heavy dependencies from pre-bundling to reduce initial load
       exclude: [
@@ -278,7 +272,6 @@ export default defineConfig(({ mode }) => {
       ],
       // Force optimization of specific packages
       // Handle CommonJS default exports (fixes lodash/get import issues)
-      // Also handles react-map-gl which doesn't have a root export
       esbuildOptions: {
         target: 'es2020',
         mainFields: ['module', 'main'],
@@ -295,11 +288,6 @@ export default defineConfig(({ mode }) => {
           'lodash/isNaN': 'lodash-es/isNaN',
           'lodash/isString': 'lodash-es/isString',
         },
-        conditions: ['import', 'module', 'browser', 'default'],
-        // Fix react-map-gl package exports resolution in optimizeDeps
-        mainFields: ['module', 'main'],
-        // Handle packages without root exports (like react-map-gl v8)
-        extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json'],
       },
     },
   }

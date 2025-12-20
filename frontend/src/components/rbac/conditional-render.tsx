@@ -1,5 +1,5 @@
 import React from 'react'
-import { usePermissions } from '@/lib/hooks'
+import { usePermissions } from '@/hooks/use-permissions'
 
 // SECURITY WARNING: This component provides UX-only permission-based rendering
 // It does NOT provide security - attackers can bypass this by modifying client code

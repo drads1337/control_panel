@@ -18,12 +18,10 @@ import {
   User,
   ChevronsUpDown,
   ChevronRight,
-  GalleryVerticalEnd,
-  Plus,
 } from 'lucide-react'
 import { NotificationList } from '@/components/animate-ui/components/community/notification-list'
 import { getUserNotifications, incrementNotificationShowCount } from '@/entities/notification'
-import { useAuthContext } from '@/app/providers/auth-provider'
+import { useAuthContext } from '@/contexts/auth-context'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -32,14 +30,13 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuGroup,
 } from '@/components/ui/dropdown-menu'
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@/components/ui/collapsible'
-import { useIsMobile } from '@/lib/hooks'
+} from '@/components/animate-ui/primitives/radix/collapsible'
+import { useIsMobile } from '@/shared/hooks/use-mobile'
 import { getProject, projectKeys } from '@/entities/project'
 import { useNavigationQuery, canAccessNavigationItem, type NavigationItem } from '@/entities/navigation'
 import { getAvatarUrl, cn } from '@/lib/utils'
@@ -121,130 +118,89 @@ const convertNavigationItemsToSidebarItems = (navigationItems: NavigationItem[])
 interface TeamSwitcherProps {
   projectName: string
   isLoading: boolean
-  activeTeam?: {
-    name: string
-    logo: React.ElementType
-    plan: string
-  }
+  isCollapsed: boolean
+  isMobile: boolean
 }
 
-function TeamSwitcher({ projectName, isLoading, activeTeam }: TeamSwitcherProps) {
-  const isMobile = useIsMobile()
+function TeamSwitcher({ projectName, isLoading, isCollapsed, isMobile }: TeamSwitcherProps) {
   const displayName = isLoading ? 'Loading...' : projectName
-  // Create a default "team" object if activeTeam is not provided
-  const team = activeTeam || {
-    name: displayName,
-    logo: GalleryVerticalEnd,
-    plan: "Enterprise" // Default plan or fetch from somewhere if available
-  }
 
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <SidebarMenuButton
-              size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-            >
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                <team.logo className="size-4" />
-              </div>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">{displayName}</span>
-                <span className="truncate text-xs">{team.plan}</span>
-              </div>
-              <ChevronsUpDown className="ml-auto" />
-            </SidebarMenuButton>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
-            align="start"
-            side={isMobile ? "bottom" : "right"}
-            sideOffset={4}
-          >
-            <DropdownMenuLabel className="text-xs text-muted-foreground">
-              Teams
-            </DropdownMenuLabel>
-            {/* 
-                Here we could list other teams if we had them. 
-                For now we just show the current one as the "active" one in the dropdown list too 
-                to emulate the look, or just keeping the trigger is enough if we don't have others.
-                But usually Shadcn example has a list here. 
-            */}
-            <DropdownMenuItem className="gap-2 p-2">
-              <div className="flex size-6 items-center justify-center rounded-sm border">
-                <team.logo className="size-4 shrink-0" />
-              </div>
-              {displayName}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 p-2">
-              <div className="flex size-6 items-center justify-center rounded-md border bg-background">
-                <Plus className="size-4" />
-              </div>
-              <div className="font-medium text-muted-foreground">Add team</div>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <SidebarMenuButton
+          size="lg"
+          className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground cursor-default"
+          tooltip={isCollapsed ? displayName : undefined}
+        >
+          <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+            <Briefcase className="size-4" />
+          </div>
+          {!isCollapsed && (
+            <div className="grid flex-1 text-left text-sm leading-tight">
+              <span className="truncate font-semibold">{displayName}</span>
+            </div>
+          )}
+        </SidebarMenuButton>
       </SidebarMenuItem>
     </SidebarMenu>
   )
 }
 
-
 interface NavMainProps {
   items: SidebarItem[]
   location: ReturnType<typeof useLocation>
+  isCollapsed: boolean
   onNavigate: (href: string) => void
 }
 
-function NavMain({ items, location, onNavigate }: NavMainProps) {
+function NavMain({ items, location, isCollapsed, onNavigate }: NavMainProps) {
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>Platform</SidebarGroupLabel>
+      <SidebarGroupLabel>Main</SidebarGroupLabel>
       <SidebarMenu>
         {items.map((item) => {
-            const isActive = location.pathname === item.href || location.pathname.startsWith(`${item.href}/`)
-            const IconComponent = navigationUIMap[item.href]?.icon
+          const isActive = location.pathname === item.href || location.pathname.startsWith(`${item.href}/`)
+          const IconComponent = navigationUIMap[item.href]?.icon
+          
           return (
             <Collapsible
-              key={item.title}
+              key={item.href}
               asChild
               defaultOpen={isActive}
               className="group/collapsible"
             >
               <SidebarMenuItem>
-                <CollapsibleTrigger asChild>
-                  <SidebarMenuButton tooltip={item.title} isActive={isActive} asChild={!item.items?.length}>
-                    {item.items && item.items.length > 0 ? (
-                        <>
-                            {IconComponent && <IconComponent />}
-                            <span>{item.title}</span>
-                            <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                        </>
-                    ) : (
-                        <Link to={item.href}>
-                            {IconComponent && <IconComponent />}
-                            <span>{item.title}</span>
-                        </Link>
-                    )}
-                  </SidebarMenuButton>
-                </CollapsibleTrigger>
-                {item.items && item.items.length > 0 && (
+                {item.items && item.items.length > 0 ? (
+                  <>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton tooltip={isCollapsed ? item.title : undefined} isActive={isActive}>
+                        {IconComponent && <IconComponent className="size-4" />}
+                        <span>{item.title}</span>
+                        <ChevronRight className="ml-auto transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
                     <CollapsibleContent>
-                    <SidebarMenuSub>
+                      <SidebarMenuSub>
                         {item.items.map((subItem) => (
-                        <SidebarMenuSubItem key={subItem.title}>
+                          <SidebarMenuSubItem key={subItem.title}>
                             <SidebarMenuSubButton asChild>
-                            <Link to={subItem.url}>
+                              <Link to={subItem.url}>
                                 <span>{subItem.title}</span>
-                            </Link>
+                              </Link>
                             </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
+                          </SidebarMenuSubItem>
                         ))}
-                    </SidebarMenuSub>
+                      </SidebarMenuSub>
                     </CollapsibleContent>
+                  </>
+                ) : (
+                  <SidebarMenuButton asChild tooltip={isCollapsed ? item.title : undefined} isActive={isActive}>
+                    <Link to={item.href}>
+                      {IconComponent && <IconComponent className="size-4" />}
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
                 )}
               </SidebarMenuItem>
             </Collapsible>
@@ -257,6 +213,8 @@ function NavMain({ items, location, onNavigate }: NavMainProps) {
 
 interface NavUserProps {
   user: any
+  isCollapsed: boolean
+  isMobile: boolean
   onNavigate: (href: string) => void
   onLogout: () => void
   notifications: any[]
@@ -266,24 +224,21 @@ interface NavUserProps {
 
 function NavUser({
   user,
+  isCollapsed,
+  isMobile,
   onNavigate,
   onLogout,
   notifications,
   showNotifications,
   onNotificationClick,
 }: NavUserProps) {
-  const isMobile = useIsMobile()
   const userRole = user?.roles?.[0]
   const roleLabel = userRole ? userRole.charAt(0).toUpperCase() + userRole.slice(1) : 'User'
 
   return (
     <>
       {showNotifications && notifications.length > 0 && (
-        <div className="mb-2 px-2">
-            {/* Wrapped in div for spacing, though original was direct. 
-                NotificationList expects container context? 
-                It was originally just <div className="mb-2"><NotificationList.../></div> 
-            */}
+        <div className="mb-2">
           <NotificationList
             notifications={notifications}
             limit={3}
@@ -305,15 +260,17 @@ function NavUser({
                     {user?.username?.charAt(0).toUpperCase() || 'U'}
                   </AvatarFallback>
                 </Avatar>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">{user?.username || 'User'}</span>
-                  <span className="truncate text-xs">{roleLabel}</span>
-                </div>
-                <ChevronsUpDown className="ml-auto size-4" />
+                {!isCollapsed && (
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-semibold">{user?.username || 'User'}</span>
+                    <span className="truncate text-xs">{roleLabel}</span>
+                  </div>
+                )}
+                {!isCollapsed && <ChevronsUpDown className="ml-auto size-4" />}
               </SidebarMenuButton>
             </DropdownMenuTrigger>
             <DropdownMenuContent
-              className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+              className={cn("w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg", !isMobile && "ml-2")}
               side={isMobile ? 'bottom' : 'right'}
               align="end"
               sideOffset={4}
@@ -333,25 +290,23 @@ function NavUser({
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-                <DropdownMenuItem onClick={() => onNavigate('/profile')}>
-                    <User className="mr-2 h-4 w-4" />
-                    Profile
+              <DropdownMenuItem onClick={() => onNavigate('/profile')}>
+                <User className="h-4 w-4 mr-2" />
+                Profile
+              </DropdownMenuItem>
+              {canAccessNavigationItem(
+                { href: '/settings', permission: 'project.view' },
+                user,
+                userRole
+              ) && (
+                <DropdownMenuItem onClick={() => onNavigate('/settings')}>
+                  <Settings className="h-4 w-4 mr-2" />
+                  Settings
                 </DropdownMenuItem>
-                {canAccessNavigationItem(
-                    { href: '/settings', permission: 'project.view' },
-                    user,
-                    userRole
-                ) && (
-                    <DropdownMenuItem onClick={() => onNavigate('/settings')}>
-                    <Settings className="mr-2 h-4 w-4" />
-                    Settings
-                    </DropdownMenuItem>
-                )}
-                </DropdownMenuGroup>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={onLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
+                <LogOut className="h-4 w-4 mr-2" />
                 Log out
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -453,6 +408,8 @@ function AppSidebarContent() {
         <TeamSwitcher
           projectName={projectName}
           isLoading={isProjectLoading}
+          isCollapsed={isCollapsed}
+          isMobile={isMobile}
         />
       </SidebarHeader>
 
@@ -460,6 +417,7 @@ function AppSidebarContent() {
         <NavMain
           items={sidebarItems}
           location={location}
+          isCollapsed={isCollapsed}
           onNavigate={handleNavigation}
         />
       </SidebarContent>
@@ -467,6 +425,8 @@ function AppSidebarContent() {
       <SidebarFooter>
         <NavUser
           user={user}
+          isCollapsed={isCollapsed}
+          isMobile={isMobile}
           onNavigate={handleNavigation}
           onLogout={handleLogout}
           notifications={notifications}

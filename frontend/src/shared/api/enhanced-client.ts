@@ -35,7 +35,7 @@ let errorHandlers: ApiErrorHandlers | null = null
  * 
  * @example
  * ```ts
- * import { setApiErrorHandlers } from '@/lib/api/enhanced-client'
+ * import { setApiErrorHandlers } from '@/shared/api/enhanced-client'
  * import { showGlobalError, showGlobalWarning, triggerProjectExpiration } from '@/lib/global-notifications'
  * 
  * setApiErrorHandlers({
@@ -65,7 +65,7 @@ export const API_CONFIG = {
   },
 
   BATCHING: {
-    enabled: false, // Disabled by default - enable only if high-load GET requests are needed
+    enabled: true,
     delay: 50,
     maxBatchSize: 10,
   },
@@ -314,12 +314,11 @@ async function handleError(error: AxiosError): Promise<never> {
     let errorMessage = ''
     let errorCode = ''
     if (errorData && typeof errorData === 'object') {
-      const errorObj = errorData as { error?: string; message?: string }
-      if ('error' in errorObj && typeof errorObj.error === 'string') {
-        errorCode = errorObj.error
-        errorMessage = errorObj.error
-      } else if ('message' in errorObj && typeof errorObj.message === 'string') {
-        errorMessage = errorObj.message
+      if ('error' in errorData && typeof errorData.error === 'string') {
+        errorCode = errorData.error
+        errorMessage = errorData.error
+      } else if ('message' in errorData && typeof errorData.message === 'string') {
+        errorMessage = errorData.message
       }
     }
 
@@ -363,12 +362,11 @@ async function handleError(error: AxiosError): Promise<never> {
       // Handle authentication errors for all endpoints except special cases
       // DELETE requests to /api/users/ are now handled here to ensure proper redirect on token expiration
       if (!isWebhooksEndpoint && !isManagementPage && !isMeEndpoint) {
-        const errorObj = errorData && typeof errorData === 'object' ? errorData as { message?: string; error?: string } : null
-        const authErrorMessage = (errorObj && 'message' in errorObj && typeof errorObj.message === 'string')
-          ? errorObj.message
-          : (errorObj?.error || 'Unauthorized access')
+        const authErrorMessage = (errorData && typeof errorData === 'object' && 'message' in errorData && typeof errorData.message === 'string')
+          ? errorData.message
+          : (errorData?.error || 'Unauthorized access')
         
-        console.warn(`[API] Authentication error (${error.response?.status}) for ${config?.method} ${requestUrl}: ${authErrorMessage}`)
+        console.warn(`[API] Authentication error (${error.response?.status}) for ${config?.method} ${url}: ${authErrorMessage}`)
         console.warn(`[API] Calling handleAuthError - will redirect to login if handler is registered`)
         
         handleAuthError({
@@ -377,7 +375,7 @@ async function handleError(error: AxiosError): Promise<never> {
           response: errorData
         })
       } else {
-        console.warn(`[API] Authentication error (${error.response?.status}) for ${config?.method} ${requestUrl} skipped - endpoint in exclusion list`)
+        console.warn(`[API] Authentication error (${error.response?.status}) for ${config?.method} ${url} skipped - endpoint in exclusion list`)
       }
     }
   }
@@ -487,15 +485,6 @@ enhancedApi.interceptors.request.use(
     const url = config.url || ''
     const fullUrl = config.baseURL ? `${config.baseURL}${url}` : url
     const method = config.method?.toUpperCase()
-    
-    // Request batching is disabled by default
-    // NOTE: Request batching is a premature optimization for most use cases.
-    // It only batches GET requests and can cause issues with:
-    // - Unstable network connections (requests may be lost)
-    // - Backend that doesn't support batching
-    // - Race conditions in request ordering
-    // Enable only if you have proven high-load GET requests that benefit from batching.
-    // If enabled, batching happens in the RequestBatcher class, not in the interceptor.
     
     // Log requests to problematic endpoints
     const isRbacPermissionsEndpoint = url.includes('/api/rbac/users/') && url.includes('/permissions')
@@ -616,7 +605,7 @@ enhancedApi.interceptors.request.use(
 
         } else {
 
-          const { sanitizeForApi } = await import('@/lib/utils/sanitization')
+          const { sanitizeForApi } = await import('@/lib/sanitization')
           config.data = sanitizeForApi(config.data)
         }
       } catch (error) {

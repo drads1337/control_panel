@@ -1,6 +1,6 @@
-import { enhancedApi as api } from '@/lib/api/enhanced-client'
-import { API_ENDPOINTS } from '@/lib/api/config'
-import { apiCall } from '@/lib/api/api-wrapper'
+import { enhancedApi as api } from '@/shared/api/enhanced-client'
+import { API_ENDPOINTS } from '@/shared/api/config'
+import { getErrorMessage } from '@/lib/error-utils'
 import type {
   Agent,
   AgentsResponse,
@@ -22,23 +22,39 @@ export async function getAvailableProducts(): Promise<AgentProductsResponse> {
 }
 
 export async function createAgent(data: CreateAgentData): Promise<{ agent: any; success: boolean; message: string }> {
-  return apiCall(() => api.post(API_ENDPOINTS.AGENTS, data))
+  try {
+    const response = await api.post(API_ENDPOINTS.AGENTS, data)
+    return response.data
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err))
+  }
 }
 
 export async function updateAgent(agentId: number, data: UpdateAgentData): Promise<{ success: boolean; message: string }> {
-  return apiCall(() => api.put(`${API_ENDPOINTS.AGENTS}/${agentId}`, data))
+  try {
+    const response = await api.put(`${API_ENDPOINTS.AGENTS}/${agentId}`, data)
+    return response.data
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err))
+  }
 }
 
 export async function deleteAgent(agentId: number): Promise<{ success: boolean; message: string }> {
-  return apiCall(() => api.delete(`${API_ENDPOINTS.AGENTS}/${agentId}`))
+  try {
+    const response = await api.delete(`${API_ENDPOINTS.AGENTS}/${agentId}`)
+    return response.data
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err))
+  }
 }
 
 export async function assignProductsToAgent(agentId: number, productIds: number[]): Promise<{ success: boolean; message: string }> {
-  // Ensure productIds is always a valid array (never undefined or null)
-  const validProductIds = Array.isArray(productIds) ? productIds : []
-  return apiCall(() => api.post(`${API_ENDPOINTS.AGENTS}/${agentId}/assign-products`, { 
-    product_ids: validProductIds 
-  }))
+  try {
+    const response = await api.post(`${API_ENDPOINTS.AGENTS}/${agentId}/assign-products`, { product_ids: productIds })
+    return response.data
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err))
+  }
 }
 
 export async function unassignProductsFromAgent(agentId: number, productIds: number[]): Promise<{ success: boolean; message: string }> {
@@ -57,11 +73,21 @@ export async function unassignProductsFromAgent(agentId: number, productIds: num
 }
 
 export async function updateAgentStatus(agentId: number, status: 'active' | 'inactive' | 'maintenance' | 'testing'): Promise<{ success: boolean; message: string }> {
-  return apiCall(() => api.put(`${API_ENDPOINTS.AGENTS}/${agentId}/status`, { status }))
+  try {
+    const response = await api.put(`${API_ENDPOINTS.AGENTS}/${agentId}/status`, { status })
+    return response.data
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err))
+  }
 }
 
 export async function updateAgentConfig(agentId: number, config: AgentConfigData): Promise<{ success: boolean; message: string; config: any }> {
-  return apiCall(() => api.put(`${API_ENDPOINTS.AGENTS}/${agentId}/config`, config))
+  try {
+    const response = await api.put(`${API_ENDPOINTS.AGENTS}/${agentId}/config`, config)
+    return response.data
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err))
+  }
 }
 
 export async function getAgentStats(): Promise<AgentStatsResponse> {
@@ -88,10 +114,20 @@ export async function getAgentsLegacy(): Promise<{ agents: Agent[]; success: boo
 }
 
 export async function recordAgentDownload(agentId: number): Promise<{ success: boolean; download_url?: string; filename?: string; downloads: number }> {
-  return apiCall(() => api.post(`${API_ENDPOINTS.AGENTS}/${agentId}/download`))
+  try {
+    const response = await api.post(`${API_ENDPOINTS.AGENTS}/${agentId}/download`)
+    return response.data
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err))
+  }
 }
 
 export async function uploadAgentFiles(agentId: number, files: FormData): Promise<{ success: boolean; message: string; uploaded_files: Record<string, string> }> {
-  return apiCall(() => api.post(`${API_ENDPOINTS.AGENTS}/${agentId}/files`, files))
+  try {
+    const response = await api.post(`${API_ENDPOINTS.AGENTS}/${agentId}/files`, files)
+    return response.data
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err))
+  }
 }
 

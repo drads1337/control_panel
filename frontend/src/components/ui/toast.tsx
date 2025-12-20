@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, CheckCircle, AlertTriangle, Info, AlertCircle } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '../../lib/utils';
 export interface ToastProps {
   id: string;
   type: 'success' | 'error' | 'warning' | 'info';

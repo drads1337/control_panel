@@ -1,6 +1,6 @@
 import React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useAuthContext } from '@/app/providers/auth-provider'
+import { useAuthContext } from '@/contexts/auth-context'
 import {
   getProjectSettings,
   updateProjectSettings,

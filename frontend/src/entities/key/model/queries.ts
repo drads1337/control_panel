@@ -1,9 +1,7 @@
 import React from 'react'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
-import { clearDefaultSensitiveParamsFromUrl } from '@/lib/utils/url-security'
 import { 
-  getLicenseKeys,
-  searchLicenseKeys,
+  getLicenseKeys, 
   createLicenseKey,
   createCustomLicenseKey,
   bulkCreateLicenseKeys,
@@ -14,7 +12,7 @@ import {
   type KeysStats
 } from '@/entities/key'
 import { toast } from 'sonner'
-import { useAuthContext } from '@/app/providers/auth-provider'
+import { useAuthContext } from '@/contexts/auth-context'
 import { measurePerformance } from '@/lib/sentry-config'
 
 export const keyKeys = {
@@ -97,28 +95,16 @@ export function useKeysQuery(initialParams: UseKeysParams = {}): UseKeysReturn {
   } = useQuery({
     queryKey: keyKeys.list(params),
     queryFn: async () => {
-      // SECURITY: Use POST for search to prevent PII leakage in URL
-      const fetchFunction = params.search
-        ? () => searchLicenseKeys({
-            page: params.page || 1,
-            per_page: params.per_page || 20,
-            status: params.status,
-            product_id: params.product_id,
-            search: params.search!,
-            my_keys: params.my_keys,
-          })
-        : () => getLicenseKeys(
-            params.page || 1,
-            params.per_page || 20,
-            params.status,
-            params.product_id,
-            params.search,
-            params.my_keys
-          )
-      
       return measurePerformance(
         'keys_table_load',
-        fetchFunction,
+        () => getLicenseKeys(
+          params.page || 1,
+          params.per_page || 20,
+          params.status,
+          params.product_id,
+          params.search,
+          params.my_keys
+        ),
         {
           page: params.page || 1,
           per_page: params.per_page || 20,
@@ -133,13 +119,6 @@ export function useKeysQuery(initialParams: UseKeysParams = {}): UseKeysReturn {
     enabled: isAuthenticated && (initialParams.enabled ?? true), // Загружаем только если таб активен и пользователь авторизован (по умолчанию true)
     placeholderData: keepPreviousData,
   })
-
-  // SECURITY: Clear sensitive parameters from URL after data is loaded
-  React.useEffect(() => {
-    if (!keysLoading && keysData) {
-      clearDefaultSensitiveParamsFromUrl()
-    }
-  }, [keysLoading, keysData])
 
   const createKeyMutation = useMutation({
     mutationFn: (data: CreateKeyData) => createLicenseKey(data),

@@ -1,8 +1,8 @@
 import React from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { StatCard } from "@/features/dashboard/stat-card";
+import { StatCard } from '@/app/dashboard/stat-card';
 import { Key, Database, FolderOpen, Zap } from 'lucide-react';
-import type { ManagementStats } from '@/features/user-administration/hooks/use-management-stats';
+import type { ManagementStats } from '@/hooks/use-management-stats';
 
 interface ManagementStatsProps {
   stats: ManagementStats;

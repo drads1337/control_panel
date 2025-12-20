@@ -12,10 +12,7 @@ export const DEBOUNCE_DELAYS = {
 } as const;
 
 export const FILE_UPLOAD = {
-  // SECURITY: Reduced from 5GB to 100MB to prevent browser memory issues
-  // Files larger than this should use chunked upload (not yet implemented on backend)
-  MAX_SIZE: 100 * 1024 * 1024, // 100MB
-  CHUNK_SIZE: 5 * 1024 * 1024, // 5MB per chunk
-  CHUNKED_UPLOAD_THRESHOLD: 100 * 1024 * 1024, // Use chunked upload for files > 100MB
+  MAX_SIZE: 5 * 1024 * 1024 * 1024,
+  CHUNK_SIZE: 5 * 1024 * 1024,
   MAX_FILES: 50,
 } as const;

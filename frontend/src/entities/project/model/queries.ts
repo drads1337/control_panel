@@ -1,7 +1,8 @@
 import React from 'react'
 import { getProjects, createProject, updateProject, deleteProject } from '@/entities/project'
 import type { Project, CreateProjectData, ProjectsResponse } from '@/entities/project/model/types'
-import { usePaginatedResource, useMutationWithCache } from '@/lib/hooks'
+import { usePaginatedResource } from '@/hooks/use-paginated-resource'
+import { useMutationWithCache } from '@/hooks/use-mutation-helpers'
 
 export const projectKeys = {
   all: ['projects'] as const,

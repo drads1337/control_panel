@@ -2,8 +2,8 @@ import React from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ManagementTabContent } from './ManagementTabContent'
-import { useManagementStore } from '@/shared/model/use-management-store'
-import type { ManagementTab } from '@/features/user-administration/hooks/use-management-data'
+import { useManagementStore } from '@/stores/management-store'
+import type { ManagementTab } from '@/hooks/use-management-data'
 
 interface ManagementTabsProps {
   availableTabs: ManagementTab[]

@@ -1,5 +1,5 @@
-import { enhancedApi as api } from '@/lib/api/enhanced-client'
-import { API_ENDPOINTS } from '@/lib/api/config'
+import { enhancedApi as api } from '@/shared/api/enhanced-client'
+import { API_ENDPOINTS } from '@/shared/api/config'
 import type { LogsResponse, LogStats, ConnectionLogsResponse, ConnectionLogStats, Log } from '@/entities/log';
 import type {
   LogsResponse as LogTypesResponse,
@@ -18,13 +18,6 @@ export async function getLogs(
   ip?: string,
   projectId?: number | string
 ): Promise<LogTypesResponse> {
-  // SECURITY WARNING: username is PII (Personally Identifiable Information)
-  // Passing PII in URL query parameters exposes it to:
-  // - Server access logs
-  // - Browser history
-  // - Referrer headers
-  // - Network monitoring tools
-  // Consider using POST requests with body for sensitive filters in the future
   const params: Record<string, string> = {
     page: page.toString(),
     per_page: perPage.toString(),
@@ -84,11 +77,13 @@ export async function searchLogs(
   page: number = 1,
   perPage: number = 20
 ): Promise<LogTypesResponse> {
-  const response = await api.post(API_ENDPOINTS.LOGS_SEARCH, {
+  const params: Record<string, string> = {
     q: searchTerm,
-    page,
-    per_page: perPage,
-  })
+    page: page.toString(),
+    per_page: perPage.toString(),
+  }
+
+  const response = await api.get(API_ENDPOINTS.LOGS_SEARCH, { params })
   return response.data
 }
 
@@ -104,13 +99,6 @@ export async function exportLogs(
   dateFrom?: string,
   dateTo?: string
 ): Promise<Blob> {
-  // SECURITY WARNING: userId is PII (Personally Identifiable Information)
-  // Passing PII in URL query parameters exposes it to:
-  // - Server access logs
-  // - Browser history
-  // - Referrer headers
-  // - Network monitoring tools
-  // Consider using POST requests with body for sensitive filters in the future
   const params: Record<string, string> = {}
 
   if (action && action.trim() !== '') params.action = action

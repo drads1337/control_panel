@@ -350,18 +350,11 @@ def export_keys():
         if status == "active":
             query = query.filter(Key.status == 1, Key.expires_at > datetime.utcnow())
         elif status == "expired":
-            query = query.filter(Key.status == 1, Key.expires_at <= datetime.utcnow())
+            query = query.filter(Key.expires_at <= datetime.utcnow())
         elif status == "inactive":
             query = query.filter(Key.status == 0)
-        elif status == "paused":
-            query = query.filter(Key.status == 3)
-        elif status == "blocked":
-            query = query.filter(Key.status == 2)
         else:
-            try:
-                query = query.filter_by(status=int(status))
-            except (ValueError, TypeError):
-                pass  # Skip invalid status values
+            query = query.filter_by(status=int(status))
 
     if product_id:
         product = Product.query.filter_by(id=product_id, project_id=user.project_id).first()

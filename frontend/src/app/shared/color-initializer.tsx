@@ -1,5 +1,5 @@
 import { useLayoutEffect } from 'react'
-import { useCustomColor } from '@/lib/hooks'
+import { useCustomColor } from '@/hooks/use-custom-color'
 
 export function ColorInitializer() {
   const { customColor } = useCustomColor()

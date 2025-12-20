@@ -1,7 +1,6 @@
 import React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useAuthContext } from '@/app/providers/auth-provider'
-import { clearDefaultSensitiveParamsFromUrl } from '@/lib/utils/url-security'
+import { useAuthContext } from '@/contexts/auth-context'
 import { 
   getLogs, 
   getLogStats, 
@@ -110,13 +109,6 @@ export function useLogsQuery(options: UseLogsOptions = {}): UseLogsReturn {
     staleTime: 30 * 1000,
     refetchInterval: options.autoRefresh ? (options.refreshInterval || 30000) : false,
   })
-
-  // SECURITY: Clear sensitive parameters from URL after data is loaded
-  React.useEffect(() => {
-    if (!logsQuery.isLoading && logsQuery.data) {
-      clearDefaultSensitiveParamsFromUrl()
-    }
-  }, [logsQuery.isLoading, logsQuery.data])
 
   const statsQuery = useQuery<LogStats, Error>({
     queryKey: logKeys.stats(),

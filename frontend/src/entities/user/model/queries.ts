@@ -1,9 +1,9 @@
 import React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { clearDefaultSensitiveParamsFromUrl } from '@/lib/utils/url-security'
-import { getUsers, searchUsers, createUser, updateUser, deleteUser } from '@/entities/user'
+import { getUsers, createUser, updateUser, deleteUser } from '@/entities/user'
 import type { User, CreateUserData, UpdateUserData, UsersResponse } from '@/entities/user/model/types'
-import { usePaginatedResource, useMutationWithCache } from '@/lib/hooks'
+import { usePaginatedResource } from '@/hooks/use-paginated-resource'
+import { useMutationWithCache } from '@/hooks/use-mutation-helpers'
 
 export const userKeys = {
   all: ['users'] as const,
@@ -67,13 +67,7 @@ export function useUsersQuery(initialParams: UseUsersParams = {}): UseUsersRetur
     refetch,
   } = usePaginatedResource<UsersResponse, User, UseUsersParams>({
     queryKeyFactory: userKeys,
-    queryFn: (params) => {
-      // SECURITY: Use POST for search to prevent PII leakage in URL
-      if (params?.search) {
-        return searchUsers(params as any)
-      }
-      return getUsers(params)
-    },
+    queryFn: (params) => getUsers(params),
     itemsField: 'users',
     initialParams,
     queryOptions: {
@@ -81,13 +75,6 @@ export function useUsersQuery(initialParams: UseUsersParams = {}): UseUsersRetur
     },
     requireAuth: false,
   })
-
-  // SECURITY: Clear sensitive parameters from URL after data is loaded
-  React.useEffect(() => {
-    if (!loading && usersData) {
-      clearDefaultSensitiveParamsFromUrl()
-    }
-  }, [loading, usersData])
 
   const {
     data: statsData,

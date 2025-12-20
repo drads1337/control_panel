@@ -1,7 +1,7 @@
 import React from 'react'
 import { Key, Database, FolderOpen, Zap } from 'lucide-react'
 import { ManagementStatCard } from './management-stat-card'
-import type { ManagementStats } from '@/features/user-administration/hooks/use-management-stats'
+import type { ManagementStats } from '@/hooks/use-management-stats'
 
 interface ManagementStatsCardsProps {
   stats: ManagementStats

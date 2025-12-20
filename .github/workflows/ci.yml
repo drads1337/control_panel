@@ -268,9 +268,6 @@ jobs:
         if: always()
         with:
           sarif_file: 'trivy-results.sarif'
-      
-      - name: Run Security Check (PII and duplicate imports)
-        run: npm run security:check
 
   # IDOR Security Audit
   idor-security-audit:

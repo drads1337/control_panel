@@ -272,14 +272,6 @@ def _handle_simple_login(data: dict, ip: str, user_agent: str):
                 "message": "Project is paused. Please contact the administrator for additional information."
             }), 403
 
-        if hasattr(e, 'error_code') and e.error_code == "ACCOUNT_EXPIRED":
-            logger.warning(f"Expired account attempted to login: {ip}")
-            return jsonify({
-                "error": "ACCOUNT_EXPIRED",
-                "error_code": "ACCOUNT_EXPIRED",
-                "message": "Your account has expired. Please contact the administrator for assistance."
-            }), 403
-
         raise
     except AuthenticationError as e:
         # AuthenticationError should return 401, not 500

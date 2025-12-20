@@ -2,15 +2,15 @@ import React, { Suspense } from 'react'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { Plus } from 'lucide-react'
-import { ConditionalRender } from '@/lib/rbac/conditional-render'
-import { useManagementData } from '@/features/user-administration/hooks/use-management-data'
-import { useProductDialogStore } from '@/shared/model/use-product-dialog-store'
-import { useAgentDialogStore } from '@/shared/model/use-agent-dialog-store'
+import { ConditionalRender } from '@/components/rbac/conditional-render'
+import { useManagementData } from '@/hooks/use-management-data'
+import { useProductDialogStore } from '@/stores/product-dialog-store'
+import { useAgentDialogStore } from '@/stores/agent-dialog-store'
 
-const LicenseKeysMain = React.lazy(() => import('@/features/license-keys/LicenseKeysMain'))
-const ProductDatabase = React.lazy(() => import('@/features/product-database/ProductDatabase'))
-const FileManager = React.lazy(() => import('@/features/file-manager/FileManager'))
-const AgentManager = React.lazy(() => import('@/features/agent-management/AgentManager'))
+const LicenseKeysMain = React.lazy(() => import('./license-keys/LicenseKeysMain'))
+const ProductDatabase = React.lazy(() => import('./products/ProductDatabase'))
+const FileManager = React.lazy(() => import('./files/FileManager'))
+const AgentManager = React.lazy(() => import('./agents/AgentManager'))
 
 interface ManagementTabContentProps {
   tabValue: string

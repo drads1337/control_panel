@@ -2,7 +2,7 @@ import React from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardAction, CardFooter } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { LucideIcon } from 'lucide-react'
-import { ConditionalRender } from '@/lib/rbac/conditional-render'
+import { ConditionalRender } from '@/components/rbac/conditional-render'
 
 interface ManagementStatCardProps {
   permission: string

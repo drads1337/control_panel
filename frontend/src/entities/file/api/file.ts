@@ -1,7 +1,6 @@
-import { enhancedApi as api } from '@/lib/api/enhanced-client'
-import { API_ENDPOINTS } from '@/lib/api/config'
-import { apiCall } from '@/lib/api/api-wrapper'
-import { isErrorWithMessage } from '@/lib/utils/error-utils'
+import { enhancedApi as api } from '@/shared/api/enhanced-client'
+import { API_ENDPOINTS } from '@/shared/api/config'
+import { getErrorMessage, isErrorWithMessage } from '@/lib/error-utils'
 import type { FileItem, ProductFileStats, FileStats, CreateFolderData } from '@/entities/file';
 import type {
   FileItem as FileItemType,
@@ -30,16 +29,18 @@ export async function getProductFiles(
 
   const endpoint = API_ENDPOINTS.PRODUCT_FILES;
 
-  return apiCall(() => api.get(endpoint, { params }), {
-    onError: (error) => {
-      // Handle network errors specifically
-      if (error instanceof TypeError || (isErrorWithMessage(error) && error.message.includes('Network'))) {
-        const networkError = new Error(`Network error: Unable to reach server. Check if the server is running and accessible.`);
-        (networkError as { originalError?: unknown }).originalError = error;
-        throw networkError;
-      }
+  try {
+    const response = await api.get(endpoint, { params });
+    return response.data;
+  } catch (error: unknown) {
+    if (error instanceof TypeError || (isErrorWithMessage(error) && error.message.includes('Network'))) {
+      const networkError = new Error(`Network error: Unable to reach server. Check if the server is running and accessible.`);
+      (networkError as { originalError?: unknown }).originalError = error;
+      throw networkError;
     }
-  })
+
+    throw error;
+  }
 }
 
 export async function getProductFileStats(productId: number): Promise<ProductFileStatsType> {

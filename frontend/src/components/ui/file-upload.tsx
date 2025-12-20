@@ -44,9 +44,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
   onFilesSelect,
   multiple = true,
   accept,
-  // SECURITY: Default reduced from 5GB to 100MB to prevent browser memory issues
-  // Large files should use chunked upload (requires backend support)
-  maxSize = 100 * 1024 * 1024, // 100MB
+  maxSize = 5 * 1024 * 1024 * 1024,
   maxFiles = 10,
   disabled = false,
   className,

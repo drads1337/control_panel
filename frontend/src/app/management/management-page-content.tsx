@@ -1,7 +1,7 @@
 import React from 'react'
 import { Spinner } from '@/components/ui/spinner'
-import { useManagementStats } from '@/features/user-administration/hooks/use-management-stats'
-import { useManagementData } from '@/features/user-administration/hooks/use-management-data'
+import { useManagementStats } from '@/hooks/use-management-stats'
+import { useManagementData } from '@/hooks/use-management-data'
 import { ManagementStatsCards } from './management-stats-cards'
 import { ManagementTabs } from './management-tabs'
 

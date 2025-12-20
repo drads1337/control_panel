@@ -22,8 +22,8 @@ import {
   BarChart3
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { useAuthContext } from '@/app/providers/auth-provider'
-import { usePermissions } from '@/lib/hooks'
+import { useAuthContext } from '@/contexts/auth-context'
+import { usePermissions } from '@/hooks/use-permissions'
 import type { User as UserType } from '@/entities/user';
 
 interface SearchResult {

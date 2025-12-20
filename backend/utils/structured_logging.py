@@ -21,37 +21,6 @@ user_id_var: ContextVar[Optional[int]] = ContextVar("user_id", default=None)
 project_id_var: ContextVar[Optional[int]] = ContextVar("project_id", default=None)
 correlation_id_var: ContextVar[str] = ContextVar("correlation_id", default="")
 
-# SECURITY: List of sensitive query parameters that should be filtered from logs to prevent PII leakage
-SENSITIVE_QUERY_PARAMS = {
-    'username', 'user_id', 'userId', 'email', 'search', 'q',  # search terms
-    'token', 'api_key', 'apikey', 'password', 'pass', 'secret',
-}
-
-def sanitize_query_params(query_params: dict) -> dict:
-    """
-    Remove sensitive parameters from query params to prevent PII in logs.
-    
-    SECURITY: This function filters out parameters that may contain PII (Personally Identifiable Information)
-    to comply with GDPR/CCPA requirements and prevent data leakage through server logs.
-    
-    Args:
-        query_params: Dictionary of query parameters
-        
-    Returns:
-        Dictionary with sensitive parameters removed (values replaced with '[FILTERED]')
-    """
-    sanitized = {}
-    for key, value in query_params.items():
-        # Check if parameter name contains any sensitive keyword (case-insensitive)
-        key_lower = key.lower()
-        is_sensitive = any(sensitive_key.lower() in key_lower for sensitive_key in SENSITIVE_QUERY_PARAMS)
-        
-        if is_sensitive:
-            sanitized[key] = '[FILTERED]'
-        else:
-            sanitized[key] = value
-    return sanitized
-
 class StructuredFormatter(logging.Formatter):
     """Custom formatter for structured JSON logging"""
 
@@ -97,9 +66,6 @@ class StructuredFormatter(logging.Formatter):
                 log_entry["http_status"] = getattr(g, "response_status", None)
                 log_entry["remote_addr"] = request.remote_addr
                 log_entry["user_agent"] = request.headers.get("User-Agent", "")
-                # SECURITY: Sanitize query parameters to prevent PII leakage in logs
-                if hasattr(request, "args") and request.args:
-                    log_entry["http_query_params"] = sanitize_query_params(dict(request.args))
         except RuntimeError:
 
             pass
@@ -381,11 +347,7 @@ def setup_structured_logging(app):
     @app.after_request
     def log_request(response):
         g.response_status = response.status_code
-        
-        # SECURITY: Store sanitized query params in Flask's g for use in logging
-        # This prevents PII from appearing in access logs
-        if request and hasattr(request, "args") and request.args:
-            g.sanitized_query_params = sanitize_query_params(dict(request.args))
+
 
         correlation_id = correlation_id_var.get()
         if correlation_id:

@@ -84,14 +84,13 @@ class AgentProductAssignSchema(BaseSchema):
 
     product_ids: List[str] = Field(..., min_items=0, description="List of product IDs or unique IDs")
 
-    @field_validator("product_ids", mode="before")
+    @field_validator("product_ids")
     @classmethod
-    def validate_product_ids(cls, v) -> List[str]:
-        """Validate product IDs list and convert to strings"""
+    def validate_product_ids(cls, v: List[str]) -> List[str]:
+        """Validate product IDs list"""
         if not isinstance(v, list):
             raise ValueError("Product IDs must be a list")
-        # Convert all items to strings (handles both int and str inputs)
-        return [str(item) for item in v]
+        return v
 
 
 class AgentStatusUpdateSchema(BaseSchema):

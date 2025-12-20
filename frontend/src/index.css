@@ -1,9 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@import "./app/styles/themes.css";
-@import "./app/styles/dark-mode-enhancements.css";
-@import "./app/styles/status-badges.css";
+@import "./styles/themes.css";
+@import "./styles/dark-mode-enhancements.css";
+@import "./styles/status-badges.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -739,64 +739,4 @@
   body {
     @apply bg-background text-foreground;
   }
-}
-
-/* Mapbox popup styling */
-.mapbox-popup .mapboxgl-popup-content {
-  background: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
-  border-radius: calc(var(--radius) - 2px);
-  padding: 0;
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-}
-
-.mapbox-popup .mapboxgl-popup-tip {
-  border-top-color: hsl(var(--card));
-}
-
-.dark .mapbox-popup .mapboxgl-popup-content {
-  background: hsl(var(--card));
-  border-color: hsl(var(--border));
-}
-
-.dark .mapbox-popup .mapboxgl-popup-tip {
-  border-top-color: hsl(var(--card));
-}
-
-.mapbox-popup .mapboxgl-popup-close-button {
-  color: hsl(var(--muted-foreground));
-  font-size: 18px;
-  padding: 4px 8px;
-}
-
-.mapbox-popup .mapboxgl-popup-close-button:hover {
-  color: hsl(var(--foreground));
-  background: hsl(var(--muted));
-}
-
-/* Design styles from design-main 2 */
-.font-mono-numbers {
-  font-family: 'JetBrains Mono', monospace;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: #0F1115;
-}
-::-webkit-scrollbar-thumb {
-  background: #2D333B;
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #475569;
-}
-
-::selection {
-  background-color: #E2E8F0;
-  color: #0F1115;
 }

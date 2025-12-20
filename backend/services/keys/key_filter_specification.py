@@ -90,6 +90,8 @@ class KeyFilterSpecification:
                         "⏰ Applying expired status filter: "
                         "status=1 AND expires_at <= now (only active keys can be expired)"
                     )
+
+
                 query = query.filter(
                     Key.status == 1,
                     Key.expires_at <= datetime.utcnow()
@@ -98,24 +100,10 @@ class KeyFilterSpecification:
                 if self.logger:
                     self.logger.info("❌ Applying inactive status filter: status=0")
                 query = query.filter(Key.status == 0)
-            elif status == "paused":
-                if self.logger:
-                    self.logger.info("⏸️ Applying paused status filter: status=3")
-                query = query.filter(Key.status == 3)
-            elif status == "blocked":
-                if self.logger:
-                    self.logger.info("🚫 Applying blocked status filter: status=2")
-                query = query.filter(Key.status == 2)
             else:
-                # Try to parse as numeric status for backward compatibility
-                try:
-                    status_int = int(status)
-                    if self.logger:
-                        self.logger.info(f"🔢 Applying numeric status filter: status={status_int}")
-                    query = query.filter_by(status=status_int)
-                except (ValueError, TypeError):
-                    if self.logger:
-                        self.logger.warning(f"⚠️ Unknown status value: {status}, skipping status filter")
+                if self.logger:
+                    self.logger.info(f"🔢 Applying numeric status filter: status={int(status)}")
+                query = query.filter_by(status=int(status))
         else:
             if self.logger:
                 self.logger.info("📊 No status filter applied (status='all' or not provided)")

@@ -1,6 +1,6 @@
-import { enhancedApi as api } from '@/lib/api/enhanced-client'
-import { API_ENDPOINTS } from '@/lib/api/config'
-import { apiCall } from '@/lib/api/api-wrapper'
+import { enhancedApi as api } from '@/shared/api/enhanced-client'
+import { API_ENDPOINTS } from '@/shared/api/config'
+import { getErrorMessage, getErrorStatus, isAxiosError } from '@/lib/error-utils'
 import type {
   Product,
   ProductsResponse,
@@ -10,13 +10,53 @@ import type {
 
 // Universal terminology functions (new)
 export async function getProductsCount(type: string = 'all'): Promise<{ success: boolean; count: number }> {
-  const params: any = { type, _t: Date.now().toString() }
-  return apiCall(() => api.get(API_ENDPOINTS.PRODUCTS_COUNT, { params }))
+  try {
+    const params: any = { type, _t: Date.now().toString() }
+    const response = await api.get(API_ENDPOINTS.PRODUCTS_COUNT, { params })
+    const data = response.data
+    return data
+  } catch (err: unknown) {
+    const status = getErrorStatus(err)
+    if (status === 402) {
+      const error = new Error(`PAYMENT REQUIRED`)
+      ;(error as { status?: number; data?: unknown }).status = 402
+      if (isAxiosError(err)) {
+        ;(error as { status?: number; data?: unknown }).data = err.response?.data
+      }
+      throw error
+    }
+    if (status === 429) {
+      const error = new Error(`TOO MANY REQUESTS`)
+      ;(error as { status?: number }).status = 429
+      throw error
+    }
+    throw new Error(getErrorMessage(err))
+  }
 }
 
 export async function getProducts(type: string = 'all'): Promise<ProductsResponse> {
-  const params: any = { type, _t: Date.now().toString() }
-  return apiCall(() => api.get(API_ENDPOINTS.PRODUCTS, { params }))
+  try {
+    const params: any = { type, _t: Date.now().toString() }
+    const response = await api.get(API_ENDPOINTS.PRODUCTS, { params })
+    const data = response.data
+    return data
+  } catch (err: unknown) {
+    const status = getErrorStatus(err)
+    if (status === 402) {
+      const error = new Error(`PAYMENT REQUIRED`)
+      ;(error as { status?: number; data?: unknown }).status = 402
+      if (isAxiosError(err)) {
+        ;(error as { status?: number; data?: unknown }).data = err.response?.data
+      }
+      throw error
+    }
+    if (status === 429) {
+      const error = new Error(`TOO MANY REQUESTS`)
+      ;(error as { status?: number }).status = 429
+      throw error
+    }
+    throw new Error(getErrorMessage(err))
+  }
 }
 
 export async function getProductsAvailableForAssignment(
@@ -30,37 +70,81 @@ export async function getProductsAvailableForAssignment(
   per_page: number
   total_pages: number
 }> {
-  const params = {
-    page: page.toString(),
-    per_page: perPage.toString(),
+  try {
+    const params = {
+      page: page.toString(),
+      per_page: perPage.toString(),
+    }
+    const response = await api.get(API_ENDPOINTS.PRODUCTS_AVAILABLE_FOR_ASSIGNMENT, { params })
+    const data = response.data
+    return data
+  } catch (err: unknown) {
+    const status = getErrorStatus(err)
+    if (status === 402) {
+      const error = new Error('PAYMENT REQUIRED')
+      ;(error as { status?: number; data?: unknown }).status = 402
+      if (isAxiosError(err)) {
+        ;(error as { status?: number; data?: unknown }).data = err.response?.data
+      }
+      throw error
+    }
+    if (status === 429) {
+      const error = new Error('TOO MANY REQUESTS')
+      ;(error as { status?: number }).status = 429
+      throw error
+    }
+    throw new Error(getErrorMessage(err))
   }
-  return apiCall(() => api.get(API_ENDPOINTS.PRODUCTS_AVAILABLE_FOR_ASSIGNMENT, { params }))
 }
 
 export async function createProduct(data: CreateProductData): Promise<{ success: boolean; message: string; product: Product }> {
-  return apiCall(() => api.post(API_ENDPOINTS.PRODUCTS, data))
+  try {
+    const response = await api.post(API_ENDPOINTS.PRODUCTS, data)
+    return response.data
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err))
+  }
 }
 
 export async function updateProduct(productId: number, data: UpdateProductData): Promise<Product> {
-  return apiCall(() => api.put(`${API_ENDPOINTS.PRODUCTS}/${productId}`, data), {
-    extractData: (res) => res.data.product || res.data
-  })
+  try {
+    const response = await api.put(`${API_ENDPOINTS.PRODUCTS}/${productId}`, data)
+    return response.data.product || response.data
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err))
+  }
 }
 
 export async function deleteProduct(productId: number): Promise<void> {
-  return apiCall(() => api.delete(`${API_ENDPOINTS.PRODUCTS}/${productId}`))
+  try {
+    await api.delete(`${API_ENDPOINTS.PRODUCTS}/${productId}`)
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err))
+  }
 }
 
 export async function updateProductStatus(productId: number, status: 'active' | 'inactive' | 'maintenance' | 'testing'): Promise<void> {
-  return apiCall(() => api.put(`${API_ENDPOINTS.PRODUCTS}/${productId}/status`, { status }))
+  try {
+    await api.put(`${API_ENDPOINTS.PRODUCTS}/${productId}/status`, { status })
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err))
+  }
 }
 
 export async function bulkUpdateProductStatus(productIds: number[], status: 'active' | 'inactive' | 'maintenance' | 'testing'): Promise<void> {
-  return apiCall(() => api.put('/api/products/bulk-status', { product_ids: productIds, status }))
+  try {
+    await api.put('/api/products/bulk-status', { product_ids: productIds, status })
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err))
+  }
 }
 
 export async function bulkDeleteProducts(productIds: number[]): Promise<void> {
-  return apiCall(() => api.delete('/api/products/bulk-delete', { data: { product_ids: productIds } }))
+  try {
+    await api.delete('/api/products/bulk-delete', { data: { product_ids: productIds } })
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err))
+  }
 }
 
 export interface ClassicUser {
@@ -77,10 +161,20 @@ export interface ClassicUsersResponse {
 }
 
 export async function getProductClassicUsers(productId: number): Promise<ClassicUsersResponse> {
-  return apiCall(() => api.get(`${API_ENDPOINTS.PRODUCTS}/${productId}/classic-users`))
+  try {
+    const response = await api.get(`${API_ENDPOINTS.PRODUCTS}/${productId}/classic-users`)
+    return response.data
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err))
+  }
 }
 
 export async function toggleUserProductAccess(userId: number, productId: number): Promise<{ has_access: boolean }> {
-  return apiCall(() => api.post(`/api/users/${userId}/products/${productId}/toggle`))
+  try {
+    const response = await api.post(`/api/users/${userId}/products/${productId}/toggle`)
+    return response.data
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err))
+  }
 }
 

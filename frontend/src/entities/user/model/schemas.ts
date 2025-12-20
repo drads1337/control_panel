@@ -25,7 +25,6 @@ export const userSchema = baseEntitySchema.extend({
   first_name: z.string().nullable(),
   last_name: z.string().nullable(),
   email: z.string().email().nullable(),
-  bio: z.string().nullable(),
   avatar: z.string().nullable(),
   expires_at: z.string().nullable(),
   last_login: z.string().nullable(),

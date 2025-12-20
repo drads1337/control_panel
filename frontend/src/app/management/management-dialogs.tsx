@@ -1,9 +1,9 @@
 import React, { Suspense } from 'react'
-import { useProductDialogStore } from '@/shared/model/use-product-dialog-store'
-import { useProductDialogs } from '@/features/product-database/hooks/use-product-dialogs'
+import { useProductDialogStore } from '@/stores/product-dialog-store'
+import { useProductDialogs } from '@/hooks/products'
 
 const ViewProductDialog = React.lazy(() =>
-  import('@/features/product-database').then((module) => ({ default: module.ViewProductDialog }))
+  import('./products').then((module) => ({ default: module.ViewProductDialog }))
 )
 
 export function ManagementDialogs() {

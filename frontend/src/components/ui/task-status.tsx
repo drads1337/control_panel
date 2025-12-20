@@ -1,12 +1,11 @@
 
 import React from 'react'
-import { Task } from '@/lib/hooks'
+import { Task } from '@/hooks/use-tasks'
 import { CheckCircle, XCircle, Clock, Loader2 } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { sanitizeString } from '@/lib/utils/sanitization'
-import { formatDate as formatDateUtil } from '@/lib/utils/date-utils'
+import { sanitizeString } from '@/lib/sanitization'
 import type { User } from '@/entities/user';
 
 interface TaskStatusProps {
@@ -60,16 +59,8 @@ export const TaskStatus = React.memo(function TaskStatus({ task, showDetails = f
     return typeMap[type] || type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
   }
 
-  // Using centralized date formatting utility
   const formatDate = (dateString: string) => {
-    return formatDateUtil(dateString, {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    })
+    return new Date(dateString).toLocaleString()
   }
 
   if (!showDetails) {

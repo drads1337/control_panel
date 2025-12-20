@@ -1,7 +1,7 @@
 import React from 'react'
 import { Navigate } from 'react-router-dom'
-import { useAuthContext } from '@/app/providers/auth-provider'
-import { hasPermission, hasAnyRole, hasAllRoles, canAccessFeature } from '@/lib/rbac'
+import { useAuthContext } from '@/contexts/auth-context'
+import { hasPermission, hasAnyRole, hasAllRoles, canAccessFeature } from '@/lib/rbac-utils'
 import { Spinner } from '@/components/ui/spinner'
 
 // SECURITY WARNING: This component provides UX-only permission-based route protection

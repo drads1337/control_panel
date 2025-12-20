@@ -437,6 +437,9 @@ def update_product_status(product_identifier, validated_data=None):
         product.status = new_status
         product.is_active = new_status == "active"
         db.session.commit()
+        
+        # Refresh the object to ensure we have the latest data from DB
+        db.session.refresh(product)
 
         product_service.invalidate_product_cache(user.project_id, product.id)
 

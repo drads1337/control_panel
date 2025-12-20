@@ -52,10 +52,6 @@ MAIL_PASSWORD=your-app-password  # Gmail App Password, not regular password!
 MAIL_FROM=your-email@gmail.com
 MAIL_FROM_NAME=Panel
 FRONTEND_URL=http://localhost:3000
-
-# Mapbox Configuration (for country statistics map)
-# Get your token from https://account.mapbox.com/access-tokens/
-VITE_MAPBOX_TOKEN=your-mapbox-access-token
 ```
 
 Run migrations and start server:

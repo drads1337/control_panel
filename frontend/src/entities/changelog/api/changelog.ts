@@ -1,6 +1,5 @@
-import { enhancedApi as api } from '@/lib/api/enhanced-client'
-import { API_ENDPOINTS } from '@/lib/api/config'
-import { apiCall } from '@/lib/api/api-wrapper'
+import { enhancedApi as api } from '@/shared/api/enhanced-client'
+import { API_ENDPOINTS } from '@/shared/api/config'
 import type { ChangelogResponse, ChangelogEntry, CreateChangelogData } from '@/entities/changelog';
 import type {
   ChangelogResponse as ChangelogResponseType,
@@ -9,20 +8,26 @@ import type {
 } from '../model/types'
 
 export async function getProductChangelog(productId: number): Promise<ChangelogResponseType> {
-  return apiCall(() => api.get(`${API_ENDPOINTS.CHANGELOG_PRODUCTS}/${productId}/changelog`, {
+
+  const response = await api.get(`${API_ENDPOINTS.CHANGELOG_PRODUCTS}/${productId}/changelog`, {
     params: { t: Date.now() },
     headers: { 'Cache-Control': 'no-cache' }
-  }))
+  })
+
+  return response.data
 }
 
 export async function getChangelogEntry(entryId: number): Promise<{
   success: boolean
   entry: ChangelogEntryType
 }> {
-  return apiCall(() => api.get(`${API_ENDPOINTS.CHANGELOG_CHANGELOG}/${entryId}`, {
+
+  const response = await api.get(`${API_ENDPOINTS.CHANGELOG_CHANGELOG}/${entryId}`, {
     params: { t: Date.now() },
     headers: { 'Cache-Control': 'no-cache' }
-  }))
+  })
+
+  return response.data
 }
 
 export async function createChangelogEntry(productId: number, data: CreateChangelogDataType): Promise<{
@@ -30,7 +35,9 @@ export async function createChangelogEntry(productId: number, data: CreateChange
   message: string
   entry: ChangelogEntryType
 }> {
-  return apiCall(() => api.post(`${API_ENDPOINTS.CHANGELOG_PRODUCTS}/${productId}/changelog`, data))
+
+  const response = await api.post(`${API_ENDPOINTS.CHANGELOG_PRODUCTS}/${productId}/changelog`, data)
+  return response.data
 }
 
 export async function updateChangelogEntry(entryId: number, data: Partial<CreateChangelogDataType>): Promise<{
@@ -38,21 +45,26 @@ export async function updateChangelogEntry(entryId: number, data: Partial<Create
   message: string
   entry: ChangelogEntryType
 }> {
-  return apiCall(() => api.put(`${API_ENDPOINTS.CHANGELOG_CHANGELOG}/${entryId}`, data))
+
+  const response = await api.put(`${API_ENDPOINTS.CHANGELOG_CHANGELOG}/${entryId}`, data)
+  return response.data
 }
 
 export async function deleteChangelogEntry(entryId: number): Promise<{
   success: boolean
   message: string
 }> {
-  return apiCall(() => api.delete(`${API_ENDPOINTS.CHANGELOG_CHANGELOG}/${entryId}`))
+
+  const response = await api.delete(`${API_ENDPOINTS.CHANGELOG_CHANGELOG}/${entryId}`)
+  return response.data
 }
 
 export async function getAgentChangelog(agentId: number): Promise<ChangelogResponseType> {
-  return apiCall(() => api.get(`/api/changelog/agents/${agentId}/changelog`, {
+  const response = await api.get(`/api/changelog/agents/${agentId}/changelog`, {
     params: { t: Date.now() },
     headers: { 'Cache-Control': 'no-cache' }
-  }))
+  })
+  return response.data
 }
 
 export async function createAgentChangelogEntry(agentId: number, data: CreateChangelogDataType): Promise<{
@@ -60,5 +72,6 @@ export async function createAgentChangelogEntry(agentId: number, data: CreateCha
   message: string
   entry: ChangelogEntryType
 }> {
-  return apiCall(() => api.post(`/api/changelog/agents/${agentId}/changelog`, data))
+  const response = await api.post(`/api/changelog/agents/${agentId}/changelog`, data)
+  return response.data
 }

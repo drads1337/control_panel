@@ -1,4 +1,4 @@
-import { BaseEntity } from '@/lib/api'
+import { BaseEntity } from '@/shared/api'
 
 /**
  * Agent interface - universal term for launchers, auto-updaters, IoT devices
