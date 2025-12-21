@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { createQueryRetry } from '@/lib/query-retry-utils';
-import { getErrorMessage } from '@/lib/api/api-error-types';
+import { createQueryRetry } from '@/shared/lib/query-retry-utils';
+import { getErrorMessage } from '@/shared/api/api-error-types';
 import { getProducts, type Product } from '@/entities/product';
-import { useAuth } from '@/lib/hooks';
+import { useAuth } from '@/shared/hooks';
 import { productKeys } from './product-keys';
 
 export function useProductQuery() {

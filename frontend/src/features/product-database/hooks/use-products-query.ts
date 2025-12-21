@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { createQueryRetry } from '@/lib/query-retry-utils'
-import { getErrorMessage } from '@/lib/api/api-error-types'
+import { createQueryRetry } from '@/shared/lib/query-retry-utils'
+import { getErrorMessage } from '@/shared/api/api-error-types'
 import { getProducts, getAvailableProductsForAssignment } from '@/entities/product'
 import type { Product } from '@/entities/product'
 

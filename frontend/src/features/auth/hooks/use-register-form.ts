@@ -113,7 +113,7 @@ export function useRegisterForm() {
         formData.projectName.trim()
       )
     } catch (err: unknown) {
-      const { getErrorMessage } = await import('@/lib/utils/error-utils')
+      const { getErrorMessage } = await import('@/shared/lib/utils/error-utils')
       setError(getErrorMessage(err))
     } finally {
       isSubmitting.current = false

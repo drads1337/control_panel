@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { CustomNotificationType } from '@/components/ui/custom-notification';
+import { CustomNotificationType } from '@/shared/ui/components/custom-notification';
 export interface CustomNotification {
   id: string;
   type: CustomNotificationType;

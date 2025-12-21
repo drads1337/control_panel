@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { useAuth } from '@/lib/hooks/use-auth'
+import { useAuth } from '@/shared/hooks/use-auth'
 import { updateProfile, changePassword, uploadAvatar } from '@/entities/user/api/profile'
 import { toast } from 'sonner'
 import type { ProfileData, ChangePasswordData } from '@/entities/user'

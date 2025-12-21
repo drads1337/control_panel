@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useMemo } from 'react'
 import { useAuthContext } from '@/app/providers/auth-provider'
-import { enhancedApi as api } from '@/lib/api/enhanced-client'
+import { enhancedApi as api } from '@/shared/api/enhanced-client'
 
 interface SignUpFormData {
   username: string
@@ -130,7 +130,7 @@ export function useSignUpForm() {
         setFormData(prev => ({ ...prev, projectName: '' }))
       }
     } catch (err: unknown) {
-      const { getErrorMessage, isAxiosError } = await import('@/lib/utils/error-utils')
+      const { getErrorMessage, isAxiosError } = await import('@/shared/lib/utils/error-utils')
       setInviteCodeInfo(null)
       if (isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
         const errorData = err.response.data as { error?: string }
@@ -175,7 +175,7 @@ export function useSignUpForm() {
           : undefined
       )
     } catch (err: unknown) {
-      const { getErrorMessage } = await import('@/lib/utils/error-utils')
+      const { getErrorMessage } = await import('@/shared/lib/utils/error-utils')
       setError(getErrorMessage(err))
     } finally {
       isSubmitting.current = false

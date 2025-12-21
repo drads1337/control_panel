@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { enhancedApi as api } from '@/lib/api/enhanced-client'
+import { enhancedApi as api } from '@/shared/api/enhanced-client'
 import { useAuthContext } from '@/app/providers/auth-provider'
 import { toast } from 'sonner'
 

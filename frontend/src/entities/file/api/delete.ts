@@ -1,7 +1,7 @@
-import { enhancedApi as api } from '@/lib/api/enhanced-client'
-import { API_ENDPOINTS } from '@/lib/api/config'
-import { apiCall } from '@/lib/api/api-wrapper'
-import { handleAxiosCsrfError } from '@/lib/csrf'
+import { enhancedApi as api } from '@/shared/api/enhanced-client'
+import { API_ENDPOINTS } from '@/shared/api/config'
+import { apiCall } from '@/shared/api/api-wrapper'
+import { handleAxiosCsrfError } from '@/shared/lib/csrf'
 
 export async function deleteProductConfig(configId: number): Promise<any> {
   return apiCall(() => api.delete(`${API_ENDPOINTS.FILES}/product-files/config/${configId}`), {

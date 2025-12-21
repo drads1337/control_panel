@@ -1,6 +1,6 @@
 import { useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { authService } from '@/lib/api/auth-service'
+import { authService } from '@/shared/api/auth-service'
 import { useAuthState } from '@/features/auth/hooks/use-auth-state'
 import { useAuthInit } from '@/features/auth/hooks/use-auth-init'
 import { useAuthActions } from '@/features/auth/hooks/use-auth-actions'

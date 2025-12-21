@@ -1,5 +1,5 @@
 
-import { isCsrfError, handleCsrfError } from '@/lib/csrf'
+import { isCsrfError, handleCsrfError } from '@/shared/lib/csrf'
 import type { AxiosError } from 'axios'
 
 /**

@@ -1,8 +1,8 @@
 import { useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { authService } from '@/lib/api/auth-service'
-import { clearCsrfToken, prefetchCsrfToken } from '@/lib/csrf'
-import { clearAllAvatarBlobs } from '@/lib/avatar-cache'
+import { authService } from '@/shared/api/auth-service'
+import { clearCsrfToken, prefetchCsrfToken } from '@/shared/lib/csrf'
+import { clearAllAvatarBlobs } from '@/shared/lib/avatar-cache'
 import type { User } from '@/entities/user'
 
 interface UseAuthActionsParams {
@@ -156,7 +156,7 @@ export function useAuthActions(
       // Use getErrorMessage to properly extract user-friendly error messages from axios errors
       let errorMessage: string
       try {
-        const { getErrorMessage } = await import('@/lib/api/enhanced-client')
+        const { getErrorMessage } = await import('@/shared/api/enhanced-client')
         errorMessage = getErrorMessage(error)
       } catch {
         // Fallback if getErrorMessage is not available

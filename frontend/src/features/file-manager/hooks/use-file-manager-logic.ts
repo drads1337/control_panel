@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
-import { useAuth } from '@/lib/hooks';
+import { useAuth } from '@/shared/hooks';
 import { getProducts } from '@/entities/product';
 import { getAgents } from '@/entities/agent';
 import {
@@ -13,8 +13,8 @@ import {
   downloadProductExtraFile,
   downloadProductFile,
 } from '@/entities/file';
-import { getErrorMessage } from '@/lib/api/enhanced-client';
-import { getErrorMessage as getErrorMessageUtil, isErrorWithMessage } from '@/lib/utils';
+import { getErrorMessage } from '@/shared/api/enhanced-client';
+import { getErrorMessage as getErrorMessageUtil, isErrorWithMessage } from '@/shared/lib/utils';
 import {
   useFileManagerSelection,
   useFileManagerDialogs,

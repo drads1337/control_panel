@@ -1,4 +1,4 @@
-import { BaseEntity, PaginatedResponse } from '@/lib/api'
+import { BaseEntity, PaginatedResponse } from '@/shared/api'
 
 export interface Project extends BaseEntity {
   unique_id: string

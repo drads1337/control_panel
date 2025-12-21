@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { toast } from 'sonner'
-import { isMaskedValue } from '@/lib/webhook-utils'
+import { isMaskedValue } from '@/shared/lib/webhook-utils'
 import type { WebhookData, WebhookFormData, SecretsVisibility } from '../types'
 
 const initialFormData: WebhookFormData = {

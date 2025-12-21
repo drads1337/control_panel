@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { searchLogs } from '../log'
-import { enhancedApi as api } from '@/lib/api/enhanced-client'
+import { enhancedApi as api } from '@/shared/api/enhanced-client'
 
 // Mock the API client
-vi.mock('@/lib/api/enhanced-client', () => ({
+vi.mock('@/shared/api/enhanced-client', () => ({
   enhancedApi: {
     post: vi.fn(),
     get: vi.fn(),
@@ -76,4 +76,5 @@ describe('Log API Security Tests', () => {
     expect(requestBody).toHaveProperty('per_page', 20)
   })
 })
+
 

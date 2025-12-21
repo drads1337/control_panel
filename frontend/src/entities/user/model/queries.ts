@@ -1,9 +1,9 @@
 import React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { clearDefaultSensitiveParamsFromUrl } from '@/lib/utils/url-security'
+import { clearDefaultSensitiveParamsFromUrl } from '@/shared/utils/url-security'
 import { getUsers, searchUsers, createUser, updateUser, deleteUser } from '@/entities/user'
 import type { User, CreateUserData, UpdateUserData, UsersResponse } from '@/entities/user/model/types'
-import { usePaginatedResource, useMutationWithCache } from '@/lib/hooks'
+import { usePaginatedResource, useMutationWithCache } from '@/shared/hooks'
 
 export const userKeys = {
   all: ['users'] as const,

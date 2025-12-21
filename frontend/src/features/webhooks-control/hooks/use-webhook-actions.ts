@@ -1,9 +1,9 @@
 import { useState, useCallback, useEffect } from 'react';
-import { usePermissions } from '@/lib/hooks';
+import { usePermissions } from '@/shared/hooks';
 import { webhookAPI } from '@/entities/webhook';
 import { toast } from 'sonner';
-import { getErrorMessage, isAxiosError } from '@/lib/utils/error-utils';
-import { filterMaskedValues } from '@/lib/webhook-utils';
+import { getErrorMessage, isAxiosError } from '@/shared/lib/utils/error-utils';
+import { filterMaskedValues } from '@/shared/lib/webhook-utils';
 import type { WebhookData, WebhookFormData, WebhookStats } from '../types';
 
 export function useWebhookActions() {

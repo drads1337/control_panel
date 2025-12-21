@@ -1,7 +1,7 @@
 
-import { enhancedApi as api } from '@/lib/api/enhanced-client'
-import { API_ENDPOINTS } from '@/lib/api/config'
-import { clearCsrfToken } from '@/lib/csrf'
+import { enhancedApi as api } from './enhanced-client'
+import { API_ENDPOINTS } from './config'
+import { clearCsrfToken } from '@/shared/lib/csrf'
 import type { User } from '@/entities/user'
 
 /**
@@ -81,7 +81,7 @@ export class AuthService {
       saveUserToMemoryCache(userData)
       return userData
     } catch (error: unknown) {
-      const { isAxiosError, getErrorStatus } = await import('@/lib/utils/error-utils')
+      const { isAxiosError, getErrorStatus } = await import('@/shared/lib/utils/error-utils')
       if (error instanceof Error && (error.name === 'AbortError' || error.name === 'CanceledError')) {
         return null
       }
@@ -185,7 +185,7 @@ export class AuthService {
       })
       return response.data
     } catch (error: unknown) {
-      const { getErrorStatus, isAxiosError } = await import('@/lib/utils/error-utils')
+      const { getErrorStatus, isAxiosError } = await import('@/shared/lib/utils/error-utils')
       const status = getErrorStatus(error)
       
       if (isAxiosError(error) && error.response?.data && typeof error.response.data === 'object') {
@@ -312,7 +312,7 @@ export class AuthService {
         throw error
       }
 
-      const { isAxiosError, getErrorMessage } = await import('@/lib/utils/error-utils')
+      const { isAxiosError, getErrorMessage } = await import('@/shared/lib/utils/error-utils')
       if (isAxiosError(error) && error.response?.data && typeof error.response.data === 'object') {
         const errorData = error.response.data as { msg?: string; error?: string }
         throw new Error(errorData.msg || errorData.error || getErrorMessage(error))
@@ -361,7 +361,7 @@ export class AuthService {
         throw error
       }
 
-      const { isAxiosError, getErrorMessage } = await import('@/lib/utils/error-utils')
+      const { isAxiosError, getErrorMessage } = await import('@/shared/lib/utils/error-utils')
       if (isAxiosError(error) && error.response?.data && typeof error.response.data === 'object') {
         const errorData = error.response.data as { error?: string; msg?: string }
         throw new Error(errorData.error || errorData.msg || getErrorMessage(error))
@@ -392,7 +392,7 @@ export class AuthService {
         throw error
       }
 
-      const { isAxiosError, getErrorMessage } = await import('@/lib/utils/error-utils')
+      const { isAxiosError, getErrorMessage } = await import('@/shared/lib/utils/error-utils')
       if (isAxiosError(error) && error.response?.data && typeof error.response.data === 'object') {
         const errorData = error.response.data as { error?: string; message?: string }
         throw new Error(errorData.error || errorData.message || getErrorMessage(error))
@@ -424,7 +424,7 @@ export class AuthService {
         throw error
       }
 
-      const { isAxiosError, getErrorMessage } = await import('@/lib/utils/error-utils')
+      const { isAxiosError, getErrorMessage } = await import('@/shared/lib/utils/error-utils')
       if (isAxiosError(error) && error.response?.data && typeof error.response.data === 'object') {
         const errorData = error.response.data as { error?: string; message?: string }
         throw new Error(errorData.error || errorData.message || getErrorMessage(error))

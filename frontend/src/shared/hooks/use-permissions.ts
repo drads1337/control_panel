@@ -17,7 +17,7 @@ import {
   canManageUser,
   canAssignRole,
   canRemoveRole
-} from '@/lib/rbac'
+} from '@/shared/lib/rbac'
 
 // SECURITY NOTE: Frontend RBAC checks are for UX ONLY, NOT for security
 // All API endpoints on the backend MUST duplicate these permission checks

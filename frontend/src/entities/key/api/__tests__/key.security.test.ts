@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { searchLicenseKeys, getLicenseKeys } from '../key'
-import { enhancedApi as api } from '@/lib/api/enhanced-client'
+import { enhancedApi as api } from '@/shared/api/enhanced-client'
 
 // Mock the API client
-vi.mock('@/lib/api/enhanced-client', () => ({
+vi.mock('@/shared/api/enhanced-client', () => ({
   enhancedApi: {
     post: vi.fn(),
     get: vi.fn(),
@@ -11,7 +11,7 @@ vi.mock('@/lib/api/enhanced-client', () => ({
 }))
 
 // Mock request-manager
-vi.mock('@/lib/request-manager', () => ({
+vi.mock('@/shared/lib/request-manager', () => ({
   preventDuplicateRequest: (key: string, fn: () => Promise<any>) => fn(),
 }))
 
@@ -101,4 +101,5 @@ describe('Key API Security Tests', () => {
     expect(postCall[2]?.params).toBeUndefined()
   })
 })
+
 

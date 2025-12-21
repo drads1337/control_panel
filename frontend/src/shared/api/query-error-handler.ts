@@ -1,6 +1,6 @@
 import { QueryClient } from '@tanstack/react-query';
 import { getErrorMessage } from './enhanced-client';
-import { handleQueryError, handleMutationError } from '@/lib/error-handler';
+import { handleQueryError, handleMutationError } from '@/shared/lib/error-handler';
 
 function shouldHandleError(queryKey: unknown, error: any): boolean {
   if (error?.response?.status === 401 || error?.response?.status === 403) {

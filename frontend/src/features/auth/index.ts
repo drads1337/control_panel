@@ -1,12 +1,1 @@
-export { AuthGuard } from './auth-guard';
-export { AuthPageLayout } from './auth-page-layout';
-export { LoginForm } from './login-form';
-export { SignUpForm } from './signup-form';
-export { InviteSignUpForm } from './invite-signup-form';
-export { ForgotPasswordForm } from './forgot-password-form';
-export { ResetPasswordForm } from './reset-password-form';
-export { default as LoginPage } from './login-page';
-export { default as SignupPage } from './signup-page';
-export { default as InviteSignUpPage } from './invite-signup-page';
-export { default as ForgotPasswordPage } from './forgot-password-page';
-export { default as ResetPasswordPage } from './reset-password-page';
+// LoginPage moved to pages/

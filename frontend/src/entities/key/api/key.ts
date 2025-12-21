@@ -1,7 +1,7 @@
-import { enhancedApi as api } from '@/lib/api/enhanced-client'
-import { API_ENDPOINTS } from '@/lib/api/config'
-import { preventDuplicateRequest } from '@/lib/request-manager'
-import { getErrorMessage, getErrorStatus, isAxiosError, isErrorWithMessage } from '@/lib/utils/error-utils'
+import { enhancedApi as api } from '@/shared/api/enhanced-client'
+import { API_ENDPOINTS } from '@/shared/api/config'
+import { preventDuplicateRequest } from '@/shared/lib/request-manager'
+import { getErrorMessage, getErrorStatus, isAxiosError, isErrorWithMessage } from '@/shared/lib/utils/error-utils'
 import type { LicenseKeysResponse, CreateKeyData, BulkCreateKeysData, CreateAgentKeyData, BulkCreateAgentKeysData, LicenseKey, KeysStats } from '@/entities/key';
 import type {
   LicenseKeysResponse as LicenseKeysResponseType,
@@ -179,7 +179,7 @@ export async function bulkCreateLicenseKeys(data: BulkCreateKeysDataType): Promi
       if (errorData && typeof errorData === 'object') {
         const errorCode = errorData.error
         if (errorCode === 'CSRF_ERROR' || (typeof errorCode === 'string' && errorCode.includes('CSRF'))) {
-          const { clearCsrfToken } = await import('@/lib/csrf')
+          const { clearCsrfToken } = await import('@/shared/lib/csrf')
           clearCsrfToken()
           throw new Error('CSRF token validation failed. Please refresh the page and try again.')
         }

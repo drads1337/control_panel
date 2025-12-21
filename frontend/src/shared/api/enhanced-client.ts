@@ -2,7 +2,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosError, InternalAxiosRequestConfig } from 'axios'
 import { handleAuthError } from './auth-error-handler'
 import { parseErrorResponse, type ApiErrorResponse } from './error-schemas'
-import { getApiBaseUrl } from '@/lib/utils'
+import { getApiBaseUrl } from '@/shared/lib/utils'
 
 /**
  * Interface for API error handlers.
@@ -35,8 +35,8 @@ let errorHandlers: ApiErrorHandlers | null = null
  * 
  * @example
  * ```ts
- * import { setApiErrorHandlers } from '@/lib/api/enhanced-client'
- * import { showGlobalError, showGlobalWarning, triggerProjectExpiration } from '@/lib/global-notifications'
+ * import { setApiErrorHandlers } from '@/shared/api/enhanced-client'
+ * import { showGlobalError, showGlobalWarning, triggerProjectExpiration } from '@/shared/lib/global-notifications'
  * 
  * setApiErrorHandlers({
  *   showError: showGlobalError,
@@ -259,7 +259,7 @@ async function handleError(error: AxiosError): Promise<never> {
   // Don't log or monitor CSRF token endpoint errors - they're expected when not authenticated
   if (!isCsrfTokenEndpoint && import.meta.env.PROD && typeof window !== 'undefined') {
 
-    import('@/lib/monitoring').then(({ captureException }) => {
+    import('@/shared/lib/monitoring').then(({ captureException }) => {
       captureException(error, {
         context: {
           url: config?.url,
@@ -275,7 +275,7 @@ async function handleError(error: AxiosError): Promise<never> {
 
   if (error.response?.status === 403) {
     try {
-      const { isCsrfError, clearCsrfToken, getCsrfHeaders } = await import('@/lib/csrf')
+      const { isCsrfError, clearCsrfToken, getCsrfHeaders } = await import('@/shared/lib/csrf')
       if (isCsrfError(error.response.status, error.response.data)) {
 
         const config = error.config as InternalAxiosRequestConfig | undefined
@@ -515,7 +515,7 @@ enhancedApi.interceptors.request.use(
     
     if (!isAuthEndpoint) {
       try {
-        const { getCsrfHeaders } = await import('@/lib/csrf')
+        const { getCsrfHeaders } = await import('@/shared/lib/csrf')
         const csrfHeaders = await getCsrfHeaders()
         Object.assign(config.headers, csrfHeaders)
         
@@ -525,7 +525,7 @@ enhancedApi.interceptors.request.use(
           console.warn(`[API] CSRF token missing for ${method} request to ${url}, attempting retry...`)
           
           // Try to clear CSRF cache and retry once
-          const { clearCsrfToken, getCsrfToken } = await import('@/lib/csrf')
+          const { clearCsrfToken, getCsrfToken } = await import('@/shared/lib/csrf')
           clearCsrfToken()
           
           try {
@@ -560,7 +560,7 @@ enhancedApi.interceptors.request.use(
           
           // Try to clear CSRF cache and retry once
           try {
-            const { clearCsrfToken, getCsrfToken } = await import('@/lib/csrf')
+            const { clearCsrfToken, getCsrfToken } = await import('@/shared/lib/csrf')
             clearCsrfToken()
             // Wait a bit before retry to allow cache to clear
             await new Promise(resolve => setTimeout(resolve, 100))
@@ -616,7 +616,7 @@ enhancedApi.interceptors.request.use(
 
         } else {
 
-          const { sanitizeForApi } = await import('@/lib/utils/sanitization')
+          const { sanitizeForApi } = await import('@/shared/lib/utils/sanitization')
           config.data = sanitizeForApi(config.data)
         }
       } catch (error) {

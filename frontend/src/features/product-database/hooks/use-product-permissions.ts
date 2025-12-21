@@ -1,5 +1,5 @@
 import { useMemo, useEffect, useState } from 'react';
-import { usePermissions } from '@/lib/hooks';
+import { usePermissions } from '@/shared/hooks';
 import { getProductsCount } from '@/entities/product/api/product';
 
 export function useProductPermissions() {

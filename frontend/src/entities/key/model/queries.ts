@@ -1,6 +1,6 @@
 import React from 'react'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
-import { clearDefaultSensitiveParamsFromUrl } from '@/lib/utils/url-security'
+import { clearDefaultSensitiveParamsFromUrl } from '@/shared/utils/url-security'
 import { 
   getLicenseKeys,
   searchLicenseKeys,
@@ -15,7 +15,7 @@ import {
 } from '@/entities/key'
 import { toast } from 'sonner'
 import { useAuthContext } from '@/app/providers/auth-provider'
-import { measurePerformance } from '@/lib/sentry-config'
+import { measurePerformance } from '@/shared/lib/sentry-config'
 
 export const keyKeys = {
   all: ['keys'] as const,

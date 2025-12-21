@@ -1,10 +1,5 @@
-export { default as WebhooksPage } from './webhooks-page'
-export { default as WebhooksPageWrapper } from './webhooks-page'
-export { WebhookStats } from './webhook-stats'
-export { WebhookTable } from './webhook-table'
-export { WebhookForm } from './webhook-form'
-export { CreateWebhookDialog } from './create-webhook-dialog'
-export { EditWebhookDialog } from './edit-webhook-dialog'
-export { WebhookLogsDialog } from './webhook-logs-dialog'
+// WebhooksPage moved to pages/
 export * from './types'
 export * from './constants'
+// Hooks
+export * from './hooks'

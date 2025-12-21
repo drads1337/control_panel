@@ -1,23 +1,22 @@
 /**
- * @deprecated This directory is being migrated to @/lib
- * Use @/lib instead of @/shared
- * 
- * Backward compatibility re-exports:
+ * Shared module exports
+ * This is the main entry point for all shared utilities, components, and helpers
  */
 
-// API re-exports
-export * from '@/lib/api'
+// API exports
+export * from './api'
 
-// Lib re-exports  
-export * from '@/lib/utils'
-export * from '@/lib/hooks'
-export * from '@/lib/constants'
+// Lib exports (utilities, hooks, validations, etc.)
+export * from './lib'
 
-// Model stores (Zustand stores) - kept here for backward compatibility
-// These are UI state stores and can stay in shared/model
+// Constants
+export * from './constants'
+
+// Model stores (Zustand stores) - UI state management
 export * from './model'
 
-// UI components - kept here for backward compatibility
-// These are shared UI components
+// UI components
 export * from './ui'
 
+// Utils (legacy, use shared/lib/utils instead)
+export * from './utils'
