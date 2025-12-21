@@ -1,25 +1,86 @@
 import React from 'react'
-import { ShieldCheck, Shield, Lock, FileText, AlertTriangle, Download, Printer, Settings, Trash2 } from 'lucide-react'
+import { ShieldCheck, Shield, Lock, FileText, AlertTriangle, Download, Printer, Settings, Trash2, RefreshCw, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/components/card'
-import { Separator } from '@/shared/ui/components/separator'
+import { Button } from '@/shared/ui/components/button'
+import { useSecurityData } from './hooks/use-security-data'
+import { format } from 'date-fns'
+
+function formatEventTime(dateString: string): string {
+  try {
+    const date = new Date(dateString)
+    return format(date, 'HH:mm:ss')
+  } catch {
+    return '--:--:--'
+  }
+}
+
+function getSeverityColor(severity: string): string {
+  switch (severity?.toLowerCase()) {
+    case 'critical':
+      return 'text-error'
+    case 'high':
+      return 'text-warning'
+    case 'medium':
+      return 'text-primary'
+    default:
+      return 'text-text-secondary-dark'
+  }
+}
 
 export function SecurityPage() {
+  const {
+    stats,
+    events,
+    analytics,
+    loading,
+    refreshing,
+    error,
+    handleRefresh,
+    calculateSecurityScore,
+    getFailedAuthCount,
+    getActiveThreatsCount,
+  } = useSecurityData()
+
+  const securityScore = calculateSecurityScore()
+  const activeThreats = getActiveThreatsCount()
+  const failedAuth = getFailedAuthCount()
+  const scoreColor = securityScore >= 90 ? 'text-success' : securityScore >= 70 ? 'text-warning' : 'text-error'
+  const scoreBarColor = securityScore >= 90 ? 'bg-success' : securityScore >= 70 ? 'bg-warning' : 'bg-error'
+
+  if (loading && !stats) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-text-secondary-dark" />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-5">
+      {error && (
+        <Card className="bg-error/10 border-error/20 rounded p-4">
+          <div className="text-sm text-error">{error}</div>
+        </Card>
+      )}
+
        <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
         {/* Score Card */}
         <Card className="md:col-span-1 bg-surface-dark border-border-dark rounded p-4 relative overflow-hidden group hover:border-primary/50 transition-colors duration-300">
             <div className="relative z-10 flex flex-col justify-between h-full space-y-4">
                 <div className="flex justify-between items-start">
                     <span className="text-[10px] text-text-secondary-dark uppercase tracking-widest font-semibold">Security Score</span>
-                    <ShieldCheck className="h-4 w-4 text-success" />
+                    <ShieldCheck className={`h-4 w-4 ${scoreColor}`} />
                 </div>
                 <div>
-                    <div className="text-4xl font-bold text-text-primary-dark font-mono-numbers tracking-tighter">98<span className="text-lg text-text-secondary-dark">/100</span></div>
-                    <div className="text-[10px] text-success mt-1 font-mono-numbers">+2.4% vs last week</div>
+                    <div className={`text-4xl font-bold font-mono-numbers tracking-tighter ${scoreColor}`}>
+                      {securityScore}<span className="text-lg text-text-secondary-dark">/100</span>
+                    </div>
+                    <div className={`text-[10px] mt-1 font-mono-numbers ${stats?.activeBlocks ? 'text-warning' : 'text-success'}`}>
+                      {stats?.activeBlocks ? `${stats.activeBlocks} active blocks` : 'All systems clear'}
+                    </div>
                 </div>
                 <div className="w-full bg-background-dark h-1 rounded-full overflow-hidden border border-white/5 mt-2">
-                    <div className="bg-success h-full rounded-full w-[98%] shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
+                    <div className={`${scoreBarColor} h-full rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]`} style={{ width: `${securityScore}%` }}></div>
                 </div>
             </div>
         </Card>
@@ -28,11 +89,13 @@ export function SecurityPage() {
             <div className="relative z-10 flex flex-col justify-between h-full space-y-4">
                 <div className="flex justify-between items-start">
                     <span className="text-[10px] text-text-secondary-dark uppercase tracking-widest font-semibold">Active Threats</span>
-                    <Shield className="h-4 w-4 text-text-secondary-dark" />
+                    <Shield className={`h-4 w-4 ${activeThreats > 0 ? 'text-warning' : 'text-text-secondary-dark'}`} />
                 </div>
                 <div>
-                    <div className="text-4xl font-bold text-text-primary-dark font-mono-numbers tracking-tighter">0</div>
-                    <div className="text-[10px] text-text-secondary-dark mt-1 font-mono-numbers">ALL SYSTEMS CLEAR</div>
+                    <div className="text-4xl font-bold text-text-primary-dark font-mono-numbers tracking-tighter">{activeThreats}</div>
+                    <div className={`text-[10px] mt-1 font-mono-numbers ${activeThreats > 0 ? 'text-warning' : 'text-text-secondary-dark'}`}>
+                      {activeThreats > 0 ? 'REQUIRE ATTENTION' : 'ALL SYSTEMS CLEAR'}
+                    </div>
                 </div>
             </div>
         </Card>
@@ -41,11 +104,11 @@ export function SecurityPage() {
              <div className="relative z-10 flex flex-col justify-between h-full space-y-4">
                 <div className="flex justify-between items-start">
                     <span className="text-[10px] text-text-secondary-dark uppercase tracking-widest font-semibold">Failed Auth</span>
-                    <Lock className="h-4 w-4 text-warning" />
+                    <Lock className={`h-4 w-4 ${failedAuth > 0 ? 'text-warning' : 'text-text-secondary-dark'}`} />
                 </div>
                 <div>
-                    <div className="text-4xl font-bold text-text-primary-dark font-mono-numbers tracking-tighter">12</div>
-                    <div className="text-[10px] text-warning mt-1 font-mono-numbers">LAST 24 HOURS</div>
+                    <div className="text-4xl font-bold text-text-primary-dark font-mono-numbers tracking-tighter">{failedAuth}</div>
+                    <div className={`text-[10px] mt-1 font-mono-numbers ${failedAuth > 0 ? 'text-warning' : 'text-text-secondary-dark'}`}>LAST 24 HOURS</div>
                 </div>
             </div>
         </Card>
@@ -53,18 +116,14 @@ export function SecurityPage() {
         <Card className="md:col-span-1 bg-surface-dark border-border-dark rounded p-4 relative overflow-hidden group hover:border-primary/50 transition-colors duration-300">
              <div className="relative z-10 flex flex-col justify-between h-full space-y-4">
                 <div className="flex justify-between items-start">
-                    <span className="text-[10px] text-text-secondary-dark uppercase tracking-widest font-semibold">Compliance</span>
+                    <span className="text-[10px] text-text-secondary-dark uppercase tracking-widest font-semibold">Active Blocks</span>
                     <FileText className="h-4 w-4 text-primary" />
                 </div>
                 <div>
-                    <div className="text-xl font-bold text-text-primary-dark tracking-tight">SOC2 Type II</div>
-                    <div className="text-[10px] text-text-secondary-dark mt-1 font-mono-numbers uppercase">Audit: Passed</div>
-                </div>
-                <div className="flex gap-1 mt-2">
-                    <span className="h-1.5 w-1.5 bg-primary rounded-full"></span>
-                    <span className="h-1.5 w-1.5 bg-primary rounded-full"></span>
-                    <span className="h-1.5 w-1.5 bg-primary rounded-full"></span>
-                    <span className="h-1.5 w-1.5 bg-border-dark rounded-full"></span>
+                    <div className="text-4xl font-bold text-text-primary-dark font-mono-numbers tracking-tighter">{stats?.activeBlocks || 0}</div>
+                    <div className="text-[10px] text-text-secondary-dark mt-1 font-mono-numbers">
+                      {stats?.blockedIPs || 0} IPs, {stats?.blockedHWIDs || 0} HWIDs
+                    </div>
                 </div>
             </div>
         </Card>
@@ -74,7 +133,18 @@ export function SecurityPage() {
             <div className="lg:col-span-2 space-y-4">
                  <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-text-primary-dark uppercase tracking-wider">Recent Audit Events</h3>
-                    <button className="text-[10px] text-primary hover:underline font-mono-numbers">VIEW ALL LOGS →</button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleRefresh}
+                        disabled={refreshing}
+                        className="text-text-secondary-dark hover:text-text-primary-dark"
+                      >
+                        <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                      </Button>
+                      <button className="text-[10px] text-primary hover:underline font-mono-numbers">VIEW ALL LOGS →</button>
+                    </div>
                 </div>
                 <Card className="bg-surface-dark border-border-dark rounded overflow-hidden shadow-sm">
                     <table className="w-full text-left text-xs">
@@ -82,28 +152,44 @@ export function SecurityPage() {
                             <tr className="border-b border-border-dark bg-white/5">
                                 <th className="py-2 px-4 font-medium text-text-secondary-dark uppercase tracking-wider w-24">Time</th>
                                 <th className="py-2 px-4 font-medium text-text-secondary-dark uppercase tracking-wider">Event</th>
-                                <th className="py-2 px-4 font-medium text-text-secondary-dark uppercase tracking-wider">User</th>
+                                <th className="py-2 px-4 font-medium text-text-secondary-dark uppercase tracking-wider">Severity</th>
                                 <th className="py-2 px-4 font-medium text-text-secondary-dark uppercase tracking-wider text-right">IP Address</th>
                             </tr>
                         </thead>
                          <tbody className="divide-y divide-border-dark/50 font-mono-numbers">
-                             {[
-                                 { time: '10:42:05', event: 'Configuration change: Firewall rules updated', user: 'admin@sys', ip: '192.168.1.42' },
-                                 { time: '10:15:22', event: 'User login successful', user: 'j.doe', ip: '10.0.0.15' },
-                                 { time: '09:55:01', event: 'Failed login attempt (3x)', user: 'unknown', ip: '203.0.113.8', warning: true },
-                                 { time: '09:30:00', event: 'API Key generated: "Production-Read"', user: 'admin@sys', ip: '192.168.1.42' },
-                                 { time: '08:12:44', event: 'System backup completed', user: 'system', ip: 'localhost' },
-                             ].map((log, i) => (
-                                <tr key={i} className="hover:bg-white/5 transition-colors group">
-                                    <td className="py-3 px-4 text-text-secondary-dark">{log.time}</td>
-                                    <td className={`py-3 px-4 ${log.warning ? 'text-warning font-sans flex items-center gap-2' : 'text-text-primary-dark font-sans group-hover:text-primary transition-colors'}`}>
-                                        {log.warning && <AlertTriangle className="h-3 w-3 inline" />}
-                                        {log.event}
+                             {loading && !events.length ? (
+                                <tr>
+                                    <td colSpan={4} className="py-8 px-4 text-center text-text-secondary-dark">
+                                        <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
+                                        Loading events...
                                     </td>
-                                    <td className="py-3 px-4 text-text-secondary-dark">{log.user}</td>
-                                    <td className="py-3 px-4 text-text-secondary-dark text-right opacity-70">{log.ip}</td>
                                 </tr>
-                             ))}
+                             ) : events.length === 0 ? (
+                                <tr>
+                                    <td colSpan={4} className="py-8 px-4 text-center text-text-secondary-dark">
+                                        No security events found
+                                    </td>
+                                </tr>
+                             ) : (
+                                events.slice(0, 10).map((event) => {
+                                  const isWarning = event.severity === 'high' || event.severity === 'critical'
+                                  return (
+                                    <tr key={event.id} className="hover:bg-white/5 transition-colors group">
+                                        <td className="py-3 px-4 text-text-secondary-dark">{formatEventTime(event.created_at)}</td>
+                                        <td className={`py-3 px-4 ${isWarning ? getSeverityColor(event.severity) + ' font-sans flex items-center gap-2' : 'text-text-primary-dark font-sans group-hover:text-primary transition-colors'}`}>
+                                            {isWarning && <AlertTriangle className="h-3 w-3 inline" />}
+                                            {event.description || event.event_type || 'Security event'}
+                                        </td>
+                                        <td className="py-3 px-4">
+                                            <span className={`text-[9px] px-1.5 py-0.5 rounded uppercase ${isWarning ? 'bg-warning/10 text-warning border border-warning/20' : 'bg-text-secondary-dark/10 text-text-secondary-dark border border-text-secondary-dark/20'}`}>
+                                                {event.severity || 'medium'}
+                                            </span>
+                                        </td>
+                                        <td className="py-3 px-4 text-text-secondary-dark text-right opacity-70">{event.ip_address || 'N/A'}</td>
+                                    </tr>
+                                  )
+                                })
+                             )}
                          </tbody>
                     </table>
                 </Card>
@@ -172,35 +258,25 @@ export function SecurityPage() {
                     </div>
                 </Card>
 
-                <Card className="bg-surface-dark border-error/30 rounded p-4 relative overflow-hidden shadow-sm">
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-error"></div>
-                    <div className="flex items-start gap-3 pl-2">
-                        <AlertTriangle className="h-5 w-5 text-error" />
-                        <div>
-                            <h4 className="text-xs font-bold text-text-primary-dark uppercase tracking-wide">Critical Update</h4>
-                            <p className="text-[10px] text-text-secondary-dark mt-1 leading-relaxed">
-                                Security patch v2.4.1 is available. Addresses CVE-2024-9921 regarding unauthorized escalating privileges.
-                            </p>
-                            <button className="mt-2 text-[10px] bg-error/10 hover:bg-error/20 text-error px-2 py-1 rounded border border-error/20 transition-colors font-semibold uppercase tracking-wide">
-                                Install Patch Now
-                            </button>
+                {analytics && analytics.recent_events && analytics.recent_events.some(e => e.severity === 'critical') && (
+                    <Card className="bg-surface-dark border-error/30 rounded p-4 relative overflow-hidden shadow-sm">
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-error"></div>
+                        <div className="flex items-start gap-3 pl-2">
+                            <AlertTriangle className="h-5 w-5 text-error" />
+                            <div>
+                                <h4 className="text-xs font-bold text-text-primary-dark uppercase tracking-wide">Critical Events Detected</h4>
+                                <p className="text-[10px] text-text-secondary-dark mt-1 leading-relaxed">
+                                    {analytics.recent_events.filter(e => e.severity === 'critical').length} critical security event{analytics.recent_events.filter(e => e.severity === 'critical').length !== 1 ? 's' : ''} detected. Review audit logs immediately.
+                                </p>
+                                <button className="mt-2 text-[10px] bg-error/10 hover:bg-error/20 text-error px-2 py-1 rounded border border-error/20 transition-colors font-semibold uppercase tracking-wide">
+                                    View Details
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                </Card>
+                    </Card>
+                )}
             </div>
        </div>
-
-       <div className="relative flex justify-between items-center pt-6 pb-2 text-[10px] text-text-secondary-dark mt-8 uppercase tracking-widest opacity-60">
-            <Separator className="absolute top-0 left-0 right-0 border-border-dark" />
-        <p>© 2025 SAAS MGR</p>
-        <div className="flex items-center gap-4">
-            <span className="flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-success"></span>
-                SYSTEM HEALTHY
-            </span>
-            <p className="font-mono-numbers">V.1.0.0-BETA</p>
-        </div>
-      </div>
     </div>
   )
 }

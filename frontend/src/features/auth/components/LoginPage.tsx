@@ -160,9 +160,9 @@ const LoginPage: React.FC = () => {
         
         <div className="mt-6 text-center space-y-2">
           <div className="flex justify-center items-center gap-6 opacity-40 hover:opacity-100 transition-opacity duration-500">
-            <Clock className="h-5 w-5 text-text-secondary-dark" title="Secure Connection" />
-            <Shield className="h-5 w-5 text-text-secondary-dark" title="Encryption Active" />
-            <UserCheck className="h-5 w-5 text-text-secondary-dark" title="Verified System" />
+            <Clock className="h-5 w-5 text-text-secondary-dark" />
+            <Shield className="h-5 w-5 text-text-secondary-dark" />
+            <UserCheck className="h-5 w-5 text-text-secondary-dark" />
           </div>
           <p className="text-[10px] text-inactive-dark font-mono-numbers mt-3 tracking-widest">
             SYSTEM_ID: YMPHE66H64 // V.1.0.0-BETA

@@ -101,3 +101,24 @@ export async function bulkDeleteClients(
   const response = await api.post('/api/users/clients/bulk-delete', options)
   return response.data
 }
+
+export async function getEmployees(params?: {
+  page?: number
+  per_page?: number
+  search?: string
+  project_id?: number
+}): Promise<UserTypesResponse> {
+  // Employees are users that are NOT clients
+  // We'll filter by excluding the 'client' role
+  const requestParams: Record<string, any> = {}
+  if (params?.page) requestParams.page = params.page.toString()
+  if (params?.per_page) requestParams.per_page = params.per_page.toString()
+  if (params?.search) requestParams.search = params.search
+  if (params?.project_id) requestParams.project_id = params.project_id.toString()
+  
+  // Exclude client role - employees are all users except clients
+  requestParams.roles = ['admin', 'moderator', 'developer', 'seller', 'support', 'owner']
+  
+  const response = await api.get(API_ENDPOINTS.USERS, { params: requestParams })
+  return response.data
+}

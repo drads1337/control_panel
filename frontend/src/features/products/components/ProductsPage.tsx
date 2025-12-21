@@ -1,5 +1,8 @@
 import React from 'react'
 import { Filter, LayoutGrid, CreditCard, Users as UsersIcon, Gauge, CheckCircle2, Code2, Key, ArrowUp, Settings, MoreVertical, ArrowRight, Minus, Plus, Database } from 'lucide-react'
+import { Button } from '@/shared/ui/components/button'
+import { Card } from '@/shared/ui/components/card'
+import { Badge } from '@/shared/ui/components/badge'
 
 export function ProductsPage() {
   return (
@@ -15,9 +18,9 @@ export function ProductsPage() {
         </div>
         <div className="flex items-center gap-2">
             {[{ Icon: Filter, key: 'filter' }, { Icon: LayoutGrid, key: 'grid' }].map(({ Icon, key }) => (
-                <button key={key} className="p-1.5 rounded bg-surface-dark border border-border-dark text-text-secondary-dark hover:text-primary hover:border-primary transition-all">
+                <Button key={key} variant="outline" size="icon" className="p-1.5 rounded bg-surface-dark border border-border-dark text-text-secondary-dark hover:text-primary hover:border-primary transition-all">
                     <Icon className="h-5 w-5" />
-                </button>
+                </Button>
             ))}
         </div>
       </div>
@@ -29,19 +32,19 @@ export function ProductsPage() {
             { label: 'Avg. Response', value: '42ms', Icon: Gauge, valColor: 'text-text-primary-dark', iconColor: 'text-primary' },
             { label: 'Uptime', value: '99.9%', Icon: CheckCircle2, valColor: 'text-success', iconColor: 'text-success' },
         ].map((item, i) => (
-             <div key={i} className="bg-surface-dark/50 border border-border-dark rounded p-3 flex items-center justify-between group hover:border-border-light/30 transition-colors">
+             <Card key={i} className="bg-surface-dark/50 border border-border-dark rounded p-3 flex items-center justify-between group hover:border-border-light/30 transition-colors">
                 <div className="flex flex-col">
                     <span className="text-[10px] text-text-secondary-dark uppercase tracking-wider font-semibold">{item.label}</span>
                     <span className={`text-lg font-mono-numbers font-bold ${item.valColor}`}>{item.value}</span>
                 </div>
                 <item.Icon className={`h-5 w-5 ${item.iconColor} opacity-20 group-hover:opacity-40 transition-opacity`} />
-            </div>
+            </Card>
         ))}
       </div>
 
       <div className="space-y-3">
         {/* Product Card 1 */}
-        <div className="group bg-surface-dark border border-border-dark rounded-lg p-0 overflow-hidden hover:border-primary/50 transition-all duration-300 relative">
+        <Card className="group bg-surface-dark border border-border-dark rounded-lg p-0 overflow-hidden hover:border-primary/50 transition-all duration-300 relative">
             <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary group-hover:bg-primary-hover transition-colors"></div>
             <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-start gap-4">
@@ -51,7 +54,7 @@ export function ProductsPage() {
                     <div className="flex flex-col">
                         <div className="flex items-center gap-2 mb-0.5">
                             <h3 className="text-sm font-bold text-text-primary-dark">SaaS Analytics Pro</h3>
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-mono-numbers border border-primary/20">VER 2.1</span>
+                            <Badge className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-mono-numbers border border-primary/20">VER 2.1</Badge>
                         </div>
                          <div className="flex items-center gap-3 text-xs text-text-secondary-dark">
                             <span className="flex items-center gap-1"><Key className="h-3.5 w-3.5" /> <span className="font-mono-numbers">ID: P-8821</span></span>
@@ -83,12 +86,12 @@ export function ProductsPage() {
                     </div>
                 </div>
                 <div className="hidden sm:flex items-center gap-2 pl-4 border-l border-border-dark h-8">
-                     <button className="p-1.5 text-text-secondary-dark hover:text-text-primary-dark transition-colors">
+                     <Button variant="ghost" size="icon" className="p-1.5 text-text-secondary-dark hover:text-text-primary-dark transition-colors">
                         <Settings className="h-5 w-5" />
-                    </button>
-                     <button className="p-1.5 text-text-secondary-dark hover:text-text-primary-dark transition-colors">
+                    </Button>
+                     <Button variant="ghost" size="icon" className="p-1.5 text-text-secondary-dark hover:text-text-primary-dark transition-colors">
                         <MoreVertical className="h-5 w-5" />
-                    </button>
+                    </Button>
                 </div>
             </div>
             <div className="px-4 py-2 bg-background-dark border-t border-border-dark flex items-center justify-between text-[10px] text-text-secondary-dark font-mono-numbers">
@@ -96,14 +99,14 @@ export function ProductsPage() {
                     <span>REGION: <span className="text-text-primary-dark">US-EAST-1</span></span>
                     <span>INSTANCES: <span className="text-text-primary-dark">4</span></span>
                 </div>
-                <button className="text-primary hover:text-white uppercase tracking-wider font-bold flex items-center gap-1">
+                <Button variant="ghost" className="text-primary hover:text-white uppercase tracking-wider font-bold flex items-center gap-1 p-0 h-auto">
                     View Analytics <ArrowRight className="h-3 w-3 inline" />
-                </button>
+                </Button>
             </div>
-        </div>
+        </Card>
 
         {/* Product Card 2 */}
-         <div className="group bg-surface-dark border border-border-dark rounded-lg p-0 overflow-hidden hover:border-primary/50 transition-all duration-300 relative opacity-90">
+         <Card className="group bg-surface-dark border border-border-dark rounded-lg p-0 overflow-hidden hover:border-primary/50 transition-all duration-300 relative opacity-90">
             <div className="absolute left-0 top-0 bottom-0 w-1 bg-warning group-hover:bg-warning transition-colors"></div>
             <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-start gap-4">
@@ -113,7 +116,7 @@ export function ProductsPage() {
                     <div className="flex flex-col">
                         <div className="flex items-center gap-2 mb-0.5">
                             <h3 className="text-sm font-bold text-text-primary-dark">Legacy DB Manager</h3>
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/10 text-warning font-mono-numbers border border-warning/20">MAINTENANCE</span>
+                            <Badge className="text-[10px] px-1.5 py-0.5 rounded bg-warning/10 text-warning font-mono-numbers border border-warning/20">MAINTENANCE</Badge>
                         </div>
                          <div className="flex items-center gap-3 text-xs text-text-secondary-dark">
                             <span className="flex items-center gap-1"><Key className="h-3.5 w-3.5" /> <span className="font-mono-numbers">ID: D-1092</span></span>
@@ -145,12 +148,12 @@ export function ProductsPage() {
                     </div>
                 </div>
                  <div className="hidden sm:flex items-center gap-2 pl-4 border-l border-border-dark h-8">
-                     <button className="p-1.5 text-text-secondary-dark hover:text-text-primary-dark transition-colors">
+                     <Button variant="ghost" size="icon" className="p-1.5 text-text-secondary-dark hover:text-text-primary-dark transition-colors">
                         <Settings className="h-5 w-5" />
-                    </button>
-                     <button className="p-1.5 text-text-secondary-dark hover:text-text-primary-dark transition-colors">
+                    </Button>
+                     <Button variant="ghost" size="icon" className="p-1.5 text-text-secondary-dark hover:text-text-primary-dark transition-colors">
                         <MoreVertical className="h-5 w-5" />
-                    </button>
+                    </Button>
                 </div>
             </div>
             <div className="px-4 py-2 bg-background-dark border-t border-border-dark flex items-center justify-between text-[10px] text-text-secondary-dark font-mono-numbers">
@@ -158,23 +161,18 @@ export function ProductsPage() {
                     <span>REGION: <span className="text-text-primary-dark">EU-WEST-2</span></span>
                     <span>INSTANCES: <span className="text-text-primary-dark">1</span></span>
                 </div>
-                <button className="text-text-secondary-dark hover:text-white uppercase tracking-wider font-bold flex items-center gap-1">
+                <Button variant="ghost" className="text-text-secondary-dark hover:text-white uppercase tracking-wider font-bold flex items-center gap-1 p-0 h-auto">
                     View Analytics <ArrowRight className="h-3 w-3 inline" />
-                </button>
+                </Button>
             </div>
-        </div>
+        </Card>
 
-        <button className="w-full border border-dashed border-border-dark rounded-lg p-6 flex flex-col items-center justify-center text-text-secondary-dark hover:text-primary hover:border-primary/50 hover:bg-surface-dark transition-all duration-300 group">
+        <Button variant="outline" className="w-full border border-dashed border-border-dark rounded-lg p-6 flex flex-col items-center justify-center text-text-secondary-dark hover:text-primary hover:border-primary/50 hover:bg-surface-dark transition-all duration-300 group h-auto">
             <div className="w-10 h-10 rounded-full bg-surface-dark border border-border-dark flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
                 <Plus className="h-8 w-8 group-hover:text-primary transition-colors" />
             </div>
             <span className="text-xs font-bold uppercase tracking-wider">Deploy New Product</span>
-        </button>
-      </div>
-      
-       <div className="flex justify-between items-center pt-6 pb-2 text-[10px] text-text-secondary-dark border-t border-border-dark mt-8 uppercase tracking-widest opacity-60">
-        <p>© 2025 SAAS MGR</p>
-        <p className="font-mono-numbers">V.1.0.0-BETA</p>
+        </Button>
       </div>
     </div>
   )

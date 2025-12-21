@@ -1,1 +1,1 @@
-// LoginPage moved to pages/
+export { default as LoginPage } from './components/LoginPage'

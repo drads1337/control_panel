@@ -3,19 +3,17 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AppProviders } from './app/providers'
 import { AppLayout } from './widgets/layout'
 import { ProtectedRoute } from './widgets/protected-route'
-import {
-  LoginPage,
-  DashboardPage,
-  ProfilePage,
-  ManagementPage,
-  ProductsPage,
-  AgentsPage,
-  UsersPage,
-  RemoteControlPage,
-  SecurityPage,
-  WebhooksPage,
-  LogsPage
-} from './pages'
+import { LoginPage } from './features/auth'
+import { DashboardPage } from './features/dashboard'
+import { ProfilePage } from './features/profile'
+import { ManagementPage } from './features/management'
+import { ProductsPage } from './features/products/components'
+import { AgentsPage } from './features/agent-management'
+import { UsersPage } from './features/user-administration'
+import { RemoteControlPage } from './features/remote-control'
+import { SecurityPage } from './features/security'
+import { WebhooksPage } from './features/webhooks-control'
+import { LogsPage } from './features/logs'
 
 function App() {
   useEffect(() => {

@@ -1,1 +1,1 @@
-// ProfilePage moved to pages/
+export { default as ProfilePage } from './ProfilePage'

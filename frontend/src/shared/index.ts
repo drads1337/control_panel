@@ -16,7 +16,7 @@ export * from './constants'
 export * from './model'
 
 // UI components
-export * from './ui'
+export * from './ui/components'
 
 // Utils (legacy, use shared/lib/utils instead)
 export * from './utils'

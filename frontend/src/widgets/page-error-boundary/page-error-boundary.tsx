@@ -1,6 +1,8 @@
-import React, { ReactNode } from "react"
+import { type ReactNode } from "react"
+import { RefreshCw } from "lucide-react"
 import { ErrorBoundary } from "./error-boundary"
 import { ErrorState } from "@/shared/ui/feedback"
+import { Button } from "@/shared/ui/components/button"
 
 interface PageErrorBoundaryProps {
   children: ReactNode
@@ -14,73 +16,71 @@ interface WidgetErrorBoundaryProps {
   onError?: (error: Error, errorInfo: React.ErrorInfo) => void
 }
 
-/**
- * Error Boundary specifically for page-level error handling
- * Provides a more user-friendly fallback UI for page errors
- *
- * Usage:
- * ```tsx
- * <PageErrorBoundary pageName="Dashboard">
- *   <DashboardPage />
- * </PageErrorBoundary>
- * ```
- */
+function MinimalErrorDisplay() {
+  const handleReload = () => {
+    window.location.reload()
+  }
+
+  return (
+    <div className="flex items-center justify-center min-h-[400px] p-4">
+      <div className="text-center space-y-6 max-w-md">
+        <div className="space-y-3">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            Error loading Page
+          </h1>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            An error occurred while loading this page. Please try refreshing or contact support if the problem persists.
+          </p>
+        </div>
+        <Button 
+          onClick={handleReload}
+          variant="default"
+          className="min-w-[140px] bg-foreground text-background hover:bg-foreground/90"
+        >
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Reload Page
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 export function PageErrorBoundary({
   children,
   pageName = "Page",
   onError,
 }: PageErrorBoundaryProps) {
-  const fallback = (
-    <ErrorState
-      title={`Error loading ${pageName}`}
-      message="An error occurred while loading this page. Please try refreshing or contact support if the problem persists."
-      showRetryButton={false}
-      showReloadButton={true}
-      showBackButton={false}
-      showHomeButton={true}
-    />
-  )
-
   return (
-    <ErrorBoundary fallback={fallback} onError={onError}>
+    <ErrorBoundary
+      fallback={<MinimalErrorDisplay />}
+      onError={onError}
+    >
       {children}
     </ErrorBoundary>
   )
 }
 
-/**
- * Error Boundary for widget-level error handling
- * Prevents a single widget error from crashing the entire page
- *
- * Usage:
- * ```tsx
- * <WidgetErrorBoundary widgetName="User Stats">
- *   <UserStatsWidget />
- * </WidgetErrorBoundary>
- * ```
- */
 export function WidgetErrorBoundary({
   children,
   widgetName = "Widget",
   onError,
 }: WidgetErrorBoundaryProps) {
-  const fallback = (
-    <ErrorState
-      title={`Error loading ${widgetName}`}
-      message=""
-      size="sm"
-      showRetryButton={false}
-      showReloadButton={false}
-      showBackButton={false}
-      showHomeButton={false}
-      className="min-h-0"
-    />
-  )
-
   return (
-    <ErrorBoundary fallback={fallback} onError={onError}>
+    <ErrorBoundary
+      fallback={
+        <ErrorState
+          title={`Error loading ${widgetName}`}
+          message=""
+          size="sm"
+          showRetryButton={false}
+          showReloadButton={false}
+          showHomeButton={false}
+          className="min-h-0"
+        />
+      }
+      onError={onError}
+    >
       {children}
     </ErrorBoundary>
   )
 }
-

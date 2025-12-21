@@ -13,7 +13,6 @@ import {
   LucideIcon
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/components/card';
-import { Separator } from '@/shared/ui/components/separator';
 
 // Simple bar chart component using CSS
 const BarChart = () => (
@@ -206,12 +205,6 @@ export const DashboardPage = () => {
                         <Router className="text-xl text-text-secondary-dark group-hover:text-emerald-400 transition-colors" />
                     </div>
                  </Card>
-            </div>
-
-            <div className="relative flex justify-between items-center pt-6 pb-2 text-[10px] text-text-secondary-dark mt-8 uppercase tracking-widest opacity-60">
-                <Separator className="absolute top-0 left-0 right-0 border-border-dark" />
-                <p>© 2025 SAAS MGR</p>
-                <p className="font-mono-numbers">V.1.0.0-BETA</p>
             </div>
         </div>
     );

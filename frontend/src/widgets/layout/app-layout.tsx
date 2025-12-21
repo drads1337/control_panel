@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthContext } from '@/app/providers/auth-provider'
 import { PageErrorBoundary } from '@/widgets/page-error-boundary'
+import { Footer } from '@/widgets/footer'
 import { 
   LayoutDashboard, 
   Key, 
@@ -263,10 +264,7 @@ export function AppLayout() {
             )}
           </div>
           
-          <footer className="flex justify-between items-center pt-8 border-t border-border-dark text-[10px] text-text-secondary-dark uppercase tracking-widest opacity-60">
-            <p>© 2025 SAAS MGR</p>
-            <p className="font-mono">V.1.0.0-BETA</p>
-          </footer>
+          <Footer />
           
         </div>
       </main>

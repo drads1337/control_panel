@@ -2,6 +2,10 @@ import React from 'react'
 import { useProfileData } from '@/features/profile/hooks/use-profile-data'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/components/card'
 import { Separator } from '@/shared/ui/components/separator'
+import { Input } from '@/shared/ui/components/input'
+import { Textarea } from '@/shared/ui/components/textarea'
+import { Button } from '@/shared/ui/components/button'
+import { Label } from '@/shared/ui/components/label'
 
 const ProfilePage: React.FC = () => {
   const {
@@ -36,23 +40,23 @@ const ProfilePage: React.FC = () => {
                 <CardDescription className="text-xs text-text-secondary-dark mt-1">Manage your account settings and preferences.</CardDescription>
               </div>
               {!isEditing && (
-                <button
+                <Button
                   onClick={() => setIsEditing(true)}
                   className="px-4 py-2 bg-primary text-background-dark text-xs font-bold uppercase tracking-widest rounded hover:bg-primary-hover transition-all shadow-glow"
                 >
                   Edit
-                </button>
+                </Button>
               )}
             </div>
             <Separator className="border-border-dark" />
           </CardHeader>
           <CardContent className="space-y-6 p-0">
             <div className="space-y-2">
-              <label className="block text-[10px] font-bold uppercase text-text-secondary-dark tracking-widest">
+              <Label className="block text-[10px] font-bold uppercase text-text-secondary-dark tracking-widest">
                 Username
-              </label>
+              </Label>
               {isEditing ? (
-                <input
+                <Input
                   type="text"
                   value={profileData.username}
                   onChange={(e) => handleInputChange('username', e.target.value)}
@@ -64,11 +68,11 @@ const ProfilePage: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="block text-[10px] font-bold uppercase text-text-secondary-dark tracking-widest">
+              <Label className="block text-[10px] font-bold uppercase text-text-secondary-dark tracking-widest">
                 First Name
-              </label>
+              </Label>
               {isEditing ? (
-                <input
+                <Input
                   type="text"
                   value={profileData.firstName}
                   onChange={(e) => handleInputChange('firstName', e.target.value)}
@@ -80,11 +84,11 @@ const ProfilePage: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="block text-[10px] font-bold uppercase text-text-secondary-dark tracking-widest">
+              <Label className="block text-[10px] font-bold uppercase text-text-secondary-dark tracking-widest">
                 Last Name
-              </label>
+              </Label>
               {isEditing ? (
-                <input
+                <Input
                   type="text"
                   value={profileData.lastName}
                   onChange={(e) => handleInputChange('lastName', e.target.value)}
@@ -96,11 +100,11 @@ const ProfilePage: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="block text-[10px] font-bold uppercase text-text-secondary-dark tracking-widest">
+              <Label className="block text-[10px] font-bold uppercase text-text-secondary-dark tracking-widest">
                 Email
-              </label>
+              </Label>
               {isEditing ? (
-                <input
+                <Input
                   type="email"
                   value={profileData.email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
@@ -112,11 +116,11 @@ const ProfilePage: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="block text-[10px] font-bold uppercase text-text-secondary-dark tracking-widest">
+              <Label className="block text-[10px] font-bold uppercase text-text-secondary-dark tracking-widest">
                 Bio
-              </label>
+              </Label>
               {isEditing ? (
-                <textarea
+                <Textarea
                   value={profileData.bio}
                   onChange={(e) => handleInputChange('bio', e.target.value)}
                   className="block w-full px-3 py-2.5 bg-background-dark border border-border-dark rounded text-sm text-text-primary-dark focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all"
@@ -129,30 +133,25 @@ const ProfilePage: React.FC = () => {
 
             {isEditing && (
               <div className="flex gap-4 pt-4">
-                <button
+                <Button
                   onClick={handleSave}
                   disabled={isLoading}
                   className="px-4 py-2 bg-primary text-background-dark text-xs font-bold uppercase tracking-widest rounded hover:bg-[#CBD5E1] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? 'Saving...' : 'Save'}
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={handleCancel}
                   disabled={isLoading}
+                  variant="outline"
                   className="px-4 py-2 bg-background-dark border border-border-dark text-text-primary-dark text-xs font-bold uppercase tracking-widest rounded hover:bg-surface-dark transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
-                </button>
+                </Button>
               </div>
             )}
           </CardContent>
         </Card>
-
-        <div className="relative flex justify-between items-center pt-6 pb-2 text-[10px] text-text-secondary-dark mt-8 uppercase tracking-widest opacity-60">
-          <Separator className="absolute top-0 left-0 right-0 border-border-dark" />
-          <p>© 2025 SAAS MGR</p>
-          <p className="font-mono-numbers">V.1.0.0-BETA</p>
-        </div>
       </div>
   )
 }
