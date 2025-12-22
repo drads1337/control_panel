@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Search, CirclePlus, Edit, Trash2, Power, Settings, MoreVertical, Loader2, AlertCircle } from 'lucide-react'
+import { Search, CirclePlus, Edit, Trash2, MoreVertical, Loader2, AlertCircle, ChevronDown, History, BarChart, Plus, Settings2 } from 'lucide-react'
 import { Input } from '@/shared/ui/components/input'
 import { Button } from '@/shared/ui/components/button'
 import { Card } from '@/shared/ui/components/card'
@@ -72,10 +72,6 @@ export function RemoteControlPage() {
   const [featureToDelete, setFeatureToDelete] = useState<string | null>(null)
   const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null)
 
-  const filteredCategories = categories.filter(cat => 
-    cat.name.toLowerCase().includes(searchQuery.toLowerCase())
-  )
-
   const handleDeleteFeatureClick = (featureId: string) => {
     setFeatureToDelete(featureId)
     setDeleteFeatureDialogOpen(true)
@@ -102,147 +98,367 @@ export function RemoteControlPage() {
     }
   }
 
+  const [featureFilter, setFeatureFilter] = useState<'all' | 'online' | 'offline'>('all')
+
   const activeCategory = categories.find(cat => cat.id === activeTab)
   const activeFeatures = activeCategory ? getCategoryFeatures(activeTab) : []
-  const filteredFeatures = activeFeatures.filter(feature =>
-    feature.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    feature.description.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+
+  const filteredFeatures = activeFeatures.filter(feature => {
+    const matchesSearch = feature.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      feature.description.toLowerCase().includes(searchQuery.toLowerCase())
+    
+    if (featureFilter === 'all') return matchesSearch
+    if (featureFilter === 'online') return matchesSearch && feature.status === 'online'
+    if (featureFilter === 'offline') return matchesSearch && (feature.status === 'offline' || feature.status === 'error')
+    return matchesSearch
+  })
+
+  const onlineCount = activeFeatures.filter(f => f.status === 'online').length
+  const offlineCount = activeFeatures.filter(f => f.status === 'offline' || f.status === 'error').length
+
+  // Helper function to get status display
+  const getStatusDisplay = (status: string) => {
+    if (status === 'online') return 'ONLINE'
+    if (status === 'offline') return 'OFFLINE'
+    return 'MAINTENANCE'
+  }
+
+  // Helper function to format usage count
+  const formatUsageCount = (count?: number) => {
+    if (!count) return '0'
+    if (count >= 1000) return `${(count / 1000).toFixed(1)}k`
+    return String(count)
+  }
+
+  // Helper function to get feature icon (placeholder - you can enhance this)
+  const getFeatureIcon = (feature: any) => Settings2
 
   if (!canView) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-3.5rem)]">
-        <Card className="p-6 bg-surface-dark border border-border-dark">
+      <div className="flex items-center justify-center h-[calc(100vh-140px)]">
+        <div className="p-6 bg-surface-dark border border-border-dark rounded-sm">
           <div className="flex items-center gap-3 text-text-secondary-dark">
             <AlertCircle className="h-5 w-5" />
             <span>You don't have permission to view remote control</span>
           </div>
-        </Card>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="h-[calc(100vh-3.5rem)] flex flex-col gap-4 overflow-hidden p-4">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 flex-shrink-0">
-        <div className="flex items-center gap-4">
-          <div className="relative">
-            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
-              <Search className="h-4 w-4 text-text-secondary-dark" />
+    <div className="flex h-[calc(100vh-140px)] border border-border-dark rounded-sm overflow-hidden bg-background-dark shadow-sm">
+      {/* Sidebar - Categories */}
+      <div className="w-64 border-r border-border-dark flex flex-col bg-surface-dark/5">
+        {/* Header */}
+        <div className="p-3 border-b border-border-dark flex items-center justify-between bg-surface-dark/50">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold text-text-secondary-dark uppercase tracking-wider">Categories</span>
+            <span className="bg-background-dark border border-border-dark px-1 py-0.5 rounded text-[8px] text-text-secondary-dark font-mono">
+              {categories.length}
             </span>
-            <Input 
-              className="pl-9 pr-4 py-2 bg-surface-dark border border-border-dark rounded text-xs text-text-primary-dark focus:ring-1 focus:ring-primary focus:border-primary placeholder-text-secondary-dark transition-all w-64" 
-              placeholder="Search categories and features..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Select 
-            value={selectedProductId ? String(selectedProductId) : ''} 
-            onValueChange={(value) => handleProductChange(Number(value))}
-            disabled={productsLoading}
-          >
-            <SelectTrigger className="w-48 bg-surface-dark border-border-dark rounded px-3 py-2 text-xs text-text-primary-dark focus:ring-1 focus:ring-primary focus:border-primary h-9">
-              <SelectValue placeholder={productsLoading ? "Loading..." : "Select product"} />
-            </SelectTrigger>
-            <SelectContent className="bg-surface-dark border-border-dark text-text-primary-dark">
-              {products.map((product) => (
-                <SelectItem key={product.id} value={String(product.id)}>
-                  {product.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           {canCreate && (
-            <Button 
-              size="sm" 
-              className="px-3 py-2 bg-primary hover:bg-primary-hover text-background-dark rounded text-xs font-bold transition-all"
+            <Button
               onClick={() => {
                 resetCategoryForm()
                 setEditingCategory(null)
                 setCategoryDialogOpen(true)
               }}
+              variant="ghost"
+              size="icon"
+              className="text-text-secondary-dark hover:text-white h-auto w-auto p-0"
+              title="Add category"
             >
-              <CirclePlus className="h-4 w-4 mr-1.5" />
-              Add Category
+              <Plus className="h-4 w-4" />
             </Button>
           )}
         </div>
+
+        {/* List */}
+        <div className="flex-1 overflow-y-auto px-2 py-2 space-y-2">
+          {loading ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="h-4 w-4 animate-spin text-text-secondary-dark" />
+            </div>
+          ) : error ? (
+            <div className="flex items-center gap-2 p-2.5 text-text-secondary-dark text-[10px]">
+              <AlertCircle className="h-3.5 w-3.5" />
+              <span>{error}</span>
+            </div>
+          ) : categories.length === 0 ? (
+            <div className="text-center py-6 text-text-secondary-dark text-[10px]">
+              No categories yet
+            </div>
+          ) : (
+            categories.map((category) => {
+              const categoryStats = stats.find(s => s.category.id === category.id)
+              const isActive = activeTab === category.id
+              return (
+                <button
+                  key={category.id}
+                  onClick={() => setActiveTab(category.id)}
+                  className={cn(
+                    "w-full text-left p-2.5 rounded-sm border transition-all flex items-start gap-2.5 group",
+                    isActive
+                      ? "bg-surface-dark border-border-dark shadow-sm"
+                      : "border-transparent hover:bg-white/5"
+                  )}
+                >
+                  <div 
+                    className={cn(
+                      "mt-0.5 w-1.5 h-1.5 rounded-full",
+                      isActive 
+                        ? "shadow-[0_0_6px_rgba(59,130,246,0.5)]" 
+                        : ""
+                    )}
+                    style={{ backgroundColor: isActive ? category.color || '#3b82f6' : '#2D333B' }}
+                  ></div>
+                  <div className="flex-1 min-w-0">
+                    <div className={cn(
+                      "text-[11px] font-bold",
+                      isActive
+                        ? "text-white"
+                        : "text-text-secondary-dark group-hover:text-text-primary-dark"
+                    )}>
+                      {category.name}
+                    </div>
+                    <div className="text-[9px] text-text-secondary-dark opacity-60 font-mono mt-0.5">
+                      {categoryStats ? `${categoryStats.enabled}/${categoryStats.total} enabled` : '0/0 enabled'}
+                    </div>
+                  </div>
+                </button>
+              )
+            })
+          )}
+        </div>
+
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex gap-4 overflow-hidden min-h-0">
-        {/* Categories Sidebar */}
-        <div className="w-64 flex flex-col gap-2 flex-shrink-0 overflow-hidden">
-          <Card className="bg-surface-dark border border-border-dark rounded flex-1 overflow-hidden flex flex-col">
-            <div className="p-3 border-b border-border-dark flex justify-between items-center bg-white/5">
-              <span className="text-[10px] uppercase font-bold text-text-secondary-dark tracking-widest">Categories</span>
-              <Badge className="text-[10px] font-mono-numbers text-primary bg-white/5 px-1.5 rounded border border-white/10">
-                {categories.length}
-              </Badge>
+      <div className="flex-1 flex flex-col bg-[#0F1115] relative overflow-hidden">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 pointer-events-none" style={{ 
+          backgroundImage: 'radial-gradient(#2D333B 1px, transparent 1px)', 
+          backgroundSize: '20px 20px', 
+          opacity: 0.08 
+        }}></div>
+
+        {/* Top Toolbar */}
+        <div className="relative z-10 px-4 py-3 flex items-center justify-between border-b border-border-dark/50">
+          <div className="flex items-center gap-2">
+            {products.length > 0 && (
+              <Select 
+                value={selectedProductId ? String(selectedProductId) : ''} 
+                onValueChange={(value) => handleProductChange(Number(value))}
+                disabled={productsLoading}
+              >
+                <SelectTrigger className="w-full min-w-[200px] bg-background-dark border-border-dark rounded px-3 py-1.5 text-xs text-text-primary-dark focus:ring-1 focus:ring-primary focus:border-primary h-[28px]">
+                  <SelectValue placeholder={productsLoading ? "Loading..." : "Select product"} />
+                </SelectTrigger>
+                <SelectContent 
+                  className="!bg-surface-dark border-border-dark text-text-primary-dark shadow-lg backdrop-blur-sm !min-w-0 w-[var(--radix-select-trigger-width)] !z-[100]"
+                  position="popper"
+                >
+                  {products.map((product) => (
+                    <SelectItem key={product.id} value={String(product.id)} className="text-text-primary-dark hover:!bg-white/10 focus:!bg-primary/20 focus:text-text-primary-dark cursor-pointer">
+                      {product.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {selectedProductId && activeCategory && (
+              <>
+                <span className="text-text-secondary-dark text-[10px]">/</span>
+                <div className="flex items-center gap-1 text-xs font-bold text-white">
+                  {activeCategory.name}
+                </div>
+              </>
+            )}
+            {selectedProductId && !activeCategory && (
+              <div className="text-xs font-bold text-text-secondary-dark">
+                Select Category
+              </div>
+            )}
+          </div>
+          {canCreate && activeCategory && (
+            <Button 
+              className="bg-primary hover:bg-primary-hover text-background-dark px-2.5 py-1 rounded-sm text-[9px] font-bold flex items-center gap-1.5 transition-all shadow-glow h-[28px]"
+              onClick={() => {
+                resetForm()
+                setEditingFeature(null)
+                setFormData(prev => ({ ...prev, category_id: activeTab }))
+                setAddDialogOpen(true)
+              }}
+            >
+              <CirclePlus className="h-3.5 w-3.5" />
+              Add Feature
+            </Button>
+          )}
+        </div>
+
+        {/* Content Body */}
+        {activeCategory ? (
+          <div className="relative z-10 flex-1 overflow-y-auto p-4">
+            <div className="mb-4">
+              <h2 className="text-lg font-bold text-white mb-1">{activeCategory.name}</h2>
+              {activeCategory.description && (
+                <p className="text-[11px] text-text-secondary-dark max-w-2xl">
+                  {activeCategory.description}
+                </p>
+              )}
             </div>
-            <div className="overflow-y-auto flex-1 p-2 space-y-1">
-              {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-5 w-5 animate-spin text-text-secondary-dark" />
+
+            {/* Filter Tabs */}
+            <div className="flex items-center justify-between mb-3 bg-surface-dark/30 p-1.5 rounded border border-border-dark/50">
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => setFeatureFilter('all')}
+                  className={cn(
+                    "text-[10px] font-bold border-b-2 pb-1 transition-colors",
+                    featureFilter === 'all'
+                      ? "text-white border-white"
+                      : "text-text-secondary-dark hover:text-white border-transparent hover:border-border-dark"
+                  )}
+                >
+                  All ({activeFeatures.length})
+                </button>
+                <button 
+                  onClick={() => setFeatureFilter('online')}
+                  className={cn(
+                    "text-[10px] font-bold border-b-2 pb-1 transition-colors",
+                    featureFilter === 'online'
+                      ? "text-white border-white"
+                      : "text-text-secondary-dark hover:text-white border-transparent hover:border-border-dark"
+                  )}
+                >
+                  Online ({onlineCount})
+                </button>
+                <button 
+                  onClick={() => setFeatureFilter('offline')}
+                  className={cn(
+                    "text-[10px] font-bold border-b-2 pb-1 transition-colors",
+                    featureFilter === 'offline'
+                      ? "text-white border-white"
+                      : "text-text-secondary-dark hover:text-white border-transparent hover:border-border-dark"
+                  )}
+                >
+                  Offline ({offlineCount})
+                </button>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="relative group w-64">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
+                    <Search className="h-3.5 w-3.5 text-text-secondary-dark group-focus-within:text-primary transition-colors" />
+                  </span>
+                  <Input 
+                    className="w-full bg-background-dark border border-border-dark rounded-sm pl-9 pr-3 py-1.5 text-[10px] text-text-secondary-dark focus:ring-1 focus:ring-primary focus:border-primary placeholder-text-secondary-dark/40 h-auto" 
+                    placeholder="Search features..." 
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
                 </div>
-              ) : error ? (
-                <div className="flex items-center gap-2 p-3 text-text-secondary-dark text-xs">
-                  <AlertCircle className="h-4 w-4" />
-                  <span>{error}</span>
+                <div className="flex items-center gap-1.5 text-[9px] text-text-secondary-dark">
+                  <History className="h-3.5 w-3.5" />
+                  Just now
                 </div>
-              ) : filteredCategories.length === 0 ? (
-                <div className="text-center py-8 text-text-secondary-dark text-xs">
-                  {categories.length === 0 ? 'No categories yet' : 'No categories found'}
+              </div>
+            </div>
+
+            {/* Feature Cards */}
+            <div className="space-y-2">
+              {filteredFeatures.length === 0 ? (
+                <div className="text-center py-6 text-text-secondary-dark text-[10px]">
+                  No features found
                 </div>
               ) : (
-                filteredCategories.map((category) => {
-                  const categoryStats = stats.find(s => s.category.id === category.id)
-                  const isActive = activeTab === category.id
+                filteredFeatures.map((feature) => {
+                  const FeatureIcon = getFeatureIcon(feature)
+                  const statusDisplay = getStatusDisplay(feature.status || 'offline')
+                  const isOnline = feature.status === 'online'
+                  const isMaintenance = feature.status === 'error'
+                  
                   return (
-                    <div
-                      key={category.id}
-                      className={cn(
-                        "p-3 rounded border cursor-pointer group relative overflow-hidden transition-colors",
-                        isActive 
-                          ? "border-primary/30 bg-white/5" 
-                          : "border-transparent hover:border-border-dark hover:bg-white/5"
-                      )}
-                      onClick={() => setActiveTab(category.id)}
+                    <Card 
+                      key={feature.id} 
+                      className="bg-surface-dark border border-border-dark rounded-sm p-3 flex items-center justify-between group hover:border-text-secondary-dark/30 transition-all"
                     >
-                      {isActive && (
-                        <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-primary"></div>
-                      )}
-                      <div className="flex justify-between items-center mb-1">
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <div 
-                            className="w-3 h-3 rounded-full flex-shrink-0" 
-                            style={{ backgroundColor: category.color }}
-                          />
-                          <span className="text-xs font-semibold text-text-primary-dark truncate">
-                            {category.name}
-                          </span>
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="w-9 h-9 rounded bg-background-dark border border-border-dark flex items-center justify-center text-text-secondary-dark group-hover:text-primary transition-colors shadow-sm">
+                          <FeatureIcon className="h-4 w-4" />
                         </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                        <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-xs font-bold text-text-primary-dark truncate font-display">{feature.name}</h3>
+                            <Badge className={cn(
+                              "text-[9px] font-bold px-1 py-px rounded-[2px] border uppercase tracking-wider",
+                              isOnline 
+                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                : isMaintenance
+                                ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/20"
+                                : "bg-gray-500/10 text-gray-400 border-gray-500/20"
+                            )}>
+                              {statusDisplay}
+                            </Badge>
+                          </div>
+                          {feature.description && (
+                            <p className="text-[10px] text-text-secondary-dark truncate">{feature.description}</p>
+                          )}
+                          <div className="flex items-center gap-2.5 text-[9px] text-text-secondary-dark font-mono leading-none mt-0.5">
+                            <span className="opacity-60">ID: <span className="text-text-primary-dark opacity-100">{feature.id}</span></span>
+                            {feature.usage_count !== undefined && (
+                              <>
+                                <span className="w-px h-2 bg-border-dark"></span>
+                                <span className="flex items-center gap-1 opacity-60">
+                                  <BarChart className="h-3 w-3" />
+                                  Used {formatUsageCount(feature.usage_count)} times
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-4">
+                        {canToggle && (
+                          <div className="flex items-center gap-2.5">
+                            <span className={cn(
+                              "text-[9px] font-bold uppercase tracking-wider",
+                              feature.enabled ? "text-white" : "text-text-secondary-dark"
+                            )}>
+                              {feature.enabled ? 'ON' : 'OFF'}
+                            </span>
+                            {/* Custom Toggle Switch */}
+                            <div 
+                              onClick={() => canToggle && handleFeatureToggle(feature.id)}
+                              className={cn(
+                                "w-9 h-4.5 rounded-full relative cursor-pointer transition-colors",
+                                feature.enabled ? "bg-blue-600" : "bg-border-dark"
+                              )}
                             >
-                              <MoreVertical className="h-3.5 w-3.5" />
+                              <div className={cn(
+                                "absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white transition-all shadow-sm",
+                                feature.enabled ? "left-5" : "left-0.5"
+                              )}></div>
+                            </div>
+                          </div>
+                        )}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button 
+                              variant="ghost"
+                              size="icon"
+                              className="w-6 h-6 rounded-sm hover:bg-white/5 text-text-secondary-dark hover:text-text-primary-dark border border-transparent hover:border-border-dark"
+                            >
+                              <MoreVertical className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="bg-surface-dark border-border-dark">
                             {canEdit && (
                               <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleEditCategory(category)
-                                }}
+                                onClick={() => handleEditFeature(feature)}
                                 className="text-text-primary-dark hover:bg-white/10"
                               >
                                 <Edit className="h-3.5 w-3.5 mr-2" />
@@ -251,10 +467,7 @@ export function RemoteControlPage() {
                             )}
                             {canDelete && (
                               <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleDeleteCategoryClick(category.id)
-                                }}
+                                onClick={() => handleDeleteFeatureClick(feature.id)}
                                 className="text-text-primary-dark hover:bg-red-500/20 hover:text-red-400"
                               >
                                 <Trash2 className="h-3.5 w-3.5 mr-2" />
@@ -264,178 +477,32 @@ export function RemoteControlPage() {
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
-                      {categoryStats && (
-                        <div className="flex justify-between items-center text-[10px] text-text-secondary-dark font-mono-numbers">
-                          <span>{categoryStats.enabled}/{categoryStats.total} enabled</span>
-                        </div>
-                      )}
-                    </div>
+                    </Card>
                   )
                 })
               )}
             </div>
-          </Card>
-        </div>
-
-        {/* Features Area */}
-        <div className="flex-1 flex flex-col gap-4 min-w-0 overflow-hidden">
-          {activeCategory ? (
-            <>
-              <Card className="bg-surface-dark border border-border-dark rounded p-4 flex-shrink-0">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <div 
-                        className="w-4 h-4 rounded-full" 
-                        style={{ backgroundColor: activeCategory.color }}
-                      />
-                      <h2 className="text-sm font-semibold text-text-primary-dark">{activeCategory.name}</h2>
-                    </div>
-                    {activeCategory.description && (
-                      <p className="text-xs text-text-secondary-dark">{activeCategory.description}</p>
-                    )}
-                  </div>
-                  {canCreate && (
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      className="bg-surface-dark border-border-dark text-text-primary-dark hover:bg-white/5"
-                      onClick={() => {
-                        resetForm()
-                        setEditingFeature(null)
-                        setFormData(prev => ({ ...prev, category_id: activeTab }))
-                        setAddDialogOpen(true)
-                      }}
-                    >
-                      <CirclePlus className="h-4 w-4 mr-1.5" />
-                      Add Feature
-                    </Button>
-                  )}
-                </div>
-              </Card>
-
-              <Card className="flex-1 bg-surface-dark border border-border-dark rounded overflow-hidden flex flex-col min-h-0">
-                <div className="p-3 border-b border-border-dark bg-white/5">
-                  <span className="text-[10px] uppercase font-bold text-text-secondary-dark tracking-widest">
-                    Features ({filteredFeatures.length})
-                  </span>
-                </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                  {filteredFeatures.length === 0 ? (
-                    <div className="text-center py-8 text-text-secondary-dark text-xs">
-                      No features found
-                    </div>
-                  ) : (
-                    filteredFeatures.map((feature) => (
-                      <Card 
-                        key={feature.id} 
-                        className="p-3 bg-background-dark border border-border-dark rounded hover:border-primary/50 transition-colors"
-                      >
-                        <div className="flex items-center justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h3 className="text-sm font-semibold text-text-primary-dark">{feature.name}</h3>
-                              <Badge 
-                                className={cn(
-                                  "text-[9px] px-1.5 py-px rounded-full font-mono-numbers",
-                                  feature.status === 'online' 
-                                    ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
-                                    : feature.status === 'offline'
-                                    ? "bg-gray-500/10 text-gray-500 border border-gray-500/20"
-                                    : "bg-red-500/10 text-red-500 border border-red-500/20"
-                                )}
-                              >
-                                {feature.status?.toUpperCase() || 'OFFLINE'}
-                              </Badge>
-                            </div>
-                            {feature.description && (
-                              <p className="text-xs text-text-secondary-dark mb-2">{feature.description}</p>
-                            )}
-                            {feature.usage_count !== undefined && (
-                              <div className="text-[10px] text-text-secondary-dark font-mono-numbers">
-                                Used {feature.usage_count} times
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-3">
-                            {canToggle && (
-                              <div className="flex items-center gap-2">
-                                <Label 
-                                  htmlFor={`toggle-${feature.id}`}
-                                  className="text-xs text-text-secondary-dark cursor-pointer"
-                                >
-                                  {feature.enabled ? 'Enabled' : 'Disabled'}
-                                </Label>
-                                <Switch
-                                  id={`toggle-${feature.id}`}
-                                  checked={feature.enabled}
-                                  onCheckedChange={() => handleFeatureToggle(feature.id)}
-                                  disabled={!canToggle}
-                                />
-                              </div>
-                            )}
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  className="h-8 w-8"
-                                >
-                                  <MoreVertical className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="bg-surface-dark border-border-dark">
-                                {canEdit && (
-                                  <DropdownMenuItem
-                                    onClick={() => handleEditFeature(feature)}
-                                    className="text-text-primary-dark hover:bg-white/10"
-                                  >
-                                    <Edit className="h-3.5 w-3.5 mr-2" />
-                                    Edit
-                                  </DropdownMenuItem>
-                                )}
-                                {canDelete && (
-                                  <DropdownMenuItem
-                                    onClick={() => handleDeleteFeatureClick(feature.id)}
-                                    className="text-text-primary-dark hover:bg-red-500/20 hover:text-red-400"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5 mr-2" />
-                                    Delete
-                                  </DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </div>
-                      </Card>
-                    ))
-                  )}
-                </div>
-              </Card>
-            </>
-          ) : (
-            <Card className="flex-1 bg-surface-dark border border-border-dark rounded flex items-center justify-center">
-              <div className="text-center text-text-secondary-dark">
-                <p className="text-sm mb-2">Select a category to view features</p>
-                {categories.length === 0 && canCreate && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="mt-4"
-                    onClick={() => {
-                      resetCategoryForm()
-                      setEditingCategory(null)
-                      setCategoryDialogOpen(true)
-                    }}
-                  >
-                    <CirclePlus className="h-4 w-4 mr-1.5" />
-                    Create First Category
-                  </Button>
-                )}
-              </div>
-            </Card>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="relative z-10 flex-1 flex items-center justify-center">
+            <div className="text-center text-text-secondary-dark">
+              <p className="text-xs mb-2">Select a category to view features</p>
+              {categories.length === 0 && canCreate && (
+                <Button
+                  className="mt-3 bg-primary hover:bg-primary-hover text-background-dark px-2.5 py-1 rounded-sm text-[9px] font-bold flex items-center gap-1.5 transition-all shadow-glow h-[28px] mx-auto"
+                  onClick={() => {
+                    resetCategoryForm()
+                    setEditingCategory(null)
+                    setCategoryDialogOpen(true)
+                  }}
+                >
+                  <CirclePlus className="h-3.5 w-3.5" />
+                  Create First Category
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Add/Edit Feature Dialog */}
@@ -447,47 +514,50 @@ export function RemoteControlPage() {
           resetForm()
         }
       }}>
-        <DialogContent className="bg-surface-dark border-border-dark text-text-primary-dark">
+        <DialogContent className="bg-surface-dark border-border-dark text-text-primary-dark max-w-md">
           <DialogHeader>
-            <DialogTitle>{editingFeature ? 'Edit Feature' : 'Add Feature'}</DialogTitle>
+            <DialogTitle className="text-text-primary-dark">{editingFeature ? 'Edit Feature' : 'Add Feature'}</DialogTitle>
             <DialogDescription className="text-text-secondary-dark">
               {editingFeature ? 'Update feature details' : 'Create a new remote control feature'}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="feature-name" className="text-text-primary-dark">Name</Label>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="feature-name" className="text-text-secondary-dark">Name *</Label>
               <Input
                 id="feature-name"
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                className="bg-background-dark border-border-dark text-text-primary-dark mt-1"
+                className="bg-background-dark border-border-dark text-text-primary-dark"
                 placeholder="Feature name"
               />
             </div>
-            <div>
-              <Label htmlFor="feature-description" className="text-text-primary-dark">Description</Label>
+            <div className="space-y-2">
+              <Label htmlFor="feature-description" className="text-text-secondary-dark">Description *</Label>
               <Textarea
                 id="feature-description"
                 value={formData.description}
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                className="bg-background-dark border-border-dark text-text-primary-dark mt-1"
+                className="bg-background-dark border-border-dark text-text-primary-dark"
                 placeholder="Feature description"
                 rows={3}
               />
             </div>
-            <div>
-              <Label htmlFor="feature-category" className="text-text-primary-dark">Category</Label>
+            <div className="space-y-2">
+              <Label htmlFor="feature-category" className="text-text-secondary-dark">Category *</Label>
               <Select
                 value={formData.category_id}
                 onValueChange={(value) => setFormData(prev => ({ ...prev, category_id: value }))}
               >
-                <SelectTrigger className="bg-background-dark border-border-dark text-text-primary-dark mt-1">
+                <SelectTrigger className="w-full bg-background-dark border-border-dark rounded px-3 py-1.5 text-xs text-text-primary-dark focus:ring-1 focus:ring-primary focus:border-primary h-[30px]">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
-                <SelectContent className="bg-surface-dark border-border-dark">
+                <SelectContent 
+                  className="!bg-surface-dark border-border-dark text-text-primary-dark shadow-lg backdrop-blur-sm !min-w-0 w-[var(--radix-select-trigger-width)] !z-[100]"
+                  position="popper"
+                >
                   {categories.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
+                    <SelectItem key={category.id} value={category.id} className="text-text-primary-dark hover:!bg-white/10 focus:!bg-primary/20 focus:text-text-primary-dark cursor-pointer">
                       {category.name}
                     </SelectItem>
                   ))}
@@ -500,7 +570,7 @@ export function RemoteControlPage() {
                 checked={formData.enabled}
                 onCheckedChange={(checked) => setFormData(prev => ({ ...prev, enabled: checked }))}
               />
-              <Label htmlFor="feature-enabled" className="text-text-primary-dark cursor-pointer">
+              <Label htmlFor="feature-enabled" className="text-text-secondary-dark cursor-pointer">
                 Enabled by default
               </Label>
             </div>
@@ -514,13 +584,13 @@ export function RemoteControlPage() {
                 setEditingFeature(null)
                 resetForm()
               }}
-              className="bg-background-dark border-border-dark"
+              className="bg-background-dark border-border-dark text-text-secondary-dark hover:text-text-primary-dark"
             >
               Cancel
             </Button>
             <Button
               onClick={editingFeature ? handleUpdateFeature : handleAddFeature}
-              className="bg-primary hover:bg-primary-hover"
+              className="bg-primary hover:bg-primary-hover text-background-dark"
             >
               {editingFeature ? 'Update' : 'Create'}
             </Button>
@@ -530,38 +600,38 @@ export function RemoteControlPage() {
 
       {/* Add/Edit Category Dialog */}
       <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
-        <DialogContent className="bg-surface-dark border-border-dark text-text-primary-dark">
+        <DialogContent className="bg-surface-dark border-border-dark text-text-primary-dark max-w-md">
           <DialogHeader>
-            <DialogTitle>{editingCategory ? 'Edit Category' : 'Add Category'}</DialogTitle>
+            <DialogTitle className="text-text-primary-dark">{editingCategory ? 'Edit Category' : 'Add Category'}</DialogTitle>
             <DialogDescription className="text-text-secondary-dark">
               {editingCategory ? 'Update category details' : 'Create a new category for features'}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="category-name" className="text-text-primary-dark">Name</Label>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="category-name" className="text-text-secondary-dark">Name *</Label>
               <Input
                 id="category-name"
                 value={categoryFormData.name}
                 onChange={(e) => setCategoryFormData(prev => ({ ...prev, name: e.target.value }))}
-                className="bg-background-dark border-border-dark text-text-primary-dark mt-1"
+                className="bg-background-dark border-border-dark text-text-primary-dark"
                 placeholder="Category name"
               />
             </div>
-            <div>
-              <Label htmlFor="category-description" className="text-text-primary-dark">Description</Label>
+            <div className="space-y-2">
+              <Label htmlFor="category-description" className="text-text-secondary-dark">Description *</Label>
               <Textarea
                 id="category-description"
                 value={categoryFormData.description}
                 onChange={(e) => setCategoryFormData(prev => ({ ...prev, description: e.target.value }))}
-                className="bg-background-dark border-border-dark text-text-primary-dark mt-1"
+                className="bg-background-dark border-border-dark text-text-primary-dark"
                 placeholder="Category description"
                 rows={3}
               />
             </div>
-            <div>
-              <Label htmlFor="category-color" className="text-text-primary-dark">Color</Label>
-              <div className="flex items-center gap-2 mt-1">
+            <div className="space-y-2">
+              <Label htmlFor="category-color" className="text-text-secondary-dark">Color</Label>
+              <div className="flex items-center gap-2">
                 <Input
                   id="category-color"
                   type="color"
@@ -586,13 +656,13 @@ export function RemoteControlPage() {
                 setEditingCategory(null)
                 resetCategoryForm()
               }}
-              className="bg-background-dark border-border-dark"
+              className="bg-background-dark border-border-dark text-text-secondary-dark hover:text-text-primary-dark"
             >
               Cancel
             </Button>
             <Button
               onClick={editingCategory ? handleUpdateCategory : handleAddCategory}
-              className="bg-primary hover:bg-primary-hover"
+              className="bg-primary hover:bg-primary-hover text-background-dark"
             >
               {editingCategory ? 'Update' : 'Create'}
             </Button>
@@ -602,9 +672,9 @@ export function RemoteControlPage() {
 
       {/* Delete Feature Confirmation Dialog */}
       <Dialog open={deleteFeatureDialogOpen} onOpenChange={setDeleteFeatureDialogOpen}>
-        <DialogContent className="bg-surface-dark border-border-dark text-text-primary-dark">
+        <DialogContent className="bg-surface-dark border-border-dark text-text-primary-dark max-w-md">
           <DialogHeader>
-            <DialogTitle>Delete Feature</DialogTitle>
+            <DialogTitle className="text-text-primary-dark">Delete Feature</DialogTitle>
             <DialogDescription className="text-text-secondary-dark">
               Are you sure you want to delete this feature? This action cannot be undone.
             </DialogDescription>
@@ -616,13 +686,13 @@ export function RemoteControlPage() {
                 setDeleteFeatureDialogOpen(false)
                 setFeatureToDelete(null)
               }}
-              className="bg-background-dark border-border-dark"
+              className="bg-background-dark border-border-dark text-text-secondary-dark hover:text-text-primary-dark"
             >
               Cancel
             </Button>
             <Button
               onClick={handleDeleteFeatureConfirm}
-              className="bg-red-500 hover:bg-red-600"
+              className="bg-red-600 hover:bg-red-700 text-white"
             >
               Delete
             </Button>
@@ -632,9 +702,9 @@ export function RemoteControlPage() {
 
       {/* Delete Category Confirmation Dialog */}
       <Dialog open={deleteCategoryDialogOpen} onOpenChange={setDeleteCategoryDialogOpen}>
-        <DialogContent className="bg-surface-dark border-border-dark text-text-primary-dark">
+        <DialogContent className="bg-surface-dark border-border-dark text-text-primary-dark max-w-md">
           <DialogHeader>
-            <DialogTitle>Delete Category</DialogTitle>
+            <DialogTitle className="text-text-primary-dark">Delete Category</DialogTitle>
             <DialogDescription className="text-text-secondary-dark">
               Are you sure you want to delete this category? This action cannot be undone.
             </DialogDescription>
@@ -646,13 +716,13 @@ export function RemoteControlPage() {
                 setDeleteCategoryDialogOpen(false)
                 setCategoryToDelete(null)
               }}
-              className="bg-background-dark border-border-dark"
+              className="bg-background-dark border-border-dark text-text-secondary-dark hover:text-text-primary-dark"
             >
               Cancel
             </Button>
             <Button
               onClick={handleDeleteCategoryConfirm}
-              className="bg-red-500 hover:bg-red-600"
+              className="bg-red-600 hover:bg-red-700 text-white"
             >
               Delete
             </Button>

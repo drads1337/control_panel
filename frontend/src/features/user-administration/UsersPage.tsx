@@ -1,614 +1,727 @@
-import React, { useState, useMemo, useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Users as UsersIcon, Activity, Shield, UserX, ShieldCheck, FileEdit, Eye, Search, Filter, Download, UserPlus, Code, MoreHorizontal, ChevronLeft, ChevronRight, Users2, UserCheck, KeyRound } from 'lucide-react'
-import { Card } from '@/shared/ui/components/card'
+import React, { useState } from 'react'
+import { 
+  Users as UsersIcon, 
+  Shield, 
+  Search, 
+  UserPlus, 
+  MoreVertical, 
+  X, 
+  Info, 
+  Copy, 
+  Plus, 
+  Lock, 
+  Users,
+  Trash2,
+  UserX
+} from 'lucide-react'
 import { Button } from '@/shared/ui/components/button'
 import { Input } from '@/shared/ui/components/input'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/shared/ui/components/table'
 import { Badge } from '@/shared/ui/components/badge'
-import { Avatar, AvatarFallback } from '@/shared/ui/components/avatar'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/ui/components/tabs'
-import { Checkbox } from '@/shared/ui/components/checkbox'
-import { useUsersQuery, getClients } from '@/entities/user'
-import { useReferrals } from '@/features/user-administration/hooks/use-referrals'
-import { useRBAC } from '@/features/user-administration/hooks/use-rbac'
-import type { User } from '@/entities/user'
-import type { ReferralCode } from '@/features/user-administration/hooks/use-referrals'
-import type { Role } from '@/features/user-administration/hooks/use-rbac'
+import { Avatar, AvatarImage, AvatarFallback } from '@/shared/ui/components/avatar'
+import { Switch } from '@/shared/ui/components/switch'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/components/select'
+import { cn } from '@/shared/lib/utils'
+
+// --- Types ---
+
+type Permission = 'read:users' | 'write:users' | 'ban:users' | 'view:logs' | 'manage:billing' | 'admin:all' | 'manage:roles' | 'view:stats'
+
+interface User {
+    id: string
+    name: string
+    email: string
+    role: string
+    status: 'active' | 'suspended' | 'pending'
+    avatar: string
+    
+    // RBAC (Specific overrides)
+    permissions: Permission[]
+    
+    // Referral System
+    referralCode: string
+    referredBy?: string
+    referralCount: number
+    referralEarnings: string
+    
+    lastLogin: string
+}
+
+interface RoleDef {
+    id: string
+    name: string
+    color: string
+    usersCount: number
+    description: string
+    permissions: Permission[]
+    isSystem?: boolean
+}
+
+// --- Mock Data ---
+
+const ROLES_DATA: RoleDef[] = [
+    { 
+        id: 'r_admin', 
+        name: 'Admin', 
+        color: 'indigo', 
+        usersCount: 3, 
+        description: 'Full system access with no restrictions. Can manage billing and security.',
+        permissions: ['admin:all', 'manage:billing', 'manage:roles', 'view:logs'],
+        isSystem: true
+    },
+    { 
+        id: 'r_mod', 
+        name: 'Moderator', 
+        color: 'purple', 
+        usersCount: 5, 
+        description: 'Can manage users, view logs, and handle reports. No billing access.',
+        permissions: ['read:users', 'ban:users', 'view:logs'],
+        isSystem: true
+    },
+    { 
+        id: 'r_cust', 
+        name: 'Customer', 
+        color: 'emerald', 
+        usersCount: 842, 
+        description: 'Standard product access. Can manage own profile and subscription.',
+        permissions: ['read:users'],
+        isSystem: true
+    },
+    { 
+        id: 'r_guest', 
+        name: 'Guest', 
+        color: 'gray', 
+        usersCount: 12, 
+        description: 'Read-only access to public resources. Limited API rate limits.',
+        permissions: [],
+        isSystem: true
+    }
+]
+
+const ALL_PERMISSIONS: { id: Permission; category: string; description: string }[] = [
+    { id: 'admin:all', category: 'System', description: 'Full administrative access to all modules.' },
+    { id: 'manage:roles', category: 'System', description: 'Create, edit, and delete system roles.' },
+    { id: 'view:logs', category: 'System', description: 'Access to system audit logs and security events.' },
+    { id: 'read:users', category: 'Users', description: 'View user profiles and directory.' },
+    { id: 'write:users', category: 'Users', description: 'Edit user details and settings.' },
+    { id: 'ban:users', category: 'Users', description: 'Ban or suspend user accounts.' },
+    { id: 'manage:billing', category: 'Billing', description: 'Access to invoices, refunds, and payment settings.' },
+    { id: 'view:stats', category: 'Reporting', description: 'View dashboard analytics and usage stats.' },
+]
+
+const USERS_DATA: User[] = [
+    {
+        id: 'usr_882190',
+        name: 'Cameron Williamson',
+        email: 'cameron@example.com',
+        role: 'Admin',
+        status: 'active',
+        avatar: 'https://i.pravatar.cc/150?u=11',
+        permissions: ['admin:all'],
+        referralCode: 'CAM-KING-01',
+        referralCount: 154,
+        referralEarnings: '$1,240.50',
+        lastLogin: '2 mins ago'
+    },
+    {
+        id: 'usr_772100',
+        name: 'Wade Warren',
+        email: 'wade.warren@gmail.com',
+        role: 'Customer',
+        status: 'active',
+        avatar: 'https://i.pravatar.cc/150?u=14',
+        permissions: [],
+        referralCode: 'WADE-W-22',
+        referralCount: 2,
+        referralEarnings: '$15.00',
+        lastLogin: '4 hours ago'
+    },
+    {
+        id: 'usr_992111',
+        name: 'Esther Howard',
+        email: 'esther.h@protomail.com',
+        role: 'Moderator',
+        status: 'active',
+        avatar: 'https://i.pravatar.cc/150?u=22',
+        permissions: ['read:users', 'ban:users'],
+        referralCode: 'ESTHER-MOD',
+        referralCount: 0,
+        referralEarnings: '$0.00',
+        lastLogin: '1 day ago'
+    },
+    {
+        id: 'usr_110292',
+        name: 'Brooklyn Simmons',
+        email: 'brooklyn@yahoo.com',
+        role: 'Customer',
+        status: 'suspended',
+        avatar: 'https://i.pravatar.cc/150?u=33',
+        permissions: [],
+        referralCode: 'BROOK-99',
+        referralCount: 12,
+        referralEarnings: '$120.00',
+        referredBy: 'CAM-KING-01',
+        lastLogin: '2 weeks ago'
+    },
+    {
+        id: 'usr_559210',
+        name: 'Guy Hawkins',
+        email: 'guy.hawk@demo.io',
+        role: 'Customer',
+        status: 'pending',
+        avatar: 'https://i.pravatar.cc/150?u=44',
+        permissions: [],
+        referralCode: 'GUY-HAWK-88',
+        referralCount: 0,
+        referralEarnings: '$0.00',
+        lastLogin: 'Never'
+    }
+]
+
+// --- Components ---
+
+const RoleBadge = ({ role }: { role: string }) => {
+    const colors: Record<string, string> = {
+        'Admin': 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+        'Moderator': 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+        'Customer': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+        'Guest': 'bg-gray-500/10 text-gray-400 border-gray-500/20'
+    }
+    const style = colors[role] || colors['Guest']
+    return (
+        <span className={cn('px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border', style)}>
+            {role}
+        </span>
+    )
+}
+
+const StatusDot = ({ status }: { status: User['status'] }) => {
+    const colors = {
+        'active': 'bg-emerald-500',
+        'suspended': 'bg-red-500',
+        'pending': 'bg-amber-500'
+    }
+    return (
+        <div className="flex items-center gap-1.5">
+            <div className={cn('w-1.5 h-1.5 rounded-full', colors[status])}></div>
+            <span className="text-[11px] capitalize text-text-secondary-dark">{status}</span>
+        </div>
+    )
+}
 
 export function UsersPage() {
-  const [activeTab, setActiveTab] = useState('employees')
-  const [searchQuery, setSearchQuery] = useState('')
-  
-  // Employees query
-  const employeesQuery = useUsersQuery({
-    roles: ['admin', 'moderator', 'developer', 'seller', 'support', 'owner'],
-  })
-  
-  // Update search when query changes for employees tab
-  useEffect(() => {
-    if (activeTab === 'employees') {
-      if (searchQuery) {
-        employeesQuery.setSearch(searchQuery)
-      } else {
-        employeesQuery.setSearch('')
-      }
-    }
-  }, [searchQuery, activeTab])
-  
-  // Clients query
-  const { data: clientsData, isLoading: clientsLoading } = useQuery({
-    queryKey: ['clients', searchQuery],
-    queryFn: async () => {
-      const response = await getClients()
-      return response.clients || []
-    },
-    staleTime: 2 * 60 * 1000,
-  })
-  
-  // Referral codes
-  const { codes: referralCodes, isLoading: referralCodesLoading } = useReferrals()
-  
-  // RBAC roles and permissions
-  const { roles: rbacRoles, permissions: rbacPermissions, isLoading: rbacLoading } = useRBAC()
-  
-  const employees = employeesQuery.users || []
-  const clients = clientsData || []
-  
-  // Filter clients and referral codes/RBAC on frontend since they don't support search params
-  const filteredClients = useMemo(() => {
-    if (!searchQuery) return clients
-    const query = searchQuery.toLowerCase()
-    return clients.filter((client: any) => 
-      client.username?.toLowerCase().includes(query) ||
-      client.email?.toLowerCase().includes(query) ||
-      client.name?.toLowerCase().includes(query)
-    )
-  }, [clients, searchQuery])
-  
-  const filteredReferralCodes = useMemo(() => {
-    if (!searchQuery) return referralCodes
-    const query = searchQuery.toLowerCase()
-    return referralCodes.filter(code => 
-      code.code?.toLowerCase().includes(query)
-    )
-  }, [referralCodes, searchQuery])
-  
-  const filteredRBACRoles = useMemo(() => {
-    if (!searchQuery) return rbacRoles
-    const query = searchQuery.toLowerCase()
-    return rbacRoles.filter(role => 
-      role.name?.toLowerCase().includes(query) ||
-      role.description?.toLowerCase().includes(query)
-    )
-  }, [rbacRoles, searchQuery])
-  
-  // Group permissions by resource for better display
-  const groupedPermissions = useMemo(() => {
-    if (!rbacPermissions) return {}
-    const grouped: Record<string, Array<{ id: number; name: string; description: string; action: string }>> = {}
-    Object.entries(rbacPermissions).forEach(([resource, perms]) => {
-      if (Array.isArray(perms)) {
-        grouped[resource] = perms
-      }
-    })
-    return grouped
-  }, [rbacPermissions])
-  
-  // Filter grouped permissions
-  const filteredGroupedPermissions = useMemo(() => {
-    if (!searchQuery) return groupedPermissions
-    const query = searchQuery.toLowerCase()
-    const filtered: Record<string, Array<{ id: number; name: string; description: string; action: string }>> = {}
+    const [viewMode, setViewMode] = useState<'directory' | 'rbac'>('directory')
+    const [directoryGroup, setDirectoryGroup] = useState<'clients' | 'staff'>('clients')
+    const [selectedUser, setSelectedUser] = useState<User | null>(null)
+    const [inspectorTab, setInspectorTab] = useState<'profile' | 'rbac' | 'referrals'>('profile')
     
-    Object.entries(groupedPermissions).forEach(([resource, perms]) => {
-      const matchingPerms = perms.filter(perm => 
-        perm.name?.toLowerCase().includes(query) ||
-        perm.description?.toLowerCase().includes(query) ||
-        resource?.toLowerCase().includes(query) ||
-        perm.action?.toLowerCase().includes(query)
-      )
-      if (matchingPerms.length > 0 || resource.toLowerCase().includes(query)) {
-        filtered[resource] = matchingPerms.length > 0 ? matchingPerms : perms
-      }
+    // RBAC State
+    const [selectedRoleId, setSelectedRoleId] = useState<string>(ROLES_DATA[0].id)
+    const [rbacTab, setRbacTab] = useState<'permissions' | 'members' | 'settings'>('permissions')
+
+    const selectedRoleData = ROLES_DATA.find(r => r.id === selectedRoleId) || ROLES_DATA[0]
+
+    // Filter logic: Separate Staff (Admin, Moderator) from Clients (Customer, Guest)
+    const filteredUsers = USERS_DATA.filter(user => {
+        const isStaff = ['Admin', 'Moderator', 'Developer'].includes(user.role)
+        return directoryGroup === 'staff' ? isStaff : !isStaff
     })
-    return filtered
-  }, [groupedPermissions, searchQuery])
-  
-  const totalPermissionsCount = useMemo(() => {
-    return Object.values(filteredGroupedPermissions).reduce((sum, perms) => sum + perms.length, 0)
-  }, [filteredGroupedPermissions])
-  
-  const renderUserRow = (user: User | any, isClient = false) => (
-    <TableRow key={user.id} className="group hover:bg-white/5 transition-colors">
-      <TableCell className="px-4 py-3 align-middle">
-        <Checkbox className="w-4 h-4 border-border-dark bg-background-dark cursor-pointer group-hover:border-primary transition-colors" />
-      </TableCell>
-      <TableCell className="px-4 py-3 align-middle">
-        <div className="flex items-center gap-3">
-          <Avatar className="w-8 h-8">
-            <AvatarFallback className="bg-gray-700 text-gray-200 text-xs font-bold">
-              {user.first_name?.[0] || user.name?.[0] || user.username?.[0] || 'U'}
-              {user.last_name?.[0] || user.name?.split(' ')[1]?.[0] || ''}
-            </AvatarFallback>
-          </Avatar>
-          <div>
-            <div className="text-xs font-semibold text-text-primary-dark">
-              {user.first_name && user.last_name 
-                ? `${user.first_name} ${user.last_name}`
-                : user.name || user.username}
+
+    // Group permissions
+    const groupedPermissions = ALL_PERMISSIONS.reduce((groups, perm) => {
+        const category = perm.category
+        if (!groups[category]) {
+            groups[category] = []
+        }
+        groups[category].push(perm)
+        return groups
+    }, {} as Record<string, typeof ALL_PERMISSIONS>)
+
+    return (
+        <div className="flex flex-col h-[calc(100vh-140px)] gap-0 overflow-hidden relative bg-background-dark border border-border-dark rounded-sm shadow-sm">
+            
+            {/* --- TOP TABS --- */}
+            <div className="flex items-center px-6 border-b border-border-dark bg-[#12141a] shrink-0 gap-8">
+                <button 
+                    onClick={() => setViewMode('directory')}
+                    className={cn(
+                        'py-4 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors flex items-center gap-2',
+                        viewMode === 'directory' 
+                            ? 'border-primary text-white' 
+                            : 'border-transparent text-text-secondary-dark hover:text-white'
+                    )}
+                >
+                    <UsersIcon className="text-base" />
+                    User Directory
+                </button>
+                <button 
+                    onClick={() => setViewMode('rbac')}
+                    className={cn(
+                        'py-4 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors flex items-center gap-2',
+                        viewMode === 'rbac' 
+                            ? 'border-primary text-white' 
+                            : 'border-transparent text-text-secondary-dark hover:text-white'
+                    )}
+                >
+                    <Shield className="text-base" />
+                    RBAC & Roles
+                </button>
             </div>
-            <div className="text-[10px] text-text-secondary-dark font-mono font-mono-numbers">
-              {user.email || user.username}
+
+            {/* --- VIEW: USER DIRECTORY --- */}
+            {viewMode === 'directory' && (
+                <div className="flex-1 flex overflow-hidden relative">
+                     {/* Directory Table */}
+                     <div className={cn('flex-1 flex flex-col transition-all duration-300', selectedUser && 'mr-96')}>
+                         {/* Toolbar */}
+                        <div className="h-14 border-b border-border-dark bg-surface-dark flex items-center justify-between px-6 shrink-0">
+                            <div className="flex items-center gap-6">
+                                {/* Clients / Staff Switcher */}
+                                <div className="bg-background-dark border border-border-dark p-0.5 rounded-sm flex">
+                                    <button 
+                                        onClick={() => setDirectoryGroup('clients')}
+                                        className={cn(
+                                            'px-3 py-1 rounded-[2px] text-[10px] font-bold uppercase tracking-wider transition-all',
+                                            directoryGroup === 'clients' 
+                                                ? 'bg-primary text-background-dark shadow-sm' 
+                                                : 'text-text-secondary-dark hover:text-white'
+                                        )}
+                                    >
+                                        Clients
+                                    </button>
+                                    <button 
+                                        onClick={() => setDirectoryGroup('staff')}
+                                        className={cn(
+                                            'px-3 py-1 rounded-[2px] text-[10px] font-bold uppercase tracking-wider transition-all',
+                                            directoryGroup === 'staff' 
+                                                ? 'bg-primary text-background-dark shadow-sm' 
+                                                : 'text-text-secondary-dark hover:text-white'
+                                        )}
+                                    >
+                                        Staff
+                                    </button>
+                                </div>
+                                <div className="h-6 w-px bg-border-dark"></div>
+                                <div className="relative group">
+                                     <Search className="absolute left-3 top-2 text-text-secondary-dark text-sm group-focus-within:text-primary transition-colors" />
+                                     <Input 
+                                        className="bg-background-dark border border-border-dark rounded-sm pl-9 pr-4 py-1.5 text-xs text-text-primary-dark focus:border-primary outline-none w-56 transition-all placeholder-text-secondary-dark/50" 
+                                        placeholder={`Search ${directoryGroup}...`} 
+                                     />
             </div>
           </div>
+                            <Button className="bg-primary hover:bg-primary-hover text-background-dark px-4 py-1.5 rounded-sm text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-glow">
+                                <UserPlus className={cn(directoryGroup === 'clients' ? "text-sm" : "text-sm")} /> 
+                                Create {directoryGroup === 'clients' ? 'Client' : 'Staff'}
+                            </Button>
+                        </div>
+
+                        {/* List */}
+                        <div className="flex-1 overflow-y-auto">
+                            {/* Header */}
+                            <div className="grid grid-cols-12 px-6 py-3 bg-[#0F1115] border-b border-border-dark text-[10px] font-bold text-text-secondary-dark uppercase tracking-widest select-none sticky top-0 z-10">
+                                <div className="col-span-4">Identity</div>
+                                <div className="col-span-2">Role</div>
+                                <div className="col-span-2">Status</div>
+                                <div className="col-span-3">{directoryGroup === 'clients' ? 'Referral Code' : 'Access Level'}</div>
+                                <div className="col-span-1 text-right">Actions</div>
         </div>
-      </TableCell>
-      <TableCell className="px-4 py-3 align-middle">
-        <Badge variant="outline" className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded border-border-dark bg-background-dark text-[10px] font-medium text-text-primary-dark">
-          {isClient ? (
-            <>
-              <UserCheck className="h-3 w-3 text-gray-400" />
-              Client
-            </>
-          ) : (
-            <>
-              <Shield className="h-3 w-3 text-gray-400" />
-              {user.roles?.[0] || 'User'}
-            </>
-          )}
-        </Badge>
-      </TableCell>
-      <TableCell className="px-4 py-3 align-middle">
+                            
+                            {filteredUsers.map(user => (
+                                <div 
+                                    key={user.id}
+                                    onClick={() => setSelectedUser(user)}
+                                    className={cn(
+                                        'grid grid-cols-12 px-6 py-3 border-b border-border-dark/40 items-center cursor-pointer group transition-all hover:bg-white/5',
+                                        selectedUser?.id === user.id 
+                                            ? 'bg-white/5 border-l-2 border-l-primary' 
+                                            : 'border-l-2 border-l-transparent'
+                                    )}
+                                >
+                                    <div className="col-span-4 flex items-center gap-3">
+                                        <Avatar className="w-9 h-9 rounded bg-surface-dark border border-border-dark">
+                                            <AvatarImage src={user.avatar} alt={user.name} />
+                                            <AvatarFallback className="text-xs">{user.name[0]}</AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                            <div className="text-xs font-bold text-white group-hover:text-primary transition-colors">{user.name}</div>
+                                            <div className="text-[10px] text-text-secondary-dark font-mono">{user.email}</div>
+                                        </div>
+                                    </div>
+                                    <div className="col-span-2"><RoleBadge role={user.role} /></div>
+                                    <div className="col-span-2"><StatusDot status={user.status} /></div>
+                                    <div className="col-span-3">
+                                        {directoryGroup === 'clients' ? (
         <div className="flex items-center gap-2">
-          {(!user.expires_at || new Date(user.expires_at) > new Date()) ? (
-            <>
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span className="text-[10px] font-medium text-emerald-500 tracking-wide uppercase">Active</span>
-            </>
-          ) : (
-            <>
-              <span className="h-1.5 w-1.5 rounded-full bg-inactive-dark"></span>
-              <span className="text-[10px] font-medium text-inactive-dark tracking-wide uppercase">Offline</span>
-            </>
+                                                <div className="px-2 py-1 bg-surface-dark border border-border-dark rounded text-[10px] font-mono text-text-secondary-dark select-all">
+                                                    {user.referralCode}
+                                                </div>
+                                                {user.referralCount > 0 && <span className="text-[10px] text-emerald-400 font-bold">+{user.referralCount}</span>}
+                                            </div>
+                                        ) : (
+                                            <div className="text-[10px] text-text-secondary-dark font-mono opacity-70">
+                                                {user.role === 'Admin' ? 'Level 5 (Full)' : 'Level 2 (Limited)'}
+                                            </div>
           )}
         </div>
-      </TableCell>
-      <TableCell className="px-4 py-3 align-middle">
-        <span className="text-[10px] text-text-primary-dark font-mono-numbers">
-          {(() => {
-            const userRole = Array.isArray(user.roles) 
-              ? user.roles[0]?.toLowerCase() 
-              : typeof user.roles === 'string' 
-                ? user.roles.toLowerCase() 
-                : '';
-            if (userRole === 'admin' || userRole === 'owner') {
-              return 'Unlimited';
-            }
-            if (user.expires_at) {
-              return new Date(user.expires_at).toLocaleDateString();
-            }
-            return 'N/A';
-          })()}
-        </span>
-      </TableCell>
-      <TableCell className="px-4 py-3 align-middle text-right">
-        <Button variant="ghost" size="icon" className="h-5 w-5 text-text-secondary-dark hover:text-text-primary-dark">
-          <MoreHorizontal className="h-5 w-5" />
+                                    <div className="col-span-1 text-right">
+                                        <Button variant="ghost" size="icon" className="text-text-secondary-dark hover:text-white transition-colors opacity-0 group-hover:opacity-100 h-6 w-6">
+                                            <MoreVertical className="text-lg" />
         </Button>
-      </TableCell>
-    </TableRow>
-  )
-  
-  const renderReferralCodeRow = (code: ReferralCode) => (
-    <TableRow key={code.id} className="group hover:bg-white/5 transition-colors">
-      <TableCell className="px-4 py-3 align-middle">
-        <div className="text-xs font-semibold text-text-primary-dark font-mono">{code.code}</div>
-      </TableCell>
-      <TableCell className="px-4 py-3 align-middle">
-        <Badge variant="outline" className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded border-border-dark bg-background-dark text-[10px] font-medium">
-          {code.used ? (
-            <span className="text-emerald-500">Used</span>
-          ) : code.is_expired ? (
-            <span className="text-inactive-dark">Expired</span>
-          ) : (
-            <span className="text-primary">Active</span>
-          )}
-        </Badge>
-      </TableCell>
-      <TableCell className="px-4 py-3 align-middle">
-        <span className="text-[10px] text-text-secondary-dark">
-          {code.roles?.map(r => r.name).join(', ') || code.role || 'No roles'}
-        </span>
-      </TableCell>
-      <TableCell className="px-4 py-3 align-middle">
-        <span className="text-[10px] text-text-primary-dark font-mono-numbers">
-          {code.token_balance || 0} tokens
-        </span>
-      </TableCell>
-      <TableCell className="px-4 py-3 align-middle">
-        <span className="text-[10px] text-text-secondary-dark font-mono-numbers">
-          {code.expires_at 
-            ? new Date(code.expires_at).toLocaleDateString()
-            : 'Never'}
-        </span>
-      </TableCell>
-      <TableCell className="px-4 py-3 align-middle text-right">
-        <Button variant="ghost" size="icon" className="h-5 w-5 text-text-secondary-dark hover:text-text-primary-dark">
-          <MoreHorizontal className="h-5 w-5" />
+                                    </div>
+                                </div>
+                            ))}
+                            {filteredUsers.length === 0 && (
+                                <div className="p-8 text-center">
+                                    <UserX className="text-3xl text-text-secondary-dark opacity-30 mb-2" />
+                                    <p className="text-xs text-text-secondary-dark uppercase tracking-wider opacity-60">No {directoryGroup} found</p>
+                                </div>
+                            )}
+                        </div>
+                     </div>
+
+                    {/* --- INSPECTOR DRAWER --- */}
+                    <div className={cn(
+                        'absolute top-0 right-0 h-full w-96 bg-surface-dark border-l border-border-dark shadow-2xl transform transition-transform duration-300 ease-in-out z-20 flex flex-col',
+                        selectedUser ? 'translate-x-0' : 'translate-x-full'
+                    )}>
+                        {selectedUser && (
+                            <>
+                                <div className="h-14 border-b border-border-dark flex items-center justify-between px-6 bg-[#161920] shrink-0">
+                                    <span className="text-sm font-bold text-white uppercase tracking-wider">User Details</span>
+                                    <Button variant="ghost" size="icon" onClick={() => setSelectedUser(null)} className="text-text-secondary-dark hover:text-white h-6 w-6">
+                                        <X className="text-lg" />
+                                    </Button>
+                                </div>
+                                <div className="flex border-b border-border-dark bg-[#12141a] shrink-0">
+                                    {(['profile', 'rbac', 'referrals'] as const).map(tab => (
+                                        <button 
+                                            key={tab} 
+                                            onClick={() => setInspectorTab(tab)} 
+                                            className={cn(
+                                                'flex-1 py-3 text-[10px] font-bold uppercase tracking-wider border-b-2 transition-colors',
+                                                inspectorTab === tab 
+                                                    ? 'border-primary text-white bg-white/5' 
+                                                    : 'border-transparent text-text-secondary-dark hover:text-white'
+                                            )}
+                                        >
+                                            {tab}
+                                        </button>
+                                    ))}
+                                </div>
+                                <div className="flex-1 overflow-y-auto p-6 bg-[#0F1115]">
+                                    {inspectorTab === 'profile' && (
+                                        <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                                            <div className="flex flex-col items-center pb-6 border-b border-border-dark">
+                                                <Avatar className="w-24 h-24 rounded-full border-4 border-surface-dark mb-4">
+                                                    <AvatarImage src={selectedUser.avatar} alt={selectedUser.name} />
+                                                    <AvatarFallback className="text-xl">{selectedUser.name[0]}</AvatarFallback>
+                                                </Avatar>
+                                                <h2 className="text-xl font-bold text-white mb-1">{selectedUser.name}</h2>
+                                                <div className="text-xs text-text-secondary-dark font-mono mb-4">{selectedUser.email}</div>
+                                                <Button className="w-full bg-white text-background-dark py-1.5 rounded-sm text-[10px] font-bold uppercase tracking-wider hover:bg-gray-200">
+                                                    Edit Profile
         </Button>
-      </TableCell>
-    </TableRow>
-  )
-  
-  const renderRBACRoleRow = (role: Role) => (
-    <TableRow key={role.id} className="group hover:bg-white/5 transition-colors">
-      <TableCell className="px-4 py-3 align-middle">
-        <div className="text-xs font-semibold text-text-primary-dark">{role.name}</div>
-        <div className="text-[10px] text-text-secondary-dark">{role.description}</div>
-      </TableCell>
-      <TableCell className="px-4 py-3 align-middle">
-        <Badge variant="outline" className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded border-border-dark bg-background-dark text-[10px] font-medium">
-          {role.is_system_role ? (
-            <span className="text-indigo-400">System</span>
-          ) : (
-            <span className="text-text-primary-dark">Custom</span>
-          )}
-        </Badge>
-      </TableCell>
-      <TableCell className="px-4 py-3 align-middle">
-        <span className="text-[10px] text-text-primary-dark font-mono-numbers">
-          {role.permissions?.length || 0} permissions
-        </span>
-      </TableCell>
-      <TableCell className="px-4 py-3 align-middle">
-        <span className="text-[10px] text-text-primary-dark font-mono-numbers">
-          {role.user_count || 0} users
-        </span>
-      </TableCell>
-      <TableCell className="px-4 py-3 align-middle text-right">
-        <Button variant="ghost" size="icon" className="h-5 w-5 text-text-secondary-dark hover:text-text-primary-dark">
-          <MoreHorizontal className="h-5 w-5" />
-        </Button>
-      </TableCell>
-    </TableRow>
-  )
-  
-  const renderPermissionItem = (perm: { id: number; name: string; description: string; action: string }, resource: string) => (
-    <div key={`${resource}-${perm.id}`} className="p-3 bg-background-dark/50 rounded border border-border-dark/50 hover:border-border-dark hover:bg-background-dark transition-colors">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-semibold text-text-primary-dark">{perm.name}</span>
-            <Badge variant="outline" className="px-1.5 py-0.5 rounded border-border-dark bg-surface-dark text-[10px] font-medium text-primary">
-              {perm.action}
-            </Badge>
+                                            </div>
+                                            <div className="space-y-4">
+                                                <div className="flex justify-between items-center py-2 border-b border-border-dark/50">
+                                                    <span className="text-[11px] text-text-secondary-dark">Role</span>
+                                                    <span className="text-xs font-bold text-white">{selectedUser.role}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center py-2 border-b border-border-dark/50">
+                                                    <span className="text-[11px] text-text-secondary-dark">Joined</span>
+                                                    <span className="text-xs font-mono text-white">20 Oct 2023</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {inspectorTab === 'rbac' && (
+                                        <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                                            <div className="bg-blue-500/10 border border-blue-500/20 rounded-sm p-3 flex gap-3 items-start">
+                                                <Info className="text-blue-400 text-lg mt-0.5" />
+                                                <div className="text-[11px] text-blue-200">
+                                                    User permissions are inherited from the <strong>{selectedUser.role}</strong> role.
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-bold uppercase text-text-secondary-dark mb-2 tracking-wider">Override Role</label>
+                                                <Select defaultValue={selectedUser.role}>
+                                                    <SelectTrigger className="w-full bg-background-dark border border-border-dark rounded-sm px-3 py-2 text-xs text-white outline-none">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="Admin">Admin</SelectItem>
+                                                        <SelectItem value="Moderator">Moderator</SelectItem>
+                                                        <SelectItem value="Customer">Customer</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
           </div>
-          {perm.description && (
-            <div className="text-[10px] text-text-secondary-dark mb-2 leading-relaxed">
-              {perm.description}
             </div>
           )}
-          <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant="outline" className="px-1.5 py-0.5 rounded border-border-dark bg-surface-dark text-[10px] font-medium text-text-secondary-dark">
-              {resource}
-            </Badge>
-            <span className="text-[10px] text-text-secondary-dark font-mono">
-              {resource}.{perm.action}
-            </span>
+                                    {inspectorTab === 'referrals' && (
+                                        <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                                             <div className="grid grid-cols-2 gap-3">
+                                                <div className="bg-surface-dark border border-border-dark p-3 rounded-sm">
+                                                    <div className="text-[10px] text-text-secondary-dark uppercase mb-1">Earned</div>
+                                                    <div className="text-lg font-bold text-white font-mono">{selectedUser.referralEarnings}</div>
+                                                </div>
+                                                <div className="bg-surface-dark border border-border-dark p-3 rounded-sm">
+                                                    <div className="text-[10px] text-text-secondary-dark uppercase mb-1">Referred</div>
+                                                    <div className="text-lg font-bold text-white font-mono">{selectedUser.referralCount}</div>
           </div>
         </div>
-        <Button variant="ghost" size="icon" className="h-6 w-6 text-text-secondary-dark hover:text-text-primary-dark flex-shrink-0">
-          <MoreHorizontal className="h-4 w-4" />
-        </Button>
+                                            <div className="bg-[#12141a] border border-border-dark p-4 rounded-sm">
+                                                <label className="block text-[10px] font-bold uppercase text-text-secondary-dark mb-2 tracking-wider">Referral Code</label>
+                                                <div className="flex gap-2">
+                                                    <div className="flex-1 bg-background-dark border border-border-dark rounded-sm px-3 py-2 text-xs font-mono text-primary font-bold flex items-center justify-between">
+                                                        {selectedUser.referralCode}
+                                                        <Copy className="text-xs cursor-pointer hover:text-primary-hover" />
+                                                    </div>
       </div>
     </div>
-  )
-  return (
-    <div className="space-y-5">
-       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
-            {[
-                { label: 'Total Users', val: '1,248', sub: '+12 THIS WEEK', Icon: UsersIcon, LargeIcon: UsersIcon },
-                { label: 'Active Now', val: '86', sub: 'LIVE SESSIONS', Icon: Activity, LargeIcon: Activity, pulse: true },
-                { label: 'Administrators', val: '42', sub: 'PRIVILEGED', Icon: Shield, LargeIcon: Shield },
-                { label: 'Inactive', val: '15', sub: 'REQUIRES REVIEW', Icon: UserX, LargeIcon: UserX },
-            ].map((stat, i) => (
-                <Card key={i} className="bg-surface-dark border-border-dark rounded p-4 flex flex-col justify-between h-24 relative overflow-hidden group hover:border-primary/50 transition-colors duration-300">
-                     <div className="flex justify-between items-start z-10">
-                        <div className={`flex items-center gap-2 ${i === 1 ? 'text-primary' : 'text-text-secondary-dark'} text-xs font-semibold uppercase tracking-wider`}>
-                            <stat.Icon className="h-3.5 w-3.5" />
-                            {stat.label}
                         </div>
-                        {i === 1 && <span className="w-2 h-2 rounded-full bg-success animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>}
-                        {i === 3 && <span className="text-text-secondary-dark text-[10px] uppercase font-bold tracking-widest font-mono-numbers opacity-60">30D</span>}
+                                    )}
                     </div>
-                    <div className="z-10 flex items-end justify-between">
-                        <div className="text-2xl font-bold text-gray-900 dark:text-text-primary-dark font-mono-numbers tracking-tight">{stat.val}</div>
-                        <div className="text-[10px] text-text-secondary-dark mb-1 font-mono-numbers text-right">{stat.sub}</div>
+                                <div className="p-4 border-t border-border-dark bg-[#161920]">
+                                    <Button className="w-full bg-primary hover:bg-primary-hover text-background-dark py-2 rounded-sm text-xs font-bold uppercase tracking-wider transition-all shadow-glow">
+                                        Save Changes
+                                    </Button>
                     </div>
-                     <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                        <stat.LargeIcon className="h-32 w-32" />
+                            </>
+                        )}
                     </div>
-                </Card>
-            ))}
+                </div>
+            )}
+
+            {/* --- VIEW: RBAC (MASTER-DETAIL) --- */}
+            {viewMode === 'rbac' && (
+                <div className="flex h-full animate-in fade-in duration-300">
+                    
+                    {/* Left Sidebar: Role List */}
+                    <div className="w-72 border-r border-border-dark flex flex-col bg-[#161920]">
+                        {/* Header */}
+                        <div className="h-14 border-b border-border-dark flex items-center justify-between px-4 shrink-0">
+                            <span className="text-[10px] font-bold text-text-secondary-dark uppercase tracking-widest">Defined Roles</span>
+                            <Button variant="ghost" size="icon" className="w-6 h-6 rounded-sm hover:bg-white/5 text-text-secondary-dark hover:text-white transition-colors">
+                                <Plus className="text-base" />
+                            </Button>
        </div>
 
-       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        {/* Search */}
+                        <div className="p-3 border-b border-border-dark bg-[#12141a]">
             <div className="relative group">
-                <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Search className="h-4 w-4 text-text-secondary-dark group-focus-within:text-primary transition-colors" />
-                </span>
+                                <Search className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-text-secondary-dark text-xs group-focus-within:text-primary transition-colors mt-2" />
                 <Input 
-                  className="pl-9 pr-4 py-1.5 bg-surface-dark border-border-dark rounded text-xs text-text-primary-dark focus:ring-1 focus:ring-primary focus:border-primary w-64 placeholder-text-secondary-dark transition-all shadow-sm" 
-                  placeholder={
-                    activeTab === 'employees' ? 'Find employee by name, email or ID...' :
-                    activeTab === 'clients' ? 'Find client by name, email or ID...' :
-                    activeTab === 'rbac' ? 'Find role by name or description...' :
-                    'Find referral code...'
-                  }
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full bg-[#0a0c10] border border-border-dark rounded-sm pl-8 pr-3 py-1.5 text-[10px] text-text-primary-dark focus:border-primary outline-none transition-all placeholder-text-secondary-dark/40" 
+                                    placeholder="Filter roles..." 
                 />
             </div>
-             <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="px-3 py-1.5 bg-surface-dark border-border-dark hover:border-text-secondary-dark rounded text-xs font-medium text-text-secondary-dark hover:text-text-primary-dark transition-colors">
-                    <Filter className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">FILTER</span>
-                </Button>
-                 <Button variant="outline" size="sm" className="px-3 py-1.5 bg-surface-dark border-border-dark hover:border-text-secondary-dark rounded text-xs font-medium text-text-secondary-dark hover:text-text-primary-dark transition-colors">
-                    <Download className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">EXPORT</span>
-                </Button>
-                {(activeTab === 'employees' || activeTab === 'clients') && (
-                  <Button size="sm" className="px-3 py-1.5 bg-primary hover:bg-primary-hover text-background-dark rounded text-xs font-bold transition-all shadow-glow">
-                    <UserPlus className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">ADD USER</span>
-                  </Button>
-                )}
-            </div>
        </div>
 
-       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="bg-surface-dark border-border-dark rounded p-1 flex items-center overflow-x-auto shadow-sm w-full">
-          {[
-            { label: 'Employees', Icon: Users2, value: 'employees' },
-            { label: 'Clients', Icon: UserCheck, value: 'clients' },
-            { label: 'RBAC', Icon: ShieldCheck, value: 'rbac' },
-            { label: 'Referral Code', Icon: KeyRound, value: 'referral-code' }
-          ].map((tab) => (
-            <TabsTrigger 
-              key={tab.value}
-              value={tab.value}
-              className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-medium text-text-secondary-dark hover:text-text-primary-dark hover:bg-white/5 rounded transition-all uppercase tracking-wide data-[state=active]:font-bold data-[state=active]:bg-white/10 data-[state=active]:text-text-primary-dark data-[state=active]:border data-[state=active]:border-border-dark data-[state=active]:shadow-sm"
-            >
-              <tab.Icon className="h-3.5 w-3.5" />
-              {tab.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-        
-        <TabsContent value="employees" className="mt-4">
-          <Card className="bg-surface-dark border-border-dark rounded overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-b border-border-dark bg-white/5 hover:bg-transparent">
-                  <TableHead className="px-4 py-3 text-[10px] font-bold text-text-secondary-dark uppercase tracking-widest w-12">
-                    <Checkbox className="w-4 h-4 border-border-dark bg-background-dark" />
-                  </TableHead>
-                  <TableHead className="px-4 py-3 text-[10px] font-bold text-text-secondary-dark uppercase tracking-widest">User Profile</TableHead>
-                  <TableHead className="px-4 py-3 text-[10px] font-bold text-text-secondary-dark uppercase tracking-widest">Role</TableHead>
-                  <TableHead className="px-4 py-3 text-[10px] font-bold text-text-secondary-dark uppercase tracking-widest">Status</TableHead>
-                  <TableHead className="px-4 py-3 text-[10px] font-bold text-text-secondary-dark uppercase tracking-widest">Expires</TableHead>
-                  <TableHead className="px-4 py-3 text-[10px] font-bold text-text-secondary-dark uppercase tracking-widest text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody className="divide-y divide-border-dark/50">
-                {employeesQuery.loading ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="px-4 py-8 text-center text-text-secondary-dark text-xs">
-                      Loading employees...
-                    </TableCell>
-                  </TableRow>
-                ) : employees.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="px-4 py-8 text-center text-text-secondary-dark text-xs">
-                      No employees found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  employees.map(user => renderUserRow(user))
-                )}
-              </TableBody>
-            </Table>
-            <div className="px-4 py-3 border-t border-border-dark flex items-center justify-between bg-surface-dark/50">
-              <div className="text-[10px] text-text-secondary-dark font-mono-numbers uppercase tracking-wider">
-                Showing {employees.length} of {employeesQuery.total} Employees
+                        {/* List */}
+                        <div className="flex-1 overflow-y-auto">
+                            {ROLES_DATA.map(role => (
+                                <button
+                                    key={role.id}
+                                    onClick={() => setSelectedRoleId(role.id)}
+                                    className={cn(
+                                        'w-full text-left px-4 py-4 border-b border-border-dark/50 transition-all flex items-start gap-3 group relative',
+                                        selectedRoleId === role.id ? 'bg-[#1F232B]' : 'hover:bg-white/5'
+                                    )}
+                                >
+                                    {selectedRoleId === role.id && (
+                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
+                                    )}
+                                    
+                                    <div className={cn(
+                                        'mt-0.5 w-8 h-8 rounded flex items-center justify-center text-xs font-bold border',
+                                        selectedRoleId === role.id 
+                                            ? (role.color === 'indigo' ? 'bg-indigo-500 text-white border-indigo-600' :
+                                               role.color === 'purple' ? 'bg-purple-500 text-white border-purple-600' :
+                                               role.color === 'emerald' ? 'bg-emerald-500 text-white border-emerald-600' :
+                                               'bg-gray-500 text-white border-gray-600')
+                                            : (role.color === 'indigo' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
+                                               role.color === 'purple' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
+                                               role.color === 'emerald' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                                               'bg-gray-500/10 text-gray-400 border-gray-500/20')
+                                    )}>
+                                        {role.name.charAt(0)}
+                                    </div>
+                                    
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex justify-between items-center mb-0.5">
+                                            <span className={cn(
+                                                'text-xs font-bold',
+                                                selectedRoleId === role.id ? 'text-white' : 'text-text-secondary-dark group-hover:text-white'
+                                            )}>
+                                                {role.name}
+                                            </span>
+                                            {role.isSystem && (
+                                                <div title="System Role">
+                                                    <Lock className="text-[10px] text-text-secondary-dark opacity-50" />
+                                                </div>
+                                            )}
               </div>
-              <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" className="w-6 h-6 text-text-secondary-dark hover:bg-white/5 disabled:opacity-30" disabled={employeesQuery.currentPage === 1} onClick={() => employeesQuery.setPage(employeesQuery.currentPage - 1)}>
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </Button>
-                <span className="text-[10px] text-text-primary-dark font-mono-numbers px-2">PAGE {String(employeesQuery.currentPage).padStart(2, '0')}</span>
-                <Button variant="ghost" size="icon" className="w-6 h-6 text-text-secondary-dark hover:bg-white/5" disabled={employeesQuery.currentPage >= employeesQuery.pages} onClick={() => employeesQuery.setPage(employeesQuery.currentPage + 1)}>
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </Button>
+                                        <div className="flex items-center gap-2 text-[10px] text-text-secondary-dark opacity-60">
+                                            <span>{role.usersCount} Members</span>
+                                            <span>•</span>
+                                            <span>{role.permissions.length} perms</span>
               </div>
             </div>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="clients" className="mt-4">
-          <Card className="bg-surface-dark border-border-dark rounded overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-b border-border-dark bg-white/5 hover:bg-transparent">
-                  <TableHead className="px-4 py-3 text-[10px] font-bold text-text-secondary-dark uppercase tracking-widest w-12">
-                    <Checkbox className="w-4 h-4 border-border-dark bg-background-dark" />
-                  </TableHead>
-                  <TableHead className="px-4 py-3 text-[10px] font-bold text-text-secondary-dark uppercase tracking-widest">User Profile</TableHead>
-                  <TableHead className="px-4 py-3 text-[10px] font-bold text-text-secondary-dark uppercase tracking-widest">Role</TableHead>
-                  <TableHead className="px-4 py-3 text-[10px] font-bold text-text-secondary-dark uppercase tracking-widest">Status</TableHead>
-                  <TableHead className="px-4 py-3 text-[10px] font-bold text-text-secondary-dark uppercase tracking-widest">Expires</TableHead>
-                  <TableHead className="px-4 py-3 text-[10px] font-bold text-text-secondary-dark uppercase tracking-widest text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody className="divide-y divide-border-dark/50">
-                {clientsLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="px-4 py-8 text-center text-text-secondary-dark text-xs">
-                      Loading clients...
-                    </TableCell>
-                  </TableRow>
-                ) : filteredClients.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="px-4 py-8 text-center text-text-secondary-dark text-xs">
-                      No clients found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredClients.map((client: any) => renderUserRow(client, true))
-                )}
-              </TableBody>
-            </Table>
-            <div className="px-4 py-3 border-t border-border-dark flex items-center justify-between bg-surface-dark/50">
-              <div className="text-[10px] text-text-secondary-dark font-mono-numbers uppercase tracking-wider">
-                Showing {filteredClients.length} Clients
+                                </button>
+                            ))}
               </div>
             </div>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="rbac" className="mt-4 space-y-4">
-          {/* Roles Section */}
+
+                    {/* Main Content: Role Editor */}
+                    <div className="flex-1 flex flex-col min-w-0 bg-[#0F1115]">
+                        
+                        {/* Role Header */}
+                        <div className="h-40 border-b border-border-dark bg-[#12141a] px-8 flex flex-col justify-center shrink-0">
+                            <div className="flex items-start justify-between">
+                                <div className="flex items-center gap-5">
+                                    <div className={cn(
+                                        'w-16 h-16 rounded shadow-lg flex items-center justify-center text-3xl font-display text-white',
+                                        selectedRoleData.color === 'indigo' ? 'bg-indigo-500' :
+                                        selectedRoleData.color === 'purple' ? 'bg-purple-500' :
+                                        selectedRoleData.color === 'emerald' ? 'bg-emerald-500' :
+                                        'bg-gray-500'
+                                    )}>
+                                        {selectedRoleData.name.charAt(0)}
+                                    </div>
           <div>
-            <div className="mb-2 px-2">
-              <h3 className="text-xs font-bold text-text-primary-dark uppercase tracking-wider">Roles</h3>
-            </div>
-            <Card className="bg-surface-dark border-border-dark rounded overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-b border-border-dark bg-white/5 hover:bg-transparent">
-                    <TableHead className="px-4 py-3 text-[10px] font-bold text-text-secondary-dark uppercase tracking-widest">Role Name</TableHead>
-                    <TableHead className="px-4 py-3 text-[10px] font-bold text-text-secondary-dark uppercase tracking-widest">Type</TableHead>
-                    <TableHead className="px-4 py-3 text-[10px] font-bold text-text-secondary-dark uppercase tracking-widest">Permissions</TableHead>
-                    <TableHead className="px-4 py-3 text-[10px] font-bold text-text-secondary-dark uppercase tracking-widest">Users</TableHead>
-                    <TableHead className="px-4 py-3 text-[10px] font-bold text-text-secondary-dark uppercase tracking-widest text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody className="divide-y divide-border-dark/50">
-                  {rbacLoading ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="px-4 py-8 text-center text-text-secondary-dark text-xs">
-                        Loading RBAC roles...
-                      </TableCell>
-                    </TableRow>
-                  ) : filteredRBACRoles.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="px-4 py-8 text-center text-text-secondary-dark text-xs">
-                        No RBAC roles found
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredRBACRoles.map(role => renderRBACRoleRow(role))
-                  )}
-                </TableBody>
-              </Table>
-              <div className="px-4 py-3 border-t border-border-dark flex items-center justify-between bg-surface-dark/50">
-                <div className="text-[10px] text-text-secondary-dark font-mono-numbers uppercase tracking-wider">
-                  Showing {filteredRBACRoles.length} Roles
+                                        <h2 className="text-2xl font-bold text-white mb-1 font-display flex items-center gap-3">
+                                            {selectedRoleData.name}
+                                            {selectedRoleData.isSystem && (
+                                                <Badge variant="outline" className="px-2 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider bg-background-dark border border-border-dark text-text-secondary-dark">
+                                                    System Default
+                                                </Badge>
+                                            )}
+                                        </h2>
+                                        <p className="text-sm text-text-secondary-dark max-w-xl">{selectedRoleData.description}</p>
                 </div>
               </div>
-            </Card>
-          </div>
-          
-          {/* Permissions Section */}
-          <div>
-            <div className="mb-2 px-2">
-              <h3 className="text-xs font-bold text-text-primary-dark uppercase tracking-wider">Permissions</h3>
-            </div>
-            <Card className="bg-surface-dark border-border-dark rounded overflow-hidden">
-              <div className="p-4">
-                {rbacLoading ? (
-                  <div className="py-8 text-center text-text-secondary-dark text-xs">
-                    Loading permissions...
+                                <div className="flex gap-3">
+                                    <Button variant="outline" className="px-4 py-2 bg-background-dark border border-border-dark hover:border-text-secondary-dark/50 rounded-sm text-xs font-bold text-text-secondary-dark hover:text-white uppercase tracking-wider transition-all">
+                                        Duplicate
+                                    </Button>
+                                    <Button className="px-4 py-2 bg-primary hover:bg-primary-hover text-background-dark rounded-sm text-xs font-bold uppercase tracking-wider transition-all shadow-glow">
+                                        Save Changes
+                                    </Button>
                   </div>
-                ) : Object.keys(filteredGroupedPermissions).length === 0 ? (
-                  <div className="py-8 text-center text-text-secondary-dark text-xs">
-                    No permissions found
                   </div>
-                ) : (
-                  <div className="space-y-6">
-                    {Object.entries(filteredGroupedPermissions).map(([resource, perms]) => (
-                      <div key={resource} className="space-y-2">
-                        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border-dark/50">
-                          <Badge variant="outline" className="px-2 py-1 rounded border-border-dark bg-background-dark text-xs font-bold text-text-primary-dark uppercase tracking-wider">
-                            {resource}
-                          </Badge>
-                          <span className="text-[10px] text-text-secondary-dark font-mono-numbers">
-                            {perms.length} {perms.length === 1 ? 'permission' : 'permissions'}
-                          </span>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          {perms.map(perm => renderPermissionItem(perm, resource))}
+
+                        {/* Tabs */}
+                        <div className="px-8 border-b border-border-dark bg-[#161920] flex items-center gap-8 shrink-0">
+                            {(['permissions', 'members', 'settings'] as const).map(tab => (
+                                <button 
+                                    key={tab}
+                                    onClick={() => setRbacTab(tab)}
+                                    className={cn(
+                                        'py-4 text-[11px] font-bold uppercase tracking-wider border-b-2 transition-colors',
+                                        rbacTab === tab 
+                                            ? 'border-primary text-white' 
+                                            : 'border-transparent text-text-secondary-dark hover:text-white'
+                                    )}
+                                >
+                                    {tab}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Tab Content */}
+                        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+                            {rbacTab === 'permissions' && (
+                                <div className="max-w-5xl space-y-8">
+                                    {Object.entries(groupedPermissions).map(([category, perms]) => (
+                                        <div key={category} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                            <h3 className="text-xs font-bold text-text-secondary-dark uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                <span className="w-1 h-1 rounded-full bg-primary"></span>
+                                                {category} Access
+                                            </h3>
+                                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                                {perms.map(perm => {
+                                                    const isEnabled = selectedRoleData.permissions.includes(perm.id)
+                                                    return (
+                                                        <div 
+                                                            key={perm.id} 
+                                                            className={cn(
+                                                                'flex items-start justify-between p-4 rounded-sm border transition-all cursor-pointer group',
+                                                                isEnabled 
+                                                                    ? 'bg-surface-dark border-border-dark shadow-sm' 
+                                                                    : 'bg-transparent border-border-dark/40 opacity-70 hover:opacity-100 hover:bg-surface-dark/30'
+                                                            )}
+                                                            onClick={() => {
+                                                                // Toggle permission logic here
+                                                            }}
+                                                        >
+                                                            <div className="pr-4">
+                                                                <div className={cn(
+                                                                    'text-sm font-bold mb-1',
+                                                                    isEnabled ? 'text-white' : 'text-text-secondary-dark group-hover:text-white'
+                                                                )}>
+                                                                    {perm.id.split(':')[0]} <span className="text-text-secondary-dark opacity-60">/</span> {perm.id.split(':')[1]}
+                                                                </div>
+                                                                <div className="text-[11px] text-text-secondary-dark leading-relaxed">
+                                                                    {perm.description}
+                                                                </div>
+                                                            </div>
+                                                            
+                                                            {/* Toggle Switch */}
+                                                            <Switch 
+                                                                checked={isEnabled}
+                                                                onCheckedChange={() => {
+                                                                    // Toggle permission logic here
+                                                                }}
+                                                                className={cn(
+                                                                    'mt-1',
+                                                                    isEnabled ? 'bg-primary' : 'bg-background-dark border border-border-dark'
+                                                                )}
+                                                            />
+                                                        </div>
+                                                    )
+                                                })}
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
+
+                            {rbacTab === 'members' && (
+                                <div className="text-center py-12 border border-dashed border-border-dark rounded bg-surface-dark/10">
+                                    <Users className="text-4xl text-text-secondary-dark mb-4 opacity-30" />
+                                    <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-2">Member Management</h3>
+                                    <p className="text-xs text-text-secondary-dark">Manage the {selectedRoleData.usersCount} users assigned to this role.</p>
+                                </div>
+                            )}
+
+                             {rbacTab === 'settings' && (
+                                <div className="max-w-xl space-y-6">
+                                    <div>
+                                        <label className="block text-[10px] font-bold uppercase text-text-secondary-dark mb-2 tracking-wider">Role Name</label>
+                                        <Input 
+                                            className="w-full bg-background-dark border border-border-dark rounded-sm px-4 py-2 text-sm text-white focus:border-primary outline-none" 
+                                            defaultValue={selectedRoleData.name} 
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-bold uppercase text-text-secondary-dark mb-2 tracking-wider">Description</label>
+                                        <textarea 
+                                            className="w-full bg-background-dark border border-border-dark rounded-sm px-4 py-2 text-sm text-white focus:border-primary outline-none h-24 resize-none" 
+                                            defaultValue={selectedRoleData.description} 
+                                        />
               </div>
-              <div className="px-4 py-3 border-t border-border-dark flex items-center justify-between bg-surface-dark/50">
-                <div className="text-[10px] text-text-secondary-dark font-mono-numbers uppercase tracking-wider">
-                  Showing {totalPermissionsCount} Permissions across {Object.keys(filteredGroupedPermissions).length} Resources
+                                    <div className="pt-6 border-t border-border-dark">
+                                        <Button variant="ghost" className="text-red-500 text-xs font-bold uppercase tracking-wider hover:text-red-400 flex items-center gap-2 p-0 h-auto">
+                                            <Trash2 className="text-sm" /> Delete Role
+                                        </Button>
                 </div>
               </div>
-            </Card>
+                            )}
           </div>
-        </TabsContent>
-        
-        <TabsContent value="referral-code" className="mt-4">
-          <Card className="bg-surface-dark border-border-dark rounded overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-b border-border-dark bg-white/5 hover:bg-transparent">
-                  <TableHead className="px-4 py-3 text-[10px] font-bold text-text-secondary-dark uppercase tracking-widest">Code</TableHead>
-                  <TableHead className="px-4 py-3 text-[10px] font-bold text-text-secondary-dark uppercase tracking-widest">Status</TableHead>
-                  <TableHead className="px-4 py-3 text-[10px] font-bold text-text-secondary-dark uppercase tracking-widest">Roles</TableHead>
-                  <TableHead className="px-4 py-3 text-[10px] font-bold text-text-secondary-dark uppercase tracking-widest">Token Balance</TableHead>
-                  <TableHead className="px-4 py-3 text-[10px] font-bold text-text-secondary-dark uppercase tracking-widest">Expires</TableHead>
-                  <TableHead className="px-4 py-3 text-[10px] font-bold text-text-secondary-dark uppercase tracking-widest text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody className="divide-y divide-border-dark/50">
-                {referralCodesLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="px-4 py-8 text-center text-text-secondary-dark text-xs">
-                      Loading referral codes...
-                    </TableCell>
-                  </TableRow>
-                ) : filteredReferralCodes.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="px-4 py-8 text-center text-text-secondary-dark text-xs">
-                      No referral codes found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredReferralCodes.map(code => renderReferralCodeRow(code))
-                )}
-              </TableBody>
-            </Table>
-            <div className="px-4 py-3 border-t border-border-dark flex items-center justify-between bg-surface-dark/50">
-              <div className="text-[10px] text-text-secondary-dark font-mono-numbers uppercase tracking-wider">
-                Showing {filteredReferralCodes.length} Referral Codes
               </div>
             </div>
-          </Card>
-        </TabsContent>
-       </Tabs>
+            )}
     </div>
   )
 }
-
