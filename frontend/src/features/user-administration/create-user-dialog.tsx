@@ -15,7 +15,7 @@ import { getProducts } from '@/entities/product/api/product';
 import { type Product } from '@/entities/product';
 import { toast } from 'sonner';
 import { createUserSchema, type CreateUserInput } from '@/lib/validations/user';
-import { measurePerformance } from '@/lib/sentry-config';
+import { measurePerformance } from '@/shared/lib/sentry-config';
 import { sanitizeString } from '@/lib/utils/sanitization';
 import { cn } from '@/lib/utils';
 

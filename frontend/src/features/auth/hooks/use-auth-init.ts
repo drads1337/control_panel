@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { authService } from '@/lib/api/auth-service'
+import { authService } from '@/shared/api/auth-service'
 
 interface UseAuthInitParams {
   setUser: (user: any) => void

@@ -1,6 +1,5 @@
 import React from 'react'
 import { AuthProvider } from '@/app/providers/auth-provider'
-import { SidebarProvider } from '@/app/providers/sidebar-provider'
 import { NotificationProvider } from '@/app/providers/notification-provider'
 import { QueryProvider, QueryErrorHandler } from '@/app/providers/query-provider'
 import { ThemeProvider } from "@/app/providers/theme-provider"
@@ -20,9 +19,7 @@ export function AppProviders({ children }: AppProvidersProps) {
             <AuthProvider>
               <QueryErrorHandler>
                 <NotificationProvider>
-                  <SidebarProvider>
-                    {children}
-                  </SidebarProvider>
+                  {children}
                 </NotificationProvider>
               </QueryErrorHandler>
             </AuthProvider>

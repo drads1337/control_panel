@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { clearCsrfToken } from '@/lib/csrf'
-import { registerAuthErrorHandler } from '@/lib/api/auth-error-handler'
+import { registerAuthErrorHandler } from '@/shared/api/auth-error-handler'
 
 interface UseAuthErrorsParams {
   updateState: (updates: any) => void

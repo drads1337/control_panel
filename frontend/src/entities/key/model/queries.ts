@@ -15,7 +15,7 @@ import {
 } from '@/entities/key'
 import { toast } from 'sonner'
 import { useAuthContext } from '@/app/providers/auth-provider'
-import { measurePerformance } from '@/lib/sentry-config'
+import { measurePerformance } from '@/shared/lib/sentry-config'
 
 export const keyKeys = {
   all: ['keys'] as const,

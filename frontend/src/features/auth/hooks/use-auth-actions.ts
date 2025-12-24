@@ -1,6 +1,6 @@
 import { useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { authService } from '@/lib/api/auth-service'
+import { authService } from '@/shared/api/auth-service'
 import { clearCsrfToken, prefetchCsrfToken } from '@/lib/csrf'
 import { clearAllAvatarBlobs } from '@/lib/avatar-cache'
 import type { User } from '@/entities/user'

@@ -1,8 +1,6 @@
 import React from 'react'
-import { AppSidebarInner } from '@/widgets/sidebar'
 import { AppHeader } from './header'
 import { AppFooter } from './footer'
-import { SidebarInset, SidebarProvider } from '@/components/animate-ui/components/radix/sidebar'
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -18,28 +16,23 @@ export function AppLayout({
   showSearch = true 
 }: AppLayoutProps) {
   return (
-    <SidebarProvider defaultOpen={true}>
-      <AppSidebarInner />
-      <SidebarInset>
-        <div className="flex flex-col h-screen overflow-hidden">
-          <AppHeader title={title} showSearch={showSearch}>
-            {headerActions}
-          </AppHeader>
-          
-          {/* АДАПТАЦИЯ: 
-              px-4 pt-4: Уменьшенные отступы для мобильных (16px)
-              sm:px-6 sm:pt-6: Оригинальные отступы для планшетов и ПК (24px)
-          */}
-          <main className="flex-1 overflow-y-auto px-4 pt-4 sm:px-6 sm:pt-6">
-            {/* АДАПТАЦИЯ: Отступ снизу тоже уменьшен на мобильном */}
-            <div className="pb-4 sm:pb-6">
-              {children}
-            </div>
-          </main>
-          
-          <AppFooter />
+    <div className="flex flex-col h-screen overflow-hidden">
+      <AppHeader title={title} showSearch={showSearch}>
+        {headerActions}
+      </AppHeader>
+      
+      {/* АДАПТАЦИЯ: 
+          px-4 pt-4: Уменьшенные отступы для мобильных (16px)
+          sm:px-6 sm:pt-6: Оригинальные отступы для планшетов и ПК (24px)
+      */}
+      <main className="flex-1 overflow-y-auto px-4 pt-4 sm:px-6 sm:pt-6">
+        {/* АДАПТАЦИЯ: Отступ снизу тоже уменьшен на мобильном */}
+        <div className="pb-4 sm:pb-6">
+          {children}
         </div>
-      </SidebarInset>
-    </SidebarProvider>
+      </main>
+      
+      <AppFooter />
+    </div>
   )
 }
