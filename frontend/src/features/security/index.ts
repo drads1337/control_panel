@@ -1,0 +1,2 @@
+export { SecurityPage } from './SecurityPage'
+

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
-import { useAuth } from '@/lib/hooks';
+import { useAuth } from '@/shared/hooks';
 import { getProducts } from '@/entities/product';
 import { getAgents } from '@/entities/agent';
 import {
@@ -13,8 +13,8 @@ import {
   downloadProductExtraFile,
   downloadProductFile,
 } from '@/entities/file';
-import { getErrorMessage } from '@/lib/api/enhanced-client';
-import { getErrorMessage as getErrorMessageUtil, isErrorWithMessage } from '@/lib/utils';
+import { getErrorMessage } from '@/shared/api/enhanced-client';
+import { getErrorMessage as getErrorMessageUtil, isErrorWithMessage } from '@/shared/lib/utils';
 import {
   useFileManagerSelection,
   useFileManagerDialogs,
@@ -65,6 +65,51 @@ export function useFileManagerLogic({ onSwitchToProductDatabase }: UseFileManage
     showConfigsFolder,
     selectedProductId: selectedProduct?.id,
   });
+
+  // Load product files
+  const loadProductFiles = useCallback(async () => {
+    const targetId = selectedProduct?.id || selectedAgent?.id;
+    if (!targetId) return;
+
+    // Проверяем, не загружаем ли мы уже этот же ID
+    const currentId = `${targetId}-${fileFilters.categoryFilter}-${fileFilters.searchTerm}`;
+    
+    // Если уже загружаем или уже загрузили эти данные - пропускаем
+    if (isLoadingRef.current || lastLoadedIdRef.current === currentId) {
+      return;
+    }
+
+    // Устанавливаем флаги сразу, чтобы предотвратить повторные вызовы
+    isLoadingRef.current = true;
+    lastLoadedIdRef.current = currentId;
+
+    try {
+      setRefreshing(true);
+      const targetTypeForApi = selectedAgent ? 'agent' : selectedProduct ? 'product' : 'auto';
+      const response = await getProductFiles(
+        targetId,
+        fileFilters.categoryFilter,
+        'all',
+        fileFilters.searchTerm,
+        targetTypeForApi as 'product' | 'agent' | 'auto'
+      );
+
+      if (response.files) {
+        setFiles(response.files);
+      } else {
+        setFiles([]);
+      }
+    } catch (error: unknown) {
+      // При ошибке сбрасываем lastLoadedIdRef, чтобы можно было повторить попытку
+      lastLoadedIdRef.current = null;
+      const errorMessage = getErrorMessage(error);
+      toast.error(`Failed to load files: ${errorMessage}`);
+      setFiles([]);
+    } finally {
+      setRefreshing(false);
+      isLoadingRef.current = false;
+    }
+  }, [selectedProduct, selectedAgent, fileFilters.categoryFilter, fileFilters.searchTerm]);
 
   const fileUpload = useFileManagerUpload({
     selectedProduct,
@@ -137,51 +182,6 @@ export function useFileManagerLogic({ onSwitchToProductDatabase }: UseFileManage
       // Silent fail
     }
   }, [isAuthenticated]);
-
-  // Load product files
-  const loadProductFiles = useCallback(async () => {
-    const targetId = selectedProduct?.id || selectedAgent?.id;
-    if (!targetId) return;
-
-    // Проверяем, не загружаем ли мы уже этот же ID
-    const currentId = `${targetId}-${fileFilters.categoryFilter}-${fileFilters.searchTerm}`;
-    
-    // Если уже загружаем или уже загрузили эти данные - пропускаем
-    if (isLoadingRef.current || lastLoadedIdRef.current === currentId) {
-      return;
-    }
-
-    // Устанавливаем флаги сразу, чтобы предотвратить повторные вызовы
-    isLoadingRef.current = true;
-    lastLoadedIdRef.current = currentId;
-
-    try {
-      setRefreshing(true);
-      const targetTypeForApi = selectedAgent ? 'agent' : selectedProduct ? 'product' : 'auto';
-      const response = await getProductFiles(
-        targetId,
-        fileFilters.categoryFilter,
-        'all',
-        fileFilters.searchTerm,
-        targetTypeForApi as 'product' | 'agent' | 'auto'
-      );
-
-      if (response.files) {
-        setFiles(response.files);
-      } else {
-        setFiles([]);
-      }
-    } catch (error: unknown) {
-      // При ошибке сбрасываем lastLoadedIdRef, чтобы можно было повторить попытку
-      lastLoadedIdRef.current = null;
-      const errorMessage = getErrorMessage(error);
-      toast.error(`Failed to load files: ${errorMessage}`);
-      setFiles([]);
-    } finally {
-      setRefreshing(false);
-      isLoadingRef.current = false;
-    }
-  }, [selectedProduct, selectedAgent, fileFilters.categoryFilter, fileFilters.searchTerm]);
 
   // Ref для хранения актуальной функции загрузки (чтобы не включать её в зависимости эффектов)
   const loadProductFilesRef = useRef(loadProductFiles);

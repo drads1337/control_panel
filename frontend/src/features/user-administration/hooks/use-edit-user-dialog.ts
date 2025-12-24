@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { enhancedApi, getErrorMessage } from '@/lib/api/enhanced-client';
-import { getErrorMessage as getErrorMessageUtil, getErrorStatus } from '@/lib/utils/error-utils';
+import { enhancedApi, getErrorMessage } from '@/shared/api/enhanced-client';
+import { getErrorMessage as getErrorMessageUtil, getErrorStatus } from '@/shared/lib/utils/error-utils';
 import { updateUser } from '@/entities/user/api/user';
 import { getProducts, toggleUserProductAccess } from '@/entities/product/api/product';
 import { toast } from 'sonner';

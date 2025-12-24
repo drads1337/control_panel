@@ -4,7 +4,7 @@ import { getKeysStats } from '@/entities/key/api/key'
 import { getProductsCount } from '@/entities/product/api/product'
 import { getFileStats } from '@/entities/file/api/file'
 import { getAgentStats } from '@/entities/agent/api/agent'
-import { hasManagementAccess } from '@/lib/rbac'
+import { hasManagementAccess } from '@/shared/lib/rbac'
 
 export interface ManagementStats {
   totalKeys: number

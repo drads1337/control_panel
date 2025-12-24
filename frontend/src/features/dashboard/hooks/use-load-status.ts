@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useAuthContext } from '@/app/providers/auth-provider'
-import { enhancedApi as api } from '@/lib/api/enhanced-client'
+import { enhancedApi as api } from '@/shared/api/enhanced-client'
 
 export interface LoadStatusData {
   overall_status: 'normal' | 'warning' | 'critical'

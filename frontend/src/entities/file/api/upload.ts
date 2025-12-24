@@ -1,7 +1,7 @@
-import { enhancedApi as api } from '@/lib/api/enhanced-client'
-import { API_ENDPOINTS } from '@/lib/api/config'
+import { enhancedApi as api } from '@/shared/api/enhanced-client'
+import { API_ENDPOINTS } from '@/shared/api/config'
 import { getProducts } from '@/entities/product'
-import { apiCallWithErrorData } from '@/lib/api/api-wrapper'
+import { apiCallWithErrorData } from '@/shared/api/api-wrapper'
 
 export async function uploadProductConfig(
   file: File, 
@@ -107,9 +107,9 @@ export async function uploadProductFiles(
 
   formData.append('file_count', files.length.toString())
 
-  const { getCsrfHeaders } = await import('@/lib/csrf')
+  const { getCsrfHeaders } = await import('@/shared/lib/csrf')
   const csrfHeaders = await getCsrfHeaders()
-  const { getApiUrl } = await import('@/lib/api')
+  const { getApiUrl } = await import('@/shared/api')
   // Use universal endpoint - products instead of products
   const url = getApiUrl(`${API_ENDPOINTS.PRODUCTS}/${productId}/files`)
 

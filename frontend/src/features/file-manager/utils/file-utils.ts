@@ -13,7 +13,7 @@ import {
  */
 export function getFileIcon(fileName: string, fileType?: string): React.ReactNode {
   if (fileType === 'folder') {
-    return <Folder className="h-5 w-5 text-blue-500" />;
+    return <Folder className="h-4 w-4 text-blue-500" />;
   }
   
   const extension = fileName.split('.').pop()?.toLowerCase();
@@ -22,20 +22,20 @@ export function getFileIcon(fileName: string, fileType?: string): React.ReactNod
     case 'txt':
     case 'md':
     case 'log':
-      return <FileText className="h-5 w-5 text-muted-foreground" />;
+      return <FileText className="h-4 w-4 text-muted-foreground" />;
     
     case 'exe':
     case 'dll':
     case 'so':
     case 'dylib':
-      return <Zap className="h-5 w-5 text-primary" />;
+      return <Zap className="h-4 w-4 text-primary" />;
     
     case 'zip':
     case 'rar':
     case '7z':
     case 'tar':
     case 'gz':
-      return <Package className="h-5 w-5 text-orange-500" />;
+      return <Package className="h-4 w-4 text-orange-500" />;
     
     case 'jpg':
     case 'jpeg':
@@ -43,37 +43,37 @@ export function getFileIcon(fileName: string, fileType?: string): React.ReactNod
     case 'gif':
     case 'svg':
     case 'ico':
-      return <Image className="h-5 w-5 text-green-500" />;
+      return <Image className="h-4 w-4 text-green-500" />;
     
     case 'mp4':
     case 'avi':
     case 'mov':
     case 'wmv':
-      return <Video className="h-5 w-5 text-purple-500" />;
+      return <Video className="h-4 w-4 text-purple-500" />;
     
     case 'mp3':
     case 'wav':
     case 'flac':
     case 'aac':
-      return <Music className="h-5 w-5 text-blue-500" />;
+      return <Music className="h-4 w-4 text-blue-500" />;
     
     case 'pdf':
-      return <FileText className="h-5 w-5 text-red-500" />;
+      return <FileText className="h-4 w-4 text-red-500" />;
     
     case 'doc':
     case 'docx':
-      return <FileText className="h-5 w-5 text-blue-600" />;
+      return <FileText className="h-4 w-4 text-blue-600" />;
     
     case 'xls':
     case 'xlsx':
-      return <FileText className="h-5 w-5 text-green-600" />;
+      return <FileText className="h-4 w-4 text-green-600" />;
     
     case 'ppt':
     case 'pptx':
-      return <FileText className="h-5 w-5 text-orange-600" />;
+      return <FileText className="h-4 w-4 text-orange-600" />;
     
     default:
-      return <File className="h-5 w-5 text-muted-foreground" />;
+      return <File className="h-4 w-4 text-muted-foreground" />;
   }
 }
 

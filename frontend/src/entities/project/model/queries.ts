@@ -1,7 +1,7 @@
 import React from 'react'
 import { getProjects, createProject, updateProject, deleteProject } from '@/entities/project'
 import type { Project, CreateProjectData, ProjectsResponse } from '@/entities/project/model/types'
-import { usePaginatedResource, useMutationWithCache } from '@/lib/hooks'
+import { usePaginatedResource, useMutationWithCache } from '@/shared/hooks'
 
 export const projectKeys = {
   all: ['projects'] as const,

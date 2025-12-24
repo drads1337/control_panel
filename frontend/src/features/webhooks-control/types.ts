@@ -27,6 +27,7 @@ export interface WebhookLog {
   success: boolean;
   error_message?: string;
   response_status?: number;
+  payload?: any;
   created_at: string;
 }
 

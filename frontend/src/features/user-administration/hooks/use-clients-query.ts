@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { getClients, deleteUser } from '@/entities/user'
 import type { User } from '@/entities/user'
-import { useMutationWithCache } from '@/lib/hooks'
+import { useMutationWithCache } from '@/shared/hooks'
 
 export const clientKeys = {
   all: ['clients'] as const,

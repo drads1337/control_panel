@@ -1,8 +1,8 @@
 import { useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuthContext } from '@/app/providers/auth-provider'
-import { enhancedApi as api } from '@/lib/api/enhanced-client'
-import { getErrorStatus, isAxiosError } from '@/lib/utils/error-utils'
+import { enhancedApi as api } from '@/shared/api/enhanced-client'
+import { getErrorStatus, isAxiosError } from '@/shared/lib/utils/error-utils'
 import type { Project } from '@/entities/project';
 
 interface ProjectExpirationStatus {

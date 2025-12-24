@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import { createQueryRetry } from '@/lib/query-retry-utils'
-import { getErrorMessage } from '@/lib/api/api-error-types'
-import { getProducts, getAvailableProductsForAssignment } from '@/entities/product'
+import { createQueryRetry } from '@/shared/lib/query-retry-utils'
+import { getErrorMessage } from '@/shared/api/api-error-types'
+import { getProducts, getProductsAvailableForAssignment } from '@/entities/product'
 import type { Product } from '@/entities/product'
 
 export const productKeys = {
@@ -74,7 +74,7 @@ export function useProductsAvailableForAssignment(
   } = useQuery({
     queryKey: [...productKeys.availableForAssignment(), page, perPage],
     queryFn: async () => {
-      const response = await getAvailableProductsForAssignment(page, perPage)
+      const response = await getProductsAvailableForAssignment(page, perPage)
       return response
     },
     staleTime: 2 * 60 * 1000,

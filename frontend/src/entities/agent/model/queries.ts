@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { createQueryRetry } from '@/lib/query-retry-utils'
-import { getErrorMessage } from '@/lib/api/api-error-types'
+import { createQueryRetry } from '@/shared/lib/query-retry-utils'
+import { getErrorMessage } from '@/shared/api/api-error-types'
 import {
   getAgents,
   getAvailableProducts,
@@ -19,7 +19,7 @@ import type {
   UpdateAgentData,
 } from '@/entities/agent/model/types'
 import type { Product } from '@/entities/product'
-import { useMutationWithCache } from '@/lib/hooks'
+import { useMutationWithCache } from '@/shared/hooks'
 
 // Universal terminology query keys
 export const agentKeys = {

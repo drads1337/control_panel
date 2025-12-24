@@ -1,7 +1,7 @@
 import React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthContext } from '@/app/providers/auth-provider'
-import { clearDefaultSensitiveParamsFromUrl } from '@/lib/utils/url-security'
+import { clearDefaultSensitiveParamsFromUrl } from '@/shared/utils/url-security'
 import { 
   getLogs, 
   getLogStats, 
@@ -298,13 +298,13 @@ export function useLogActions() {
   const exportLogsMutation = useMutation({
     mutationFn: async (filters: {
       action?: string
-      userId?: number
+      userId?: string  // Changed to string as exportLogs expects username (string), not user_id (number)
       dateFrom?: string
       dateTo?: string
     }) => {
       const blob = await exportLogs(
         filters.action,
-        filters.userId,
+        filters.userId,  // This is actually username (string) in exportLogs
         filters.dateFrom,
         filters.dateTo
       )

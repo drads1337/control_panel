@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { ColorFormat } from "@/lib/colors"
+import { ColorFormat } from "@/shared/lib/colors"
 type Config = {
   format: ColorFormat
   lastCopied: string

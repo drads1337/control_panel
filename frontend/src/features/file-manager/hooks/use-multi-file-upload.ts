@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { uploadProductConfig, uploadProductExtraFile } from '@/entities/file';
-import { useAuth } from '@/lib/hooks';
+import { useAuth } from '@/shared/hooks';
 
 export interface UploadForm {
   name: string;

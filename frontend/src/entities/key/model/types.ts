@@ -1,4 +1,4 @@
-import { BaseEntity, PaginatedResponse } from '@/lib/api'
+import { BaseEntity, PaginatedResponse } from '@/shared/api'
 
 export interface LicenseKey extends BaseEntity {
   key: string

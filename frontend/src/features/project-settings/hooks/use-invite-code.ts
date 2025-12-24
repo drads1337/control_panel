@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
-import { enhancedApi as api } from '@/lib/api/enhanced-client'
-import { getErrorMessage, isAxiosError } from '@/lib/utils/error-utils'
+import { enhancedApi as api } from '@/shared/api/enhanced-client'
+import { getErrorMessage, isAxiosError } from '@/shared/lib/utils/error-utils'
 export interface InviteCodeInfo {
   code_type: 'referral' | 'project_invite'
   role?: string

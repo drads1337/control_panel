@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getErrorMessage, getErrorStatus } from '@/lib/utils/error-utils'
+import { getErrorMessage, getErrorStatus } from '@/shared/lib/utils/error-utils'
 import { toast } from 'sonner'
 import { getTasks, getTaskStatus as fetchTaskStatus, createTask as createTaskApi } from '@/entities/task/api'
 import { taskKeys } from '@/entities/task/model/queries'

@@ -1,15 +1,15 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuthContext } from '@/app/providers/auth-provider'
-import { usePermissions } from '@/lib/hooks'
+import { usePermissions } from '@/shared/hooks'
 import { toast } from 'sonner'
 import {
   remoteControlAPI,
   RemoteCategory,
   RemoteFeature,
   CategoryStats
-} from '@/lib/remote-control-api'
+} from '@/shared/lib/remote-control-api'
 import { getProducts } from '@/entities/product/api/product'
-import { getErrorMessage, isAxiosError } from '@/lib/utils/error-utils'
+import { getErrorMessage, isAxiosError } from '@/shared/lib/utils/error-utils'
 import type { Product } from '@/entities/product'
 
 interface FeatureFormData {
@@ -430,6 +430,7 @@ export function useRemoteControlLogic() {
     categoryDialogOpen,
     setCategoryDialogOpen,
     editingFeature,
+    setEditingFeature,
     editingCategory,
     setEditingCategory,
     formData,

@@ -1,7 +1,7 @@
-import { enhancedApi as api } from '@/lib/api/enhanced-client'
-import { API_ENDPOINTS } from '@/lib/api/config'
-import { apiCall, apiCallWithErrorData } from '@/lib/api/api-wrapper'
-import { getErrorStatus, isAxiosError } from '@/lib/utils/error-utils'
+import { enhancedApi as api } from '@/shared/api/enhanced-client'
+import { API_ENDPOINTS } from '@/shared/api/config'
+import { apiCall, apiCallWithErrorData } from '@/shared/api/api-wrapper'
+import { getErrorStatus, isAxiosError } from '@/shared/lib/utils/error-utils'
 import type { InviteCode, CreateInviteCodeData, ReferralCode, CreateProjectInviteCodeData, ProjectInviteCode } from '@/entities/user';
 import type { Project } from '@/entities/project';
 import type {
@@ -62,7 +62,7 @@ export async function generateProjectInviteCode(data: CreateProjectInviteCodeDat
         if (errorData && typeof errorData === 'object') {
           const errorCode = (errorData as { error?: string }).error
           if (errorCode === 'CSRF_ERROR' || (typeof errorCode === 'string' && errorCode.includes('CSRF'))) {
-            const { clearCsrfToken } = await import('@/lib/csrf')
+            const { clearCsrfToken } = await import('@/shared/lib/csrf')
             clearCsrfToken()
             throw new Error('CSRF token validation failed. Please refresh the page and try again.')
           }

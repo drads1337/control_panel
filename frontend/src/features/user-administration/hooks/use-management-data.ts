@@ -1,10 +1,10 @@
 import { useMemo, useEffect, useState } from 'react'
 import { useAuthContext } from '@/app/providers/auth-provider'
-import { hasManagementAccess } from '@/lib/rbac'
+import { hasManagementAccess } from '@/shared/lib/rbac'
 import { useManagementStore } from '@/shared/model/use-management-store'
 import { Key, Database, FolderOpen, Zap } from 'lucide-react'
 import { getProductsCount } from '@/entities/product/api/product'
-import { usePermissions } from '@/lib/hooks'
+import { usePermissions } from '@/shared/hooks'
 
 export interface ManagementTab {
   value: string

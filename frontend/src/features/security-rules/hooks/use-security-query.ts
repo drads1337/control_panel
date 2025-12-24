@@ -1,7 +1,7 @@
 import React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { securityAPI, BlockedIP, BlockedHWID, SecurityStats, CreateIPBlockRequest, CreateHWIDBlockRequest } from '@/lib/api/security'
-import { useMutationWithCache } from '@/lib/hooks'
+import { securityAPI, BlockedIP, BlockedHWID, SecurityStats, CreateIPBlockRequest, CreateHWIDBlockRequest } from '@/shared/api/security'
+import { useMutationWithCache } from '@/shared/hooks'
 import { toast } from 'sonner'
 
 export const securityKeys = {

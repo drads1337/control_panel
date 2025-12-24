@@ -1,6 +1,6 @@
 import React from 'react'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
-import { clearDefaultSensitiveParamsFromUrl } from '@/lib/utils/url-security'
+import { clearDefaultSensitiveParamsFromUrl } from '@/shared/utils/url-security'
 import { 
   getLicenseKeys,
   searchLicenseKeys,

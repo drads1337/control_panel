@@ -1,5 +1,5 @@
-import { enhancedApi as api } from '@/lib/api/enhanced-client'
-import { API_ENDPOINTS } from '@/lib/api/config'
+import { enhancedApi as api } from '@/shared/api/enhanced-client'
+import { API_ENDPOINTS } from '@/shared/api/config'
 import type { ProductNotification, ProductNotificationsResponse } from '@/entities/notification';
 import type { Product } from '@/entities/product';
 import type {

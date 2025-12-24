@@ -8,7 +8,7 @@
  * 
  * @example
  * ```ts
- * import { apiCall } from '@/lib/api/api-wrapper'
+ * import { apiCall } from '@/shared/api/api-wrapper'
  * 
  * export const getProducts = () => apiCall(
  *   () => api.get(API_ENDPOINTS.PRODUCTS),
@@ -18,7 +18,7 @@
  */
 
 import type { AxiosResponse } from 'axios'
-import { getErrorMessage, getErrorStatus, isAxiosError } from '@/lib/utils/error-utils'
+import { getErrorMessage, getErrorStatus, isAxiosError } from '@/shared/lib/utils/error-utils'
 
 export interface ApiCallOptions<T = unknown> {
   /**

@@ -4,7 +4,7 @@ import {
   uploadProductConfig,
   uploadProductExtraFile,
 } from '@/entities/file';
-import { getErrorMessage as getErrorMessageUtil, isErrorWithMessage } from '@/lib/utils/error-utils';
+import { getErrorMessage as getErrorMessageUtil, isErrorWithMessage } from '@/shared/lib/utils/error-utils';
 import type { Product } from '@/entities/product';
 import type { Agent } from '@/entities/agent';
 

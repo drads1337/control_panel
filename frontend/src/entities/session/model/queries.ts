@@ -8,7 +8,7 @@ import {
   getRealtimeSessions 
 } from '@/entities/session'
 import type { Session, SessionStats, SessionsResponse } from '@/entities/session'
-import { usePaginatedResource, useMutationWithCache } from '@/lib/hooks'
+import { usePaginatedResource, useMutationWithCache } from '@/shared/hooks'
 
 export const sessionKeys = {
   all: ['sessions'] as const,

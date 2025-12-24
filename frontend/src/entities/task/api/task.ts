@@ -1,6 +1,6 @@
-import { enhancedApi as api } from '@/lib/api/enhanced-client'
-import { apiCall } from '@/lib/api/api-wrapper'
-import { getErrorStatus } from '@/lib/utils/error-utils'
+import { enhancedApi as api } from '@/shared/api/enhanced-client'
+import { apiCall } from '@/shared/api/api-wrapper'
+import { getErrorStatus } from '@/shared/lib/utils/error-utils'
 import type { Task } from '../model/types'
 
 /**

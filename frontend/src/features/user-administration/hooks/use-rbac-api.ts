@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuthContext } from '@/app/providers/auth-provider'
-import { getApiUrl } from '@/lib/utils'
+import { getApiUrl } from '@/shared/lib/utils'
 
 interface Role {
   id: number

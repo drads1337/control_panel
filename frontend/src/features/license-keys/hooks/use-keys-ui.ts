@@ -9,8 +9,8 @@ import {
 } from '@/entities/key';
 import { useKeyMutations } from '@/features/license-keys/hooks/use-key-mutations';
 import { keyKeys } from '@/entities/key';
-import { usePermissions } from '@/lib/hooks';
-import { isMaskedKey } from '@/lib/key-masking';
+import { usePermissions } from '@/shared/hooks';
+import { isMaskedKey } from '@/shared/lib/key-masking';
 
 interface UseKeysUIParams {
   keys: LicenseKey[];
@@ -107,7 +107,7 @@ export function useKeysUI({
         toast.error('You do not have permission to view full keys. Contact your administrator.');
       }
     } catch (error: unknown) {
-      const { getErrorStatus } = await import('@/lib/utils/error-utils')
+      const { getErrorStatus } = await import('@/shared/lib/utils/error-utils')
       const status = getErrorStatus(error)
       if (status === 403) {
         toast.error('You do not have permission to view full keys. Contact your administrator.');
@@ -226,7 +226,7 @@ export function useKeysUI({
                     }));
                   }
                 } catch (error: unknown) {
-                  const { getErrorStatus } = await import('@/lib/utils/error-utils')
+                  const { getErrorStatus } = await import('@/shared/lib/utils/error-utils')
                   const status = getErrorStatus(error)
                   if (status === 403) {
                     toast.error('You do not have permission to copy full keys. Contact your administrator.');
@@ -259,7 +259,7 @@ export function useKeysUI({
                     }));
                   }
                 } catch (error: unknown) {
-                  const { getErrorStatus } = await import('@/lib/utils/error-utils')
+                  const { getErrorStatus } = await import('@/shared/lib/utils/error-utils')
                   const status = getErrorStatus(error)
                   if (status === 403) {
                     toast.error('You do not have permission to copy full keys. Contact your administrator.');

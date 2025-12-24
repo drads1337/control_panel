@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { enhancedApi } from '@/lib/api/enhanced-client';
+import { enhancedApi } from '@/shared/api/enhanced-client';
 
 interface ProductPrices {
   [period: string]: number;

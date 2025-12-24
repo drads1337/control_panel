@@ -83,10 +83,48 @@ export interface SecurityRule {
   lastTriggered?: string
 }
 
+export interface SecurityEvent {
+  id: number
+  event_type: string
+  severity: string
+  fingerprint?: string
+  ip_address?: string
+  user_agent?: string
+  user_key?: string
+  country?: string
+  city?: string
+  description?: string
+  threat_score: number
+  created_at: string
+}
+
+export interface SecurityAnalytics {
+  total_blocked: number
+  block_types: Record<string, number>
+  severity_distribution: Record<string, number>
+  threat_score_avg: number
+  top_countries: Record<string, number>
+  top_user_agents: Record<string, number>
+  timeline: Record<string, number>
+  recent_events: SecurityEvent[]
+}
+
+export interface SecurityEventsResponse {
+  events: SecurityEvent[]
+  total: number
+  pages: number
+  current_page: number
+}
+
 class SecurityAPI {
 
   async getBlockedIPs(): Promise<BlockedIP[]> {
     const response = await apiClient.get('/api/settings/security/blocked-ips')
+    // Backend returns { blocked_ips: [...] }
+    if (response.data?.blocked_ips && Array.isArray(response.data.blocked_ips)) {
+      return response.data.blocked_ips
+    }
+    // Fallback for direct array response
     return Array.isArray(response.data) ? response.data : []
   }
 
@@ -102,6 +140,11 @@ class SecurityAPI {
 
   async getBlockedHWIDs(): Promise<BlockedHWID[]> {
     const response = await apiClient.get('/api/settings/security/blocked-hwids')
+    // Backend returns { blocked_hwids: [...] }
+    if (response.data?.blocked_hwids && Array.isArray(response.data.blocked_hwids)) {
+      return response.data.blocked_hwids
+    }
+    // Fallback for direct array response
     return Array.isArray(response.data) ? response.data : []
   }
 
@@ -144,6 +187,20 @@ class SecurityAPI {
 
   async toggleSecurityRule(ruleId: number): Promise<{ message: string; rule: { id: number; name: string; is_active: boolean } }> {
     const response = await apiClient.post(`/api/settings/security/rules/${ruleId}/toggle`)
+    return response.data
+  }
+
+  async getSecurityEvents(page: number = 1, perPage: number = 50): Promise<SecurityEventsResponse> {
+    const response = await apiClient.get('/api/settings/security/events', {
+      params: { page, per_page: perPage }
+    })
+    return response.data
+  }
+
+  async getSecurityAnalytics(days: number = 30): Promise<SecurityAnalytics> {
+    const response = await apiClient.get('/api/settings/security/analytics', {
+      params: { days }
+    })
     return response.data
   }
 }

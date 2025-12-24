@@ -1,0 +1,2 @@
+export { ManagementPage } from './ManagementPage'
+

@@ -1,6 +1,6 @@
-import { enhancedApi as api } from '@/lib/api/enhanced-client'
-import { API_ENDPOINTS } from '@/lib/api/config'
-import { apiCall } from '@/lib/api/api-wrapper'
+import { enhancedApi as api } from '@/shared/api/enhanced-client'
+import { API_ENDPOINTS } from '@/shared/api/config'
+import { apiCall } from '@/shared/api/api-wrapper'
 import type {
   Product,
   ProductsResponse,

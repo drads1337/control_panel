@@ -1,4 +1,4 @@
-import { BaseEntity, PaginatedResponse } from '@/lib/api'
+import { BaseEntity, PaginatedResponse } from '@/shared/api'
 
 export interface Log extends BaseEntity {
   user_id: number | null

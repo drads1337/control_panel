@@ -13,7 +13,7 @@ import {
   type LicenseKeysResponse,
   keyKeys
 } from '@/entities/key'
-import { KEY_STATUS } from '@/constants'
+import { KEY_STATUS } from '@/shared/constants'
 
 function updateAllKeyLists(
   queryClient: ReturnType<typeof useQueryClient>,

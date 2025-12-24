@@ -10,7 +10,7 @@
  * reassemble.
  */
 
-import { getApiUrl } from '@/lib/api';
+import { getApiUrl } from '@/shared/api';
 
 export interface ChunkedUploadOptions {
   chunkSize?: number;
@@ -54,7 +54,7 @@ export async function uploadFileInChunks(
         formDataObj.append(key, String(value));
       });
 
-      const { getCsrfHeaders } = await import('@/lib/csrf');
+      const { getCsrfHeaders } = await import('@/shared/lib/csrf');
       const csrfHeaders = await getCsrfHeaders();
       const url = getApiUrl(endpoint);
       
@@ -109,7 +109,7 @@ export async function uploadFileInChunks(
         chunkFormData.append(key, String(value));
       });
 
-      const { getCsrfHeaders } = await import('@/lib/csrf');
+      const { getCsrfHeaders } = await import('@/shared/lib/csrf');
       const csrfHeaders = await getCsrfHeaders();
       // Use chunk endpoint (e.g., /api/files/product-files/extra/chunk)
       const chunkUrl = getApiUrl(endpoint.includes('/chunk') ? endpoint : `${endpoint}/chunk`);
@@ -147,7 +147,7 @@ export async function uploadFileInChunks(
       finalizeFormData.append(key, String(value));
     });
 
-    const { getCsrfHeaders } = await import('@/lib/csrf');
+    const { getCsrfHeaders } = await import('@/shared/lib/csrf');
     const csrfHeaders = await getCsrfHeaders();
     // Use finalize endpoint (e.g., /api/files/product-files/extra/finalize)
     const finalizeUrl = getApiUrl(endpoint.replace('/chunk', '/finalize'));

@@ -346,7 +346,14 @@ def main():
     frontend_src = project_root / "frontend" / "src"
     backend_src = project_root / "backend"
 
-    backend_dst = project_root / "backend_copy"
+    # Создаем главную директорию copy
+    copy_dir = project_root / "copy"
+    backend_dst = copy_dir / "backend"
+
+    # Удаляем старую директорию copy если существует
+    if copy_dir.exists():
+        shutil.rmtree(copy_dir)
+        print("🗑️  Удалена старая директория copy")
 
     print("\n🚀 Начинаем копирование файлов...")
 
@@ -371,16 +378,8 @@ def main():
             first_half = frontend_files_list[:mid_point]
             second_half = frontend_files_list[mid_point:]
 
-            frontend_dst_part1 = project_root / "frontend_copy_part1"
-            frontend_dst_part2 = project_root / "frontend_copy_part2"
-
-            # Удаляем старые копии
-            if frontend_dst_part1.exists():
-                shutil.rmtree(frontend_dst_part1)
-                print("🗑️  Удалена старая копия фронтенда (часть 1)")
-            if frontend_dst_part2.exists():
-                shutil.rmtree(frontend_dst_part2)
-                print("🗑️  Удалена старая копия фронтенда (часть 2)")
+            frontend_dst_part1 = copy_dir / "frontend_part1"
+            frontend_dst_part2 = copy_dir / "frontend_part2"
 
             # Копируем первую половину
             frontend_dst_part1.mkdir(parents=True, exist_ok=True)
@@ -407,13 +406,13 @@ def main():
             generate_file_tree_markdown(
                 first_half,
                 frontend_src,
-                project_root / "frontend_copy_part1_tree.md",
+                copy_dir / "frontend_part1_tree.md",
                 "Frontend Files Tree - Part 1"
             )
             generate_file_tree_markdown(
                 second_half,
                 frontend_src,
-                project_root / "frontend_copy_part2_tree.md",
+                copy_dir / "frontend_part2_tree.md",
                 "Frontend Files Tree - Part 2"
             )
             
@@ -421,7 +420,7 @@ def main():
             generate_file_tree_markdown(
                 frontend_files_list,
                 frontend_src,
-                project_root / "frontend_copy_tree.md",
+                copy_dir / "frontend_tree.md",
                 "Frontend Files Tree - Complete"
             )
     else:
@@ -429,11 +428,6 @@ def main():
 
     print(f"\n🔧 Копирование бэкенда из {backend_src} в {backend_dst}")
     if backend_src.exists():
-
-        if backend_dst.exists():
-            shutil.rmtree(backend_dst)
-            print("🗑️  Удалена старая копия бэкенда")
-
         # Собираем список исходных файлов бэкенда
         backend_files_list = collect_files(
             backend_src,
@@ -455,21 +449,22 @@ def main():
         generate_file_tree_markdown(
             backend_files_list,
             backend_src,
-            project_root / "backend_copy_tree.md",
+            copy_dir / "backend_tree.md",
             "Backend Files Tree"
         )
     else:
         print(f"❌ Директория бэкенда не найдена: {backend_src}")
 
     print("\n🎉 Копирование завершено!")
-    print(f"📱 Фронтенд часть 1: {project_root / 'frontend_copy_part1'}")
-    print(f"📱 Фронтенд часть 2: {project_root / 'frontend_copy_part2'}")
+    print(f"📂 Все файлы скопированы в директорию: {copy_dir}")
+    print(f"📱 Фронтенд часть 1: {copy_dir / 'frontend_part1'}")
+    print(f"📱 Фронтенд часть 2: {copy_dir / 'frontend_part2'}")
     print(f"🔧 Бэкенд: {backend_dst}")
-    print(f"\n📄 Созданные файлы деревьев:")
-    print(f"   - frontend_copy_part1_tree.md")
-    print(f"   - frontend_copy_part2_tree.md")
-    print(f"   - frontend_copy_tree.md (объединенное)")
-    print(f"   - backend_copy_tree.md")
+    print(f"\n📄 Созданные файлы деревьев в директории {copy_dir}:")
+    print(f"   - frontend_part1_tree.md")
+    print(f"   - frontend_part2_tree.md")
+    print(f"   - frontend_tree.md (объединенное)")
+    print(f"   - backend_tree.md")
 
 if __name__ == "__main__":
     main()

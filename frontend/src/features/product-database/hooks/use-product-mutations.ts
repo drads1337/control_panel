@@ -6,8 +6,8 @@ import {
   deleteProduct,
   bulkDeleteProducts,
 } from '@/entities/product';
-import { useAuth } from '@/lib/hooks';
-import { useMutationWithCache } from '@/lib/hooks';
+import { useAuth } from '@/shared/hooks';
+import { useMutationWithCache } from '@/shared/hooks';
 import { toast } from 'sonner';
 import { productKeys } from './product-keys';
 import type { Product } from '@/entities/product';
