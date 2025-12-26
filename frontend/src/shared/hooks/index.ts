@@ -38,15 +38,12 @@ export { usePerformanceDetection } from './use-performance-detection'
 export { useApiMetrics, apiMetricsKeys } from './use-api-metrics'
 
 // UI utilities
-export { usePageConfig } from './use-page-config'
 export { useCustomColor } from './use-custom-color'
 export type { CustomColor } from './use-custom-color'
 export { useCustomNotifications } from './use-custom-notifications'
 export type { CustomNotification } from './use-custom-notifications'
 export { useToast } from './use-toast'
 export type { ToastType, Toast } from './use-toast'
-export { useControlledState } from './use-controlled-state'
-export { useAutoHeight } from './use-auto-height'
 export { useColors } from './use-colors'
 export { useMetaColor, META_THEME_COLORS } from './use-meta-color'
 
@@ -54,9 +51,6 @@ export { useMetaColor, META_THEME_COLORS } from './use-meta-color'
 export { useTasks, useTask } from './use-tasks'
 export type { UseTasksOptions } from './use-tasks'
 export type { Task } from '@/entities/task'
-
-// Layout
-export { useLayout, LayoutProvider } from './use-layout'
 
 // Other utilities
 export { useConfig } from './use-config'

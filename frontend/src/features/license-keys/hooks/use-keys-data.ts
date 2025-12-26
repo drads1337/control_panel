@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
 import { useKeysQuery, keyKeys } from '@/entities/key';
 import { getProducts } from '@/entities/product';
-import { productKeys } from '@/features/product-database/hooks/product-keys';
+import { productKeys } from '@/features/product-management/hooks/product-keys';
 
 interface UseKeysDataParams {
   viewMode: 'my' | 'all';

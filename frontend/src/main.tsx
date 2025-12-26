@@ -1,27 +1,13 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
 import App from './App'
 import './index.css'
-import { initSentry } from './shared/lib/sentry-config'
 
-initSentry().catch((error) => {
-
-})
-
-// StrictMode disabled in production to avoid double renders and improve performance
-const AppRoot = (
-  <BrowserRouter>
-    <App />
-  </BrowserRouter>
-)
-
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  import.meta.env.DEV ? (
-    <React.StrictMode>
-      {AppRoot}
-    </React.StrictMode>
-  ) : (
-    AppRoot
-  ),
-)
+const rootElement = document.getElementById('root')
+if (rootElement) {
+  createRoot(rootElement).render(
+    <StrictMode>
+      <App />
+    </StrictMode>
+  )
+}
