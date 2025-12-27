@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { clearCsrfToken } from '@/lib/csrf'
+import { clearCsrfToken } from '@/shared/lib/csrf'
 import { registerAuthErrorHandler } from '@/shared/api/auth-error-handler'
 
 interface UseAuthErrorsParams {

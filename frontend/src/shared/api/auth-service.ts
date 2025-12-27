@@ -179,14 +179,43 @@ export class AuthService {
   }> {
 
     try {
+      console.log('[AUTH-SERVICE] POST /api/auth/login', { username, hasPassword: !!password })
       const response = await api.post(API_ENDPOINTS.LOGIN, { username, password }, {
         timeout: 5000,
         signal: abortController?.signal
+      })
+      console.log('[AUTH-SERVICE] Login response received', { 
+        status: response.status,
+        login_success: response.data?.login_success 
       })
       return response.data
     } catch (error: unknown) {
       const { getErrorStatus, isAxiosError } = await import('@/shared/lib/utils/error-utils')
       const status = getErrorStatus(error)
+      
+      console.error('[AUTH-SERVICE] Login request failed', {
+        status,
+        isAxiosError: isAxiosError(error),
+        errorMessage: error instanceof Error ? error.message : String(error)
+      })
+      
+      // Handle rate limiting (429) with user-friendly message
+      if (status === 429) {
+        const retryAfter = isAxiosError(error) && error.response?.headers?.['retry-after'] 
+          ? parseInt(error.response.headers['retry-after'], 10) 
+          : null
+        
+        console.warn('[AUTH-SERVICE] Rate limit exceeded (429)', { retryAfter })
+        
+        const message = retryAfter
+          ? `Too many login attempts. Please wait ${retryAfter} seconds before trying again.`
+          : 'Too many login attempts. Please wait a moment before trying again.'
+        
+        const rateLimitError = new Error(message)
+        ;(rateLimitError as any).status = 429
+        ;(rateLimitError as any).response = isAxiosError(error) ? error.response : undefined
+        throw rateLimitError
+      }
       
       if (isAxiosError(error) && error.response?.data && typeof error.response.data === 'object') {
         const errorData = error.response.data as { error_code?: string; error?: string }
@@ -196,16 +225,20 @@ export class AuthService {
       }
       
       if (status !== 401 && status !== 403) {
+        console.error('[AUTH-SERVICE] Non-auth error, throwing', { status })
         throw error
       }
 
+      console.log('[AUTH-SERVICE] Trying classic connect endpoint as fallback')
       try {
         const response = await api.post(API_ENDPOINTS.CLASSIC_CONNECT, { username, password }, {
           timeout: 5000,
           signal: abortController?.signal
         })
+        console.log('[AUTH-SERVICE] Classic connect successful', { status: response.status })
         return response.data
       } catch (connectError: unknown) {
+        console.error('[AUTH-SERVICE] Classic connect also failed', connectError)
         if (isAxiosError(connectError) && connectError.response?.data && typeof connectError.response.data === 'object') {
           const errorData = connectError.response.data as { msg?: string; error?: string }
           throw new Error(errorData.msg || errorData.error || 'Login failed')
@@ -218,30 +251,47 @@ export class AuthService {
   async getFullUserData(
     abortController?: AbortController
   ): Promise<User | null> {
+    console.log('[AUTH-SERVICE] getFullUserData called')
 
     const cached = getUserFromMemoryCache()
     if (cached) {
-
+      console.log('[AUTH-SERVICE] Using cached user data', { userId: cached.id })
       return cached
     }
 
     try {
+      console.log('[AUTH-SERVICE] GET /api/users/me')
       const response = await api.get(API_ENDPOINTS.ME, {
         timeout: 3000,
         signal: abortController?.signal
+      })
+      console.log('[AUTH-SERVICE] User data response received', { 
+        status: response.status,
+        userId: response.data?.id 
       })
 
       if (!abortController?.signal.aborted) {
         const userData = response.data
 
         saveUserToMemoryCache(userData)
+        console.log('[AUTH-SERVICE] User data saved to cache', { userId: userData?.id })
         return userData
+      } else {
+        console.warn('[AUTH-SERVICE] Request aborted, not saving user data')
       }
     } catch (error: unknown) {
       if (error instanceof Error && error.name !== 'AbortError' && error.name !== 'CanceledError') {
+        console.error('[AUTH-SERVICE] Error fetching user data', {
+          errorName: error.name,
+          errorMessage: error.message,
+          status: (error as any)?.response?.status
+        })
+      } else {
+        console.log('[AUTH-SERVICE] Request aborted/canceled')
       }
     }
 
+    console.warn('[AUTH-SERVICE] Returning null - user data not available')
     return null
   }
 

@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { useAuthContext } from '@/app/providers/auth-provider'
 import { enhancedApi as api } from '@/shared/api/enhanced-client'
+import { createQueryRetry } from '@/shared/lib/query-retry-utils'
+import { getErrorMessage } from '@/shared/api/api-error-types'
 
 export interface LoadStatusData {
   overall_status: 'normal' | 'warning' | 'critical'
@@ -65,20 +67,18 @@ export function useLoadStatus(): UseLoadStatusReturn {
     staleTime: 30 * 1000, // 30 seconds - load status updates frequently
     gcTime: 2 * 60 * 1000,
     refetchInterval: 30 * 1000, // Auto-refresh every 30 seconds
-    retry: (failureCount, error: any) => {
-      if (error?.response?.status === 401 || error?.response?.status === 403) {
-        return false
-      }
-      return failureCount < 2
-    },
+    // Use standardized retry logic that doesn't retry on 429 errors
+    retry: createQueryRetry({ 
+      maxRetries: 2, 
+      maxRetriesRateLimit: 0, // Don't retry rate limit errors
+      retryPaymentErrors: false 
+    }),
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   })
 
   const errorMessage = error
-    ? (error as any)?.response?.data?.error || 
-      (error as any)?.message || 
-      'Failed to load load status'
+    ? getErrorMessage(error) || 'Failed to load load status'
     : null
 
 

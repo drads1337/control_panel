@@ -26,6 +26,14 @@ export function useAuthRedirect(params: UseAuthRedirectParams) {
   }, [navigate])
 
   useEffect(() => {
+    console.log('[AUTH-REDIRECT] Effect triggered', {
+      isInitialized,
+      isLoading,
+      isAuthenticated,
+      hasUser: !!user,
+      userId: user?.id,
+      currentPath: window.location.pathname
+    })
 
     if (redirectTimeoutRef.current) {
       clearTimeout(redirectTimeoutRef.current)
@@ -33,6 +41,10 @@ export function useAuthRedirect(params: UseAuthRedirectParams) {
     }
 
     if (!isInitialized || isLoading) {
+      console.log('[AUTH-REDIRECT] Skipping redirect - not ready', {
+        isInitialized,
+        isLoading
+      })
       return
     }
 
@@ -40,15 +52,56 @@ export function useAuthRedirect(params: UseAuthRedirectParams) {
       return
     }
 
+    // For authenticated users, redirect immediately without delay
+    if (isAuthenticated && user && (window.location.pathname === '/login' || window.location.pathname === '/signup' || window.location.pathname === '/')) {
+      const currentPath = window.location.pathname
+      console.log('[AUTH-REDIRECT] Immediate redirect for authenticated user', {
+        currentPath,
+        userId: user.id,
+        hasNavigation: !!navigation
+      })
+      
+      // Don't wait for navigation to load - use fallback immediately
+      // Navigation can load in background, but we should redirect user right away
+      // This prevents rate limiting issues from blocking the redirect
+      const navigationItems = navigation?.navigation || []
+      const targetPage = navigationItems.length > 0
+        ? getFirstAvailablePageFromNavigation(navigationItems, user)
+        : '/dashboard'
+      
+      console.log('[AUTH-REDIRECT] Redirecting authenticated user', {
+        from: currentPath,
+        to: targetPage,
+        navigationItemsCount: navigationItems.length
+      })
+      
+      navigateRef.current(targetPage)
+      return
+    }
+
     redirectTimeoutRef.current = setTimeout(() => {
       const currentPath = window.location.pathname
+      console.log('[AUTH-REDIRECT] Checking redirect', {
+        currentPath,
+        isAuthenticated,
+        hasUser: !!user,
+        userId: user?.id,
+        hasNavigation: !!navigation
+      })
 
-      if (isAuthenticated && user && (currentPath === '/login' || currentPath === '/signup')) {
-
+      // Redirect authenticated users away from login/signup pages or root path (fallback check)
+      if (isAuthenticated && user && (currentPath === '/login' || currentPath === '/signup' || currentPath === '/')) {
         const navigationItems = navigation?.navigation || []
         const targetPage = navigationItems.length > 0
           ? getFirstAvailablePageFromNavigation(navigationItems, user)
-          : '/profile'
+          : '/dashboard'
+        
+        console.log('[AUTH-REDIRECT] Redirecting authenticated user (delayed)', {
+          from: currentPath,
+          to: targetPage,
+          navigationItemsCount: navigationItems.length
+        })
+        
         navigateRef.current(targetPage)
         return
       }
@@ -57,11 +110,12 @@ export function useAuthRedirect(params: UseAuthRedirectParams) {
       // на восстановление сессии при перезагрузке страницы
       // Проверяем только если действительно нет пользователя и мы не на страницах входа
       if (!isAuthenticated && !user && currentPath !== '/login' && currentPath !== '/signup') {
+        console.log('[AUTH-REDIRECT] Redirecting unauthenticated user to login', { from: currentPath })
         // Делаем редирект только если действительно нет пользователя
         // use-auth-init должен успеть восстановить сессию за это время
         navigateRef.current('/login')
       }
-    }, 1000) // Увеличиваем задержку до 1 секунды, чтобы дать время на восстановление сессии
+    }, 500) // Reduced delay to 500ms - navigation query should not block redirect
 
     return () => {
       if (redirectTimeoutRef.current) {

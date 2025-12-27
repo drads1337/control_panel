@@ -1,6 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
-import { useAuthContext } from '@/app/providers/auth-provider'
+import { useEffect, useRef } from 'react'
+import { useAuth } from '@/shared/hooks/use-auth'
 import { getDashboardStats, type DashboardData } from '@/entities/dashboard'
+import { createQueryRetry } from '@/shared/lib/query-retry-utils'
+import { getErrorMessage } from '@/shared/api/api-error-types'
 
 export type { DashboardData }
 
@@ -17,7 +20,28 @@ export interface UseDashboardStatsReturn {
 }
 
 export function useDashboardStats(): UseDashboardStatsReturn {
-  const { isAuthenticated, user } = useAuthContext()
+  const { isAuthenticated, user } = useAuth()
+  const justAuthenticatedRef = useRef(false)
+  const initialDelayRef = useRef(false)
+
+  // Track when user becomes authenticated to add initial delay
+  useEffect(() => {
+    if (isAuthenticated && user?.id && !justAuthenticatedRef.current) {
+      console.log('[DASHBOARD-STATS] User authenticated, setting initial delay', { userId: user.id })
+      justAuthenticatedRef.current = true
+      // Set a flag to delay the first query after login
+      initialDelayRef.current = true
+      // Reset after delay
+      setTimeout(() => {
+        console.log('[DASHBOARD-STATS] Initial delay expired, enabling query')
+        initialDelayRef.current = false
+      }, 2000) // 2 second delay after login to avoid rate limiting
+    } else if (!isAuthenticated) {
+      console.log('[DASHBOARD-STATS] User not authenticated, resetting flags')
+      justAuthenticatedRef.current = false
+      initialDelayRef.current = false
+    }
+  }, [isAuthenticated, user?.id])
 
   const {
     data,
@@ -27,36 +51,35 @@ export function useDashboardStats(): UseDashboardStatsReturn {
   } = useQuery({
     queryKey: dashboardKeys.stats(),
     queryFn: async () => {
-
-      const data = await getDashboardStats()
-
-      return data
-    },
-    enabled: isAuthenticated && !!user?.id,
-    staleTime: 2 * 60 * 1000,
-    gcTime: 5 * 60 * 1000,
-    retry: (failureCount, error: any) => {
-
-      if (error?.response?.status === 401 || 
-          error?.response?.status === 403 || 
-          error?.response?.status === 410) {
-        return false
+      console.log('[DASHBOARD-STATS] Fetching dashboard stats')
+      try {
+        const data = await getDashboardStats()
+        console.log('[DASHBOARD-STATS] Dashboard stats fetched successfully')
+        return data
+      } catch (err) {
+        console.error('[DASHBOARD-STATS] Error fetching dashboard stats', err)
+        throw err
       }
-
-      if (error?.response?.status === 429) {
-        return false
-      }
-
-      return failureCount < 2
     },
+    // Add delay after login to avoid rate limiting conflicts with other requests
+    enabled: isAuthenticated && !!user?.id && !initialDelayRef.current,
+    // Increased staleTime to reduce unnecessary refetches and prevent rate limiting
+    staleTime: 5 * 60 * 1000, // 5 minutes (increased from 2 minutes)
+    gcTime: 10 * 60 * 1000, // 10 minutes (increased from 5 minutes)
+    // Use standardized retry logic that doesn't retry on 429 errors
+    retry: createQueryRetry({ 
+      maxRetries: 2, 
+      maxRetriesRateLimit: 0, // Don't retry rate limit errors
+      retryPaymentErrors: false 
+    }),
     refetchOnWindowFocus: false,
-    refetchOnReconnect: true,
+    // Disable refetch on reconnect to prevent rate limit issues
+    // Users can manually refresh if needed
+    refetchOnReconnect: false,
   })
 
   const errorMessage = error
-    ? (error as any)?.response?.data?.message || 
-      (error as any)?.message || 
-      'Failed to load dashboard data'
+    ? getErrorMessage(error) || 'Failed to load dashboard data'
     : null
 
   return {
