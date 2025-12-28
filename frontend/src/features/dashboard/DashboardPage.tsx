@@ -218,7 +218,7 @@ export default function Dashboard01Block() {
   return (
     <div className="flex flex-1 flex-col">
       <div className="@container/main flex flex-1 flex-col gap-2">
-        <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+        <div className="flex flex-col gap-3 py-3 md:gap-4 md:py-4">
           <SectionCards />
           <div className="px-4 lg:px-6">
             <ChartAreaInteractive />
@@ -230,28 +230,26 @@ export default function Dashboard01Block() {
   )
 }
 
-
 function SectionCards() {
   return (
-    <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
+    <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-3 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
       <Card className="@container/card">
-        <CardHeader>
-          <CardDescription>Total Revenue</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+        <CardHeader className="pb-3">
+          <CardDescription className="text-xs">Total Revenue</CardDescription>
+          <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
             $1,250.00
           </CardTitle>
           <CardAction>
-            <Badge variant="outline">
-              <TrendingUpIcon
-              />
+            <Badge variant="outline" className="text-xs h-5 px-1.5">
+              <TrendingUpIcon className="size-3" />
               +12.5%
             </Badge>
           </CardAction>
         </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
+        <CardFooter className="flex-col items-start gap-1 text-xs pt-2">
+          <div className="line-clamp-1 flex gap-1.5 font-medium">
             Trending up this month{" "}
-            <TrendingUpIcon className="size-4" />
+            <TrendingUpIcon className="size-3" />
           </div>
           <div className="text-muted-foreground">
             Visitors for the last 6 months
@@ -259,23 +257,22 @@ function SectionCards() {
         </CardFooter>
       </Card>
       <Card className="@container/card">
-        <CardHeader>
-          <CardDescription>New Customers</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+        <CardHeader className="pb-3">
+          <CardDescription className="text-xs">New Customers</CardDescription>
+          <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
             1,234
           </CardTitle>
           <CardAction>
-            <Badge variant="outline">
-              <TrendingDownIcon
-              />
+            <Badge variant="outline" className="text-xs h-5 px-1.5">
+              <TrendingDownIcon className="size-3" />
               -20%
             </Badge>
           </CardAction>
         </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
+        <CardFooter className="flex-col items-start gap-1 text-xs pt-2">
+          <div className="line-clamp-1 flex gap-1.5 font-medium">
             Down 20% this period{" "}
-            <TrendingDownIcon className="size-4" />
+            <TrendingDownIcon className="size-3" />
           </div>
           <div className="text-muted-foreground">
             Acquisition needs attention
@@ -283,45 +280,43 @@ function SectionCards() {
         </CardFooter>
       </Card>
       <Card className="@container/card">
-        <CardHeader>
-          <CardDescription>Active Accounts</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+        <CardHeader className="pb-3">
+          <CardDescription className="text-xs">Active Accounts</CardDescription>
+          <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
             45,678
           </CardTitle>
           <CardAction>
-            <Badge variant="outline">
-              <TrendingUpIcon
-              />
+            <Badge variant="outline" className="text-xs h-5 px-1.5">
+              <TrendingUpIcon className="size-3" />
               +12.5%
             </Badge>
           </CardAction>
         </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
+        <CardFooter className="flex-col items-start gap-1 text-xs pt-2">
+          <div className="line-clamp-1 flex gap-1.5 font-medium">
             Strong user retention{" "}
-            <TrendingUpIcon className="size-4" />
+            <TrendingUpIcon className="size-3" />
           </div>
           <div className="text-muted-foreground">Engagement exceed targets</div>
         </CardFooter>
       </Card>
       <Card className="@container/card">
-        <CardHeader>
-          <CardDescription>Growth Rate</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+        <CardHeader className="pb-3">
+          <CardDescription className="text-xs">Growth Rate</CardDescription>
+          <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
             4.5%
           </CardTitle>
           <CardAction>
-            <Badge variant="outline">
-              <TrendingUpIcon
-              />
+            <Badge variant="outline" className="text-xs h-5 px-1.5">
+              <TrendingUpIcon className="size-3" />
               +4.5%
             </Badge>
           </CardAction>
         </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
+        <CardFooter className="flex-col items-start gap-1 text-xs pt-2">
+          <div className="line-clamp-1 flex gap-1.5 font-medium">
             Steady performance increase{" "}
-            <TrendingUpIcon className="size-4" />
+            <TrendingUpIcon className="size-3" />
           </div>
           <div className="text-muted-foreground">Meets growth projections</div>
         </CardFooter>
@@ -367,7 +362,7 @@ function ChartAreaInteractive() {
               }
             }}
             variant="outline"
-            className="hidden *:data-[slot=toggle-group-item]:!px-4 @[767px]/card:flex"
+            className="hidden *:data-[slot=toggle-group-item]:!px-3 *:data-[slot=toggle-group-item]:!text-xs *:data-[slot=toggle-group-item]:!h-7 @[767px]/card:flex"
           >
             <ToggleGroupItem value="90d">Last 3 months</ToggleGroupItem>
             <ToggleGroupItem value="30d">Last 30 days</ToggleGroupItem>
@@ -382,30 +377,30 @@ function ChartAreaInteractive() {
             }}
           >
             <SelectTrigger
-              className="flex w-40 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate @[767px]/card:hidden"
+              className="flex w-32 h-7 text-xs **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate @[767px]/card:hidden"
               size="sm"
               aria-label="Select a value"
             >
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="rounded-xl">
-              <SelectItem value="90d" className="rounded-lg">
+            <SelectContent className="rounded-xl text-xs">
+              <SelectItem value="90d" className="rounded-lg text-xs">
                 Last 3 months
               </SelectItem>
-              <SelectItem value="30d" className="rounded-lg">
+              <SelectItem value="30d" className="rounded-lg text-xs">
                 Last 30 days
               </SelectItem>
-              <SelectItem value="7d" className="rounded-lg">
+              <SelectItem value="7d" className="rounded-lg text-xs">
                 Last 7 days
               </SelectItem>
             </SelectContent>
           </Select>
         </CardAction>
       </CardHeader>
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
+      <CardContent className="px-2 pt-3 sm:px-6 sm:pt-4">
         <ChartContainer
           config={chartConfig}
-          className="aspect-auto h-[250px] w-full"
+          className="aspect-auto h-[200px] w-full"
         >
           <AreaChart data={filteredData}>
             <defs>
@@ -495,9 +490,9 @@ function DragHandle({ id }: { id: number }) {
       {...listeners}
       variant="ghost"
       size="icon"
-      className="text-muted-foreground size-7 hover:bg-transparent"
+      className="text-muted-foreground size-6 hover:bg-transparent"
     >
-      <GripVerticalIcon className="text-muted-foreground size-3" />
+      <GripVerticalIcon className="text-muted-foreground size-2.5" />
       <span className="sr-only">Drag to reorder</span>
     </Button>
   )
@@ -549,7 +544,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     header: "Section Type",
     cell: ({ row }) => (
       <div className="w-32">
-        <Badge variant="outline" className="text-muted-foreground px-1.5">
+        <Badge variant="outline" className="text-muted-foreground px-1.5 text-xs h-5">
           {row.original.type}
         </Badge>
       </div>
@@ -559,12 +554,11 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     accessorKey: "status",
     header: "Status",
     cell: ({ row }) => (
-      <Badge variant="outline" className="text-muted-foreground px-1.5">
+      <Badge variant="outline" className="text-muted-foreground px-1.5 text-xs h-5">
         {row.original.status === "Done" ? (
-          <CheckCircle2Icon className="fill-green-500 dark:fill-green-400" />
+          <CheckCircle2Icon className="fill-green-500 dark:fill-green-400 size-3" />
         ) : (
-          <LoaderIcon
-          />
+          <LoaderIcon className="size-3" />
         )}
         {row.original.status}
       </Badge>
@@ -583,7 +577,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
           Target
         </Label>
         <Input
-          className="hover:bg-input/30 focus-visible:bg-background dark:hover:bg-input/30 dark:focus-visible:bg-input/30 h-8 w-16 border-transparent bg-transparent text-right shadow-none focus-visible:border dark:bg-transparent"
+          className="hover:bg-input/30 focus-visible:bg-background dark:hover:bg-input/30 dark:focus-visible:bg-input/30 h-7 w-14 text-xs border-transparent bg-transparent text-right shadow-none focus-visible:border dark:bg-transparent"
           defaultValue={row.original.target}
           id={`${row.original.id}-target`}
         />
@@ -603,7 +597,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
           Limit
         </Label>
         <Input
-          className="hover:bg-input/30 focus-visible:bg-background dark:hover:bg-input/30 dark:focus-visible:bg-input/30 h-8 w-16 border-transparent bg-transparent text-right shadow-none focus-visible:border dark:bg-transparent"
+          className="hover:bg-input/30 focus-visible:bg-background dark:hover:bg-input/30 dark:focus-visible:bg-input/30 h-7 w-14 text-xs border-transparent bg-transparent text-right shadow-none focus-visible:border dark:bg-transparent"
           defaultValue={row.original.limit}
           id={`${row.original.id}-limit`}
         />
@@ -627,15 +621,15 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
           </Label>
           <Select>
             <SelectTrigger
-              className="w-38 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate"
+              className="w-32 h-7 text-xs **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate"
               size="sm"
               id={`${row.original.id}-reviewer`}
             >
               <SelectValue />
             </SelectTrigger>
-            <SelectContent align="end">
-              <SelectItem value="Eddie Lake">Eddie Lake</SelectItem>
-              <SelectItem value="Jamik Tashpulatov">
+            <SelectContent align="end" className="text-xs">
+              <SelectItem value="Eddie Lake" className="text-xs">Eddie Lake</SelectItem>
+              <SelectItem value="Jamik Tashpulatov" className="text-xs">
                 Jamik Tashpulatov
               </SelectItem>
             </SelectContent>
@@ -648,25 +642,22 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     id: "actions",
     cell: () => (
       <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              variant="ghost"
-              className="data-[state=open]:bg-muted text-muted-foreground flex size-8"
-              size="icon"
-            />
-          }
-        >
-          <MoreVerticalIcon
-          />
-          <span className="sr-only">Open menu</span>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            className="data-[state=open]:bg-muted text-muted-foreground flex size-7"
+            size="icon"
+          >
+            <MoreVerticalIcon className="size-3.5" />
+            <span className="sr-only">Open menu</span>
+          </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-32">
-          <DropdownMenuItem>Edit</DropdownMenuItem>
-          <DropdownMenuItem>Make a copy</DropdownMenuItem>
-          <DropdownMenuItem>Favorite</DropdownMenuItem>
+        <DropdownMenuContent align="end" className="w-32 text-xs">
+          <DropdownMenuItem className="text-xs">Edit</DropdownMenuItem>
+          <DropdownMenuItem className="text-xs">Make a copy</DropdownMenuItem>
+          <DropdownMenuItem className="text-xs">Favorite</DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive">Delete</DropdownMenuItem>
+          <DropdownMenuItem variant="destructive" className="text-xs">Delete</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     ),
@@ -683,14 +674,14 @@ function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
       data-state={row.getIsSelected() && "selected"}
       data-dragging={isDragging}
       ref={setNodeRef}
-      className="relative z-0 data-[dragging=true]:z-10 data-[dragging=true]:opacity-80"
+      className="relative z-0 h-9 data-[dragging=true]:z-10 data-[dragging=true]:opacity-80"
       style={{
         transform: CSS.Transform.toString(transform),
         transition: transition,
       }}
     >
       {row.getVisibleCells().map((cell) => (
-        <TableCell key={cell.id}>
+        <TableCell key={cell.id} className="text-xs py-1.5">
           {flexRender(cell.column.columnDef.cell, cell.getContext())}
         </TableCell>
       ))}
@@ -759,7 +750,7 @@ function DataTable({ data: initialData }: { data: z.infer<typeof schema>[] }) {
   return (
     <Tabs
       defaultValue="outline"
-      className="w-full flex-col justify-start gap-6"
+      className="w-full flex-col justify-start gap-4"
     >
       <div className="flex items-center justify-between px-4 lg:px-6">
         <Label htmlFor="view-selector" className="sr-only">
@@ -767,20 +758,20 @@ function DataTable({ data: initialData }: { data: z.infer<typeof schema>[] }) {
         </Label>
         <Select defaultValue="outline">
           <SelectTrigger
-            className="flex w-fit @4xl/main:hidden"
+            className="flex w-fit h-7 text-xs @4xl/main:hidden"
             size="sm"
             id="view-selector"
           >
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="outline">Outline</SelectItem>
-            <SelectItem value="past-performance">Past Performance</SelectItem>
-            <SelectItem value="key-personnel">Key Personnel</SelectItem>
-            <SelectItem value="focus-documents">Focus Documents</SelectItem>
+          <SelectContent className="text-xs">
+            <SelectItem value="outline" className="text-xs">Outline</SelectItem>
+            <SelectItem value="past-performance" className="text-xs">Past Performance</SelectItem>
+            <SelectItem value="key-personnel" className="text-xs">Key Personnel</SelectItem>
+            <SelectItem value="focus-documents" className="text-xs">Focus Documents</SelectItem>
           </SelectContent>
         </Select>
-        <TabsList className="**:data-[slot=badge]:bg-muted-foreground/30 hidden **:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:px-1 @4xl/main:flex">
+        <TabsList className="**:data-[slot=badge]:bg-muted-foreground/30 hidden h-8 **:data-[slot=badge]:size-4 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:px-1 **:data-[slot=tabs-trigger]:text-xs @4xl/main:flex">
           <TabsTrigger value="outline">Outline</TabsTrigger>
           <TabsTrigger value="past-performance">
             Past Performance <Badge variant="secondary">3</Badge>
@@ -792,15 +783,14 @@ function DataTable({ data: initialData }: { data: z.infer<typeof schema>[] }) {
         </TabsList>
         <div className="flex items-center gap-2">
           <DropdownMenu>
-            <DropdownMenuTrigger
-              render={<Button variant="outline" size="sm" />}
-            >
-              <span className="hidden lg:inline">Customize Columns</span>
-              <span className="lg:hidden">Columns</span>
-              <ChevronDownIcon
-              />
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-7 text-xs">
+                <span className="hidden lg:inline">Customize Columns</span>
+                <span className="lg:hidden">Columns</span>
+                <ChevronDownIcon className="size-3" />
+              </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent align="end" className="w-56 text-xs">
               {table
                 .getAllColumns()
                 .filter(
@@ -812,7 +802,7 @@ function DataTable({ data: initialData }: { data: z.infer<typeof schema>[] }) {
                   return (
                     <DropdownMenuCheckboxItem
                       key={column.id}
-                      className="capitalize"
+                      className="capitalize text-xs"
                       checked={column.getIsVisible()}
                       onCheckedChange={(value) =>
                         column.toggleVisibility(!!value)
@@ -824,16 +814,15 @@ function DataTable({ data: initialData }: { data: z.infer<typeof schema>[] }) {
                 })}
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button variant="outline" size="sm">
-            <PlusIcon
-            />
+          <Button variant="outline" size="sm" className="h-7 text-xs">
+            <PlusIcon className="size-3" />
             <span className="hidden lg:inline">Add Section</span>
           </Button>
         </div>
       </div>
       <TabsContent
         value="outline"
-        className="relative flex flex-col gap-4 overflow-auto px-4 lg:px-6"
+        className="relative flex flex-col gap-3 overflow-auto px-4 lg:px-6"
       >
         <div className="overflow-hidden rounded-lg border">
           <DndContext
@@ -846,10 +835,10 @@ function DataTable({ data: initialData }: { data: z.infer<typeof schema>[] }) {
             <Table>
               <TableHeader className="bg-muted sticky top-0 z-10">
                 {table.getHeaderGroups().map((headerGroup) => (
-                  <TableRow key={headerGroup.id}>
+                  <TableRow key={headerGroup.id} className="h-9">
                     {headerGroup.headers.map((header) => {
                       return (
-                        <TableHead key={header.id} colSpan={header.colSpan}>
+                        <TableHead key={header.id} colSpan={header.colSpan} className="text-xs py-2">
                           {header.isPlaceholder
                             ? null
                             : flexRender(
@@ -887,13 +876,13 @@ function DataTable({ data: initialData }: { data: z.infer<typeof schema>[] }) {
           </DndContext>
         </div>
         <div className="flex items-center justify-between px-4">
-          <div className="text-muted-foreground hidden flex-1 text-sm lg:flex">
+          <div className="text-muted-foreground hidden flex-1 text-xs lg:flex">
             {table.getFilteredSelectedRowModel().rows.length} of{" "}
             {table.getFilteredRowModel().rows.length} row(s) selected.
           </div>
           <div className="flex w-full items-center gap-8 lg:w-fit">
             <div className="hidden items-center gap-2 lg:flex">
-              <Label htmlFor="rows-per-page" className="text-sm font-medium">
+              <Label htmlFor="rows-per-page" className="text-xs font-medium">
                 Rows per page
               </Label>
               <Select
@@ -902,65 +891,61 @@ function DataTable({ data: initialData }: { data: z.infer<typeof schema>[] }) {
                   table.setPageSize(Number(value))
                 }}
               >
-                <SelectTrigger size="sm" className="w-20" id="rows-per-page">
+                <SelectTrigger size="sm" className="w-20 h-7 text-xs" id="rows-per-page">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent side="top">
+                <SelectContent side="top" className="text-xs">
                   {[10, 20, 30, 40, 50].map((pageSize) => (
-                    <SelectItem key={pageSize} value={`${pageSize}`}>
+                    <SelectItem key={pageSize} value={`${pageSize}`} className="text-xs">
                       {pageSize}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex w-fit items-center justify-center text-sm font-medium">
+            <div className="flex w-fit items-center justify-center text-xs font-medium">
               Page {table.getState().pagination.pageIndex + 1} of{" "}
               {table.getPageCount()}
             </div>
             <div className="ml-auto flex items-center gap-2 lg:ml-0">
               <Button
                 variant="outline"
-                className="hidden h-8 w-8 p-0 lg:flex"
+                className="hidden h-7 w-7 p-0 lg:flex"
                 onClick={() => table.setPageIndex(0)}
                 disabled={!table.getCanPreviousPage()}
               >
                 <span className="sr-only">Go to first page</span>
-                <ChevronsLeftIcon
-                />
+                <ChevronsLeftIcon className="size-3" />
               </Button>
               <Button
                 variant="outline"
-                className="size-8"
+                className="size-7"
                 size="icon"
                 onClick={() => table.previousPage()}
                 disabled={!table.getCanPreviousPage()}
               >
                 <span className="sr-only">Go to previous page</span>
-                <ChevronLeftIcon
-                />
+                <ChevronLeftIcon className="size-3" />
               </Button>
               <Button
                 variant="outline"
-                className="size-8"
+                className="size-7"
                 size="icon"
                 onClick={() => table.nextPage()}
                 disabled={!table.getCanNextPage()}
               >
                 <span className="sr-only">Go to next page</span>
-                <ChevronRightIcon
-                />
+                <ChevronRightIcon className="size-3" />
               </Button>
               <Button
                 variant="outline"
-                className="hidden size-8 lg:flex"
+                className="hidden size-7 lg:flex"
                 size="icon"
                 onClick={() => table.setPageIndex(table.getPageCount() - 1)}
                 disabled={!table.getCanNextPage()}
               >
                 <span className="sr-only">Go to last page</span>
-                <ChevronsRightIcon
-                />
+                <ChevronsRightIcon className="size-3" />
               </Button>
             </div>
           </div>
@@ -989,7 +974,7 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
   return (
     <Drawer direction="right">
       <DrawerTrigger asChild>
-        <Button variant="link" className="text-foreground w-fit px-0 text-left">
+        <Button variant="link" className="text-foreground w-fit px-0 text-left text-sm h-auto py-1">
           {item.header}
         </Button>
       </DrawerTrigger>
@@ -1043,9 +1028,9 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
           </ChartContainer>
           <Separator />
           <div className="grid gap-2">
-            <div className="flex gap-2 leading-none font-medium">
+            <div className="flex gap-1.5 leading-none font-medium text-sm">
               Trending up by 5.2% this month{" "}
-              <TrendingUpIcon className="size-4" />
+              <TrendingUpIcon className="size-3" />
             </div>
             <div className="text-muted-foreground">
               Showing total visitors for the last 6 months. This is just some
@@ -1054,83 +1039,83 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
             </div>
           </div>
           <Separator />
-          <form className="flex flex-col gap-4">
-            <div className="flex flex-col gap-3">
-              <Label htmlFor="header">Header</Label>
-              <Input id="header" defaultValue={item.header} />
+          <form className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="header" className="text-xs">Header</Label>
+              <Input id="header" defaultValue={item.header} className="h-7 text-xs" />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-3">
-                <Label htmlFor="type">Type</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="type" className="text-xs">Type</Label>
                 <Select defaultValue={item.type}>
-                  <SelectTrigger id="type" className="w-full">
+                  <SelectTrigger id="type" className="w-full h-7 text-xs">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Table of Contents">
+                  <SelectContent className="text-xs">
+                    <SelectItem value="Table of Contents" className="text-xs">
                       Table of Contents
                     </SelectItem>
-                    <SelectItem value="Executive Summary">
+                    <SelectItem value="Executive Summary" className="text-xs">
                       Executive Summary
                     </SelectItem>
-                    <SelectItem value="Technical Approach">
+                    <SelectItem value="Technical Approach" className="text-xs">
                       Technical Approach
                     </SelectItem>
-                    <SelectItem value="Design">Design</SelectItem>
-                    <SelectItem value="Capabilities">Capabilities</SelectItem>
-                    <SelectItem value="Focus Documents">
+                    <SelectItem value="Design" className="text-xs">Design</SelectItem>
+                    <SelectItem value="Capabilities" className="text-xs">Capabilities</SelectItem>
+                    <SelectItem value="Focus Documents" className="text-xs">
                       Focus Documents
                     </SelectItem>
-                    <SelectItem value="Narrative">Narrative</SelectItem>
-                    <SelectItem value="Cover Page">Cover Page</SelectItem>
+                    <SelectItem value="Narrative" className="text-xs">Narrative</SelectItem>
+                    <SelectItem value="Cover Page" className="text-xs">Cover Page</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex flex-col gap-3">
-                <Label htmlFor="status">Status</Label>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="status" className="text-xs">Status</Label>
                 <Select defaultValue={item.status}>
-                  <SelectTrigger id="status" className="w-full">
+                  <SelectTrigger id="status" className="w-full h-7 text-xs">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Done">Done</SelectItem>
-                    <SelectItem value="In Progress">In Progress</SelectItem>
-                    <SelectItem value="Not Started">Not Started</SelectItem>
+                  <SelectContent className="text-xs">
+                    <SelectItem value="Done" className="text-xs">Done</SelectItem>
+                    <SelectItem value="In Progress" className="text-xs">In Progress</SelectItem>
+                    <SelectItem value="Not Started" className="text-xs">Not Started</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-3">
-                <Label htmlFor="target">Target</Label>
-                <Input id="target" defaultValue={item.target} />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="target" className="text-xs">Target</Label>
+                <Input id="target" defaultValue={item.target} className="h-7 text-xs" />
               </div>
-              <div className="flex flex-col gap-3">
-                <Label htmlFor="limit">Limit</Label>
-                <Input id="limit" defaultValue={item.limit} />
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="limit" className="text-xs">Limit</Label>
+                <Input id="limit" defaultValue={item.limit} className="h-7 text-xs" />
               </div>
             </div>
-            <div className="flex flex-col gap-3">
-              <Label htmlFor="reviewer">Reviewer</Label>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="reviewer" className="text-xs">Reviewer</Label>
               <Select defaultValue={item.reviewer}>
-                <SelectTrigger id="reviewer" className="w-full">
+                <SelectTrigger id="reviewer" className="w-full h-7 text-xs">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Eddie Lake">Eddie Lake</SelectItem>
-                  <SelectItem value="Jamik Tashpulatov">
+                <SelectContent className="text-xs">
+                  <SelectItem value="Eddie Lake" className="text-xs">Eddie Lake</SelectItem>
+                  <SelectItem value="Jamik Tashpulatov" className="text-xs">
                     Jamik Tashpulatov
                   </SelectItem>
-                  <SelectItem value="Emily Whalen">Emily Whalen</SelectItem>
+                  <SelectItem value="Emily Whalen" className="text-xs">Emily Whalen</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </form>
         </div>
-        <DrawerFooter>
-          <Button>Submit</Button>
+        <DrawerFooter className="gap-2">
+          <Button size="sm" className="h-7 text-xs">Submit</Button>
           <DrawerClose asChild>
-            <Button variant="outline">Done</Button>
+            <Button variant="outline" size="sm" className="h-7 text-xs">Done</Button>
           </DrawerClose>
         </DrawerFooter>
       </DrawerContent>

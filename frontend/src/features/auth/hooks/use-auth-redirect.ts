@@ -11,6 +11,18 @@ interface UseAuthRedirectParams {
   user: User | null
 }
 
+// Список защищенных страниц, которые требуют аутентификации
+const PROTECTED_PAGES = [
+  '/dashboard',
+  '/management-page',
+  '/users',
+  '/remote-control',
+  '/security',
+  '/webhooks',
+  '/logs',
+  '/profile',
+]
+
 export function useAuthRedirect(params: UseAuthRedirectParams) {
   const { isInitialized, isLoading, isAuthenticated, user } = params
   const navigate = useNavigate()
@@ -40,6 +52,20 @@ export function useAuthRedirect(params: UseAuthRedirectParams) {
       redirectTimeoutRef.current = null
     }
 
+    const currentPath = window.location.pathname
+    const isProtectedPage = PROTECTED_PAGES.includes(currentPath)
+
+    // Если мы на защищенной странице и еще идет инициализация, не редиректим
+    // Это позволяет избежать редиректа на login во время восстановления сессии
+    if (isProtectedPage && (!isInitialized || isLoading)) {
+      console.log('[AUTH-REDIRECT] Skipping redirect - protected page, initialization in progress', {
+        isInitialized,
+        isLoading,
+        currentPath
+      })
+      return
+    }
+
     if (!isInitialized || isLoading) {
       console.log('[AUTH-REDIRECT] Skipping redirect - not ready', {
         isInitialized,
@@ -48,13 +74,8 @@ export function useAuthRedirect(params: UseAuthRedirectParams) {
       return
     }
 
-    if (window.location.pathname === '/management-page') {
-      return
-    }
-
     // For authenticated users, redirect immediately without delay
-    if (isAuthenticated && user && (window.location.pathname === '/login' || window.location.pathname === '/signup' || window.location.pathname === '/')) {
-      const currentPath = window.location.pathname
+    if (isAuthenticated && user && (currentPath === '/login' || currentPath === '/signup' || currentPath === '/')) {
       console.log('[AUTH-REDIRECT] Immediate redirect for authenticated user', {
         currentPath,
         userId: user.id,
@@ -81,12 +102,15 @@ export function useAuthRedirect(params: UseAuthRedirectParams) {
 
     redirectTimeoutRef.current = setTimeout(() => {
       const currentPath = window.location.pathname
+      const isProtectedPage = PROTECTED_PAGES.includes(currentPath)
+      
       console.log('[AUTH-REDIRECT] Checking redirect', {
         currentPath,
         isAuthenticated,
         hasUser: !!user,
         userId: user?.id,
-        hasNavigation: !!navigation
+        hasNavigation: !!navigation,
+        isProtectedPage
       })
 
       // Redirect authenticated users away from login/signup pages or root path (fallback check)
@@ -106,13 +130,12 @@ export function useAuthRedirect(params: UseAuthRedirectParams) {
         return
       }
 
-      // Увеличиваем задержку перед редиректом на /login, чтобы дать время
-      // на восстановление сессии при перезагрузке страницы
-      // Проверяем только если действительно нет пользователя и мы не на страницах входа
-      if (!isAuthenticated && !user && currentPath !== '/login' && currentPath !== '/signup') {
+      // Редиректим на login только если:
+      // 1. Пользователь не аутентифицирован
+      // 2. Мы на защищенной странице
+      // 3. Инициализация завершена (чтобы дать время на восстановление сессии)
+      if (!isAuthenticated && !user && isProtectedPage) {
         console.log('[AUTH-REDIRECT] Redirecting unauthenticated user to login', { from: currentPath })
-        // Делаем редирект только если действительно нет пользователя
-        // use-auth-init должен успеть восстановить сессию за это время
         navigateRef.current('/login')
       }
     }, 500) // Reduced delay to 500ms - navigation query should not block redirect

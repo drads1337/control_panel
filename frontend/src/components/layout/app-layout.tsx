@@ -1,5 +1,6 @@
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { SiteHeader } from "./site-header"
+import { PageTransition } from "./page-transition"
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -17,9 +18,9 @@ export function AppLayout({ children }: AppLayoutProps) {
     >
       <SidebarInset>
         <SiteHeader />
-        <div className="flex flex-1 flex-col">
+        <PageTransition>
           {children}
-        </div>
+        </PageTransition>
       </SidebarInset>
     </SidebarProvider>
   )
