@@ -32,7 +32,7 @@ const KeyEditExtendDialog: React.FC<KeyEditExtendDialogProps> = ({
   onOpenChange, 
   keyData, 
   onSuccess,
-  initialTab = 'edit'
+  initialTab = 'extend'
 }) => {
   const { hasPermission } = usePermissions();
   const canEdit = hasPermission('keys.edit');
@@ -150,23 +150,23 @@ const KeyEditExtendDialog: React.FC<KeyEditExtendDialogProps> = ({
           {showTabsUI && (
             <TabsList className="w-full rounded-none bg-transparent h-9 p-0">
               <TabsTrigger 
-                value="edit" 
-                className="flex-1 h-9 rounded-none text-xs data-[state=active]:bg-transparent"
-              >
-                Edit Details
-              </TabsTrigger>
-              <TabsTrigger 
                 value="extend"
                 className="flex-1 h-9 rounded-none text-xs data-[state=active]:bg-transparent"
               >
                 Extend Duration
               </TabsTrigger>
+              <TabsTrigger 
+                value="edit" 
+                className="flex-1 h-9 rounded-none text-xs data-[state=active]:bg-transparent"
+              >
+                Edit Details
+              </TabsTrigger>
             </TabsList>
           )}
 
           <div className="p-4">
-            {/* EDIT CONTENT */}
-            <TabsContent value="edit" className="mt-0 space-y-4 data-[state=inactive]:hidden">
+            {/* EXTEND CONTENT */}
+            <TabsContent value="extend" className="mt-0 space-y-4">
               <form onSubmit={handleEditSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 gap-3">
                   <div className="space-y-1.5">
@@ -212,8 +212,8 @@ const KeyEditExtendDialog: React.FC<KeyEditExtendDialogProps> = ({
               </form>
             </TabsContent>
 
-            {/* EXTEND CONTENT */}
-            <TabsContent value="extend" className="mt-0 space-y-4 data-[state=inactive]:hidden">
+            {/* EDIT CONTENT */}
+            <TabsContent value="edit" className="mt-0 space-y-4">
               <form onSubmit={handleExtendSubmit} className="space-y-4">
                 <div className="flex items-center justify-between px-3 py-2 bg-muted/30 rounded-md text-xs">
                   <span className="text-muted-foreground">Current Duration:</span>

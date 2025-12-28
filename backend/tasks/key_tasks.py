@@ -171,9 +171,8 @@ def bulk_create_keys_task(
             batch_id = f'batch_{datetime.utcnow().strftime("%Y%m%d_%H%M%S")}'
             errors = []
 
+            # expires_at should only be set when key is activated, not during creation
             expires_at = None
-            if duration_hours:
-                expires_at = datetime.utcnow() + timedelta(hours=duration_hours)
 
             total = count
 

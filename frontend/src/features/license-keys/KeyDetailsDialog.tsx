@@ -117,7 +117,7 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
     if (status === 'Expired') statusType = 'expired';
 
     return (
-      <span className={cn("inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border", getStatusClasses(statusType))}>
+      <span className={cn(getStatusClasses(statusType), "rounded-none")}>
         {getStatusText(statusType)}
       </span>
     );
@@ -165,16 +165,16 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
           }} 
           className="flex-1 flex flex-col min-h-0 w-full"
         >
-          <TabsList className="w-full rounded-none border-b bg-transparent h-9 p-0 flex-shrink-0">
+          <TabsList className="w-full rounded-none bg-transparent h-9 p-0 flex-shrink-0">
             <TabsTrigger 
               value="details" 
-              className="flex-1 h-9 rounded-none border-b-2 border-transparent text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground"
+              className="flex-1 h-9 rounded-none text-xs data-[state=active]:bg-transparent"
             >
               Details
             </TabsTrigger>
             <TabsTrigger 
               value="analytics"
-              className="flex-1 h-9 rounded-none border-b-2 border-transparent text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground"
+              className="flex-1 h-9 rounded-none text-xs data-[state=active]:bg-transparent"
             >
               Analytics
             </TabsTrigger>
@@ -244,9 +244,11 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
                     <div className="space-y-0.5 col-span-2">
                       <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Expires</span>
                       <p className="text-xs truncate">
-                        {displayKey?.expires_at 
-                          ? new Date(displayKey.expires_at).toLocaleString() 
-                          : (displayKey?.activated_at ? 'Permanent' : 'Not activated')}
+                        {displayKey?.activated_at 
+                          ? (displayKey?.expires_at 
+                              ? new Date(displayKey.expires_at).toLocaleString() 
+                              : 'Permanent')
+                          : 'Not activated'}
                       </p>
                     </div>
                   </div>

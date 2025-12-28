@@ -536,9 +536,8 @@ def create_custom_key(current_user, project_id=None, validated_data=None):
     generation_type = "access_code" if is_access_code else "license_key"
 
 
+    # expires_at should only be set when key is activated, not during creation
     expires_at = None
-    if duration_hours:
-        expires_at = datetime.utcnow() + timedelta(hours=duration_hours)
 
 
     key_project_id = current_user.project_id

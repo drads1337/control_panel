@@ -304,9 +304,8 @@ class KeyCRUDService:
             project_id=user.project_id,
         )
 
+        # expires_at should only be set when key is activated, not during creation
         expires_at = None
-        if duration_hours:
-            expires_at = datetime.utcnow() + timedelta(hours=duration_hours)
 
         key = Key(
             key=key_string,

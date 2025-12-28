@@ -14,9 +14,6 @@ import {
   EyeOffIcon,
   CopyIcon,
   CheckCircle2Icon,
-  ClockIcon,
-  BanIcon,
-  PauseCircleIcon,
   RefreshCwIcon,
   Trash2Icon,
   RotateCcwIcon,
@@ -24,6 +21,7 @@ import {
   PencilIcon,
   FileTextIcon,
   ShieldBanIcon,
+  PauseCircleIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ChevronsLeftIcon,
@@ -58,6 +56,8 @@ import { isMaskedKey } from '@/shared/lib/key-masking'
 
 // Types (Mocked for context)
 import type { StatusType } from '@/lib/status-utils'
+import { getStatusClasses, getStatusText } from '@/lib/status-utils'
+import { cn } from '@/lib/utils'
 import type { LicenseKey } from '@/entities/key'
 
 interface LicenseKeysListProps {
@@ -206,29 +206,26 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
       header: "Status",
       cell: ({ row }) => {
         const statusType = getStatusType(row.original.status, row.original.is_expired)
-        let Icon = CheckCircle2Icon
-        let colorClass = "text-green-500"
-        let text = "Active"
-
-        if (statusType === 'expired') {
-            Icon = ClockIcon
-            colorClass = "text-yellow-500"
-            text = "Expired"
-        } else if (row.original.status === KEY_STATUS.BLOCKED) {
-            Icon = BanIcon
-            colorClass = "text-destructive"
-            text = "Blocked"
+        
+        // Handle special cases that don't map directly to status types
+        if (row.original.status === KEY_STATUS.BLOCKED) {
+          return (
+            <span className={cn(getStatusClasses('inactive'), "rounded-none")}>
+              Blocked
+            </span>
+          )
         } else if (row.original.status === KEY_STATUS.PAUSED) {
-            Icon = PauseCircleIcon
-            colorClass = "text-muted-foreground"
-            text = "Paused"
+          return (
+            <span className={cn(getStatusClasses('inactive'), "rounded-none")}>
+              Paused
+            </span>
+          )
         }
 
         return (
-          <div className="flex items-center gap-1.5">
-             <Icon className={`h-3.5 w-3.5 ${colorClass}`} />
-             <span className="text-xs text-muted-foreground">{text}</span>
-          </div>
+          <span className={cn(getStatusClasses(statusType), "rounded-none")}>
+            {getStatusText(statusType)}
+          </span>
         )
       },
     },
