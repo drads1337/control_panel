@@ -34,17 +34,15 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
     return (
       <div className="flex flex-1 flex-col">
         <div className="@container/main flex flex-1 flex-col gap-2">
-          <div className="flex flex-col gap-3 py-3 md:gap-4 md:py-4">
-            <div className="px-4 lg:px-6">
-              <Card className="text-center p-8">
-                <CardHeader>
-                  <CardTitle>Access Denied</CardTitle>
-                  <CardDescription>
-                    You don't have permission to view files.
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-            </div>
+          <div className="flex flex-col gap-3">
+            <Card className="text-center p-8">
+              <CardHeader>
+                <CardTitle>Access Denied</CardTitle>
+                <CardDescription>
+                  You don't have permission to view files.
+                </CardDescription>
+              </CardHeader>
+            </Card>
           </div>
         </div>
       </div>
@@ -56,10 +54,11 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
     return (
       <div className="flex flex-1 flex-col">
         <div className="@container/main flex flex-1 flex-col gap-2">
-          <div className="flex flex-col gap-3 py-3 md:gap-4 md:py-4">
-            <div className="px-4 lg:px-6">
-              <div className="flex items-center justify-center min-h-[400px]">
-                <Spinner size="lg" message="Loading file manager..." />
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-center min-h-[400px]">
+              <div className="flex flex-col items-center gap-2">
+                <Spinner size="lg" />
+                <p className="text-sm text-muted-foreground">Loading file manager...</p>
               </div>
             </div>
           </div>
@@ -72,32 +71,30 @@ const FileManager: React.FC<FileManagerProps> = ({ onSwitchToProductDatabase }) 
   return (
     <div className="flex flex-1 flex-col">
       <div className="@container/main flex flex-1 flex-col gap-2">
-        <div className="flex flex-col gap-3 py-3 md:gap-4 md:py-4">
-          <div className="relative flex flex-col gap-3 overflow-auto px-4 lg:px-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>File Manager</CardTitle>
-                <CardDescription>
-                  Manage files for your products and agents.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {/* TODO: Add FileManagerHeader component */}
-                  {/* TODO: Add FilesList component */}
-                  {/* TODO: Add FileManagerSelectionBar component */}
-                  {/* TODO: Add dialogs */}
-                  
-                  <div className="text-sm text-muted-foreground">
-                    <p>Selected Product: {logic.selectedProduct?.name || 'None'}</p>
-                    <p>Selected Agent: {logic.selectedAgent?.name || 'None'}</p>
-                    <p>Files: {logic.files.length}</p>
-                    <p>Loading: {logic.loading ? 'Yes' : 'No'}</p>
-                  </div>
+        <div className="flex flex-col gap-3">
+          <Card>
+            <CardHeader>
+              <CardTitle>File Manager</CardTitle>
+              <CardDescription>
+                Manage files for your products and agents.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* TODO: Add FileManagerHeader component */}
+                {/* TODO: Add FilesList component */}
+                {/* TODO: Add FileManagerSelectionBar component */}
+                {/* TODO: Add dialogs */}
+                
+                <div className="text-sm text-muted-foreground">
+                  <p>Selected Product: {logic.selectedProduct?.name || 'None'}</p>
+                  <p>Selected Agent: {logic.selectedAgent?.name || 'None'}</p>
+                  <p>Files: {logic.files.length}</p>
+                  <p>Loading: {logic.loading ? 'Yes' : 'No'}</p>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
