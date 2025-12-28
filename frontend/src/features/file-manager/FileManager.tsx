@@ -6,7 +6,6 @@ import {
   Archive,
   Bot,
   Box,
-  ChevronDown,
   Cloud,
   Database,
   FileText,
@@ -49,13 +48,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import {
   Table,
@@ -215,22 +207,28 @@ export default function FileManager() {
                 Explorer
               </span>
             </div>
-            <Select
+            <Tabs
               value={scope}
               onValueChange={(v) => setScope(v as Scope)}
+              className="w-full"
             >
-              <SelectTrigger className="h-8 text-xs w-full bg-background border-muted-foreground/20">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="text-xs">
-                <SelectItem value="agent" className="text-xs">
-                  Agents
-                </SelectItem>
-                <SelectItem value="product" className="text-xs">
-                  Products
-                </SelectItem>
-              </SelectContent>
-            </Select>
+              <TabsList className="h-8 w-full p-0.5 bg-muted/50 grid grid-cols-2">
+                <TabsTrigger
+                  value="agent"
+                  className="h-7 px-2 text-[10px] data-[state=active]:bg-background data-[state=active]:shadow-sm flex items-center gap-1.5"
+                >
+                  <Bot className="size-3" />
+                  <span>Agents</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="product"
+                  className="h-7 px-2 text-[10px] data-[state=active]:bg-background data-[state=active]:shadow-sm flex items-center gap-1.5"
+                >
+                  <Box className="size-3" />
+                  <span>Products</span>
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
 
           {/* Scrollable Content */}

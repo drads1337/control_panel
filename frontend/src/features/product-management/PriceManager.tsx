@@ -1,4 +1,7 @@
-import React, { useState, useEffect } from 'react';
+"use client"
+
+import * as React from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,7 +45,7 @@ const commonDurations = [
   { value: '8760', label: '1 year' },
 ] as const;
 
-const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, productId }) => {
+export default function PriceManager({ open, onOpenChange, productId }: PriceManagerProps) {
   // All hooks must be called unconditionally and in the same order
   const { user } = useAuthContext();
   const { hasPermission } = usePermissions();
@@ -300,7 +303,7 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, product
               {commonDurations.map(duration => (
                 <div key={duration.value} className="flex flex-col gap-3 p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                   <div className="flex items-center justify-between">
-                    <Label className="font-medium text-sm">
+                    <Label className="font-medium text-xs">
                       {duration.label}
                     </Label>
                     {editingPrices[duration.value] !== undefined && (
@@ -325,7 +328,7 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, product
                         placeholder="0"
                         value={editingPricesDisplay[duration.value] !== undefined ? editingPricesDisplay[duration.value] : ''}
                         onChange={(e) => handlePriceChange(duration.value, e.target.value)}
-                        className="flex-1 text-sm"
+                        className="flex-1 h-7 text-xs"
                         disabled={saving || !canEditProducts}
                         inputMode="decimal"
                       />
@@ -337,7 +340,7 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, product
                         variant="outline"
                         size="sm"
                         onClick={() => handleAddPeriod(duration.value)}
-                        className="w-full text-sm"
+                        className="w-full h-7 text-xs"
                         disabled={saving || !canEditProducts}
                       >
                         Add Price
@@ -351,7 +354,7 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, product
               <Button
                 variant="outline"
                 onClick={() => onOpenChange(false)}
-                className="w-full sm:w-auto text-sm"
+                className="w-full sm:w-auto h-7 text-xs"
                 size="sm"
               >
                 Cancel
@@ -363,12 +366,12 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, product
                   handleSavePrices();
                 }}
                 disabled={saving || !canEditProducts}
-                className="w-full sm:w-auto text-sm"
+                className="w-full sm:w-auto h-7 text-xs"
                 size="sm"
               >
                 {saving ? (
                   <>
-                    <Spinner className="mr-2 h-4 w-4" />
+                    <Spinner className="mr-2 h-3 w-3" />
                     Saving...
                   </>
                 ) : (
@@ -383,5 +386,4 @@ const PriceManager: React.FC<PriceManagerProps> = ({ open, onOpenChange, product
   );
 };
 
-export default PriceManager;
 

@@ -1,4 +1,7 @@
-import React, { useState } from 'react';
+"use client"
+
+import * as React from "react"
+import { useState } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,7 +20,7 @@ interface CreateProductDialogProps {
   onSuccess?: () => void;
 }
 
-const CreateProductDialog: React.FC<CreateProductDialogProps> = ({ open, onOpenChange, onSuccess }) => {
+export default function CreateProductDialog({ open, onOpenChange, onSuccess }: CreateProductDialogProps) {
   const { hasPermission } = usePermissions();
   const canCreate = hasPermission('products.create');
 
@@ -115,38 +118,37 @@ const CreateProductDialog: React.FC<CreateProductDialogProps> = ({ open, onOpenC
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-hidden">
         <DialogHeader className="flex-shrink-0 text-left">
-          <DialogTitle>Create New Product</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-base">Create New Product</DialogTitle>
+          <DialogDescription className="mt-1 text-xs">
             Fill in the details for the new product.
           </DialogDescription>
         </DialogHeader>
 
-        {/* Scrollable Form Area */}
         <div className="flex-1 overflow-y-auto py-2 space-y-4 pr-1 scrollbar-thin">
           <div className="space-y-2">
-            <Label htmlFor="productName">Product Name *</Label>
+            <Label htmlFor="productName" className="text-xs">Product Name *</Label>
             <Input 
               id="productName" 
               placeholder="Enter product name"
               value={createProductData.name}
               onChange={(e) => setCreateProductData(prev => ({ ...prev, name: e.target.value }))}
-              className="text-base sm:text-sm"
+              className="h-7 text-xs"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="productDescription">Description</Label>
+            <Label htmlFor="productDescription" className="text-xs">Description</Label>
             <Input 
               id="productDescription" 
               placeholder="Enter product description (optional)"
               value={createProductData.description}
               onChange={(e) => setCreateProductData(prev => ({ ...prev, description: e.target.value }))}
-              className="text-base sm:text-sm"
+              className="h-7 text-xs"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="productType">Product Type</Label>
+            <Label htmlFor="productType" className="text-xs">Product Type</Label>
             <Select 
               value={createProductData.is_multi_app ? 'multi_app' : 'product_library'}
               onValueChange={(value) => setCreateProductData(prev => ({ 
@@ -154,24 +156,24 @@ const CreateProductDialog: React.FC<CreateProductDialogProps> = ({ open, onOpenC
                 is_multi_app: value === 'multi_app' 
               }))}
             >
-              <SelectTrigger className="w-full text-base sm:text-sm">
+              <SelectTrigger className="w-full h-7 text-xs">
                 <SelectValue placeholder="Select product type" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="product_library">Product Library</SelectItem>
-                <SelectItem value="multi_app">Multi-App</SelectItem>
+              <SelectContent className="text-xs">
+                <SelectItem value="product_library" className="text-xs">Product Library</SelectItem>
+                <SelectItem value="multi_app" className="text-xs">Multi-App</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="productVersion">Version</Label>
+            <Label htmlFor="productVersion" className="text-xs">Version</Label>
             <Input 
               id="productVersion" 
               placeholder="1.0.0" 
               value={createProductData.version}
               onChange={(e) => setCreateProductData(prev => ({ ...prev, version: e.target.value }))}
-              className="text-base sm:text-sm"
+              className="h-7 text-xs"
             />
           </div>
         </div>
@@ -181,7 +183,8 @@ const CreateProductDialog: React.FC<CreateProductDialogProps> = ({ open, onOpenC
             variant="outline" 
             onClick={handleCancel}
             disabled={creatingProduct}
-            className="w-full sm:w-auto mt-2 sm:mt-0"
+            size="sm"
+            className="h-7 text-xs w-full sm:w-auto mt-2 sm:mt-0"
           >
             Cancel
           </Button>
@@ -189,7 +192,8 @@ const CreateProductDialog: React.FC<CreateProductDialogProps> = ({ open, onOpenC
             <Button 
               onClick={handleCreateProduct}
               disabled={creatingProduct || !createProductData.name.trim()}
-              className="w-full sm:w-auto"
+              size="sm"
+              className="h-7 text-xs w-full sm:w-auto"
             >
               {creatingProduct ? 'Creating...' : 'Create Product'}
             </Button>
@@ -200,4 +204,3 @@ const CreateProductDialog: React.FC<CreateProductDialogProps> = ({ open, onOpenC
   );
 };
 
-export default CreateProductDialog;

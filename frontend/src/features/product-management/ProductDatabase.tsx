@@ -1,4 +1,7 @@
-import React, { useState, useEffect } from 'react';
+"use client"
+
+import * as React from "react"
+import { useState, useEffect } from "react"
 import { AlertTriangle, CheckCircle, Plus, RefreshCw, Search, Check, X, Package, MoreVertical, Edit, Upload, Bell, DollarSign, FileText, Trash2, Eye } from 'lucide-react';
 import { useProductQuery, useProductMutations, useProductSelection, useProductDialogs } from './hooks';
 import { useProductPermissions } from './hooks/use-product-permissions';
@@ -46,10 +49,10 @@ interface ProductDatabaseProps {
   onCreateProductRequestHandled?: () => void;
 }
 
-const ProductDatabase: React.FC<ProductDatabaseProps> = ({ 
+export default function ProductDatabase({ 
   onCreateProductRequested,
   onCreateProductRequestHandled,
-}) => {
+}: ProductDatabaseProps) {
   const isMobile = useMediaQuery('(max-width: 768px)');
 
   const {
@@ -297,7 +300,7 @@ const ProductDatabase: React.FC<ProductDatabaseProps> = ({
               <div className="flex items-center justify-between w-full sm:w-auto">
                 <div>
                   <CardTitle className="text-base">Products</CardTitle>
-                  <CardDescription className="mt-1 text-xs">
+                  <CardDescription className="text-xs">
                     {filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'}
                   </CardDescription>
                 </div>
@@ -504,5 +507,3 @@ const ProductDatabase: React.FC<ProductDatabaseProps> = ({
     </div>
   );
 };
-
-export default ProductDatabase;

@@ -1,4 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+"use client"
+
+import * as React from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,7 +27,7 @@ interface EditProductDialogProps {
   onSuccess?: () => void;
 }
 
-const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChange, product, onSuccess }) => {
+export default function EditProductDialog({ open, onOpenChange, product, onSuccess }: EditProductDialogProps) {
   const { isAuthenticated } = useAuthContext();
   const { canEditProducts } = useProductPermissions();
 
@@ -149,23 +152,23 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChang
           {/* Scrollable content area */}
           <div className="flex-1 overflow-y-auto pr-1 -mr-1">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-              <TabsList className={`grid w-full h-auto min-h-10 bg-muted border border-border rounded-lg ${!formData.is_multi_app && formData.login_type === 'classic_login' ? 'grid-cols-3' : 'grid-cols-2'}`}>
+              <TabsList className={`grid w-full h-8 bg-muted border border-border rounded-lg ${!formData.is_multi_app && formData.login_type === 'classic_login' ? 'grid-cols-3' : 'grid-cols-2'}`}>
                 <TabsTrigger 
                   value="basic" 
-                  className="py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:bg-primary dark:data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm rounded-lg transition-all duration-200 text-xs sm:text-sm whitespace-normal h-full"
+                  className="text-xs h-full"
                 >
                   Basic
                 </TabsTrigger>
                 <TabsTrigger 
                   value="settings" 
-                  className="py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:bg-primary dark:data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm rounded-lg transition-all duration-200 text-xs sm:text-sm whitespace-normal h-full"
+                  className="text-xs h-full"
                 >
                   Settings
                 </TabsTrigger>
                 {!formData.is_multi_app && formData.login_type === 'classic_login' && (
                   <TabsTrigger 
                     value="users" 
-                    className="py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:bg-primary dark:data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm rounded-lg transition-all duration-200 text-xs sm:text-sm whitespace-normal h-full"
+                    className="text-xs h-full"
                   >
                     Users
                   </TabsTrigger>
@@ -175,38 +178,38 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChang
               <TabsContent value="basic" className="space-y-4 mt-0 px-1">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name" className="text-sm">Product Name</Label>
+                    <Label htmlFor="name" className="text-xs">Product Name</Label>
                     <Input
                       id="name"
                       value={formData.name}
                       onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                       placeholder="Product name"
                       required
-                      className="text-base sm:text-sm"
+                      className="h-7 text-xs"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="version" className="text-sm">Version</Label>
+                    <Label htmlFor="version" className="text-xs">Version</Label>
                     <Input
                       id="version"
                       value={formData.version}
                       onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}
                       placeholder="1.0.0"
-                      className="text-base sm:text-sm"
+                      className="h-7 text-xs"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="description" className="text-sm">Description</Label>
+                  <Label htmlFor="description" className="text-xs">Description</Label>
                   <Textarea
                     id="description"
                     value={formData.description}
                     onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                     placeholder="Product description"
                     rows={3}
-                    className="text-base sm:text-sm resize-none"
+                    className="text-xs resize-none"
                   />
                 </div>
               </TabsContent>
@@ -215,7 +218,7 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChang
                 <div className="space-y-4">
                   <div className="flex items-start justify-between gap-3 p-2 rounded-md border border-transparent hover:bg-muted/30 transition-colors">
                     <div className="space-y-1">
-                      <Label htmlFor="is_multi_app" className="text-sm font-medium">Multi App Product</Label>
+                      <Label htmlFor="is_multi_app" className="text-xs font-medium">Multi App Product</Label>
                       <p className="text-xs text-muted-foreground leading-snug">
                         Access to multiple products through one account
                       </p>
@@ -230,7 +233,7 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChang
                   {!formData.is_multi_app && (
                     <>
                       <div className="space-y-2">
-                        <Label htmlFor="login_type" className="text-sm">Login Type</Label>
+                        <Label htmlFor="login_type" className="text-xs">Login Type</Label>
                         <Select 
                           value={formData.login_type} 
                           onValueChange={(value: 'license_generation' | 'classic_login') => {
@@ -240,12 +243,12 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChang
                             }
                           }}
                         >
-                          <SelectTrigger className="w-full text-base sm:text-sm">
+                          <SelectTrigger className="w-full h-7 text-xs">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="license_generation">License Generation</SelectItem>
-                            <SelectItem value="classic_login">Classic Login</SelectItem>
+                          <SelectContent className="text-xs">
+                            <SelectItem value="license_generation" className="text-xs">License Generation</SelectItem>
+                            <SelectItem value="classic_login" className="text-xs">Classic Login</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -253,7 +256,7 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChang
                       {formData.login_type === 'classic_login' && (
                         <div className="flex items-start justify-between gap-3 p-2 rounded-md border border-transparent hover:bg-muted/30 transition-colors">
                           <div className="space-y-1">
-                            <Label htmlFor="invite_code_required" className="text-sm font-medium">Require Invite Code</Label>
+                            <Label htmlFor="invite_code_required" className="text-xs font-medium">Require Invite Code</Label>
                             <p className="text-xs text-muted-foreground leading-snug">
                               Users must provide an invite code to register
                             </p>
@@ -268,24 +271,24 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChang
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="custom_key_prefix" className="text-sm">Key Prefix</Label>
+                          <Label htmlFor="custom_key_prefix" className="text-xs">Key Prefix</Label>
                           <Input
                             id="custom_key_prefix"
                             value={formData.custom_key_prefix}
                             onChange={(e) => setFormData(prev => ({ ...prev, custom_key_prefix: e.target.value }))}
                             placeholder="PRODUCT"
-                            className="text-base sm:text-sm"
+                            className="h-7 text-xs"
                           />
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="key_prefix_format" className="text-sm">Prefix Format</Label>
+                          <Label htmlFor="key_prefix_format" className="text-xs">Prefix Format</Label>
                           <Input
                             id="key_prefix_format"
                             value={formData.key_prefix_format}
                             onChange={(e) => setFormData(prev => ({ ...prev, key_prefix_format: e.target.value }))}
                             placeholder="{PREFIX}-{RANDOM}"
-                            className="text-base sm:text-sm"
+                            className="h-7 text-xs"
                           />
                         </div>
                       </div>
@@ -294,7 +297,7 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChang
 
                   {formData.is_multi_app && (
                     <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg dark:bg-blue-900/30 dark:border-blue-800">
-                      <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100">Multi App Product</h4>
+                      <h4 className="text-xs font-medium text-blue-900 dark:text-blue-100">Multi App Product</h4>
                       <p className="text-xs text-blue-700 mt-1 dark:text-blue-200">
                         For Multi App products, login type, prefix and key format settings are managed in the agent.
                       </p>
@@ -308,7 +311,7 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChang
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="text-sm font-medium">User Access</h3>
+                        <h3 className="text-xs font-medium">User Access</h3>
                         <p className="text-xs text-muted-foreground hidden sm:block">
                           Select users who will have access
                         </p>
@@ -317,6 +320,7 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChang
                         type="button"
                         variant="outline"
                         size="sm"
+                        className="h-7 text-xs"
                         onClick={fetchUsers}
                         disabled={usersLoading}
                       >
@@ -343,8 +347,8 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChang
                             />
                             <Label htmlFor={`user-${user.id}`} className="flex-1 cursor-pointer">
                               <div className="flex items-center justify-between gap-2">
-                                <span className="text-sm font-medium truncate">{user.username}</span>
-                                <span className={`text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap ${
+                                <span className="text-xs font-medium truncate">{user.username}</span>
+                                <span className={`text-xs px-1.5 py-0.5 rounded-full whitespace-nowrap h-5 ${
                                   user.has_access 
                                     ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100' 
                                     : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
@@ -368,7 +372,8 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChang
               type="button" 
               variant="outline" 
               onClick={handleCancel}
-              className="w-full sm:w-auto"
+              size="sm"
+              className="h-7 text-xs w-full sm:w-auto"
             >
               Cancel
             </Button>
@@ -376,7 +381,8 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChang
               <Button 
                 type="button"
                 disabled={loading}
-                className="w-full sm:w-auto"
+                size="sm"
+                className="h-7 text-xs w-full sm:w-auto"
                 onClick={async (e) => {
                   e.preventDefault();
                   await handleSubmit(e as any);
@@ -392,4 +398,3 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({ open, onOpenChang
   );
 };
 
-export default EditProductDialog;
