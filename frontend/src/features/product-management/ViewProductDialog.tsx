@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { getStatusClasses, getStatusText, type StatusType } from '@/lib/status-utils';
 import { sanitizeString } from '@/lib/sanitization';
-import { useProductPermissions } from '../hooks/use-product-permissions';
+import { useProductPermissions } from './hooks/use-product-permissions';
 import type { Product } from '@/entities/product';
 
 interface ViewProductDialogProps {

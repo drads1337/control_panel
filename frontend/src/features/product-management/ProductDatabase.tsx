@@ -98,6 +98,7 @@ const ProductDatabase: React.FC<ProductDatabaseProps> = ({
     setShowPricesDialog,
     setShowNotificationsDialog,
     setShowChangelogDialog,
+    setSelectedProduct,
   } = useProductDialogs();
 
   const { openViewProductDialog } = useProductDialogStore();

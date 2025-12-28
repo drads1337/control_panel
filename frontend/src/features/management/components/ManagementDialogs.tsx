@@ -2,7 +2,10 @@ import React, { Suspense } from 'react'
 import { useProductDialogStore } from '@/shared/model/use-product-dialog-store'
 
 const ViewProductDialog = React.lazy(() =>
-  import('@/features/product-management').then((module) => ({ default: module.ViewProductDialog }))
+  import('@/features/product-management/ViewProductDialog').catch((error) => {
+    console.error('Failed to load ViewProductDialog:', error);
+    throw error;
+  })
 )
 
 export function ManagementDialogs() {
