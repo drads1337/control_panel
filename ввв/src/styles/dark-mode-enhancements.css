@@ -1,0 +1,270 @@
+/* Dark Mode Enhancements */
+
+/* Улучшенные стили для темного режима */
+[data-theme="dark"] {
+  /* Улучшенные тени для темного режима */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+  
+  /* Улучшенные градиенты */
+  --gradient-primary: linear-gradient(135deg, #134e4a 0%, #0f3d3a 100%);
+  --gradient-secondary: linear-gradient(135deg, #2A2A2F 0%, #1A1A1F 100%);
+  --gradient-card: linear-gradient(135deg, #1A1A1F 0%, #2A2A2F 100%);
+  
+  /* Улучшенные эффекты свечения */
+  --glow-primary: 0 0 20px rgba(19, 78, 74, 0.3);
+  --glow-secondary: 0 0 15px rgba(15, 61, 58, 0.2);
+  
+  /* Обновление CSS переменных для текста вместо использования !important */
+  --foreground: oklch(0.98 0 0);
+  --muted-foreground: oklch(0.58 0 0);
+  --sidebar-foreground: oklch(0.98 0 0);
+  --card-foreground: oklch(0.98 0 0);
+  --popover-foreground: oklch(0.98 0 0);
+  --secondary-foreground: oklch(0.88 0 0);
+  --accent-foreground: oklch(0.98 0 0);
+  
+  color-scheme: dark;
+}
+
+/* Улучшенные стили для текста в темном режиме */
+[data-theme="dark"] * {
+  color: inherit;
+}
+
+/* Использование более специфичных селекторов вместо !important */
+[data-theme="dark"] h1, 
+[data-theme="dark"] h2, 
+[data-theme="dark"] h3, 
+[data-theme="dark"] h4, 
+[data-theme="dark"] h5, 
+[data-theme="dark"] h6 {
+  color: hsl(var(--foreground));
+}
+
+[data-theme="dark"] p, 
+[data-theme="dark"] span, 
+[data-theme="dark"] div:not([class*="text-"]) {
+  color: hsl(var(--foreground) / 0.9);
+}
+
+/* 
+ * Примечание: Tailwind utility классы автоматически используют CSS переменные,
+ * которые мы обновили выше в селекторе [data-theme="dark"].
+ * Следующие селекторы нужны только для элементов без utility классов.
+ */
+
+/* Для элементов с utility классами Tailwind - переменные уже установлены выше */
+/* Дополнительные селекторы для случаев, когда элементы не используют utility классы */
+[data-theme="dark"] .text-muted-foreground {
+  color: hsl(var(--muted-foreground));
+}
+
+[data-theme="dark"] .text-sidebar-foreground {
+  color: hsl(var(--sidebar-foreground));
+}
+
+[data-theme="dark"] .text-foreground {
+  color: hsl(var(--foreground));
+}
+
+[data-theme="dark"] .text-card-foreground {
+  color: hsl(var(--card-foreground));
+}
+
+[data-theme="dark"] .text-popover-foreground {
+  color: hsl(var(--popover-foreground));
+}
+
+[data-theme="dark"] .text-secondary-foreground {
+  color: hsl(var(--secondary-foreground));
+}
+
+[data-theme="dark"] .text-accent-foreground {
+  color: hsl(var(--accent-foreground));
+}
+
+/* Улучшенные стили для карточек в темном режиме */
+[data-theme="dark"] .card {
+  background: var(--gradient-card);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(10px);
+}
+
+/* Улучшенные стили для кнопок в темном режиме */
+[data-theme="dark"] .btn-primary {
+  background: var(--gradient-primary);
+  border: none;
+  box-shadow: var(--glow-primary);
+  transition: all 0.3s ease;
+}
+
+[data-theme="dark"] .btn-primary:hover {
+  box-shadow: var(--glow-secondary);
+  transform: translateY(-1px);
+}
+
+/* Улучшенные стили для инпутов в темном режиме */
+[data-theme="dark"] input:not([class]),
+[data-theme="dark"] textarea:not([class]),
+[data-theme="dark"] select:not([class]) {
+  background: rgba(42, 42, 47, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(5px);
+  transition: all 0.3s ease;
+  color: hsl(var(--foreground));
+}
+
+[data-theme="dark"] input:not([class]):focus,
+[data-theme="dark"] textarea:not([class]):focus,
+[data-theme="dark"] select:not([class]):focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(19, 78, 74, 0.2);
+  background: rgba(42, 42, 47, 0.9);
+}
+
+[data-theme="dark"] input:not([class])::placeholder,
+[data-theme="dark"] textarea:not([class])::placeholder {
+  color: hsl(var(--muted-foreground));
+}
+
+/* Улучшенные стили для таблиц в темном режиме */
+[data-theme="dark"] table {
+  background: rgba(26, 26, 31, 0.8);
+  backdrop-filter: blur(10px);
+}
+
+[data-theme="dark"] th:not([class*="text-"]) {
+  background: rgba(42, 42, 47, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: hsl(var(--foreground));
+}
+
+[data-theme="dark"] td:not([class*="text-"]) {
+  color: hsl(var(--foreground) / 0.88);
+}
+
+[data-theme="dark"] tr:hover {
+  background: rgba(47, 47, 52, 0.8);
+}
+
+/* Улучшенные стили для модальных окон в темном режиме */
+[data-theme="dark"] .modal {
+  background: rgba(26, 26, 31, 0.95);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: var(--shadow-xl);
+}
+
+/* Улучшенные стили для дропдаунов в темном режиме */
+[data-theme="dark"] .dropdown-menu {
+  background: rgba(26, 26, 31, 0.95);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Улучшенные стили для тултипов в темном режиме */
+[data-theme="dark"] .tooltip:not([class*="text-"]) {
+  background: rgba(26, 26, 31, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: var(--shadow-md);
+  color: hsl(var(--foreground));
+}
+
+/* Улучшенные стили для скроллбаров в темном режиме */
+[data-theme="dark"] ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: rgba(42, 42, 47, 0.5);
+  border-radius: 4px;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(74, 74, 79, 0.8);
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(106, 106, 111, 0.9);
+}
+
+/* Улучшенные стили для выделения текста в темном режиме */
+[data-theme="dark"] ::selection {
+  background: rgba(19, 78, 74, 0.3);
+  color: #F8FAFC;
+}
+
+/* Улучшенные стили для фокуса в темном режиме */
+[data-theme="dark"] *:focus {
+  outline: 2px solid rgba(19, 78, 74, 0.5);
+  outline-offset: 2px;
+}
+
+/* Улучшенные стили для анимаций в темном режиме */
+[data-theme="dark"] .fade-in {
+  animation: fadeInDark 0.3s ease-in-out;
+}
+
+@keyframes fadeInDark {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Улучшенные стили для состояний загрузки в темном режиме */
+[data-theme="dark"] .loading {
+  background: linear-gradient(90deg, 
+    rgba(42, 42, 47, 0.5) 25%, 
+    rgba(47, 47, 52, 0.8) 50%, 
+    rgba(42, 42, 47, 0.5) 75%
+  );
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Улучшенные стили для уведомлений в темном режиме */
+[data-theme="dark"] .notification {
+  background: rgba(26, 26, 31, 0.95);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: var(--shadow-lg);
+}
+
+[data-theme="dark"] .notification.success {
+  border-left: 4px solid #34D399;
+}
+
+[data-theme="dark"] .notification.error {
+  border-left: 4px solid #F87171;
+}
+
+[data-theme="dark"] .notification.warning {
+  border-left: 4px solid #FBBF24;
+}
+
+[data-theme="dark"] .notification.info {
+  border-left: 4px solid #60A5FA;
+} 

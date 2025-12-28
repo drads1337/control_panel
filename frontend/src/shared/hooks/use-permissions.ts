@@ -1,5 +1,7 @@
 import { useMemo } from 'react'
+import * as React from 'react'
 import { useAuthContext } from '@/app/providers/auth-provider'
+import { authService } from '@/shared/api/auth-service'
 import { 
   hasPermission, 
   hasAnyRole, 
@@ -26,10 +28,27 @@ import {
 // Backend is the source of truth for all permission checks
 
 export function usePermissions() {
-  const { user, isAuthenticated, isInitialized } = useAuthContext()
+  const authContext = useAuthContext()
+  const { user: contextUser, isAuthenticated, isInitialized } = authContext
+  
+  // Try to get user from cache synchronously if context user is not available
+  const cachedUser = React.useMemo(() => {
+    if (contextUser) {
+      return null
+    }
+    try {
+      return authService.getCachedUserFromMemory() || null
+    } catch (e) {
+      return null
+    }
+  }, [contextUser])
+  
+  // Use context user if available, otherwise try cached user
+  const user = contextUser || cachedUser
 
   const permissions = useMemo(() => {
-    if (!isAuthenticated || !user) {
+    // Use user presence as primary check, isAuthenticated might be out of sync
+    if (!user) {
       return {
 
         hasPermission: () => false,
@@ -98,7 +117,7 @@ export function usePermissions() {
       isAuthenticated,
       isInitialized
     }
-  }, [user, isAuthenticated, isInitialized])
+  }, [user, isAuthenticated, isInitialized, authContext])
 
   return permissions
 }

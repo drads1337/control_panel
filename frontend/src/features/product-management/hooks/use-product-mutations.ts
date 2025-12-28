@@ -6,14 +6,14 @@ import {
   deleteProduct,
   bulkDeleteProducts,
 } from '@/entities/product';
-import { useAuth } from '@/shared/hooks';
 import { useMutationWithCache } from '@/shared/hooks';
+import { useAuthContext } from '@/app/providers/auth-provider';
 import { toast } from 'sonner';
 import { productKeys } from './product-keys';
 import type { Product } from '@/entities/product';
 
 export function useProductMutations() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuthContext();
   const queryClient = useQueryClient();
 
   const updateCachedProducts = (

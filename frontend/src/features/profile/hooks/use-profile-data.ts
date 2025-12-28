@@ -1,11 +1,11 @@
 import { useState, useCallback, useEffect } from 'react'
-import { useAuth } from '@/shared/hooks/use-auth'
+import { useAuthContext } from '@/app/providers/auth-provider'
 import { updateProfile, changePassword, uploadAvatar } from '@/entities/user/api/profile'
 import { toast } from 'sonner'
 import type { ProfileData, ChangePasswordData } from '@/entities/user'
 
 export function useProfileData() {
-  const { user, updateUser } = useAuth()
+  const { user, updateUser } = useAuthContext()
 
   // Profile editing state
   const [isEditing, setIsEditing] = useState(false)

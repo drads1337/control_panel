@@ -35,15 +35,10 @@ export function useNavigationQuery(options: UseNavigationQueryOptions = {}): Use
   } = useQuery({
     queryKey: navigationKeys.config(),
     queryFn: async () => {
-      console.log('[NAVIGATION] Fetching navigation config', { enabled })
       try {
         const config = await getNavigationConfig()
-        console.log('[NAVIGATION] Navigation config fetched', { 
-          itemsCount: config?.navigation?.length || 0 
-        })
         return config
       } catch (err) {
-        console.error('[NAVIGATION] Error fetching navigation config', err)
         throw err
       }
     },
@@ -62,14 +57,6 @@ export function useNavigationQuery(options: UseNavigationQueryOptions = {}): Use
       errorMessage: null,
     },
   })
-
-  // Log navigation query state changes
-  if (isError && error) {
-    console.error('[NAVIGATION] Navigation query error', {
-      errorMessage: error.message,
-      status: (error as any)?.response?.status
-    })
-  }
 
   return {
     navigation,

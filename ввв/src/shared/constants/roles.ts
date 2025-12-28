@@ -1,0 +1,18 @@
+
+export const SYSTEM_ROLES = {
+  OWNER: 'owner',
+  ADMIN: 'admin',
+  EMPLOYEE: 'employee',
+  CLIENT: 'client',
+} as const;
+
+export const PERMISSION_CATEGORIES = {
+  PRODUCTS: 'products',
+  KEYS: 'keys',
+  USERS: 'users',
+  FILES: 'files',
+  ANALYTICS: 'analytics',
+  SETTINGS: 'settings',
+  RBAC: 'rbac',
+  SECURITY: 'security',
+} as const;

@@ -19,7 +19,7 @@ import { Separator } from "@/components/ui/separator"
 import { useSidebar } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { useAuth } from "@/shared/hooks/use-auth"
+import { useAuthContext } from "@/app/providers/auth-provider"
 import { getProject } from "@/entities/project"
 import { cn } from "@/lib/utils"
 import lightLogo from "@/assets/light-logo.png"
@@ -40,7 +40,7 @@ const navigationItems = [
 ]
 
 export function SiteHeader({ title = "Dashboard" }: SiteHeaderProps) {
-  const { logout, user } = useAuth()
+  const { logout, user } = useAuthContext()
   const location = useLocation()
   const { toggleSidebar } = useSidebar()
   const { resolvedTheme, setTheme } = useTheme()

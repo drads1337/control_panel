@@ -1,1 +1,1 @@
-export { AgentsPage } from './components';
+export { default as AgentManager } from './AgentManager';

@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { useConfig } from "@/shared/hooks/use-config"
-import { useAuth } from "@/shared/hooks/use-auth"
+import { useAuthContext } from "@/app/providers/auth-provider"
 import { useEffect, useState, FormEvent } from "react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import Plasma from "./plasma"
@@ -19,7 +19,7 @@ export function LoginForm({
   ...props
 }: React.ComponentProps<"div">) {
   const [config] = useConfig()
-  const { login, isLoading, error, clearError } = useAuth()
+  const { login, isLoading, error, clearError } = useAuthContext()
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [localError, setLocalError] = useState<string | null>(null)

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
-import { useAuth } from '@/shared/hooks';
+import { useAuthContext } from '@/app/providers/auth-provider';
 import { getProducts } from '@/entities/product';
 import { getAgents } from '@/entities/agent';
 import {
@@ -36,7 +36,7 @@ interface UseFileManagerLogicParams {
  * Содержит всю логику загрузки данных, управления состоянием и операций с файлами.
  */
 export function useFileManagerLogic({ onSwitchToProductDatabase }: UseFileManagerLogicParams = {}) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuthContext();
 
   // State
   const [products, setProducts] = useState<Product[]>([]);

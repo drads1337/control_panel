@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- DNS prefetch for external resources -->
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <!-- Preconnect to API for faster requests -->
+    <link rel="preconnect" href="/api" crossorigin />
+    <!-- Preload critical resources for faster initial load -->
+    <!-- Vite will inject preload links for critical chunks during build -->
+    <!-- Resource hints for better performance -->
+    <!-- Prefetch likely next routes for faster navigation -->
+    <link rel="prefetch" href="/dashboard" />
+    <link rel="prefetch" href="/management-page" />
+    <link rel="prefetch" href="/settings" />
+    <!-- 
+      Content Security Policy (CSP)
+      
+      Primary CSP is set at nginx level via HTTP headers for better security and performance.
+      This meta tag provides additional defense-in-depth protection and serves as a fallback
+      if HTTP headers are not properly configured.
+      
+      SECURITY NOTE: This CSP policy is designed for production. In development mode,
+      Vite's HMR requires 'unsafe-inline' and 'unsafe-eval' for scripts, which are included here.
+      For stricter production CSP, consider using nonce-based or hash-based CSP policies.
+      
+      IMPORTANT NOTES:
+      - 'frame-ancestors' is NOT supported in meta tags (only via HTTP headers) - removed from meta tag
+      - 'upgrade-insecure-requests' is removed for dev mode compatibility (forces HTTPS)
+      - These directives are properly set in nginx.conf HTTP headers for production
+      
+      Policy breakdown:
+      - default-src 'self': Only allow resources from same origin
+      - script-src: Allow scripts from self, inline scripts (needed for Vite), and HTTPS
+      - style-src: Allow styles from self, inline styles (needed for Vite), and HTTPS
+      - img-src: Allow images from self, data URIs, HTTPS, and blob (for user uploads)
+      - font-src: Allow fonts from self, data URIs, and HTTPS
+      - connect-src: Allow API calls to self, HTTPS, and WebSocket connections (wss: ws:)
+      - base-uri 'self': Restrict base tag URLs to same origin
+      - form-action 'self': Restrict form submissions to same origin
+      - block-all-mixed-content: Block mixed HTTP/HTTPS content (only works over HTTPS)
+      - object-src 'none': Disable plugins (Flash, etc.)
+      - media-src: Allow media from self and HTTPS
+      - worker-src: Allow web workers from self and blob URIs
+    -->
+    <meta 
+      http-equiv="Content-Security-Policy" 
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https: blob:; font-src 'self' data: https:; connect-src 'self' https: wss: ws:; base-uri 'self'; form-action 'self'; block-all-mixed-content; object-src 'none'; media-src 'self' https:; worker-src 'self' blob:;" 
+    />
+    <meta name="description" content="Secure authentication and user management system with role-based access control, project management, and comprehensive admin features." />
+    <meta name="keywords" content="authentication, user management, RBAC, role-based access control, admin panel, project management" />
+    <meta name="author" content="Auth System" />
+    <meta name="robots" content="index, follow" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Auth System - Secure User Management" />
+    <meta property="og:description" content="Secure authentication and user management system with role-based access control, project management, and comprehensive admin features." />
+    <meta property="og:site_name" content="Auth System" />
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Auth System - Secure User Management" />
+    <meta name="twitter:description" content="Secure authentication and user management system with role-based access control, project management, and comprehensive admin features." />
+    
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Auth System",
+      "description": "Secure authentication and user management system with role-based access control, project management, and comprehensive admin features.",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web"
+    }
+    </script>
+    
+    <title>Auth System - Secure User Management</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

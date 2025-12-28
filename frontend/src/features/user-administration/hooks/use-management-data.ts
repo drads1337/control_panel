@@ -14,14 +14,39 @@ export interface ManagementTab {
 }
 
 export function useManagementData() {
-  const { isAuthenticated, user } = useAuthContext()
+  const { isAuthenticated, user, isInitialized } = useAuthContext()
   const { activeTab, setActiveTab } = useManagementStore()
   const { hasPermission } = usePermissions()
   const [productsCount, setProductsCount] = useState<number | null>(null)
 
   const permissionChecks = useMemo(() => {
-    return hasManagementAccess(user)
-  }, [user])
+    if (import.meta.env.DEV) {
+      console.log('[useManagementData] Computing permissions:', {
+        isInitialized,
+        user: user ? { id: user.id, email: user.email } : null,
+        isAuthenticated,
+      });
+    }
+    // Don't compute permissions until initialized - return default values
+    if (!isInitialized) {
+      if (import.meta.env.DEV) {
+        console.log('[useManagementData] Not initialized, returning default permissions');
+      }
+      return {
+        canViewKeys: false,
+        canViewFiles: false,
+        canViewProducts: false,
+        canViewAgents: false,
+        canViewNotifications: false,
+        hasAccess: false,
+      }
+    }
+    const checks = hasManagementAccess(user)
+    if (import.meta.env.DEV) {
+      console.log('[useManagementData] Permission checks result:', checks);
+    }
+    return checks
+  }, [user, isInitialized, isAuthenticated])
 
   let { canViewKeys, canViewFiles, canViewProducts, canViewAgents, canViewNotifications, hasAccess } = permissionChecks
 
@@ -141,6 +166,19 @@ export function useManagementData() {
   }, [user, canViewKeys, canViewFiles, canViewProducts, canViewAgents, hasAccess])
 
   const effectiveHasAccess = hasAccess || effectiveCanViewProducts
+
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      console.log('[useManagementData] Final access state:', {
+        isInitialized,
+        isAuthenticated,
+        hasAccess,
+        effectiveHasAccess,
+        effectiveCanViewProducts,
+        user: user ? { id: user.id, email: user.email } : null,
+      });
+    }
+  }, [isInitialized, isAuthenticated, hasAccess, effectiveHasAccess, effectiveCanViewProducts, user])
 
   return {
     isAuthenticated,

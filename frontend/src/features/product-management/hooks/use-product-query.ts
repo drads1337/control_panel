@@ -2,11 +2,11 @@ import { useQuery } from '@tanstack/react-query';
 import { createQueryRetry } from '@/shared/lib/query-retry-utils';
 import { getErrorMessage } from '@/shared/api/api-error-types';
 import { getProducts, type Product } from '@/entities/product';
-import { useAuth } from '@/shared/hooks';
+import { useAuthContext } from '@/app/providers/auth-provider';
 import { productKeys } from './product-keys';
 
 export function useProductQuery() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuthContext();
 
   const {
     data: productsData,

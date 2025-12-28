@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { uploadProductConfig, uploadProductExtraFile } from '@/entities/file';
-import { useAuth } from '@/shared/hooks';
+import { useAuthContext } from '@/app/providers/auth-provider';
 
 export interface UploadForm {
   name: string;
@@ -22,7 +22,7 @@ export interface FileWithPreview {
 }
 
 export const useMultiFileUpload = () => {
-  const { token } = useAuth();
+  const { token } = useAuthContext();
   const [uploading, setUploading] = useState(false);
   const [uploadStats, setUploadStats] = useState({
     total: 0,

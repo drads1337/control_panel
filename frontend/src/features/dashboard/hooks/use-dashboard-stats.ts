@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useRef } from 'react'
-import { useAuth } from '@/shared/hooks/use-auth'
+import { useAuthContext } from '@/app/providers/auth-provider'
 import { getDashboardStats, type DashboardData } from '@/entities/dashboard'
 import { createQueryRetry } from '@/shared/lib/query-retry-utils'
 import { getErrorMessage } from '@/shared/api/api-error-types'
@@ -20,7 +20,7 @@ export interface UseDashboardStatsReturn {
 }
 
 export function useDashboardStats(): UseDashboardStatsReturn {
-  const { isAuthenticated, user } = useAuth()
+  const { isAuthenticated, user } = useAuthContext()
   const justAuthenticatedRef = useRef(false)
   const initialDelayRef = useRef(false)
 
