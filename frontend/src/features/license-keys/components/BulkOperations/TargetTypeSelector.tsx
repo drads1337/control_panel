@@ -10,26 +10,26 @@ interface TargetTypeSelectorProps {
 
 export const TargetTypeSelector: React.FC<TargetTypeSelectorProps> = ({ value, onChange }) => {
   return (
-    <div className="space-y-2">
-      <Label className="text-sm font-medium text-foreground">Target Type</Label>
+    <div className="space-y-1">
+      <Label className="text-xs">Target Type</Label>
       <ToggleGroup
         type="single"
         value={value}
         onValueChange={(val) => val && onChange(val as 'product' | 'agent')}
-        className="grid grid-cols-2 w-full"
+        className="flex w-full gap-1"
       >
         <ToggleGroupItem 
           value="product" 
-          className="flex items-center justify-center gap-2 h-10 text-sm font-medium border border-border bg-background text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary hover:bg-muted hover:border-muted-foreground/20 transition-colors"
+          className="flex-1 flex items-center justify-center gap-1 h-8 text-xs font-medium border border-border bg-background text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary hover:bg-muted transition-colors"
         >
-          <Database className="h-4 w-4" />
+          <Database className="h-3 w-3" />
           Product
         </ToggleGroupItem>
         <ToggleGroupItem 
           value="agent" 
-          className="flex items-center justify-center gap-2 h-10 text-sm font-medium border border-border bg-background text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary hover:bg-muted hover:border-muted-foreground/20 transition-colors"
+          className="flex-1 flex items-center justify-center gap-1 h-8 text-xs font-medium border border-border bg-background text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary hover:bg-muted transition-colors"
         >
-          <Container className="h-4 w-4" />
+          <Container className="h-3 w-3" />
           Agent
         </ToggleGroupItem>
       </ToggleGroup>

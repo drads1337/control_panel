@@ -1,58 +1,94 @@
-import React, { useRef, useLayoutEffect } from 'react';
-import { useVirtualizer } from '@tanstack/react-virtual';
-import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Checkbox } from '@/components/ui/checkbox';
-import { ConditionalRender } from '@/shared/ui/components/rbac/conditional-render';
+"use client"
+
+import * as React from "react"
 import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-  PaginationEllipsis,
-} from '@/components/ui/pagination';
-import type { StatusType } from '@/lib/status-utils';
-import { Package } from 'lucide-react';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { LicenseKey } from '@/entities/key';
-import { KEY_STATUS } from '@/shared/constants/key-status';
-import { KeyRow } from './components/KeyRow';
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+  type ColumnDef,
+  type VisibilityState,
+} from "@tanstack/react-table"
+import {
+  ChevronDownIcon,
+  EyeIcon,
+  EyeOffIcon,
+  CopyIcon,
+  CheckCircle2Icon,
+  ClockIcon,
+  BanIcon,
+  PauseCircleIcon,
+  RefreshCwIcon,
+  Trash2Icon,
+  RotateCcwIcon,
+  PlayCircleIcon,
+  PencilIcon,
+  FileTextIcon,
+  ShieldBanIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ChevronsLeftIcon,
+  ChevronsRightIcon
+} from "lucide-react"
+
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { KEY_STATUS } from '@/shared/constants/key-status'
+import { LoadingState, EmptyState } from './components'
+import { isMaskedKey } from '@/shared/lib/key-masking'
+
+// Types (Mocked for context)
+import type { StatusType } from '@/lib/status-utils'
+import type { LicenseKey } from '@/entities/key'
 
 interface LicenseKeysListProps {
-  keys: LicenseKey[];
-  loading: boolean;
-  showKey: Record<number, boolean>;
-  fullKeys: Record<number, string>;
-  selectedKeys: Set<number>;
-  actionLoading: Set<number>;
+  keys: LicenseKey[]
+  loading: boolean
+  showKey: Record<number, boolean>
+  fullKeys: Record<number, string>
+  selectedKeys: Set<number>
+  actionLoading: Set<number>
   pagination: {
-    page: number;
-    perPage: number;
-    total: number;
-    pages: number;
-  };
-  onToggleKeyVisibility: (keyId: number) => void;
-  onSelectKey: (keyId: number, selected: boolean) => void;
-  onSelectAll: (selected: boolean) => void;
-  onKeyAction: (action: string, keyId: number) => void;
-  onViewDetails: (key: LicenseKey) => void;
-  onPageChange: (page: number) => void;
-  canEdit?: boolean;
-  canDelete?: boolean;
-  canReset?: boolean;
-  canPauseResume?: boolean;
-  canExtend?: boolean;
-  canBlock?: boolean;
-  canGenerate?: boolean;
-  canManage?: boolean;
-  canViewAll?: boolean;
-  viewMode?: 'my' | 'all';
-  onViewModeChange?: (mode: 'my' | 'all') => void;
-  currentUserId?: number;
+    page: number
+    perPage: number
+    total: number
+    pages: number
+  }
+  onToggleKeyVisibility: (keyId: number) => void
+  onSelectKey: (keyId: number, selected: boolean) => void
+  onSelectAll: (selected: boolean) => void
+  onKeyAction: (action: string, keyId: number) => void
+  onViewDetails: (key: LicenseKey) => void
+  onPageChange: (page: number) => void
+  canEdit?: boolean
+  canDelete?: boolean
+  canReset?: boolean
+  canPauseResume?: boolean
+  canBlock?: boolean
+  canManage?: boolean
+  currentUserId?: number
 }
 
-const LicenseKeysList: React.FC<LicenseKeysListProps> = React.memo(({
+const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
   keys,
   loading,
   showKey,
@@ -70,325 +106,550 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = React.memo(({
   canDelete = false,
   canReset = false,
   canPauseResume = false,
-  canExtend = false,
   canBlock = false,
-  canGenerate = false,
   canManage = false,
-  canViewAll = false,
-  viewMode = 'my',
-  onViewModeChange,
   currentUserId
 }) => {
-  const allSelected = React.useMemo(
-    () => keys.length > 0 && keys.every(key => selectedKeys.has(key.id)),
-    [keys, selectedKeys]
-  );
-  const someSelected = React.useMemo(
-    () => keys.some(key => selectedKeys.has(key.id)),
-    [keys, selectedKeys]
-  );
-
-  const parentRef = useRef<HTMLDivElement>(null);
-  const scrollPositionRef = useRef<number>(0);
-  const shouldVirtualize = keys.length > 30;
-
-  const rowVirtualizer = useVirtualizer({
-    count: shouldVirtualize ? keys.length : 0,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 73,
-    overscan: 5,
-    enabled: shouldVirtualize,
-  });
-
-  const handlePageChange = (page: number) => {
-    scrollPositionRef.current = window.scrollY || document.documentElement.scrollTop;
-    onPageChange(page);
-  };
-
-  useLayoutEffect(() => {
-    if (!loading && scrollPositionRef.current > 0) {
-      window.scrollTo({
-        top: scrollPositionRef.current,
-        behavior: 'instant' as ScrollBehavior,
-      });
-      scrollPositionRef.current = 0;
-    }
-  }, [loading, pagination.page]);
-
+  
+  // --- Helpers ---
   const isOwnKey = React.useCallback((key: LicenseKey) => {
-    return key.user_id === currentUserId;
-  }, [currentUserId]);
-
-  const canPerformAction = React.useCallback((key: LicenseKey, actionPermission: boolean) => {
-    if (!actionPermission) return false;
-    if (isOwnKey(key)) return true;
-    return canManage;
-  }, [isOwnKey, canManage]);
+    return key.user_id === currentUserId
+  }, [currentUserId])
 
   const getStatusType = React.useCallback((status: number, is_expired?: boolean): StatusType => {
-    if (status === KEY_STATUS.BLOCKED) return 'suspended';
-    if (status === KEY_STATUS.ACTIVE && is_expired) return 'expired';
+    if (status === KEY_STATUS.BLOCKED) return 'inactive'
+    if (status === KEY_STATUS.ACTIVE && is_expired) return 'expired'
     switch (status) {
-      case KEY_STATUS.BLOCKED: return 'suspended';
-      case KEY_STATUS.ACTIVE: return 'active';
-      case KEY_STATUS.PAUSED: return 'inactive';
-      default: return 'inactive';
+      case KEY_STATUS.BLOCKED: return 'inactive'
+      case KEY_STATUS.ACTIVE: return 'active'
+      case KEY_STATUS.PAUSED: return 'inactive'
+      default: return 'inactive'
     }
-  }, []);
+  }, [])
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading keys...</p>
-        </div>
-      </div>
-    );
-  }
+  // --- React Table State ---
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
+  
+  const rowSelection = React.useMemo(() => {
+    const selection: Record<string, boolean> = {}
+    selectedKeys.forEach(id => { selection[id] = true })
+    return selection
+  }, [selectedKeys])
 
-  if (keys.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 px-4">
-        <div className="w-20 h-20 rounded-2xl border-2 border-dashed border-muted-foreground/25 flex items-center justify-center mb-6">
-          <Package className="h-10 w-10 text-muted-foreground" />
-        </div>
-        <h3 className="text-xl font-semibold text-foreground mb-2">No License Keys Found</h3>
-        <p className="text-muted-foreground text-center max-w-md">
-          Create your first license key to get started
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <ConditionalRender permission="keys.view" fallback={null}>
-        <div className="flex justify-end">
-          <Tabs value={viewMode} onValueChange={(value) => onViewModeChange?.(value as 'my' | 'all')}>
-            <TabsList>
-              <TabsTrigger value="my">My Keys</TabsTrigger>
-              <TabsTrigger value="all">All Keys</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-      </ConditionalRender>
-
-      {/* Обертка для горизонтального скролла на мобильных */}
-      <div className="rounded-md border overflow-x-auto relative">
-        <div className="min-w-[1000px]">
-          <Table style={{ tableLayout: 'fixed' }}>
-            <colgroup>
-              <col style={{ width: '5%' }} />
-              <col style={{ width: '18%' }} />
-              <col style={{ width: '11%' }} />
-              <col style={{ width: '9%' }} />
-              <col style={{ width: '9%' }} />
-              <col style={{ width: '11%' }} />
-              <col style={{ width: '9%' }} />
-              <col style={{ width: '10%' }} />
-              <col style={{ width: '18%' }} />
-            </colgroup>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">
-                  <Checkbox
-                    checked={allSelected}
-                    onCheckedChange={onSelectAll}
-                    ref={(el) => {
-                      if (el && 'indeterminate' in el) (el as any).indeterminate = someSelected && !allSelected;
-                    }}
-                  />
-                </TableHead>
-                <TableHead className="text-left">Licenses</TableHead>
-                <TableHead className="text-left">Product</TableHead>
-                <TableHead className="text-left">Target Type</TableHead>
-                <TableHead className="text-left">Status</TableHead>
-                <TableHead className="text-left">Time</TableHead>
-                <TableHead className="text-left">Devices</TableHead>
-                <TableHead className="text-left">Created By</TableHead>
-                <TableHead className="w-auto text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-          </Table>
-
-          {shouldVirtualize ? (
-            <div
-              ref={parentRef}
-              className="overflow-auto"
-              style={{ height: '600px', contain: 'strict' }}
-            >
-              <div
-                style={{
-                  height: `${rowVirtualizer.getTotalSize()}px`,
-                  width: '100%',
-                  position: 'relative',
-                }}
-              >
-                <Table style={{ tableLayout: 'fixed' }}>
-                  <colgroup>
-                    <col style={{ width: '5%' }} />
-                    <col style={{ width: '18%' }} />
-                    <col style={{ width: '11%' }} />
-                    <col style={{ width: '9%' }} />
-                    <col style={{ width: '9%' }} />
-                    <col style={{ width: '11%' }} />
-                    <col style={{ width: '9%' }} />
-                    <col style={{ width: '10%' }} />
-                    <col style={{ width: '18%' }} />
-                  </colgroup>
-                  <TableBody>
-                    {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                      const key = keys[virtualRow.index];
-                      return (
-                        <KeyRow
-                          key={key.id}
-                          data-index={virtualRow.index}
-                          keyData={key}
-                          isSelected={selectedKeys.has(key.id)}
-                          isKeyVisible={showKey[key.id] || false}
-                          fullKey={fullKeys[key.id]}
-                          isLoading={actionLoading.has(key.id)}
-                          onToggleKeyVisibility={onToggleKeyVisibility}
-                          onSelectKey={onSelectKey}
-                          onKeyAction={onKeyAction}
-                          onViewDetails={onViewDetails}
-                          canPerformAction={canPerformAction}
-                          getStatusType={(status: number) => getStatusType(status, key.is_expired)}
-                          canEdit={canEdit}
-                          canDelete={canDelete}
-                          canReset={canReset}
-                          canPauseResume={canPauseResume}
-                          canExtend={canExtend}
-                          canBlock={canBlock}
-                          style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            width: '100%',
-                            transform: `translateY(${virtualRow.start}px)`,
-                          }}
-                        />
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          ) : (
-            <Table style={{ tableLayout: 'fixed' }}>
-              <colgroup>
-                <col style={{ width: '5%' }} />
-                <col style={{ width: '18%' }} />
-                <col style={{ width: '11%' }} />
-                <col style={{ width: '9%' }} />
-                <col style={{ width: '9%' }} />
-                <col style={{ width: '11%' }} />
-                <col style={{ width: '9%' }} />
-                <col style={{ width: '10%' }} />
-                <col style={{ width: '18%' }} />
-              </colgroup>
-              <TableBody>
-                {keys.map((key) => (
-                  <KeyRow
-                    key={key.id}
-                    keyData={key}
-                    isSelected={selectedKeys.has(key.id)}
-                    isKeyVisible={showKey[key.id] || false}
-                    fullKey={fullKeys[key.id]}
-                    isLoading={actionLoading.has(key.id)}
-                    onToggleKeyVisibility={onToggleKeyVisibility}
-                    onSelectKey={onSelectKey}
-                    onKeyAction={onKeyAction}
-                    onViewDetails={onViewDetails}
-                    canPerformAction={canPerformAction}
-                    getStatusType={(status: number) => getStatusType(status, key.is_expired)}
-                    canEdit={canEdit}
-                    canDelete={canDelete}
-                    canReset={canReset}
-                    canPauseResume={canPauseResume}
-                    canExtend={canExtend}
-                    canBlock={canBlock}
-                  />
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </div>
-      </div>
-
-      {pagination.pages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4">
-          <div className="text-sm text-muted-foreground whitespace-nowrap order-2 sm:order-1">
-            Showing {((pagination.page - 1) * pagination.perPage) + 1} to {Math.min(pagination.page * pagination.perPage, pagination.total)} of {pagination.total} keys
+  // --- Columns Definition ---
+  const columns = React.useMemo<ColumnDef<LicenseKey>[]>(() => [
+    {
+      accessorKey: "key",
+      header: "License Key",
+      cell: ({ row }) => {
+        const key = row.original
+        const isVisible = showKey[key.id]
+        const fullKey = fullKeys[key.id] // Используем только явно загруженный полный ключ
+        
+        // Всегда показываем начало ключа (первые 8-12 символов)
+        let displayKey: string
+        if (isVisible && fullKey) {
+          // Если ключ открыт, показываем полный ключ
+          displayKey = fullKey
+        } else {
+          // Если ключ скрыт, показываем начало + маскировку
+          const originalKey = key.key || ""
+          const isKeyMasked = isMaskedKey(originalKey)
+          
+          // Если key.key уже маскирован, используем его как есть
+          if (isKeyMasked) {
+            displayKey = originalKey
+          } else {
+            // Если key.key - полный ключ, берем префикс и маскируем
+            const keyPrefix = (key as any).key_prefix || 
+                             (originalKey.length > 12 ? originalKey.substring(0, 12) : originalKey) ||
+                             "****"
+            displayKey = keyPrefix && !keyPrefix.includes('****') && !keyPrefix.includes('*')
+              ? `${keyPrefix}******` 
+              : (keyPrefix || "****")
+          }
+        }
+        
+        return (
+          <div className="font-mono text-xs font-medium text-foreground/90">
+            <span className="truncate max-w-[180px] block" title={isVisible && fullKey ? fullKey : "Hidden"}>
+              {displayKey}
+            </span>
           </div>
-          <div className="order-1 sm:order-2 w-full sm:w-auto flex justify-center">
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (pagination.page > 1) handlePageChange(pagination.page - 1);
+        )
+      },
+    },
+    {
+      accessorKey: "product",
+      header: "Product",
+      cell: ({ row }) => (
+        <span className="font-medium text-xs truncate max-w-[120px] block">
+            {row.original.product_name || "Unknown"}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "type",
+      header: "Type",
+      cell: ({ row }) => {
+        const key = row.original
+        const typeLabel = key.is_access_code ? 'Access Code' : (key.generation_type === 'access_code' ? 'Access Code' : 'License Key')
+        return (
+          <Badge variant="outline" className="text-muted-foreground px-1.5 text-[10px] h-5 font-normal">
+            {typeLabel}
+          </Badge>
+        )
+      },
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => {
+        const statusType = getStatusType(row.original.status, row.original.is_expired)
+        let Icon = CheckCircle2Icon
+        let colorClass = "text-green-500"
+        let text = "Active"
+
+        if (statusType === 'expired') {
+            Icon = ClockIcon
+            colorClass = "text-yellow-500"
+            text = "Expired"
+        } else if (row.original.status === KEY_STATUS.BLOCKED) {
+            Icon = BanIcon
+            colorClass = "text-destructive"
+            text = "Blocked"
+        } else if (row.original.status === KEY_STATUS.PAUSED) {
+            Icon = PauseCircleIcon
+            colorClass = "text-muted-foreground"
+            text = "Paused"
+        }
+
+        return (
+          <div className="flex items-center gap-1.5">
+             <Icon className={`h-3.5 w-3.5 ${colorClass}`} />
+             <span className="text-xs text-muted-foreground">{text}</span>
+          </div>
+        )
+      },
+    },
+    {
+      accessorKey: "devices",
+      header: "Devices",
+      cell: ({ row }) => (
+         <span className="text-xs text-muted-foreground font-mono">
+            {row.original.device_count || 0}/{row.original.max_devices}
+         </span>
+      ),
+    },
+    {
+      accessorKey: "created_by",
+      header: "Created By",
+      cell: ({ row }) => (
+         <div className="text-xs">
+            {isOwnKey(row.original) ? (
+                <Badge variant="secondary" className="text-[10px] h-5 px-1.5">You</Badge>
+            ) : (
+                <span className="text-muted-foreground">{row.original.creator_username || "System"}</span>
+            )}
+         </div>
+      ),
+    },
+    {
+      id: "actions",
+      header: () => <div className="text-right pr-2">Actions</div>,
+      cell: ({ row }) => {
+        const key = row.original
+        const isActionLoading = actionLoading.has(key.id)
+        const canPerformActions = canManage || isOwnKey(key)
+        const isVisible = showKey[key.id]
+        
+        return (
+          <div className="flex justify-end items-center gap-0.5 pr-1">
+            {isActionLoading && (
+              <RefreshCwIcon className="h-3.5 w-3.5 animate-spin text-muted-foreground mr-1" />
+            )}
+            
+            {/* === Show/Hide Button === */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-primary"
+                    onClick={() => onToggleKeyVisibility(key.id)}
+                    disabled={isActionLoading}
+                  >
+                    {isVisible ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{isVisible ? "Hide key" : "Show full key"}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            {/* === Copy Button === */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-primary"
+                    onClick={() => {
+                      if (fullKeys[key.id]) {
+                        navigator.clipboard.writeText(fullKeys[key.id])
+                      } else {
+                        // Если ключ скрыт/не загружен, загружаем его (или просто копируем маску, но логичнее сначала открыть)
+                        if (!isVisible) onToggleKeyVisibility(key.id)
+                      }
                     }}
-                    className={pagination.page === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                  />
-                </PaginationItem>
+                    disabled={isActionLoading}
+                  >
+                    <CopyIcon className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Copy key</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            {/* Divider for visual separation */}
+            <div className="w-[1px] h-4 bg-border mx-1" />
 
-                {/* Скрываем номера страниц на очень маленьких экранах, оставляя только стрелки, или показываем меньше */}
-                <div className="hidden xs:flex">
-                  {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
-                    let pageNum: number;
-                    if (pagination.pages <= 5) pageNum = i + 1;
-                    else if (pagination.page <= 3) pageNum = i + 1;
-                    else if (pagination.page >= pagination.pages - 2) pageNum = pagination.pages - 4 + i;
-                    else pageNum = pagination.page - 2 + i;
+            {/* === Details === */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-primary"
+                    onClick={() => onViewDetails(key)}
+                    disabled={isActionLoading}
+                  >
+                    <FileTextIcon className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>View Details</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
-                    return (
-                      <PaginationItem key={pageNum}>
-                        <PaginationLink
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            handlePageChange(pageNum);
-                          }}
-                          isActive={pagination.page === pageNum}
-                          className="cursor-pointer"
+            {canPerformActions && (
+              <>
+                {canEdit && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-primary"
+                          onClick={() => onKeyAction('edit', key.id)}
+                          disabled={isActionLoading}
                         >
-                          {pageNum}
-                        </PaginationLink>
-                      </PaginationItem>
-                    );
-                  })}
-                </div>
-
-                {pagination.pages > 5 && pagination.page < pagination.pages - 2 && (
-                  <PaginationItem className="hidden xs:block">
-                    <PaginationEllipsis />
-                  </PaginationItem>
+                          <PencilIcon className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Edit Key</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+                
+                {canReset && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-primary"
+                          onClick={() => onKeyAction('reset', key.id)}
+                          disabled={isActionLoading}
+                        >
+                          <RotateCcwIcon className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Reset HWID</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 )}
 
-                <PaginationItem>
-                  <PaginationNext
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (pagination.page < pagination.pages) handlePageChange(pagination.page + 1);
-                    }}
-                    className={pagination.page >= pagination.pages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
+                {canPauseResume && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-primary"
+                          onClick={() => onKeyAction(key.status === KEY_STATUS.PAUSED ? 'resume' : 'pause', key.id)}
+                          disabled={isActionLoading}
+                        >
+                          {key.status === KEY_STATUS.PAUSED ? (
+                            <PlayCircleIcon className="h-4 w-4" />
+                          ) : (
+                            <PauseCircleIcon className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{key.status === KEY_STATUS.PAUSED ? 'Resume' : 'Pause'}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+
+                {canBlock && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={`h-8 w-8 ${key.status === KEY_STATUS.BLOCKED ? 'text-green-600 hover:text-green-700 hover:bg-green-50' : 'text-orange-500 hover:text-orange-600 hover:bg-orange-50'}`}
+                          onClick={() => onKeyAction(key.status === KEY_STATUS.BLOCKED ? 'unblock' : 'block', key.id)}
+                          disabled={isActionLoading}
+                        >
+                          {key.status === KEY_STATUS.BLOCKED ? (
+                              <CheckCircle2Icon className="h-4 w-4" />
+                          ) : (
+                              <ShieldBanIcon className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{key.status === KEY_STATUS.BLOCKED ? 'Unblock' : 'Block'}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+
+                {canDelete && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => onKeyAction('delete', key.id)}
+                          disabled={isActionLoading}
+                        >
+                          <Trash2Icon className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Delete</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </>
+            )}
           </div>
+        )
+      },
+    },
+  ], [
+    showKey, 
+    fullKeys, 
+    actionLoading, 
+    onToggleKeyVisibility, 
+    onSelectAll, 
+    onSelectKey, 
+    onKeyAction, 
+    onViewDetails, 
+    canManage, 
+    canEdit, 
+    canReset, 
+    canPauseResume, 
+    canBlock, 
+    canDelete, 
+    isOwnKey, 
+    getStatusType
+  ])
+
+  // --- Table Instance ---
+  const table = useReactTable({
+    data: keys,
+    columns,
+    pageCount: pagination.pages,
+    state: {
+      columnVisibility,
+      rowSelection,
+      pagination: {
+        pageIndex: pagination.page - 1,
+        pageSize: pagination.perPage,
+      },
+    },
+    enableRowSelection: true,
+    manualPagination: true,
+    onPaginationChange: (updater) => {
+        if (typeof updater === 'function') {
+            const newState = updater({
+                pageIndex: pagination.page - 1,
+                pageSize: pagination.perPage
+            });
+            onPageChange(newState.pageIndex + 1);
+        } else {
+             onPageChange(updater.pageIndex + 1);
+        }
+    },
+    onColumnVisibilityChange: setColumnVisibility,
+    getCoreRowModel: getCoreRowModel(),
+    getRowId: (row) => row.id.toString(),
+  })
+
+  if (loading) return <LoadingState message="Loading keys..." />
+  if (keys.length === 0) return <EmptyState />
+
+  return (
+    <div className="flex flex-1 flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+             <span className="text-sm text-muted-foreground hidden sm:block">
+                Manage your license keys
+             </span>
         </div>
-      )}
+        <div className="flex items-center gap-2">
+           {selectedKeys.size > 0 && (
+                <Badge variant="secondary" className="h-7 text-xs">
+                    {selectedKeys.size} selected
+                </Badge>
+           )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-7 text-xs ml-auto">
+                <ChevronDownIcon className="size-3 mr-1" />
+                Columns
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 text-xs">
+              {table
+                .getAllColumns()
+                .filter((column) => typeof column.accessorFn !== "undefined" && column.getCanHide())
+                .map((column) => {
+                  return (
+                    <DropdownMenuCheckboxItem
+                      key={column.id}
+                      className="capitalize text-xs"
+                      checked={column.getIsVisible()}
+                      onCheckedChange={(value) => column.toggleVisibility(!!value)}
+                    >
+                      {column.id === 'created_by' ? 'Created By' : column.id}
+                    </DropdownMenuCheckboxItem>
+                  )
+                })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      <div className="rounded-md border bg-card">
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id} className="h-9 hover:bg-transparent">
+                {headerGroup.headers.map((header) => {
+                  return (
+                    <TableHead key={header.id} className="text-xs h-9 font-medium text-muted-foreground">
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(header.column.columnDef.header, header.getContext())}
+                    </TableHead>
+                  )
+                })}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  data-state={row.getIsSelected() && "selected"}
+                  className="h-12 text-xs"
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id} className="py-2">
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center text-xs text-muted-foreground"
+                >
+                  No results.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <div className="flex items-center justify-between px-2">
+        <div className="text-muted-foreground hidden flex-1 text-xs lg:flex">
+             Showing {((pagination.page - 1) * pagination.perPage) + 1} to {Math.min(pagination.page * pagination.perPage, pagination.total)} of {pagination.total} keys
+        </div>
+        
+        <div className="flex w-full items-center gap-6 lg:w-fit">
+            <div className="flex w-fit items-center justify-center text-xs font-medium">
+              Page {pagination.page} of {pagination.pages}
+            </div>
+            <div className="ml-auto flex items-center gap-2 lg:ml-0">
+              <Button
+                variant="outline"
+                className="hidden h-7 w-7 p-0 lg:flex"
+                onClick={() => onPageChange(1)}
+                disabled={pagination.page === 1}
+              >
+                <ChevronsLeftIcon className="size-3" />
+              </Button>
+              <Button
+                variant="outline"
+                className="size-7"
+                size="icon"
+                onClick={() => onPageChange(pagination.page - 1)}
+                disabled={pagination.page === 1}
+              >
+                <ChevronLeftIcon className="size-3" />
+              </Button>
+              <Button
+                variant="outline"
+                className="size-7"
+                size="icon"
+                onClick={() => onPageChange(pagination.page + 1)}
+                disabled={pagination.page === pagination.pages}
+              >
+                <ChevronRightIcon className="size-3" />
+              </Button>
+              <Button
+                variant="outline"
+                className="hidden size-7 lg:flex"
+                size="icon"
+                onClick={() => onPageChange(pagination.pages)}
+                disabled={pagination.page === pagination.pages}
+              >
+                <ChevronsRightIcon className="size-3" />
+              </Button>
+            </div>
+          </div>
+      </div>
     </div>
-  );
-});
+  )
+}
 
-LicenseKeysList.displayName = 'LicenseKeysList';
-
-export default LicenseKeysList;
-
+export default LicenseKeysList

@@ -12,28 +12,25 @@ interface ProductSelectorProps {
 export const ProductSelector: React.FC<ProductSelectorProps> = ({ products, value, onChange }) => {
   if (products.length === 0) {
     return (
-      <div className="space-y-2">
-        <Label className="text-sm font-medium text-foreground">Product</Label>
-        <div className="p-4 border border-dashed border-muted-foreground/25 rounded-md bg-muted/20">
-          <div className="text-center">
-            <Database className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">Create the product</p>
-          </div>
+      <div className="space-y-1">
+        <Label className="text-xs">Product</Label>
+        <div className="h-8 px-2 flex items-center border border-dashed border-muted-foreground/25 rounded-md bg-muted/20 text-[10px] text-muted-foreground leading-tight">
+          Create the product
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-2">
-      <Label className="text-sm font-medium text-foreground">Product</Label>
+    <div className="space-y-1">
+      <Label className="text-xs">Product</Label>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger>
-          <SelectValue placeholder="Select a product" />
+        <SelectTrigger className="text-xs h-8">
+          <SelectValue placeholder="Select Product" />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="text-xs">
           {products.map((product) => (
-            <SelectItem key={product.id} value={product.id.toString()}>
+            <SelectItem key={product.id} value={product.id.toString()} className="text-xs">
               {product.name}
             </SelectItem>
           ))}

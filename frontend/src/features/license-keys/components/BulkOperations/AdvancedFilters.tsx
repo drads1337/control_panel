@@ -49,12 +49,12 @@ export const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
   };
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between bg-muted/30 p-2 rounded-lg border">
-        <div className="flex items-center gap-2">
-          <Label className="text-sm font-medium ml-1">Operation Filters</Label>
+    <div className="space-y-2">
+      <div className="flex items-center justify-between bg-muted/30 p-1.5 rounded-md border">
+        <div className="flex items-center gap-1.5">
+          <Label className="text-xs ml-0.5">Operation Filters</Label>
           {keysCount !== null && !showFilters && (
-             <Badge variant="secondary" className="text-xs">
+             <Badge variant="secondary" className="text-[10px]">
                 {keysCount} keys found
              </Badge>
           )}
@@ -63,29 +63,29 @@ export const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
           variant={showFilters ? "secondary" : "ghost"}
           size="sm"
           onClick={() => setShowFilters(!showFilters)}
-          className="h-8"
+          className="h-7 text-xs"
         >
-          <Filter className="h-3.5 w-3.5 mr-1.5" />
+          <Filter className="h-3 w-3 mr-1" />
           {showFilters ? 'Hide' : 'Show'}
         </Button>
       </div>
 
       {showFilters && (
-        <div className="space-y-4 p-4 border rounded-lg bg-card shadow-sm transition-all animate-in fade-in slide-in-from-top-2">
+        <div className="space-y-2 p-2 border rounded-md bg-card shadow-sm transition-all animate-in fade-in slide-in-from-top-2">
           {/* Main Filters Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Key Status</Label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            <div className="space-y-1">
+              <Label className="text-[10px] text-muted-foreground">Key Status</Label>
               <Select
                 value={filters.status}
                 onValueChange={(value) => updateFilter('status', value)}
               >
-                <SelectTrigger className="w-full h-9">
+                <SelectTrigger className="w-full h-8 text-xs">
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="text-xs">
                   {KEY_STATUS_OPTIONS.map(option => (
-                    <SelectItem key={option.value} value={option.value}>
+                    <SelectItem key={option.value} value={option.value} className="text-xs">
                       {option.label}
                     </SelectItem>
                   ))}
@@ -93,18 +93,18 @@ export const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
               </Select>
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Activation Status</Label>
+            <div className="space-y-1">
+              <Label className="text-[10px] text-muted-foreground">Activation Status</Label>
               <Select
                 value={filters.activationStatus}
                 onValueChange={(value) => updateFilter('activationStatus', value)}
               >
-                <SelectTrigger className="w-full h-9">
+                <SelectTrigger className="w-full h-8 text-xs">
                   <SelectValue placeholder="Select activation status" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="text-xs">
                   {ACTIVATION_STATUS_OPTIONS.map(option => (
-                    <SelectItem key={option.value} value={option.value}>
+                    <SelectItem key={option.value} value={option.value} className="text-xs">
                       {option.label}
                     </SelectItem>
                   ))}
@@ -112,18 +112,18 @@ export const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
               </Select>
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Device Usage</Label>
+            <div className="space-y-1">
+              <Label className="text-[10px] text-muted-foreground">Device Usage</Label>
               <Select
                 value={filters.deviceUsage}
                 onValueChange={(value) => updateFilter('deviceUsage', value)}
               >
-                <SelectTrigger className="w-full h-9">
+                <SelectTrigger className="w-full h-8 text-xs">
                   <SelectValue placeholder="Select usage" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="text-xs">
                   {DEVICE_USAGE_OPTIONS.map(option => (
-                    <SelectItem key={option.value} value={option.value}>
+                    <SelectItem key={option.value} value={option.value} className="text-xs">
                       {option.label}
                     </SelectItem>
                   ))}
@@ -131,18 +131,18 @@ export const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
               </Select>
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Max Devices</Label>
+            <div className="space-y-1">
+              <Label className="text-[10px] text-muted-foreground">Max Devices</Label>
               <Select
                 value={filters.maxDevices}
                 onValueChange={(value) => updateFilter('maxDevices', value)}
               >
-                <SelectTrigger className="w-full h-9">
+                <SelectTrigger className="w-full h-8 text-xs">
                   <SelectValue placeholder="Select device limit" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="text-xs">
                   {MAX_DEVICES_OPTIONS.map(option => (
-                    <SelectItem key={option.value} value={option.value}>
+                    <SelectItem key={option.value} value={option.value} className="text-xs">
                       {option.label}
                     </SelectItem>
                   ))}
@@ -150,18 +150,18 @@ export const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
               </Select>
             </div>
 
-            <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
-              <Label className="text-xs text-muted-foreground">Creation Period</Label>
+            <div className="space-y-1 sm:col-span-2 lg:col-span-1">
+              <Label className="text-[10px] text-muted-foreground">Creation Period</Label>
               <Select
                 value={filters.dateRange}
                 onValueChange={(value) => updateFilter('dateRange', value)}
               >
-                <SelectTrigger className="w-full h-9">
+                <SelectTrigger className="w-full h-8 text-xs">
                   <SelectValue placeholder="Select period" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="text-xs">
                   {DATE_RANGE_OPTIONS.map(option => (
-                    <SelectItem key={option.value} value={option.value}>
+                    <SelectItem key={option.value} value={option.value} className="text-xs">
                       {option.label}
                     </SelectItem>
                   ))}
@@ -172,19 +172,19 @@ export const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
 
           {/* Custom Date Range - Conditionally rendered */}
           {filters.dateRange === 'custom' && (
-            <div className="bg-muted/30 p-3 rounded-md border border-dashed">
-              <div className="flex items-center gap-2 mb-2">
+            <div className="bg-muted/30 p-2 rounded-md border border-dashed">
+              <div className="flex items-center gap-1.5 mb-1.5">
                 <CalendarIcon className="h-3 w-3 text-muted-foreground" />
-                <span className="text-xs font-medium">Custom Range</span>
+                <span className="text-[10px] font-medium">Custom Range</span>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <Label className="text-[10px] uppercase text-muted-foreground">From</Label>
                   <Input
                     type="date"
                     value={filters.customDateFrom}
                     onChange={(e) => updateFilter('customDateFrom', e.target.value)}
-                    className="h-8 text-sm"
+                    className="h-8 text-xs"
                   />
                 </div>
                 <div className="space-y-1">
@@ -193,7 +193,7 @@ export const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
                     type="date"
                     value={filters.customDateTo}
                     onChange={(e) => updateFilter('customDateTo', e.target.value)}
-                    className="h-8 text-sm"
+                    className="h-8 text-xs"
                   />
                 </div>
               </div>
@@ -203,9 +203,9 @@ export const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
           <Separator />
 
           {/* Footer Actions */}
-          <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-2">
             {keysCount !== null ? (
-              <div className="flex items-center justify-center sm:justify-start gap-2 p-2 bg-primary/10 border border-primary/20 rounded text-sm w-full sm:w-auto">
+              <div className="flex items-center justify-center sm:justify-start gap-1.5 p-1.5 bg-primary/10 border border-primary/20 rounded text-xs w-full sm:w-auto">
                 <span className="text-muted-foreground">Result:</span>
                 <span className="font-bold text-primary">{keysCount}</span>
                 <span className="text-muted-foreground">keys</span>
@@ -218,9 +218,9 @@ export const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
               variant="default"
               onClick={onGetCount}
               disabled={isLoading || disabled}
-              className="w-full sm:w-auto min-w-[140px]"
+              className="w-full sm:w-auto min-w-[120px] h-8 text-xs"
             >
-              <BarChart2 className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />
+              <BarChart2 className={cn("h-3 w-3 mr-1.5", isLoading && "animate-spin")} />
               {isLoading ? 'Calculating...' : 'Count Keys'}
             </Button>
           </div>

@@ -11,8 +11,7 @@ import LicenseKeysFilters from './LicenseKeysFilters';
 import LicenseKeysList from './LicenseKeysList';
 import LicenseKeyCreationGrid from './LicenseKeyCreationGrid';
 import KeyDetailsDialog from './KeyDetailsDialog';
-import KeyEditDialog from './KeyEditDialog';
-import KeyExtendDialog from './KeyExtendDialog';
+import KeyEditExtendDialog from './KeyEditExtendDialog';
 
 interface LicenseKeysMainProps {
   onSwitchToProductDatabase?: () => void;
@@ -205,6 +204,9 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToProductData
         onFiltersChange={handleFiltersChange}
         products={products}
         onClearFilters={handleClearFilters}
+        viewMode={viewMode}
+        onViewModeChange={canViewKeys ? handleViewModeChange : undefined}
+        canViewAll={canViewKeys}
       />
 
       <LicenseKeysList
@@ -242,18 +244,17 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToProductData
         keyId={selectedKey?.id}
       />
 
-      <KeyEditDialog
-        open={editDialogOpen}
-        onOpenChange={setEditDialogOpen}
+      <KeyEditExtendDialog
+        open={editDialogOpen || extendDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditDialogOpen(false);
+            setExtendDialogOpen(false);
+          }
+        }}
         keyData={selectedKey}
         onSuccess={handleDialogSuccess}
-      />
-
-      <KeyExtendDialog
-        open={extendDialogOpen}
-        onOpenChange={setExtendDialogOpen}
-        keyData={selectedKey}
-        onSuccess={handleDialogSuccess}
+        initialTab={extendDialogOpen && !editDialogOpen ? 'extend' : 'edit'}
       />
     </div>
   );

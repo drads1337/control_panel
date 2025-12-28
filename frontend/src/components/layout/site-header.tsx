@@ -9,8 +9,6 @@ import {
   Search,
   User,
   Users,
-  Moon,
-  Sun,
 } from "lucide-react"
 import { Link, useLocation } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
@@ -19,6 +17,7 @@ import { Separator } from "@/components/ui/separator"
 import { useSidebar } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ThemeToggle } from "@/components/ui/theme-toggle"
 import { useAuthContext } from "@/app/providers/auth-provider"
 import { getProject } from "@/entities/project"
 import { cn } from "@/lib/utils"
@@ -43,7 +42,7 @@ export function SiteHeader({ title = "Dashboard" }: SiteHeaderProps) {
   const { logout, user } = useAuthContext()
   const location = useLocation()
   const { toggleSidebar } = useSidebar()
-  const { resolvedTheme, setTheme } = useTheme()
+  const { resolvedTheme } = useTheme()
   
   const { data: project } = useQuery({
     queryKey: ['project', user?.project_id],
@@ -57,10 +56,6 @@ export function SiteHeader({ title = "Dashboard" }: SiteHeaderProps) {
 
   const handleLogout = async () => {
     await logout()
-  }
-
-  const toggleTheme = () => {
-    setTheme(resolvedTheme === "dark" ? "light" : "dark")
   }
 
   return (
@@ -123,19 +118,7 @@ export function SiteHeader({ title = "Dashboard" }: SiteHeaderProps) {
           {/* Right Actions */}
           <div className="flex items-center gap-1 pl-4 bg-gradient-to-l from-background via-background to-transparent">
             {/* Theme Toggle */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleTheme}
-              className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-              title={resolvedTheme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-            >
-              {resolvedTheme === "dark" ? (
-                <Sun className="h-4 w-4" />
-              ) : (
-                <Moon className="h-4 w-4" />
-              )}
-            </Button>
+            <ThemeToggle />
 
             {/* Profile Button */}
             <Button

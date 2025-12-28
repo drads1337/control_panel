@@ -67,3 +67,4 @@ export const ProductsTable: React.FC<ProductsTableProps> = ({
   );
 };
 
+

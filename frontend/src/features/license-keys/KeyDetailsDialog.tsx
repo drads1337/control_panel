@@ -11,22 +11,14 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { getStatusClasses, getStatusText, type StatusType } from '@/lib/status-utils';
-import {
-  Key,
-  Copy,
-  Monitor,
-  Eye,
-  BarChart2,
-  CheckCircle,
-  XCircle,
-  PauseCircle
-} from 'lucide-react';
 import type { LicenseKey } from '@/entities/key';
 import { getLicenseKeyDetails, getLicenseKeyAnalytics, revealLicenseKey } from '@/entities/key';
 import { toast } from 'sonner';
 import { usePermissions } from '@/shared/hooks/use-permissions';
 import { isMaskedKey } from '@/shared/lib/key-masking';
+import { cn } from '@/lib/utils';
 
 interface KeyDetailsDialogProps {
   open: boolean;
@@ -55,7 +47,6 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
 
   const loadKeyDetails = async () => {
     if (!keyId) return;
-
     try {
       setLoadingDetails(true);
       const details = await getLicenseKeyDetails(keyId);
@@ -69,13 +60,12 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
 
   const loadKeyAnalytics = async () => {
     if (!keyId) return;
-
     try {
       setLoadingAnalytics(true);
       const analytics = await getLicenseKeyAnalytics(keyId);
       setKeyAnalytics(analytics);
     } catch (error) {
-      toast.error('Error loading key analytics');
+      toast.error('Error loading analytics');
     } finally {
       setLoadingAnalytics(false);
     }
@@ -83,435 +73,328 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
 
   const handleCopyText = async (text: string, entity: string = "Key") => {
     let fullKey: string;
+    const currentKeyData = keyDetails?.key || keyData;
 
-    if (keyDetails?.key?.key && !isMaskedKey(keyDetails.key.key) && !keyDetails.key.key_masked) {
-      fullKey = keyDetails.key.key;
+    if (currentKeyData?.key && !isMaskedKey(currentKeyData.key) && !currentKeyData.key_masked) {
+      fullKey = currentKeyData.key;
     } else if (keyId) {
       try {
         const revealResponse = await revealLicenseKey(keyId);
         fullKey = revealResponse.key;
-
         if (isMaskedKey(fullKey) || revealResponse.key_masked) {
-          toast.error('You do not have permission to copy full keys. Contact your administrator.');
+          toast.error('Permission denied to copy full key.');
           return;
         }
       } catch (error: unknown) {
-        const { getErrorStatus } = await import('@/shared/lib/utils/error-utils')
-        const status = getErrorStatus(error)
-        if (status === 403) {
-          toast.error('You do not have permission to copy full keys. Contact your administrator.');
-        } else {
-          toast.error('Failed to get full key. Please try again.');
-        }
+        toast.error('Failed to get full key.');
         return;
       }
     } else {
       fullKey = text;
       if (isMaskedKey(fullKey)) {
-        toast.error('Cannot copy masked key. Please open key details first.');
+        toast.error('Cannot copy masked key.');
         return;
       }
     }
 
     try {
       await navigator.clipboard.writeText(fullKey);
-      toast.success(`${entity} copied to clipboard!`);
+      toast.success('Copied!');
     } catch (error) {
-      const textArea = document.createElement('textarea');
-      textArea.value = fullKey;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-      toast.success(`${entity} copied to clipboard!`);
+      toast.error('Copy failed');
     }
   };
 
   const getStatus = (key: any) => {
+    if (!key) return 'Inactive';
     if (key.is_expired) return 'Expired';
     return key.is_active ? 'Active' : 'Inactive';
   };
 
   const getStatusBadge = (status: string) => {
-    let statusType: StatusType;
-    let icon: React.ReactNode;
-
-    switch (status) {
-      case 'Active':
-        statusType = 'active';
-        icon = <CheckCircle className="h-3 w-3" />;
-        break;
-      case 'Expired':
-        statusType = 'expired';
-        icon = <XCircle className="h-3 w-3" />;
-        break;
-      case 'Inactive':
-        statusType = 'inactive';
-        icon = <PauseCircle className="h-3 w-3" />;
-        break;
-      default:
-        statusType = 'inactive';
-        icon = <PauseCircle className="h-3 w-3" />;
-    }
+    let statusType: StatusType = 'inactive';
+    if (status === 'Active') statusType = 'active';
+    if (status === 'Expired') statusType = 'expired';
 
     return (
-      <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200 ${getStatusClasses(statusType)}`}>
-        {icon}
-        <span>{getStatusText(statusType)}</span>
-      </div>
+      <span className={cn("inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border", getStatusClasses(statusType))}>
+        {getStatusText(statusType)}
+      </span>
     );
   };
 
-  if (!keyData && !keyDetails) return null;
+  const handleReveal = async () => {
+    if (!keyId) return;
+    try {
+      const revealResponse = await revealLicenseKey(keyId);
+      if (revealResponse.key && !revealResponse.key_masked) {
+        await loadKeyDetails();
+        toast.success('Key revealed');
+      } else {
+        toast.error('Permission denied.');
+      }
+    } catch (error) {
+      toast.error('Failed to reveal key.');
+    }
+  };
 
-  if (!canViewKeys) {
-    return null;
-  }
+  if ((!keyData && !keyDetails) || !canViewKeys) return null;
+
+  const displayKey = keyDetails?.key || keyData;
+  const isMasked = displayKey?.key_masked || isMaskedKey(displayKey?.key || '');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] w-[90vw] overflow-hidden flex flex-col">
-        <DialogHeader className="pb-4 flex-shrink-0">
-          <DialogTitle className="text-base">
+      <DialogContent className="w-full sm:max-w-[600px] max-h-[90vh] p-0 gap-0 overflow-hidden flex flex-col">
+        <DialogHeader className="p-4 pb-2 border-b bg-muted/5 flex-shrink-0">
+          <DialogTitle className="text-base font-semibold">
             License Key Details
           </DialogTitle>
-          <DialogDescription className="mt-1 text-xs">
-            Detailed information about the key and its usage.
+          <DialogDescription className="text-xs">
+            Viewing information for key <span className="font-mono text-foreground">#{keyId || displayKey?.id}</span>
           </DialogDescription>
         </DialogHeader>
 
-        {/* Tabs */}
-        <div className="flex items-center gap-1 mb-4 border-b flex-shrink-0">
-          <Button
-            variant={activeTab === 'details' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setActiveTab('details')}
-            className="flex-1 h-9 text-sm"
-          >
-            <Eye className="h-4 w-4 mr-2" />
-            Details
-          </Button>
-          <Button
-            variant={activeTab === 'analytics' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => {
-              setActiveTab('analytics');
-              if (!keyAnalytics && keyId) {
-                loadKeyAnalytics();
-              }
-            }}
-            className="flex-1 h-9 text-sm"
-          >
-            <BarChart2 className="h-4 w-4 mr-2" />
-            Analytics
-          </Button>
-        </div>
+        <Tabs 
+          value={activeTab} 
+          onValueChange={(v) => {
+            setActiveTab(v as 'details' | 'analytics');
+            if (v === 'analytics' && !keyAnalytics && keyId) {
+              loadKeyAnalytics();
+            }
+          }} 
+          className="flex-1 flex flex-col min-h-0 w-full"
+        >
+          <TabsList className="w-full rounded-none border-b bg-transparent h-9 p-0 flex-shrink-0">
+            <TabsTrigger 
+              value="details" 
+              className="flex-1 h-9 rounded-none border-b-2 border-transparent text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground"
+            >
+              Details
+            </TabsTrigger>
+            <TabsTrigger 
+              value="analytics"
+              className="flex-1 h-9 rounded-none border-b-2 border-transparent text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground"
+            >
+              Analytics
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Scrollable Content */}
-        <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-2">
-          {activeTab === 'details' ? (
-            loadingDetails ? (
-              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                <Spinner className="h-6 w-6 mb-2" />
-                <span className="text-xs">Loading details...</span>
-              </div>
-            ) : (keyDetails || keyData) ? (
-              <div className="space-y-4">
-                <div className="border rounded-lg p-4">
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="key" className="text-sm">Key</Label>
-                        <div className="flex items-center gap-2">
-                          <p className="font-sans text-xs bg-secondary p-2 rounded flex-1 break-all">
-                            {(keyDetails?.key || keyData)?.key}
-                          </p>
-                          {(keyDetails?.key?.key_masked || isMaskedKey((keyDetails?.key || keyData)?.key || '')) && keyId ? (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={async () => {
-                                try {
-                                  const revealResponse = await revealLicenseKey(keyId);
-                                  if (revealResponse.key && !revealResponse.key_masked) {
-                                    await loadKeyDetails();
-                                    toast.success('Key revealed');
-                                  } else {
-                                    toast.error('You do not have permission to view full keys. Contact your administrator.');
-                                  }
-                                } catch (error: unknown) {
-                                  const { getErrorStatus } = await import('@/shared/lib/utils/error-utils')
-                                  const status = getErrorStatus(error)
-                                  if (status === 403) {
-                                    toast.error('You do not have permission to view full keys. Contact your administrator.');
-                                  } else {
-                                    toast.error('Failed to reveal key. Please try again.');
-                                  }
-                                }
-                              }}
-                              title="Reveal full key (requires keys.see_analytics or keys.copy permission)"
-                              className="h-9 w-9 p-0 flex-shrink-0"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          ) : null}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              const keyToCopy = keyDetails?.key?.key || keyData?.key;
-                              if (keyToCopy) {
-                                handleCopyText(keyToCopy);
-                              }
-                            }}
-                            className="h-9 w-9 p-0 flex-shrink-0"
-                          >
-                            <Copy className="h-4 w-4" />
+          <div className="flex-1 overflow-y-auto p-4 min-h-0">
+            <TabsContent value="details" className="mt-0 space-y-4">
+              {loadingDetails ? (
+                <div className="flex justify-center py-8">
+                  <Spinner className="h-5 w-5" />
+                </div>
+              ) : (
+                <>
+                  {/* Key String Block */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground">License Key</Label>
+                    <div className="flex gap-2">
+                      <code className="flex-1 font-mono text-xs bg-muted/50 p-2 rounded border break-all">
+                        {displayKey?.key}
+                      </code>
+                      <div className="flex flex-col gap-1 shrink-0">
+                        {isMasked && keyId && (
+                          <Button variant="outline" size="sm" onClick={handleReveal} className="h-7 text-[10px] px-2">
+                            Reveal
                           </Button>
-                        </div>
-                        {(keyDetails?.key?.key_masked || isMaskedKey((keyDetails?.key || keyData)?.key || '')) && (
-                          <p className="text-xs text-muted-foreground">
-                            Key is masked. Click the eye icon to reveal (requires keys.see_analytics or keys.copy permission).
-                          </p>
                         )}
+                        <Button variant="outline" size="sm" onClick={() => handleCopyText(displayKey?.key)} className="h-7 text-[10px] px-2">
+                          Copy
+                        </Button>
                       </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm">Status</Label>
-                        <div>
-                          {getStatusBadge(getStatus(keyDetails?.key || keyData))}
+                    </div>
+                  </div>
+
+                  {/* Info Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 bg-muted/10 border rounded-md">
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Status</span>
+                      <div>{getStatusBadge(getStatus(displayKey))}</div>
+                    </div>
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Product</span>
+                      <p className="text-xs font-medium truncate" title={displayKey?.product_name}>
+                        {displayKey?.product_name || 'N/A'}
+                      </p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Target</span>
+                      <p className="text-xs font-medium">{displayKey?.agent_id ? 'Agent' : 'Product'}</p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Duration</span>
+                      <p className="text-xs font-medium">{displayKey?.duration_hours} hrs</p>
+                    </div>
+                    
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Created</span>
+                      <p className="text-xs truncate">
+                        {displayKey?.created_at ? new Date(displayKey.created_at).toLocaleDateString() : '-'}
+                      </p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Activated</span>
+                      <p className="text-xs truncate">
+                        {displayKey?.activated_at ? new Date(displayKey.activated_at).toLocaleDateString() : '-'}
+                      </p>
+                    </div>
+                    <div className="space-y-0.5 col-span-2">
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Expires</span>
+                      <p className="text-xs truncate">
+                        {displayKey?.expires_at 
+                          ? new Date(displayKey.expires_at).toLocaleString() 
+                          : (displayKey?.activated_at ? 'Permanent' : 'Not activated')}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Devices List */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-medium text-muted-foreground">
+                        Devices ({displayKey?.device_count || 0}/{displayKey?.max_devices || 0})
+                      </Label>
+                    </div>
+                    
+                    {keyDetails?.devices && keyDetails.devices.length > 0 ? (
+                      <div className="border rounded-md divide-y">
+                        {keyDetails.devices.map((device: any, i: number) => (
+                          <div key={i} className="p-2.5 text-xs hover:bg-muted/20 transition-colors">
+                            <div className="flex justify-between items-start mb-1">
+                              <span className="font-mono font-medium bg-muted/50 px-1 rounded text-[10px]">
+                                {device.ip_address || 'Unknown IP'}
+                              </span>
+                              <span className="text-muted-foreground text-[10px]">
+                                {device.last_seen ? new Date(device.last_seen).toLocaleDateString() : '-'}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-muted-foreground">
+                              <div className="truncate">
+                                <span className="text-[10px] opacity-70">HWID:</span> {device.device_id || 'N/A'}
+                              </div>
+                              <div className="truncate text-right">
+                                {device.device_model || device.device_brand || 'Generic Device'}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="py-6 text-center border border-dashed rounded-md bg-muted/10">
+                        <p className="text-xs text-muted-foreground">No devices connected.</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Metadata/Fingerprint */}
+                  {(displayKey?.fingerprint || displayKey?.key_metadata) && (
+                    <div className="space-y-2 pt-2 border-t">
+                      {displayKey?.fingerprint && (
+                        <div className="grid grid-cols-[80px_1fr] gap-2 items-center text-xs">
+                          <span className="text-muted-foreground">Fingerprint:</span>
+                          <code className="font-mono bg-muted/30 px-1 rounded truncate">
+                            {displayKey.fingerprint}
+                          </code>
                         </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </TabsContent>
+
+            <TabsContent value="analytics" className="mt-0 space-y-4">
+              {loadingAnalytics ? (
+                <div className="flex justify-center py-8">
+                  <Spinner className="h-5 w-5" />
+                </div>
+              ) : keyAnalytics ? (
+                <>
+                  {/* Stats Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div className="bg-muted/10 border p-3 rounded-md text-center">
+                      <div className="text-lg font-bold text-primary">
+                        {keyAnalytics.summary.total_connections_all_time}
                       </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm">Product</Label>
-                        <p className="text-sm text-muted-foreground">{(keyDetails?.key || keyData)?.product_name || 'Not specified'}</p>
+                      <div className="text-[10px] text-muted-foreground uppercase">Connections</div>
+                    </div>
+                    <div className="bg-muted/10 border p-3 rounded-md text-center">
+                      <div className="text-lg font-bold text-primary">
+                        {keyAnalytics.summary.max_unique_devices_all_time}
                       </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm">Target Type</Label>
-                        <div>
-                          <Badge variant={(keyDetails?.key || keyData)?.agent_id ? "default" : "secondary"} className="text-xs">
-                            {(keyDetails?.key || keyData)?.agent_id ? 'Agent' : 'Product'}
+                      <div className="text-[10px] text-muted-foreground uppercase">Devices</div>
+                    </div>
+                    <div className="bg-muted/10 border p-3 rounded-md text-center">
+                      <div className="text-lg font-bold text-primary">
+                        {keyAnalytics.summary.products_played.length}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground uppercase">Products</div>
+                    </div>
+                    <div className="bg-muted/10 border p-3 rounded-md text-center">
+                      <div className="text-lg font-bold text-primary">
+                        {keyAnalytics.summary.analytics_days_count}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground uppercase">Active Days</div>
+                    </div>
+                  </div>
+
+                  {/* Products List */}
+                  {keyAnalytics.summary.products_played.length > 0 && (
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium text-muted-foreground">Accessed Products</Label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {keyAnalytics.summary.products_played.map((product: string, i: number) => (
+                          <Badge key={i} variant="secondary" className="text-[10px] h-5 px-1.5 font-normal">
+                            {product}
                           </Badge>
-                        </div>
+                        ))}
                       </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm">Project</Label>
-                        <p className="text-sm text-muted-foreground">ID: {(keyDetails?.key || keyData)?.project_id}</p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm">Created</Label>
-                        <p className="text-sm text-muted-foreground">
-                          {(keyDetails?.key || keyData)?.created_at ? new Date((keyDetails?.key || keyData)?.created_at).toLocaleString('en-US') : 'Not specified'}
-                        </p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm">Activated</Label>
-                        <p className="text-sm text-muted-foreground">
-                          {(keyDetails?.key || keyData)?.activated_at ? new Date((keyDetails?.key || keyData)?.activated_at).toLocaleString('en-US') : 'Not activated'}
-                        </p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm">Expires</Label>
-                        <p className="text-sm text-muted-foreground">
-                          {(keyDetails?.key || keyData)?.expires_at && (keyDetails?.key || keyData)?.activated_at ? 
-                            new Date((keyDetails?.key || keyData)?.expires_at).toLocaleString('en-US') : 
-                            (keyDetails?.key || keyData)?.activated_at ? 'Permanent' : 'Not activated'
-                          }
-                        </p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm">Duration</Label>
-                        <p className="text-sm text-muted-foreground">{(keyDetails?.key || keyData)?.duration_hours} hours</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Devices Section */}
-                <div className="space-y-2">
-                  <Label className="text-sm">
-                    Devices ({(keyDetails?.key || keyData)?.device_count || 0} / {(keyDetails?.key || keyData)?.max_devices || 0})
-                  </Label>
-                  {keyDetails?.devices && keyDetails.devices.length > 0 ? (
-                    <div className="space-y-2">
-                      {keyDetails.devices.map((device: any, index: number) => (
-                        <div key={index} className="p-3 rounded-lg border bg-muted/30">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                            <div className="space-y-1">
-                              <span className="text-xs font-medium text-muted-foreground">HWID:</span>
-                              <p className="font-sans text-xs bg-background p-1.5 rounded break-all">{device.device_id || device.serial || 'Not specified'}</p>
-                            </div>
-                            <div className="space-y-1">
-                              <span className="text-xs font-medium text-muted-foreground">IP Address:</span>
-                              <p className="text-xs text-muted-foreground">{device.ip_address || 'Not specified'}</p>
-                            </div>
-                            <div className="space-y-1">
-                              <span className="text-xs font-medium text-muted-foreground">Device Model:</span>
-                              <p className="text-xs text-muted-foreground">
-                                {device.device_brand && device.device_model 
-                                  ? `${device.device_brand} ${device.device_model}` 
-                                  : device.device_model || device.device_brand || 'Not specified'
-                                }
-                              </p>
-                            </div>
-                            <div className="space-y-1">
-                              <span className="text-xs font-medium text-muted-foreground">Connected:</span>
-                              <p className="text-xs text-muted-foreground">
-                                {device.connected_at ? new Date(device.connected_at).toLocaleString('en-US') : 'Not specified'}
-                              </p>
-                            </div>
-                            <div className="space-y-1">
-                              <span className="text-xs font-medium text-muted-foreground">Last Activity:</span>
-                              <p className="text-xs text-muted-foreground">
-                                {device.last_seen ? new Date(device.last_seen).toLocaleString('en-US') : 'Not specified'}
-                              </p>
-                            </div>
-                            <div className="sm:col-span-2 space-y-1">
-                              <span className="text-xs font-medium text-muted-foreground">User Agent:</span>
-                              <p className="text-xs bg-background p-1.5 rounded break-all">
-                                {device.user_agent || 'Not specified'}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-8 text-muted-foreground border-2 border-dashed rounded-lg bg-background/50">
-                      <Monitor className="h-8 w-8 mb-2" />
-                      <p className="text-sm">No devices connected</p>
                     </div>
                   )}
-                </div>
 
-                {(keyDetails?.key || keyData)?.fingerprint && (
-                  <div className="space-y-2">
-                    <Label className="text-sm">Fingerprint</Label>
-                    <p className="font-sans text-xs bg-secondary p-2 rounded break-all">
-                      {(keyDetails?.key || keyData)?.fingerprint}
-                    </p>
-                  </div>
-                )}
-
-                {(keyDetails?.key || keyData)?.key_metadata && (
-                  <div className="space-y-2">
-                    <Label className="text-sm">Metadata</Label>
-                    <pre className="text-xs bg-secondary p-2 rounded overflow-x-auto">
-                      {(() => {
-                        const metadata = (keyDetails?.key || keyData)?.key_metadata;
-                        try {
-                          const parsed = typeof metadata === 'string' ? JSON.parse(metadata) : metadata;
-                          return JSON.stringify(parsed, null, 2);
-                        } catch (error) {
-                          return typeof metadata === 'string' ? metadata : JSON.stringify(metadata);
-                        }
-                      })()}
-                    </pre>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-center p-8 text-muted-foreground">
-                <Eye className="h-12 w-12 mx-auto mb-4" />
-                <p>Information not loaded</p>
-              </div>
-            )
-          ) : (
-            loadingAnalytics ? (
-              <div className="text-center py-12">
-                <Spinner message="Loading analytics..." />
-              </div>
-            ) : keyAnalytics ? (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-muted/50 p-4 rounded-lg">
-                    <div className="text-2xl font-bold text-primary">
-                      {keyAnalytics.summary.total_connections_all_time}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Total connections</div>
-                  </div>
-                  <div className="bg-muted/50 p-4 rounded-lg">
-                    <div className="text-2xl font-bold text-primary">
-                      {keyAnalytics.summary.max_unique_devices_all_time}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Unique devices</div>
-                  </div>
-                  <div className="bg-muted/50 p-4 rounded-lg">
-                    <div className="text-2xl font-bold text-primary">
-                      {keyAnalytics.summary.products_played.length}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Products</div>
-                  </div>
-                  <div className="bg-muted/50 p-4 rounded-lg">
-                    <div className="text-2xl font-bold text-primary">
-                      {keyAnalytics.summary.analytics_days_count}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Days of activity</div>
-                  </div>
-                </div>
-
-                {keyAnalytics.summary.products_played.length > 0 && (
-                  <div>
-                    <h4 className="font-semibold mb-2">Products:</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {keyAnalytics.summary.products_played.map((product: string, index: number) => (
-                        <Badge key={index} variant="secondary">{product}</Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {keyAnalytics.daily_analytics.length > 0 && (
-                  <div>
-                    <h4 className="font-semibold mb-3">Daily Statistics:</h4>
-                    <div className="space-y-2 max-h-60 overflow-y-auto">
-                      {keyAnalytics.daily_analytics.map((day: any, index: number) => (
-                        <div key={index} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                          <div>
-                            <div className="font-medium">{new Date(day.date).toLocaleDateString('en-US')}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {day.products_played.length > 0 && day.products_played.join(', ')}
+                  {/* Daily Log */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground">Daily Activity Log</Label>
+                    <div className="border rounded-md text-xs divide-y max-h-[200px] overflow-y-auto">
+                      {keyAnalytics.daily_analytics.length > 0 ? (
+                        keyAnalytics.daily_analytics.map((day: any, i: number) => (
+                          <div key={i} className="flex items-center justify-between p-2 hover:bg-muted/20">
+                            <div className="space-y-0.5">
+                              <div className="font-medium">{new Date(day.date).toLocaleDateString()}</div>
+                              <div className="text-[10px] text-muted-foreground truncate max-w-[150px]">
+                                {day.products_played.join(', ')}
+                              </div>
+                            </div>
+                            <div className="text-right text-[10px]">
+                              <div>
+                                <span className="font-medium">{day.total_connections}</span> conn
+                              </div>
+                              <div className="text-muted-foreground">{day.unique_devices} dev</div>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <div className="font-semibold">{day.total_connections} connections</div>
-                            <div className="text-sm text-muted-foreground">{day.unique_devices} devices</div>
-                          </div>
+                        ))
+                      ) : (
+                        <div className="p-4 text-center text-muted-foreground text-[10px]">
+                          No daily data available.
                         </div>
-                      ))}
+                      )}
                     </div>
                   </div>
-                )}
-
-                <div className="text-sm text-muted-foreground">
-                  {keyAnalytics.summary.first_analytics_date && keyAnalytics.summary.last_analytics_date ? (
-                    <>Period: {new Date(keyAnalytics.summary.first_analytics_date).toLocaleDateString('en-US')} - {new Date(keyAnalytics.summary.last_analytics_date).toLocaleDateString('en-US')}</>
-                  ) : (
-                    'No data for the last 30 days'
-                  )}
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground border border-dashed rounded-md">
+                  <span className="text-xs">No analytics data available</span>
                 </div>
-              </div>
-            ) : (
-              <div className="text-center p-8">
-                <BarChart2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-muted-foreground">No analytics data</p>
-              </div>
-            )
-          )}
-        </div>
+              )}
+            </TabsContent>
+          </div>
+        </Tabs>
 
-        <DialogFooter className="pt-4 border-t flex-shrink-0">
-          <Button 
-            variant="outline" 
-            onClick={() => {
-              onOpenChange(false);
-              setKeyDetails(null);
-              setKeyAnalytics(null);
-              setActiveTab('details');
-              setLoadingDetails(false);
-              setLoadingAnalytics(false);
-            }}
-            className="h-9"
-          >
+        <DialogFooter className="p-2 border-t bg-background flex-shrink-0">
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full h-8 text-xs">
             Close
           </Button>
         </DialogFooter>
@@ -521,4 +404,3 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
 };
 
 export default KeyDetailsDialog;
-
