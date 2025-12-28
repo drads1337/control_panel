@@ -273,18 +273,18 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
 
   return (
     <ConditionalRender permission="keys.generate" fallback={null}>
-      <Card>
-        <CardHeader className="pb-2 pt-0 px-4">
+      <Card className="p-3">
+        <CardHeader className="p-0 pb-1">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-lg font-semibold">Bulk Key Operations</CardTitle>
+              <CardTitle className="text-xl font-semibold">Bulk Key Operations</CardTitle>
               <CardDescription className="text-xs">
                 Perform actions on multiple keys at once based on filters.
               </CardDescription>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="px-4 pb-4">
+        <CardContent className="p-0 pt-1">
           <div className="space-y-2">
             {/* Top Row: Target Type AND Product/Agent Select */}
             <div className="grid grid-cols-2 gap-3 items-end">
@@ -302,14 +302,14 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
                       value="product" 
                       className="flex-1 flex items-center justify-center gap-1 h-8 text-xs font-medium border border-border bg-background text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary hover:bg-muted transition-colors"
                     >
-                      <Database className="h-3 w-3" />
+                      <Database className="size-3" />
                       Product
                     </ToggleGroupItem>
                     <ToggleGroupItem 
                       value="agent" 
                       className="flex-1 flex items-center justify-center gap-1 h-8 text-xs font-medium border border-border bg-background text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary hover:bg-muted transition-colors"
                     >
-                      <Container className="h-3 w-3" />
+                      <Container className="size-3" />
                       Agent
                     </ToggleGroupItem>
                   </ToggleGroup>
@@ -354,7 +354,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
                           disabled={bulkActionLoading !== null}
                           className="h-8 w-8 shrink-0"
                         >
-                          <X className="h-3 w-3" />
+                          <X className="size-3" />
                         </Button>
                       </div>
                     )}
@@ -401,7 +401,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
                           disabled={bulkActionLoading !== null}
                           className="h-8 w-8 shrink-0"
                         >
-                          <X className="h-3 w-3" />
+                          <X className="size-3" />
                         </Button>
                       </div>
                     )}
@@ -485,7 +485,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
                     onClick={() => setShowFilters(!showFilters)}
                     className="h-7 text-xs"
                   >
-                    <Filter className="h-3 w-3 mr-1" />
+                    <Filter className="size-3 mr-1" />
                     {showFilters ? 'Hide' : 'Show'}
                   </Button>
                 </div>
@@ -594,7 +594,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
                     {filters.dateRange === 'custom' && (
                       <div className="bg-muted/30 p-2 rounded-md border border-dashed">
                         <div className="flex items-center gap-1.5 mb-1.5">
-                          <CalendarIcon className="h-3 w-3 text-muted-foreground" />
+                          <CalendarIcon className="size-3 text-muted-foreground" />
                           <span className="text-[10px] font-medium">Custom Range</span>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
@@ -640,7 +640,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
                         disabled={bulkActionLoading === 'count' || !isTargetSelected}
                         className="w-full sm:w-auto min-w-[120px] h-8 text-xs"
                       >
-                        <BarChart2 className={cn("h-3 w-3 mr-1.5", bulkActionLoading === 'count' && "animate-spin")} />
+                        <BarChart2 className={cn("size-3 mr-1.5", bulkActionLoading === 'count' && "animate-spin")} />
                         {bulkActionLoading === 'count' ? 'Calculating...' : 'Count Keys'}
                       </Button>
                     </div>
@@ -650,7 +650,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
             </div>
           </div>
         </CardContent>
-        <CardFooter className="flex flex-col items-start gap-2 pt-2 px-4 pb-4">
+        <CardFooter className="flex flex-col items-start gap-2 p-0 pt-1">
           <p className="text-xs text-muted-foreground">
             Actions will be applied to all keys matching the selected targets above.
           </p>
@@ -671,7 +671,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
                   size="sm"
                   className="h-8 text-xs"
                 >
-                  <Trash2 className="h-3 w-3 mr-1.5" />
+                  <Trash2 className="size-3 mr-1.5" />
                   {bulkActionLoading === 'delete' ? 'Processing...' : `Delete ${keysCount}`}
                 </Button>
                 <Button
@@ -681,7 +681,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
                   size="sm"
                   className="h-8 text-xs"
                 >
-                  <RefreshCw className="h-3 w-3 mr-1.5" />
+                  <RefreshCw className="size-3 mr-1.5" />
                   {bulkActionLoading === 'reset' ? 'Processing...' : `Reset ${keysCount}`}
                 </Button>
                 <Button
@@ -691,7 +691,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
                   size="sm"
                   className="h-8 text-xs"
                 >
-                  <Clock className="h-3 w-3 mr-1.5" />
+                  <Clock className="size-3 mr-1.5" />
                   {bulkActionLoading === 'extend' ? 'Processing...' : `Extend ${keysCount}`}
                 </Button>
               </div>
@@ -711,7 +711,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
                 size="sm"
                 className="h-8 text-xs"
               >
-                <PauseCircle className="h-3 w-3 mr-1.5" />
+                <PauseCircle className="size-3 mr-1.5" />
                 {bulkActionLoading === 'pause' ? 'Processing...' : 'Pause'}
               </Button>
               <Button
@@ -721,7 +721,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
                 size="sm"
                 className="h-8 text-xs"
               >
-                <Play className="h-3 w-3 mr-1.5" />
+                <Play className="size-3 mr-1.5" />
                 {bulkActionLoading === 'activate' ? 'Processing...' : 'Activate'}
               </Button>
               <Button
@@ -731,7 +731,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
                 size="sm"
                 className="h-8 text-xs"
               >
-                <Clock className="h-3 w-3 mr-1.5" />
+                <Clock className="size-3 mr-1.5" />
                 {bulkActionLoading === 'addHours' ? 'Processing...' : 'Add Hours'}
               </Button>
               <Button
@@ -741,7 +741,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
                 size="sm"
                 className="h-8 text-xs"
               >
-                <Trash2 className="h-3 w-3 mr-1.5" />
+                <Trash2 className="size-3 mr-1.5" />
                 {bulkActionLoading === 'delete' ? 'Processing...' : 'Delete All'}
               </Button>
             </div>

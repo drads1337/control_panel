@@ -50,7 +50,7 @@ const LicenseKeysFilters = React.memo<LicenseKeysFiltersProps>(({
         <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center lg:flex-none">
           {/* Search Input */}
           <div className="relative w-full sm:max-w-[320px]">
-            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search by key or note..."
               value={filters.search}
@@ -165,7 +165,7 @@ const LicenseKeysFilters = React.memo<LicenseKeysFiltersProps>(({
                 className="h-4 w-4 p-0 ml-1 hover:bg-transparent text-muted-foreground hover:text-foreground"
                 onClick={() => handleFilterChange('search', '')}
               >
-                <X className="h-3 w-3" />
+                <X className="size-3" />
               </Button>
             </Badge>
           )}
@@ -179,7 +179,7 @@ const LicenseKeysFilters = React.memo<LicenseKeysFiltersProps>(({
                 className="h-4 w-4 p-0 ml-1 hover:bg-transparent text-muted-foreground hover:text-foreground"
                 onClick={() => handleFilterChange('productId', 'all')}
               >
-                <X className="h-3 w-3" />
+                <X className="size-3" />
               </Button>
             </Badge>
           )}
@@ -193,7 +193,7 @@ const LicenseKeysFilters = React.memo<LicenseKeysFiltersProps>(({
                 className="h-4 w-4 p-0 ml-1 hover:bg-transparent text-muted-foreground hover:text-foreground"
                 onClick={() => handleFilterChange('status', 'all')}
               >
-                <X className="h-3 w-3" />
+                <X className="size-3" />
               </Button>
             </Badge>
           )}

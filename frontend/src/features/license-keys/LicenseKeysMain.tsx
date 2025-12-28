@@ -158,7 +158,7 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToProductData
   if (loading && keys.length === 0 && isInitialLoad) {
     return (
       <div className="p-8">
-        <Spinner message="Loading..." />
+        <Spinner />
       </div>
     );
   }
@@ -170,7 +170,7 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToProductData
           <CardContent className="p-12">
             <div className="text-center">
               <div className="w-20 h-20 bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <Database className="h-10 w-10 text-primary" />
+                <Database className="size-10 text-primary" />
               </div>
               <h3 className="text-2xl font-semibold mb-3">No Products Yet</h3>
               <p className="text-muted-foreground mb-8 max-w-md mx-auto leading-relaxed">
@@ -182,7 +182,7 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToProductData
                   className="gap-2"
                   size="lg"
                 >
-                  <Plus className="h-5 w-5" />
+                  <Plus className="size-5" />
                   Create Your First Product
                 </Button>
               </ConditionalRender>
@@ -227,13 +227,8 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToProductData
         canDelete={canDeleteKeys}
         canReset={canResetPcBinding}
         canPauseResume={canPauseResume}
-        canExtend={canExtend}
         canBlock={canBlock}
-        canGenerate={canGenerateKeys}
         canManage={canManage}
-        canViewAll={canViewKeys}
-        viewMode={viewMode}
-        onViewModeChange={canViewKeys ? handleViewModeChange : undefined}
         currentUserId={user?.id}
       />
 

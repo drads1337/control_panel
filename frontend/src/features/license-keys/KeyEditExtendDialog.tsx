@@ -127,9 +127,9 @@ const KeyEditExtendDialog: React.FC<KeyEditExtendDialogProps> = ({
       <DialogContent className="w-full sm:max-w-[420px] p-0 gap-0 overflow-hidden">
         
         {/* Header */}
-        <DialogHeader className="p-4 pb-2 bg-muted/5">
+        <DialogHeader className="p-4 pb-1 bg-muted/5">
           <div className="space-y-1">
-            <DialogTitle className="text-base font-semibold">
+            <DialogTitle className="text-xl font-semibold">
               {activeTab === 'edit' ? 'Edit License Key' : 'Extend License Key'}
             </DialogTitle>
             <DialogDescription className="text-xs">
@@ -206,7 +206,7 @@ const KeyEditExtendDialog: React.FC<KeyEditExtendDialogProps> = ({
                     Cancel
                   </Button>
                   <Button type="submit" disabled={loading} className="h-8 text-xs min-w-[80px]">
-                    {loading ? <Spinner className="h-3 w-3" /> : 'Save'}
+                    {loading ? <Spinner className="size-3" /> : 'Save'}
                   </Button>
                 </div>
               </form>
@@ -302,7 +302,7 @@ const KeyEditExtendDialog: React.FC<KeyEditExtendDialogProps> = ({
                     Cancel
                   </Button>
                   <Button type="submit" disabled={loading || addedHours <= 0 || addedHours > 8760} className="h-8 text-xs min-w-[80px]">
-                    {loading ? <Spinner className="h-3 w-3" /> : 'Confirm'}
+                    {loading ? <Spinner className="size-3" /> : 'Confirm'}
                   </Button>
                 </div>
               </form>

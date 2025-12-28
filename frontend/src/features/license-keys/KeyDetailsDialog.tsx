@@ -146,8 +146,8 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-full sm:max-w-[600px] max-h-[90vh] p-0 gap-0 overflow-hidden flex flex-col">
-        <DialogHeader className="p-4 pb-2 border-b bg-muted/5 flex-shrink-0">
-          <DialogTitle className="text-base font-semibold">
+        <DialogHeader className="p-4 pb-1 border-b bg-muted/5 flex-shrink-0">
+          <DialogTitle className="text-xl font-semibold">
             License Key Details
           </DialogTitle>
           <DialogDescription className="text-xs">

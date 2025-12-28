@@ -114,11 +114,11 @@ export const BulkKeyForm = React.memo<BulkKeyFormProps>(({
 
   return (
     <ConditionalRender permission="keys.generate" fallback={null}>
-      <Card>
-        <CardHeader className="pb-2 pt-0 px-4">
+      <Card className="p-3">
+        <CardHeader className="p-0 pb-1">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-lg font-semibold">Create Bulk Keys</CardTitle>
+              <CardTitle className="text-xl font-semibold">Create Bulk Keys</CardTitle>
               <CardDescription className="text-xs">
                 Create multiple license keys at once (up to 1000 keys per batch).
               </CardDescription>
@@ -126,7 +126,7 @@ export const BulkKeyForm = React.memo<BulkKeyFormProps>(({
           </div>
         </CardHeader>
 
-        <CardContent className="px-4 pb-4">
+        <CardContent className="p-0 pt-1">
           <form onSubmit={handleSubmit} className="space-y-2">
             
             {/* Top Row: Target Type AND Product/Agent Select */}
@@ -145,14 +145,14 @@ export const BulkKeyForm = React.memo<BulkKeyFormProps>(({
                       value="product" 
                       className="flex-1 flex items-center justify-center gap-1 h-8 text-xs font-medium border border-border bg-background text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary hover:bg-muted transition-colors"
                     >
-                      <Database className="h-3 w-3" />
+                      <Database className="size-3" />
                       Product
                     </ToggleGroupItem>
                     <ToggleGroupItem 
                       value="agent" 
                       className="flex-1 flex items-center justify-center gap-1 h-8 text-xs font-medium border border-border bg-background text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary hover:bg-muted transition-colors"
                     >
-                      <Container className="h-3 w-3" />
+                      <Container className="size-3" />
                       Agent
                     </ToggleGroupItem>
                   </ToggleGroup>
@@ -205,7 +205,7 @@ export const BulkKeyForm = React.memo<BulkKeyFormProps>(({
                           disabled={loading}
                           className="h-8 w-8 shrink-0"
                         >
-                          <X className="h-3 w-3" />
+                          <X className="size-3" />
                         </Button>
                       </div>
                     )}
@@ -252,7 +252,7 @@ export const BulkKeyForm = React.memo<BulkKeyFormProps>(({
                           disabled={loading}
                           className="h-8 w-8 shrink-0"
                         >
-                          <X className="h-3 w-3" />
+                          <X className="size-3" />
                         </Button>
                       </div>
                     )}
@@ -395,7 +395,7 @@ export const BulkKeyForm = React.memo<BulkKeyFormProps>(({
                 disabled={loading || (formData.targetType === 'product' ? !formData.productId : !formData.agentId || formData.selectedProducts.length === 0)}
                 className="w-full h-8 text-xs gap-2"
               >
-                <Plus className="h-3 w-3" />
+                <Plus className="size-3" />
                 {loading ? 'Creating...' : `Create ${quantity} Keys`}
               </Button>
             </div>

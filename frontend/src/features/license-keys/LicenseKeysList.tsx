@@ -263,7 +263,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
         return (
           <div className="flex justify-end items-center gap-0.5 pr-1">
             {isActionLoading && (
-              <RefreshCwIcon className="h-3.5 w-3.5 animate-spin text-muted-foreground mr-1" />
+              <RefreshCwIcon className="size-3.5 animate-spin text-muted-foreground mr-1" />
             )}
             
             {/* === Show/Hide Button === */}
@@ -277,7 +277,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                     onClick={() => onToggleKeyVisibility(key.id)}
                     disabled={isActionLoading}
                   >
-                    {isVisible ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
+                    {isVisible ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -304,7 +304,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                     }}
                     disabled={isActionLoading}
                   >
-                    <CopyIcon className="h-4 w-4" />
+                    <CopyIcon className="size-4" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -327,7 +327,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                     onClick={() => onViewDetails(key)}
                     disabled={isActionLoading}
                   >
-                    <FileTextIcon className="h-4 w-4" />
+                    <FileTextIcon className="size-4" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -349,7 +349,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                           onClick={() => onKeyAction('edit', key.id)}
                           disabled={isActionLoading}
                         >
-                          <PencilIcon className="h-4 w-4" />
+                          <PencilIcon className="size-4" />
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
@@ -370,7 +370,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                           onClick={() => onKeyAction('reset', key.id)}
                           disabled={isActionLoading}
                         >
-                          <RotateCcwIcon className="h-4 w-4" />
+                          <RotateCcwIcon className="size-4" />
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
@@ -392,9 +392,9 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                           disabled={isActionLoading}
                         >
                           {key.status === KEY_STATUS.PAUSED ? (
-                            <PlayCircleIcon className="h-4 w-4" />
+                            <PlayCircleIcon className="size-4" />
                           ) : (
-                            <PauseCircleIcon className="h-4 w-4" />
+                            <PauseCircleIcon className="size-4" />
                           )}
                         </Button>
                       </TooltipTrigger>
@@ -417,9 +417,9 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                           disabled={isActionLoading}
                         >
                           {key.status === KEY_STATUS.BLOCKED ? (
-                              <CheckCircle2Icon className="h-4 w-4" />
+                              <CheckCircle2Icon className="size-4" />
                           ) : (
-                              <ShieldBanIcon className="h-4 w-4" />
+                              <ShieldBanIcon className="size-4" />
                           )}
                         </Button>
                       </TooltipTrigger>
@@ -441,7 +441,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                           onClick={() => onKeyAction('delete', key.id)}
                           disabled={isActionLoading}
                         >
-                          <Trash2Icon className="h-4 w-4" />
+                          <Trash2Icon className="size-4" />
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
