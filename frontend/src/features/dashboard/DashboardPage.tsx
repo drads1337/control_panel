@@ -343,10 +343,10 @@ function ChartAreaInteractive() {
   })
 
   return (
-    <Card className="@container/card">
-      <CardHeader>
-        <CardTitle>Total Visitors</CardTitle>
-        <CardDescription>
+    <Card className="@container/card p-3">
+      <CardHeader className="p-0 pb-1">
+        <CardTitle className="text-xl font-semibold">Total Visitors</CardTitle>
+        <CardDescription className="text-xs">
           <span className="hidden @[540px]/card:block">
             Total for the last 3 months
           </span>
@@ -397,7 +397,7 @@ function ChartAreaInteractive() {
           </Select>
         </CardAction>
       </CardHeader>
-      <CardContent className="px-2 pt-3 sm:px-6 sm:pt-4">
+      <CardContent className="p-0 pt-1">
         <ChartContainer
           config={chartConfig}
           className="aspect-auto h-[200px] w-full"
