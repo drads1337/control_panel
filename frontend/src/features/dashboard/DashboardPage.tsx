@@ -232,9 +232,9 @@ export default function Dashboard01Block() {
 
 function SectionCards() {
   return (
-    <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-3 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
-      <Card className="@container/card">
-        <CardHeader className="pb-3">
+    <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-2 md:grid-cols-4 gap-3 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6">
+      <Card className="@container/card p-3">
+        <CardHeader className="p-0 pb-1">
           <CardDescription className="text-xs">Total Revenue</CardDescription>
           <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
             $1,250.00
@@ -246,7 +246,7 @@ function SectionCards() {
             </Badge>
           </CardAction>
         </CardHeader>
-        <CardFooter className="flex-col items-start gap-1 text-xs pt-2">
+        <CardFooter className="flex-col items-start gap-0.5 text-xs p-0 pt-1">
           <div className="line-clamp-1 flex gap-1.5 font-medium">
             Trending up this month{" "}
             <TrendingUpIcon className="size-3" />
@@ -256,8 +256,8 @@ function SectionCards() {
           </div>
         </CardFooter>
       </Card>
-      <Card className="@container/card">
-        <CardHeader className="pb-3">
+      <Card className="@container/card p-3">
+        <CardHeader className="p-0 pb-1">
           <CardDescription className="text-xs">New Customers</CardDescription>
           <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
             1,234
@@ -269,7 +269,7 @@ function SectionCards() {
             </Badge>
           </CardAction>
         </CardHeader>
-        <CardFooter className="flex-col items-start gap-1 text-xs pt-2">
+        <CardFooter className="flex-col items-start gap-0.5 text-xs p-0 pt-1">
           <div className="line-clamp-1 flex gap-1.5 font-medium">
             Down 20% this period{" "}
             <TrendingDownIcon className="size-3" />
@@ -279,8 +279,8 @@ function SectionCards() {
           </div>
         </CardFooter>
       </Card>
-      <Card className="@container/card">
-        <CardHeader className="pb-3">
+      <Card className="@container/card p-3">
+        <CardHeader className="p-0 pb-1">
           <CardDescription className="text-xs">Active Accounts</CardDescription>
           <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
             45,678
@@ -292,7 +292,7 @@ function SectionCards() {
             </Badge>
           </CardAction>
         </CardHeader>
-        <CardFooter className="flex-col items-start gap-1 text-xs pt-2">
+        <CardFooter className="flex-col items-start gap-0.5 text-xs p-0 pt-1">
           <div className="line-clamp-1 flex gap-1.5 font-medium">
             Strong user retention{" "}
             <TrendingUpIcon className="size-3" />
@@ -300,8 +300,8 @@ function SectionCards() {
           <div className="text-muted-foreground">Engagement exceed targets</div>
         </CardFooter>
       </Card>
-      <Card className="@container/card">
-        <CardHeader className="pb-3">
+      <Card className="@container/card p-3">
+        <CardHeader className="p-0 pb-1">
           <CardDescription className="text-xs">Growth Rate</CardDescription>
           <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
             4.5%
@@ -313,7 +313,7 @@ function SectionCards() {
             </Badge>
           </CardAction>
         </CardHeader>
-        <CardFooter className="flex-col items-start gap-1 text-xs pt-2">
+        <CardFooter className="flex-col items-start gap-0.5 text-xs p-0 pt-1">
           <div className="line-clamp-1 flex gap-1.5 font-medium">
             Steady performance increase{" "}
             <TrendingUpIcon className="size-3" />
