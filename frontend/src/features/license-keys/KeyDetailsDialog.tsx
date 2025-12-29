@@ -107,6 +107,9 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
 
   const getStatus = (key: any) => {
     if (!key) return 'Inactive';
+    // If key is not activated, show "Not activated"
+    if (!key.activated_at) return 'Not activated';
+    // Only check expiration if key was activated
     if (key.is_expired) return 'Expired';
     return key.is_active ? 'Active' : 'Inactive';
   };
@@ -115,6 +118,7 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
     let statusType: StatusType = 'inactive';
     if (status === 'Active') statusType = 'active';
     if (status === 'Expired') statusType = 'expired';
+    if (status === 'Not activated') statusType = 'not_activated';
 
     return (
       <span className={cn(getStatusClasses(statusType), "rounded-none")}>

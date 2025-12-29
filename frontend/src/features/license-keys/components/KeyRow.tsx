@@ -19,7 +19,7 @@ interface KeyRowProps {
   onKeyAction: (action: string, keyId: number) => void;
   onViewDetails: (key: LicenseKey) => void;
   canPerformAction: (key: LicenseKey, actionPermission: boolean) => boolean;
-  getStatusType: (status: number, is_expired?: boolean) => StatusType;
+  getStatusType: (status: number, is_expired?: boolean, activated_at?: string | null) => StatusType;
   canEdit?: boolean;
   canDelete?: boolean;
   canReset?: boolean;
@@ -104,10 +104,10 @@ export const KeyRow: React.FC<KeyRowProps> = React.memo(({
       
       <TableCell className="text-left">
         <Badge
-          className={getStatusClasses(getStatusType(keyData.status, keyData.is_expired))}
+          className={getStatusClasses(getStatusType(keyData.status, keyData.is_expired, keyData.activated_at))}
           variant="secondary"
         >
-          {getStatusText(getStatusType(keyData.status, keyData.is_expired))}
+          {getStatusText(getStatusType(keyData.status, keyData.is_expired, keyData.activated_at))}
         </Badge>
       </TableCell>
       

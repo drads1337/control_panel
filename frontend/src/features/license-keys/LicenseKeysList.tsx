@@ -116,8 +116,11 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
     return key.user_id === currentUserId
   }, [currentUserId])
 
-  const getStatusType = React.useCallback((status: number, is_expired?: boolean): StatusType => {
+  const getStatusType = React.useCallback((status: number, is_expired?: boolean, activated_at?: string | null): StatusType => {
     if (status === KEY_STATUS.BLOCKED) return 'inactive'
+    // If key is not activated, show "Not activated"
+    if (!activated_at) return 'not_activated'
+    // Only check expiration if key was activated
     if (status === KEY_STATUS.ACTIVE && is_expired) return 'expired'
     switch (status) {
       case KEY_STATUS.BLOCKED: return 'inactive'
@@ -205,7 +208,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
       accessorKey: "status",
       header: "Status",
       cell: ({ row }) => {
-        const statusType = getStatusType(row.original.status, row.original.is_expired)
+        const statusType = getStatusType(row.original.status, row.original.is_expired, row.original.activated_at)
         
         // Handle special cases that don't map directly to status types
         if (row.original.status === KEY_STATUS.BLOCKED) {

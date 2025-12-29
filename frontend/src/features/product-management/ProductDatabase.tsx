@@ -227,7 +227,7 @@ export default function ProductDatabase({
                    <Button 
                       variant="ghost" 
                       size="icon"
-                      className="h-5 w-5"
+                      className="size-5"
                       onClick={refetch}
                       disabled={loading}
                     >
@@ -341,19 +341,19 @@ export default function ProductDatabase({
 
                 <div className="flex items-center gap-1">
                   {canEditProducts && (
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditProduct(selectedProductForDetail)}>
+                    <Button variant="ghost" size="icon" className="size-7" onClick={() => handleEditProduct(selectedProductForDetail)}>
                       <Edit className="size-3.5 text-muted-foreground" />
                     </Button>
                   )}
                   {canDeleteProducts && (
-                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-red-600" onClick={() => handleDeleteProduct(selectedProductForDetail.id)}>
+                    <Button variant="ghost" size="icon" className="size-7 hover:text-red-600" onClick={() => handleDeleteProduct(selectedProductForDetail.id)}>
                       <Trash2 className="size-3.5" />
                     </Button>
                   )}
                   <Separator orientation="vertical" className="h-4 mx-1" />
                    <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-7 w-7">
+                      <Button variant="ghost" size="icon" className="size-7">
                         <MoreVertical className="size-3.5 text-muted-foreground" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -379,31 +379,31 @@ export default function ProductDatabase({
               <div className="flex-1 overflow-auto bg-muted/5 p-4">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
                   {/* Stats Cards */}
-                  <Card className="border-muted-foreground/10 shadow-sm bg-background">
-                    <CardContent className="p-4 flex flex-col gap-1">
+                  <Card className="p-3 border-muted-foreground/10 shadow-sm bg-background">
+                    <CardContent className="p-0 pt-1 flex flex-col gap-1">
                       <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Revenue</span>
                       <div className="flex items-center justify-between">
-                         <span className="text-lg font-bold">-</span>
+                         <span className="text-xl font-bold">-</span>
                          <DollarSign className="size-4 text-emerald-500 opacity-50" />
                       </div>
                     </CardContent>
                   </Card>
-                  <Card className="border-muted-foreground/10 shadow-sm bg-background">
-                    <CardContent className="p-4 flex flex-col gap-1">
+                  <Card className="p-3 border-muted-foreground/10 shadow-sm bg-background">
+                    <CardContent className="p-0 pt-1 flex flex-col gap-1">
                       <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Active Users</span>
                       <div className="flex items-center justify-between">
-                         <span className="text-lg font-bold">{(selectedProductForDetail.active_users || 0).toLocaleString()}</span>
+                         <span className="text-xl font-bold">{(selectedProductForDetail.active_users || 0).toLocaleString()}</span>
                          <div className="flex h-1.5 w-16 bg-muted rounded-full overflow-hidden">
                             <div className="w-2/3 bg-blue-500" />
                          </div>
                       </div>
                     </CardContent>
                   </Card>
-                  <Card className="border-muted-foreground/10 shadow-sm bg-background">
-                    <CardContent className="p-4 flex flex-col gap-1">
+                  <Card className="p-3 border-muted-foreground/10 shadow-sm bg-background">
+                    <CardContent className="p-0 pt-1 flex flex-col gap-1">
                       <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Downloads</span>
                       <div className="flex items-center justify-between">
-                         <span className="text-lg font-bold">{formatNumber(selectedProductForDetail.downloads)}</span>
+                         <span className="text-xl font-bold">{formatNumber(selectedProductForDetail.downloads)}</span>
                          <ArrowUpRight className="size-4 text-muted-foreground opacity-50" />
                       </div>
                     </CardContent>
@@ -418,8 +418,8 @@ export default function ProductDatabase({
                           <FileText className="size-3.5 text-muted-foreground" /> 
                           Description
                         </h3>
-                        <Card className="border-muted-foreground/10 bg-background shadow-sm">
-                          <CardContent className="p-4">
+                        <Card className="p-3 border-muted-foreground/10 bg-background shadow-sm">
+                          <CardContent className="p-0 pt-1">
                             <p className="text-xs text-muted-foreground leading-relaxed">
                               {selectedProductForDetail.description || "No description provided."}
                             </p>
@@ -434,7 +434,7 @@ export default function ProductDatabase({
                               Recent Activity
                             </h3>
                          </div>
-                         <Card className="border-muted-foreground/10 bg-background shadow-sm overflow-hidden">
+                         <Card className="p-3 border-muted-foreground/10 bg-background shadow-sm overflow-hidden">
                            <Table>
                               <TableHeader className="bg-muted/30">
                                 <TableRow className="h-8 hover:bg-transparent">
