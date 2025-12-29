@@ -43,10 +43,25 @@ import { ProductDatabaseEmptyState, ProductDatabaseErrorState, ProductDatabaseAc
 import { ProductDatabaseDialogs } from './components/ProductDatabaseDialogs';
 import ViewProductDialog from './ViewProductDialog';
 import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 import { cn } from '@/lib/utils';
 import type { Product } from '@/entities/product';
-import { getStatusText } from '@/lib/status-utils';
+import { getStatusClasses, getStatusText, type StatusType } from '@/lib/status-utils';
 
 interface ProductDatabaseProps {
   onCreateProductRequested?: boolean;
@@ -117,18 +132,6 @@ export default function ProductDatabase({
   }, [onCreateProductRequested, onCreateProductRequestHandled, openCreateDialog]);
 
   const { filters, filteredProducts, updateFilters } = useProductFilters(products);
-
-  const getStatusStyle = (status: string) => {
-    switch(status) {
-      case 'active': return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
-      case 'testing': return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20';
-      case 'maintenance': return 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20';
-      case 'inactive': return 'bg-muted/50 text-muted-foreground border-muted-foreground/20';
-      default: return 'bg-muted/50 text-muted-foreground border-muted-foreground/20';
-    }
-  };
-
-
   const formatNumber = (num: number | undefined | null): string => {
     if (num === undefined || num === null) return '-';
     if (num >= 1000) return `${(num / 1000).toFixed(1)}k`;
@@ -170,95 +173,153 @@ export default function ProductDatabase({
   }
 
   return (
-    <div className="flex h-[550px] bg-background border rounded-lg shadow-sm overflow-hidden animate-in fade-in duration-300 font-sans">
+    <div className="flex flex-col h-[550px] bg-background border rounded-lg shadow-sm overflow-hidden animate-in fade-in duration-300 font-sans">
       
-      {/* Main List Area */}
-      <div className="flex flex-col w-full">
-        
-        {/* Header & Controls */}
-        <div className="p-3 border-b border-muted-foreground/20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h2 className="text-xl font-semibold text-foreground tracking-tight">Database</h2>
+      {/* Header & Controls */}
+      <div className="p-3 border-b border-muted-foreground/20 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-semibold text-foreground tracking-tight">Database</h2>
+        </div>
+        <ConditionalRender permission="products.create" fallback={null}>
+          <Button
+            onClick={() => setShowCreateDialog(true)}
+            size="sm"
+            className="h-8 text-xs gap-1.5"
+          >
+            <Plus className="size-3" /> New Product
+          </Button>
+        </ConditionalRender>
+      </div>
+
+      {/* Table Container */}
+      <div className="flex-1 overflow-hidden flex flex-col">
+        {loading ? (
+          <div className="flex justify-center items-center flex-1">
+            <Spinner />
           </div>
-          <ConditionalRender permission="products.create" fallback={null}>
-            <Button
-              onClick={() => setShowCreateDialog(true)}
-              size="sm"
-              className="h-8 text-xs gap-1.5"
-            >
-              <Plus className="size-3" /> New Product
-            </Button>
-          </ConditionalRender>
-        </div>
-
-        {/* Table Header */}
-        <div className="grid grid-cols-12 gap-3 p-3 pt-1.5 pb-1.5 bg-muted/10 border-b border-muted-foreground/20 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-          <div className="col-span-4">Name</div>
-          <div className="col-span-2">Status</div>
-          <div className="col-span-2">Version</div>
-          <div className="col-span-2">Usage</div>
-          <div className="col-span-2 text-right">Revenue</div>
-        </div>
-
-        {/* List Items */}
-        <div className="flex-1 overflow-y-auto">
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <Spinner />
+        ) : (
+          <div className="flex-1 overflow-y-auto">
+            <div className="rounded-lg border bg-background">
+              <Table>
+                <TableHeader className="bg-background sticky top-0 z-10 shadow-sm">
+                  <TableRow className="h-9 hover:bg-transparent border-b-muted-foreground/10">
+                    <TableHead className="text-xs h-9 font-medium text-muted-foreground">Name</TableHead>
+                    <TableHead className="text-xs h-9 font-medium text-muted-foreground">Status</TableHead>
+                    <TableHead className="text-xs h-9 font-medium text-muted-foreground">Version</TableHead>
+                    <TableHead className="text-xs h-9 font-medium text-muted-foreground">Usage</TableHead>
+                    <TableHead className="text-xs h-9 font-medium text-muted-foreground text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredProducts.length > 0 ? (
+                    filteredProducts.map((product) => (
+                      <TableRow
+                        key={product.id}
+                        className="h-12 text-xs border-b-muted-foreground/5 hover:bg-background hover:shadow-sm transition-all cursor-pointer"
+                        onClick={() => handleViewProduct(product)}
+                      >
+                        <TableCell className="py-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-md flex items-center justify-center bg-muted/20">
+                              <Package className="size-3.5 text-muted-foreground" />
+                            </div>
+                            <div>
+                              <div className="text-xs font-semibold text-foreground leading-tight">{product.name}</div>
+                              <div className="text-[10px] text-muted-foreground font-mono mt-0.5">{product.unique_id || `ID: ${product.id}`}</div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-2">
+                          <span className={cn(getStatusClasses(product.status as StatusType), "rounded-none")}>
+                            {getStatusText(product.status as StatusType)}
+                          </span>
+                        </TableCell>
+                        <TableCell className="py-2">
+                          <span className={cn(getStatusClasses('inactive' as StatusType), "rounded-none text-xs font-medium")}>
+                            v{product.version || '0.0.0'}
+                          </span>
+                        </TableCell>
+                        <TableCell className="py-2">
+                          <div className="flex flex-col justify-center">
+                            <div className="flex items-end gap-1 mb-0.5">
+                              <span className="text-xs font-medium text-foreground">{product.active_users || 0}</span>
+                              <span className="text-[10px] text-muted-foreground mb-px">users</span>
+                            </div>
+                            <div className="w-16 h-1 bg-muted/20 rounded-full overflow-hidden border border-muted-foreground/10">
+                              <div className="h-full bg-blue-500 rounded-full" style={{ width: `${calculateDistribution(product)}%` }}></div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-2 text-right" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex justify-end">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0"
+                                >
+                                  <MoreVertical className="size-3.5" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-40">
+                                <DropdownMenuItem onClick={() => handleViewProduct(product)}>
+                                  <Eye className="size-3.5 mr-2" />
+                                  View Details
+                                </DropdownMenuItem>
+                                {canEditProducts && (
+                                  <DropdownMenuItem onClick={() => handleEditProduct(product)}>
+                                    <Edit className="size-3.5 mr-2" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuSeparator />
+                                {canUploadFiles && (
+                                  <DropdownMenuItem onClick={() => handleUploadProduct(product)}>
+                                    <Upload className="size-3.5 mr-2" />
+                                    Files
+                                  </DropdownMenuItem>
+                                )}
+                                {canManagePrices && (
+                                  <DropdownMenuItem onClick={() => handlePricesProduct(product)}>
+                                    <DollarSign className="size-3.5 mr-2" />
+                                    Pricing
+                                  </DropdownMenuItem>
+                                )}
+                                {canManageNotifications && (
+                                  <DropdownMenuItem onClick={() => handleNotificationsProduct(product)}>
+                                    <Bell className="size-3.5 mr-2" />
+                                    Notifications
+                                  </DropdownMenuItem>
+                                )}
+                                {canManageChangelog && (
+                                  <DropdownMenuItem onClick={() => handleChangelogProduct(product)}>
+                                    <ListIcon className="size-3.5 mr-2" />
+                                    Changelog
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="h-24 text-center text-xs text-muted-foreground">
+                        No products found.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </div>
-          ) : (
-            filteredProducts.map((product) => {
-              return (
-                <div 
-                  key={product.id}
-                  onClick={() => handleViewProduct(product)}
-                  className="group grid grid-cols-12 gap-3 p-3 pt-2 pb-2 items-center border-b border-muted-foreground/20 hover:bg-muted/30 cursor-pointer transition-colors"
-                >
-                  <div className="col-span-4 flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-md flex items-center justify-center bg-muted/20">
-                      <Package className="size-3.5 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <div className="text-xs font-semibold text-foreground leading-tight">{product.name}</div>
-                      <div className="text-[10px] text-muted-foreground font-mono mt-0.5">{product.unique_id || `ID: ${product.id}`}</div>
-                    </div>
-                  </div>
-                  
-                  <div className="col-span-2">
-                    <span className={cn("inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border", getStatusStyle(product.status))}>
-                      {product.status === 'active' && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1"></span>}
-                      {getStatusText(product.status as any)}
-                    </span>
-                  </div>
-
-                  <div className="col-span-2">
-                    <span className="text-[10px] font-mono text-muted-foreground bg-muted/30 px-1.5 py-0.5 rounded border border-muted-foreground/20">v{product.version || '0.0.0'}</span>
-                  </div>
-
-                  <div className="col-span-2 flex flex-col justify-center">
-                    <div className="flex items-end gap-1 mb-0.5">
-                      <span className="text-xs font-medium text-foreground">{product.active_users || 0}</span>
-                      <span className="text-[10px] text-muted-foreground mb-px">users</span>
-                    </div>
-                    <div className="w-16 h-1 bg-muted/20 rounded-full overflow-hidden border border-muted-foreground/10">
-                      <div className="h-full bg-blue-500 rounded-full" style={{ width: `${calculateDistribution(product)}%` }}></div>
-                    </div>
-                  </div>
-
-                  <div className="col-span-2 text-right">
-                    <div className="text-xs font-medium text-foreground tabular-nums">{formatRevenue(product)}</div>
-                    <div className="text-[10px] text-muted-foreground">{getTimeAgo(product.updated_at)}</div>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
+          </div>
+        )}
         
         {/* Footer Stats */}
-        <div className="p-3 pt-2 pb-2 border-t border-muted-foreground/20 bg-muted/10 text-xs text-muted-foreground flex justify-between items-center">
+        <div className="p-3 pt-2 pb-2 border-t border-muted-foreground/20 bg-muted/10 text-xs text-muted-foreground flex-shrink-0">
           <span>{filteredProducts.length} products</span>
-          <span>Total Revenue: <span className="text-foreground font-medium">-</span></span>
         </div>
       </div>
 
@@ -296,26 +357,6 @@ export default function ProductDatabase({
           setDetailsDialogOpen(false);
           handleEditProduct(product);
         } : undefined}
-        onUpload={selectedProductForDetail ? (product) => {
-          setDetailsDialogOpen(false);
-          handleUploadProduct(product);
-        } : undefined}
-        onPrices={selectedProductForDetail ? (product) => {
-          setDetailsDialogOpen(false);
-          handlePricesProduct(product);
-        } : undefined}
-        onNotifications={selectedProductForDetail ? (product) => {
-          setDetailsDialogOpen(false);
-          handleNotificationsProduct(product);
-        } : undefined}
-        onChangelog={selectedProductForDetail ? (product) => {
-          setDetailsDialogOpen(false);
-          handleChangelogProduct(product);
-        } : undefined}
-        canUploadFiles={canUploadFiles}
-        canManagePrices={canManagePrices}
-        canManageNotifications={canManageNotifications}
-        canManageChangelog={canManageChangelog}
       />
     </div>
   );
