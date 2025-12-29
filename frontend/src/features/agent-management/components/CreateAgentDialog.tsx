@@ -73,86 +73,92 @@ const CreateAgentDialog: React.FC<CreateAgentDialogProps> = ({ open, onOpenChang
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-hidden">
-        <DialogHeader className="flex-shrink-0 text-left">
-          <DialogTitle>Create New Agent</DialogTitle>
-          <DialogDescription>
-            Fill in the details for the new agent.
-          </DialogDescription>
+      <DialogContent className="w-full sm:max-w-[420px] p-0 gap-0 overflow-hidden">
+        <DialogHeader className="p-4 pb-1 bg-muted/5">
+          <div className="space-y-1">
+            <DialogTitle className="text-xl font-semibold">
+              Create New Agent
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Fill in the details for the new agent.
+            </DialogDescription>
+          </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto py-2 space-y-4 pr-1 scrollbar-thin">
-          <div className="space-y-2">
-            <Label htmlFor="agentName">Agent Name *</Label>
-            <Input 
-              id="agentName" 
-              placeholder="Enter agent name"
-              value={formData.name}
-              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              className="text-base sm:text-sm"
-            />
+        <div className="p-4">
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="agentName" className="text-xs font-medium">Agent Name *</Label>
+              <Input 
+                id="agentName" 
+                placeholder="Enter agent name"
+                value={formData.name}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                className="h-8 text-xs"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="agentDescription" className="text-xs font-medium">Description</Label>
+              <Input 
+                id="agentDescription" 
+                placeholder="Enter agent description (optional)"
+                value={formData.description}
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                className="h-8 text-xs"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="agentStatus" className="text-xs font-medium">Status</Label>
+              <Select 
+                value={formData.status} 
+                onValueChange={(value) => setFormData(prev => ({ ...prev, status: value as any }))}
+              >
+                <SelectTrigger className="w-full h-8 text-xs">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent className="text-xs">
+                  <SelectItem value="active" className="text-xs">Active</SelectItem>
+                  <SelectItem value="inactive" className="text-xs">Inactive</SelectItem>
+                  <SelectItem value="maintenance" className="text-xs">Maintenance</SelectItem>
+                  <SelectItem value="testing" className="text-xs">Testing</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="agentVersion" className="text-xs font-medium">Version</Label>
+              <Input 
+                id="agentVersion" 
+                placeholder="1.0.0" 
+                value={formData.version}
+                onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}
+                className="h-8 text-xs"
+              />
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="agentDescription">Description</Label>
-            <Input 
-              id="agentDescription" 
-              placeholder="Enter agent description (optional)"
-              value={formData.description}
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              className="text-base sm:text-sm"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="agentStatus">Status</Label>
-            <Select 
-              value={formData.status} 
-              onValueChange={(value) => setFormData(prev => ({ ...prev, status: value as any }))}
+          <div className="flex justify-end gap-2 pt-2 mt-4">
+            <Button 
+              variant="outline" 
+              onClick={handleCancel}
+              disabled={loading}
+              className="h-8 text-xs"
             >
-              <SelectTrigger className="w-full text-base sm:text-sm">
-                <SelectValue placeholder="Select status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-                <SelectItem value="maintenance">Maintenance</SelectItem>
-                <SelectItem value="testing">Testing</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="agentVersion">Version</Label>
-            <Input 
-              id="agentVersion" 
-              placeholder="1.0.0" 
-              value={formData.version}
-              onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}
-              className="text-base sm:text-sm"
-            />
+              Cancel
+            </Button>
+            <ConditionalRender permission="agents.create" fallback={null}>
+              <Button 
+                onClick={handleSubmit}
+                disabled={loading || !formData.name.trim()}
+                className="h-8 text-xs min-w-[80px]"
+              >
+                {loading ? 'Creating...' : 'Create Agent'}
+              </Button>
+            </ConditionalRender>
           </div>
         </div>
-
-        <DialogFooter className="flex-shrink-0 flex-col-reverse sm:flex-row gap-2 sm:gap-0 mt-2">
-          <Button 
-            variant="outline" 
-            onClick={handleCancel}
-            disabled={loading}
-            className="w-full sm:w-auto mt-2 sm:mt-0"
-          >
-            Cancel
-          </Button>
-          <ConditionalRender permission="agents.create" fallback={null}>
-            <Button 
-              onClick={handleSubmit}
-              disabled={loading || !formData.name.trim()}
-              className="w-full sm:w-auto"
-            >
-              {loading ? 'Creating...' : 'Create Agent'}
-            </Button>
-          </ConditionalRender>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

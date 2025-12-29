@@ -11,6 +11,15 @@ import { Edit, Upload, DollarSign, Bell, FileText, X } from 'lucide-react'
 import type { Product } from '@/entities/product'
 import { cn } from "@/lib/utils"
 
+const formatDate = (dateString: string) => {
+  try {
+    const date = new Date(dateString)
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  } catch {
+    return dateString
+  }
+}
+
 interface ViewProductDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -51,12 +60,14 @@ export default function ViewProductDialog({
             <DialogTitle className="text-base font-semibold truncate">
               {product.name}
             </DialogTitle>
-            <Badge 
-              variant={product.is_active ? "default" : "secondary"}
-              className="h-5 px-1.5 text-[10px] uppercase tracking-wider flex-shrink-0"
-            >
-              {product.is_active ? 'Active' : 'Inactive'}
-            </Badge>
+            {product.is_active && (
+              <Badge 
+                variant="default"
+                className="h-5 px-1.5 text-[10px] uppercase tracking-wider flex-shrink-0"
+              >
+                Active
+              </Badge>
+            )}
           </div>
           {/* Close button handled by Dialog primitive usually, but custom one works too if needed */}
         </DialogHeader>
@@ -87,6 +98,13 @@ export default function ViewProductDialog({
 
           {/* Key Details List */}
           <div className="space-y-2 pt-1">
+            <InfoRow label="ID" value={product.id} mono />
+            {product.description && (
+              <InfoRow label="Description" value={product.description} />
+            )}
+            {product.created_at && (
+              <InfoRow label="Created" value={formatDate(product.created_at)} />
+            )}
             <InfoRow label="Multi App" value={product.is_multi_app ? 'Yes' : 'No'} />
             {product.login_type && (
               <InfoRow label="Login Type" value={product.login_type.replace('_', ' ')} capitalize />

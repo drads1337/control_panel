@@ -82,80 +82,80 @@ const EditAgentDialog: React.FC<EditAgentDialogProps> = ({ open, onOpenChange, o
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-hidden">
-        <DialogHeader className="flex-shrink-0 text-left">
-          <DialogTitle className="text-base">
-            Edit Agent
-          </DialogTitle>
-          <DialogDescription className="mt-1 text-xs">
-            {agent.name}
-          </DialogDescription>
+      <DialogContent className="w-full sm:max-w-[420px] p-0 gap-0 overflow-hidden">
+        <DialogHeader className="p-4 pb-1 bg-muted/5">
+          <div className="space-y-1">
+            <DialogTitle className="text-xl font-semibold">
+              Edit Agent
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              {agent.name}
+            </DialogDescription>
+          </div>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 space-y-4 mt-2">
-          <div className="flex-1 overflow-y-auto pr-1 -mr-1">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name" className="text-sm">Agent Name</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="Agent name"
-                  required
-                  className="text-base sm:text-sm"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="version" className="text-sm">Version</Label>
-                <Input
-                  id="version"
-                  value={formData.version}
-                  onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}
-                  placeholder="1.0.0"
-                  className="text-base sm:text-sm"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="description" className="text-sm">Description</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Detailed description of the agent"
-                  rows={3}
-                  className="text-base sm:text-sm resize-none"
-                />
-              </div>
+        <div className="p-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="name" className="text-xs font-medium">Agent Name</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Agent name"
+                required
+                className="h-8 text-xs"
+              />
             </div>
-          </div>
 
-          <DialogFooter className="flex-shrink-0 flex-col-reverse sm:flex-row gap-2 sm:gap-0 pt-2 border-t mt-auto">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => onOpenChange(false)}
-              className="w-full sm:w-auto"
-            >
-              Cancel
-            </Button>
-            <ConditionalRender permission="agents.edit" fallback={null}>
+            <div className="space-y-1.5">
+              <Label htmlFor="version" className="text-xs font-medium">Version</Label>
+              <Input
+                id="version"
+                value={formData.version}
+                onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}
+                placeholder="1.0.0"
+                className="h-8 text-xs"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="description" className="text-xs font-medium">Description</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Detailed description of the agent"
+                rows={3}
+                className="text-xs resize-none min-h-[80px]"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 mt-4">
               <Button 
-                type="button"
-                disabled={loading}
-                className="w-full sm:w-auto"
-                onClick={async (e) => {
-                  e.preventDefault();
-                  await handleSubmit(e as any);
-                }}
+                type="button" 
+                variant="outline" 
+                onClick={() => onOpenChange(false)}
+                className="h-8 text-xs"
               >
-                {loading ? 'Saving...' : 'Save Changes'}
+                Cancel
               </Button>
-            </ConditionalRender>
-          </DialogFooter>
-        </form>
+              <ConditionalRender permission="agents.edit" fallback={null}>
+                <Button 
+                  type="button"
+                  disabled={loading}
+                  className="h-8 text-xs min-w-[80px]"
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    await handleSubmit(e as any);
+                  }}
+                >
+                  {loading ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </ConditionalRender>
+            </div>
+          </form>
+        </div>
       </DialogContent>
     </Dialog>
   );

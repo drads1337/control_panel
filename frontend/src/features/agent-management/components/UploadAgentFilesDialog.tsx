@@ -9,19 +9,19 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import FileUpload from '@/components/ui/file-upload';
-import { uploadProductFiles } from '@/entities/file';
+import { uploadAgentFiles } from '@/entities/agent';
+import FileUpload, { type FileWithPreview } from '@/components/ui/file-upload';
 import { toast } from 'sonner';
-import type { Product } from '@/entities/product';
+import type { Agent } from '@/entities/agent';
 
-interface ProductFileUploadDialogProps {
+interface UploadAgentFilesDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess: () => void;
-  product: Product | null;
+  onSuccess?: () => void;
+  agent: Agent | null;
 }
 
-const ProductFileUploadDialog: React.FC<ProductFileUploadDialogProps> = ({ open, onOpenChange, onSuccess, product }) => {
+const UploadAgentFilesDialog: React.FC<UploadAgentFilesDialogProps> = ({ open, onOpenChange, onSuccess, agent }) => {
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedFiles, setSelectedFiles] = useState<{
@@ -31,7 +31,7 @@ const ProductFileUploadDialog: React.FC<ProductFileUploadDialogProps> = ({ open,
     file?: File;
   }>({});
 
-  const handleFilesSelect = (files: any[], fileType: string) => {
+  const handleFilesSelect = (files: FileWithPreview[], fileType: string) => {
     if (files.length > 0) {
       setSelectedFiles(prev => ({
         ...prev,
@@ -42,37 +42,19 @@ const ProductFileUploadDialog: React.FC<ProductFileUploadDialogProps> = ({ open,
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!product) return;
+    if (!agent) return;
     try {
       setLoading(true);
       setUploadProgress(0);
-      
-      const filesToUpload: { file: File; type: 'logo' | 'banner' | 'background' | 'file' }[] = [];
-      
-      if (selectedFiles.logo) {
-        filesToUpload.push({ file: selectedFiles.logo, type: 'logo' });
-      }
-      if (selectedFiles.banner) {
-        filesToUpload.push({ file: selectedFiles.banner, type: 'banner' });
-      }
-      if (selectedFiles.background) {
-        filesToUpload.push({ file: selectedFiles.background, type: 'background' });
-      }
-      if (selectedFiles.file) {
-        filesToUpload.push({ file: selectedFiles.file, type: 'file' });
-      }
-
-      if (filesToUpload.length === 0) {
-        toast.error('Please select at least one file');
-        return;
-      }
-
-      await uploadProductFiles(product.id, filesToUpload, (fileIndex, progress) => {
-        setUploadProgress(progress);
+      const formData = new FormData();
+      Object.entries(selectedFiles).forEach(([key, file]) => {
+        if (file) {
+          formData.append(key, file);
+        }
       });
-
+      await uploadAgentFiles(agent.id, formData);
       toast.success('Files uploaded successfully!');
-      onSuccess();
+      onSuccess?.();
       onOpenChange(false);
       setSelectedFiles({});
       setUploadProgress(0);
@@ -83,7 +65,7 @@ const ProductFileUploadDialog: React.FC<ProductFileUploadDialogProps> = ({ open,
     }
   };
 
-  if (!product) return null;
+  if (!agent) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -93,10 +75,10 @@ const ProductFileUploadDialog: React.FC<ProductFileUploadDialogProps> = ({ open,
         <DialogHeader className="p-4 pb-1 bg-muted/5">
           <div className="space-y-1">
             <DialogTitle className="text-xl font-semibold">
-              Upload Files for Product
+              Upload Files for Agent
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Upload files for the product "{product.name}".
+              Upload files for the agent "{agent.name}".
             </DialogDescription>
           </div>
         </DialogHeader>
@@ -107,7 +89,7 @@ const ProductFileUploadDialog: React.FC<ProductFileUploadDialogProps> = ({ open,
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium">
-                  Product Logo
+                  Agent Logo
                 </Label>
                 <FileUpload
                   onFilesSelect={(files) => handleFilesSelect(files, 'logo')}
@@ -121,7 +103,7 @@ const ProductFileUploadDialog: React.FC<ProductFileUploadDialogProps> = ({ open,
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium">
-                  Product Banner
+                  Agent Banner
                 </Label>
                 <FileUpload
                   onFilesSelect={(files) => handleFilesSelect(files, 'banner')}
@@ -135,7 +117,7 @@ const ProductFileUploadDialog: React.FC<ProductFileUploadDialogProps> = ({ open,
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium">
-                  Product Background
+                  Agent Background
                 </Label>
                 <FileUpload
                   onFilesSelect={(files) => handleFilesSelect(files, 'background')}
@@ -149,7 +131,7 @@ const ProductFileUploadDialog: React.FC<ProductFileUploadDialogProps> = ({ open,
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium">
-                  Product File (required)
+                  Agent File (required)
                 </Label>
                 <FileUpload
                   onFilesSelect={(files) => handleFilesSelect(files, 'file')}
@@ -226,5 +208,5 @@ const ProductFileUploadDialog: React.FC<ProductFileUploadDialogProps> = ({ open,
   );
 };
 
-export default ProductFileUploadDialog;
+export default UploadAgentFilesDialog;
 

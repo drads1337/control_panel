@@ -1,24 +1,38 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, RefreshCw, Search, Check, X, Container, MoreVertical, Edit, Trash2, Upload, Bell, Eye, Settings, Database, GitCommit } from 'lucide-react';
+"use client"
+
+import * as React from "react"
+import { useState, useEffect, useMemo } from "react"
+import { 
+  Plus, 
+  MoreVertical, 
+  Edit, 
+  Upload, 
+  Bell, 
+  Trash2, 
+  Eye,
+  Container,
+  Settings,
+  Database,
+  GitCommit,
+} from 'lucide-react';
+
 import { useAgentsQuery } from '@/entities/agent';
 import { usePermissions } from '@/shared/hooks/use-permissions';
 import { ConditionalRender } from '@/shared/ui/components/rbac/conditional-render';
 import { Spinner } from '@/components/ui/spinner';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Badge } from '@/components/ui/badge';
-import { AgentDatabaseEmptyState, AgentDatabaseErrorState, AgentDatabaseAccessDenied } from './components';
+import { AgentDatabaseEmptyState, AgentDatabaseErrorState, AgentDatabaseAccessDenied, ViewAgentDialog } from './components';
 import CreateAgentDialog from './components/CreateAgentDialog';
 import EditAgentDialog from './components/EditAgentDialog';
+import AssignProductsDialog from './components/AssignProductsDialog';
+import AgentConfigDialog from './components/AgentConfigDialog';
+import UploadAgentFilesDialog from './components/UploadAgentFilesDialog';
 import { NotificationsDialog } from '@/features/notifications';
 import { ChangelogManagementDialog } from '@/features/changelog';
 import type { Agent } from '@/entities/agent';
 import type { Product } from '@/entities/product';
 import { cn } from '@/lib/utils';
-import { sanitizeString } from '@/lib/sanitization';
 import { getStatusClasses, getStatusText, type StatusType } from '@/lib/status-utils';
 import {
   DropdownMenu,
@@ -28,30 +42,24 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-
-// Hook for determining screen size
-const useMediaQuery = (query: string) => {
-  const [matches, setMatches] = useState(false);
-  useEffect(() => {
-    const media = window.matchMedia(query);
-    if (media.matches !== matches) setMatches(media.matches);
-    const listener = () => setMatches(media.matches);
-    media.addEventListener('change', listener);
-    return () => media.removeEventListener('change', listener);
-  }, [matches, query]);
-  return matches;
-};
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 interface AgentManagerProps {
   onCreateAgentRequested?: boolean;
   onCreateAgentRequestHandled?: () => void;
 }
 
-const AgentManager: React.FC<AgentManagerProps> = ({ 
+export default function AgentManager({ 
   onCreateAgentRequested,
   onCreateAgentRequestHandled,
-}) => {
-  const isMobile = useMediaQuery('(max-width: 768px)');
+}: AgentManagerProps) {
   const { hasPermission, hasAnyPermission } = usePermissions();
 
   const canViewAgents = hasPermission('agents.view');
@@ -101,8 +109,6 @@ const AgentManager: React.FC<AgentManagerProps> = ({
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedAgents, setSelectedAgents] = useState<number[]>([]);
-  const [bulkAction, setBulkAction] = useState('');
   
   // Dialog states
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -131,34 +137,6 @@ const AgentManager: React.FC<AgentManagerProps> = ({
     });
   }, [agents, searchTerm, statusFilter]);
 
-  const toggleAgentSelection = (agentId: number) => {
-    setSelectedAgents(prev => prev.includes(agentId) ? prev.filter(id => id !== agentId) : [...prev, agentId]);
-  };
-
-  const clearSelection = () => setSelectedAgents([]);
-
-  const handleBulkAction = async () => {
-    if (!bulkAction || selectedAgents.length === 0) return;
-
-    try {
-      const actions = selectedAgents.map(agentId => {
-        switch (bulkAction) {
-          case 'activate': return updateStatusMutation(agentId, 'active');
-          case 'deactivate': return updateStatusMutation(agentId, 'inactive');
-          case 'maintenance': return updateStatusMutation(agentId, 'maintenance');
-          case 'testing': return updateStatusMutation(agentId, 'testing');
-          case 'delete': return deleteAgentMutation(agentId);
-          default: return Promise.resolve();
-        }
-      });
-      await Promise.all(actions);
-      clearSelection();
-      setBulkAction('');
-    } catch (err) {
-      // Error handling
-    }
-  };
-
   const handleStatusChange = async (agentId: number, newStatus: Agent['status']) => {
     try {
       await updateStatusMutation(agentId, newStatus);
@@ -181,278 +159,42 @@ const AgentManager: React.FC<AgentManagerProps> = ({
     setShowDetailsDialog(true);
   };
 
+  const handleConfigAgent = (agent: Agent) => {
+    setSelectedAgent(agent);
+    setShowConfigDialog(true);
+  };
+
+  const handleAssignProductsAgent = (agent: Agent) => {
+    setSelectedAgent(agent);
+    setShowAssignProductsDialog(true);
+  };
+
   const handleEditAgent = (agent: Agent) => {
     setSelectedAgent(agent);
     setShowEditDialog(true);
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      case 'inactive': return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
-      case 'maintenance': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
-      case 'testing': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-      default: return 'bg-gray-100 text-gray-800';
+  const handleUploadAgent = (agent: Agent) => {
+    setSelectedAgent(agent);
+    setShowUploadDialog(true);
+  };
+
+  const handleNotificationsAgent = (agent: Agent) => {
+    setSelectedAgent(agent);
+    setShowNotificationsDialog(true);
+  };
+
+  const handleChangelogAgent = (agent: Agent) => {
+    setSelectedAgent(agent);
+    setShowChangelogDialog(true);
+  };
+
+  useEffect(() => {
+    if (onCreateAgentRequested) {
+      setShowCreateDialog(true);
+      onCreateAgentRequestHandled?.();
     }
-  };
-
-  // Mobile Agent Card Component
-  const MobileAgentCard = ({ agent }: { agent: Agent }) => {
-    const isSelected = selectedAgents.includes(agent.id);
-    const statusType = agent.status as StatusType;
-    
-    return (
-      <div className={cn(
-        "flex flex-col p-4 border rounded-lg bg-card text-card-foreground shadow-sm transition-colors",
-        isSelected ? "border-primary/50 bg-primary/5" : "border-border"
-      )}>
-        <div className="flex justify-between items-start mb-3 border-b pb-3">
-          <div className="flex items-center gap-3">
-            <Checkbox 
-              checked={isSelected}
-              onCheckedChange={() => toggleAgentSelection(agent.id)}
-            />
-            <div>
-              <h4 className="font-semibold text-sm truncate max-w-[180px]">{sanitizeString(agent.name)}</h4>
-              <Badge variant="secondary" className={cn("mt-1 text-xs capitalize", getStatusColor(agent.status))}>
-                {getStatusText(statusType)}
-              </Badge>
-            </div>
-          </div>
-          
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => handleViewDetails(agent)}>
-                <Eye className="mr-2 h-4 w-4" /> View Details
-              </DropdownMenuItem>
-              {canEditAgents && (
-                <DropdownMenuItem onClick={() => handleEditAgent(agent)}>
-                  <Edit className="mr-2 h-4 w-4" /> Edit
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              {canConfigurationSettings && (
-                <DropdownMenuItem onClick={() => { setSelectedAgent(agent); setShowConfigDialog(true); }}>
-                  <Settings className="mr-2 h-4 w-4" /> Configuration
-                </DropdownMenuItem>
-              )}
-              {canAssignProducts && (
-                <DropdownMenuItem onClick={() => { setSelectedAgent(agent); setShowAssignProductsDialog(true); }}>
-                  <Database className="mr-2 h-4 w-4" /> Assign Products
-                </DropdownMenuItem>
-              )}
-              {canUploadFiles && (
-                <DropdownMenuItem onClick={() => { setSelectedAgent(agent); setShowUploadDialog(true); }}>
-                  <Upload className="mr-2 h-4 w-4" /> Files
-                </DropdownMenuItem>
-              )}
-              {(canViewNotifications || canCreateNotifications) && (
-                <DropdownMenuItem onClick={() => { setSelectedAgent(agent); setShowNotificationsDialog(true); }}>
-                  <Bell className="mr-2 h-4 w-4" /> Notifications
-                </DropdownMenuItem>
-              )}
-              {(canViewChangelog || canCreateChangelog) && (
-                <DropdownMenuItem onClick={() => { setSelectedAgent(agent); setShowChangelogDialog(true); }}>
-                  <GitCommit className="mr-2 h-4 w-4" /> Changelog
-                </DropdownMenuItem>
-              )}
-              {canManageStatus && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuLabel>Status</DropdownMenuLabel>
-                  <DropdownMenuItem onClick={() => handleStatusChange(agent.id, 'active')}>
-                    Set Active
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleStatusChange(agent.id, 'maintenance')}>
-                    Set Maintenance
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleStatusChange(agent.id, 'inactive')}>
-                    Set Inactive
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleStatusChange(agent.id, 'testing')}>
-                    Set Testing
-                  </DropdownMenuItem>
-                </>
-              )}
-              {canDeleteAgents && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem 
-                    onClick={() => handleDeleteAgent(agent.id)}
-                    className="text-red-600 focus:text-red-600"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" /> Delete
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-           <div>
-             <span className="font-medium text-foreground">Version:</span> {agent.version || 'N/A'}
-           </div>
-           {agent.created_at && (
-             <div className="text-right">
-               {new Date(agent.created_at).toLocaleDateString()}
-             </div>
-           )}
-        </div>
-        <div className="mt-2 pt-2 border-t text-xs">
-          <span className="font-medium text-foreground">ID:</span> <span className="font-sans opacity-70">{agent.id}</span>
-        </div>
-      </div>
-    );
-  };
-
-  // Desktop Agent Row Component
-  const DesktopAgentRow = ({ agent }: { agent: Agent }) => {
-    const isSelected = selectedAgents.includes(agent.id);
-    const statusType = agent.status as StatusType;
-
-  return (
-      <div className={cn(
-        "flex items-center justify-between p-3 border-b transition-colors",
-        isSelected ? "bg-accent/40" : "hover:bg-accent/30"
-      )}>
-        <div className="flex items-center gap-3 flex-1 min-w-0 mr-4">
-          <Checkbox 
-            checked={isSelected}
-            onCheckedChange={() => toggleAgentSelection(agent.id)}
-          />
-          
-          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-            {agent.logo ? (
-              <img src={agent.logo} alt={agent.name} className="w-7 h-7 rounded" />
-            ) : (
-              <Container className="h-5 w-5 text-primary" />
-            )}
-          </div>
-          
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap mb-1">
-              <h4 className="font-medium text-sm truncate max-w-[200px] sm:max-w-xs">
-                {sanitizeString(agent.name)}
-              </h4>
-              {isSelected && (
-                <Check className="h-3 w-3 text-primary shrink-0" />
-              )}
-              <span className={cn("shrink-0 text-[10px] px-1.5 py-0.5 rounded-full border", getStatusClasses(statusType))}>
-                {getStatusText(statusType)}
-              </span>
-              </div>
-            
-            {agent.description && (
-              <p className="text-xs text-muted-foreground truncate mb-1.5 max-w-[300px] md:max-w-[400px]">
-                {sanitizeString(agent.description)}
-              </p>
-            )}
-            
-            <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-              <span className="font-medium text-foreground/80">v{agent.version}</span>
-              <span className="hidden xl:inline-flex items-center gap-2">
-                 <span>•</span>
-                 <span className="font-sans text-[10px] opacity-70">ID: {agent.id}</span>
-              </span>
-              <span className="hidden 2xl:inline-flex items-center gap-2">
-                <span>•</span>
-                <span>{agent.downloads.toLocaleString()} downloads</span>
-                <span>•</span>
-                <span>{agent.active_users.toLocaleString()} users</span>
-              </span>
-            </div>
-          </div>
-        </div>
-        
-        <div className="flex items-center justify-end gap-2">
-          {canManageStatus && (
-            <Select
-              value={agent.status}
-              onValueChange={(value) => handleStatusChange(agent.id, value as Agent['status'])}
-            >
-              <SelectTrigger className="w-[100px] xl:w-28 h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-                <SelectItem value="maintenance">Maintenance</SelectItem>
-                <SelectItem value="testing">Testing</SelectItem>
-              </SelectContent>
-            </Select>
-          )}
-
-          {canEditAgents && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => handleEditAgent(agent)}
-              title="Edit Agent"
-            >
-              <Edit className="h-4 w-4" />
-            </Button>
-          )}
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => handleViewDetails(agent)}>
-                <Eye className="mr-2 h-4 w-4" /> View Details
-              </DropdownMenuItem>
-              {canConfigurationSettings && (
-                <DropdownMenuItem onClick={() => { setSelectedAgent(agent); setShowConfigDialog(true); }}>
-                  <Settings className="mr-2 h-4 w-4" /> Configuration
-                </DropdownMenuItem>
-              )}
-              {canAssignProducts && (
-                <DropdownMenuItem onClick={() => { setSelectedAgent(agent); setShowAssignProductsDialog(true); }}>
-                  <Database className="mr-2 h-4 w-4" /> Assign Products
-                </DropdownMenuItem>
-              )}
-              {canUploadFiles && (
-                <DropdownMenuItem onClick={() => { setSelectedAgent(agent); setShowUploadDialog(true); }}>
-                  <Upload className="mr-2 h-4 w-4" /> Upload Files
-                </DropdownMenuItem>
-              )}
-              {(canViewNotifications || canCreateNotifications) && (
-                <DropdownMenuItem onClick={() => { setSelectedAgent(agent); setShowNotificationsDialog(true); }}>
-                  <Bell className="mr-2 h-4 w-4" /> Notifications
-                </DropdownMenuItem>
-              )}
-              {(canViewChangelog || canCreateChangelog) && (
-                <DropdownMenuItem onClick={() => { setSelectedAgent(agent); setShowChangelogDialog(true); }}>
-                  <GitCommit className="mr-2 h-4 w-4" /> Changelog
-                </DropdownMenuItem>
-              )}
-              {canDeleteAgents && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem 
-                    onClick={() => handleDeleteAgent(agent.id)}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" /> Delete
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-    );
-  };
+  }, [onCreateAgentRequested, onCreateAgentRequestHandled]);
 
   if (!hasAnyAgentPermission) {
     return <AgentDatabaseAccessDenied />;
@@ -461,182 +203,192 @@ const AgentManager: React.FC<AgentManagerProps> = ({
   if (error) {
     return <AgentDatabaseErrorState error={error} onRetry={refetch} />;
   }
+  
+  if (!loading && filteredAgents.length === 0 && agents.length === 0) {
+    return <AgentDatabaseEmptyState onCreateAgent={() => setShowCreateDialog(true)} canCreateAgents={canCreateAgents} />;
+  }
 
   return (
-    <div className={cn("space-y-4", isMobile && "pb-6")}>
-      {!loading && filteredAgents.length === 0 && agents.length === 0 ? (
-        <AgentDatabaseEmptyState 
-          onCreateAgent={() => setShowCreateDialog(true)}
-          canCreateAgents={canCreateAgents}
-        />
-      ) : (
-        <Card>
-          <CardHeader className="pb-0">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center justify-between w-full sm:w-auto">
-                <div>
-                  <CardTitle className="text-base">Agents</CardTitle>
-                  <CardDescription className="mt-1 text-xs">
-                    {filteredAgents.length} {filteredAgents.length === 1 ? 'agent' : 'agents'}
-                  </CardDescription>
-                </div>
-                <div className="flex sm:hidden items-center gap-2">
-                   <Button 
-                      variant="ghost" 
-                      size="icon"
-                      onClick={refetch}
-                      disabled={loading}
-                    >
-                      <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                    </Button>
-                    <ConditionalRender permission="agents.create" fallback={null}>
-                      <Button 
-                        variant="default" 
-                        size="sm"
-                        onClick={() => setShowCreateDialog(true)}
-                        disabled={loading}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </ConditionalRender>
-                </div>
-              </div>
-              
-              <div className="hidden sm:flex items-center gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  onClick={refetch}
-                  disabled={loading}
-                >
-                  <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                </Button>
-                <ConditionalRender permission="agents.create" fallback={null}>
-                  <Button 
-                    variant="default" 
-                    size="sm"
-                    onClick={() => setShowCreateDialog(true)}
-                    disabled={loading}
-                  >
-                    <Plus className="h-4 w-4 mr-1.5" />
-                    Add
-                  </Button>
-                </ConditionalRender>
-              </div>
-            </div>
+    <div className="flex flex-col h-[550px] bg-background border rounded-lg shadow-sm overflow-hidden animate-in fade-in duration-300 font-sans">
+      
+      {/* Header & Controls */}
+      <div className="p-3 border-b border-muted-foreground/20 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-semibold text-foreground tracking-tight">Agents</h2>
+        </div>
+        <ConditionalRender permission="agents.create" fallback={null}>
+          <Button
+            onClick={() => setShowCreateDialog(true)}
+            size="sm"
+            className="h-8 text-xs gap-1.5"
+          >
+            <Plus className="size-3" /> New Agent
+          </Button>
+        </ConditionalRender>
+      </div>
 
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mt-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search agents..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8 w-full"
-                />
-              </div>
-              <Select 
-                value={statusFilter} 
-                onValueChange={(value: 'all' | 'active' | 'inactive' | 'maintenance' | 'testing') =>
-                  setStatusFilter(value)
-                }
-              >
-                <SelectTrigger className="w-full sm:w-[180px]">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                  <SelectItem value="maintenance">Maintenance</SelectItem>
-                  <SelectItem value="testing">Testing</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {selectedAgents.length > 0 && (
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between mt-4 pt-4 border-t gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">
-                    Selected: {selectedAgents.length}
-                  </span>
-                  <Button variant="outline" size="sm" onClick={clearSelection}>
-                    <X className="h-4 w-4 mr-1" />
-                    Clear
-                  </Button>
-                </div>
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  {(canManageStatus || canDeleteAgents) && (
-                    <>
-                      <Select value={bulkAction} onValueChange={setBulkAction}>
-                        <SelectTrigger className="flex-1 sm:w-40">
-                          <SelectValue placeholder="Action" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {canManageStatus && (
-                            <>
-                              <SelectItem value="activate">Activate</SelectItem>
-                              <SelectItem value="deactivate">Deactivate</SelectItem>
-                              <SelectItem value="maintenance">Maintenance</SelectItem>
-                              <SelectItem value="testing">Testing</SelectItem>
-                            </>
-                          )}
-                          {canDeleteAgents && (
-                            <SelectItem value="delete">Delete</SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
-                      <Button 
-                        onClick={handleBulkAction} 
-                        disabled={!bulkAction || (!canManageStatus && !canDeleteAgents)} 
-                        size="sm"
-                      >
-                        Apply
-                      </Button>
-                    </>
+      {/* Table Container */}
+      <div className="flex-1 overflow-hidden flex flex-col">
+        {loading ? (
+          <div className="flex justify-center items-center flex-1">
+            <Spinner />
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto">
+            <div className="rounded-lg border bg-background">
+              <Table>
+                <TableHeader className="bg-background sticky top-0 z-10 shadow-sm">
+                  <TableRow className="h-9 hover:bg-transparent border-b-muted-foreground/10">
+                    <TableHead className="text-xs h-9 font-medium text-muted-foreground">Name</TableHead>
+                    <TableHead className="text-xs h-9 font-medium text-muted-foreground">Status</TableHead>
+                    <TableHead className="text-xs h-9 font-medium text-muted-foreground">Version</TableHead>
+                    <TableHead className="text-xs h-9 font-medium text-muted-foreground text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredAgents.length > 0 ? (
+                    filteredAgents.map((agent) => {
+                      const statusType = agent.status as StatusType;
+                      return (
+                        <TableRow
+                          key={agent.id}
+                          className="h-12 text-xs border-b-muted-foreground/5 hover:bg-background hover:shadow-sm transition-all cursor-pointer"
+                          onClick={() => handleViewDetails(agent)}
+                        >
+                          <TableCell className="py-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-md flex items-center justify-center bg-muted/20">
+                                {agent.logo ? (
+                                  <img src={agent.logo} alt={agent.name} className="w-5 h-5 rounded" />
+                                ) : (
+                                  <Container className="size-3.5 text-muted-foreground" />
+                                )}
+                              </div>
+                              <div>
+                                <div className="text-xs font-semibold text-foreground leading-tight">{agent.name}</div>
+                                <div className="text-[10px] text-muted-foreground font-mono mt-0.5">ID: {agent.id}</div>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="py-2">
+                            <span className={cn(getStatusClasses(statusType), "rounded-none")}>
+                              {getStatusText(statusType)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="py-2">
+                            <span className={cn(getStatusClasses('inactive' as StatusType), "rounded-none text-xs font-medium")}>
+                              v{agent.version || '0.0.0'}
+                            </span>
+                          </TableCell>
+                          <TableCell className="py-2 text-right" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex justify-end">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0"
+                                  >
+                                    <MoreVertical className="size-3.5" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-40">
+                                  <DropdownMenuItem onClick={() => handleViewDetails(agent)}>
+                                    <Eye className="size-3.5 mr-2" />
+                                    View Details
+                                  </DropdownMenuItem>
+                                  {canEditAgents && (
+                                    <DropdownMenuItem onClick={() => handleEditAgent(agent)}>
+                                      <Edit className="size-3.5 mr-2" />
+                                      Edit
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuSeparator />
+                                  {canConfigurationSettings && (
+                                    <DropdownMenuItem onClick={() => { setSelectedAgent(agent); setShowConfigDialog(true); }}>
+                                      <Settings className="size-3.5 mr-2" />
+                                      Configuration
+                                    </DropdownMenuItem>
+                                  )}
+                                  {canAssignProducts && (
+                                    <DropdownMenuItem onClick={() => { setSelectedAgent(agent); setShowAssignProductsDialog(true); }}>
+                                      <Database className="size-3.5 mr-2" />
+                                      Assign Products
+                                    </DropdownMenuItem>
+                                  )}
+                                  {canUploadFiles && (
+                                    <DropdownMenuItem onClick={() => handleUploadAgent(agent)}>
+                                      <Upload className="size-3.5 mr-2" />
+                                      Files
+                                    </DropdownMenuItem>
+                                  )}
+                                  {(canViewNotifications || canCreateNotifications) && (
+                                    <DropdownMenuItem onClick={() => handleNotificationsAgent(agent)}>
+                                      <Bell className="size-3.5 mr-2" />
+                                      Notifications
+                                    </DropdownMenuItem>
+                                  )}
+                                  {(canViewChangelog || canCreateChangelog) && (
+                                    <DropdownMenuItem onClick={() => handleChangelogAgent(agent)}>
+                                      <GitCommit className="size-3.5 mr-2" />
+                                      Changelog
+                                    </DropdownMenuItem>
+                                  )}
+                                  {canManageStatus && (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuLabel className="text-xs">Status</DropdownMenuLabel>
+                                      <DropdownMenuItem onClick={() => handleStatusChange(agent.id, 'active')}>
+                                        Set Active
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handleStatusChange(agent.id, 'maintenance')}>
+                                        Set Maintenance
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handleStatusChange(agent.id, 'inactive')}>
+                                        Set Inactive
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handleStatusChange(agent.id, 'testing')}>
+                                        Set Testing
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                  {canDeleteAgents && (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem 
+                                        onClick={() => handleDeleteAgent(agent.id)}
+                                        className="text-destructive focus:text-destructive"
+                                      >
+                                        <Trash2 className="size-3.5 mr-2" />
+                                        Delete
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={4} className="h-24 text-center text-xs text-muted-foreground">
+                        No agents found.
+                      </TableCell>
+                    </TableRow>
                   )}
-                </div>
-              </div>
-            )}
-          </CardHeader>
-          <CardContent className={cn("pt-0", !isMobile && "-mt-3", isMobile && "pb-8")}>
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <Spinner />
-                <span className="ml-2 text-sm text-muted-foreground">Loading agents...</span>
-              </div>
-            ) : filteredAgents.length === 0 ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="text-center">
-                  <Container className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                    <div className="text-sm text-muted-foreground">No agents found</div>
-                </div>
-              </div>
-            ) : (
-              <>
-                {/* Desktop View: Table */}
-                {!isMobile && (
-                  <div className="divide-y">
-                    {filteredAgents.map(agent => (
-                      <DesktopAgentRow key={agent.id} agent={agent} />
-                    ))}
-                  </div>
-                )}
-
-                {/* Mobile View: Cards */}
-                {isMobile && (
-                  <div className="mt-2 space-y-3 mb-4">
-                    {filteredAgents.map(agent => (
-                      <MobileAgentCard key={agent.id} agent={agent} />
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
-      )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
+        
+        {/* Footer Stats */}
+        <div className="p-3 pt-2 pb-2 border-t border-muted-foreground/20 bg-muted/10 text-xs text-muted-foreground flex-shrink-0">
+          <span>{filteredAgents.length} agents</span>
+        </div>
+      </div>
 
       {/* Dialogs */}
       {canCreateAgents && (
@@ -677,8 +429,73 @@ const AgentManager: React.FC<AgentManagerProps> = ({
           isAgent={true}
         />
       )}
+
+      <ViewAgentDialog
+        open={showDetailsDialog}
+        onOpenChange={setShowDetailsDialog}
+        agent={selectedAgent}
+        onEdit={selectedAgent ? (agent) => {
+          setShowDetailsDialog(false);
+          handleEditAgent(agent);
+        } : undefined}
+        onUpload={selectedAgent ? handleUploadAgent : undefined}
+        onNotifications={selectedAgent ? handleNotificationsAgent : undefined}
+        onChangelog={selectedAgent ? handleChangelogAgent : undefined}
+        onConfig={selectedAgent ? handleConfigAgent : undefined}
+        onAssignProducts={selectedAgent ? handleAssignProductsAgent : undefined}
+        canEdit={canEditAgents}
+        canUploadFiles={canUploadFiles}
+        canManageNotifications={canViewNotifications || canCreateNotifications}
+        canManageChangelog={canViewChangelog || canCreateChangelog}
+        canConfigure={canConfigurationSettings}
+        canAssignProducts={canAssignProducts}
+        onSuccess={() => {
+          refetch();
+          refetchStats();
+        }}
+      />
+
+      {canConfigurationSettings && (
+        <AgentConfigDialog
+          open={showConfigDialog}
+          onOpenChange={setShowConfigDialog}
+          agent={selectedAgent}
+          onSuccess={() => {
+            refetch();
+            refetchStats();
+          }}
+        />
+      )}
+
+      {canAssignProducts && (
+        <AssignProductsDialog
+          open={showAssignProductsDialog}
+          onOpenChange={setShowAssignProductsDialog}
+          agent={selectedAgent}
+          onAssign={async (agentId, productIds) => {
+            await assignProductsMutation(agentId, productIds);
+          }}
+          onUnassign={async (agentId, productIds) => {
+            await unassignProductsMutation(agentId, productIds);
+          }}
+          onSuccess={() => {
+            refetch();
+            refetchStats();
+          }}
+        />
+      )}
+
+      {canUploadFiles && (
+        <UploadAgentFilesDialog
+          open={showUploadDialog}
+          onOpenChange={setShowUploadDialog}
+          agent={selectedAgent}
+          onSuccess={() => {
+            refetch();
+            refetchStats();
+          }}
+        />
+      )}
     </div>
   );
-};
-
-export default AgentManager;
+}
