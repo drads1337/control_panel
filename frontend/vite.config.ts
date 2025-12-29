@@ -21,7 +21,7 @@ export default defineConfig(({ mode }) => {
     server: {
       host: '0.0.0.0',
       port: 3000,
-      allowedHosts: ['zolo-cn.store', 'www.zolo-cn.store', 'localhost', '127.0.0.1', '192.168.1.7'],
+      allowedHosts: ['zolo-cn.store', 'www.zolo-cn.store', 'localhost', '127.0.0.1', '192.168.1.7', '192.168.1.30'],
       proxy: {
         '/api': {
           target: 'http://127.0.0.1:5001',

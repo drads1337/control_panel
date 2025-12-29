@@ -65,3 +65,16 @@ export async function deleteFolder(folderPath: string): Promise<any> {
   const response = await api.delete(`${API_ENDPOINTS.FOLDERS}/${encodeURIComponent(folderPath)}`)
   return response.data
 }
+
+export async function getStorageInfo(): Promise<{
+  storage_limit: number | null
+  storage_limit_human: string | null
+  available_space: number
+  available_space_human: string | null
+  usage_percent: number
+  used_space: number
+  used_space_human: string
+}> {
+  const response = await api.get(`${API_ENDPOINTS.FILES}/storage-info`)
+  return response.data
+}

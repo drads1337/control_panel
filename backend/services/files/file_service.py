@@ -499,22 +499,43 @@ class FileService:
 
         try:
             current_usage = self.get_project_storage_usage(user.project_id)
-            available_space = max(0, project.storage_limit - current_usage)
+            
+            # Handle None storage_limit
+            storage_limit = project.storage_limit if project.storage_limit is not None else 0
+            available_space = max(0, storage_limit - current_usage) if storage_limit > 0 else 0
             usage_percent = (
-                round((current_usage / project.storage_limit) * 100, 2)
-                if project.storage_limit > 0
+                round((current_usage / storage_limit) * 100, 2)
+                if storage_limit > 0
                 else 0
             )
 
+            # Generate human-readable formats
+            storage_limit_human = self.format_file_size(storage_limit) if storage_limit > 0 else None
+            used_space_human = self.format_file_size(current_usage)
+            available_space_human = self.format_file_size(available_space) if storage_limit > 0 else None
+
+            # Safely get storage_limit_gb and storage_limit_mb
+            try:
+                storage_limit_gb = project.storage_limit_gb if storage_limit > 0 else 0
+                storage_limit_mb = project.storage_limit_mb if storage_limit > 0 else 0
+            except (AttributeError, TypeError) as e:
+                self.logger.warning(f"Error accessing project storage_limit properties: {e}")
+                storage_limit_gb = round(storage_limit / (1024**3), 2) if storage_limit > 0 else 0
+                storage_limit_mb = round(storage_limit / (1024**2), 2) if storage_limit > 0 else 0
+
             response_data = {
                 "project_name": project.name,
-                "storage_limit": project.storage_limit,
-                "storage_limit_gb": project.storage_limit_gb,
-                "storage_limit_mb": project.storage_limit_mb,
+                "storage_limit": storage_limit,
+                "storage_limit_gb": storage_limit_gb,
+                "storage_limit_mb": storage_limit_mb,
+                "storage_limit_human": storage_limit_human,
                 "current_usage": current_usage,
+                "used_space": current_usage,
+                "used_space_human": used_space_human,
                 "current_usage_gb": round(current_usage / (1024**3), 2),
                 "current_usage_mb": round(current_usage / (1024**2), 2),
                 "available_space": available_space,
+                "available_space_human": available_space_human,
                 "available_space_gb": round(available_space / (1024**3), 2),
                 "available_space_mb": round(available_space / (1024**2), 2),
                 "usage_percent": usage_percent,
@@ -527,7 +548,7 @@ class FileService:
 
             return response_data, None
         except Exception as e:
-            self.logger.error(f"Failed to calculate storage info for project {user.project_id}: {str(e)}")
+            self.logger.error(f"Failed to calculate storage info for project {user.project_id}: {str(e)}", exc_info=True)
             return None, f"Failed to calculate storage information: {str(e)}"
 
     def preview_file(self, user: User, filename: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:

@@ -130,14 +130,14 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
                   >
                     <ToggleGroupItem 
                       value="product" 
-                      className="flex-1 flex items-center justify-center gap-1 h-7 text-xs font-medium bg-background text-foreground data-[state=on]:bg-background data-[state=on]:shadow-sm hover:bg-muted/50 transition-colors"
+                      className="flex-1 flex items-center justify-center gap-1 h-7 text-xs font-medium border border-border bg-background text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary hover:bg-muted/50 transition-colors"
                     >
                       <Database className="size-3" />
                       Product
                     </ToggleGroupItem>
                     <ToggleGroupItem 
                       value="agent" 
-                      className="flex-1 flex items-center justify-center gap-1 h-7 text-xs font-medium bg-background text-foreground data-[state=on]:bg-background data-[state=on]:shadow-sm hover:bg-muted/50 transition-colors"
+                      className="flex-1 flex items-center justify-center gap-1 h-7 text-xs font-medium border border-border bg-background text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary hover:bg-muted/50 transition-colors"
                     >
                       <Container className="size-3" />
                       Agent

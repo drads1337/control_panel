@@ -79,6 +79,25 @@ export function ProductDatabaseDialogs({
           setSelectedProduct(product);
           setShowUploadDialog(true);
         } : undefined}
+        onPrices={viewProduct ? (product) => {
+          setViewProductDialogOpen(false);
+          setSelectedProduct(product);
+          setShowPricesDialog(true);
+        } : undefined}
+        onNotifications={viewProduct ? (product) => {
+          setViewProductDialogOpen(false);
+          setSelectedProduct(product);
+          setShowNotificationsDialog(true);
+        } : undefined}
+        onChangelog={viewProduct ? (product) => {
+          setViewProductDialogOpen(false);
+          setSelectedProduct(product);
+          setShowChangelogDialog(true);
+        } : undefined}
+        canUploadFiles={canUploadFiles}
+        canManagePrices={canManagePrices}
+        canManageNotifications={canManageNotifications}
+        canManageChangelog={canManageChangelog}
       />
 
       {canManagePrices && (
