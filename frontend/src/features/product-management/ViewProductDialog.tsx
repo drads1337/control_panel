@@ -2,15 +2,14 @@ import * as React from "react"
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
-import { Edit, Upload, DollarSign, Bell, FileText } from 'lucide-react'
+import { Edit, Upload, DollarSign, Bell, FileText, X } from 'lucide-react'
 import type { Product } from '@/entities/product'
+import { cn } from "@/lib/utils"
 
 interface ViewProductDialogProps {
   open: boolean
@@ -45,163 +44,110 @@ export default function ViewProductDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full sm:max-w-[600px] max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
-        <DialogHeader className="p-6 pb-4 border-b flex-shrink-0">
-          <DialogTitle className="text-xl font-semibold">
-            {product.name}
-          </DialogTitle>
-          <DialogDescription className="text-sm mt-1">
-            Product Details
-          </DialogDescription>
+      <DialogContent className="w-full sm:max-w-[380px] p-0 gap-0 overflow-hidden border-none shadow-xl">
+        {/* Compact Header */}
+        <DialogHeader className="px-4 py-3 border-b flex flex-row items-center justify-between bg-muted/10">
+          <div className="flex items-center gap-2 overflow-hidden">
+            <DialogTitle className="text-base font-semibold truncate">
+              {product.name}
+            </DialogTitle>
+            <Badge 
+              variant={product.is_active ? "default" : "secondary"}
+              className="h-5 px-1.5 text-[10px] uppercase tracking-wider flex-shrink-0"
+            >
+              {product.is_active ? 'Active' : 'Inactive'}
+            </Badge>
+          </div>
+          {/* Close button handled by Dialog primitive usually, but custom one works too if needed */}
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Basic Information */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Basic Information
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">Status</p>
-                <Badge 
-                  variant={product.is_active ? "default" : "secondary"}
-                  className="text-xs"
-                >
-                  {product.is_active ? 'Active' : 'Inactive'}
-                </Badge>
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">Version</p>
-                <p className="text-sm font-medium">{product.version || 'N/A'}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">Downloads</p>
-                <p className="text-sm font-medium">{product.downloads || 0}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">Active Users</p>
-                <p className="text-sm font-medium">{product.active_users || 0}</p>
-              </div>
+        <div className="p-4 space-y-4 text-sm">
+          {/* Stats Grid */}
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="bg-secondary/20 p-2 rounded-md">
+              <p className="text-[10px] text-muted-foreground uppercase">Ver</p>
+              <p className="font-mono font-medium">{product.version || '—'}</p>
+            </div>
+            <div className="bg-secondary/20 p-2 rounded-md">
+              <p className="text-[10px] text-muted-foreground uppercase">Downloads</p>
+              <p className="font-mono font-medium">{product.downloads || 0}</p>
+            </div>
+            <div className="bg-secondary/20 p-2 rounded-md">
+              <p className="text-[10px] text-muted-foreground uppercase">Users</p>
+              <p className="font-mono font-medium">{product.active_users || 0}</p>
             </div>
           </div>
 
-          <Separator />
-
-          {/* Description */}
+          {/* Description (Truncated) */}
           {product.description && (
-            <>
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                  Description
-                </h3>
-                <p className="text-sm text-foreground whitespace-pre-wrap">
-                  {product.description}
-                </p>
-              </div>
-              <Separator />
-            </>
+            <div className="text-muted-foreground text-xs leading-relaxed line-clamp-3">
+              {product.description}
+            </div>
           )}
 
-          {/* Product Settings */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Settings
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">Multi App</p>
-                <Badge variant={product.is_multi_app ? "default" : "outline"} className="text-xs">
-                  {product.is_multi_app ? 'Yes' : 'No'}
-                </Badge>
-              </div>
-              {product.login_type && (
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Login Type</p>
-                  <p className="text-sm font-medium capitalize">
-                    {product.login_type.replace('_', ' ')}
-                  </p>
-                </div>
-              )}
-              {product.custom_key_prefix && (
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Key Prefix</p>
-                  <p className="text-sm font-mono font-medium">{product.custom_key_prefix}</p>
-                </div>
-              )}
-            </div>
+          {/* Key Details List */}
+          <div className="space-y-2 pt-1">
+            <InfoRow label="Multi App" value={product.is_multi_app ? 'Yes' : 'No'} />
+            {product.login_type && (
+              <InfoRow label="Login Type" value={product.login_type.replace('_', ' ')} capitalize />
+            )}
+            {product.custom_key_prefix && (
+              <InfoRow label="Key Prefix" value={product.custom_key_prefix} mono />
+            )}
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="p-6 pt-4 border-t flex-shrink-0 space-y-3">
-          <div className="flex flex-wrap gap-2">
-            {onEdit && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onEdit(product)}
-                className="text-xs h-8"
-              >
-                <Edit className="h-3 w-3 mr-1.5" />
-                Edit
-              </Button>
-            )}
-            {onUpload && canUploadFiles && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onUpload(product)}
-                className="text-xs h-8"
-              >
-                <Upload className="h-3 w-3 mr-1.5" />
-                Upload Files
-              </Button>
-            )}
-            {onPrices && canManagePrices && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onPrices(product)}
-                className="text-xs h-8"
-              >
-                <DollarSign className="h-3 w-3 mr-1.5" />
-                Manage Prices
-              </Button>
-            )}
-            {onNotifications && canManageNotifications && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onNotifications(product)}
-                className="text-xs h-8"
-              >
-                <Bell className="h-3 w-3 mr-1.5" />
-                Notifications
-              </Button>
-            )}
-            {onChangelog && canManageChangelog && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onChangelog(product)}
-                className="text-xs h-8"
-              >
-                <FileText className="h-3 w-3 mr-1.5" />
-                Changelog
-              </Button>
-            )}
-          </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => onOpenChange(false)}
-            className="w-full text-xs h-8"
-          >
-            Close
-          </Button>
+        {/* Action Bar - Icon based for minimalism */}
+        <div className="bg-muted/30 p-2 flex items-center justify-between border-t">
+            <div className="flex items-center gap-1">
+              {onEdit && (
+                <ActionButton icon={Edit} onClick={() => onEdit(product)} title="Edit Details" />
+              )}
+              {onUpload && canUploadFiles && (
+                <ActionButton icon={Upload} onClick={() => onUpload(product)} title="Upload Files" />
+              )}
+              {onPrices && canManagePrices && (
+                <ActionButton icon={DollarSign} onClick={() => onPrices(product)} title="Manage Prices" />
+              )}
+              {onNotifications && canManageNotifications && (
+                <ActionButton icon={Bell} onClick={() => onNotifications(product)} title="Notifications" />
+              )}
+              {onChangelog && canManageChangelog && (
+                <ActionButton icon={FileText} onClick={() => onChangelog(product)} title="Changelog" />
+              )}
+            </div>
+            
+            <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)} className="h-8 text-xs px-3">
+              Close
+            </Button>
         </div>
       </DialogContent>
     </Dialog>
+  )
+}
+
+// Helper components to keep main clean
+function InfoRow({ label, value, mono = false, capitalize = false }: { label: string, value: string | number, mono?: boolean, capitalize?: boolean }) {
+  return (
+    <div className="flex justify-between items-center text-xs">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={cn("font-medium text-foreground", mono && "font-mono", capitalize && "capitalize")}>
+        {value}
+      </span>
+    </div>
+  )
+}
+
+function ActionButton({ icon: Icon, onClick, title }: { icon: any, onClick: () => void, title: string }) {
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={onClick}
+      className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-background"
+      title={title}
+    >
+      <Icon className="h-4 w-4" />
+    </Button>
   )
 }
