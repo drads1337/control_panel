@@ -102,7 +102,7 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
 
   return (
     <ConditionalRender permission="keys.create" fallback={null}>
-      <Card className="p-3">
+      <Card className="p-3 border rounded-lg bg-background shadow-sm">
         <CardHeader className="p-0 pb-1">
           <div className="flex items-center justify-between">
             <div>
@@ -126,18 +126,18 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
                     type="single"
                     value={formData.targetType}
                     onValueChange={(value) => value && updateField('targetType', value as 'product' | 'agent')}
-                    className="flex w-full gap-1"
+                    className="flex w-full gap-1 p-0.5 bg-muted/50 rounded-md"
                   >
                     <ToggleGroupItem 
                       value="product" 
-                      className="flex-1 flex items-center justify-center gap-1 h-8 text-xs font-medium border border-border bg-background text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary hover:bg-muted transition-colors"
+                      className="flex-1 flex items-center justify-center gap-1 h-7 text-xs font-medium bg-background text-foreground data-[state=on]:bg-background data-[state=on]:shadow-sm hover:bg-muted/50 transition-colors"
                     >
                       <Database className="size-3" />
                       Product
                     </ToggleGroupItem>
                     <ToggleGroupItem 
                       value="agent" 
-                      className="flex-1 flex items-center justify-center gap-1 h-8 text-xs font-medium border border-border bg-background text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary hover:bg-muted transition-colors"
+                      className="flex-1 flex items-center justify-center gap-1 h-7 text-xs font-medium bg-background text-foreground data-[state=on]:bg-background data-[state=on]:shadow-sm hover:bg-muted/50 transition-colors"
                     >
                       <Container className="size-3" />
                       Agent
@@ -167,7 +167,7 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
                           onValueChange={(value) => updateField('productId', value)}
                           disabled={loading}
                         >
-                          <SelectTrigger className="flex-1 text-xs h-8">
+                          <SelectTrigger className="flex-1 text-xs h-8 bg-muted/30 border-muted-foreground/20 focus-visible:bg-background">
                             <SelectValue placeholder="Select Product" />
                           </SelectTrigger>
                           <SelectContent className="text-xs">
@@ -211,7 +211,7 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
                           }}
                           disabled={loading || agentsLoading}
                         >
-                          <SelectTrigger className="flex-1 text-xs h-8">
+                          <SelectTrigger className="flex-1 text-xs h-8 bg-muted/30 border-muted-foreground/20 focus-visible:bg-background">
                             <SelectValue placeholder={agentsLoading ? "Loading..." : "Select Agent"} />
                           </SelectTrigger>
                           <SelectContent className="text-xs">
@@ -273,7 +273,7 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
                       Agent has no assigned products
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-1 max-h-32 overflow-y-auto border rounded-md p-1.5 bg-muted/10">
+                    <div className="grid grid-cols-2 gap-1 max-h-32 overflow-y-auto border border-muted-foreground/10 rounded-md p-1.5 bg-muted/10">
                       {getAssignedProductsForAgent(parseInt(formData.agentId)).map(product => (
                         <div key={product.id} className="flex items-center space-x-2 p-1 hover:bg-muted/50 rounded transition-colors">
                           <Checkbox
@@ -314,7 +314,7 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
                       updateField('customHours', '');
                     }}
                     disabled={loading}
-                    className="text-[10px] h-7 px-0"
+                    className="text-[10px] h-7 px-0 hover:bg-muted/50"
                   >
                     {option.label}
                   </Button>
@@ -337,7 +337,7 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
                   }}
                   disabled={loading}
                   min="1"
-                  className="h-8 text-xs"
+                  className="h-8 text-xs bg-muted/30 border-muted-foreground/20 focus-visible:bg-background"
                 />
               </div>
               <div className="space-y-1">
@@ -348,7 +348,7 @@ export const SingleKeyForm: React.FC<SingleKeyFormProps> = ({
                   onChange={(e) => updateField('maxDevices', parseInt(e.target.value) || 1)}
                   disabled={loading}
                   min="1"
-                  className="h-8 text-xs"
+                  className="h-8 text-xs bg-muted/30 border-muted-foreground/20 focus-visible:bg-background"
                 />
               </div>
             </div>

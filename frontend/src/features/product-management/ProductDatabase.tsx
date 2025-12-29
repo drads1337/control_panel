@@ -3,14 +3,10 @@
 import * as React from "react"
 import { useState, useEffect } from "react"
 import { 
-  AlertTriangle, 
-  CheckCircle, 
   Plus, 
   RefreshCw, 
   Search, 
   Check, 
-  X, 
-  Package, 
   MoreVertical, 
   Edit, 
   Upload, 
@@ -22,71 +18,44 @@ import {
   Box,
   LayoutGrid,
   List as ListIcon,
-  Filter,
   ArrowUpRight,
-  Clock,
+  History,
   Shield,
-  History
+  Filter,
+  Monitor,
+  Download,
+  Users,
+  X,
+  Package,
+  Key,
+  Settings,
+  Cloud,
+  Lock,
+  CreditCard,
+  Database,
+  Activity
 } from 'lucide-react';
 
 // Hooks
-import { useProductQuery, useProductMutations, useProductSelection, useProductDialogs } from './hooks';
+import { useProductQuery, useProductMutations, useProductDialogs } from './hooks';
 import { useProductPermissions } from './hooks/use-product-permissions';
 import { useProductFilters } from './hooks/use-product-filters';
 import { useProductDialogStore } from '@/shared/model/use-product-dialog-store';
 
 // UI Components
 import { Spinner } from '@/components/ui/spinner';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ConditionalRender } from '@/shared/ui/components/rbac/conditional-render';
 import { ProductDatabaseEmptyState, ProductDatabaseErrorState, ProductDatabaseAccessDenied } from './components';
 import { ProductDatabaseDialogs } from './components/ProductDatabaseDialogs';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Separator } from "@/components/ui/separator"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Progress } from "@/components/ui/progress"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 
 import { cn } from '@/lib/utils';
 import type { Product } from '@/entities/product';
 import { getStatusText } from '@/lib/status-utils';
 
-// Hook for determining screen size
-const useMediaQuery = (query: string) => {
-  const [matches, setMatches] = useState(false);
-  useEffect(() => {
-    const media = window.matchMedia(query);
-    if (media.matches !== matches) setMatches(media.matches);
-    const listener = () => setMatches(media.matches);
-    media.addEventListener('change', listener);
-    return () => media.removeEventListener('change', listener);
-  }, [matches, query]);
-  return matches;
-};
-
 interface ProductDatabaseProps {
-  onViewProduct?: (product: Product) => void;
-  onCreateProduct?: () => void;
   onCreateProductRequested?: boolean;
   onCreateProductRequestHandled?: () => void;
 }
@@ -95,9 +64,6 @@ export default function ProductDatabase({
   onCreateProductRequested,
   onCreateProductRequestHandled,
 }: ProductDatabaseProps) {
-  const isMobile = useMediaQuery('(max-width: 768px)');
-  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
-
   const {
     canViewProducts,
     canCreateProducts,
@@ -111,17 +77,7 @@ export default function ProductDatabase({
   } = useProductPermissions();
 
   const { products, loading, error, refetch } = useProductQuery();
-  const { 
-    handleStatusChange, 
-    handleBulkStatusChange, 
-    handleDeleteProduct, 
-    handleBulkDelete 
-  } = useProductMutations();
-  const { 
-    selectedProducts, 
-    toggleProductSelection, 
-    clearSelection,
-  } = useProductSelection(products);
+  const { handleStatusChange, handleDeleteProduct } = useProductMutations();
   
   const {
     showCreateDialog,
@@ -148,7 +104,7 @@ export default function ProductDatabase({
   } = useProductDialogs();
 
   const { openViewProductDialog } = useProductDialogStore();
-  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
+  const [selectedProductForDetail, setSelectedProductForDetail] = useState<Product | null>(null);
 
   const handleViewProduct = (product: Product) => openViewProductDialog(product);
   const handleEditProduct = (product: Product) => openEditDialog(product);
@@ -166,28 +122,41 @@ export default function ProductDatabase({
 
   const { filters, filteredProducts, updateFilters } = useProductFilters(products);
 
-  // Set first product as selected when products load or filter changes
+  // Auto-select first product
   useEffect(() => {
-    if (filteredProducts.length > 0 && selectedProductId === null) {
-      setSelectedProductId(filteredProducts[0].id);
-    } else if (filteredProducts.length > 0 && selectedProductId !== null) {
-      const productExists = filteredProducts.some(p => p.id === selectedProductId);
-      if (!productExists) {
-        setSelectedProductId(filteredProducts[0].id);
+    if (filteredProducts.length > 0 && selectedProductForDetail === null) {
+      setSelectedProductForDetail(filteredProducts[0]);
+    } else if (filteredProducts.length > 0 && selectedProductForDetail !== null) {
+      if (!filteredProducts.some(p => p.id === selectedProductForDetail.id)) {
+        setSelectedProductForDetail(filteredProducts[0]);
       }
     }
-  }, [filteredProducts, selectedProductId]);
+  }, [filteredProducts, selectedProductForDetail]);
 
-  const selectedProductForDetail = filteredProducts.find(p => p.id === selectedProductId) || null;
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
-      case 'inactive': return 'text-slate-500 bg-slate-500/10 border-slate-500/20';
-      case 'maintenance': return 'text-amber-500 bg-amber-500/10 border-amber-500/20';
-      case 'testing': return 'text-blue-500 bg-blue-500/10 border-blue-500/20';
-      default: return 'text-slate-500 bg-slate-500/10 border-slate-500/20';
+  const getStatusStyle = (status: string) => {
+    switch(status) {
+      case 'active': return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
+      case 'testing': return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20';
+      case 'maintenance': return 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20';
+      case 'inactive': return 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20';
+      default: return 'bg-gray-100 text-gray-600 border-gray-200';
     }
+  };
+
+  const getIconForProduct = (product: Product) => {
+    const icons = [Package, Database, Key, Settings, Cloud, Lock, CreditCard, Activity];
+    return icons[product.id % icons.length];
+  };
+
+  const getIconColor = (product: Product) => {
+    const colors = [
+      'text-blue-500 bg-blue-50 dark:bg-blue-900/20',
+      'text-purple-500 bg-purple-50 dark:bg-purple-900/20',
+      'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20',
+      'text-amber-500 bg-amber-50 dark:bg-amber-900/20',
+      'text-rose-500 bg-rose-50 dark:bg-rose-900/20',
+    ];
+    return colors[product.id % colors.length];
   };
 
   const formatNumber = (num: number | undefined | null): string => {
@@ -196,343 +165,323 @@ export default function ProductDatabase({
     return num.toString();
   };
 
-  // --- Render Helpers ---
+  const formatRevenue = (product: Product): string => {
+    return '-';
+  };
+
+  const getTimeAgo = (date: string | null | undefined): string => {
+    if (!date) return 'Just now';
+    const now = new Date();
+    const then = new Date(date);
+    const diffMs = now.getTime() - then.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return then.toLocaleDateString();
+  };
+
+  const calculateDistribution = (product: Product): number => {
+    if (filteredProducts.length === 0) return 0;
+    const maxUsers = Math.max(...filteredProducts.map(p => p.active_users || 0));
+    if (maxUsers === 0) return 0;
+    return Math.round(((product.active_users || 0) / maxUsers) * 100);
+  };
+
+  const getStatusFilter = () => {
+    if (filters.status === 'all') return 'All';
+    if (filters.status === 'active') return 'Active';
+    if (filters.status === 'testing') return 'Beta';
+    if (filters.status === 'maintenance') return 'Dev';
+    return 'All';
+  };
+
+  const setStatusFilter = (filter: string) => {
+    if (filter === 'All') updateFilters({ status: 'all' });
+    else if (filter === 'Active') updateFilters({ status: 'active' });
+    else if (filter === 'Beta') updateFilters({ status: 'testing' });
+    else if (filter === 'Dev') updateFilters({ status: 'maintenance' });
+  };
 
   if (!canViewProducts) return <ProductDatabaseAccessDenied />;
   if (error) return <ProductDatabaseErrorState error={error} onRetry={refetch} />;
   
   if (!loading && filteredProducts.length === 0 && products.length === 0) {
-    return (
-      <ProductDatabaseEmptyState 
-        onCreateProduct={() => setShowCreateDialog(true)}
-        canCreateProducts={canCreateProducts}
-      />
-    );
+    return <ProductDatabaseEmptyState onCreateProduct={() => setShowCreateDialog(true)} canCreateProducts={canCreateProducts} />;
   }
 
+  const statusFilter = getStatusFilter();
+
   return (
-    <div className="flex flex-col gap-4 w-full h-[calc(100vh-8rem)] min-h-[600px]">
-      <div className={cn("grid gap-4 h-full", isMobile ? "grid-cols-1" : "grid-cols-[260px_1fr]")}>
+    <div className="flex h-[750px] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg shadow-sm overflow-hidden animate-in fade-in duration-300 font-sans">
+      
+      {/* Main List Area */}
+      <div className={cn("flex flex-col transition-all duration-300 ease-in-out", selectedProductForDetail ? 'w-[60%]' : 'w-full')}>
         
-        {/* --- Sidebar (Product List) --- */}
-        {!isMobile && (
-          <div className="flex flex-col h-full border rounded-lg bg-background shadow-sm overflow-hidden">
-            {/* Sidebar Header */}
-            <div className="px-3 py-2.5 border-b bg-muted/30">
-              <div className="flex items-center justify-between mb-2.5">
-                <span className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
-                  Database
-                </span>
-                <div className="flex items-center gap-1">
-                   <Button 
-                      variant="ghost" 
-                      size="icon"
-                      className="size-5"
-                      onClick={refetch}
-                      disabled={loading}
-                    >
-                      <RefreshCw className={cn("size-3", loading && "animate-spin")} />
-                    </Button>
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                 <div className="relative">
-                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground" />
-                  <Input 
-                    placeholder="Find product..." 
-                    className="h-7 w-full pl-7 text-xs bg-muted/50 border-muted-foreground/20 focus-visible:bg-background"
-                    value={filters.searchTerm}
-                    onChange={(e) => updateFilters({ searchTerm: e.target.value })}
-                  />
-                </div>
-                <Select 
-                  value={filters.status} 
-                  onValueChange={(value: any) => updateFilters({ status: value })}
+        {/* Header & Controls */}
+        <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Products</h2>
+            <div className="flex bg-gray-100 dark:bg-gray-800 p-0.5 rounded-lg">
+              {['All', 'Active', 'Beta', 'Dev'].map(f => (
+                <button 
+                  key={f}
+                  onClick={() => setStatusFilter(f)}
+                  className={cn(
+                    "px-3 py-1 text-xs font-medium rounded-md transition-all",
+                    statusFilter === f 
+                      ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' 
+                      : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                  )}
                 >
-                  <SelectTrigger className="h-7 text-xs w-full bg-background">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                    <SelectItem value="maintenance">Maintenance</SelectItem>
-                    <SelectItem value="testing">Testing</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Sidebar List */}
-            <ScrollArea className="flex-1">
-              <div className="p-2 space-y-0.5">
-                <div className="px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                  {filteredProducts.length} Items
-                </div>
-                {loading ? (
-                  <div className="flex justify-center py-4"><Spinner /></div>
-                ) : filteredProducts.map((product) => (
-                  <Button
-                    key={product.id}
-                    variant={selectedProductId === product.id ? "secondary" : "ghost"}
-                    size="sm"
-                    onClick={() => setSelectedProductId(product.id)}
-                    className={cn(
-                      "w-full justify-start h-9 text-xs px-2.5 font-normal rounded-md group relative",
-                      selectedProductId === product.id 
-                        ? "bg-secondary font-medium shadow-sm" 
-                        : "hover:bg-muted/50"
-                    )}
-                  >
-                    <Box className={cn(
-                      "size-3.5 mr-2 shrink-0",
-                      selectedProductId === product.id ? "text-primary" : "text-muted-foreground"
-                    )} />
-                    <span className="truncate flex-1 text-left">{product.name}</span>
-                    <span className={cn(
-                      "size-1.5 rounded-full ml-2",
-                      product.status === 'active' ? 'bg-emerald-500' : 'bg-muted-foreground/30'
-                    )} />
-                  </Button>
-                ))}
-              </div>
-            </ScrollArea>
-
-            {/* Sidebar Footer */}
-            <div className="px-3 py-2.5 border-t bg-muted/20">
-               <ConditionalRender permission="products.create" fallback={null}>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="w-full h-8 text-xs border-dashed text-muted-foreground hover:text-primary hover:border-primary hover:bg-primary/5"
-                    onClick={() => setShowCreateDialog(true)}
-                  >
-                    <Plus className="size-3.5 mr-1.5" />
-                    New Product
-                  </Button>
-               </ConditionalRender>
+                  {f}
+                </button>
+              ))}
             </div>
           </div>
-        )}
+          <ConditionalRender permission="products.create" fallback={null}>
+            <button 
+              onClick={() => setShowCreateDialog(true)}
+              className="flex items-center gap-2 px-3 py-1.5 bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-gray-200 text-white dark:text-black rounded-md text-xs font-bold transition-colors"
+            >
+              <Plus className="size-3.5" /> New Product
+            </button>
+          </ConditionalRender>
+        </div>
 
-        {/* --- Main Content (Detail View) --- */}
-        <div className="flex flex-col h-full min-w-0 border rounded-lg bg-background shadow-sm overflow-hidden">
-          
-          {selectedProductForDetail ? (
-            <>
-              {/* Detail Toolbar */}
-              <div className="flex items-center justify-between px-4 py-2 border-b bg-background h-[52px] shrink-0">
-                <div className="flex flex-col gap-0.5">
-                  <div className="flex items-center gap-2 text-sm font-semibold">
-                    {selectedProductForDetail.name}
-                    <Badge variant="outline" className={cn("text-[10px] px-1.5 h-4 font-normal capitalize", getStatusColor(selectedProductForDetail.status))}>
-                      {getStatusText(selectedProductForDetail.status as any)}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center text-[10px] text-muted-foreground font-mono">
-                    <span className="opacity-70">ID:</span>
-                    <span className="mx-1 text-foreground">{selectedProductForDetail.unique_id || selectedProductForDetail.id}</span>
-                    <span className="mx-2 opacity-30">|</span>
-                    <span className="opacity-70">Ver:</span>
-                    <span className="mx-1 text-foreground">{selectedProductForDetail.version || '0.0.0'}</span>
-                  </div>
-                </div>
+        {/* Table Header */}
+        <div className="grid grid-cols-12 gap-4 px-6 py-2 bg-gray-50/50 dark:bg-gray-800/30 border-b border-gray-100 dark:border-gray-800 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+          <div className="col-span-4">Name</div>
+          <div className="col-span-2">Status</div>
+          <div className="col-span-2">Version</div>
+          <div className="col-span-2">Usage</div>
+          <div className="col-span-2 text-right">Revenue</div>
+        </div>
 
-                <div className="flex items-center gap-1">
-                  {canEditProducts && (
-                    <Button variant="ghost" size="icon" className="size-7" onClick={() => handleEditProduct(selectedProductForDetail)}>
-                      <Edit className="size-3.5 text-muted-foreground" />
-                    </Button>
-                  )}
-                  {canDeleteProducts && (
-                    <Button variant="ghost" size="icon" className="size-7 hover:text-red-600" onClick={() => handleDeleteProduct(selectedProductForDetail.id)}>
-                      <Trash2 className="size-3.5" />
-                    </Button>
-                  )}
-                  <Separator orientation="vertical" className="h-4 mx-1" />
-                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="size-7">
-                        <MoreVertical className="size-3.5 text-muted-foreground" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
-                      <DropdownMenuLabel className="text-xs">Quick Actions</DropdownMenuLabel>
-                      {canManageStatus && (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => handleStatusChange(selectedProductForDetail.id, 'active')} className="text-xs">Set Active</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleStatusChange(selectedProductForDetail.id, 'maintenance')} className="text-xs">Set Maintenance</DropdownMenuItem>
-                        </>
-                      )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => handleViewProduct(selectedProductForDetail)} className="text-xs">
-                        <Eye className="mr-2 size-3" /> View Full Details
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-
-              {/* Detail Content */}
-              <div className="flex-1 overflow-auto bg-muted/5 p-4">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-                  {/* Stats Cards */}
-                  <Card className="p-3 border-muted-foreground/10 shadow-sm bg-background">
-                    <CardContent className="p-0 pt-1 flex flex-col gap-1">
-                      <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Revenue</span>
-                      <div className="flex items-center justify-between">
-                         <span className="text-xl font-bold">-</span>
-                         <DollarSign className="size-4 text-emerald-500 opacity-50" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card className="p-3 border-muted-foreground/10 shadow-sm bg-background">
-                    <CardContent className="p-0 pt-1 flex flex-col gap-1">
-                      <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Active Users</span>
-                      <div className="flex items-center justify-between">
-                         <span className="text-xl font-bold">{(selectedProductForDetail.active_users || 0).toLocaleString()}</span>
-                         <div className="flex h-1.5 w-16 bg-muted rounded-full overflow-hidden">
-                            <div className="w-2/3 bg-blue-500" />
-                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card className="p-3 border-muted-foreground/10 shadow-sm bg-background">
-                    <CardContent className="p-0 pt-1 flex flex-col gap-1">
-                      <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Downloads</span>
-                      <div className="flex items-center justify-between">
-                         <span className="text-xl font-bold">{formatNumber(selectedProductForDetail.downloads)}</span>
-                         <ArrowUpRight className="size-4 text-muted-foreground opacity-50" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                   {/* Main Info */}
-                   <div className="lg:col-span-2 space-y-6">
-                      <div className="space-y-2">
-                        <h3 className="text-xs font-semibold text-foreground flex items-center gap-2">
-                          <FileText className="size-3.5 text-muted-foreground" /> 
-                          Description
-                        </h3>
-                        <Card className="p-3 border-muted-foreground/10 bg-background shadow-sm">
-                          <CardContent className="p-0 pt-1">
-                            <p className="text-xs text-muted-foreground leading-relaxed">
-                              {selectedProductForDetail.description || "No description provided."}
-                            </p>
-                          </CardContent>
-                        </Card>
-                      </div>
-
-                      <div className="space-y-2">
-                         <div className="flex items-center justify-between">
-                            <h3 className="text-xs font-semibold text-foreground flex items-center gap-2">
-                              <History className="size-3.5 text-muted-foreground" /> 
-                              Recent Activity
-                            </h3>
-                         </div>
-                         <Card className="p-3 border-muted-foreground/10 bg-background shadow-sm overflow-hidden">
-                           <Table>
-                              <TableHeader className="bg-muted/30">
-                                <TableRow className="h-8 hover:bg-transparent">
-                                  <TableHead className="text-[10px] font-medium h-8">Event</TableHead>
-                                  <TableHead className="text-[10px] font-medium h-8 text-right">Date</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                <TableRow className="h-8 border-b-muted-foreground/5">
-                                   <TableCell className="text-xs py-1.5">Product Updated</TableCell>
-                                   <TableCell className="text-[10px] text-muted-foreground text-right py-1.5">
-                                      {new Date(selectedProductForDetail.updated_at || Date.now()).toLocaleDateString()}
-                                   </TableCell>
-                                </TableRow>
-                                <TableRow className="h-8 border-b-muted-foreground/5">
-                                   <TableCell className="text-xs py-1.5">Created</TableCell>
-                                   <TableCell className="text-[10px] text-muted-foreground text-right py-1.5">
-                                      {new Date(selectedProductForDetail.created_at || Date.now()).toLocaleDateString()}
-                                   </TableCell>
-                                </TableRow>
-                              </TableBody>
-                           </Table>
-                         </Card>
-                      </div>
-                   </div>
-
-                   {/* Actions Column */}
-                   <div className="space-y-2">
-                      <h3 className="text-xs font-semibold text-foreground flex items-center gap-2">
-                        <LayoutGrid className="size-3.5 text-muted-foreground" /> 
-                        Configuration
-                      </h3>
-                      <div className="grid grid-cols-1 gap-2">
-                         {canUploadFiles && (
-                            <Button variant="outline" className="justify-start h-9 text-xs font-normal border-muted-foreground/20 hover:bg-muted/50 bg-background" onClick={() => handleUploadProduct(selectedProductForDetail)}>
-                               <Upload className="size-3.5 mr-2 text-blue-500" />
-                               Manage Files
-                            </Button>
-                         )}
-                         {canManagePrices && (
-                            <Button variant="outline" className="justify-start h-9 text-xs font-normal border-muted-foreground/20 hover:bg-muted/50 bg-background" onClick={() => handlePricesProduct(selectedProductForDetail)}>
-                               <DollarSign className="size-3.5 mr-2 text-emerald-500" />
-                               Pricing Configuration
-                            </Button>
-                         )}
-                         {canManageNotifications && (
-                            <Button variant="outline" className="justify-start h-9 text-xs font-normal border-muted-foreground/20 hover:bg-muted/50 bg-background" onClick={() => handleNotificationsProduct(selectedProductForDetail)}>
-                               <Bell className="size-3.5 mr-2 text-amber-500" />
-                               Notifications
-                            </Button>
-                         )}
-                         {canManageChangelog && (
-                            <Button variant="outline" className="justify-start h-9 text-xs font-normal border-muted-foreground/20 hover:bg-muted/50 bg-background" onClick={() => handleChangelogProduct(selectedProductForDetail)}>
-                               <ListIcon className="size-3.5 mr-2 text-purple-500" />
-                               Version History
-                            </Button>
-                         )}
-                      </div>
-
-                      <div className="pt-4 mt-4 border-t border-muted-foreground/10">
-                        <div className="p-3 bg-muted/20 rounded-lg border border-muted-foreground/5">
-                           <div className="flex items-center gap-2 mb-2">
-                              <Shield className="size-3.5 text-muted-foreground" />
-                              <span className="text-[10px] font-semibold uppercase text-muted-foreground">System Status</span>
-                           </div>
-                           <div className="flex items-center justify-between text-xs">
-                              <span>Health Check</span>
-                              <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
-                                 <Check className="size-3" /> Passing
-                              </span>
-                           </div>
-                        </div>
-                      </div>
-                   </div>
-                </div>
-              </div>
-
-              {/* Detail Footer */}
-              <div className="h-8 border-t bg-background flex items-center justify-between px-4 text-[10px] text-muted-foreground shrink-0">
-                <div className="flex items-center gap-4">
-                  <span>Last synced: just now</span>
-                  <Separator orientation="vertical" className="h-3" />
-                  <span>{selectedProductForDetail.name}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="flex size-1.5 rounded-full bg-emerald-500" />
-                  <span>Online</span>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground bg-muted/5">
-               <Package className="size-10 text-muted-foreground/20 mb-3" />
-               <p className="text-xs">Select a product from the database to view details</p>
+        {/* List Items */}
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <Spinner />
             </div>
+          ) : (
+            filteredProducts.map((product) => {
+              const IconComponent = getIconForProduct(product);
+              return (
+                <div 
+                  key={product.id}
+                  onClick={() => setSelectedProductForDetail(product)}
+                  className={cn(
+                    "group grid grid-cols-12 gap-4 px-6 py-3 items-center border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/30 cursor-pointer transition-colors",
+                    selectedProductForDetail?.id === product.id ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''
+                  )}
+                >
+                  <div className="col-span-4 flex items-center gap-3">
+                    <div className={cn("w-8 h-8 rounded-md flex items-center justify-center", getIconColor(product))}>
+                      <IconComponent className="size-4" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900 dark:text-white leading-tight">{product.name}</div>
+                      <div className="text-[10px] text-gray-400 font-mono mt-0.5">{product.unique_id || `ID: ${product.id}`}</div>
+                    </div>
+                  </div>
+                  
+                  <div className="col-span-2">
+                    <span className={cn("inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border", getStatusStyle(product.status))}>
+                      {product.status === 'active' && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span>}
+                      {getStatusText(product.status as any)}
+                    </span>
+                  </div>
+
+                  <div className="col-span-2">
+                    <span className="text-xs font-mono text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">v{product.version || '0.0.0'}</span>
+                  </div>
+
+                  <div className="col-span-2 flex flex-col justify-center">
+                    <div className="flex items-end gap-1 mb-1">
+                      <span className="text-xs font-medium text-gray-900 dark:text-white">{product.active_users || 0}</span>
+                      <span className="text-[10px] text-gray-400 mb-px">users</span>
+                    </div>
+                    <div className="w-16 h-1 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                      <div className="h-full bg-blue-500 rounded-full" style={{ width: `${calculateDistribution(product)}%` }}></div>
+                    </div>
+                  </div>
+
+                  <div className="col-span-2 text-right">
+                    <div className="text-sm font-medium text-gray-900 dark:text-white tabular-nums">{formatRevenue(product)}</div>
+                    <div className="text-[10px] text-gray-400">{getTimeAgo(product.updated_at)}</div>
+                  </div>
+                </div>
+              );
+            })
           )}
         </div>
+        
+        {/* Footer Stats */}
+        <div className="px-6 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-800/20 text-xs text-gray-500 flex justify-between items-center">
+          <span>{filteredProducts.length} products</span>
+          <span>Total Revenue: <span className="text-gray-900 dark:text-white font-medium">-</span></span>
+        </div>
       </div>
+
+      {/* Side Panel Details */}
+      {selectedProductForDetail && (
+        <div className="w-[40%] border-l border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-black/20 flex flex-col animate-in slide-in-from-right duration-300">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+            <div className="flex items-start justify-between mb-4">
+              <div className={cn("w-14 h-14 rounded-xl flex items-center justify-center shadow-sm", getIconColor(selectedProductForDetail))}>
+                {(() => {
+                  const IconComponent = getIconForProduct(selectedProductForDetail);
+                  return <IconComponent className="size-7" />;
+                })()}
+              </div>
+              <button 
+                onClick={() => setSelectedProductForDetail(null)} 
+                className="text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">{selectedProductForDetail.name}</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{selectedProductForDetail.description || 'No description provided.'}</p>
+            
+            <div className="flex gap-2 mt-6">
+              <button 
+                onClick={() => handleViewProduct(selectedProductForDetail)}
+                className="flex-1 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 transition-colors shadow-sm"
+              >
+                View Documentation
+              </button>
+              <ConditionalRender permission="keys.view" fallback={null}>
+                <button 
+                  onClick={() => handleViewProduct(selectedProductForDetail)}
+                  className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-bold transition-colors shadow-sm"
+                >
+                  Manage Keys
+                </button>
+              </ConditionalRender>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            
+            {/* Stats Cards in Panel */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
+                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Total Downloads</div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">{formatNumber(selectedProductForDetail.downloads)}</div>
+              </div>
+              <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
+                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Active Users</div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">{selectedProductForDetail.active_users || 0}</div>
+              </div>
+            </div>
+
+            {/* Details List */}
+            <div>
+              <h3 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider mb-3 px-1">Configuration</h3>
+              <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden divide-y divide-gray-100 dark:divide-gray-800">
+                {canUploadFiles && (
+                  <div 
+                    onClick={() => handleUploadProduct(selectedProductForDetail)}
+                    className="p-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Upload className="size-4 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
+                      <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">Files</span>
+                    </div>
+                    <span className="text-xs text-gray-500">Manage</span>
+                  </div>
+                )}
+                {canManagePrices && (
+                  <div 
+                    onClick={() => handlePricesProduct(selectedProductForDetail)}
+                    className="p-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <DollarSign className="size-4 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
+                      <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">Pricing</span>
+                    </div>
+                    <span className="text-xs text-gray-500">Configure</span>
+                  </div>
+                )}
+                {canManageNotifications && (
+                  <div 
+                    onClick={() => handleNotificationsProduct(selectedProductForDetail)}
+                    className="p-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Bell className="size-4 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
+                      <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">Notifications</span>
+                    </div>
+                    <span className="text-xs text-gray-500">Manage</span>
+                  </div>
+                )}
+                {canManageChangelog && (
+                  <div 
+                    onClick={() => handleChangelogProduct(selectedProductForDetail)}
+                    className="p-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <ListIcon className="size-4 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
+                      <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">Changelog</span>
+                    </div>
+                    <span className="text-xs text-gray-500">View</span>
+                  </div>
+                )}
+                <div className="p-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer group">
+                  <div className="flex items-center gap-3">
+                    <Shield className="size-4 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
+                    <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">Security Level</span>
+                  </div>
+                  <span className="text-xs text-gray-500">High</span>
+                </div>
+                <div className="p-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer group">
+                  <div className="flex items-center gap-3">
+                    <Cloud className="size-4 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
+                    <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">Cloud Sync</span>
+                  </div>
+                  <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Enabled</span>
+                </div>
+                <div className="p-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer group">
+                  <div className="flex items-center gap-3">
+                    <Settings className="size-4 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
+                    <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">API Limits</span>
+                  </div>
+                  <span className="text-xs text-gray-500">Unlimited</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Recent Activity */}
+            <div>
+              <h3 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider mb-3 px-1">Recent Activity</h3>
+              <div className="space-y-3 pl-2 border-l border-gray-200 dark:border-gray-800 ml-2">
+                <div className="relative pl-6">
+                  <div className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-black bg-blue-500"></div>
+                  <div className="text-xs text-gray-900 dark:text-white font-medium">Version {selectedProductForDetail.version || '0.0.0'} released</div>
+                  <div className="text-[10px] text-gray-400 mt-0.5">{getTimeAgo(selectedProductForDetail.updated_at)}</div>
+                </div>
+                <div className="relative pl-6">
+                  <div className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-black bg-gray-300 dark:bg-gray-600"></div>
+                  <div className="text-xs text-gray-900 dark:text-white font-medium">Product updated</div>
+                  <div className="text-[10px] text-gray-400 mt-0.5">{getTimeAgo(selectedProductForDetail.updated_at)}</div>
+                </div>
+                <div className="relative pl-6">
+                  <div className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-black bg-gray-300 dark:bg-gray-600"></div>
+                  <div className="text-xs text-gray-900 dark:text-white font-medium">Product created</div>
+                  <div className="text-[10px] text-gray-400 mt-0.5">{getTimeAgo(selectedProductForDetail.created_at)}</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       <ProductDatabaseDialogs
         showCreateDialog={showCreateDialog}

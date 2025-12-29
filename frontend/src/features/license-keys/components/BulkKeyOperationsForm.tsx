@@ -273,7 +273,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
 
   return (
     <ConditionalRender permission="keys.generate" fallback={null}>
-      <Card className="p-3">
+      <Card className="p-3 border rounded-lg bg-background shadow-sm">
         <CardHeader className="p-0 pb-1">
           <div className="flex items-center justify-between">
             <div>
@@ -296,18 +296,18 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
                     type="single"
                     value={formData.targetType}
                     onValueChange={(value) => value && updateField('targetType', value as 'product' | 'agent')}
-                    className="flex w-full gap-1"
+                    className="flex w-full gap-1 p-0.5 bg-muted/50 rounded-md"
                   >
                     <ToggleGroupItem 
                       value="product" 
-                      className="flex-1 flex items-center justify-center gap-1 h-8 text-xs font-medium border border-border bg-background text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary hover:bg-muted transition-colors"
+                      className="flex-1 flex items-center justify-center gap-1 h-7 text-xs font-medium bg-background text-foreground data-[state=on]:bg-background data-[state=on]:shadow-sm hover:bg-muted/50 transition-colors"
                     >
                       <Database className="size-3" />
                       Product
                     </ToggleGroupItem>
                     <ToggleGroupItem 
                       value="agent" 
-                      className="flex-1 flex items-center justify-center gap-1 h-8 text-xs font-medium border border-border bg-background text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary hover:bg-muted transition-colors"
+                      className="flex-1 flex items-center justify-center gap-1 h-7 text-xs font-medium bg-background text-foreground data-[state=on]:bg-background data-[state=on]:shadow-sm hover:bg-muted/50 transition-colors"
                     >
                       <Container className="size-3" />
                       Agent
@@ -335,7 +335,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
                           onValueChange={(value) => updateField('productId', value)}
                           disabled={bulkActionLoading !== null}
                         >
-                          <SelectTrigger className="flex-1 text-xs h-8">
+                          <SelectTrigger className="flex-1 text-xs h-8 bg-muted/30 border-muted-foreground/20 focus-visible:bg-background">
                             <SelectValue placeholder="Select Product" />
                           </SelectTrigger>
                           <SelectContent className="text-xs">
@@ -379,7 +379,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
                           }}
                           disabled={bulkActionLoading !== null || agentsLoading}
                         >
-                          <SelectTrigger className="flex-1 text-xs h-8">
+                          <SelectTrigger className="flex-1 text-xs h-8 bg-muted/30 border-muted-foreground/20 focus-visible:bg-background">
                             <SelectValue placeholder={agentsLoading ? "Loading..." : "Select Agent"} />
                           </SelectTrigger>
                           <SelectContent className="text-xs">
@@ -441,7 +441,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
                       Agent has no assigned products
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-1 max-h-32 overflow-y-auto border rounded-md p-1.5 bg-muted/10">
+                    <div className="grid grid-cols-2 gap-1 max-h-32 overflow-y-auto border border-muted-foreground/10 rounded-md p-1.5 bg-muted/10">
                       {assignedProducts.map(product => (
                         <div key={product.id} className="flex items-center space-x-2 p-1 hover:bg-muted/50 rounded transition-colors">
                           <Checkbox
@@ -500,7 +500,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
                           value={filters.status}
                           onValueChange={(value) => updateFilter('status', value)}
                         >
-                          <SelectTrigger className="w-full h-8 text-xs">
+                          <SelectTrigger className="w-full h-8 text-xs bg-muted/30 border-muted-foreground/20 focus-visible:bg-background">
                             <SelectValue placeholder="Select status" />
                           </SelectTrigger>
                           <SelectContent className="text-xs">
@@ -519,7 +519,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
                           value={filters.activationStatus}
                           onValueChange={(value) => updateFilter('activationStatus', value)}
                         >
-                          <SelectTrigger className="w-full h-8 text-xs">
+                          <SelectTrigger className="w-full h-8 text-xs bg-muted/30 border-muted-foreground/20 focus-visible:bg-background">
                             <SelectValue placeholder="Select activation status" />
                           </SelectTrigger>
                           <SelectContent className="text-xs">
@@ -538,7 +538,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
                           value={filters.deviceUsage}
                           onValueChange={(value) => updateFilter('deviceUsage', value)}
                         >
-                          <SelectTrigger className="w-full h-8 text-xs">
+                          <SelectTrigger className="w-full h-8 text-xs bg-muted/30 border-muted-foreground/20 focus-visible:bg-background">
                             <SelectValue placeholder="Select usage" />
                           </SelectTrigger>
                           <SelectContent className="text-xs">
@@ -557,7 +557,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
                           value={filters.maxDevices}
                           onValueChange={(value) => updateFilter('maxDevices', value)}
                         >
-                          <SelectTrigger className="w-full h-8 text-xs">
+                          <SelectTrigger className="w-full h-8 text-xs bg-muted/30 border-muted-foreground/20 focus-visible:bg-background">
                             <SelectValue placeholder="Select device limit" />
                           </SelectTrigger>
                           <SelectContent className="text-xs">
@@ -576,7 +576,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
                           value={filters.dateRange}
                           onValueChange={(value) => updateFilter('dateRange', value)}
                         >
-                          <SelectTrigger className="w-full h-8 text-xs">
+                          <SelectTrigger className="w-full h-8 text-xs bg-muted/30 border-muted-foreground/20 focus-visible:bg-background">
                             <SelectValue placeholder="Select period" />
                           </SelectTrigger>
                           <SelectContent className="text-xs">
@@ -604,7 +604,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
                               type="date"
                               value={filters.customDateFrom}
                               onChange={(e) => updateFilter('customDateFrom', e.target.value)}
-                              className="h-8 text-xs"
+                              className="h-8 text-xs bg-muted/30 border-muted-foreground/20 focus-visible:bg-background"
                             />
                           </div>
                           <div className="space-y-1">
@@ -613,7 +613,7 @@ export const BulkKeyOperationsForm: React.FC<BulkKeyOperationsFormProps> = ({
                               type="date"
                               value={filters.customDateTo}
                               onChange={(e) => updateFilter('customDateTo', e.target.value)}
-                              className="h-8 text-xs"
+                              className="h-8 text-xs bg-muted/30 border-muted-foreground/20 focus-visible:bg-background"
                             />
                           </div>
                         </div>

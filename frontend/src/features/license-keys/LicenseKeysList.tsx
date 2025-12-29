@@ -198,7 +198,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
         const key = row.original
         const typeLabel = key.is_access_code ? 'Access Code' : (key.generation_type === 'access_code' ? 'Access Code' : 'License Key')
         return (
-          <Badge variant="outline" className="text-muted-foreground px-1.5 text-[10px] h-5 font-normal">
+          <Badge variant="secondary" className="text-muted-foreground px-1.5 text-[10px] h-5 font-normal bg-muted/50 border-muted-foreground/10">
             {typeLabel}
           </Badge>
         )
@@ -247,7 +247,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
       cell: ({ row }) => (
          <div className="text-xs">
             {isOwnKey(row.original) ? (
-                <Badge variant="secondary" className="text-[10px] h-5 px-1.5">You</Badge>
+                <Badge variant="secondary" className="text-[10px] h-5 px-1.5 bg-muted/50 border-muted-foreground/10">You</Badge>
             ) : (
                 <span className="text-muted-foreground">{row.original.creator_username || "System"}</span>
             )}
@@ -276,7 +276,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-primary"
+                    className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-muted/50"
                     onClick={() => onToggleKeyVisibility(key.id)}
                     disabled={isActionLoading}
                   >
@@ -296,7 +296,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-primary"
+                    className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-muted/50"
                     onClick={() => {
                       if (fullKeys[key.id]) {
                         navigator.clipboard.writeText(fullKeys[key.id])
@@ -317,7 +317,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
             </TooltipProvider>
             
             {/* Divider for visual separation */}
-            <div className="w-[1px] h-4 bg-border mx-1" />
+            <div className="w-[1px] h-4 bg-muted-foreground/10 mx-1" />
 
             {/* === Details === */}
             <TooltipProvider>
@@ -326,7 +326,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-primary"
+                    className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-muted/50"
                     onClick={() => onViewDetails(key)}
                     disabled={isActionLoading}
                   >
@@ -348,7 +348,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-primary"
+                          className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-muted/50"
                           onClick={() => onKeyAction('edit', key.id)}
                           disabled={isActionLoading}
                         >
@@ -369,7 +369,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-primary"
+                          className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-muted/50"
                           onClick={() => onKeyAction('reset', key.id)}
                           disabled={isActionLoading}
                         >
@@ -390,7 +390,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-primary"
+                          className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-muted/50"
                           onClick={() => onKeyAction(key.status === KEY_STATUS.PAUSED ? 'resume' : 'pause', key.id)}
                           disabled={isActionLoading}
                         >
@@ -415,7 +415,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className={`h-8 w-8 ${key.status === KEY_STATUS.BLOCKED ? 'text-green-600 hover:text-green-700 hover:bg-green-50' : 'text-orange-500 hover:text-orange-600 hover:bg-orange-50'}`}
+                          className={`h-8 w-8 ${key.status === KEY_STATUS.BLOCKED ? 'text-green-600 hover:text-green-700 hover:bg-muted/50' : 'text-orange-500 hover:text-orange-600 hover:bg-muted/50'}`}
                           onClick={() => onKeyAction(key.status === KEY_STATUS.BLOCKED ? 'unblock' : 'block', key.id)}
                           disabled={isActionLoading}
                         >
@@ -522,13 +522,13 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
         </div>
         <div className="flex items-center gap-2">
            {selectedKeys.size > 0 && (
-                <Badge variant="secondary" className="h-7 text-xs">
+                <Badge variant="secondary" className="h-7 text-xs bg-muted/50 border-muted-foreground/10">
                     {selectedKeys.size} selected
                 </Badge>
            )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-7 text-xs ml-auto">
+              <Button variant="outline" size="sm" className="h-7 text-xs ml-auto hover:bg-muted/50">
                 <ChevronDownIcon className="size-3 mr-1" />
                 Columns
               </Button>
@@ -554,11 +554,11 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
         </div>
       </div>
 
-      <div className="rounded-md border bg-card">
+      <div className="rounded-lg border bg-background shadow-sm">
         <Table>
-          <TableHeader>
+          <TableHeader className="bg-background sticky top-0 z-10 shadow-sm">
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="h-9 hover:bg-transparent">
+              <TableRow key={headerGroup.id} className="h-9 hover:bg-transparent border-b-muted-foreground/10">
                 {headerGroup.headers.map((header) => {
                   return (
                     <TableHead key={header.id} className="text-xs h-9 font-medium text-muted-foreground">
@@ -577,7 +577,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
-                  className="h-12 text-xs"
+                  className="h-12 text-xs border-b-muted-foreground/5 hover:bg-background hover:shadow-sm transition-all"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id} className="py-2">
@@ -612,7 +612,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
             <div className="ml-auto flex items-center gap-2 lg:ml-0">
               <Button
                 variant="outline"
-                className="hidden h-7 w-7 p-0 lg:flex"
+                className="hidden h-7 w-7 p-0 lg:flex hover:bg-muted/50"
                 onClick={() => onPageChange(1)}
                 disabled={pagination.page === 1}
               >
@@ -620,7 +620,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
               </Button>
               <Button
                 variant="outline"
-                className="size-7"
+                className="size-7 hover:bg-muted/50"
                 size="icon"
                 onClick={() => onPageChange(pagination.page - 1)}
                 disabled={pagination.page === 1}
@@ -629,7 +629,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
               </Button>
               <Button
                 variant="outline"
-                className="size-7"
+                className="size-7 hover:bg-muted/50"
                 size="icon"
                 onClick={() => onPageChange(pagination.page + 1)}
                 disabled={pagination.page === pagination.pages}
@@ -638,7 +638,7 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
               </Button>
               <Button
                 variant="outline"
-                className="hidden size-7 lg:flex"
+                className="hidden size-7 lg:flex hover:bg-muted/50"
                 size="icon"
                 onClick={() => onPageChange(pagination.pages)}
                 disabled={pagination.page === pagination.pages}
