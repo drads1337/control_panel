@@ -1,8 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useState, useEffect, useCallback } from "react"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,10 +15,7 @@ import { getProducts } from '@/entities/product/api/product';
 import { enhancedApi } from '@/shared/api/enhanced-client';
 import { getErrorMessage } from '@/shared/lib/utils/error-utils';
 
-interface ProductPrice {
-  period: string;
-  price: number;
-}
+// --- Types & Constants ---
 
 interface ProductData {
   id: number;
@@ -32,7 +29,7 @@ interface PriceManagerProps {
   productId?: number;
 }
 
-const commonDurations = [
+const COMMON_DURATIONS = [
   { value: '1', label: '1 hour' },
   { value: '12', label: '12 hours' },
   { value: '24', label: '1 day' },
@@ -45,152 +42,222 @@ const commonDurations = [
   { value: '8760', label: '1 year' },
 ] as const;
 
+// --- Helper Functions ---
+
+/**
+ * Validates and cleans the price input string.
+ * Allows digits, one dot, and max 4 decimal places.
+ */
+const cleanPriceInput = (value: string): string | null => {
+  if (value === '') return '';
+
+  // Remove all characters except digits and dot
+  const cleanValue = value.replace(/[^0-9.]/g, '');
+
+  // Prevent multiple dots
+  const dotCount = (cleanValue.match(/\./g) || []).length;
+  if (dotCount > 1) return null;
+
+  // Limit decimal places to 4
+  if (cleanValue.includes('.')) {
+    const parts = cleanValue.split('.');
+    if (parts[1] && parts[1].length > 4) return null;
+  }
+
+  return cleanValue;
+};
+
+// --- Sub-Components ---
+
+interface PriceRowProps {
+  label: string;
+  period: string;
+  displayValue: string | undefined; // undefined means not active
+  isActive: boolean;
+  disabled: boolean;
+  onAdd: (period: string) => void;
+  onRemove: (period: string) => void;
+  onChange: (period: string, value: string) => void;
+}
+
+const PriceRow = ({
+  label,
+  period,
+  displayValue,
+  isActive,
+  disabled,
+  onAdd,
+  onRemove,
+  onChange
+}: PriceRowProps) => {
+  return (
+    <div className="flex flex-col gap-2 p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+      <div className="flex items-center justify-between">
+        <Label className="font-medium text-xs">{label}</Label>
+        
+        {isActive && (
+          <ConditionalRender permission="products.edit" fallback={null}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onRemove(period)}
+              className="text-destructive hover:text-destructive h-6 w-6 p-0"
+              disabled={disabled}
+            >
+              ×
+            </Button>
+          </ConditionalRender>
+        )}
+      </div>
+
+      {isActive ? (
+        <div className="flex items-center gap-2">
+          <Input
+            type="text"
+            placeholder="0"
+            value={displayValue || ''}
+            onChange={(e) => onChange(period, e.target.value)}
+            className="flex-1 h-8 text-xs"
+            disabled={disabled}
+            inputMode="decimal"
+          />
+          <span className="text-xs text-muted-foreground whitespace-nowrap">tokens</span>
+        </div>
+      ) : (
+        <ConditionalRender permission="products.edit" fallback={null}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onAdd(period)}
+            className="w-full h-8 text-xs"
+            disabled={disabled}
+          >
+            Add Price
+          </Button>
+        </ConditionalRender>
+      )}
+    </div>
+  );
+};
+
+// --- Main Component ---
+
 export default function PriceManager({ open, onOpenChange, productId }: PriceManagerProps) {
-  // All hooks must be called unconditionally and in the same order
   const { user } = useAuthContext();
   const { hasPermission } = usePermissions();
-
   const canEditProducts = hasPermission('products.edit');
 
+  // State
   const [product, setProduct] = useState<ProductData | null>(null);
-  const [prices, setPrices] = useState<ProductPrice[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [editingPrices, setEditingPrices] = useState<{[key: string]: number}>({});
-  const [editingPricesDisplay, setEditingPricesDisplay] = useState<{[key: string]: string}>({});
+  
+  // We keep two states: 
+  // 1. `editingPrices` (Number) for API logic
+  // 2. `editingPricesDisplay` (String) for UI input control
+  const [editingPrices, setEditingPrices] = useState<Record<string, number>>({});
+  const [editingPricesDisplay, setEditingPricesDisplay] = useState<Record<string, string>>({});
+
+  // --- Data Loading Logic ---
+
+  const fetchProductAndPrices = useCallback(async () => {
+    if (!productId || !user) return;
+
+    try {
+      setLoading(true);
+
+      // 1. Fetch Product Info
+      const productsResponse = await getProducts('all');
+      const foundProduct = productsResponse.products.find(g => g.id === productId);
+
+      if (!foundProduct) throw new Error('Product not found');
+      setProduct(foundProduct);
+
+      // 2. Fetch Prices
+      const pricesResponse = await enhancedApi.get(`/api/products/${productId}/prices`, {
+        timeout: 10000,
+      });
+
+      const pricesData = pricesResponse.data.prices || {};
+
+      // 3. Initialize State
+      const nextNumericState: Record<string, number> = {};
+      const nextDisplayState: Record<string, string> = {};
+
+      Object.entries(pricesData).forEach(([period, price]) => {
+        const numPrice = price as number;
+        nextNumericState[period] = numPrice;
+        // Format: preserve integer looking like int, float looking like float (max 4 decimals)
+        nextDisplayState[period] = numPrice % 1 === 0 
+          ? numPrice.toString() 
+          : numPrice.toFixed(4).replace(/\.?0+$/, '');
+      });
+
+      setEditingPrices(nextNumericState);
+      setEditingPricesDisplay(nextDisplayState);
+
+    } catch (error: unknown) {
+      toast.warning(`Failed to load prices: ${getErrorMessage(error)}. Using empty state.`);
+      setEditingPrices({});
+      setEditingPricesDisplay({});
+    } finally {
+      setLoading(false);
+    }
+  }, [productId, user]);
 
   useEffect(() => {
-    // Reset loading state when dialog closes
     if (!open) {
-      setLoading(false);
+      setLoading(false); 
       return;
     }
+    fetchProductAndPrices();
+  }, [open, fetchProductAndPrices]);
 
-    // Don't load if missing required data
-    if (!productId || !user) {
-      setLoading(false);
-      return;
-    }
+  // --- Handlers ---
 
-    let cancelled = false;
+  const handlePriceChange = (period: string, rawValue: string) => {
+    const cleanValue = cleanPriceInput(rawValue);
+    if (cleanValue === null) return; // Invalid input ignored
 
-    const loadProductData = async () => {
-      try {
-        setLoading(true);
-
-        const productsResponse = await getProducts('all');
-        if (cancelled) return;
-
-        const foundProduct = productsResponse.products.find(g => g.id === productId);
-
-        if (!foundProduct) {
-          throw new Error('Product not found');
-        }
-
-        if (cancelled) return;
-        setProduct(foundProduct);
-
-        const pricesResponse = await enhancedApi.get(`/api/products/${productId}/prices`, {
-          timeout: 10000, // 10 second timeout
-        });
-        if (cancelled) return;
-
-        const pricesData = pricesResponse.data;
-
-        const pricesArray = Object.entries(pricesData.prices || {}).map(([period, price]) => ({
-          period,
-          price: price as number
-        }));
-        
-        if (cancelled) return;
-        setPrices(pricesArray);
-
-        const editingState: {[key: string]: number} = {};
-        const editingDisplayState: {[key: string]: string} = {};
-        pricesArray.forEach(price => {
-          editingState[price.period] = price.price;
-          // Preserve decimal representation for display
-          editingDisplayState[price.period] = price.price % 1 === 0 
-            ? price.price.toString() 
-            : price.price.toFixed(4).replace(/\.?0+$/, '');
-        });
-        setEditingPrices(editingState);
-        setEditingPricesDisplay(editingDisplayState);
-      } catch (error: unknown) {
-        if (cancelled) return;
-
-        toast.warning(`Failed to load prices: ${getErrorMessage(error)}. Using an empty state.`);
-        setPrices([]);
-        setEditingPrices({});
-        setEditingPricesDisplay({});
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    loadProductData();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [open, productId, user]);
-
-  const handlePriceChange = (period: string, value: string) => {
-    // Allow empty string for clearing
-    if (value === '') {
-      setEditingPricesDisplay(prev => ({
-        ...prev,
-        [period]: ''
-      }));
-      setEditingPrices(prev => ({
-        ...prev,
-        [period]: 0
-      }));
-      return;
-    }
-
-    // Remove all characters except digits and dot
-    const cleanValue = value.replace(/[^0-9.]/g, '');
-
-    // Prevent multiple dots
-    const dotCount = (cleanValue.match(/\./g) || []).length;
-    if (dotCount > 1) return;
-
-    // Limit decimal places to 4
-    if (cleanValue.includes('.')) {
-      const parts = cleanValue.split('.');
-      if (parts[1] && parts[1].length > 4) return;
-    }
-
-    // Update display value (keep as string to preserve decimal point)
+    // Update UI state
     setEditingPricesDisplay(prev => ({
       ...prev,
       [period]: cleanValue
     }));
 
-    // Update numeric value for validation and submission
-    const numValue = cleanValue === '' || cleanValue === '.' ? 0 : Math.max(0, parseFloat(cleanValue) || 0);
+    // Update Data state (handle empty string or just "." as 0)
+    const numValue = (cleanValue === '' || cleanValue === '.') 
+      ? 0 
+      : Math.max(0, parseFloat(cleanValue) || 0);
+
     setEditingPrices(prev => ({
       ...prev,
       [period]: numValue
     }));
   };
 
+  const handleAddPeriod = (period: string) => {
+    setEditingPrices(prev => ({ ...prev, [period]: 0 }));
+    setEditingPricesDisplay(prev => ({ ...prev, [period]: '0' }));
+  };
+
+  const handleRemovePeriod = (period: string) => {
+    const removeKey = <T extends Record<string, any>>(obj: T, key: string): T => {
+      const { [key]: _, ...rest } = obj;
+      return rest as T;
+    };
+
+    setEditingPrices(prev => removeKey(prev, period));
+    setEditingPricesDisplay(prev => removeKey(prev, period));
+  };
+
   const handleSavePrices = async () => {
-    if (!productId) {
-      toast.error('Product ID is missing');
-      return;
-    }
-    
-    // Token is not required if using cookie-based auth (enhancedApi uses withCredentials: true)
-    if (!user) {
-      toast.error('You must be logged in to save prices');
+    if (!productId || !user) {
+      toast.error('Authentication or Product ID missing');
       return;
     }
 
-    const hasValidPrices = Object.values(editingPrices).some(price => price > 0);
+    const hasValidPrices = Object.values(editingPrices).some(p => p > 0);
     if (!hasValidPrices) {
       toast.warning('Set at least one price greater than 0');
       return;
@@ -198,38 +265,13 @@ export default function PriceManager({ open, onOpenChange, productId }: PriceMan
 
     try {
       setSaving(true);
-
       await enhancedApi.put(`/api/products/${productId}/prices`, {
         prices: editingPrices
       });
-
       toast.success('Prices saved successfully');
-
-      // Reload prices after saving
-      try {
-        const pricesResponse = await enhancedApi.get(`/api/products/${productId}/prices`, {
-          timeout: 10000,
-        });
-        const pricesData = pricesResponse.data;
-        const pricesArray = Object.entries(pricesData.prices || {}).map(([period, price]) => ({
-          period,
-          price: price as number
-        }));
-        setPrices(pricesArray);
-        const editingState: {[key: string]: number} = {};
-        const editingDisplayState: {[key: string]: string} = {};
-        pricesArray.forEach(price => {
-          editingState[price.period] = price.price;
-          // Preserve decimal representation for display
-          editingDisplayState[price.period] = price.price % 1 === 0 
-            ? price.price.toString() 
-            : price.price.toFixed(4).replace(/\.?0+$/, '');
-        });
-        setEditingPrices(editingState);
-        setEditingPricesDisplay(editingDisplayState);
-      } catch (error: unknown) {
-        // Silently fail on reload, prices were already saved
-      }
+      
+      // Refresh data to ensure sync
+      await fetchProductAndPrices();
     } catch (error: unknown) {
       toast.error(`Failed to save prices: ${getErrorMessage(error)}`);
     } finally {
@@ -237,153 +279,95 @@ export default function PriceManager({ open, onOpenChange, productId }: PriceMan
     }
   };
 
-  const handleAddPeriod = (period: string) => {
-    if (!editingPrices[period]) {
-      setEditingPrices(prev => ({
-        ...prev,
-        [period]: 0
-      }));
-      setEditingPricesDisplay(prev => ({
-        ...prev,
-        [period]: '0'
-      }));
+  // --- Render Helpers ---
+
+  const renderContent = () => {
+    if (!canEditProducts) {
+      return (
+        <div className="p-4 text-center text-xs text-muted-foreground">
+          You don't have permission to manage prices.
+        </div>
+      );
     }
+
+    if (loading) {
+      return (
+        <div className="p-4 flex items-center justify-center min-h-[200px] gap-2">
+          <Spinner />
+          <span className="text-xs text-muted-foreground">Loading...</span>
+        </div>
+      );
+    }
+
+    return (
+      <div className="p-4 space-y-4">
+        <div className="grid grid-cols-2 gap-3 max-h-[50vh] overflow-y-auto pr-1">
+          {COMMON_DURATIONS.map((duration) => (
+            <PriceRow
+              key={duration.value}
+              period={duration.value}
+              label={duration.label}
+              isActive={editingPrices[duration.value] !== undefined}
+              displayValue={editingPricesDisplay[duration.value]}
+              disabled={saving}
+              onAdd={handleAddPeriod}
+              onRemove={handleRemovePeriod}
+              onChange={handlePriceChange}
+            />
+          ))}
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            className="h-8 text-xs"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={(e) => {
+              e.preventDefault();
+              handleSavePrices();
+            }}
+            disabled={saving}
+            className="h-8 text-xs min-w-[80px]"
+          >
+            {saving ? (
+              <>
+                <Spinner className="mr-2 h-3 w-3" />
+                Saving...
+              </>
+            ) : (
+              'Save Prices'
+            )}
+          </Button>
+        </div>
+      </div>
+    );
   };
 
-  const handleRemovePeriod = (period: string) => {
-    setEditingPrices(prev => {
-      const newPrices = { ...prev };
-      delete newPrices[period];
-      return newPrices;
-    });
-    setEditingPricesDisplay(prev => {
-      const newDisplay = { ...prev };
-      delete newDisplay[period];
-      return newDisplay;
-    });
-  };
-
-  const getPeriodLabel = (period: string) => {
-    const duration = commonDurations.find(d => d.value === period);
-    return duration ? duration.label : period;
-  };
-
-  // Always render Dialog to maintain hook order
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] sm:max-w-5xl max-h-[90vh] flex flex-col p-0 overflow-hidden gap-0">
-        <DialogHeader className="p-4 sm:p-6 border-b flex-shrink-0">
-          <DialogTitle className="text-base">
-            {!canEditProducts ? 'Access Denied' : 'Price Management'}
-          </DialogTitle>
-          <DialogDescription className="mt-1 text-xs">
-            {!canEditProducts 
-              ? 'You don\'t have permission to manage prices.'
-              : (product ? `Configure prices for the product "${product.name}"` : 'Configure prices for the product')
-            }
-          </DialogDescription>
+      <DialogContent className="w-full sm:max-w-[420px] p-0 gap-0 overflow-hidden">
+        <DialogHeader className="p-4 pb-1 bg-muted/5">
+          <div className="space-y-1">
+            <DialogTitle className="text-xl font-semibold">
+              {!canEditProducts ? 'Access Denied' : 'Price Management'}
+            </DialogTitle>
+            <DialogDescription className="text-xs break-words">
+              {!canEditProducts 
+                ? "You don't have permission to manage prices."
+                : product 
+                  ? <>Configure prices for <span className="font-medium">"{product.name}"</span></>
+                  : 'Configure prices for the product'
+              }
+            </DialogDescription>
+          </div>
         </DialogHeader>
 
-        {!canEditProducts ? (
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-            <div className="text-center text-xs text-muted-foreground">
-              You don't have permission to manage prices.
-            </div>
-          </div>
-        ) : loading ? (
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-            <div className="flex items-center justify-center gap-2 min-h-[200px]">
-              <Spinner />
-              <span className="text-sm text-muted-foreground">Loading...</span>
-            </div>
-          </div>
-        ) : (
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {commonDurations.map(duration => (
-                <div key={duration.value} className="flex flex-col gap-3 p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <Label className="font-medium text-xs">
-                      {duration.label}
-                    </Label>
-                    {editingPrices[duration.value] !== undefined && (
-                      <ConditionalRender permission="products.edit" fallback={null}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRemovePeriod(duration.value)}
-                          className="text-destructive hover:text-destructive h-6 w-6 p-0"
-                          disabled={saving || !canEditProducts}
-                        >
-                          ×
-                        </Button>
-                      </ConditionalRender>
-                    )}
-                  </div>
-
-                  {editingPrices[duration.value] !== undefined ? (
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="text"
-                        placeholder="0"
-                        value={editingPricesDisplay[duration.value] !== undefined ? editingPricesDisplay[duration.value] : ''}
-                        onChange={(e) => handlePriceChange(duration.value, e.target.value)}
-                        className="flex-1 h-7 text-xs"
-                        disabled={saving || !canEditProducts}
-                        inputMode="decimal"
-                      />
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">tokens</span>
-                    </div>
-                  ) : (
-                    <ConditionalRender permission="products.edit" fallback={null}>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleAddPeriod(duration.value)}
-                        className="w-full h-7 text-xs"
-                        disabled={saving || !canEditProducts}
-                      >
-                        Add Price
-                      </Button>
-                    </ConditionalRender>
-                  )}
-                </div>
-              ))}
-            </div>
-            <div className="flex flex-col-reverse sm:flex-row justify-between gap-2 pt-4 border-t">
-              <Button
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                className="w-full sm:w-auto h-7 text-xs"
-                size="sm"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleSavePrices();
-                }}
-                disabled={saving || !canEditProducts}
-                className="w-full sm:w-auto h-7 text-xs"
-                size="sm"
-              >
-                {saving ? (
-                  <>
-                    <Spinner className="mr-2 h-3 w-3" />
-                    Saving...
-                  </>
-                ) : (
-                  'Save Prices'
-                )}
-              </Button>
-            </div>
-          </div>
-        )}
+        {renderContent()}
       </DialogContent>
     </Dialog>
   );
-};
-
-
+}

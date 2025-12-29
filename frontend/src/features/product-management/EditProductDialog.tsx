@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useState, useEffect, useCallback } from "react"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -136,23 +136,22 @@ export default function EditProductDialog({ open, onOpenChange, product, onSucce
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="w-[95vw] sm:max-w-[600px] max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-hidden">
-        <DialogHeader className="flex-shrink-0 text-left">
-          <DialogTitle className="text-base">
-            Edit Product
-          </DialogTitle>
-          <DialogDescription className="mt-1 text-xs">
-            {product.name}
-          </DialogDescription>
+      <DialogContent className="w-full sm:max-w-[420px] p-0 gap-0 overflow-hidden">
+        <DialogHeader className="p-4 pb-1 bg-muted/5">
+          <div className="space-y-1">
+            <DialogTitle className="text-xl font-semibold">
+              Edit Product
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              {product.name}
+            </DialogDescription>
+          </div>
         </DialogHeader>
 
-        {/* Form container takes remaining space and handles scrolling */}
-        <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 space-y-4 mt-2">
-          
-          {/* Scrollable content area */}
-          <div className="flex-1 overflow-y-auto pr-1 -mr-1">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-              <TabsList className={`grid w-full h-8 bg-muted border border-border rounded-lg ${!formData.is_multi_app && formData.login_type === 'classic_login' ? 'grid-cols-3' : 'grid-cols-2'}`}>
+        <div className="p-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className={`grid w-full h-9 bg-muted border border-border rounded-lg ${!formData.is_multi_app && formData.login_type === 'classic_login' ? 'grid-cols-3' : 'grid-cols-2'}`}>
                 <TabsTrigger 
                   value="basic" 
                   className="text-xs h-full"
@@ -175,46 +174,46 @@ export default function EditProductDialog({ open, onOpenChange, product, onSucce
                 )}
               </TabsList>
               
-              <TabsContent value="basic" className="space-y-4 mt-0 px-1">
+              <TabsContent value="basic" className="space-y-4 mt-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name" className="text-xs">Product Name</Label>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="name" className="text-xs font-medium">Product Name</Label>
                     <Input
                       id="name"
                       value={formData.name}
                       onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                       placeholder="Product name"
                       required
-                      className="h-7 text-xs"
+                      className="h-8 text-xs"
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="version" className="text-xs">Version</Label>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="version" className="text-xs font-medium">Version</Label>
                     <Input
                       id="version"
                       value={formData.version}
                       onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}
                       placeholder="1.0.0"
-                      className="h-7 text-xs"
+                      className="h-8 text-xs"
                     />
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="description" className="text-xs">Description</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="description" className="text-xs font-medium">Description</Label>
                   <Textarea
                     id="description"
                     value={formData.description}
                     onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                     placeholder="Product description"
                     rows={3}
-                    className="text-xs resize-none"
+                    className="text-xs resize-none min-h-[80px]"
                   />
                 </div>
               </TabsContent>
 
-              <TabsContent value="settings" className="space-y-4 mt-0 px-1">
+              <TabsContent value="settings" className="space-y-4 mt-4">
                 <div className="space-y-4">
                   <div className="flex items-start justify-between gap-3 p-2 rounded-md border border-transparent hover:bg-muted/30 transition-colors">
                     <div className="space-y-1">
@@ -232,8 +231,8 @@ export default function EditProductDialog({ open, onOpenChange, product, onSucce
 
                   {!formData.is_multi_app && (
                     <>
-                      <div className="space-y-2">
-                        <Label htmlFor="login_type" className="text-xs">Login Type</Label>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="login_type" className="text-xs font-medium">Login Type</Label>
                         <Select 
                           value={formData.login_type} 
                           onValueChange={(value: 'license_generation' | 'classic_login') => {
@@ -243,7 +242,7 @@ export default function EditProductDialog({ open, onOpenChange, product, onSucce
                             }
                           }}
                         >
-                          <SelectTrigger className="w-full h-7 text-xs">
+                          <SelectTrigger className="w-full h-8 text-xs">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent className="text-xs">
@@ -270,25 +269,25 @@ export default function EditProductDialog({ open, onOpenChange, product, onSucce
                       )}
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="custom_key_prefix" className="text-xs">Key Prefix</Label>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="custom_key_prefix" className="text-xs font-medium">Key Prefix</Label>
                           <Input
                             id="custom_key_prefix"
                             value={formData.custom_key_prefix}
                             onChange={(e) => setFormData(prev => ({ ...prev, custom_key_prefix: e.target.value }))}
                             placeholder="PRODUCT"
-                            className="h-7 text-xs"
+                            className="h-8 text-xs"
                           />
                         </div>
 
-                        <div className="space-y-2">
-                          <Label htmlFor="key_prefix_format" className="text-xs">Prefix Format</Label>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="key_prefix_format" className="text-xs font-medium">Prefix Format</Label>
                           <Input
                             id="key_prefix_format"
                             value={formData.key_prefix_format}
                             onChange={(e) => setFormData(prev => ({ ...prev, key_prefix_format: e.target.value }))}
                             placeholder="{PREFIX}-{RANDOM}"
-                            className="h-7 text-xs"
+                            className="h-8 text-xs"
                           />
                         </div>
                       </div>
@@ -307,7 +306,7 @@ export default function EditProductDialog({ open, onOpenChange, product, onSucce
               </TabsContent>
 
               {!formData.is_multi_app && formData.login_type === 'classic_login' && (
-                <TabsContent value="users" className="space-y-4 mt-0 px-1">
+                <TabsContent value="users" className="space-y-4 mt-4">
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
@@ -319,8 +318,7 @@ export default function EditProductDialog({ open, onOpenChange, product, onSucce
                       <Button
                         type="button"
                         variant="outline"
-                        size="sm"
-                        className="h-7 text-xs"
+                        className="h-8 text-xs"
                         onClick={fetchUsers}
                         disabled={usersLoading}
                       >
@@ -365,34 +363,32 @@ export default function EditProductDialog({ open, onOpenChange, product, onSucce
                 </TabsContent>
               )}
             </Tabs>
-          </div>
 
-          <DialogFooter className="flex-shrink-0 flex-col-reverse sm:flex-row gap-2 sm:gap-0 pt-2 border-t mt-auto">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={handleCancel}
-              size="sm"
-              className="h-7 text-xs w-full sm:w-auto"
-            >
-              Cancel
-            </Button>
-            <ConditionalRender permission="products.edit" fallback={null}>
+            <div className="flex justify-end gap-2 pt-2 mt-4">
               <Button 
-                type="button"
-                disabled={loading}
-                size="sm"
-                className="h-7 text-xs w-full sm:w-auto"
-                onClick={async (e) => {
-                  e.preventDefault();
-                  await handleSubmit(e as any);
-                }}
+                type="button" 
+                variant="outline" 
+                onClick={handleCancel}
+                className="h-8 text-xs"
               >
-                {loading ? 'Saving...' : 'Save Changes'}
+                Cancel
               </Button>
-            </ConditionalRender>
-          </DialogFooter>
-        </form>
+              <ConditionalRender permission="products.edit" fallback={null}>
+                <Button 
+                  type="button"
+                  disabled={loading}
+                  className="h-8 text-xs min-w-[80px]"
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    await handleSubmit(e as any);
+                  }}
+                >
+                  {loading ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </ConditionalRender>
+            </div>
+          </form>
+        </div>
       </DialogContent>
     </Dialog>
   );

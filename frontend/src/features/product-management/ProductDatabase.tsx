@@ -43,10 +43,12 @@ import { ProductDatabaseEmptyState, ProductDatabaseErrorState, ProductDatabaseAc
 import { ProductDatabaseDialogs } from './components/ProductDatabaseDialogs';
 import ViewProductDialog from './ViewProductDialog';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -245,9 +247,10 @@ export default function ProductDatabase({
                               <span className="text-xs font-medium text-foreground">{product.active_users || 0}</span>
                               <span className="text-[10px] text-muted-foreground mb-px">users</span>
                             </div>
-                            <div className="w-16 h-1 bg-muted/20 rounded-full overflow-hidden border border-muted-foreground/10">
-                              <div className="h-full bg-blue-500 rounded-full" style={{ width: `${calculateDistribution(product)}%` }}></div>
-                            </div>
+                            <Progress 
+                              value={calculateDistribution(product)} 
+                              className="w-16 h-1 rounded-none [&>div]:bg-blue-500 [&>div]:rounded-none"
+                            />
                           </div>
                         </TableCell>
                         <TableCell className="py-2 text-right" onClick={(e) => e.stopPropagation()}>
@@ -297,6 +300,24 @@ export default function ProductDatabase({
                                     <ListIcon className="size-3.5 mr-2" />
                                     Changelog
                                   </DropdownMenuItem>
+                                )}
+                                {canManageStatus && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuLabel className="text-xs">Status</DropdownMenuLabel>
+                                    <DropdownMenuItem onClick={() => handleStatusChange(product.id, 'active')}>
+                                      Set Active
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleStatusChange(product.id, 'maintenance')}>
+                                      Set Maintenance
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleStatusChange(product.id, 'inactive')}>
+                                      Set Inactive
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleStatusChange(product.id, 'testing')}>
+                                      Set Testing
+                                    </DropdownMenuItem>
+                                  </>
                                 )}
                               </DropdownMenuContent>
                             </DropdownMenu>

@@ -116,89 +116,93 @@ export default function CreateProductDialog({ open, onOpenChange, onSuccess }: C
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-hidden">
-        <DialogHeader className="flex-shrink-0 text-left">
-          <DialogTitle className="text-base">Create New Product</DialogTitle>
-          <DialogDescription className="mt-1 text-xs">
-            Fill in the details for the new product.
-          </DialogDescription>
+      <DialogContent className="w-full sm:max-w-[420px] p-0 gap-0 overflow-hidden">
+        <DialogHeader className="p-4 pb-1 bg-muted/5">
+          <div className="space-y-1">
+            <DialogTitle className="text-xl font-semibold">
+              Create New Product
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Fill in the details for the new product.
+            </DialogDescription>
+          </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto py-2 space-y-4 pr-1 scrollbar-thin">
-          <div className="space-y-2">
-            <Label htmlFor="productName" className="text-xs">Product Name *</Label>
-            <Input 
-              id="productName" 
-              placeholder="Enter product name"
-              value={createProductData.name}
-              onChange={(e) => setCreateProductData(prev => ({ ...prev, name: e.target.value }))}
-              className="h-7 text-xs"
-            />
+        <div className="p-4">
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="productName" className="text-xs font-medium">Product Name *</Label>
+              <Input 
+                id="productName" 
+                placeholder="Enter product name"
+                value={createProductData.name}
+                onChange={(e) => setCreateProductData(prev => ({ ...prev, name: e.target.value }))}
+                className="h-8 text-xs"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="productDescription" className="text-xs font-medium">Description</Label>
+              <Input 
+                id="productDescription" 
+                placeholder="Enter product description (optional)"
+                value={createProductData.description}
+                onChange={(e) => setCreateProductData(prev => ({ ...prev, description: e.target.value }))}
+                className="h-8 text-xs"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="productType" className="text-xs font-medium">Product Type</Label>
+              <Select 
+                value={createProductData.is_multi_app ? 'multi_app' : 'product_library'}
+                onValueChange={(value) => setCreateProductData(prev => ({ 
+                  ...prev, 
+                  is_multi_app: value === 'multi_app' 
+                }))}
+              >
+                <SelectTrigger className="w-full h-8 text-xs">
+                  <SelectValue placeholder="Select product type" />
+                </SelectTrigger>
+                <SelectContent className="text-xs">
+                  <SelectItem value="product_library" className="text-xs">Product Library</SelectItem>
+                  <SelectItem value="multi_app" className="text-xs">Multi-App</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="productVersion" className="text-xs font-medium">Version</Label>
+              <Input 
+                id="productVersion" 
+                placeholder="1.0.0" 
+                value={createProductData.version}
+                onChange={(e) => setCreateProductData(prev => ({ ...prev, version: e.target.value }))}
+                className="h-8 text-xs"
+              />
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="productDescription" className="text-xs">Description</Label>
-            <Input 
-              id="productDescription" 
-              placeholder="Enter product description (optional)"
-              value={createProductData.description}
-              onChange={(e) => setCreateProductData(prev => ({ ...prev, description: e.target.value }))}
-              className="h-7 text-xs"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="productType" className="text-xs">Product Type</Label>
-            <Select 
-              value={createProductData.is_multi_app ? 'multi_app' : 'product_library'}
-              onValueChange={(value) => setCreateProductData(prev => ({ 
-                ...prev, 
-                is_multi_app: value === 'multi_app' 
-              }))}
+          <div className="flex justify-end gap-2 pt-2 mt-4">
+            <Button 
+              variant="outline" 
+              onClick={handleCancel}
+              disabled={creatingProduct}
+              className="h-8 text-xs"
             >
-              <SelectTrigger className="w-full h-7 text-xs">
-                <SelectValue placeholder="Select product type" />
-              </SelectTrigger>
-              <SelectContent className="text-xs">
-                <SelectItem value="product_library" className="text-xs">Product Library</SelectItem>
-                <SelectItem value="multi_app" className="text-xs">Multi-App</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="productVersion" className="text-xs">Version</Label>
-            <Input 
-              id="productVersion" 
-              placeholder="1.0.0" 
-              value={createProductData.version}
-              onChange={(e) => setCreateProductData(prev => ({ ...prev, version: e.target.value }))}
-              className="h-7 text-xs"
-            />
+              Cancel
+            </Button>
+            <ConditionalRender permission="products.create" fallback={null}>
+              <Button 
+                onClick={handleCreateProduct}
+                disabled={creatingProduct || !createProductData.name.trim()}
+                className="h-8 text-xs min-w-[80px]"
+              >
+                {creatingProduct ? 'Creating...' : 'Create Product'}
+              </Button>
+            </ConditionalRender>
           </div>
         </div>
-
-        <DialogFooter className="flex-shrink-0 flex-col-reverse sm:flex-row gap-2 sm:gap-0 mt-2">
-          <Button 
-            variant="outline" 
-            onClick={handleCancel}
-            disabled={creatingProduct}
-            size="sm"
-            className="h-7 text-xs w-full sm:w-auto mt-2 sm:mt-0"
-          >
-            Cancel
-          </Button>
-          <ConditionalRender permission="products.create" fallback={null}>
-            <Button 
-              onClick={handleCreateProduct}
-              disabled={creatingProduct || !createProductData.name.trim()}
-              size="sm"
-              className="h-7 text-xs w-full sm:w-auto"
-            >
-              {creatingProduct ? 'Creating...' : 'Create Product'}
-            </Button>
-          </ConditionalRender>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

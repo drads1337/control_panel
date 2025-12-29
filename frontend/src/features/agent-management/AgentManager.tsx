@@ -13,7 +13,10 @@ import { Badge } from '@/components/ui/badge';
 import { AgentDatabaseEmptyState, AgentDatabaseErrorState, AgentDatabaseAccessDenied } from './components';
 import CreateAgentDialog from './components/CreateAgentDialog';
 import EditAgentDialog from './components/EditAgentDialog';
+import { NotificationsDialog } from '@/features/notifications';
+import { ChangelogManagementDialog } from '@/features/changelog';
 import type { Agent } from '@/entities/agent';
+import type { Product } from '@/entities/product';
 import { cn } from '@/lib/utils';
 import { sanitizeString } from '@/lib/sanitization';
 import { getStatusClasses, getStatusText, type StatusType } from '@/lib/status-utils';
@@ -657,7 +660,23 @@ const AgentManager: React.FC<AgentManagerProps> = ({
           agent={selectedAgent}
         />
       )}
-      {/* TODO: Add other dialogs (Details, Config, Assign Products, Upload Files, Notifications, Changelog) */}
+      {(canViewNotifications || canCreateNotifications) && (
+        <NotificationsDialog
+          open={showNotificationsDialog}
+          onOpenChange={setShowNotificationsDialog}
+          product={selectedAgent as unknown as Product}
+          isAgent={true}
+        />
+      )}
+
+      {(canViewChangelog || canCreateChangelog || canEditChangelog) && (
+        <ChangelogManagementDialog
+          open={showChangelogDialog}
+          onOpenChange={setShowChangelogDialog}
+          product={selectedAgent as unknown as Product}
+          isAgent={true}
+        />
+      )}
     </div>
   );
 };

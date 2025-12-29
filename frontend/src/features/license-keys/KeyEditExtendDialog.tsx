@@ -167,53 +167,6 @@ const KeyEditExtendDialog: React.FC<KeyEditExtendDialogProps> = ({
           <div className="p-4">
             {/* EXTEND CONTENT */}
             <TabsContent value="extend" className="mt-0 space-y-4">
-              <form onSubmit={handleEditSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="max_devices" className="text-xs font-medium">
-                      Max Devices
-                    </Label>
-                    <Input
-                      id="max_devices"
-                      type="number"
-                      value={editForm.max_devices}
-                      onChange={(e) => setEditForm(p => ({ ...p, max_devices: parseInt(e.target.value) || 1 }))}
-                      min="1"
-                      required
-                      disabled={loading}
-                      className="h-8 text-xs"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="notes" className="text-xs font-medium">
-                      Notes
-                    </Label>
-                    <Textarea
-                      id="notes"
-                      value={editForm.notes}
-                      onChange={(e) => setEditForm(p => ({ ...p, notes: e.target.value }))}
-                      placeholder="Optional notes..."
-                      rows={3}
-                      disabled={loading}
-                      className="resize-none w-full text-xs min-h-[80px]"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading} className="h-8 text-xs">
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={loading} className="h-8 text-xs min-w-[80px]">
-                    {loading ? <Spinner className="size-3" /> : 'Save'}
-                  </Button>
-                </div>
-              </form>
-            </TabsContent>
-
-            {/* EDIT CONTENT */}
-            <TabsContent value="edit" className="mt-0 space-y-4">
               <form onSubmit={handleExtendSubmit} className="space-y-4">
                 <div className="flex items-center justify-between px-3 py-2 bg-muted/30 rounded-md text-xs">
                   <span className="text-muted-foreground">Current Duration:</span>
@@ -303,6 +256,53 @@ const KeyEditExtendDialog: React.FC<KeyEditExtendDialogProps> = ({
                   </Button>
                   <Button type="submit" disabled={loading || addedHours <= 0 || addedHours > 8760} className="h-8 text-xs min-w-[80px]">
                     {loading ? <Spinner className="size-3" /> : 'Confirm'}
+                  </Button>
+                </div>
+              </form>
+            </TabsContent>
+
+            {/* EDIT CONTENT */}
+            <TabsContent value="edit" className="mt-0 space-y-4">
+              <form onSubmit={handleEditSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="max_devices" className="text-xs font-medium">
+                      Max Devices
+                    </Label>
+                    <Input
+                      id="max_devices"
+                      type="number"
+                      value={editForm.max_devices}
+                      onChange={(e) => setEditForm(p => ({ ...p, max_devices: parseInt(e.target.value) || 1 }))}
+                      min="1"
+                      required
+                      disabled={loading}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="notes" className="text-xs font-medium">
+                      Notes
+                    </Label>
+                    <Textarea
+                      id="notes"
+                      value={editForm.notes}
+                      onChange={(e) => setEditForm(p => ({ ...p, notes: e.target.value }))}
+                      placeholder="Optional notes..."
+                      rows={3}
+                      disabled={loading}
+                      className="resize-none w-full text-xs min-h-[80px]"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading} className="h-8 text-xs">
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={loading} className="h-8 text-xs min-w-[80px]">
+                    {loading ? <Spinner className="size-3" /> : 'Save'}
                   </Button>
                 </div>
               </form>

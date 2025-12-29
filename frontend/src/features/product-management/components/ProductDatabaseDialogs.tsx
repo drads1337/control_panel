@@ -4,6 +4,8 @@ import CreateProductDialog from '../CreateProductDialog'
 import ProductFileUploadDialog from '../ProductFileUploadDialog'
 import ViewProductDialog from '../ViewProductDialog'
 import PriceManager from '../PriceManager'
+import { NotificationsDialog } from '@/features/notifications'
+import { ChangelogManagementDialog } from '@/features/changelog'
 import { useProductDialogStore } from '@/shared/model/use-product-dialog-store'
 import type { Product } from '@/entities/product'
 
@@ -131,6 +133,24 @@ export function ProductDatabaseDialogs({
           open={showCreateDialog}
           onOpenChange={setShowCreateDialog}
           onSuccess={onSuccess}
+        />
+      )}
+
+      {canManageNotifications && (
+        <NotificationsDialog
+          open={showNotificationsDialog}
+          onOpenChange={setShowNotificationsDialog}
+          product={selectedProduct}
+          isAgent={false}
+        />
+      )}
+
+      {canManageChangelog && (
+        <ChangelogManagementDialog
+          open={showChangelogDialog}
+          onOpenChange={setShowChangelogDialog}
+          product={selectedProduct}
+          isAgent={false}
         />
       )}
     </>

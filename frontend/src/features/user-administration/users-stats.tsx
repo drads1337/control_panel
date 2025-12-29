@@ -66,8 +66,8 @@ const UsersStats: React.FC<UsersStatsProps> = React.memo(({ stats, loading = fal
       {statCards.map((stat, index) => {
         const Icon = stat.icon;
         return (
-          <Card key={index} className="@container/card">
-            <CardHeader className="pb-3">
+          <Card key={index} className="@container/card p-3">
+            <CardHeader className="p-0 pb-1">
               <CardDescription className="text-xs">{stat.title}</CardDescription>
               {loading ? (
                 <Skeleton className="h-7 w-20" />
@@ -83,7 +83,7 @@ const UsersStats: React.FC<UsersStatsProps> = React.memo(({ stats, loading = fal
                 </Badge>
               </CardAction>
             </CardHeader>
-            <CardFooter className="flex-col items-start gap-1 text-xs pt-2">
+            <CardFooter className="flex-col items-start gap-0.5 text-xs p-0 pt-1">
               <div className="line-clamp-1 flex gap-1.5 font-medium">
                 {stat.subtitle}
               </div>
