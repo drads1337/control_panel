@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useState, useEffect, useMemo } from "react"
+import { useEffect } from "react"
 import { 
   Plus, 
   MoreVertical, 
@@ -16,22 +16,15 @@ import {
   GitCommit,
 } from 'lucide-react';
 
+// Hooks
 import { useAgentsQuery } from '@/entities/agent';
-import { usePermissions } from '@/shared/hooks/use-permissions';
+import { useAgentPermissions, useAgentDialogs, useAgentFilters, useAgentMutations } from './hooks';
 import { ConditionalRender } from '@/shared/ui/components/rbac/conditional-render';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { AgentDatabaseEmptyState, AgentDatabaseErrorState, AgentDatabaseAccessDenied, ViewAgentDialog } from './components';
-import CreateAgentDialog from './components/CreateAgentDialog';
-import EditAgentDialog from './components/EditAgentDialog';
-import AssignProductsDialog from './components/AssignProductsDialog';
-import AgentConfigDialog from './components/AgentConfigDialog';
-import UploadAgentFilesDialog from './components/UploadAgentFilesDialog';
-import { NotificationsDialog } from '@/features/notifications';
-import { ChangelogManagementDialog } from '@/features/changelog';
+import { AgentDatabaseEmptyState, AgentDatabaseErrorState, AgentDatabaseAccessDenied } from './components';
+import { AgentManagerDialogs } from './components/AgentManagerDialogs';
 import type { Agent } from '@/entities/agent';
-import type { Product } from '@/entities/product';
 import { cn } from '@/lib/utils';
 import { getStatusClasses, getStatusText, type StatusType } from '@/lib/status-utils';
 import {
@@ -60,141 +53,83 @@ export default function AgentManager({
   onCreateAgentRequested,
   onCreateAgentRequestHandled,
 }: AgentManagerProps) {
-  const { hasPermission, hasAnyPermission } = usePermissions();
-
-  const canViewAgents = hasPermission('agents.view');
-  const canCreateAgents = hasPermission('agents.create');
-  const canEditAgents = hasPermission('agents.edit');
-  const canDeleteAgents = hasPermission('agents.delete');
-  const canUploadFiles = hasPermission('agents.upload_files');
-  const canViewNotifications = hasPermission('agents.notifications_view');
-  const canCreateNotifications = hasPermission('agents.notifications_create');
-  const canEditNotifications = hasPermission('agents.notifications_edit');
-  const canViewChangelog = hasPermission('agents.changelog_view');
-  const canCreateChangelog = hasPermission('agents.changelog_create');
-  const canEditChangelog = hasPermission('agents.changelog_edit');
-  const canManageStatus = hasPermission('agents.status');
-  const canAssignProducts = hasPermission('agents.assign_products');
-  const canConfigurationSettings = hasPermission('agents.configuration_settings');
-
-  const hasAnyAgentPermission = hasAnyPermission([
-    'agents.view',
-    'agents.create',
-    'agents.edit',
-    'agents.delete',
-    'agents.upload_files',
-    'agents.notifications_view',
-    'agents.notifications_create',
-    'agents.notifications_edit',
-    'agents.changelog_view',
-    'agents.changelog_create',
-    'agents.changelog_edit',
-    'agents.status',
-    'agents.assign_products',
-    'agents.configuration_settings',
-  ]);
+  const {
+    canViewAgents,
+    canCreateAgents,
+    canEditAgents,
+    canDeleteAgents,
+    canUploadFiles,
+    canViewNotifications,
+    canCreateNotifications,
+    canEditNotifications,
+    canViewChangelog,
+    canCreateChangelog,
+    canEditChangelog,
+    canManageStatus,
+    canAssignProducts,
+    canConfigurationSettings,
+    hasAnyAgentPermission,
+  } = useAgentPermissions();
 
   const {
     agents,
     products,
     loading,
     error,
-    updateStatus: updateStatusMutation,
-    deleteAgent: deleteAgentMutation,
     assignProducts: assignProductsMutation,
     unassignProducts: unassignProductsMutation,
     refetch,
     refetchStats,
   } = useAgentsQuery();
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const { handleStatusChange, handleDeleteAgent } = useAgentMutations();
   
-  // Dialog states
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [showEditDialog, setShowEditDialog] = useState(false);
-  const [showUploadDialog, setShowUploadDialog] = useState(false);
-  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
-  const [showConfigDialog, setShowConfigDialog] = useState(false);
-  const [showAssignProductsDialog, setShowAssignProductsDialog] = useState(false);
-  const [showNotificationsDialog, setShowNotificationsDialog] = useState(false);
-  const [showChangelogDialog, setShowChangelogDialog] = useState(false);
-  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+  const {
+    showCreateDialog,
+    showEditDialog,
+    showUploadDialog,
+    showDetailsDialog,
+    showConfigDialog,
+    showAssignProductsDialog,
+    showNotificationsDialog,
+    showChangelogDialog,
+    selectedAgent,
+    openCreateDialog,
+    openEditDialog,
+    openUploadDialog,
+    openDetailsDialog,
+    openConfigDialog,
+    openAssignProductsDialog,
+    openNotificationsDialog,
+    openChangelogDialog,
+    closeAllDialogs,
+    setShowCreateDialog,
+    setShowEditDialog,
+    setShowUploadDialog,
+    setShowDetailsDialog,
+    setShowConfigDialog,
+    setShowAssignProductsDialog,
+    setShowNotificationsDialog,
+    setShowChangelogDialog,
+    setSelectedAgent,
+  } = useAgentDialogs();
+
+  const handleViewDetails = (agent: Agent) => openDetailsDialog(agent);
+  const handleEditAgent = (agent: Agent) => openEditDialog(agent);
+  const handleUploadAgent = (agent: Agent) => openUploadDialog(agent);
+  const handleConfigAgent = (agent: Agent) => openConfigDialog(agent);
+  const handleAssignProductsAgent = (agent: Agent) => openAssignProductsDialog(agent);
+  const handleNotificationsAgent = (agent: Agent) => openNotificationsDialog(agent);
+  const handleChangelogAgent = (agent: Agent) => openChangelogDialog(agent);
 
   useEffect(() => {
     if (onCreateAgentRequested) {
-      setShowCreateDialog(true);
+      openCreateDialog();
       onCreateAgentRequestHandled?.();
     }
-  }, [onCreateAgentRequested, onCreateAgentRequestHandled]);
+  }, [onCreateAgentRequested, onCreateAgentRequestHandled, openCreateDialog]);
 
-  const filteredAgents = useMemo(() => {
-    return agents.filter(agent => {
-      const searchMatch = agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (agent.description && agent.description.toLowerCase().includes(searchTerm.toLowerCase()));
-      const statusMatch = statusFilter === 'all' || agent.status === statusFilter;
-      return searchMatch && statusMatch;
-    });
-  }, [agents, searchTerm, statusFilter]);
-
-  const handleStatusChange = async (agentId: number, newStatus: Agent['status']) => {
-    try {
-      await updateStatusMutation(agentId, newStatus);
-    } catch (err) {
-      // Error handling
-    }
-  };
-
-  const handleDeleteAgent = async (agentId: number) => {
-    if (!confirm('Are you sure you want to delete this agent?')) return;
-    try {
-      await deleteAgentMutation(agentId);
-    } catch (err) {
-      // Error handling
-    }
-  };
-
-  const handleViewDetails = (agent: Agent) => {
-    setSelectedAgent(agent);
-    setShowDetailsDialog(true);
-  };
-
-  const handleConfigAgent = (agent: Agent) => {
-    setSelectedAgent(agent);
-    setShowConfigDialog(true);
-  };
-
-  const handleAssignProductsAgent = (agent: Agent) => {
-    setSelectedAgent(agent);
-    setShowAssignProductsDialog(true);
-  };
-
-  const handleEditAgent = (agent: Agent) => {
-    setSelectedAgent(agent);
-    setShowEditDialog(true);
-  };
-
-  const handleUploadAgent = (agent: Agent) => {
-    setSelectedAgent(agent);
-    setShowUploadDialog(true);
-  };
-
-  const handleNotificationsAgent = (agent: Agent) => {
-    setSelectedAgent(agent);
-    setShowNotificationsDialog(true);
-  };
-
-  const handleChangelogAgent = (agent: Agent) => {
-    setSelectedAgent(agent);
-    setShowChangelogDialog(true);
-  };
-
-  useEffect(() => {
-    if (onCreateAgentRequested) {
-      setShowCreateDialog(true);
-      onCreateAgentRequestHandled?.();
-    }
-  }, [onCreateAgentRequested, onCreateAgentRequestHandled]);
+  const { filteredAgents } = useAgentFilters(agents);
 
   if (!hasAnyAgentPermission) {
     return <AgentDatabaseAccessDenied />;
@@ -247,7 +182,7 @@ export default function AgentManager({
                 </TableHeader>
                 <TableBody>
                   {filteredAgents.length > 0 ? (
-                    filteredAgents.map((agent) => {
+                    filteredAgents.map((agent: Agent) => {
                       const statusType = agent.status as StatusType;
                       return (
                         <TableRow
@@ -305,13 +240,13 @@ export default function AgentManager({
                                   )}
                                   <DropdownMenuSeparator />
                                   {canConfigurationSettings && (
-                                    <DropdownMenuItem onClick={() => { setSelectedAgent(agent); setShowConfigDialog(true); }}>
+                                    <DropdownMenuItem onClick={() => handleConfigAgent(agent)}>
                                       <Settings className="size-3.5 mr-2" />
                                       Configuration
                                     </DropdownMenuItem>
                                   )}
                                   {canAssignProducts && (
-                                    <DropdownMenuItem onClick={() => { setSelectedAgent(agent); setShowAssignProductsDialog(true); }}>
+                                    <DropdownMenuItem onClick={() => handleAssignProductsAgent(agent)}>
                                       <Database className="size-3.5 mr-2" />
                                       Assign Products
                                     </DropdownMenuItem>
@@ -390,112 +325,48 @@ export default function AgentManager({
         </div>
       </div>
 
-      {/* Dialogs */}
-      {canCreateAgents && (
-        <CreateAgentDialog
-          open={showCreateDialog}
-          onOpenChange={setShowCreateDialog}
-          onSuccess={() => {
-            refetch();
-            refetchStats();
-          }}
-        />
-      )}
-      {canEditAgents && (
-        <EditAgentDialog
-          open={showEditDialog}
-          onOpenChange={setShowEditDialog}
-          onSuccess={() => {
-            refetch();
-            refetchStats();
-          }}
-          agent={selectedAgent}
-        />
-      )}
-      {(canViewNotifications || canCreateNotifications) && (
-        <NotificationsDialog
-          open={showNotificationsDialog}
-          onOpenChange={setShowNotificationsDialog}
-          product={selectedAgent as unknown as Product}
-          isAgent={true}
-        />
-      )}
-
-      {(canViewChangelog || canCreateChangelog || canEditChangelog) && (
-        <ChangelogManagementDialog
-          open={showChangelogDialog}
-          onOpenChange={setShowChangelogDialog}
-          product={selectedAgent as unknown as Product}
-          isAgent={true}
-        />
-      )}
-
-      <ViewAgentDialog
-        open={showDetailsDialog}
-        onOpenChange={setShowDetailsDialog}
-        agent={selectedAgent}
-        onEdit={selectedAgent ? (agent) => {
-          setShowDetailsDialog(false);
-          handleEditAgent(agent);
-        } : undefined}
-        onUpload={selectedAgent ? handleUploadAgent : undefined}
-        onNotifications={selectedAgent ? handleNotificationsAgent : undefined}
-        onChangelog={selectedAgent ? handleChangelogAgent : undefined}
-        onConfig={selectedAgent ? handleConfigAgent : undefined}
-        onAssignProducts={selectedAgent ? handleAssignProductsAgent : undefined}
-        canEdit={canEditAgents}
+      <AgentManagerDialogs
+        showCreateDialog={showCreateDialog}
+        showEditDialog={showEditDialog}
+        showUploadDialog={showUploadDialog}
+        showDetailsDialog={showDetailsDialog}
+        showConfigDialog={showConfigDialog}
+        showAssignProductsDialog={showAssignProductsDialog}
+        showNotificationsDialog={showNotificationsDialog}
+        showChangelogDialog={showChangelogDialog}
+        selectedAgent={selectedAgent}
+        canEditAgents={canEditAgents}
+        canCreateAgents={canCreateAgents}
         canUploadFiles={canUploadFiles}
-        canManageNotifications={canViewNotifications || canCreateNotifications}
-        canManageChangelog={canViewChangelog || canCreateChangelog}
-        canConfigure={canConfigurationSettings}
+        canViewNotifications={canViewNotifications}
+        canCreateNotifications={canCreateNotifications}
+        canEditNotifications={canEditNotifications}
+        canViewChangelog={canViewChangelog}
+        canCreateChangelog={canCreateChangelog}
+        canEditChangelog={canEditChangelog}
+        canConfigurationSettings={canConfigurationSettings}
         canAssignProducts={canAssignProducts}
+        setShowCreateDialog={setShowCreateDialog}
+        setShowEditDialog={setShowEditDialog}
+        setShowUploadDialog={setShowUploadDialog}
+        setShowDetailsDialog={setShowDetailsDialog}
+        setShowConfigDialog={setShowConfigDialog}
+        setShowAssignProductsDialog={setShowAssignProductsDialog}
+        setShowNotificationsDialog={setShowNotificationsDialog}
+        setShowChangelogDialog={setShowChangelogDialog}
+        setSelectedAgent={setSelectedAgent}
+        closeAllDialogs={closeAllDialogs}
         onSuccess={() => {
           refetch();
           refetchStats();
         }}
+        onAssignProducts={async (agentId, productIds) => {
+          await assignProductsMutation(agentId, productIds);
+        }}
+        onUnassignProducts={async (agentId, productIds) => {
+          await unassignProductsMutation(agentId, productIds);
+        }}
       />
-
-      {canConfigurationSettings && (
-        <AgentConfigDialog
-          open={showConfigDialog}
-          onOpenChange={setShowConfigDialog}
-          agent={selectedAgent}
-          onSuccess={() => {
-            refetch();
-            refetchStats();
-          }}
-        />
-      )}
-
-      {canAssignProducts && (
-        <AssignProductsDialog
-          open={showAssignProductsDialog}
-          onOpenChange={setShowAssignProductsDialog}
-          agent={selectedAgent}
-          onAssign={async (agentId, productIds) => {
-            await assignProductsMutation(agentId, productIds);
-          }}
-          onUnassign={async (agentId, productIds) => {
-            await unassignProductsMutation(agentId, productIds);
-          }}
-          onSuccess={() => {
-            refetch();
-            refetchStats();
-          }}
-        />
-      )}
-
-      {canUploadFiles && (
-        <UploadAgentFilesDialog
-          open={showUploadDialog}
-          onOpenChange={setShowUploadDialog}
-          agent={selectedAgent}
-          onSuccess={() => {
-            refetch();
-            refetchStats();
-          }}
-        />
-      )}
     </div>
   );
 }

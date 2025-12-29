@@ -21,11 +21,11 @@ import { useAuthContext } from "@/app/providers/auth-provider"
 import { useUsersQuery } from "@/entities/user"
 import { usePermissions } from "@/shared/hooks/use-permissions"
 import { AccessDenied } from "@/shared/ui/components"
-import UsersStats from "./users-stats"
-import EmployeesTab from "./employees-tab"
-import ClientsTab from "./clients-tab"
-import RBACTab from "./rbac-tab"
-import ReferralsTab from "./referrals-tab"
+import UsersStats from "./components/users-stats"
+import EmployeesTab from "./components/employees-tab"
+import ClientsTab from "./components/clients-tab"
+import RBACTab from "./components/rbac-tab"
+import ReferralsTab from "./components/referrals-tab"
 
 export function UsersPage() {
   const { user: contextUser, isInitialized, isAuthenticated } = useAuthContext()

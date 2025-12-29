@@ -41,7 +41,7 @@ import { Input } from '@/components/ui/input';
 import { ConditionalRender } from '@/shared/ui/components/rbac/conditional-render';
 import { ProductDatabaseEmptyState, ProductDatabaseErrorState, ProductDatabaseAccessDenied } from './components';
 import { ProductDatabaseDialogs } from './components/ProductDatabaseDialogs';
-import ViewProductDialog from './ViewProductDialog';
+import ViewProductDialog from './components/ViewProductDialog';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {

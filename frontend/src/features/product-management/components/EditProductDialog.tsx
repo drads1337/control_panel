@@ -12,7 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { updateProduct, getProductClassicUsers, toggleUserProductAccess, type ClassicUser } from '@/entities/product';
 import { useAuthContext } from '@/app/providers/auth-provider';
-import { useProductPermissions } from './hooks/use-product-permissions';
+import { useProductPermissions } from '../hooks/use-product-permissions';
 import { ConditionalRender } from '@/shared/ui/components/rbac/conditional-render';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { Product, UpdateProductData } from '@/entities/product';

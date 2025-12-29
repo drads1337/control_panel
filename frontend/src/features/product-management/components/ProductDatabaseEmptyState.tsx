@@ -35,4 +35,3 @@ export function ProductDatabaseEmptyState({ onCreateProduct, canCreateProducts }
     </Card>
   )
 }
-

@@ -1,6 +1,6 @@
-export { default as CreateProductDialog } from './CreateProductDialog';
-export { default as EditProductDialog } from './EditProductDialog';
-export { default as ViewProductDialog } from './ViewProductDialog';
+export { default as CreateProductDialog } from './components/CreateProductDialog';
+export { default as EditProductDialog } from './components/EditProductDialog';
+export { default as ViewProductDialog } from './components/ViewProductDialog';
 export { default as ProductDatabase } from './ProductDatabase';
-export { default as PriceManager } from './PriceManager';
-export { default as ProductFileUploadDialog } from './ProductFileUploadDialog';
+export { default as PriceManager } from './components/PriceManager';
+export { default as ProductFileUploadDialog } from './components/ProductFileUploadDialog';

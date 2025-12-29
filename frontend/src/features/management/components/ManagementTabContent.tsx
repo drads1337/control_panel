@@ -9,7 +9,7 @@ import { useAgentDialogStore } from '@/shared/model/use-agent-dialog-store'
 
 const LicenseKeysMain = React.lazy(() => import('@/features/license-keys').then((module) => ({ default: module.LicenseKeysMain })))
 const ProductDatabase = React.lazy(() => 
-  import('@/features/product-management/ProductDatabase').catch((error) => {
+  import('@/features/product-management').then((module) => ({ default: module.ProductDatabase })).catch((error) => {
     console.error('Failed to load ProductDatabase:', error);
     throw error;
   })
