@@ -149,7 +149,7 @@ export default function AgentManager({
       {/* Header & Controls */}
       <div className="p-3 border-b border-muted-foreground/20 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3">
-          <h2 className="text-xl font-semibold text-foreground tracking-tight">Agents</h2>
+          <h2 className="text-xl font-semibold text-foreground tracking-tight">Database</h2>
         </div>
         <ConditionalRender permission="agents.create" fallback={null}>
           <Button

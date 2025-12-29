@@ -57,9 +57,9 @@ const RBACTab: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      <Card className="md:border md:shadow-sm md:bg-card border-0 shadow-none bg-transparent">
-        <CardHeader className="pb-3 md:px-6 px-4">
+    <div className="space-y-4">
+      <Card className="p-3 border rounded-lg bg-background shadow-sm">
+        <CardHeader className="p-0 pb-1">
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-base">Roles</CardTitle>
@@ -71,7 +71,7 @@ const RBACTab: React.FC = () => {
               <Button 
                 variant="ghost" 
                 size="icon"
-                className="h-7 w-7"
+                className="h-7 w-7 hover:bg-muted/50"
                 onClick={() => refetchRoles()}
                 disabled={rbacLoading}
               >
@@ -90,46 +90,46 @@ const RBACTab: React.FC = () => {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="pt-0 -mt-2 md:px-6 px-4">
+        <CardContent className="p-0 pt-1">
           {rbacLoading ? (
-            <div className="flex justify-center py-6 md:py-8">
-              <Spinner message="Loading roles..." />
+            <div className="flex justify-center py-6">
+              <Spinner />
             </div>
           ) : rbacError ? (
-            <div className="flex items-center justify-center py-6 md:py-8">
-              <div className="text-red-500 text-xs md:text-sm text-center px-4">
+            <div className="flex items-center justify-center py-6">
+              <div className="text-destructive text-xs text-center px-4 bg-destructive/10 border border-destructive/20 rounded-md p-2">
                 Error: {rbacError instanceof Error ? rbacError.message : 'An error occurred'}
               </div>
             </div>
           ) : roles.length === 0 ? (
-            <div className="flex items-center justify-center py-10 md:py-12">
-              <div className="text-center">
-                <Shield className="h-8 w-8 md:h-10 md:w-10 text-muted-foreground mx-auto mb-2 md:mb-3" />
-                <div className="text-xs md:text-sm text-muted-foreground">No roles found</div>
+            <div className="flex items-center justify-center py-10">
+              <div className="text-center p-4 border border-dashed border-muted-foreground/25 rounded-md bg-muted/20">
+                <Shield className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <div className="text-xs text-muted-foreground">No roles found</div>
               </div>
             </div>
           ) : (
-            <div className="divide-y md:border md:rounded-md border-0">
+            <div className="divide-y border border-muted-foreground/10 rounded-md bg-muted/10">
               {roles.map((role) => (
                 <div 
                   key={role.id} 
-                  className="flex flex-col md:flex-row md:items-center justify-between p-3 md:p-3 border-b hover:bg-accent/50 transition-colors"
+                  className="flex items-center justify-between p-3 border-b border-muted-foreground/10 hover:bg-muted/50 transition-colors"
                 >
-                  <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0 mb-3 md:mb-0">
-                    <div className="h-8 w-8 md:h-9 md:w-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <Shield className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <Shield className="h-3.5 w-3.5 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 md:gap-2 flex-wrap mb-1">
-                        <h4 className="font-medium text-xs md:text-sm truncate">{role.name}</h4>
+                      <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                        <h4 className="font-medium text-xs truncate">{role.name}</h4>
                         {role.is_system_role && (
-                          <span className="text-xs text-blue-600 font-medium">System Role</span>
+                          <Badge variant="outline" className="text-xs border-muted-foreground/20 bg-muted/10 text-blue-600">System Role</Badge>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground mb-1 md:mb-1.5 line-clamp-2">
+                      <p className="text-xs text-muted-foreground mb-1 line-clamp-2">
                         {role.description || 'No description'}
                       </p>
-                      <div className="flex items-center gap-1.5 md:gap-2 flex-wrap">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="text-xs text-muted-foreground">
                           {role.permissions.length} permissions
                         </span>
@@ -140,11 +140,11 @@ const RBACTab: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 md:gap-2 justify-end md:justify-start">
+                  <div className="flex items-center gap-1.5 justify-start">
                     <Button 
                       variant="ghost" 
                       size="icon"
-                      className="h-7 w-7"
+                      className="h-7 w-7 hover:bg-muted/50"
                       onClick={() => handleEditRole(role)}
                       disabled={rbacLoading}
                     >
@@ -154,7 +154,7 @@ const RBACTab: React.FC = () => {
                       <Button 
                         variant="ghost" 
                         size="icon"
-                        className="h-7 w-7 text-destructive hover:text-destructive"
+                        className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
                         onClick={() => handleDeleteRole(role.id)}
                         disabled={isDeleting || rbacLoading}
                       >
@@ -169,8 +169,8 @@ const RBACTab: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Card className="md:border md:shadow-sm md:bg-card border-0 shadow-none bg-transparent mt-4 md:mt-6">
-        <CardHeader className="pb-3 md:px-6 px-4">
+      <Card className="p-3 border rounded-lg bg-background shadow-sm">
+        <CardHeader className="p-0 pb-1">
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-base">Permissions</CardTitle>
@@ -182,7 +182,7 @@ const RBACTab: React.FC = () => {
               <Button 
                 variant="ghost" 
                 size="icon"
-                className="h-7 w-7"
+                className="h-7 w-7 hover:bg-muted/50"
                 onClick={() => refetchPermissions()}
                 disabled={rbacLoading}
               >
@@ -191,43 +191,43 @@ const RBACTab: React.FC = () => {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="pt-0 -mt-2 md:px-6 px-4">
+        <CardContent className="p-0 pt-1">
           {rbacLoading ? (
-            <div className="flex justify-center py-6 md:py-8">
-              <Spinner message="Loading permissions..." />
+            <div className="flex justify-center py-6">
+              <Spinner />
             </div>
           ) : Object.keys(permissions).length === 0 ? (
-            <div className="flex items-center justify-center py-10 md:py-12">
-              <div className="text-center">
-                <Key className="h-8 w-8 md:h-10 md:w-10 text-muted-foreground mx-auto mb-2 md:mb-3" />
-                <div className="text-xs md:text-sm text-muted-foreground">No permissions found</div>
+            <div className="flex items-center justify-center py-10">
+              <div className="text-center p-4 border border-dashed border-muted-foreground/25 rounded-md bg-muted/20">
+                <Key className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <div className="text-xs text-muted-foreground">No permissions found</div>
               </div>
             </div>
           ) : (
-            <div className="space-y-3 md:space-y-4">
+            <div className="space-y-3">
               {Object.entries(permissions).map(([resource, resourcePermissions]) => (
-                <div key={resource} className="space-y-2 md:space-y-3">
+                <div key={resource} className="space-y-2">
                   <div className="flex items-center justify-between px-1">
-                    <h4 className="text-xs md:text-sm font-semibold capitalize">
+                    <h4 className="text-xs font-semibold capitalize">
                       {resource.replace('_', ' ')}
                     </h4>
-                    <Badge variant="secondary" className="text-xs">
+                    <Badge variant="secondary" className="text-xs border-muted-foreground/20 bg-muted/10">
                       {resourcePermissions.length} permissions
                     </Badge>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                     {resourcePermissions.map((permission) => (
                       <div 
                         key={permission.id}
-                        className="flex items-start gap-2 md:gap-3 p-2.5 md:p-3 md:border border-0 rounded-lg hover:bg-accent/50 transition-colors"
+                        className="flex items-start gap-2 p-2.5 border border-muted-foreground/10 rounded-lg bg-muted/10 hover:bg-muted/50 transition-colors"
                       >
-                        <div className="h-8 w-8 md:h-9 md:w-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <Key className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
+                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <Key className="h-3.5 w-3.5 text-primary" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 md:gap-2 flex-wrap mb-0.5 md:mb-1">
-                            <h4 className="font-medium text-xs md:text-sm">{permission.name}</h4>
-                            <Badge variant="outline" className="text-xs">
+                          <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                            <h4 className="font-medium text-xs">{permission.name}</h4>
+                            <Badge variant="outline" className="text-xs border-muted-foreground/20 bg-muted/10">
                               {permission.action}
                             </Badge>
                           </div>

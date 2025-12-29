@@ -58,7 +58,7 @@ const UsersFilters: React.FC<UsersFiltersProps> = React.memo(({
               placeholder="Search users..."
               value={filters.search}
               onChange={(e) => handleFilterChange('search', e.target.value)}
-              className="pl-10 w-full text-base sm:text-sm" // text-base prevents iOS zoom
+              className="pl-10 w-full text-base sm:text-sm bg-muted/30 border-muted-foreground/20 focus-visible:bg-background" // text-base prevents iOS zoom
             />
           </div>
           <Button
@@ -92,7 +92,7 @@ const UsersFilters: React.FC<UsersFiltersProps> = React.memo(({
               value={filters.role}
               onValueChange={(value) => handleFilterChange('role', value)}
             >
-              <SelectTrigger className="w-full text-base sm:text-sm">
+              <SelectTrigger className="w-full text-base sm:text-sm bg-muted/30 border-muted-foreground/20 focus-visible:bg-background">
                 <SelectValue placeholder="Role" />
               </SelectTrigger>
               <SelectContent>
@@ -112,7 +112,7 @@ const UsersFilters: React.FC<UsersFiltersProps> = React.memo(({
               value={filters.status}
               onValueChange={(value) => handleFilterChange('status', value)}
             >
-              <SelectTrigger className="w-full text-base sm:text-sm">
+              <SelectTrigger className="w-full text-base sm:text-sm bg-muted/30 border-muted-foreground/20 focus-visible:bg-background">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -131,7 +131,7 @@ const UsersFilters: React.FC<UsersFiltersProps> = React.memo(({
               value={filters.project}
               onValueChange={(value) => handleFilterChange('project', value)}
             >
-              <SelectTrigger className="w-full text-base sm:text-sm">
+              <SelectTrigger className="w-full text-base sm:text-sm bg-muted/30 border-muted-foreground/20 focus-visible:bg-background">
                 <SelectValue placeholder="Project" />
               </SelectTrigger>
               <SelectContent>
@@ -150,7 +150,7 @@ const UsersFilters: React.FC<UsersFiltersProps> = React.memo(({
               variant="ghost"
               size="sm"
               onClick={onClearFilters}
-              className="h-7 px-2 text-xs hover:bg-destructive/10 hover:text-destructive"
+              className="h-7 px-2 text-xs hover:bg-muted/50 hover:text-destructive"
             >
               Clear All
             </Button>
@@ -161,7 +161,7 @@ const UsersFilters: React.FC<UsersFiltersProps> = React.memo(({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-4 w-4 rounded-full hover:bg-muted-foreground/20"
+                  className="h-4 w-4 rounded-full hover:bg-muted/50"
                   onClick={() => handleFilterChange('role', 'all')}
                 >
                   <X className="h-3 w-3" />
@@ -174,7 +174,7 @@ const UsersFilters: React.FC<UsersFiltersProps> = React.memo(({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-4 w-4 rounded-full hover:bg-muted-foreground/20"
+                  className="h-4 w-4 rounded-full hover:bg-muted/50"
                   onClick={() => handleFilterChange('status', 'all')}
                 >
                   <X className="h-3 w-3" />
@@ -187,7 +187,7 @@ const UsersFilters: React.FC<UsersFiltersProps> = React.memo(({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-4 w-4 rounded-full hover:bg-muted-foreground/20"
+                  className="h-4 w-4 rounded-full hover:bg-muted/50"
                   onClick={() => handleFilterChange('project', 'all')}
                 >
                   <X className="h-3 w-3" />

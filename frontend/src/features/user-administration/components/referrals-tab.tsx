@@ -68,15 +68,15 @@ const MobileReferralCard = React.memo(({
   isDeleting: boolean;
 }) => {
   const getStatusColor = () => {
-    if (refCode.used) return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300 border-gray-200 dark:border-gray-700';
-    if (refCode.is_expired) return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-700';
-    return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700 border-green-200';
+    if (refCode.used) return 'text-gray-700 dark:text-gray-300';
+    if (refCode.is_expired) return 'text-destructive';
+    return 'text-green-700 dark:text-green-300';
   };
 
   return (
-    <div className="flex flex-col p-4 border rounded-lg bg-card text-card-foreground shadow-sm mb-3">
+    <div className="flex flex-col p-4 border border-muted-foreground/10 rounded-lg bg-background text-foreground shadow-sm mb-3">
       {/* Header */}
-      <div className="flex justify-between items-start mb-3 pb-3 border-b">
+      <div className="flex justify-between items-start mb-3 pb-3 border-b border-muted-foreground/10">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 border">
             <Key className="h-5 w-5 text-primary" />
@@ -85,7 +85,7 @@ const MobileReferralCard = React.memo(({
             <h4 className="font-sans font-semibold text-sm tracking-wide">
               {refCode.code}
             </h4>
-            <span className={cn("mt-1 text-[10px] px-1.5 py-0.5 rounded border inline-block font-medium", getStatusColor())}>
+            <span className={cn("mt-1 text-[10px] px-1.5 py-0.5 rounded border border-muted-foreground/20 bg-muted/10 inline-block font-medium", getStatusColor())}>
               {refCode.used ? 'Used' : refCode.is_expired ? 'Expired' : 'Active'}
             </span>
           </div>
@@ -93,7 +93,7 @@ const MobileReferralCard = React.memo(({
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7 -mr-2">
+            <Button variant="ghost" size="icon" className="h-7 w-7 -mr-2 hover:bg-muted/50">
               <MoreVertical className="size-3.5" />
             </Button>
           </DropdownMenuTrigger>
@@ -119,7 +119,7 @@ const MobileReferralCard = React.memo(({
 
       {/* Info Grid */}
       <div className="grid grid-cols-2 gap-2 text-sm">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 p-2 rounded">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/10 border border-muted-foreground/10 p-2 rounded">
           <Layers className="h-3.5 w-3.5" />
           <span>
             Role: {refCode.roles && refCode.roles.length > 0 
@@ -127,15 +127,15 @@ const MobileReferralCard = React.memo(({
               : refCode.role || 'None'}
           </span>
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 p-2 rounded">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/10 border border-muted-foreground/10 p-2 rounded">
           <Coins className="h-3.5 w-3.5" />
           <span>Tokens: {refCode.token_balance || 0}</span>
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 p-2 rounded">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/10 border border-muted-foreground/10 p-2 rounded">
           <Clock className="h-3.5 w-3.5" />
           <span>Duration: {refCode.work_duration_days || 7}d</span>
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 p-2 rounded">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/10 border border-muted-foreground/10 p-2 rounded">
           <Calendar className="h-3.5 w-3.5" />
           <span className="truncate">
             {refCode.expires_at 
@@ -166,7 +166,7 @@ const ReferralRow = React.memo(({
   isCopied: boolean;
 }) => {
   return (
-    <div className="flex items-center justify-between p-3 border-b hover:bg-accent/50 transition-colors">
+    <div className="flex items-center justify-between p-3 border-b border-muted-foreground/10 hover:bg-muted/50 transition-colors">
       <div className="flex items-center gap-3 flex-1 min-w-0">
         <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
           <Key className="h-4 w-4 text-primary" />
@@ -175,12 +175,12 @@ const ReferralRow = React.memo(({
           <div className="flex items-center gap-2 flex-wrap mb-1">
             <h4 className="font-medium text-sm truncate font-sans">{refCode.code}</h4>
             <span className={cn(
-              "text-[10px] px-1.5 py-0.5 rounded border",
+              "text-[10px] px-1.5 py-0.5 rounded border border-muted-foreground/20 bg-muted/10",
               refCode.used 
-                ? 'bg-gray-50 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300 border-gray-200 dark:border-gray-700' 
+                ? 'text-gray-700 dark:text-gray-300' 
                 : refCode.is_expired 
-                  ? 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-700'
-                  : 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700 border-green-200'
+                  ? 'text-destructive'
+                  : 'text-green-700 dark:text-green-300'
             )}>
               {refCode.used ? 'Used' : refCode.is_expired ? 'Expired' : 'Active'}
             </span>
@@ -210,7 +210,7 @@ const ReferralRow = React.memo(({
         <Button 
           variant="ghost" 
           size="icon" 
-          className="h-7 w-7" 
+          className="h-7 w-7 hover:bg-muted/50" 
           disabled={loading || isDeleting}
           onClick={() => onCopy(refCode.code)}
           title="Copy code to clipboard"
@@ -224,7 +224,7 @@ const ReferralRow = React.memo(({
         <Button 
           variant="ghost" 
           size="icon" 
-          className="h-7 w-7 text-destructive hover:text-destructive" 
+          className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10" 
           disabled={loading || isDeleting}
           onClick={() => onDelete(refCode.id)}
           title="Delete referral code"
@@ -290,8 +290,8 @@ const ReferralsTab: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <Card className={cn(isMobile && "border-0 shadow-none bg-transparent")}>
-        <CardHeader className={cn("pb-3", isMobile && "px-0 pt-0")}>
+      <Card className={cn(isMobile && "border-0 shadow-none bg-transparent", !isMobile && "p-3 border rounded-lg bg-background shadow-sm")}>
+        <CardHeader className={cn("pb-3", isMobile && "px-0 pt-0", !isMobile && "p-0 pb-1")}>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-base">Referral Codes</CardTitle>
@@ -303,7 +303,7 @@ const ReferralsTab: React.FC = () => {
               <Button 
                 variant="ghost" 
                 size="icon"
-                className="h-7 w-7"
+                className="h-7 w-7 hover:bg-muted/50"
                 onClick={() => refetchReferralCodes()}
                 disabled={referralCodesLoading}
               >
@@ -325,20 +325,20 @@ const ReferralsTab: React.FC = () => {
           </div>
         </CardHeader>
         
-        <CardContent className={cn("pt-0", !isMobile && "-mt-3")}>
+        <CardContent className={cn("pt-0", !isMobile && "p-0 pt-1", isMobile && "px-0")}>
           {referralCodesLoading ? (
             <div className="flex justify-center py-8">
                 <Spinner />
             </div>
           ) : referralCodesError ? (
             <div className="flex items-center justify-center py-8">
-              <div className="text-red-500 text-sm text-center px-4">
+              <div className="text-destructive text-sm text-center px-4 bg-destructive/10 border border-destructive/20 rounded-md p-2">
                 Error: {referralCodesError instanceof Error ? referralCodesError.message : 'An error occurred'}
               </div>
             </div>
           ) : referralCodes.length === 0 ? (
             <div className="flex items-center justify-center py-12">
-              <div className="text-center">
+              <div className="text-center p-4 border border-dashed border-muted-foreground/25 rounded-md bg-muted/20">
                 <Key className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
                 <div className="text-sm text-muted-foreground">
                   No referral codes found
@@ -349,7 +349,7 @@ const ReferralsTab: React.FC = () => {
             <>
               {/* Desktop View */}
               {!isMobile && (
-                <div className="divide-y border rounded-md">
+                <div className="divide-y border border-muted-foreground/10 rounded-md bg-muted/10">
                   {referralCodes.map((refCode) => (
                     <ReferralRow 
                       key={refCode.id} 
@@ -366,7 +366,7 @@ const ReferralsTab: React.FC = () => {
 
               {/* Mobile View */}
               {isMobile && (
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1 border border-muted-foreground/10 rounded-md bg-muted/10 p-1">
                   {referralCodes.map((refCode) => (
                     <MobileReferralCard 
                       key={refCode.id} 

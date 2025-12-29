@@ -66,7 +66,7 @@ const ClientItemRow = React.memo(
     canDelete: boolean
   }) => {
     return (
-      <div className="flex items-center justify-between p-3 border-b hover:bg-accent/50 transition-colors">
+      <div className="flex items-center justify-between p-3 border-b border-muted-foreground/10 hover:bg-muted/50 transition-colors">
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <Avatar className="h-9 w-9">
             <AvatarFallback className="text-xs">
@@ -84,7 +84,7 @@ const ClientItemRow = React.memo(
               </h4>
               <span
                 className={cn(
-                  "text-[10px] px-1.5 py-0.5 rounded-full border",
+                  "text-[10px] px-1.5 py-0.5 rounded-full border border-muted-foreground/20 bg-muted/10",
                   getStatusClasses(
                     client.status === "active" ? "active" : "expired"
                   )
@@ -115,7 +115,7 @@ const ClientItemRow = React.memo(
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7"
+              className="h-7 w-7 hover:bg-muted/50"
               disabled={loading}
             >
               <Edit className="size-3.5" />
@@ -125,7 +125,7 @@ const ClientItemRow = React.memo(
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 text-destructive hover:text-destructive"
+              className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
               onClick={() => onDelete(client.id)}
               disabled={loading}
             >
@@ -154,9 +154,9 @@ const MobileClientCard = React.memo(({
   canDelete: boolean;
 }) => {
   return (
-    <div className="flex flex-col p-4 border rounded-lg bg-card text-card-foreground shadow-sm mb-3">
+    <div className="flex flex-col p-4 border border-muted-foreground/10 rounded-lg bg-background text-foreground shadow-sm mb-3">
       {/* Header: Avatar, Name, Actions */}
-      <div className="flex justify-between items-start mb-3 pb-3 border-b">
+      <div className="flex justify-between items-start mb-3 pb-3 border-b border-muted-foreground/10">
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10 border">
             <AvatarFallback>
@@ -167,7 +167,7 @@ const MobileClientCard = React.memo(({
             <h4 className="font-semibold text-sm truncate max-w-[160px]">
               {client.name || client.username || 'Unknown'}
             </h4>
-            <Badge variant={client.status === 'active' ? 'default' : 'secondary'} className="mt-1 text-[10px] h-5 px-1.5">
+            <Badge variant={client.status === 'active' ? 'default' : 'secondary'} className="mt-1 text-[10px] h-5 px-1.5 border-muted-foreground/20 bg-muted/10">
               {client.status === 'active' ? 'Active' : 'Inactive'}
             </Badge>
           </div>
@@ -175,7 +175,7 @@ const MobileClientCard = React.memo(({
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7 -mr-2">
+            <Button variant="ghost" size="icon" className="h-7 w-7 -mr-2 hover:bg-muted/50">
               <MoreVertical className="size-3.5" />
             </Button>
           </DropdownMenuTrigger>
@@ -204,23 +204,23 @@ const MobileClientCard = React.memo(({
 
       {/* Body: Stats Grid */}
       <div className="space-y-2 text-sm">
-        <div className="flex items-center gap-2 text-muted-foreground bg-muted/30 p-2 rounded">
+        <div className="flex items-center gap-2 text-muted-foreground bg-muted/10 border border-muted-foreground/10 p-2 rounded">
           <Mail className="h-3.5 w-3.5 shrink-0" />
           <span className="truncate text-xs">{client.email || `@${client.username}`}</span>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
           {client.project && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 p-2 rounded col-span-2">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/10 border border-muted-foreground/10 p-2 rounded col-span-2">
               <Briefcase className="h-3.5 w-3.5" />
               <span className="truncate">Project: {client.project}</span>
             </div>
           )}
-          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 p-2 rounded">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/10 border border-muted-foreground/10 p-2 rounded">
             <ShoppingCart className="h-3.5 w-3.5" />
             <span>Orders: {client.total_orders ?? 0}</span>
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 p-2 rounded">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/10 border border-muted-foreground/10 p-2 rounded">
             <Coins className="h-3.5 w-3.5" />
             <span>Spent: {client.total_spent ?? 0}</span>
           </div>
@@ -260,8 +260,8 @@ const ClientsTab: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <Card className={cn(isMobile && "border-0 shadow-none bg-transparent")}>
-        <CardHeader className={cn("pb-3", isMobile && "px-0 pt-0")}>
+      <Card className={cn(isMobile && "border-0 shadow-none bg-transparent", !isMobile && "p-3 border rounded-lg bg-background shadow-sm")}>
+        <CardHeader className={cn("pb-3", isMobile && "px-0 pt-0", !isMobile && "p-0 pb-1")}>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-base">Clients</CardTitle>
@@ -273,7 +273,7 @@ const ClientsTab: React.FC = () => {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7"
+                className="h-7 w-7 hover:bg-muted/50"
                 onClick={() => refetch()}
                 disabled={clientsLoading}
               >
@@ -288,20 +288,20 @@ const ClientsTab: React.FC = () => {
           </div>
         </CardHeader>
 
-        <CardContent className={cn("pt-0", !isMobile && "-mt-3")}>
+        <CardContent className={cn("pt-0", !isMobile && "p-0 pt-1", isMobile && "px-0")}>
           {clientsLoading ? (
             <div className="flex justify-center py-8">
               <Spinner message="Loading clients..." />
             </div>
           ) : clientsError ? (
             <div className="flex items-center justify-center py-8">
-              <div className="text-red-500 text-sm text-center px-4">
+              <div className="text-destructive text-sm text-center px-4 bg-destructive/10 border border-destructive/20 rounded-md p-2">
                 Error: {clientsError}
               </div>
             </div>
           ) : clients.length === 0 ? (
             <div className="flex items-center justify-center py-12">
-              <div className="text-center">
+              <div className="text-center p-4 border border-dashed border-muted-foreground/25 rounded-md bg-muted/20">
                 <UserCheck className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
                 <div className="text-sm text-muted-foreground">
                   No clients found
@@ -312,7 +312,7 @@ const ClientsTab: React.FC = () => {
             <>
               {/* Desktop View */}
               {!isMobile && (
-                <div className="divide-y border rounded-md">
+                <div className="divide-y border border-muted-foreground/10 rounded-md bg-muted/10">
                   {clients.map((client) => (
                     <ClientItemRow
                       key={client.id}

@@ -2,7 +2,6 @@ export { KeyVisibilityToggle } from './KeyVisibilityToggle';
 export { ActionButton } from './ActionButton';
 export { KeyActions } from './KeyActions';
 export { KeyDisplay } from './KeyDisplay';
-export { KeyRow } from './KeyRow';
 export { SingleKeyForm } from './SingleKeyForm';
 export { CustomKeyForm } from './CustomKeyForm';
 export { BulkKeyForm } from './BulkKeyForm';

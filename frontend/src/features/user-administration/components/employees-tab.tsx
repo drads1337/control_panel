@@ -103,7 +103,7 @@ const UserItem = React.memo(
     }, [user])
 
     return (
-      <div className="flex items-center justify-between p-2.5 border-b hover:bg-accent/50 transition-colors">
+      <div className="flex items-center justify-between p-2.5 border-b border-muted-foreground/10 hover:bg-muted/50 transition-colors">
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <Avatar className="h-9 w-9">
             <AvatarImage src={getAvatarUrl(user.avatar)} />
@@ -121,7 +121,7 @@ const UserItem = React.memo(
               </h4>
               {getStatusBadge(user)}
               {user.rbac_roles && user.rbac_roles.length > 0 && (
-                <Badge variant="outline" className="text-xs h-5 px-1.5">
+                <Badge variant="outline" className="text-xs h-5 px-1.5 border-muted-foreground/20 bg-muted/10">
                   {user.rbac_roles
                     .map((r) => (typeof r === "string" ? r : r.name))
                     .join(", ")}
@@ -167,7 +167,7 @@ const UserItem = React.memo(
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7"
+                  className="h-7 w-7 hover:bg-muted/50"
                   onClick={() => onEdit(user.id)}
                   disabled={loading}
                 >
@@ -178,7 +178,7 @@ const UserItem = React.memo(
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7"
+                  className="h-7 w-7 hover:bg-muted/50"
                   onClick={() => onTopup(user.id)}
                   disabled={loading}
                   title="Top up balance"
@@ -190,7 +190,7 @@ const UserItem = React.memo(
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 text-destructive hover:text-destructive"
+                  className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
                   onClick={() => onDelete(user.id)}
                   disabled={loading}
                 >
@@ -241,7 +241,7 @@ const MobileUserCard = React.memo(
     }, [user])
 
     return (
-      <div className="p-3 border-b hover:bg-accent/50 transition-colors">
+      <div className="p-3 border-b border-muted-foreground/10 hover:bg-muted/50 transition-colors">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2.5 flex-1 min-w-0">
             <Avatar className="h-8 w-8 shrink-0">
@@ -302,7 +302,7 @@ const MobileUserCard = React.memo(
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7"
+                  className="h-7 w-7 hover:bg-muted/50"
                   onClick={() => onEdit(user.id)}
                   disabled={loading}
                 >
@@ -313,7 +313,7 @@ const MobileUserCard = React.memo(
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7"
+                  className="h-7 w-7 hover:bg-muted/50"
                   onClick={() => onTopup(user.id)}
                   disabled={loading}
                   title="Top up balance"
@@ -325,7 +325,7 @@ const MobileUserCard = React.memo(
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 text-destructive hover:text-destructive"
+                  className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
                   onClick={() => onDelete(user.id)}
                   disabled={loading}
                 >
@@ -430,7 +430,7 @@ const EmployeesList: React.FC<EmployeesListProps> = ({
     return (
       <div
         ref={parentRef}
-        className="overflow-auto"
+        className="overflow-auto border border-muted-foreground/10 rounded-md bg-muted/10"
         style={{ height: "600px", contain: "strict" }}
       >
         <div
@@ -458,7 +458,7 @@ const EmployeesList: React.FC<EmployeesListProps> = ({
   }
 
   return (
-    <div className={isMobile ? "flex flex-col gap-1" : ""}>
+    <div className={isMobile ? "flex flex-col gap-1 border border-muted-foreground/10 rounded-md bg-muted/10 p-1" : "border border-muted-foreground/10 rounded-md bg-muted/10"}>
       {users.map((user, index) => renderItem(user, index))}
     </div>
   )
@@ -531,7 +531,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   const getStatusBadge = useCallback((user: User) => {
     if (user.expires_at && new Date(user.expires_at) < new Date()) {
       return (
-        <span className="text-xs text-muted-foreground bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 px-1.5 py-0.5 rounded">
+        <span className="text-xs text-muted-foreground bg-destructive/10 text-destructive border border-destructive/20 px-1.5 py-0.5 rounded">
           Expired
         </span>
       )
@@ -960,8 +960,8 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
 
   return (
     <div className="space-y-4">
-      <Card className={cn(isMobile && "border-0 shadow-none bg-transparent")}>
-        <CardHeader className={cn("pb-3", isMobile && "px-0 pt-0")}>
+      <Card className={cn(isMobile && "border-0 shadow-none bg-transparent", !isMobile && "p-3 border rounded-lg bg-background shadow-sm")}>
+        <CardHeader className={cn("pb-3", isMobile && "px-0 pt-0", !isMobile && "p-0 pb-1")}>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-base">Employees</CardTitle>
@@ -973,7 +973,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7"
+                className="h-7 w-7 hover:bg-muted/50"
                 onClick={() => fetchUsersWithTracking({ roles: activeRolesFilter })}
                 disabled={loading}
               >
@@ -995,7 +995,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7"
+                  className="h-7 w-7 hover:bg-muted/50"
                   onClick={() => setIsNotificationDialogOpen(true)}
                   disabled={loading || users.length === 0}
                 >
@@ -1005,18 +1005,18 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
             </div>
           </div>
         </CardHeader>
-        <CardContent className={cn("pt-0", !isMobile && "-mt-3", isMobile && "px-0")}>
+        <CardContent className={cn("pt-0", !isMobile && "p-0 pt-1", isMobile && "px-0")}>
           {loading ? (
             <div className="flex justify-center py-8">
               <Spinner />
             </div>
           ) : error ? (
             <div className="flex items-center justify-center py-8">
-              <div className="text-red-500 text-sm text-center px-4">Error: {error}</div>
+              <div className="text-destructive text-sm text-center px-4 bg-destructive/10 border border-destructive/20 rounded-md p-2">Error: {error}</div>
             </div>
           ) : users.length === 0 ? (
             <div className="flex items-center justify-center py-12">
-              <div className="text-center">
+              <div className="text-center p-4 border border-dashed border-muted-foreground/25 rounded-md bg-muted/20">
                 <Users className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
                 <div className="text-sm text-muted-foreground">No employees found</div>
               </div>
