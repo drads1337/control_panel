@@ -290,8 +290,8 @@ const ReferralsTab: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <Card className={cn(isMobile && "border-0 shadow-none bg-transparent", !isMobile && "p-3 border rounded-lg bg-background shadow-sm")}>
-        <CardHeader className={cn("pb-3", isMobile && "px-0 pt-0", !isMobile && "p-0 pb-1")}>
+      <Card className="p-3 border rounded-lg bg-background shadow-sm">
+        <CardHeader className="p-0 pb-1">
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-base">Referral Codes</CardTitle>
@@ -325,22 +325,22 @@ const ReferralsTab: React.FC = () => {
           </div>
         </CardHeader>
         
-        <CardContent className={cn("pt-0", !isMobile && "p-0 pt-1", isMobile && "px-0")}>
+        <CardContent className="p-0 pt-1">
           {referralCodesLoading ? (
-            <div className="flex justify-center py-8">
+            <div className="flex justify-center py-6">
                 <Spinner />
             </div>
           ) : referralCodesError ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="text-destructive text-sm text-center px-4 bg-destructive/10 border border-destructive/20 rounded-md p-2">
+            <div className="flex items-center justify-center py-6">
+              <div className="text-destructive text-xs text-center px-4 bg-destructive/10 border border-destructive/20 rounded-md p-2">
                 Error: {referralCodesError instanceof Error ? referralCodesError.message : 'An error occurred'}
               </div>
             </div>
           ) : referralCodes.length === 0 ? (
-            <div className="flex items-center justify-center py-12">
+            <div className="flex items-center justify-center py-10">
               <div className="text-center p-4 border border-dashed border-muted-foreground/25 rounded-md bg-muted/20">
-                <Key className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                <div className="text-sm text-muted-foreground">
+                <Key className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <div className="text-xs text-muted-foreground">
                   No referral codes found
                 </div>
               </div>

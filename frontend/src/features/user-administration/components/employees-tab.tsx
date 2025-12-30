@@ -103,7 +103,7 @@ const UserItem = React.memo(
     }, [user])
 
     return (
-      <div className="flex items-center justify-between p-2.5 border-b border-muted-foreground/10 hover:bg-muted/50 transition-colors">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-muted-foreground/10 hover:bg-muted/50 transition-colors">
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <Avatar className="h-9 w-9">
             <AvatarImage src={getAvatarUrl(user.avatar)} />
@@ -549,13 +549,13 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
           return !isNaN(userId) && userId > 0 ? userId : null
         }).filter((id): id is number => id !== null)
       )
-      
+
       // Filter out invalid user IDs
       const validSelectedIds = notificationForm.targetUsers.filter(id => {
         const normalizedId = typeof id === 'string' ? parseInt(id, 10) : id
         return !isNaN(normalizedId) && normalizedId > 0 && validUserIds.has(normalizedId)
       })
-      
+
       // Update form if some IDs were removed
       if (validSelectedIds.length !== notificationForm.targetUsers.length) {
         setNotificationForm(prev => ({
@@ -569,7 +569,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   // Clean up invalid user IDs when notification dialog opens
   const handleNotificationDialogOpenChange = useCallback((open: boolean) => {
     setIsNotificationDialogOpen(open)
-    
+
     if (open && users.length > 0 && notificationForm.targetUsers.length > 0) {
       // Validate and clean up user IDs when dialog opens
       const validUserIds = new Set(
@@ -578,12 +578,12 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
           return !isNaN(userId) && userId > 0 ? userId : null
         }).filter((id): id is number => id !== null)
       )
-      
+
       const validSelectedIds = notificationForm.targetUsers.filter(id => {
         const normalizedId = typeof id === 'string' ? parseInt(id, 10) : id
         return !isNaN(normalizedId) && normalizedId > 0 && validUserIds.has(normalizedId)
       })
-      
+
       if (validSelectedIds.length !== notificationForm.targetUsers.length) {
         setNotificationForm(prev => ({
           ...prev,
@@ -613,7 +613,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
         // Check if this is an authentication error (401)
         const isAuthError = error?.response?.status === 401 || error?.isAuthError
         const category = isAuthError ? 'authentication' : 'client'
-        
+
         // Global error handler will handle authentication errors and redirect to login
         // We just need to show appropriate error message
         await handleError(error, {
@@ -677,39 +677,39 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
       let currentPage = 1
       let hasMorePages = true
       const perPage = 1000 // Fetch in chunks to avoid timeout
-      
+
       while (hasMorePages) {
         const response = await getUsers({
           per_page: perPage,
           page: currentPage
           // Don't pass roles parameter - we need all project users for validation
-      })
-      
+        })
+
         const pageUsers = response.users || []
         allUsers = [...allUsers, ...pageUsers]
-        
+
         // Check if there are more pages
         const totalFetched = allUsers.length
         const totalAvailable = response.total || 0
-        
+
         if (totalAvailable <= totalFetched || pageUsers.length < perPage) {
           hasMorePages = false
         } else {
           currentPage++
         }
       }
-      
+
       // Log if we got fewer users than expected
       if (allUsers.length === 0) {
         console.warn('No users fetched for validation. This might indicate a problem.')
       }
-      
+
       // Create a map of normalized user IDs to user objects for fast lookup
       // Also validate that all users belong to the current project
       userMap = new Map<number, User>()
       const currentProjectId = currentUser?.project_id
       const wrongProjectUserIds: number[] = []
-      
+
       for (const u of allUsers) {
         const userId = typeof u.id === 'string' ? parseInt(u.id, 10) : u.id
         if (!isNaN(userId) && userId > 0) {
@@ -734,19 +734,19 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
           userMap.set(userId, u)
         }
       }
-      
+
       // Warn if we found users from different projects
       if (wrongProjectUserIds.length > 0) {
         console.warn(`Found ${wrongProjectUserIds.length} user(s) from different projects. These were excluded:`, wrongProjectUserIds)
       }
-      
+
       // Ensure userMap was created successfully
       if (!userMap || userMap.size === 0) {
         console.error('Failed to create user map or no users found')
         toast.error('Failed to load user list. Please refresh and try again.')
         return
       }
-      
+
       // Normalize selected user IDs to numbers - be more strict about validation
       const normalizedSelectedIds = notificationForm.targetUsers
         .map(id => {
@@ -761,13 +761,13 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
           return null
         })
         .filter((id): id is number => id !== null && id > 0)
-      
+
       // Early validation: if no valid normalized IDs, stop here
       if (normalizedSelectedIds.length === 0 && notificationForm.targetUsers.length > 0) {
         toast.error('Selected user IDs are invalid. Please select users again.')
         return
       }
-      
+
       if (notificationForm.sendToAll) {
         // Get all non-admin/owner users from the fetched list, excluding current user
         targetUserIds = Array.from(userMap!.values())
@@ -793,24 +793,24 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
         // Validate selected user IDs against fetched users
         const invalidUserIds: number[] = []
         const adminOwnerUserIds: number[] = []
-        
+
         targetUserIds = normalizedSelectedIds
           .filter(userId => {
             // Check if user exists in the map
             const user = userMap!.get(userId)
-            
+
             if (!user) {
               invalidUserIds.push(userId)
               console.warn(`User ID ${userId} not found in project users`)
               return false
             }
-            
+
             // Exclude admin/owner users
             if (isAdmin(user) || isOwner(user)) {
               adminOwnerUserIds.push(userId)
               return false
             }
-            
+
             // Exclude current user (normalize IDs for comparison)
             if (currentUser?.id) {
               const userId = typeof user.id === 'string' ? parseInt(user.id, 10) : user.id;
@@ -819,7 +819,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                 return false
               }
             }
-            
+
             return true
           })
 
@@ -834,7 +834,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
           toast.error(errorMsg.trim())
           return
         }
-        
+
         // Warn if some selected users were filtered out
         if (targetUserIds.length < notificationForm.targetUsers.length) {
           const filteredCount = notificationForm.targetUsers.length - targetUserIds.length
@@ -895,7 +895,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
         toast.error(`Validation error: ${invalidIds.length} user ID(s) are invalid. Please refresh and try again.`)
         return
       }
-      
+
       const notificationData = {
         title: notificationForm.title,
         message: notificationForm.message,
@@ -921,7 +921,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
       // Parse backend error message for better user feedback
       let errorMessage = 'Failed to send notification'
       const backendError = error?.response?.data?.error
-      
+
       if (backendError) {
         // Check if error mentions specific user IDs
         if (backendError.includes('User IDs') && backendError.includes('not found')) {
@@ -935,21 +935,21 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
           errorMessage = backendError
         }
       }
-      
+
       console.error('Notification send error:', {
         error,
         targetUserIds: finalTargetUserIds.length > 0 ? finalTargetUserIds : targetUserIds,
         selectedUserIds: notificationForm.targetUsers,
         backendError
       })
-      
+
       toast.error(errorMessage)
-      
+
       await handleError(error, {
         category: 'client',
         userMessage: errorMessage,
-        metadata: { 
-          action: 'send_notification', 
+        metadata: {
+          action: 'send_notification',
           targetUsers: finalTargetUserIds.length > 0 ? finalTargetUserIds.length : targetUserIds.length,
           selectedUserIds: notificationForm.targetUsers,
           failedUserIds: finalTargetUserIds.length > 0 ? finalTargetUserIds : targetUserIds
@@ -960,8 +960,8 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
 
   return (
     <div className="space-y-4">
-      <Card className={cn(isMobile && "border-0 shadow-none bg-transparent", !isMobile && "p-3 border rounded-lg bg-background shadow-sm")}>
-        <CardHeader className={cn("pb-3", isMobile && "px-0 pt-0", !isMobile && "p-0 pb-1")}>
+      <Card className="p-3 border rounded-lg bg-background shadow-sm">
+        <CardHeader className="p-0 mb-1">
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-base">Employees</CardTitle>
@@ -1005,20 +1005,20 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
             </div>
           </div>
         </CardHeader>
-        <CardContent className={cn("pt-0", !isMobile && "p-0 pt-1", isMobile && "px-0")}>
+        <CardContent className="p-0">
           {loading ? (
-            <div className="flex justify-center py-8">
+            <div className="flex justify-center py-6">
               <Spinner />
             </div>
           ) : error ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="text-destructive text-sm text-center px-4 bg-destructive/10 border border-destructive/20 rounded-md p-2">Error: {error}</div>
+            <div className="flex items-center justify-center py-6">
+              <div className="text-destructive text-xs text-center px-4 bg-destructive/10 border border-destructive/20 rounded-md p-2">Error: {error}</div>
             </div>
           ) : users.length === 0 ? (
-            <div className="flex items-center justify-center py-12">
+            <div className="flex items-center justify-center py-10">
               <div className="text-center p-4 border border-dashed border-muted-foreground/25 rounded-md bg-muted/20">
-                <Users className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                <div className="text-sm text-muted-foreground">No employees found</div>
+                <Users className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <div className="text-xs text-muted-foreground">No employees found</div>
               </div>
             </div>
           ) : (
