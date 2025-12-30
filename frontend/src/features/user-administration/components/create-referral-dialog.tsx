@@ -5,7 +5,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -22,7 +21,6 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Spinner } from "@/components/ui/spinner"
 import { sanitizeString } from "@/lib/sanitization"
-import { cn } from "@/lib/utils"
 
 interface Role {
   id: number
@@ -75,24 +73,27 @@ const CreateReferralDialog: React.FC<CreateReferralDialogProps> = ({
 }) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-hidden">
-        <DialogHeader className="flex-shrink-0 text-left">
-          <DialogTitle className="text-base">Create Referral Code</DialogTitle>
-          <DialogDescription className="mt-1 text-xs">
-            Create a referral code for new user registration.
-          </DialogDescription>
+      <DialogContent className="w-full sm:max-w-[420px] p-0 gap-0 overflow-hidden">
+        {/* Header */}
+        <DialogHeader className="p-4 pb-1 bg-muted/5">
+          <div className="space-y-1">
+            <DialogTitle className="text-xl font-semibold">
+              Create Referral Code
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Create a referral code for new user registration.
+            </DialogDescription>
+          </div>
         </DialogHeader>
 
-        {/* Form Container */}
-        <div className="flex-1 flex flex-col min-h-0 mt-2">
-          
-          {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-4 px-1 pb-4">
-            <div className="space-y-2 pr-1">
-              <Label htmlFor="referral-code" className="text-sm font-medium">
+        {/* Scrollable Content */}
+        <div className="p-4 overflow-y-auto max-h-[calc(100vh-200px)]">
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="referral-code" className="text-xs font-medium">
                 Referral Code *
               </Label>
-              <div className="flex space-x-2">
+              <div className="flex gap-2">
                 <Input
                   id="referral-code"
                   value={form.code}
@@ -101,26 +102,26 @@ const CreateReferralDialog: React.FC<CreateReferralDialogProps> = ({
                   }
                   placeholder="Enter or generate code"
                   disabled={loading}
-                  className="text-base sm:text-sm flex-1"
+                  className="h-8 text-xs flex-1"
                 />
                 <Button
                   type="button"
                   variant="outline"
                   onClick={onGenerate}
                   disabled={loading}
-                  className="shrink-0"
+                  className="h-8 text-xs shrink-0"
                 >
                   Generate
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-[10px] text-muted-foreground">
                 Users will use this code to register their own account.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-1">
-              <div className="space-y-2">
-                <Label htmlFor="expires-days" className="text-sm font-medium">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="expires-days" className="text-xs font-medium">
                   Code Expires (days)
                 </Label>
                 <Input
@@ -136,14 +137,14 @@ const CreateReferralDialog: React.FC<CreateReferralDialogProps> = ({
                   min="1"
                   max="365"
                   disabled={loading}
-                  className="text-base sm:text-sm"
+                  className="h-8 text-xs"
                 />
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label
                   htmlFor="work-duration-days"
-                  className="text-sm font-medium"
+                  className="text-xs font-medium"
                 >
                   Access Duration (days)
                 </Label>
@@ -160,13 +161,13 @@ const CreateReferralDialog: React.FC<CreateReferralDialogProps> = ({
                   min="1"
                   max="365"
                   disabled={loading}
-                  className="text-base sm:text-sm"
+                  className="h-8 text-xs"
                 />
               </div>
             </div>
 
-            <div className="space-y-2 pr-1">
-              <Label htmlFor="token-balance" className="text-sm font-medium">
+            <div className="space-y-1.5">
+              <Label htmlFor="token-balance" className="text-xs font-medium">
                 Token Balance
               </Label>
               <Input
@@ -181,19 +182,19 @@ const CreateReferralDialog: React.FC<CreateReferralDialogProps> = ({
                 }
                 min="0"
                 disabled={loading}
-                className="text-base sm:text-sm"
+                className="h-8 text-xs"
               />
             </div>
 
-            <div className="space-y-2 pr-1">
-              <Label className="text-sm font-medium">RBAC Role *</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">RBAC Role *</Label>
               {rbacLoading ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-                  <Spinner className="h-4 w-4 animate-spin" />
+                <div className="flex items-center gap-2 text-xs text-muted-foreground px-3 py-2 bg-muted/30 rounded-md">
+                  <Spinner className="h-3 w-3 animate-spin" />
                   Loading roles...
                 </div>
               ) : rbacError ? (
-                <div className="text-sm text-destructive p-2 bg-destructive/10 rounded">Error: {rbacError}</div>
+                <div className="text-xs text-red-500 px-3 py-2 bg-red-50 dark:bg-red-900/10 rounded-md">Error: {rbacError}</div>
               ) : (
                 <Select
                   value={form.selected_rbac_role?.toString() || ""}
@@ -205,14 +206,14 @@ const CreateReferralDialog: React.FC<CreateReferralDialogProps> = ({
                   }
                   disabled={loading}
                 >
-                  <SelectTrigger className="w-full text-base sm:text-sm">
+                  <SelectTrigger className="w-full h-8 text-xs">
                     <SelectValue placeholder="Select a role" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="text-xs">
                     {roles
                       .filter((role) => role.name !== "client")
                       .map((role) => (
-                        <SelectItem key={role.id} value={role.id.toString()}>
+                        <SelectItem key={role.id} value={role.id.toString()} className="text-xs">
                           {role.name}
                         </SelectItem>
                       ))}
@@ -221,25 +222,25 @@ const CreateReferralDialog: React.FC<CreateReferralDialogProps> = ({
               )}
             </div>
 
-            <div className="space-y-2 pr-1">
-              <Label className="text-sm font-medium">Product Access</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Product Access</Label>
               {productsLoading ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-                  <Spinner className="h-4 w-4 animate-spin" />
+                <div className="flex items-center gap-2 text-xs text-muted-foreground px-3 py-2 bg-muted/30 rounded-md">
+                  <Spinner className="h-3 w-3 animate-spin" />
                   Loading products...
                 </div>
               ) : productsError ? (
-                <div className="text-sm text-destructive p-2 bg-destructive/10 rounded">Error: {productsError}</div>
+                <div className="text-xs text-red-500 px-3 py-2 bg-red-50 dark:bg-red-900/10 rounded-md">Error: {productsError}</div>
               ) : (
-                <div className="border rounded-md bg-card">
-                  <div className="max-h-[180px] overflow-y-auto p-1 space-y-1">
+                <div className="border rounded-md bg-muted/10">
+                  <div className="max-h-[180px] overflow-y-auto p-1">
                     {products.length === 0 ? (
                       <div className="text-xs text-muted-foreground text-center py-4">No products available</div>
                     ) : (
                       products.map((product) => (
                         <div 
                           key={product.id} 
-                          className="flex items-start space-x-3 p-2 hover:bg-accent/50 rounded-sm transition-colors cursor-pointer"
+                          className="flex items-start space-x-2 p-2 hover:bg-accent/50 rounded transition-colors cursor-pointer"
                           onClick={() => {
                             if (!loading) {
                               const isSelected = form.selected_products.includes(
@@ -274,13 +275,13 @@ const CreateReferralDialog: React.FC<CreateReferralDialogProps> = ({
                           <div className="flex-1 min-w-0">
                             <Label 
                               htmlFor={`referral-code-product-${product.id}`} 
-                              className="text-sm font-medium cursor-pointer"
+                              className="text-xs font-medium cursor-pointer"
                               onClick={(e) => e.stopPropagation()} // Prevent double toggle
                             >
                               {sanitizeString(product.name)}
                             </Label>
                             {product.description && (
-                              <p className="text-xs text-muted-foreground truncate">
+                              <p className="text-[10px] text-muted-foreground truncate">
                                 {sanitizeString(product.description)}
                               </p>
                             )}
@@ -293,31 +294,31 @@ const CreateReferralDialog: React.FC<CreateReferralDialogProps> = ({
               )}
             </div>
           </div>
+        </div>
 
-          {/* Footer */}
-          <DialogFooter className="flex-shrink-0 flex-col-reverse sm:flex-row gap-2 sm:gap-0 pt-4 border-t mt-auto">
-            <Button
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              className="w-full sm:w-auto"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={onCreate}
-              disabled={loading}
-              className="w-full sm:w-auto"
-            >
-              {loading ? (
-                <>
-                  <Spinner className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                "Create Referral Code"
-              )}
-            </Button>
-          </DialogFooter>
+        {/* Footer */}
+        <div className="flex justify-end gap-2 p-4 pt-2 border-t">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={loading}
+            className="h-8 text-xs"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={onCreate}
+            disabled={loading}
+            className="h-8 text-xs min-w-[80px]"
+          >
+            {loading ? (
+              <Spinner className="size-3" />
+            ) : (
+              "Create Referral Code"
+            )}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

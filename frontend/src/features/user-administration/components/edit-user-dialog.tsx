@@ -5,7 +5,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -20,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Spinner } from "@/components/ui/spinner"
 import { useEditUserDialog } from "@/features/user-administration/hooks/use-edit-user-dialog"
 import { sanitizeString } from "@/lib/sanitization"
 import { cn } from "@/lib/utils"
@@ -62,17 +62,19 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
   if (userLoading) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="w-[95vw] sm:max-w-[500px] p-6">
-          <DialogHeader>
-            <DialogTitle>Edit Employee</DialogTitle>
-            <DialogDescription>
-              Loading user data...
-            </DialogDescription>
+        <DialogContent className="w-full sm:max-w-[420px] p-0 gap-0 overflow-hidden">
+          <DialogHeader className="p-4 pb-1 bg-muted/5">
+            <div className="space-y-1">
+              <DialogTitle className="text-xl font-semibold">Edit Employee</DialogTitle>
+              <DialogDescription className="text-xs">
+                Loading user data...
+              </DialogDescription>
+            </div>
           </DialogHeader>
-          <div className="flex justify-center items-center py-8">
+          <div className="flex justify-center items-center py-8 px-4">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Loading user data...</p>
+              <Spinner className="h-6 w-6 mx-auto mb-4" />
+              <p className="text-xs text-muted-foreground">Loading user data...</p>
             </div>
           </div>
         </DialogContent>
@@ -82,35 +84,40 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-hidden">
-        <DialogHeader className="flex-shrink-0 text-left">
-          <DialogTitle className="text-base">Edit Employee</DialogTitle>
-          <DialogDescription className="text-xs truncate pr-4">
-            Update employee information: {currentUser?.username || user?.username}
-          </DialogDescription>
+      <DialogContent className="w-full sm:max-w-[420px] p-0 gap-0 overflow-hidden">
+        {/* Header */}
+        <DialogHeader className="p-4 pb-1 bg-muted/5">
+          <div className="space-y-1">
+            <DialogTitle className="text-xl font-semibold">
+              Edit Employee
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Update employee information: {currentUser?.username || user?.username}
+            </DialogDescription>
+          </div>
         </DialogHeader>
 
         {/* Scrollable Form Content */}
-        <div className="flex-1 flex flex-col min-h-0 mt-2">
-          <div className="flex-1 overflow-y-auto pr-1 -mr-1 space-y-4 pb-2">
-            <div className="space-y-2">
-              <Label htmlFor="username" className="text-sm font-medium">
+        <div className="p-4 overflow-y-auto max-h-[calc(100vh-200px)]">
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="username" className="text-xs font-medium">
                 Username
               </Label>
               <Input
                 id="username"
                 value={currentUser?.username || user?.username || ""}
                 disabled={true}
-                className="bg-muted h-7 text-xs"
+                className="bg-muted/30 h-8 text-xs"
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-[10px] text-muted-foreground">
                 Username cannot be changed
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="first-name" className="text-sm font-medium">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="first-name" className="text-xs font-medium">
                   First Name
                 </Label>
                 <Input
@@ -121,12 +128,12 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
                   }
                   placeholder="Enter first name"
                   disabled={loading}
-                  className="h-7 text-xs"
+                  className="h-8 text-xs"
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="last-name" className="text-sm font-medium">
+              <div className="space-y-1.5">
+                <Label htmlFor="last-name" className="text-xs font-medium">
                   Last Name
                 </Label>
                 <Input
@@ -137,13 +144,13 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
                   }
                   placeholder="Enter last name"
                   disabled={loading}
-                  className="h-7 text-xs"
+                  className="h-8 text-xs"
                 />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium">
+            <div className="space-y-1.5">
+              <Label htmlFor="email" className="text-xs font-medium">
                 Email
               </Label>
               <Input
@@ -153,15 +160,15 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 placeholder="Enter email"
                 disabled={loading}
-                className="h-7 text-xs"
+                className="h-8 text-xs"
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
                 <Label
                   htmlFor="token-balance"
-                  className="text-sm font-medium"
+                  className="text-xs font-medium"
                 >
                   Token Balance
                 </Label>
@@ -177,14 +184,14 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
                   }
                   min="0"
                   disabled={loading}
-                  className="h-7 text-xs"
+                  className="h-8 text-xs"
                 />
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label
                   htmlFor="work-duration-days"
-                  className="text-sm font-medium"
+                  className="text-xs font-medium"
                 >
                   Work Duration (days)
                 </Label>
@@ -201,23 +208,22 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
                   min="1"
                   max="365"
                   disabled={loading}
-                  className="h-7 text-xs"
+                  className="h-8 text-xs"
                 />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">RBAC Role *</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">RBAC Role *</Label>
               {rbacLoading ? (
-                <div className="text-sm text-muted-foreground py-2">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground px-3 py-2 bg-muted/30 rounded-md">
+                  <Spinner className="h-3 w-3 animate-spin" />
                   Loading roles...
                 </div>
               ) : rbacError ? (
-                <div className="text-sm text-destructive p-2 bg-destructive/10 rounded">
-                  Error: {rbacError}
-                </div>
+                <div className="text-xs text-red-500 px-3 py-2 bg-red-50 dark:bg-red-900/10 rounded-md">Error: {rbacError}</div>
               ) : roles.length === 0 ? (
-                <div className="text-sm text-muted-foreground text-center py-2 border rounded-md">
+                <div className="text-xs text-muted-foreground text-center py-2 border rounded-md bg-muted/10">
                   No roles available
                 </div>
               ) : (
@@ -259,7 +265,7 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
                   }}
                   disabled={loading}
                 >
-                  <SelectTrigger className="w-full h-7 text-xs">
+                  <SelectTrigger className="w-full h-8 text-xs">
                     <SelectValue placeholder="Select a role" />
                   </SelectTrigger>
                   <SelectContent className="text-xs">
@@ -279,17 +285,19 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Product Access</Label>
-              <p className="text-xs text-muted-foreground">Select products for access</p>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Product Access</Label>
               {productsLoading ? (
-                <div className="text-sm text-muted-foreground py-2">Loading products...</div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground px-3 py-2 bg-muted/30 rounded-md">
+                  <Spinner className="h-3 w-3 animate-spin" />
+                  Loading products...
+                </div>
               ) : productsError ? (
-                <div className="text-sm text-destructive p-2 bg-destructive/10 rounded">Error: {productsError}</div>
+                <div className="text-xs text-red-500 px-3 py-2 bg-red-50 dark:bg-red-900/10 rounded-md">Error: {productsError}</div>
               ) : (
-                <div className="max-h-[150px] overflow-y-auto border rounded-md bg-card p-1 space-y-1">
+                <div className="max-h-[150px] overflow-y-auto border rounded-md bg-muted/10 p-1">
                   {products.length === 0 ? (
-                    <div className="text-sm text-muted-foreground text-center py-4">No products available</div>
+                    <div className="text-xs text-muted-foreground text-center py-4">No products available</div>
                   ) : (
                     products.map((product) => {
                       const productId = Number(product.id);
@@ -297,7 +305,7 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
                       return (
                         <div 
                           key={product.id} 
-                          className="flex items-start space-x-3 p-2 hover:bg-accent/50 rounded transition-colors cursor-pointer"
+                          className="flex items-start space-x-2 p-2 hover:bg-accent/50 rounded transition-colors cursor-pointer"
                           onClick={() => {
                             if (loading) return;
                             if (hasAccess) {
@@ -320,17 +328,10 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
                             disabled={loading}
                             className="mt-1"
                           />
-                          <Label htmlFor={`product-${product.id}`} className="text-sm cursor-pointer flex-1" onClick={e => e.stopPropagation()}>
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-                              <div>
-                                <div className="font-medium">{product.name}</div>
-                                <div className="text-xs text-muted-foreground truncate max-w-[200px]">{product.description ? sanitizeString(product.description) : 'No description'}</div>
-                              </div>
-                              {hasAccess && (
-                                <span className="text-xs text-green-600 shrink-0">
-                                  ✓
-                                </span>
-                              )}
+                          <Label htmlFor={`product-${product.id}`} className="text-xs cursor-pointer flex-1" onClick={e => e.stopPropagation()}>
+                            <div>
+                              <div className="font-medium">{product.name}</div>
+                              <div className="text-[10px] text-muted-foreground">{product.description ? sanitizeString(product.description) : 'No description'}</div>
                             </div>
                           </Label>
                         </div>
@@ -341,82 +342,110 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Permissions *</Label>
-              <p className="text-xs text-muted-foreground">Configure individual permissions</p>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Permissions *</Label>
               {permissionsLoading ? (
-                <div className="text-sm text-muted-foreground py-2">Loading permissions...</div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground px-3 py-2 bg-muted/30 rounded-md">
+                  <Spinner className="h-3 w-3 animate-spin" />
+                  Loading permissions...
+                </div>
               ) : permissionsError ? (
-                <div className="text-sm text-destructive p-2 bg-destructive/10 rounded">Error: {permissionsError}</div>
+                <div className="text-xs text-red-500 px-3 py-2 bg-red-50 dark:bg-red-900/10 rounded-md">Error: {permissionsError}</div>
               ) : (
-                <div className="max-h-[200px] overflow-y-auto border rounded-md bg-card p-2 space-y-4">
-                  {Object.entries(availablePermissions || {}).map(([resource, perms]) => (
-                    <div key={resource} className="space-y-1">
-                      <div className="font-medium text-xs uppercase tracking-wider text-muted-foreground bg-muted/30 px-2 py-1 rounded">{resource}</div>
-                      <div className="space-y-1 pl-1">
-                        {perms.map((perm) => {
-                          const isChecked = form.selected_permissions.includes(perm.name);
-                          return (
-                            <div 
-                              key={perm.id} 
-                              className="flex items-center space-x-2 p-1.5 hover:bg-accent/50 rounded cursor-pointer transition-colors"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                if (loading) return;
-                                const newPermissions = isChecked
-                                  ? form.selected_permissions.filter(p => p !== perm.name)
-                                  : [...form.selected_permissions, perm.name];
-                                setForm({ ...form, selected_permissions: newPermissions });
-                              }}
-                            >
-                              <Checkbox
-                                id={`perm-${perm.id}`}
-                                checked={isChecked}
-                                onCheckedChange={() => {}}
-                                disabled={loading}
-                              />
-                              <Label htmlFor={`perm-${perm.id}`} className="text-sm cursor-pointer flex-1" onClick={e => e.stopPropagation()}>
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="truncate">{perm.action}</span>
-                                  {isChecked && (
-                                    <span className="text-[10px] text-green-600 font-medium shrink-0">✓</span>
-                                  )}
-                                </div>
-                              </Label>
-                            </div>
-                          );
-                        })}
-                      </div>
+                <div className="max-h-[200px] overflow-y-auto border rounded-md bg-muted/10 p-3 space-y-4">
+                  {(!availablePermissions || Object.keys(availablePermissions).length === 0) ? (
+                    <div className="text-center py-6 text-muted-foreground text-xs">
+                      No permissions available
                     </div>
-                  ))}
-                  {(!availablePermissions || Object.keys(availablePermissions).length === 0) && (
-                    <div className="text-sm text-muted-foreground text-center py-4">No permissions available</div>
+                  ) : (
+                    Object.entries(availablePermissions || {}).map(([resource, perms]) => (
+                      <div key={resource} className="space-y-2">
+                        <h4 className="font-semibold text-[10px] uppercase tracking-wider text-muted-foreground border-b pb-1 mb-2">
+                          {resource.replace("_", " ")}
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                          {perms.map((perm) => {
+                            const isChecked = form.selected_permissions.includes(perm.name);
+                            return (
+                              <div
+                                key={perm.id}
+                                className={cn(
+                                  "flex items-start space-x-2 p-2 rounded-md transition-colors cursor-pointer border border-transparent",
+                                  isChecked
+                                    ? "bg-primary/5 border-primary/20"
+                                    : "hover:bg-accent/50"
+                                )}
+                                onClick={() => {
+                                  if (!loading) {
+                                    if (isChecked) {
+                                      setForm({
+                                        ...form,
+                                        selected_permissions: form.selected_permissions.filter(
+                                          (p) => p !== perm.name
+                                        ),
+                                      })
+                                    } else {
+                                      setForm({
+                                        ...form,
+                                        selected_permissions: [
+                                          ...form.selected_permissions,
+                                          perm.name,
+                                        ],
+                                      })
+                                    }
+                                  }
+                                }}
+                              >
+                                <Checkbox
+                                  id={`perm-${perm.id}`}
+                                  checked={isChecked}
+                                  onCheckedChange={() => {}} // Handled by parent div
+                                  disabled={loading}
+                                  className="mt-0.5"
+                                />
+                                <Label
+                                  htmlFor={`perm-${perm.id}`}
+                                  className="text-xs font-medium cursor-pointer leading-none pt-0.5"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {perm.action}
+                                </Label>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))
                   )}
                 </div>
               )}
             </div>
           </div>
+        </div>
 
-          {/* Fixed Footer */}
-          <DialogFooter className="flex-shrink-0 flex-col-reverse sm:flex-row gap-2 sm:gap-0 pt-4 border-t mt-auto">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs w-full sm:w-auto"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              className="h-7 text-xs w-full sm:w-auto"
-              onClick={() => handleUpdate()}
-              disabled={loading}
-            >
-              {loading ? "Updating..." : "Update Employee"}
-            </Button>
-          </DialogFooter>
+        {/* Footer */}
+        <div className="flex justify-end gap-2 p-4 pt-2 border-t">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={loading}
+            className="h-8 text-xs"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={() => handleUpdate()}
+            disabled={loading}
+            className="h-8 text-xs min-w-[80px]"
+          >
+            {loading ? (
+              <Spinner className="size-3" />
+            ) : (
+              "Update Employee"
+            )}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

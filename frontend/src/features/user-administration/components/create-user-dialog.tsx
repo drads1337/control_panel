@@ -196,69 +196,34 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] flex flex-col p-0 overflow-hidden gap-0">
-        <DialogHeader className="p-4 sm:p-6 border-b flex-shrink-0">
-          <DialogTitle className="text-base">Create Employee</DialogTitle>
-          <DialogDescription className="text-xs">
-            Create a new employee in the system.
-          </DialogDescription>
+      <DialogContent className="w-full sm:max-w-[420px] p-0 gap-0 overflow-hidden">
+        {/* Header */}
+        <DialogHeader className="p-4 pb-1 bg-muted/5">
+          <div className="space-y-1">
+            <DialogTitle className="text-xl font-semibold">
+              Create Employee
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Create a new employee in the system.
+            </DialogDescription>
+          </div>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={handleCreate} className="flex-1 flex flex-col min-h-0">
-            {/* Scrollable Form Content */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
-              <FormField
-                control={form.control}
-                name="username"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Username *</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Enter username"
-                        disabled={loading}
-                        className="h-7 text-xs"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password *</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="Min 8 chars"
-                        disabled={loading}
-                        className="h-7 text-xs"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <form onSubmit={handleCreate} className="flex flex-col">
+            <div className="p-4 overflow-y-auto max-h-[calc(100vh-200px)]">
+              <div className="space-y-4">
                 <FormField
                   control={form.control}
-                  name="first_name"
+                  name="username"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>First Name</FormLabel>
+                      <FormLabel className="text-xs font-medium">Username *</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="First name"
+                          placeholder="Enter username"
                           disabled={loading}
-                          className="h-7 text-xs"
+                          className="h-8 text-xs"
                           {...field}
                         />
                       </FormControl>
@@ -269,15 +234,16 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
 
                 <FormField
                   control={form.control}
-                  name="last_name"
+                  name="password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Last Name</FormLabel>
+                      <FormLabel className="text-xs font-medium">Password *</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="Last name"
+                          type="password"
+                          placeholder="Min 8 chars"
                           disabled={loading}
-                          className="h-7 text-xs"
+                          className="h-8 text-xs"
                           {...field}
                         />
                       </FormControl>
@@ -285,263 +251,299 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
                     </FormItem>
                   )}
                 />
-              </div>
 
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="email"
-                        placeholder="Enter email"
-                        disabled={loading}
-                        className="h-7 text-xs"
-                        {...field}
-                        value={field.value || ''}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="token_balance"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Token Balance</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          disabled={loading}
-                          className="h-7 text-xs"
-                          {...field}
-                          value={field.value}
-                          onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="work_duration_days"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Work Duration (days)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="1"
-                          max="365"
-                          disabled={loading}
-                          className="h-7 text-xs"
-                          {...field}
-                          value={field.value}
-                          onChange={(e) => field.onChange(parseInt(e.target.value) || 7)}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={form.control}
-                name="selected_rbac_role"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>RBAC Role *</FormLabel>
-                    {rbacLoading ? (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground p-2 border rounded-md">
-                        <Spinner className="h-4 w-4 animate-spin" />
-                        Loading roles...
-                      </div>
-                    ) : rbacError ? (
-                      <div className="text-sm text-red-500 p-2 bg-red-50 dark:bg-red-900/10 rounded">Error: {rbacError}</div>
-                    ) : (
-                      <FormControl>
-                        <Select
-                          value={field.value ? field.value.toString() : ""}
-                          onValueChange={(value) => {
-                            const numValue = parseInt(value, 10)
-                            if (!isNaN(numValue) && numValue > 0) {
-                              field.onChange(numValue)
-                              setTimeout(() => form.trigger("selected_rbac_role"), 0)
-                            }
-                          }}
-                          disabled={loading}
-                        >
-                          <SelectTrigger className="h-7 text-xs w-full">
-                            <SelectValue placeholder="Select a role" />
-                          </SelectTrigger>
-                          <SelectContent className="text-xs">
-                            {roles
-                              .filter((role) => role.name !== "client")
-                              .map((role) => (
-                                <SelectItem
-                                  key={role.id}
-                                  value={role.id.toString()}
-                                  className="text-xs"
-                                >
-                                  {role.name}
-                                </SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
-                      </FormControl>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="first_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-medium">First Name</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="First name"
+                            disabled={loading}
+                            className="h-8 text-xs"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
                     )}
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                  />
 
-              <FormField
-                control={form.control}
-                name="selected_products"
-                render={({ field }) => {
-                  const handleProductToggle = (productId: number) => {
-                    if (loading) return
-                    const currentProducts = Array.isArray(field.value)
-                      ? field.value
-                      : []
-                    const normalizedProductId =
-                      typeof productId === "number"
-                        ? productId
-                        : parseInt(String(productId), 10)
-                    const normalizedCurrent = currentProducts.map((id) =>
-                      typeof id === "number" ? id : parseInt(String(id), 10)
-                    )
-                    const isSelected = normalizedCurrent.includes(
-                      normalizedProductId
-                    )
+                  <FormField
+                    control={form.control}
+                    name="last_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-medium">Last Name</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Last name"
+                            disabled={loading}
+                            className="h-8 text-xs"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
-                    if (isSelected) {
-                      field.onChange(
-                        normalizedCurrent.filter(
-                          (id) => id !== normalizedProductId
-                        )
-                      )
-                    } else {
-                      field.onChange([...normalizedCurrent, normalizedProductId])
-                    }
-                  }
-
-                  const isProductSelected = (productId: number | string) => {
-                    const currentProducts = Array.isArray(field.value)
-                      ? field.value
-                      : []
-                    const normalizedProductId =
-                      typeof productId === "number"
-                        ? productId
-                        : parseInt(String(productId), 10)
-                    return currentProducts
-                      .map((id) =>
-                        typeof id === "number" ? id : parseInt(String(id), 10)
-                      )
-                      .includes(normalizedProductId)
-                  }
-
-                  return (
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Product Access</FormLabel>
-                      {productsLoading ? (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground p-2 border rounded-md">
-                          <Spinner className="h-4 w-4 animate-spin" />
-                          Loading products...
-                        </div>
-                      ) : productsError ? (
-                        <div className="text-sm text-red-500 p-2 bg-red-50 dark:bg-red-900/10 rounded">Error: {productsError}</div>
-                      ) : (
-                        <div className="max-h-[200px] overflow-y-auto border rounded-md bg-card p-1">
-                          {products.length === 0 ? (
-                            <div className="text-center p-4 text-sm text-muted-foreground">No products available</div>
-                          ) : (
-                            products.map((product) => {
-                              const productId =
-                                typeof product.id === "number"
-                                  ? product.id
-                                  : parseInt(String(product.id), 10)
-                              const selected = isProductSelected(productId)
+                      <FormLabel className="text-xs font-medium">Email</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          placeholder="Enter email"
+                          disabled={loading}
+                          className="h-8 text-xs"
+                          {...field}
+                          value={field.value || ''}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                              return (
-                                <div
-                                  key={product.id}
-                                  className="flex items-start space-x-3 p-2 hover:bg-accent/50 rounded transition-colors"
-                                >
-                                  <Checkbox
-                                    id={`product-${product.id}`}
-                                    checked={selected}
-                                    onCheckedChange={() => {
-                                      handleProductToggle(productId)
-                                    }}
-                                    disabled={loading}
-                                    className="mt-1"
-                                  />
-                                  <Label
-                                    htmlFor={`product-${product.id}`}
-                                    className="text-sm flex-1 cursor-pointer"
-                                  >
-                                    <div>
-                                      <div className="font-medium">
-                                        {sanitizeString(product.name)}
-                                      </div>
-                                      <div className="text-xs text-muted-foreground">
-                                        {product.description
-                                          ? sanitizeString(product.description)
-                                          : "No description"}
-                                      </div>
-                                    </div>
-                                  </Label>
-                                </div>
-                              )
-                            })
-                          )}
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="token_balance"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-medium">Token Balance</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min="0"
+                            disabled={loading}
+                            className="h-8 text-xs"
+                            {...field}
+                            value={field.value}
+                            onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="work_duration_days"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-medium">Work Duration (days)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min="1"
+                            max="365"
+                            disabled={loading}
+                            className="h-8 text-xs"
+                            {...field}
+                            value={field.value}
+                            onChange={(e) => field.onChange(parseInt(e.target.value) || 7)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="selected_rbac_role"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-medium">RBAC Role *</FormLabel>
+                      {rbacLoading ? (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground px-3 py-2 bg-muted/30 rounded-md">
+                          <Spinner className="h-3 w-3 animate-spin" />
+                          Loading roles...
                         </div>
+                      ) : rbacError ? (
+                        <div className="text-xs text-red-500 px-3 py-2 bg-red-50 dark:bg-red-900/10 rounded-md">Error: {rbacError}</div>
+                      ) : (
+                        <FormControl>
+                          <Select
+                            value={field.value ? field.value.toString() : ""}
+                            onValueChange={(value) => {
+                              const numValue = parseInt(value, 10)
+                              if (!isNaN(numValue) && numValue > 0) {
+                                field.onChange(numValue)
+                                setTimeout(() => form.trigger("selected_rbac_role"), 0)
+                              }
+                            }}
+                            disabled={loading}
+                          >
+                            <SelectTrigger className="h-8 text-xs w-full">
+                              <SelectValue placeholder="Select a role" />
+                            </SelectTrigger>
+                            <SelectContent className="text-xs">
+                              {roles
+                                .filter((role) => role.name !== "client")
+                                .map((role) => (
+                                  <SelectItem
+                                    key={role.id}
+                                    value={role.id.toString()}
+                                    className="text-xs"
+                                  >
+                                    {role.name}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
                       )}
                       <FormMessage />
                     </FormItem>
-                  );
-                }}
-              />
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="selected_products"
+                  render={({ field }) => {
+                    const handleProductToggle = (productId: number) => {
+                      if (loading) return
+                      const currentProducts = Array.isArray(field.value)
+                        ? field.value
+                        : []
+                      const normalizedProductId =
+                        typeof productId === "number"
+                          ? productId
+                          : parseInt(String(productId), 10)
+                      const normalizedCurrent = currentProducts.map((id) =>
+                        typeof id === "number" ? id : parseInt(String(id), 10)
+                      )
+                      const isSelected = normalizedCurrent.includes(
+                        normalizedProductId
+                      )
+
+                      if (isSelected) {
+                        field.onChange(
+                          normalizedCurrent.filter(
+                            (id) => id !== normalizedProductId
+                          )
+                        )
+                      } else {
+                        field.onChange([...normalizedCurrent, normalizedProductId])
+                      }
+                    }
+
+                    const isProductSelected = (productId: number | string) => {
+                      const currentProducts = Array.isArray(field.value)
+                        ? field.value
+                        : []
+                      const normalizedProductId =
+                        typeof productId === "number"
+                          ? productId
+                          : parseInt(String(productId), 10)
+                      return currentProducts
+                        .map((id) =>
+                          typeof id === "number" ? id : parseInt(String(id), 10)
+                        )
+                        .includes(normalizedProductId)
+                    }
+
+                    return (
+                      <FormItem>
+                        <FormLabel className="text-xs font-medium">Product Access</FormLabel>
+                        {productsLoading ? (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground px-3 py-2 bg-muted/30 rounded-md">
+                            <Spinner className="h-3 w-3 animate-spin" />
+                            Loading products...
+                          </div>
+                        ) : productsError ? (
+                          <div className="text-xs text-red-500 px-3 py-2 bg-red-50 dark:bg-red-900/10 rounded-md">Error: {productsError}</div>
+                        ) : (
+                          <div className="max-h-[200px] overflow-y-auto border rounded-md bg-muted/10 p-1">
+                            {products.length === 0 ? (
+                              <div className="text-center p-4 text-xs text-muted-foreground">No products available</div>
+                            ) : (
+                              products.map((product) => {
+                                const productId =
+                                  typeof product.id === "number"
+                                    ? product.id
+                                    : parseInt(String(product.id), 10)
+                                const selected = isProductSelected(productId)
+
+                                return (
+                                  <div
+                                    key={product.id}
+                                    className="flex items-start space-x-2 p-2 hover:bg-accent/50 rounded transition-colors"
+                                  >
+                                    <Checkbox
+                                      id={`product-${product.id}`}
+                                      checked={selected}
+                                      onCheckedChange={() => {
+                                        handleProductToggle(productId)
+                                      }}
+                                      disabled={loading}
+                                      className="mt-1"
+                                    />
+                                    <Label
+                                      htmlFor={`product-${product.id}`}
+                                      className="text-xs flex-1 cursor-pointer"
+                                    >
+                                      <div>
+                                        <div className="font-medium">
+                                          {sanitizeString(product.name)}
+                                        </div>
+                                        <div className="text-[10px] text-muted-foreground">
+                                          {product.description
+                                            ? sanitizeString(product.description)
+                                            : "No description"}
+                                        </div>
+                                      </div>
+                                    </Label>
+                                  </div>
+                                )
+                              })
+                            )}
+                          </div>
+                        )}
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
+                />
+              </div>
             </div>
 
-            {/* Fixed Footer */}
-            <DialogFooter className="p-4 sm:p-6 border-t bg-background flex-shrink-0 flex-col-reverse sm:flex-row gap-2 sm:gap-0">
+            {/* Footer */}
+            <div className="flex justify-end gap-2 p-4 pt-2 border-t">
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
-                className="h-7 text-xs w-full sm:w-auto"
                 onClick={() => onOpenChange(false)}
+                disabled={loading || rbacLoading || productsLoading}
+                className="h-8 text-xs"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
-                size="sm"
-                className="h-7 text-xs w-full sm:w-auto"
                 disabled={loading || rbacLoading || productsLoading}
+                className="h-8 text-xs min-w-[80px]"
               >
                 {loading ? (
-                  <>
-                    <Spinner className="mr-2 size-3 animate-spin" />
-                    Creating...
-                  </>
+                  <Spinner className="size-3" />
                 ) : (
                   "Create Employee"
                 )}
               </Button>
-            </DialogFooter>
+            </div>
           </form>
         </Form>
       </DialogContent>
