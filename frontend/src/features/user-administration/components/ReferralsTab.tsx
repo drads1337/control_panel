@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
-import CreateReferralDialog from "./create-referral-dialog"
+import CreateReferralDialog from "./CreateReferralDialog"
 import { useAuthContext } from "@/app/providers/auth-provider"
 import {
   Plus,
