@@ -90,7 +90,10 @@ export function useRBACPermissions() {
     queryKey: rbacKeys.permissions(),
     queryFn: async (): Promise<Permission> => {
       const response = await api.get<PermissionsResponse>('/api/rbac/permissions')
-      return response.data.permissions || {}
+      const permissions = response.data.permissions || {}
+      // Exclude system permissions
+      const { system, ...filteredPermissions } = permissions
+      return filteredPermissions
     },
     enabled: isAuthenticated,
 

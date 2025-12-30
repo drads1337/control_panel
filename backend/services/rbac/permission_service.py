@@ -235,7 +235,7 @@ class PermissionService:
             grouped_permissions = {}
             for permission in permissions:
 
-                if permission.resource in ("notifications", "changelog", "files"):
+                if permission.resource in ("notifications", "changelog", "files", "system"):
                     continue
                 if permission.name not in allowed_permission_names:
                     continue

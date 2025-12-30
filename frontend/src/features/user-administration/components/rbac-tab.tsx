@@ -90,7 +90,7 @@ const RBACTab: React.FC = () => {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="p-0 pt-1">
+        <CardContent className="p-0 pt-0 -mt-4">
           {rbacLoading ? (
             <div className="flex justify-center py-6">
               <Spinner />
@@ -191,7 +191,7 @@ const RBACTab: React.FC = () => {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="p-0 pt-1">
+        <CardContent className="p-0 pt-0 -mt-4">
           {rbacLoading ? (
             <div className="flex justify-center py-6">
               <Spinner />

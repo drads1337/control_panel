@@ -288,7 +288,7 @@ const ClientsTab: React.FC = () => {
           </div>
         </CardHeader>
 
-        <CardContent className="p-0">
+        <CardContent className="p-0 pt-0 -mt-4">
           {clientsLoading ? (
             <div className="flex justify-center py-6">
               <Spinner message="Loading clients..." />

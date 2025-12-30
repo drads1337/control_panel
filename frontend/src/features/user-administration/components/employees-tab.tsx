@@ -961,7 +961,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   return (
     <div className="space-y-4">
       <Card className="p-3 border rounded-lg bg-background shadow-sm">
-        <CardHeader className="p-0 mb-1">
+        <CardHeader className="p-0 pb-0 mb-0">
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-base">Employees</CardTitle>
@@ -1005,7 +1005,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
             </div>
           </div>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 pt-0 -mt-4">
           {loading ? (
             <div className="flex justify-center py-6">
               <Spinner />
