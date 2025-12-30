@@ -185,12 +185,19 @@ export function RemoteControlPage() {
         
         {/* --- LEFT COLUMN: Product List --- */}
         <div className="md:col-span-4 lg:col-span-3 flex flex-col min-h-[550px] border rounded-lg bg-background shadow-sm overflow-hidden">
+          {/* Header */}
+          <div className="px-4 py-3 border-b bg-muted/30">
+            <div className="flex items-center justify-start">
+              <h3 className="text-sm font-semibold uppercase text-muted-foreground tracking-wider">
+                Product List
+              </h3>
+            </div>
+          </div>
+
+          {/* Scrollable Content */}
           <ScrollArea className="flex-1">
             <div className="p-2 space-y-1">
               <div className="space-y-0.5 mb-3">
-                <div className="px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                  Products
-                </div>
                 {PRODUCTS.map((product) => {
                   const isSelected = selectedProduct?.id === product.id
                   return (
@@ -397,4 +404,4 @@ export function RemoteControlPage() {
       </div>
     </div>
   )
-}
+} 
