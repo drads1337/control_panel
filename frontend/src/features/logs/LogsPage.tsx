@@ -1,6 +1,17 @@
 "use client"
 
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
+import {
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+  type ColumnDef,
+  type ColumnFiltersState,
+  type SortingState,
+} from '@tanstack/react-table'
 import { 
   Search, 
   Download, 
@@ -15,16 +26,40 @@ import {
   Filter, 
   ChevronLeft, 
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Database,
-  Terminal
+  Terminal,
+  ChevronDownIcon
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardAction, CardFooter } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 
 // --- Types ---
@@ -58,95 +93,259 @@ const LOG_DATA: LogEntry[] = [
   { id: 'log_012', timestamp: '2023-10-27 10:01:18', level: 'DEBUG', source: 'Analytics', message: 'Flushing event buffer to disk', user: 'system' },
 ]
 
+const getLevelBadge = (level: LogLevel) => {
+  switch (level) {
+    case 'ERROR': return 'text-rose-600 bg-rose-50 border-rose-200 dark:bg-rose-500/10 dark:text-rose-500 dark:border-rose-500/20'
+    case 'WARN': return 'text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-500/10 dark:text-amber-500 dark:border-amber-500/20'
+    case 'SUCCESS': return 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-500 dark:border-emerald-500/20'
+    case 'DEBUG': return 'text-purple-600 bg-purple-50 border-purple-200 dark:bg-purple-500/10 dark:text-purple-500 dark:border-purple-500/20'
+    default: return 'text-blue-600 bg-blue-50 border-blue-200 dark:bg-blue-500/10 dark:text-blue-500 dark:border-blue-500/20'
+  }
+}
+
+const getLevelIcon = (level: LogLevel) => {
+  switch (level) {
+      case 'ERROR': return <AlertCircle className="size-3" />
+      case 'WARN': return <AlertTriangle className="size-3" />
+      case 'SUCCESS': return <CheckCircle2 className="size-3" />
+      case 'DEBUG': return <Terminal className="size-3" />
+      default: return <Info className="size-3" />
+  }
+}
+
+const columns: ColumnDef<LogEntry>[] = [
+  {
+    id: "select",
+    header: ({ table }) => (
+      <div className="flex items-center justify-center">
+        <Checkbox
+          checked={table.getIsAllPageRowsSelected()}
+          data-indeterminate={
+            table.getIsSomePageRowsSelected() &&
+            !table.getIsAllPageRowsSelected()
+          }
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          aria-label="Select all"
+          className="size-3.5"
+        />
+      </div>
+    ),
+    cell: ({ row }) => (
+      <div className="flex items-center justify-center">
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          aria-label="Select row"
+          className="size-3.5"
+        />
+      </div>
+    ),
+    enableSorting: false,
+    enableHiding: false,
+  },
+  {
+    accessorKey: "timestamp",
+    header: "Timestamp",
+    cell: ({ row }) => (
+      <div className="text-muted-foreground text-[11px] font-mono">
+        {row.original.timestamp}
+      </div>
+    ),
+  },
+  {
+    accessorKey: "level",
+    header: "Level",
+    cell: ({ row }) => (
+      <Badge variant="outline" className={cn("text-[9px] px-1.5 h-5 font-bold gap-1 pl-1", getLevelBadge(row.original.level))}>
+        {getLevelIcon(row.original.level)} {row.original.level}
+      </Badge>
+    ),
+  },
+  {
+    accessorKey: "source",
+    header: "Source",
+    cell: ({ row }) => (
+      <div className="font-sans font-semibold text-xs">
+        {row.original.source}
+      </div>
+    ),
+  },
+  {
+    accessorKey: "message",
+    header: "Message",
+    cell: ({ row }) => (
+      <div className="text-muted-foreground truncate max-w-md" title={row.original.message}>
+        {row.original.message}
+      </div>
+    ),
+  },
+  {
+    id: "userOrIp",
+    header: () => <div className="text-right">User / IP</div>,
+    cell: ({ row }) => (
+      <div className="text-right text-muted-foreground text-[11px]">
+        {row.original.user ? (
+          <span className="flex items-center justify-end gap-1.5">
+            <User className="size-3" /> {row.original.user}
+          </span>
+        ) : (
+          <span className="flex items-center justify-end gap-1.5">
+            <Globe className="size-3" /> {row.original.ip}
+          </span>
+        )}
+      </div>
+    ),
+  },
+]
+
 export function LogsPage() {
   const [filterLevel, setFilterLevel] = useState<string>('ALL')
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedLogs, setSelectedLogs] = useState<Set<string>>(new Set())
+  const [sorting, setSorting] = useState<SortingState>([])
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
 
-  const toggleSelect = (id: string) => {
-    const newSet = new Set(selectedLogs)
-    if (newSet.has(id)) newSet.delete(id)
-    else newSet.add(id)
-    setSelectedLogs(newSet)
-  }
+  const filteredData = useMemo(() => {
+    return LOG_DATA.filter(log => {
+      const matchesLevel = filterLevel === 'ALL' || log.level === filterLevel
+      const matchesSearch = log.message.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                            log.source.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            log.user?.toLowerCase().includes(searchTerm.toLowerCase())
+      return matchesLevel && matchesSearch
+    })
+  }, [filterLevel, searchTerm])
 
-  const toggleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedLogs(new Set(filteredLogs.map(l => l.id)))
-    } else {
-      setSelectedLogs(new Set())
-    }
-  }
-
-  const getLevelBadge = (level: LogLevel) => {
-    switch (level) {
-      case 'ERROR': return 'text-rose-600 bg-rose-50 border-rose-200 dark:bg-rose-500/10 dark:text-rose-500 dark:border-rose-500/20'
-      case 'WARN': return 'text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-500/10 dark:text-amber-500 dark:border-amber-500/20'
-      case 'SUCCESS': return 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-500 dark:border-emerald-500/20'
-      case 'DEBUG': return 'text-purple-600 bg-purple-50 border-purple-200 dark:bg-purple-500/10 dark:text-purple-500 dark:border-purple-500/20'
-      default: return 'text-blue-600 bg-blue-50 border-blue-200 dark:bg-blue-500/10 dark:text-blue-500 dark:border-blue-500/20'
-    }
-  }
-
-  const getLevelIcon = (level: LogLevel) => {
-    switch (level) {
-        case 'ERROR': return <AlertCircle className="size-3" />
-        case 'WARN': return <AlertTriangle className="size-3" />
-        case 'SUCCESS': return <CheckCircle2 className="size-3" />
-        case 'DEBUG': return <Terminal className="size-3" />
-        default: return <Info className="size-3" />
-    }
-  }
-
-  const filteredLogs = LOG_DATA.filter(log => {
-    const matchesLevel = filterLevel === 'ALL' || log.level === filterLevel
-    const matchesSearch = log.message.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          log.source.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          log.user?.toLowerCase().includes(searchTerm.toLowerCase())
-    return matchesLevel && matchesSearch
+  const table = useReactTable({
+    data: filteredData,
+    columns,
+    getRowId: (row) => row.id,
+    state: {
+      sorting,
+      columnFilters,
+    },
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    initialState: {
+      pagination: {
+        pageSize: 10,
+      },
+    },
   })
 
   return (
     <div className="flex flex-1 flex-col">
       <div className="@container/main flex flex-1 flex-col gap-2">
         <div className="flex flex-col gap-3 py-3 md:gap-4 md:py-4 px-4 lg:px-6">
+          <div className="mb-2">
+            <h1 className="text-lg xs:text-xl sm:text-xl md:text-2xl font-bold tracking-tight text-foreground leading-tight">
+              Logs
+            </h1>
+            <p className="text-[10px] xs:text-xs sm:text-xs md:text-sm text-muted-foreground mt-1 xs:mt-1.5 sm:mt-2 leading-snug">
+              View and analyze system events, errors, and activity logs.
+            </p>
+          </div>
           
           {/* Top Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card className="bg-background shadow-sm border p-4 flex flex-col justify-between">
-              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Events Today</div>
-              <div className="flex items-baseline gap-2">
-                <div className="text-2xl font-bold">14,205</div>
-                <span className="text-[10px] text-emerald-500 font-bold flex items-center gap-0.5">
-                    <ArrowUp className="size-3" /> 12%
-                </span>
-              </div>
+          <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 md:grid-cols-4 gap-3 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs">
+            <Card className="@container/card p-3">
+              <CardHeader className="p-0 pb-1">
+                <CardDescription className="text-xs">Events Today</CardDescription>
+                <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
+                  14,205
+                </CardTitle>
+                <CardAction>
+                  <Badge variant="outline" className="text-xs h-5 px-1.5">
+                    <ArrowUp className="size-3" />
+                    12% up
+                  </Badge>
+                </CardAction>
+              </CardHeader>
+              <CardFooter className="flex-col items-start gap-0.5 text-xs p-0 pt-1">
+                <div className="line-clamp-1 flex gap-1.5 font-medium">
+                  Total events today{" "}
+                  <Database className="size-3" />
+                </div>
+                <div className="text-muted-foreground">
+                  System events logged
+                </div>
+              </CardFooter>
             </Card>
-            <Card className="bg-background shadow-sm border p-4 flex flex-col justify-between">
-              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Errors</div>
-              <div className="flex items-baseline gap-2">
-                <div className="text-2xl font-bold text-rose-500">24</div>
-                <span className="text-[10px] text-muted-foreground">Past 24h</span>
-              </div>
+            <Card className="@container/card p-3">
+              <CardHeader className="p-0 pb-1">
+                <CardDescription className="text-xs">Errors</CardDescription>
+                <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
+                  24
+                </CardTitle>
+                <CardAction>
+                  <Badge variant="outline" className="text-xs h-5 px-1.5">
+                    <AlertCircle className="size-3" />
+                    Past 24h
+                  </Badge>
+                </CardAction>
+              </CardHeader>
+              <CardFooter className="flex-col items-start gap-0.5 text-xs p-0 pt-1">
+                <div className="line-clamp-1 flex gap-1.5 font-medium">
+                  Error events{" "}
+                  <AlertCircle className="size-3" />
+                </div>
+                <div className="text-muted-foreground">
+                  Errors in last 24 hours
+                </div>
+              </CardFooter>
             </Card>
-            <Card className="bg-background shadow-sm border p-4 flex flex-col justify-between">
-              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Warnings</div>
-              <div className="flex items-baseline gap-2">
-                <div className="text-2xl font-bold text-amber-500">156</div>
-                <span className="text-[10px] text-muted-foreground">Past 24h</span>
-              </div>
+            <Card className="@container/card p-3">
+              <CardHeader className="p-0 pb-1">
+                <CardDescription className="text-xs">Warnings</CardDescription>
+                <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
+                  156
+                </CardTitle>
+                <CardAction>
+                  <Badge variant="outline" className="text-xs h-5 px-1.5">
+                    <AlertTriangle className="size-3" />
+                    Past 24h
+                  </Badge>
+                </CardAction>
+              </CardHeader>
+              <CardFooter className="flex-col items-start gap-0.5 text-xs p-0 pt-1">
+                <div className="line-clamp-1 flex gap-1.5 font-medium">
+                  Warning events{" "}
+                  <AlertTriangle className="size-3" />
+                </div>
+                <div className="text-muted-foreground">
+                  Warnings in last 24 hours
+                </div>
+              </CardFooter>
             </Card>
-            <Card className="bg-background shadow-sm border p-4 flex flex-col justify-between">
-              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Log Volume</div>
-              <div className="flex items-baseline gap-2">
-                <div className="text-2xl font-bold">1.2 GB</div>
-                <span className="text-[10px] text-muted-foreground">/ 5 GB Limit</span>
-              </div>
+            <Card className="@container/card p-3">
+              <CardHeader className="p-0 pb-1">
+                <CardDescription className="text-xs">Log Volume</CardDescription>
+                <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
+                  1.2 GB
+                </CardTitle>
+                <CardAction>
+                  <Badge variant="outline" className="text-xs h-5 px-1.5">
+                    <Database className="size-3" />
+                    Storage
+                  </Badge>
+                </CardAction>
+              </CardHeader>
+              <CardFooter className="flex-col items-start gap-0.5 text-xs p-0 pt-1">
+                <div className="line-clamp-1 flex gap-1.5 font-medium">
+                  1.2 GB / 5 GB limit{" "}
+                  <Database className="size-3" />
+                </div>
+                <div className="text-muted-foreground">
+                  Log storage usage
+                </div>
+              </CardFooter>
             </Card>
           </div>
 
           {/* Main Logs Panel */}
-          <Card className="flex flex-col flex-1 h-[calc(100vh-220px)] min-h-[500px] border bg-background shadow-sm overflow-hidden">
+          <Card className="flex flex-col flex-1 border bg-background shadow-sm overflow-hidden">
             
             {/* Toolbar */}
             <div className="p-3 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-background">
@@ -180,6 +379,37 @@ export function LogsPage() {
               </div>
 
               <div className="flex items-center gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-7 text-xs">
+                      <span className="hidden lg:inline">Columns</span>
+                      <ChevronDownIcon className="size-3" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56 text-xs">
+                    {table
+                      .getAllColumns()
+                      .filter(
+                        (column) =>
+                          typeof column.accessorFn !== "undefined" &&
+                          column.getCanHide()
+                      )
+                      .map((column) => {
+                        return (
+                          <DropdownMenuCheckboxItem
+                            key={column.id}
+                            className="capitalize text-xs"
+                            checked={column.getIsVisible()}
+                            onCheckedChange={(value) =>
+                              column.toggleVisibility(!!value)
+                            }
+                          >
+                            {column.id}
+                          </DropdownMenuCheckboxItem>
+                        )
+                      })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 bg-background">
                   <Download className="size-3" /> Export
                 </Button>
@@ -189,87 +419,137 @@ export function LogsPage() {
               </div>
             </div>
 
-            {/* Table Header */}
-            <div className="grid grid-cols-12 gap-4 px-4 py-2 bg-muted/30 border-b text-[10px] font-bold uppercase tracking-wider text-muted-foreground sticky top-0 z-10">
-                <div className="col-span-1 flex justify-center">
-                    <Checkbox 
-                        checked={filteredLogs.length > 0 && selectedLogs.size === filteredLogs.length}
-                        onCheckedChange={(checked) => toggleSelectAll(checked as boolean)}
-                        className="size-3.5"
-                    />
-                </div>
-                <div className="col-span-2">Timestamp</div>
-                <div className="col-span-1">Level</div>
-                <div className="col-span-2">Source</div>
-                <div className="col-span-4">Message</div>
-                <div className="col-span-2 text-right">User / IP</div>
+            {/* Table */}
+            <div className="overflow-hidden rounded-lg border">
+              <Table>
+                <TableHeader className="bg-muted sticky top-0 z-10">
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow key={headerGroup.id} className="h-9">
+                      {headerGroup.headers.map((header) => {
+                        return (
+                          <TableHead key={header.id} colSpan={header.colSpan} className="text-xs py-2">
+                            {header.isPlaceholder
+                              ? null
+                              : flexRender(
+                                  header.column.columnDef.header,
+                                  header.getContext()
+                                )}
+                          </TableHead>
+                        )
+                      })}
+                    </TableRow>
+                  ))}
+                </TableHeader>
+                <TableBody>
+                  {table.getRowModel().rows?.length ? (
+                    table.getRowModel().rows.map((row) => (
+                      <TableRow
+                        key={row.id}
+                        data-state={row.getIsSelected() && "selected"}
+                        className={cn(
+                          "h-9",
+                          row.getIsSelected() && "bg-primary/5"
+                        )}
+                      >
+                        {row.getVisibleCells().map((cell) => (
+                          <TableCell key={cell.id} className="text-xs py-1.5">
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={columns.length}
+                        className="h-24 text-center"
+                      >
+                        <div className="flex flex-col items-center justify-center py-10 text-muted-foreground opacity-50">
+                          <Filter className="size-8 mb-3 stroke-1" />
+                          <p className="text-xs font-medium">No logs found matching your filters</p>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </div>
 
-            {/* Logs List */}
-            <CardContent className="p-0 flex-1 overflow-hidden">
-                <ScrollArea className="h-full">
-                    <div className="flex flex-col font-mono text-xs">
-                        {filteredLogs.map((log) => (
-                            <div 
-                                key={log.id} 
-                                className={cn(
-                                    "grid grid-cols-12 gap-4 px-4 py-2.5 items-center border-b transition-colors hover:bg-muted/40",
-                                    selectedLogs.has(log.id) ? "bg-primary/5 hover:bg-primary/10" : "bg-transparent"
-                                )}
-                            >
-                                <div className="col-span-1 flex justify-center">
-                                    <Checkbox 
-                                        checked={selectedLogs.has(log.id)}
-                                        onCheckedChange={() => toggleSelect(log.id)}
-                                        className="size-3.5"
-                                    />
-                                </div>
-                                <div className="col-span-2 text-muted-foreground text-[11px]">{log.timestamp}</div>
-                                <div className="col-span-1">
-                                    <Badge variant="outline" className={cn("text-[9px] px-1.5 h-5 font-bold gap-1 pl-1", getLevelBadge(log.level))}>
-                                        {getLevelIcon(log.level)} {log.level}
-                                    </Badge>
-                                </div>
-                                <div className="col-span-2 font-sans font-semibold text-xs">{log.source}</div>
-                                <div className="col-span-4 text-muted-foreground truncate" title={log.message}>
-                                    {log.message}
-                                </div>
-                                <div className="col-span-2 text-right text-muted-foreground text-[11px]">
-                                    {log.user ? (
-                                        <span className="flex items-center justify-end gap-1.5">
-                                            <User className="size-3" /> {log.user}
-                                        </span>
-                                    ) : (
-                                        <span className="flex items-center justify-end gap-1.5">
-                                            <Globe className="size-3" /> {log.ip}
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
-                        
-                        {filteredLogs.length === 0 && (
-                            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground opacity-50">
-                                <Filter className="size-8 mb-3 stroke-1" />
-                                <p className="text-xs font-medium">No logs found matching your filters</p>
-                            </div>
-                        )}
-                    </div>
-                </ScrollArea>
-            </CardContent>
-
             {/* Footer */}
-            <div className="px-4 py-2 border-t bg-muted/10 flex items-center justify-between text-[10px] text-muted-foreground font-sans">
-                 <div>Showing {filteredLogs.length} of {LOG_DATA.length} events</div>
-                 <div className="flex items-center gap-2">
-                     <Button variant="ghost" size="icon" className="size-6" disabled>
-                        <ChevronLeft className="size-3" />
-                     </Button>
-                     <Separator orientation="vertical" className="h-3" />
-                     <Button variant="ghost" size="icon" className="size-6">
-                        <ChevronRight className="size-3" />
-                     </Button>
-                 </div>
+            <div className="flex items-center justify-between px-4 py-2 border-t bg-muted/10">
+              <div className="text-muted-foreground flex-1 text-xs">
+                {table.getFilteredSelectedRowModel().rows.length} of{" "}
+                {table.getFilteredRowModel().rows.length} row(s) selected.
+              </div>
+              <div className="flex w-full items-center gap-8 lg:w-fit">
+                <div className="hidden items-center gap-2 lg:flex">
+                  <Label htmlFor="rows-per-page" className="text-xs font-medium">
+                    Rows per page
+                  </Label>
+                  <Select
+                    value={`${table.getState().pagination.pageSize}`}
+                    onValueChange={(value) => {
+                      table.setPageSize(Number(value))
+                    }}
+                  >
+                    <SelectTrigger size="sm" className="w-20 h-7 text-xs" id="rows-per-page">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent side="top" className="text-xs">
+                      {[10, 20, 30, 40, 50].map((pageSize) => (
+                        <SelectItem key={pageSize} value={`${pageSize}`} className="text-xs">
+                          {pageSize}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex w-fit items-center justify-center text-xs font-medium">
+                  Page {table.getState().pagination.pageIndex + 1} of{" "}
+                  {table.getPageCount()}
+                </div>
+                <div className="ml-auto flex items-center gap-2 lg:ml-0">
+                  <Button
+                    variant="outline"
+                    className="hidden h-7 w-7 p-0 lg:flex"
+                    onClick={() => table.setPageIndex(0)}
+                    disabled={!table.getCanPreviousPage()}
+                  >
+                    <span className="sr-only">Go to first page</span>
+                    <ChevronsLeft className="size-3" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="size-7"
+                    size="icon"
+                    onClick={() => table.previousPage()}
+                    disabled={!table.getCanPreviousPage()}
+                  >
+                    <span className="sr-only">Go to previous page</span>
+                    <ChevronLeft className="size-3" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="size-7"
+                    size="icon"
+                    onClick={() => table.nextPage()}
+                    disabled={!table.getCanNextPage()}
+                  >
+                    <span className="sr-only">Go to next page</span>
+                    <ChevronRight className="size-3" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="hidden size-7 lg:flex"
+                    size="icon"
+                    onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                    disabled={!table.getCanNextPage()}
+                  >
+                    <span className="sr-only">Go to last page</span>
+                    <ChevronsRight className="size-3" />
+                  </Button>
+                </div>
+              </div>
             </div>
           </Card>
         </div>

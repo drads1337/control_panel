@@ -269,6 +269,14 @@ export function UsersPage() {
     <div className="flex flex-1 flex-col">
       <div className="@container/main flex flex-1 flex-col gap-2">
         <div className="flex flex-col gap-3 py-3 md:gap-4 md:py-4">
+          <div className="px-4 lg:px-6 mb-2">
+            <h1 className="text-lg xs:text-xl sm:text-xl md:text-2xl font-bold tracking-tight text-foreground leading-tight">
+              Users
+            </h1>
+            <p className="text-[10px] xs:text-xs sm:text-xs md:text-sm text-muted-foreground mt-1 xs:mt-1.5 sm:mt-2 leading-snug">
+              Manage team members, clients, roles, and referral codes.
+            </p>
+          </div>
           <UsersStats stats={userStats} loading={statsLoading} />
           {availableTabs.length > 0 && (
             <Tabs

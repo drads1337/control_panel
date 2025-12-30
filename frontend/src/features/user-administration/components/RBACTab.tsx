@@ -68,8 +68,8 @@ const RBACTab: React.FC = () => {
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 className="h-7 w-7 hover:bg-muted/50"
                 onClick={() => refetchRoles()}
@@ -77,8 +77,8 @@ const RBACTab: React.FC = () => {
               >
                 <RefreshCw className={cn("size-3.5", rbacLoading && "animate-spin")} />
               </Button>
-              <Button 
-                variant="default" 
+              <Button
+                variant="default"
                 size="sm"
                 className="h-7 text-xs"
                 onClick={() => handleCreateDialogOpen(true)}
@@ -111,8 +111,8 @@ const RBACTab: React.FC = () => {
           ) : (
             <div className="divide-y border border-muted-foreground/10 rounded-md bg-muted/10">
               {roles.map((role) => (
-                <div 
-                  key={role.id} 
+                <div
+                  key={role.id}
                   className="flex items-center justify-between p-3 border-b border-muted-foreground/10 hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -141,8 +141,8 @@ const RBACTab: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 justify-start">
-                    <Button 
-                      variant="ghost" 
+                    <Button
+                      variant="ghost"
                       size="icon"
                       className="h-7 w-7 hover:bg-muted/50"
                       onClick={() => handleEditRole(role)}
@@ -151,8 +151,8 @@ const RBACTab: React.FC = () => {
                       <Edit className="size-3.5" />
                     </Button>
                     {!role.is_system_role && (
-                      <Button 
-                        variant="ghost" 
+                      <Button
+                        variant="ghost"
                         size="icon"
                         className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
                         onClick={() => handleDeleteRole(role.id)}
@@ -179,8 +179,8 @@ const RBACTab: React.FC = () => {
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 className="h-7 w-7 hover:bg-muted/50"
                 onClick={() => refetchPermissions()}
@@ -217,7 +217,7 @@ const RBACTab: React.FC = () => {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                     {resourcePermissions.map((permission) => (
-                      <div 
+                      <div
                         key={permission.id}
                         className="flex items-start gap-2 p-2.5 border border-muted-foreground/10 rounded-lg bg-muted/10 hover:bg-muted/50 transition-colors"
                       >

@@ -97,6 +97,14 @@ export function SecurityPage() {
     <div className="flex flex-1 flex-col">
       <div className="@container/main flex flex-1 flex-col gap-2">
         <div className="flex flex-col gap-3 py-3 md:gap-4 md:py-4 px-4 lg:px-6">
+          <div className="mb-2">
+            <h1 className="text-lg xs:text-xl sm:text-xl md:text-2xl font-bold tracking-tight text-foreground leading-tight">
+              Security
+            </h1>
+            <p className="text-[10px] xs:text-xs sm:text-xs md:text-sm text-muted-foreground mt-1 xs:mt-1.5 sm:mt-2 leading-snug">
+              Configure security modules and manage IP/HWID blacklists.
+            </p>
+          </div>
           
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-[calc(100vh-140px)] min-h-[600px]">
             

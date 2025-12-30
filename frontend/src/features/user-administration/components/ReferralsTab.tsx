@@ -54,14 +54,14 @@ const useMediaQuery = (query: string) => {
 }
 
 // Mobile Card Component
-const MobileReferralCard = React.memo(({ 
-  refCode, 
+const MobileReferralCard = React.memo(({
+  refCode,
   loading,
   onCopy,
   onDelete,
   isDeleting
-}: { 
-  refCode: any; 
+}: {
+  refCode: any;
   loading: boolean;
   onCopy: (code: string) => void;
   onDelete: (codeId: number) => void;
@@ -99,14 +99,14 @@ const MobileReferralCard = React.memo(({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem 
+            <DropdownMenuItem
               disabled={loading || isDeleting}
               onClick={() => onCopy(refCode.code)}
             >
               <Copy className="mr-2 h-4 w-4" /> Copy Code
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem 
+            <DropdownMenuItem
               disabled={loading || isDeleting}
               onClick={() => onDelete(refCode.id)}
               className="text-destructive focus:text-destructive"
@@ -122,8 +122,8 @@ const MobileReferralCard = React.memo(({
         <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/10 border border-muted-foreground/10 p-2 rounded">
           <Layers className="h-3.5 w-3.5" />
           <span>
-            Role: {refCode.roles && refCode.roles.length > 0 
-              ? refCode.roles.map((r: ReferralCodeRole) => r.name).join(', ') 
+            Role: {refCode.roles && refCode.roles.length > 0
+              ? refCode.roles.map((r: ReferralCodeRole) => r.name).join(', ')
               : refCode.role || 'None'}
           </span>
         </div>
@@ -138,8 +138,8 @@ const MobileReferralCard = React.memo(({
         <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/10 border border-muted-foreground/10 p-2 rounded">
           <Calendar className="h-3.5 w-3.5" />
           <span className="truncate">
-            {refCode.expires_at 
-              ? new Date(refCode.expires_at).toLocaleDateString() 
+            {refCode.expires_at
+              ? new Date(refCode.expires_at).toLocaleDateString()
               : 'No Expiry'}
           </span>
         </div>
@@ -150,15 +150,15 @@ const MobileReferralCard = React.memo(({
 MobileReferralCard.displayName = 'MobileReferralCard';
 
 // Desktop Row Component
-const ReferralRow = React.memo(({ 
-  refCode, 
+const ReferralRow = React.memo(({
+  refCode,
   loading,
   onCopy,
   onDelete,
   isDeleting,
   isCopied
-}: { 
-  refCode: any; 
+}: {
+  refCode: any;
   loading: boolean;
   onCopy: (code: string) => void;
   onDelete: (codeId: number) => void;
@@ -176,9 +176,9 @@ const ReferralRow = React.memo(({
             <h4 className="font-medium text-sm truncate font-sans">{refCode.code}</h4>
             <span className={cn(
               "text-[10px] px-1.5 py-0.5 rounded border border-muted-foreground/20 bg-muted/10",
-              refCode.used 
-                ? 'text-gray-700 dark:text-gray-300' 
-                : refCode.is_expired 
+              refCode.used
+                ? 'text-gray-700 dark:text-gray-300'
+                : refCode.is_expired
                   ? 'text-destructive'
                   : 'text-green-700 dark:text-green-300'
             )}>
@@ -187,8 +187,8 @@ const ReferralRow = React.memo(({
           </div>
           <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
             <span className="truncate font-medium">
-              {refCode.roles && refCode.roles.length > 0 
-                ? refCode.roles.map((r: ReferralCodeRole) => r.name).join(', ') 
+              {refCode.roles && refCode.roles.length > 0
+                ? refCode.roles.map((r: ReferralCodeRole) => r.name).join(', ')
                 : refCode.role || 'No role'}
             </span>
             <span>•</span>
@@ -207,10 +207,10 @@ const ReferralRow = React.memo(({
         </div>
       </div>
       <div className="flex items-center gap-1">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="h-7 w-7 hover:bg-muted/50" 
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 hover:bg-muted/50"
           disabled={loading || isDeleting}
           onClick={() => onCopy(refCode.code)}
           title="Copy code to clipboard"
@@ -221,10 +221,10 @@ const ReferralRow = React.memo(({
             <Copy className="size-3.5" />
           )}
         </Button>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10" 
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
           disabled={loading || isDeleting}
           onClick={() => onDelete(refCode.id)}
           title="Delete referral code"
@@ -300,8 +300,8 @@ const ReferralsTab: React.FC = () => {
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 className="h-7 w-7 hover:bg-muted/50"
                 onClick={() => refetchReferralCodes()}
@@ -310,8 +310,8 @@ const ReferralsTab: React.FC = () => {
                 <RefreshCw className={cn("size-3.5", referralCodesLoading && "animate-spin")} />
               </Button>
               {isAdmin && (
-                <Button 
-                  variant="default" 
+                <Button
+                  variant="default"
                   size="sm"
                   className="h-7 text-xs"
                   onClick={() => setIsCreateReferralDialogOpen(true)}
@@ -324,11 +324,11 @@ const ReferralsTab: React.FC = () => {
             </div>
           </div>
         </CardHeader>
-        
+
         <CardContent className="p-0 pt-1">
           {referralCodesLoading ? (
             <div className="flex justify-center py-6">
-                <Spinner />
+              <Spinner />
             </div>
           ) : referralCodesError ? (
             <div className="flex items-center justify-center py-6">
@@ -351,9 +351,9 @@ const ReferralsTab: React.FC = () => {
               {!isMobile && (
                 <div className="divide-y border border-muted-foreground/10 rounded-md bg-muted/10">
                   {referralCodes.map((refCode) => (
-                    <ReferralRow 
-                      key={refCode.id} 
-                      refCode={refCode} 
+                    <ReferralRow
+                      key={refCode.id}
+                      refCode={refCode}
                       loading={referralCodesLoading}
                       onCopy={(code) => handleCopyCode(code, refCode.id)}
                       onDelete={handleDeleteCode}
@@ -368,9 +368,9 @@ const ReferralsTab: React.FC = () => {
               {isMobile && (
                 <div className="flex flex-col gap-1 border border-muted-foreground/10 rounded-md bg-muted/10 p-1">
                   {referralCodes.map((refCode) => (
-                    <MobileReferralCard 
-                      key={refCode.id} 
-                      refCode={refCode} 
+                    <MobileReferralCard
+                      key={refCode.id}
+                      refCode={refCode}
                       loading={referralCodesLoading}
                       onCopy={(code) => handleCopyCode(code, refCode.id)}
                       onDelete={handleDeleteCode}
