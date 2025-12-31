@@ -6,118 +6,156 @@ import {
   Plus, 
   Activity, 
   AlertTriangle, 
-  CheckCircle2, 
-  XCircle, 
   Zap, 
   Settings, 
   Trash2, 
   Eye, 
   EyeOff, 
   Copy, 
-  Filter, 
-  RefreshCw,
   Search,
-  Globe,
-  Clock,
-  ArrowRight
+  Send,
+  Power,
+  CheckCircle2
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
 
 // --- Types ---
 
-interface WebhookData {
+interface Webhook {
   id: string
   name: string
   url: string
+  description: string
   events: string[]
-  status: 'active' | 'inactive' | 'error'
+  status: 'active' | 'inactive' | 'failed'
   secret: string
   stats: {
     successRate: number
-    deliveries: number
-    latency: number
+    totalRequests: number
+    avgLatency: number
   }
-  lastDelivery: string
+  created: string
 }
 
-interface LogEntry {
+interface DeliveryLog {
   id: string
   event: string
   status: number
   timestamp: string
-  latency: string
+  duration: string
+  reqId: string
 }
 
 // --- Mock Data ---
 
-const WEBHOOKS: WebhookData[] = [
+const WEBHOOKS: Webhook[] = [
   {
-    id: 'wh_01',
-    name: 'Main Application Backend',
-    url: 'https://api.myapp.com/webhooks/v1/listener',
-    events: ['license.created', 'license.revoked', 'user.signup'],
+    id: 'wh_prod_main',
+    name: 'Production Backend',
+    url: 'https://api.acme-corp.com/v1/webhooks/listener',
+    description: 'Main integration for order processing and user sync.',
+    events: ['order.created', 'order.paid', 'customer.updated'],
     status: 'active',
-    secret: 'whsec_5f9a2b8c9d1e2f3g4h5i6j7k8l9m0n1o',
-    stats: { successRate: 98.5, deliveries: 1240, latency: 245 },
-    lastDelivery: '2 mins ago'
+    secret: 'whsec_rSlK...92mZ',
+    stats: { successRate: 99.9, totalRequests: 15402, avgLatency: 145 },
+    created: 'Oct 12, 2023'
   },
   {
-    id: 'wh_02',
-    name: 'Discord Alerts',
-    url: 'https://discord.com/api/webhooks/11029384756...',
-    events: ['alert.security', 'system.error'],
+    id: 'wh_slack_alerts',
+    name: 'Ops Slack Alerts',
+    url: 'https://hooks.slack.com/services/T000/B000/XXXX',
+    description: 'Notifications for system alerts and errors.',
+    events: ['system.error', 'billing.failed'],
     status: 'active',
-    secret: 'whsec_x992288337711...',
-    stats: { successRate: 100, deliveries: 45, latency: 120 },
-    lastDelivery: '1 hour ago'
+    secret: 'whsec_882k...x99L',
+    stats: { successRate: 100, totalRequests: 85, avgLatency: 450 },
+    created: 'Nov 01, 2023'
   },
   {
-    id: 'wh_03',
-    name: 'Legacy CRM Sync',
-    url: 'https://crm.internal.net/sync',
-    events: ['user.updated'],
-    status: 'error',
-    secret: 'whsec_001122334455...',
-    stats: { successRate: 42.1, deliveries: 890, latency: 1200 },
-    lastDelivery: '5 mins ago'
+    id: 'wh_staging_test',
+    name: 'Staging Sync (Legacy)',
+    url: 'https://staging.internal.net/sync',
+    description: 'Legacy sync for the old inventory system.',
+    events: ['inventory.low'],
+    status: 'failed',
+    secret: 'whsec_0000...1111',
+    stats: { successRate: 45.2, totalRequests: 1205, avgLatency: 2100 },
+    created: 'Jan 15, 2023'
+  },
+  {
+    id: 'wh_analytics_collector',
+    name: 'Data Lake Collector',
+    url: 'https://collector.data.io/ingest',
+    description: 'Raw event dump for BI tools.',
+    events: ['*'],
+    status: 'inactive',
+    secret: 'whsec_depr...cated',
+    stats: { successRate: 0, totalRequests: 0, avgLatency: 0 },
+    created: 'Sep 22, 2023'
   }
 ]
 
-const LOGS: LogEntry[] = [
-  { id: 'evt_1', event: 'license.created', status: 200, timestamp: '14:30:05', latency: '240ms' },
-  { id: 'evt_2', event: 'user.signup', status: 200, timestamp: '14:28:12', latency: '180ms' },
-  { id: 'evt_3', event: 'license.revoked', status: 500, timestamp: '14:15:00', latency: '5000ms' },
-  { id: 'evt_4', event: 'license.created', status: 200, timestamp: '14:10:22', latency: '210ms' },
-  { id: 'evt_5', event: 'system.ping', status: 200, timestamp: '14:00:00', latency: '150ms' },
-  { id: 'evt_6', event: 'alert.security', status: 400, timestamp: '13:55:10', latency: '90ms' },
-  { id: 'evt_7', event: 'user.updated', status: 200, timestamp: '13:45:00', latency: '120ms' },
+const LOGS: DeliveryLog[] = [
+  { id: 'del_882910', event: 'order.created', status: 200, timestamp: '2023-11-04 14:30:05', duration: '145ms', reqId: 'req_1' },
+  { id: 'del_882909', event: 'customer.updated', status: 200, timestamp: '2023-11-04 14:28:12', duration: '120ms', reqId: 'req_2' },
+  { id: 'del_882908', event: 'order.paid', status: 502, timestamp: '2023-11-04 14:15:00', duration: '5000ms', reqId: 'req_3' },
+  { id: 'del_882907', event: 'order.created', status: 200, timestamp: '2023-11-04 14:10:22', duration: '155ms', reqId: 'req_4' },
+  { id: 'del_882906', event: 'system.ping', status: 200, timestamp: '2023-11-04 14:00:00', duration: '90ms', reqId: 'req_5' },
+  { id: 'del_882905', event: 'system.ping', status: 429, timestamp: '2023-11-04 13:59:00', duration: '45ms', reqId: 'req_6' },
+  { id: 'del_882904', event: 'customer.created', status: 200, timestamp: '2023-11-04 13:45:00', duration: '180ms', reqId: 'req_7' },
 ]
+
+// --- Sub-components ---
+
+const StatusBadge: React.FC<{ status: number | string, type?: 'http' | 'state' }> = ({ status, type = 'state' }) => {
+  if (type === 'http') {
+    const code = status as number
+    let colorClass = 'bg-muted text-muted-foreground border-border'
+    if (code >= 200 && code < 300) colorClass = 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-900/30'
+    if (code >= 400 && code < 500) colorClass = 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-900/30'
+    if (code >= 500) colorClass = 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/20 dark:text-rose-400 dark:border-rose-900/30'
+    
+    return (
+      <span className={cn("px-2 py-0.5 rounded text-[10px] font-bold font-mono border", colorClass)}>
+        {status}
+      </span>
+    )
+  } else {
+    const state = status as string
+    let dotColor = 'bg-muted-foreground'
+    let labelColor = 'text-muted-foreground'
+    
+    if (state === 'active') { 
+      dotColor = 'bg-emerald-500'
+      labelColor = 'text-emerald-700 dark:text-emerald-400'
+    }
+    if (state === 'failed') { 
+      dotColor = 'bg-rose-500'
+      labelColor = 'text-rose-700 dark:text-rose-400'
+    }
+
+    return (
+      <div className="flex items-center gap-1.5">
+        <span className={cn("w-2 h-2 rounded-full", dotColor)}></span>
+        <span className={cn("text-xs font-medium capitalize", labelColor)}>{state}</span>
+      </div>
+    )
+  }
+}
 
 export function WebhooksPage() {
-  const [selectedHook, setSelectedHook] = useState<WebhookData>(WEBHOOKS[0])
-  const [showSecret, setShowSecret] = useState(false)
+  const [selectedId, setSelectedId] = useState<string>(WEBHOOKS[0].id)
+  const [activeTab, setActiveTab] = useState<'overview' | 'deliveries' | 'settings'>('overview')
   const [searchTerm, setSearchTerm] = useState('')
+  const [showSecret, setShowSecret] = useState(false)
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20'
-      case 'inactive': return 'text-muted-foreground bg-muted border-border'
-      case 'error': return 'text-rose-500 bg-rose-500/10 border-rose-500/20'
-      default: return 'text-muted-foreground'
-    }
-  }
-
-  const getStatusCodeBadge = (code: number) => {
-    if (code >= 200 && code < 300) return 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-500 dark:border-emerald-500/20'
-    if (code >= 400 && code < 500) return 'text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-500/10 dark:text-amber-500 dark:border-amber-500/20'
-    return 'text-rose-600 bg-rose-50 border-rose-200 dark:bg-rose-500/10 dark:text-rose-500 dark:border-rose-500/20'
-  }
+  const selectedHook = WEBHOOKS.find(w => w.id === selectedId) || WEBHOOKS[0]
+  const filteredWebhooks = WEBHOOKS.filter(w => w.name.toLowerCase().includes(searchTerm.toLowerCase()))
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
@@ -137,221 +175,337 @@ export function WebhooksPage() {
             </p>
           </div>
           
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-[calc(100vh-140px)] min-h-[650px]">
+          <div className="flex flex-col md:flex-row h-[calc(100vh-140px)] min-h-[650px] bg-background border border-border rounded-xl overflow-hidden shadow-sm">
             
-            {/* LEFT COLUMN: Webhook List */}
-            <Card className="lg:col-span-4 flex flex-col border bg-background shadow-sm overflow-hidden">
-              <CardHeader className="p-3 border-b space-y-3">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <Webhook className="size-3 text-primary" />
-                        <CardTitle className="text-xs font-bold uppercase tracking-wide">Endpoints</CardTitle>
-                    </div>
-                    <Button size="sm" className="h-7 text-xs gap-1 px-2.5">
-                        <Plus className="size-3" /> New
-                    </Button>
+            {/* LEFT PANE: List */}
+            <div className="w-full md:w-[350px] flex flex-col border-r border-border bg-muted/30">
+              
+              {/* Header / Search */}
+              <div className="p-4 border-b border-border bg-background z-10">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-sm font-bold text-foreground uppercase tracking-wide">Endpoints</h2>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Plus className="size-4" />
+                  </Button>
                 </div>
                 <div className="relative">
-                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
                   <Input 
-                    placeholder="Filter endpoints..." 
-                    className="h-7 text-xs pl-8 bg-muted/30 border-muted-foreground/20"
+                    type="text"
+                    placeholder="Filter endpoints..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 text-xs bg-background border-border rounded-lg focus-visible:ring-1 focus-visible:ring-primary"
                   />
                 </div>
-              </CardHeader>
-              <CardContent className="p-0 flex-1 overflow-hidden">
-                <ScrollArea className="h-full">
-                  <div className="flex flex-col p-2 gap-2">
-                    {WEBHOOKS.map(hook => (
-                      <button
-                        key={hook.id}
-                        onClick={() => { setSelectedHook(hook); setShowSecret(false); }}
-                        className={cn(
-                          "flex flex-col gap-2 p-3 rounded-md border text-left transition-all hover:bg-muted/30",
-                          selectedHook.id === hook.id 
-                            ? "bg-accent/50 border-primary/50 ring-1 ring-primary/20" 
-                            : "bg-background border-border"
+              </div>
+
+              {/* Scrollable List */}
+              <ScrollArea className="flex-1">
+                <div className="p-2">
+                  {filteredWebhooks.map(hook => (
+                    <div 
+                      key={hook.id}
+                      onClick={() => { setSelectedId(hook.id); setShowSecret(false); }}
+                      className={cn(
+                        "p-4 border-b border-border cursor-pointer transition-all hover:bg-background",
+                        selectedId === hook.id 
+                          ? 'bg-background relative after:absolute after:left-0 after:top-0 after:bottom-0 after:w-1 after:bg-primary shadow-sm' 
+                          : ''
+                      )}
+                    >
+                      <div className="flex justify-between items-start mb-1">
+                        <h3 className={cn(
+                          "text-sm font-bold truncate pr-2",
+                          selectedId === hook.id ? 'text-primary' : 'text-foreground'
+                        )}>
+                          {hook.name}
+                        </h3>
+                        {hook.status === 'failed' && (
+                          <AlertTriangle className="size-4 text-rose-500 shrink-0" />
                         )}
-                      >
-                        <div className="flex justify-between items-start w-full">
-                            <div className="flex items-center gap-2">
-                                <span className={cn("size-2 rounded-full", 
-                                    hook.status === 'active' ? 'bg-emerald-500' : 
-                                    hook.status === 'error' ? 'bg-rose-500 animate-pulse' : 'bg-muted-foreground'
-                                )} />
-                                <span className="text-xs font-semibold">{hook.name}</span>
-                            </div>
-                            {hook.status === 'error' && <AlertTriangle className="size-3 text-rose-500" />}
-                        </div>
-                        
-                        <div className="flex items-center gap-1.5 w-full bg-muted/50 p-1.5 rounded border border-border/50">
-                            <Badge variant="outline" className="text-xs h-5 px-1.5 rounded-[3px] bg-background border-border text-muted-foreground font-mono">POST</Badge>
-                            <span className="text-xs font-mono text-muted-foreground truncate flex-1">{hook.url}</span>
-                        </div>
-
-                        <div className="flex flex-wrap gap-1">
-                            {hook.events.slice(0, 3).map(evt => (
-                                <span key={evt} className="text-xs px-1.5 py-0.5 bg-muted rounded-sm border text-muted-foreground font-medium">
-                                    {evt}
-                                </span>
-                            ))}
-                            {hook.events.length > 3 && (
-                                <span className="text-xs px-1.5 py-0.5 text-muted-foreground">+{hook.events.length - 3}</span>
-                            )}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-
-            {/* RIGHT COLUMN: Details & Logs */}
-            <div className="lg:col-span-8 flex flex-col gap-4 min-w-0">
-                
-                {/* Header Card */}
-                <Card className="shrink-0 border bg-background shadow-sm">
-                    <CardHeader className="p-3 pb-0 flex flex-row items-start justify-between space-y-0">
-                        <div className="space-y-1">
-                            <div className="flex items-center gap-3">
-                                <h2 className="text-xl font-semibold">{selectedHook.name}</h2>
-                                <Badge variant="outline" className={cn("text-xs h-5 px-1.5 uppercase", getStatusColor(selectedHook.status))}>
-                                    {selectedHook.status}
-                                </Badge>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
-                                <Globe className="size-3" />
-                                {selectedHook.url}
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5">
-                                <Zap className="size-3 text-amber-500" /> Test
-                            </Button>
-                            <Button variant="ghost" size="icon" className="size-7 text-muted-foreground">
-                                <Settings className="size-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-rose-500">
-                                <Trash2 className="size-3.5" />
-                            </Button>
-                        </div>
-                    </CardHeader>
-                    
-                    <CardContent className="p-3">
-                        {/* Secret Field */}
-                        <div className="flex items-center gap-3 p-1.5 pl-3 pr-1.5 rounded-md border bg-muted/20">
-                            <div className="flex items-center gap-2 text-muted-foreground shrink-0">
-                                <Zap className="size-3" />
-                                <span className="text-xs font-bold uppercase tracking-wide">Signing Secret</span>
-                            </div>
-                            <Separator orientation="vertical" className="h-4" />
-                            <Input 
-                                type={showSecret ? "text" : "password"} 
-                                value={selectedHook.secret}
-                                readOnly
-                                className="border-0 bg-transparent h-7 text-xs font-mono focus-visible:ring-0 px-0 shadow-none flex-1 text-foreground"
-                            />
-                            <div className="flex gap-1">
-                                <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="size-7 text-muted-foreground hover:text-foreground"
-                                    onClick={() => setShowSecret(!showSecret)}
-                                >
-                                    {showSecret ? <EyeOff className="size-3" /> : <Eye className="size-3" />}
-                                </Button>
-                                <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="size-7 text-muted-foreground hover:text-foreground"
-                                    onClick={() => copyToClipboard(selectedHook.secret)}
-                                >
-                                    <Copy className="size-3" />
-                                </Button>
-                            </div>
-                        </div>
-
-                        {/* Stats Grid */}
-                        <div className="grid grid-cols-3 gap-4 mt-4">
-                            <div className="p-3 rounded-md border bg-card flex flex-col items-center justify-center gap-1 shadow-sm">
-                                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Success Rate</span>
-                                <div className={cn("text-xl font-semibold tabular-nums", selectedHook.stats.successRate > 98 ? 'text-emerald-500' : 'text-amber-500')}>
-                                    {selectedHook.stats.successRate}%
-                                </div>
-                            </div>
-                            <div className="p-3 rounded-md border bg-card flex flex-col items-center justify-center gap-1 shadow-sm">
-                                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Deliveries</span>
-                                <div className="text-xl font-semibold tabular-nums">{selectedHook.stats.deliveries.toLocaleString()}</div>
-                            </div>
-                            <div className="p-3 rounded-md border bg-card flex flex-col items-center justify-center gap-1 shadow-sm">
-                                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Avg Latency</span>
-                                <div className="text-xl font-semibold tabular-nums">{selectedHook.stats.latency}ms</div>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Logs Table */}
-                <Card className="flex flex-col flex-1 border bg-background shadow-sm overflow-hidden">
-                    <CardHeader className="p-3 border-b bg-muted/10 flex flex-row items-center justify-between space-y-0">
-                        <div className="flex items-center gap-2">
-                            <Activity className="size-3 text-muted-foreground" />
-                            <CardTitle className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Delivery History</CardTitle>
-                        </div>
-                        <div className="flex gap-2">
-                            <Button variant="outline" size="sm" className="h-7 text-xs gap-1 px-2 border-dashed">
-                                <Filter className="size-3" /> Filter
-                            </Button>
-                            <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 px-2 text-primary hover:text-primary hover:bg-primary/10">
-                                <RefreshCw className="size-3" /> Live
-                            </Button>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="p-0 flex-1 overflow-hidden">
-                        <ScrollArea className="h-full">
-                            <table className="w-full text-left border-collapse">
-                                <thead className="bg-muted/30 sticky top-0 z-10 text-xs font-bold uppercase text-muted-foreground tracking-wider">
-                                    <tr>
-                                        <th className="px-4 py-2 font-medium">Status</th>
-                                        <th className="px-4 py-2 font-medium">Event</th>
-                                        <th className="px-4 py-2 font-medium">ID</th>
-                                        <th className="px-4 py-2 font-medium text-right">Timing</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-border">
-                                    {LOGS.map((log) => (
-                                        <tr key={log.id} className="group hover:bg-muted/30 transition-colors cursor-default">
-                                            <td className="px-4 py-2.5">
-                                                <Badge variant="outline" className={cn("text-xs px-1.5 h-5 font-mono font-normal border", getStatusCodeBadge(log.status))}>
-                                                    {log.status}
-                                                </Badge>
-                                            </td>
-                                            <td className="px-4 py-2.5">
-                                                <span className="text-xs font-medium group-hover:text-primary transition-colors">{log.event}</span>
-                                            </td>
-                                            <td className="px-4 py-2.5">
-                                                <span className="text-xs font-mono text-muted-foreground">{log.id}</span>
-                                            </td>
-                                            <td className="px-4 py-2.5 text-right">
-                                                <div className="flex flex-col items-end gap-0.5">
-                                                    <span className="text-xs font-bold font-mono">{log.latency}</span>
-                                                    <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                                        {log.timestamp}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </ScrollArea>
-                    </CardContent>
-                </Card>
-
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate font-mono mb-2 opacity-80">
+                        {hook.url}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <StatusBadge status={hook.status} />
+                        <span className={cn(
+                          "text-[10px] font-bold",
+                          hook.stats.successRate > 98 ? 'text-emerald-600 dark:text-emerald-500' : 'text-rose-500'
+                        )}>
+                          {hook.stats.successRate}% Success
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
             </div>
 
+            {/* RIGHT PANE: Detail */}
+            <div className="flex-1 flex flex-col min-w-0 bg-background">
+              
+              {/* Detail Header */}
+              <div className="px-8 py-6 border-b border-border flex flex-col md:flex-row md:items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 mb-2">
+                    <h1 className="text-2xl font-bold text-foreground truncate">{selectedHook.name}</h1>
+                    <StatusBadge status={selectedHook.status} />
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground font-mono bg-muted px-2 py-1 rounded border border-border w-fit max-w-full">
+                    <span className="truncate">{selectedHook.url}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                      onClick={() => copyToClipboard(selectedHook.url)}
+                    >
+                      <Copy className="size-3" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Button variant="outline" size="sm" className="text-xs font-bold">
+                    <Power className="size-3 mr-2" /> Disable
+                  </Button>
+                  <Button size="sm" className="text-xs font-bold">
+                    <Send className="size-3 mr-2" /> Send Test
+                  </Button>
+                </div>
+              </div>
+
+              {/* Navigation Tabs */}
+              <div className="px-8 flex border-b border-border">
+                {(['overview', 'deliveries', 'settings'] as const).map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={cn(
+                      "py-3 mr-6 text-xs font-bold uppercase tracking-wide border-b-2 transition-colors",
+                      activeTab === tab 
+                        ? 'border-primary text-primary' 
+                        : 'border-transparent text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
+
+              {/* Tab Content */}
+              <ScrollArea className="flex-1">
+                <div className="p-8 bg-muted/30">
+                  
+                  {/* OVERVIEW TAB */}
+                  {activeTab === 'overview' && (
+                    <div className="space-y-8">
+                      
+                      {/* Stats Grid */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <Card className="p-5">
+                          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
+                            Success Rate
+                          </div>
+                          <div className="flex items-baseline gap-2">
+                            <span className={cn(
+                              "text-3xl font-bold",
+                              selectedHook.stats.successRate > 98 ? 'text-emerald-500' : 'text-rose-500'
+                            )}>
+                              {selectedHook.stats.successRate}%
+                            </span>
+                            <span className="text-xs text-muted-foreground">All time</span>
+                          </div>
+                        </Card>
+                        <Card className="p-5">
+                          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
+                            Avg. Latency
+                          </div>
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-3xl font-bold text-foreground">{selectedHook.stats.avgLatency}</span>
+                            <span className="text-xs text-muted-foreground">ms</span>
+                          </div>
+                        </Card>
+                        <Card className="p-5">
+                          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
+                            Total Requests
+                          </div>
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-3xl font-bold text-foreground">
+                              {(selectedHook.stats.totalRequests / 1000).toFixed(1)}k
+                            </span>
+                            <span className="text-xs text-muted-foreground">requests</span>
+                          </div>
+                        </Card>
+                      </div>
+
+                      {/* Recent Activity Summary */}
+                      <div>
+                        <h3 className="text-sm font-bold text-foreground mb-4">Latest Activity</h3>
+                        <Card className="overflow-hidden">
+                          {LOGS.slice(0, 3).map((log) => (
+                            <div 
+                              key={log.id} 
+                              className="flex items-center justify-between p-4 border-b border-border last:border-0 hover:bg-muted/50 transition-colors"
+                            >
+                              <div className="flex items-center gap-4">
+                                <StatusBadge status={log.status} type="http" />
+                                <span className="text-sm font-medium text-foreground">{log.event}</span>
+                              </div>
+                              <span className="text-xs text-muted-foreground font-mono">{log.timestamp}</span>
+                            </div>
+                          ))}
+                          <div className="p-3 bg-muted border-t border-border text-center">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              className="text-xs font-bold text-primary hover:text-primary"
+                              onClick={() => setActiveTab('deliveries')}
+                            >
+                              View All Deliveries
+                            </Button>
+                          </div>
+                        </Card>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* DELIVERIES TAB */}
+                  {activeTab === 'deliveries' && (
+                    <div className="h-full flex flex-col">
+                      <Card className="overflow-hidden flex-1 flex flex-col">
+                        <div className="grid grid-cols-12 bg-muted border-b border-border p-3 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                          <div className="col-span-2">Status</div>
+                          <div className="col-span-3">Event</div>
+                          <div className="col-span-3">ID</div>
+                          <div className="col-span-2">Time</div>
+                          <div className="col-span-2 text-right">Duration</div>
+                        </div>
+                        <ScrollArea className="flex-1">
+                          {LOGS.map(log => (
+                            <div 
+                              key={log.id} 
+                              className="grid grid-cols-12 p-3 items-center border-b border-border hover:bg-muted/50 transition-colors cursor-pointer group"
+                            >
+                              <div className="col-span-2">
+                                <StatusBadge status={log.status} type="http" />
+                              </div>
+                              <div className="col-span-3 text-sm font-medium text-foreground">{log.event}</div>
+                              <div className="col-span-3 text-xs font-mono text-muted-foreground">{log.reqId}</div>
+                              <div className="col-span-2 text-xs text-muted-foreground">{log.timestamp.split(' ')[1]}</div>
+                              <div className="col-span-2 text-xs text-muted-foreground text-right font-mono">{log.duration}</div>
+                            </div>
+                          ))}
+                        </ScrollArea>
+                      </Card>
+                    </div>
+                  )}
+
+                  {/* SETTINGS TAB */}
+                  {activeTab === 'settings' && (
+                    <div className="max-w-2xl space-y-8">
+                      
+                      {/* Basic Info */}
+                      <Card className="p-6">
+                        <h3 className="text-sm font-bold text-foreground mb-6 uppercase tracking-wide">
+                          Endpoint Configuration
+                        </h3>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-xs font-bold text-muted-foreground mb-1.5 uppercase">
+                              Endpoint URL
+                            </label>
+                            <Input 
+                              type="text" 
+                              defaultValue={selectedHook.url} 
+                              className="w-full bg-background border-border rounded-lg p-2.5 text-sm font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-muted-foreground mb-1.5 uppercase">
+                              Description
+                            </label>
+                            <Input 
+                              type="text" 
+                              defaultValue={selectedHook.description} 
+                              className="w-full bg-background border-border rounded-lg p-2.5 text-sm"
+                            />
+                          </div>
+                        </div>
+                      </Card>
+
+                      {/* Signing Secret */}
+                      <Card className="p-6">
+                        <h3 className="text-sm font-bold text-foreground mb-2 uppercase tracking-wide">
+                          Signing Secret
+                        </h3>
+                        <p className="text-xs text-muted-foreground mb-4">
+                          Use this secret to verify signatures of incoming webhook requests.
+                        </p>
+                        <div className="flex gap-2">
+                          <Input 
+                            type={showSecret ? "text" : "password"} 
+                            value={selectedHook.secret} 
+                            readOnly 
+                            className="flex-1 bg-muted border-border rounded-lg p-2.5 text-sm font-mono text-muted-foreground"
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs font-bold"
+                            onClick={() => setShowSecret(!showSecret)}
+                          >
+                            {showSecret ? 'Hide' : 'Reveal'}
+                          </Button>
+                        </div>
+                      </Card>
+
+                      {/* Subscriptions */}
+                      <Card className="p-6">
+                        <h3 className="text-sm font-bold text-foreground mb-4 uppercase tracking-wide">
+                          Events
+                        </h3>
+                        <div className="space-y-2">
+                          {['order.created', 'order.paid', 'customer.created', 'system.error'].map(evt => (
+                            <label 
+                              key={evt} 
+                              className="flex items-center justify-between p-3 border border-border rounded-lg hover:bg-muted/50 cursor-pointer"
+                            >
+                              <span className="text-sm font-mono text-foreground">{evt}</span>
+                              <input 
+                                type="checkbox" 
+                                defaultChecked={selectedHook.events.includes(evt) || selectedHook.events.includes('*')} 
+                                className="rounded border-border text-primary focus:ring-0 w-4 h-4"
+                              />
+                            </label>
+                          ))}
+                        </div>
+                      </Card>
+
+                      {/* Danger */}
+                      <Card className="p-6 border-rose-200 dark:border-rose-900/30 bg-rose-50/50 dark:bg-rose-900/10">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="text-sm font-bold text-rose-700 dark:text-rose-400">Delete Endpoint</h4>
+                            <p className="text-xs text-rose-600/70 dark:text-rose-400/70 mt-1">
+                              This action cannot be undone.
+                            </p>
+                          </div>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            className="border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 text-xs font-bold"
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </Card>
+
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
           </div>
         </div>
       </div>
