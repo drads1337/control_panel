@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react'
-import { useSecurityPermissions } from '@/app/providers/security-permissions-provider'
+import { useSecurityPermissions } from '@/contexts/security-permissions-context'
 import { useBlockedIPs, useBlockedHWIDs } from '@/features/security-rules/hooks/use-security-query'
 
 interface SecurityStats {

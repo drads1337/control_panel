@@ -4,20 +4,19 @@ import React, { useState, useEffect } from 'react'
 import { 
   Eye, 
   Settings, 
-  Globe, 
-  RefreshCw, 
-  Power, 
   Monitor,
   Activity,
   Server,
   Wifi,
-  Cpu,
-  Box
+  Box,
+  Users,
+  Loader2,
+  Plus
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // UI Components
-import { Card, CardContent, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardTitle, CardHeader, CardFooter, CardDescription, CardAction } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
@@ -32,6 +31,20 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+
+// Hooks & Types
+import { useProductQuery } from '@/features/product-management/hooks/use-product-query'
+import type { Product } from '@/entities/product'
 
 // --- Types ---
 
@@ -63,21 +76,6 @@ interface Feature {
   max?: number
   options?: string[]
 }
-
-// --- Mock Data ---
-
-interface Product {
-  id: string
-  name: string
-}
-
-const PRODUCTS: Product[] = [
-  { id: 'prod_1', name: 'Enterprise Suite v2' },
-  { id: 'prod_2', name: 'Dev Tools' },
-  { id: 'prod_3', name: 'Basic Plan' },
-  { id: 'prod_4', name: 'Pro Edition' },
-  { id: 'prod_5', name: 'Starter Pack' },
-]
 
 const SESSIONS: Session[] = [
   { id: 'sess_X92', user: 'phantom_01', hwid: 'HW-8293-AB', ip: '192.168.1.142', region: 'EU-West', latency: 24, product: 'Enterprise Suite v2', status: 'Online', uptime: '2h 14m' },
@@ -111,24 +109,20 @@ const INITIAL_FEATURES: FeatureGroup[] = [
 ]
 
 export function RemoteControlPage() {
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(PRODUCTS[0])
+  const { products, loading: productsLoading, error: productsError } = useProductQuery()
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [selectedSession, setSelectedSession] = useState<Session | null>(null)
   const [features, setFeatures] = useState<FeatureGroup[]>(INITIAL_FEATURES)
-  const [latency, setLatency] = useState(0)
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false)
+  const [categoryName, setCategoryName] = useState('')
+  const [categoryDescription, setCategoryDescription] = useState('')
 
-  // Simulation of live latency
+  // Set first product as selected when products are loaded
   useEffect(() => {
-    const interval = setInterval(() => {
-        setLatency(prev => Math.max(10, prev + (Math.random() > 0.5 ? 3 : -3)))
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [])
-
-  useEffect(() => {
-    if (selectedSession) {
-      setLatency(selectedSession.latency)
+    if (products.length > 0 && !selectedProduct) {
+      setSelectedProduct(products[0])
     }
-  }, [selectedSession])
+  }, [products, selectedProduct])
 
   // Update selected session when product changes
   useEffect(() => {
@@ -155,6 +149,22 @@ export function RemoteControlPage() {
     }))
   }
 
+  const handleCreateCategory = () => {
+    if (!categoryName.trim()) return
+    
+    const newCategory: FeatureGroup = {
+      id: `category_${Date.now()}`,
+      title: categoryName,
+      icon: <Settings className="size-3" />,
+      features: []
+    }
+    
+    setFeatures(prev => [...prev, newCategory])
+    setCategoryDialogOpen(false)
+    setCategoryName('')
+    setCategoryDescription('')
+  }
+
   const getStatusColor = (status: string) => {
     switch(status) {
         case 'Online': return 'bg-emerald-500'
@@ -168,6 +178,67 @@ export function RemoteControlPage() {
     ? SESSIONS.filter(s => s.product === selectedProduct.name)
     : []
 
+  // Calculate stats
+  const totalProducts = products.length
+  const totalSessions = SESSIONS.length
+  const activeSessions = SESSIONS.filter(s => s.status === 'Online').length
+  const averageLatency = Math.round(
+    SESSIONS.reduce((sum, s) => sum + s.latency, 0) / SESSIONS.length
+  )
+  
+  // Calculate category and online features stats
+  const totalCategories = features.length
+  const onlineFeatures = features.reduce((count, group) => {
+    return count + group.features.filter(f => f.type === 'toggle' && f.value === true).length
+  }, 0)
+
+  const statCards = [
+    {
+      title: 'Products',
+      value: totalProducts,
+      icon: Box,
+      subtitle: 'Total products available',
+      badge: {
+        text: 'Products',
+        color: 'primary'
+      },
+      description: 'Products in system'
+    },
+    {
+      title: 'Active Sessions',
+      value: activeSessions,
+      icon: Activity,
+      subtitle: `${activeSessions} online`,
+      badge: {
+        text: `${activeSessions} online`,
+        color: 'primary'
+      },
+      description: 'Currently active sessions'
+    },
+    {
+      title: 'Total Sessions',
+      value: totalSessions,
+      icon: Users,
+      subtitle: 'All sessions',
+      badge: {
+        text: 'Sessions',
+        color: 'primary'
+      },
+      description: 'Total sessions in system'
+    },
+    {
+      title: 'Avg Latency',
+      value: averageLatency,
+      icon: Wifi,
+      subtitle: `${averageLatency}ms average`,
+      badge: {
+        text: `${averageLatency}ms`,
+        color: 'primary'
+      },
+      description: 'Average connection latency'
+    }
+  ]
+
   return (
     <div className="flex flex-1 flex-col">
       <div className="@container/main flex flex-1 flex-col gap-2">
@@ -180,8 +251,40 @@ export function RemoteControlPage() {
               Configure and control features for active user sessions.
             </p>
           </div>
+
+          {/* Stats Cards */}
+          <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-2 md:grid-cols-4 gap-3 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6">
+            {statCards.map((stat, index) => {
+              const Icon = stat.icon
+              return (
+                <Card key={index} className="@container/card p-3">
+                  <CardHeader className="p-0 pb-1">
+                    <CardDescription className="text-xs">{stat.title}</CardDescription>
+                    <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
+                      {stat.value}
+                    </CardTitle>
+                    <CardAction>
+                      <Badge variant="outline" className="text-xs h-5 px-1.5">
+                        <Icon className="size-3" />
+                        {stat.badge.text}
+                      </Badge>
+                    </CardAction>
+                  </CardHeader>
+                  <CardFooter className="flex-col items-start gap-0.5 text-xs p-0 pt-1">
+                    <div className="line-clamp-1 flex gap-1.5 font-medium">
+                      {stat.subtitle}{" "}
+                      <Icon className="size-3" />
+                    </div>
+                    <div className="text-muted-foreground">
+                      {stat.description}
+                    </div>
+                  </CardFooter>
+                </Card>
+              )
+            })}
+          </div>
           <div className="px-4 lg:px-6">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 min-h-[550px]">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 min-h-[550px]">
         
         {/* --- LEFT COLUMN: Product List --- */}
         <div className="md:col-span-4 lg:col-span-3 flex flex-col min-h-[550px] border rounded-lg bg-background shadow-sm overflow-hidden">
@@ -197,31 +300,45 @@ export function RemoteControlPage() {
           {/* Scrollable Content */}
           <ScrollArea className="flex-1">
             <div className="p-2 space-y-1">
-              <div className="space-y-0.5 mb-3">
-                {PRODUCTS.map((product) => {
-                  const isSelected = selectedProduct?.id === product.id
-                  return (
-                    <Button
-                      key={product.id}
-                      variant={isSelected ? "secondary" : "ghost"}
-                      size="sm"
-                      className={cn(
-                        "w-full justify-start h-8 text-xs px-2.5 font-normal rounded-md",
-                        isSelected 
-                          ? "bg-secondary font-medium shadow-sm" 
-                          : "hover:bg-muted/50"
-                      )}
-                      onClick={() => setSelectedProduct(product)}
-                    >
-                      <Box className={cn(
-                        "size-3.5 mr-2",
-                        isSelected ? "text-foreground" : "text-muted-foreground"
-                      )} />
-                      <span className="truncate">{product.name}</span>
-                    </Button>
-                  )
-                })}
-              </div>
+              {productsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                </div>
+              ) : productsError ? (
+                <div className="flex items-center justify-center py-8">
+                  <span className="text-xs text-destructive">{productsError}</span>
+                </div>
+              ) : products.length === 0 ? (
+                <div className="flex items-center justify-center py-8">
+                  <span className="text-xs text-muted-foreground">No products available</span>
+                </div>
+              ) : (
+                <div className="space-y-0.5 mb-3">
+                  {products.map((product) => {
+                    const isSelected = selectedProduct?.id === product.id
+                    return (
+                      <Button
+                        key={product.id}
+                        variant={isSelected ? "secondary" : "ghost"}
+                        size="sm"
+                        className={cn(
+                          "w-full justify-start h-8 text-xs px-2.5 font-normal rounded-md",
+                          isSelected 
+                            ? "bg-secondary font-medium shadow-sm" 
+                            : "hover:bg-muted/50"
+                        )}
+                        onClick={() => setSelectedProduct(product)}
+                      >
+                        <Box className={cn(
+                          "size-3.5 mr-2",
+                          isSelected ? "text-foreground" : "text-muted-foreground"
+                        )} />
+                        <span className="truncate">{product.name}</span>
+                      </Button>
+                    )
+                  })}
+                </div>
+              )}
 
               {selectedProduct && filteredSessions.length > 0 && (
                 <>
@@ -267,46 +384,40 @@ export function RemoteControlPage() {
         {/* --- RIGHT COLUMN: Details & Controls --- */}
         <div className="md:col-span-8 lg:col-span-9 flex flex-col min-h-[550px] min-w-0 border rounded-lg bg-background shadow-sm overflow-hidden">
             
-            {/* Header Info Card */}
-            {selectedSession ? (
-              <div className="flex items-center justify-between px-4 py-2 border-b bg-background h-[52px] shrink-0">
-                  <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                          <Cpu className="size-4 text-primary" />
-                      </div>
-                      <div>
-                          <div className="flex items-center gap-2">
-                              <h2 className="text-sm font-semibold">{selectedSession.user}</h2>
-                              <Badge variant="outline" className="font-mono text-[10px] h-5 px-1.5 text-muted-foreground bg-muted/50 border-muted-foreground/10">
-                                  {selectedSession.hwid}
-                              </Badge>
-                              <Badge variant="secondary" className={cn("text-[10px] h-5 px-1.5 font-normal", 
-                                  selectedSession.status === 'Online' ? 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20' : 'bg-muted/50 text-muted-foreground border-muted-foreground/10')}>
-                                  {selectedSession.status}
-                              </Badge>
-                          </div>
-                          <div className="flex items-center gap-3 text-[10px] text-muted-foreground mt-0.5">
-                              <span className="flex items-center gap-1"><Globe className="size-3" /> {selectedSession.region}</span>
-                              <span className="flex items-center gap-1"><Activity className="size-3" /> Uptime: {selectedSession.uptime}</span>
-                              <span className="flex items-center gap-1"><Wifi className="size-3" /> Latency: {latency}ms</span>
-                          </div>
-                      </div>
-                  </div>
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-2 border-b bg-background h-[52px] shrink-0">
+                <div className="flex items-center gap-3">
+                    {selectedProduct && (
+                        <>
+                            <h2 className="text-sm font-semibold">{selectedProduct.name}</h2>
+                            <Separator orientation="vertical" className="h-6" />
+                        </>
+                    )}
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-muted-foreground">Categories:</span>
+                            <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-mono">
+                                {totalCategories}
+                            </Badge>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-muted-foreground">Online:</span>
+                            <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-mono">
+                                {onlineFeatures}
+                            </Badge>
+                        </div>
+                    </div>
+                </div>
 
-                  <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" className="h-7 text-xs px-2.5 gap-1.5 bg-background hover:bg-muted/50">
-                          <RefreshCw className="size-3" /> Reconnect
-                      </Button>
-                      <Button variant="destructive" size="sm" className="h-7 text-xs px-2.5 gap-1.5">
-                          <Power className="size-3" /> Terminate
-                      </Button>
-                  </div>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center px-4 py-2 border-b bg-background h-[52px] shrink-0">
-                <span className="text-sm text-muted-foreground">No sessions available for selected product</span>
-              </div>
-            )}
+                <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-7 text-xs px-2.5 gap-1.5 bg-background hover:bg-muted/50"
+                    onClick={() => setCategoryDialogOpen(true)}
+                >
+                    <Plus className="size-3" /> Create Category
+                </Button>
+            </div>
 
             {/* Features Grid */}
             {selectedSession ? (
@@ -402,6 +513,54 @@ export function RemoteControlPage() {
           </div>
         </div>
       </div>
+
+      {/* Create Category Dialog */}
+      <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Create Category</DialogTitle>
+            <DialogDescription>
+              Create a new category to organize remote control features.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="category-name">Category Name</Label>
+              <Input
+                id="category-name"
+                placeholder="Enter category name"
+                value={categoryName}
+                onChange={(e) => setCategoryName(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="category-description">Description (Optional)</Label>
+              <Textarea
+                id="category-description"
+                placeholder="Enter category description"
+                value={categoryDescription}
+                onChange={(e) => setCategoryDescription(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCategoryDialogOpen(false)
+                setCategoryName('')
+                setCategoryDescription('')
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleCreateCategory} disabled={!categoryName.trim()}>
+              Create Category
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 } 
