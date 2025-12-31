@@ -73,10 +73,10 @@ const IPItem = React.memo(({
   getCategoryColor: (category: string) => string;
 }) => {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0 p-3 sm:p-2.5 border-b hover:bg-accent/50 transition-colors">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0 p-3 sm:p-2.5 border-b hover:bg-muted/50 transition-colors">
       <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0">
-        <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-          <Globe className="h-4 w-4 text-primary" />
+        <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-muted/30 border border-muted-foreground/20 flex items-center justify-center shrink-0">
+          <Globe className="h-4 w-4 text-foreground" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-0">
@@ -84,10 +84,10 @@ const IPItem = React.memo(({
               {ip.ip_address}
             </h4>
             <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-              <Badge className={`${getCategoryColor(ip.category)} text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5`} variant="secondary">
+              <Badge className={`${getCategoryColor(ip.category)} text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5`} variant="outline">
                 {ip.category}
               </Badge>
-              <Badge className={`${getSeverityColor(ip.severity)} text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5`} variant="secondary">
+              <Badge className={`${getSeverityColor(ip.severity)} text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5`} variant="outline">
                 {ip.severity}
               </Badge>
               {!ip.is_active && (
@@ -249,25 +249,25 @@ export default function BlockedIPsList({
   
   const getSeverityColor = useCallback((severity: string) => {
     switch (severity.toLowerCase()) {
-      case 'low': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-      case 'medium': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
-      case 'high': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400'
-      case 'critical': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
+      case 'low': return 'bg-muted/30 text-foreground border border-muted-foreground/20'
+      case 'medium': return 'bg-muted/30 text-foreground border border-muted-foreground/20'
+      case 'high': return 'bg-muted/30 text-foreground border border-muted-foreground/20'
+      case 'critical': return 'bg-muted/30 text-foreground border border-muted-foreground/20'
+      default: return 'bg-muted/30 text-foreground border border-muted-foreground/20'
     }
   }, []);
 
   const getCategoryColor = useCallback((category: string) => {
     switch (category.toLowerCase()) {
-      case 'spam': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-      case 'abuse': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-      case 'fraud': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
-      case 'malware': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-      case 'suspicious': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
-      case 'violation': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400'
-      case 'rate_limit': return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
-      case 'geo_block': return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400'
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
+      case 'spam': return 'bg-muted/30 text-foreground border border-muted-foreground/20'
+      case 'abuse': return 'bg-muted/30 text-foreground border border-muted-foreground/20'
+      case 'fraud': return 'bg-muted/30 text-foreground border border-muted-foreground/20'
+      case 'malware': return 'bg-muted/30 text-foreground border border-muted-foreground/20'
+      case 'suspicious': return 'bg-muted/30 text-foreground border border-muted-foreground/20'
+      case 'violation': return 'bg-muted/30 text-foreground border border-muted-foreground/20'
+      case 'rate_limit': return 'bg-muted/30 text-foreground border border-muted-foreground/20'
+      case 'geo_block': return 'bg-muted/30 text-foreground border border-muted-foreground/20'
+      default: return 'bg-muted/30 text-foreground border border-muted-foreground/20'
     }
   }, []);
 
@@ -286,8 +286,8 @@ export default function BlockedIPsList({
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader className="pb-3 sm:pb-6">
+      <Card className="p-3 border rounded-lg bg-background shadow-sm">
+        <CardHeader className="p-0 pb-3 sm:pb-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <CardTitle className="text-base sm:text-lg">Blocked IP Addresses</CardTitle>
@@ -300,18 +300,15 @@ export default function BlockedIPsList({
               {onRefresh && (
                  <Button 
                  variant="ghost" 
-                 size="sm"
+                 size="icon"
                  onClick={onRefresh}
                  disabled={loading}
-                 className="justify-center h-9 sm:h-8"
+                 className="h-9 w-9 sm:h-8 sm:w-8"
                >
                  {loading ? (
                    <Spinner className="h-4 w-4 animate-spin" />
                  ) : (
-                   <>
-                     <RefreshCw className="h-4 w-4 mr-2" />
-                     Refresh
-                   </>
+                   <RefreshCw className="h-4 w-4" />
                  )}
                </Button>
               )}
@@ -320,7 +317,7 @@ export default function BlockedIPsList({
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search..."
-                  className="pl-10 w-full sm:w-64 h-9 sm:h-8 text-sm"
+                  className="pl-10 w-full sm:w-64 h-9 sm:h-8 text-sm bg-muted/30 border-muted-foreground/20 focus-visible:bg-background"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -330,16 +327,15 @@ export default function BlockedIPsList({
           </div>
         </CardHeader>
         
-        <CardContent className="pt-0 pb-4 sm:pb-6">
+        <CardContent className="p-0 pt-0 pb-4 sm:pb-6 -mt-4">
           {loading ? (
-            <Spinner message="Loading blocked IPs..." />
+            <div className="flex items-center justify-center py-12">
+              <Spinner />
+            </div>
           ) : filteredIPs.length === 0 ? (
             <div className="flex items-center justify-center py-12">
-              <div className="text-center">
-                <Globe className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                <div className="text-sm text-muted-foreground">
-                  {searchTerm ? 'No IPs match your search criteria' : 'No IP addresses are currently blocked'}
-                </div>
+              <div className="p-2 border border-dashed border-muted-foreground/25 rounded-md bg-muted/20 text-center text-xs text-muted-foreground">
+                {searchTerm ? 'No IPs match your search criteria' : 'No IP addresses are currently blocked'}
               </div>
             </div>
           ) : (

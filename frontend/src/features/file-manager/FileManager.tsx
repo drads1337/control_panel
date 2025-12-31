@@ -21,6 +21,7 @@ import {
   Settings2,
   Trash2,
   Upload,
+  RefreshCw,
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -440,6 +441,19 @@ export default function FileManager() {
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={loadProductFiles}
+                disabled={refreshing || !selectedItem}
+                className="h-7 w-7"
+              >
+                {refreshing ? (
+                  <Spinner className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+              </Button>
               <Button 
                 size="sm" 
                 className="h-7 text-xs px-2.5 ml-1"

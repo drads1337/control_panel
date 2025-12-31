@@ -71,9 +71,6 @@ function SecurityPageContent() {
                   Manage IP/HWID blocks and configure security rules
                 </p>
               </div>
-              <Button variant="ghost" size="icon" onClick={handleRefresh} disabled={loading}>
-                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              </Button>
             </div>
           </div>
 

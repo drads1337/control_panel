@@ -89,6 +89,17 @@ export default function ProductDatabase({
   const { products, loading, error, refetch } = useProductQuery();
   const { handleStatusChange, handleDeleteProduct } = useProductMutations();
   
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+  
   const {
     showCreateDialog,
     showPricesDialog,
@@ -182,15 +193,30 @@ export default function ProductDatabase({
         <div className="flex items-center gap-3">
           <h2 className="text-xl font-semibold text-foreground tracking-tight">Database</h2>
         </div>
-        <ConditionalRender permission="products.create" fallback={null}>
-          <Button
-            onClick={() => setShowCreateDialog(true)}
-            size="sm"
-            className="h-8 text-xs gap-1.5"
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={handleRefresh}
+            disabled={refreshing || loading}
+            className="h-8 w-8"
           >
-            <Plus className="size-3" /> New Product
+            {refreshing ? (
+              <Spinner className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
           </Button>
-        </ConditionalRender>
+          <ConditionalRender permission="products.create" fallback={null}>
+            <Button
+              onClick={() => setShowCreateDialog(true)}
+              size="sm"
+              className="h-8 text-xs gap-1.5"
+            >
+              <Plus className="size-3" /> New Product
+            </Button>
+          </ConditionalRender>
+        </div>
       </div>
 
       {/* Table Container */}

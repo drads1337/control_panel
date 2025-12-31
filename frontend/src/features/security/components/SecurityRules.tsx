@@ -53,21 +53,21 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
 
   const getSeverityColor = useCallback((severity: string) => {
     switch (severity.toLowerCase()) {
-      case 'low': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-      case 'medium': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
-      case 'high': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400'
-      case 'critical': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
+      case 'low': return 'bg-muted/30 text-foreground border border-muted-foreground/20'
+      case 'medium': return 'bg-muted/30 text-foreground border border-muted-foreground/20'
+      case 'high': return 'bg-muted/30 text-foreground border border-muted-foreground/20'
+      case 'critical': return 'bg-muted/30 text-foreground border border-muted-foreground/20'
+      default: return 'bg-muted/30 text-foreground border border-muted-foreground/20'
     }
   }, []);
 
   const getTypeIcon = useCallback((type: string) => {
     switch (type) {
-      case 'ip': return <span className="text-xs text-primary">IP</span>
-      case 'hwid': return <span className="text-xs text-primary">HW</span>
-      case 'behavior': return <span className="text-xs text-primary">!</span>
-      case 'geo': return <span className="text-xs text-primary">G</span>
-      default: return <span className="text-xs text-primary">?</span>
+      case 'ip': return <span className="text-xs text-foreground">IP</span>
+      case 'hwid': return <span className="text-xs text-foreground">HW</span>
+      case 'behavior': return <span className="text-xs text-foreground">!</span>
+      case 'geo': return <span className="text-xs text-foreground">G</span>
+      default: return <span className="text-xs text-foreground">?</span>
     }
   }, []);
 
@@ -90,9 +90,9 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
     getTypeIcon: (type: string) => React.ReactElement;
   }) => {
     return (
-      <div className="flex items-center justify-between p-2.5 border-b hover:bg-accent/50 transition-colors">
+      <div className="flex items-center justify-between p-2.5 border-b hover:bg-muted/50 transition-colors">
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
+          <div className="h-9 w-9 rounded-full bg-muted/30 border border-muted-foreground/20 flex items-center justify-center">
             {getTypeIcon(rule.type)}
           </div>
           <div className="flex-1 min-w-0">
@@ -100,7 +100,7 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
               <h4 className="font-medium text-sm">
                 {rule.name}
               </h4>
-              <Badge className={getSeverityColor(rule.severity)} variant="secondary">
+              <Badge className={getSeverityColor(rule.severity)} variant="outline">
                 {rule.severity}
               </Badge>
               {!rule.isActive && (
@@ -216,8 +216,8 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader className="pb-3 sm:pb-6">
+      <Card className="p-3 border rounded-lg bg-background shadow-sm">
+        <CardHeader className="p-0 pb-0">
           <div>
             <CardTitle className="text-base sm:text-lg">Security Rules</CardTitle>
             <CardDescription className="mt-1 text-xs sm:text-sm">
@@ -226,15 +226,15 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
           </div>
         </CardHeader>
         
-        <CardContent className="pt-0 pb-4 sm:pb-6">
+        <CardContent className="p-0 pt-0 pb-4 sm:pb-6 -mt-4">
           {isLoading || loading ? (
-            <Spinner message="Loading security rules..." />
+            <div className="flex items-center justify-center py-12">
+              <Spinner />
+            </div>
           ) : localRules.length === 0 ? (
             <div className="flex items-center justify-center py-12">
-              <div className="text-center">
-                <div className="text-sm text-muted-foreground">
-                  No security rules configured
-                </div>
+              <div className="p-2 border border-dashed border-muted-foreground/25 rounded-md bg-muted/20 text-center text-xs text-muted-foreground">
+                No security rules configured
               </div>
             </div>
           ) : (
@@ -251,4 +251,3 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
     </div>
   )
 }
-

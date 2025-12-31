@@ -11,7 +11,8 @@ import {
   Box,
   Users,
   Loader2,
-  Plus
+  Plus,
+  RefreshCw
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -41,6 +42,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { Spinner } from '@/components/ui/spinner'
 
 // Hooks & Types
 import { useProductQuery } from '@/features/product-management/hooks/use-product-query'
@@ -116,6 +118,7 @@ export function RemoteControlPage() {
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false)
   const [categoryName, setCategoryName] = useState('')
   const [categoryDescription, setCategoryDescription] = useState('')
+  const [refreshing, setRefreshing] = useState(false)
 
   // Set first product as selected when products are loaded
   useEffect(() => {
@@ -163,6 +166,14 @@ export function RemoteControlPage() {
     setCategoryDialogOpen(false)
     setCategoryName('')
     setCategoryDescription('')
+  }
+
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    // TODO: Add actual refresh logic here (e.g., refetch products, sessions, features)
+    // Simulate refresh delay
+    await new Promise(resolve => setTimeout(resolve, 500))
+    setRefreshing(false)
   }
 
   const getStatusColor = (status: string) => {
@@ -409,14 +420,29 @@ export function RemoteControlPage() {
                     </div>
                 </div>
 
-                <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="h-7 text-xs px-2.5 gap-1.5 bg-background hover:bg-muted/50"
-                    onClick={() => setCategoryDialogOpen(true)}
-                >
-                    <Plus className="size-3" /> Create Category
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={handleRefresh}
+                        disabled={refreshing}
+                        className="h-7 w-7"
+                    >
+                        {refreshing ? (
+                            <Spinner className="h-4 w-4 animate-spin" />
+                        ) : (
+                            <RefreshCw className="h-4 w-4" />
+                        )}
+                    </Button>
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="h-7 text-xs px-2.5 gap-1.5 bg-background hover:bg-muted/50"
+                        onClick={() => setCategoryDialogOpen(true)}
+                    >
+                        <Plus className="size-3" /> Create Category
+                    </Button>
+                </div>
             </div>
 
             {/* Features Grid */}
