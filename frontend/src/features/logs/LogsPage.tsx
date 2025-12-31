@@ -1,6 +1,4 @@
-"use client"
-
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useCallback } from 'react'
 import {
   flexRender,
   getCoreRowModel,
@@ -18,9 +16,6 @@ import {
   Trash2, 
   ArrowUp, 
   AlertTriangle, 
-  AlertCircle, 
-  CheckCircle2, 
-  Info, 
   User, 
   Globe, 
   Filter, 
@@ -29,15 +24,15 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Database,
-  Terminal,
-  ChevronDownIcon
+  ChevronDownIcon,
+  Loader2,
+  AlertCircle
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardAction, CardFooter } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Separator } from '@/components/ui/separator'
 import {
   Table,
   TableBody,
@@ -61,59 +56,52 @@ import {
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
+import { useLogsQuery, useLogActions, type Log } from '@/entities/log'
+import { toast } from 'sonner'
+import { Spinner } from '@/components/ui/spinner'
+import { useAuthContext } from '@/app/providers/auth-provider'
 
-// --- Types ---
-
-type LogLevel = 'INFO' | 'WARN' | 'ERROR' | 'SUCCESS' | 'DEBUG'
-
-interface LogEntry {
-  id: string
-  timestamp: string
-  level: LogLevel
-  source: string
-  message: string
-  user?: string
-  ip?: string
-}
-
-// --- Mock Data ---
-
-const LOG_DATA: LogEntry[] = [
-  { id: 'log_001', timestamp: '2023-10-27 10:42:15', level: 'ERROR', source: 'API Gateway', message: 'Rate limit exceeded for endpoint /v1/products', ip: '45.22.19.112' },
-  { id: 'log_002', timestamp: '2023-10-27 10:41:03', level: 'SUCCESS', source: 'Auth Service', message: 'User login successful', user: 'admin_usr', ip: '192.168.1.5' },
-  { id: 'log_003', timestamp: '2023-10-27 10:38:55', level: 'INFO', source: 'System', message: 'Scheduled backup started (Daily_Snapshot_DB)', user: 'system' },
-  { id: 'log_004', timestamp: '2023-10-27 10:35:22', level: 'WARN', source: 'License Mgr', message: 'License key validation took > 2000ms', user: 'client_app_v2' },
-  { id: 'log_005', timestamp: '2023-10-27 10:30:10', level: 'DEBUG', source: 'Background Worker', message: 'Processing job queue: 124 items pending', user: 'system' },
-  { id: 'log_006', timestamp: '2023-10-27 10:28:44', level: 'INFO', source: 'Product Svc', message: 'Product cache invalidated', user: 'admin_usr' },
-  { id: 'log_007', timestamp: '2023-10-27 10:25:30', level: 'ERROR', source: 'Database', message: 'Connection pool exhausted, retrying...', ip: 'internal' },
-  { id: 'log_008', timestamp: '2023-10-27 10:22:12', level: 'SUCCESS', source: 'Auth Service', message: 'New API Key generated', user: 'dev_team_01', ip: '10.0.0.22' },
-  { id: 'log_009', timestamp: '2023-10-27 10:15:00', level: 'INFO', source: 'Webhooks', message: 'Webhook delivery attempt to https://hooks.slack.com/...', user: 'system' },
-  { id: 'log_010', timestamp: '2023-10-27 10:10:05', level: 'WARN', source: 'Security', message: 'Multiple failed login attempts detected', ip: '185.200.11.4' },
-  { id: 'log_011', timestamp: '2023-10-27 10:05:22', level: 'SUCCESS', source: 'Payments', message: 'Subscription renewed successfully', user: 'client_x99' },
-  { id: 'log_012', timestamp: '2023-10-27 10:01:18', level: 'DEBUG', source: 'Analytics', message: 'Flushing event buffer to disk', user: 'system' },
-]
-
-const getLevelBadge = (level: LogLevel) => {
-  switch (level) {
-    case 'ERROR': return 'text-rose-600 bg-rose-50 border-rose-200 dark:bg-rose-500/10 dark:text-rose-500 dark:border-rose-500/20'
-    case 'WARN': return 'text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-500/10 dark:text-amber-500 dark:border-amber-500/20'
-    case 'SUCCESS': return 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-500 dark:border-emerald-500/20'
-    case 'DEBUG': return 'text-purple-600 bg-purple-50 border-purple-200 dark:bg-purple-500/10 dark:text-purple-500 dark:border-purple-500/20'
-    default: return 'text-blue-600 bg-blue-50 border-blue-200 dark:bg-blue-500/10 dark:text-blue-500 dark:border-blue-500/20'
+// Format date helper
+const formatTimestamp = (dateString: string | null | undefined): string => {
+  if (!dateString) return 'N/A'
+  try {
+    const date = new Date(dateString)
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    })
+  } catch {
+    return dateString
   }
 }
 
-const getLevelIcon = (level: LogLevel) => {
-  switch (level) {
-      case 'ERROR': return <AlertCircle className="size-3" />
-      case 'WARN': return <AlertTriangle className="size-3" />
-      case 'SUCCESS': return <CheckCircle2 className="size-3" />
-      case 'DEBUG': return <Terminal className="size-3" />
-      default: return <Info className="size-3" />
-  }
+// Format action for display
+const formatAction = (action: string): string => {
+  return action.split('_').map(word => 
+    word.charAt(0).toUpperCase() + word.slice(1)
+  ).join(' ')
 }
 
-const columns: ColumnDef<LogEntry>[] = [
+// Get action badge color
+const getActionBadgeColor = (action: string): string => {
+  const actionLower = action.toLowerCase()
+  if (actionLower.includes('error') || actionLower.includes('fail')) {
+    return 'text-rose-600 bg-rose-50 border-rose-200 dark:bg-rose-500/10 dark:text-rose-500 dark:border-rose-500/20'
+  }
+  if (actionLower.includes('warn') || actionLower.includes('warning')) {
+    return 'text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-500/10 dark:text-amber-500 dark:border-amber-500/20'
+  }
+  if (actionLower.includes('success') || actionLower.includes('login') || actionLower.includes('create')) {
+    return 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-500 dark:border-emerald-500/20'
+  }
+  return 'text-blue-600 bg-blue-50 border-blue-200 dark:bg-blue-500/10 dark:text-blue-500 dark:border-blue-500/20'
+}
+
+const columns: ColumnDef<Log>[] = [
   {
     id: "select",
     header: ({ table }) => (
@@ -144,38 +132,29 @@ const columns: ColumnDef<LogEntry>[] = [
     enableHiding: false,
   },
   {
-    accessorKey: "timestamp",
+    accessorKey: "created_at",
     header: "Timestamp",
     cell: ({ row }) => (
       <div className="text-muted-foreground text-[11px] font-mono">
-        {row.original.timestamp}
+        {formatTimestamp(row.original.created_at)}
       </div>
     ),
   },
   {
-    accessorKey: "level",
-    header: "Level",
+    accessorKey: "action",
+    header: "Action",
     cell: ({ row }) => (
-      <Badge variant="outline" className={cn("text-[9px] px-1.5 h-5 font-bold gap-1 pl-1", getLevelBadge(row.original.level))}>
-        {getLevelIcon(row.original.level)} {row.original.level}
+      <Badge variant="outline" className={cn("text-[9px] px-1.5 h-5 font-bold gap-1 pl-1", getActionBadgeColor(row.original.action))}>
+        {formatAction(row.original.action)}
       </Badge>
     ),
   },
   {
-    accessorKey: "source",
-    header: "Source",
+    accessorKey: "details",
+    header: "Details",
     cell: ({ row }) => (
-      <div className="font-sans font-semibold text-xs">
-        {row.original.source}
-      </div>
-    ),
-  },
-  {
-    accessorKey: "message",
-    header: "Message",
-    cell: ({ row }) => (
-      <div className="text-muted-foreground truncate max-w-md" title={row.original.message}>
-        {row.original.message}
+      <div className="text-muted-foreground truncate max-w-md" title={row.original.details || row.original.action}>
+        {row.original.details || row.original.action}
       </div>
     ),
   },
@@ -184,14 +163,29 @@ const columns: ColumnDef<LogEntry>[] = [
     header: () => <div className="text-right">User / IP</div>,
     cell: ({ row }) => (
       <div className="text-right text-muted-foreground text-[11px]">
-        {row.original.user ? (
+        {row.original.username ? (
           <span className="flex items-center justify-end gap-1.5">
-            <User className="size-3" /> {row.original.user}
+            <User className="size-3" /> {row.original.username}
+          </span>
+        ) : row.original.ip_address ? (
+          <span className="flex items-center justify-end gap-1.5">
+            <Globe className="size-3" /> {row.original.ip_address}
           </span>
         ) : (
-          <span className="flex items-center justify-end gap-1.5">
-            <Globe className="size-3" /> {row.original.ip}
-          </span>
+          <span className="text-muted-foreground/50">-</span>
+        )}
+      </div>
+    ),
+  },
+  {
+    accessorKey: "country",
+    header: "Location",
+    cell: ({ row }) => (
+      <div className="text-muted-foreground text-[11px]">
+        {row.original.country || row.original.city ? (
+          <span>{[row.original.city, row.original.country].filter(Boolean).join(', ')}</span>
+        ) : (
+          <span className="text-muted-foreground/50">-</span>
         )}
       </div>
     ),
@@ -199,25 +193,58 @@ const columns: ColumnDef<LogEntry>[] = [
 ]
 
 export function LogsPage() {
-  const [filterLevel, setFilterLevel] = useState<string>('ALL')
+  const { isAuthenticated, isInitialized } = useAuthContext()
+  const [actionFilter, setActionFilter] = useState<string>('ALL')
   const [searchTerm, setSearchTerm] = useState('')
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
 
-  const filteredData = useMemo(() => {
-    return LOG_DATA.filter(log => {
-      const matchesLevel = filterLevel === 'ALL' || log.level === filterLevel
-      const matchesSearch = log.message.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                            log.source.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            log.user?.toLowerCase().includes(searchTerm.toLowerCase())
-      return matchesLevel && matchesSearch
-    })
-  }, [filterLevel, searchTerm])
+  // Debounce search term
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
+
+  const {
+    logs,
+    loading,
+    error,
+    stats,
+    pagination,
+    searchLogsByTerm,
+    fetchLogs,
+    changePage,
+    changePerPage,
+    refresh,
+  } = useLogsQuery({
+    page: 1,
+    perPage: 10,
+    autoRefresh: false,
+  })
+
+  const { exportLogsToCSV, isExporting } = useLogActions()
+
+  // Handle search - when user types in search box
+  React.useEffect(() => {
+    searchLogsByTerm(debouncedSearchTerm)
+  }, [debouncedSearchTerm, searchLogsByTerm])
+
+  // Filter logs by action locally (client-side filtering for UI responsiveness)
+  // Note: This filters the current page of results only
+  const filteredLogs = useMemo(() => {
+    if (actionFilter === 'ALL') return logs
+    return logs.filter(log => 
+      log.action.toLowerCase() === actionFilter.toLowerCase()
+    )
+  }, [logs, actionFilter])
 
   const table = useReactTable({
-    data: filteredData,
+    data: filteredLogs,
     columns,
-    getRowId: (row) => row.id,
+    getRowId: (row) => row.id.toString(),
     state: {
       sorting,
       columnFilters,
@@ -228,12 +255,91 @@ export function LogsPage() {
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    pageCount: pagination.pages,
+    manualPagination: true,
+    onPaginationChange: (updater) => {
+      if (typeof updater === 'function') {
+        const newState = updater({
+          pageIndex: pagination.page - 1,
+          pageSize: pagination.perPage
+        })
+        changePage(newState.pageIndex + 1)
+      } else {
+        changePage(updater.pageIndex + 1)
+      }
+    },
     initialState: {
       pagination: {
-        pageSize: 10,
+        pageSize: pagination.perPage,
       },
     },
   })
+
+  const handleExport = useCallback(async () => {
+    try {
+      await exportLogsToCSV({
+        action: actionFilter !== 'ALL' ? actionFilter : undefined,
+      })
+      toast.success('Logs exported successfully')
+    } catch (err) {
+      toast.error('Failed to export logs')
+      console.error(err)
+    }
+  }, [exportLogsToCSV, actionFilter])
+
+  const handleClear = useCallback(() => {
+    toast.info('Clear functionality requires backend implementation')
+  }, [])
+
+  // Get unique actions for filter - must be before early returns to maintain hook order
+  const uniqueActions = useMemo(() => {
+    const actions = new Set(logs.map(log => log.action))
+    return Array.from(actions).sort()
+  }, [logs])
+
+  if (!isInitialized) {
+    return (
+      <div className="flex h-screen bg-background">
+        <div className="flex-1 flex items-center justify-center">
+          <Spinner size="lg" />
+        </div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+          <p className="text-muted-foreground">You need to be logged in to view logs.</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (loading && !logs.length) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Spinner size="lg" />
+        <span className="ml-2">Loading logs...</span>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2 text-destructive">Error Loading Logs</h2>
+          <p className="text-muted-foreground mb-4">{error}</p>
+          <Button onClick={() => refresh()} variant="outline">
+            Try Again
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-1 flex-col">
@@ -249,100 +355,102 @@ export function LogsPage() {
           </div>
           
           {/* Top Stats Cards */}
-          <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 md:grid-cols-4 gap-3 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs">
-            <Card className="@container/card p-3">
-              <CardHeader className="p-0 pb-1">
-                <CardDescription className="text-xs">Events Today</CardDescription>
-                <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
-                  14,205
-                </CardTitle>
-                <CardAction>
-                  <Badge variant="outline" className="text-xs h-5 px-1.5">
-                    <ArrowUp className="size-3" />
-                    12% up
-                  </Badge>
-                </CardAction>
-              </CardHeader>
-              <CardFooter className="flex-col items-start gap-0.5 text-xs p-0 pt-1">
-                <div className="line-clamp-1 flex gap-1.5 font-medium">
-                  Total events today{" "}
-                  <Database className="size-3" />
-                </div>
-                <div className="text-muted-foreground">
-                  System events logged
-                </div>
-              </CardFooter>
-            </Card>
-            <Card className="@container/card p-3">
-              <CardHeader className="p-0 pb-1">
-                <CardDescription className="text-xs">Errors</CardDescription>
-                <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
-                  24
-                </CardTitle>
-                <CardAction>
-                  <Badge variant="outline" className="text-xs h-5 px-1.5">
-                    <AlertCircle className="size-3" />
-                    Past 24h
-                  </Badge>
-                </CardAction>
-              </CardHeader>
-              <CardFooter className="flex-col items-start gap-0.5 text-xs p-0 pt-1">
-                <div className="line-clamp-1 flex gap-1.5 font-medium">
-                  Error events{" "}
-                  <AlertCircle className="size-3" />
-                </div>
-                <div className="text-muted-foreground">
-                  Errors in last 24 hours
-                </div>
-              </CardFooter>
-            </Card>
-            <Card className="@container/card p-3">
-              <CardHeader className="p-0 pb-1">
-                <CardDescription className="text-xs">Warnings</CardDescription>
-                <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
-                  156
-                </CardTitle>
-                <CardAction>
-                  <Badge variant="outline" className="text-xs h-5 px-1.5">
-                    <AlertTriangle className="size-3" />
-                    Past 24h
-                  </Badge>
-                </CardAction>
-              </CardHeader>
-              <CardFooter className="flex-col items-start gap-0.5 text-xs p-0 pt-1">
-                <div className="line-clamp-1 flex gap-1.5 font-medium">
-                  Warning events{" "}
-                  <AlertTriangle className="size-3" />
-                </div>
-                <div className="text-muted-foreground">
-                  Warnings in last 24 hours
-                </div>
-              </CardFooter>
-            </Card>
-            <Card className="@container/card p-3">
-              <CardHeader className="p-0 pb-1">
-                <CardDescription className="text-xs">Log Volume</CardDescription>
-                <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
-                  1.2 GB
-                </CardTitle>
-                <CardAction>
-                  <Badge variant="outline" className="text-xs h-5 px-1.5">
+          {stats && (
+            <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 md:grid-cols-4 gap-3 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs">
+              <Card className="@container/card p-3">
+                <CardHeader className="p-0 pb-1">
+                  <CardDescription className="text-xs">Events Today</CardDescription>
+                  <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
+                    {stats.overview.today.toLocaleString()}
+                  </CardTitle>
+                  <CardAction>
+                    <Badge variant="outline" className="text-xs h-5 px-1.5">
+                      <Database className="size-3" />
+                      Today
+                    </Badge>
+                  </CardAction>
+                </CardHeader>
+                <CardFooter className="flex-col items-start gap-0.5 text-xs p-0 pt-1">
+                  <div className="line-clamp-1 flex gap-1.5 font-medium">
+                    Total events today{" "}
                     <Database className="size-3" />
-                    Storage
-                  </Badge>
-                </CardAction>
-              </CardHeader>
-              <CardFooter className="flex-col items-start gap-0.5 text-xs p-0 pt-1">
-                <div className="line-clamp-1 flex gap-1.5 font-medium">
-                  1.2 GB / 5 GB limit{" "}
-                  <Database className="size-3" />
-                </div>
-                <div className="text-muted-foreground">
-                  Log storage usage
-                </div>
-              </CardFooter>
-            </Card>
-          </div>
+                  </div>
+                  <div className="text-muted-foreground">
+                    System events logged
+                  </div>
+                </CardFooter>
+              </Card>
+              <Card className="@container/card p-3">
+                <CardHeader className="p-0 pb-1">
+                  <CardDescription className="text-xs">Total Events</CardDescription>
+                  <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
+                    {stats.overview.total.toLocaleString()}
+                  </CardTitle>
+                  <CardAction>
+                    <Badge variant="outline" className="text-xs h-5 px-1.5">
+                      <Database className="size-3" />
+                      All time
+                    </Badge>
+                  </CardAction>
+                </CardHeader>
+                <CardFooter className="flex-col items-start gap-0.5 text-xs p-0 pt-1">
+                  <div className="line-clamp-1 flex gap-1.5 font-medium">
+                    Total events{" "}
+                    <Database className="size-3" />
+                  </div>
+                  <div className="text-muted-foreground">
+                    All system events
+                  </div>
+                </CardFooter>
+              </Card>
+              <Card className="@container/card p-3">
+                <CardHeader className="p-0 pb-1">
+                  <CardDescription className="text-xs">This Week</CardDescription>
+                  <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
+                    {stats.overview.week.toLocaleString()}
+                  </CardTitle>
+                  <CardAction>
+                    <Badge variant="outline" className="text-xs h-5 px-1.5">
+                      <ArrowUp className="size-3" />
+                      Week
+                    </Badge>
+                  </CardAction>
+                </CardHeader>
+                <CardFooter className="flex-col items-start gap-0.5 text-xs p-0 pt-1">
+                  <div className="line-clamp-1 flex gap-1.5 font-medium">
+                    Events this week{" "}
+                    <Database className="size-3" />
+                  </div>
+                  <div className="text-muted-foreground">
+                    Last 7 days
+                  </div>
+                </CardFooter>
+              </Card>
+              <Card className="@container/card p-3">
+                <CardHeader className="p-0 pb-1">
+                  <CardDescription className="text-xs">This Month</CardDescription>
+                  <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
+                    {stats.overview.month.toLocaleString()}
+                  </CardTitle>
+                  <CardAction>
+                    <Badge variant="outline" className="text-xs h-5 px-1.5">
+                      <Database className="size-3" />
+                      Month
+                    </Badge>
+                  </CardAction>
+                </CardHeader>
+                <CardFooter className="flex-col items-start gap-0.5 text-xs p-0 pt-1">
+                  <div className="line-clamp-1 flex gap-1.5 font-medium">
+                    Events this month{" "}
+                    <Database className="size-3" />
+                  </div>
+                  <div className="text-muted-foreground">
+                    Last 30 days
+                  </div>
+                </CardFooter>
+              </Card>
+            </div>
+          )}
 
           {/* Main Logs Panel */}
           <Card className="flex flex-col flex-1 border bg-background shadow-sm overflow-hidden">
@@ -361,18 +469,30 @@ export function LogsPage() {
                 </div>
                 
                 <div className="hidden md:flex bg-muted/30 p-0.5 rounded-lg border border-border/50">
-                  {['ALL', 'ERROR', 'WARN', 'INFO'].map(level => (
+                  <button 
+                    onClick={() => setActionFilter('ALL')}
+                    className={cn(
+                      "px-3 py-1 text-[10px] font-bold rounded-md transition-all uppercase tracking-wide",
+                      actionFilter === 'ALL' 
+                        ? "bg-background shadow-sm text-foreground ring-1 ring-border" 
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    )}
+                  >
+                    ALL
+                  </button>
+                  {uniqueActions.slice(0, 5).map(action => (
                     <button 
-                      key={level}
-                      onClick={() => setFilterLevel(level)}
+                      key={action}
+                      onClick={() => setActionFilter(action)}
                       className={cn(
-                        "px-3 py-1 text-[10px] font-bold rounded-md transition-all uppercase tracking-wide",
-                        filterLevel === level 
+                        "px-3 py-1 text-[10px] font-bold rounded-md transition-all uppercase tracking-wide truncate max-w-[100px]",
+                        actionFilter === action 
                           ? "bg-background shadow-sm text-foreground ring-1 ring-border" 
                           : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                       )}
+                      title={formatAction(action)}
                     >
-                      {level}
+                      {formatAction(action)}
                     </button>
                   ))}
                 </div>
@@ -410,10 +530,26 @@ export function LogsPage() {
                       })}
                   </DropdownMenuContent>
                 </DropdownMenu>
-                <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 bg-background">
-                  <Download className="size-3" /> Export
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-7 text-xs gap-1.5 bg-background"
+                  onClick={handleExport}
+                  disabled={isExporting}
+                >
+                  {isExporting ? (
+                    <Loader2 className="size-3 animate-spin" />
+                  ) : (
+                    <Download className="size-3" />
+                  )}
+                  Export
                 </Button>
-                <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 hover:text-rose-500 hover:border-rose-200 hover:bg-rose-50/50 dark:hover:bg-rose-900/10">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-7 text-xs gap-1.5 hover:text-rose-500 hover:border-rose-200 hover:bg-rose-50/50 dark:hover:bg-rose-900/10"
+                  onClick={handleClear}
+                >
                   <Trash2 className="size-3" /> Clear
                 </Button>
               </div>
@@ -441,7 +577,19 @@ export function LogsPage() {
                   ))}
                 </TableHeader>
                 <TableBody>
-                  {table.getRowModel().rows?.length ? (
+                  {loading ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={columns.length}
+                        className="h-24 text-center"
+                      >
+                        <div className="flex flex-col items-center justify-center py-10">
+                          <Loader2 className="size-8 mb-3 animate-spin text-primary" />
+                          <p className="text-xs font-medium text-muted-foreground">Loading logs...</p>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : table.getRowModel().rows?.length ? (
                     table.getRowModel().rows.map((row) => (
                       <TableRow
                         key={row.id}
@@ -487,9 +635,9 @@ export function LogsPage() {
                     Rows per page
                   </Label>
                   <Select
-                    value={`${table.getState().pagination.pageSize}`}
+                    value={`${pagination.perPage}`}
                     onValueChange={(value) => {
-                      table.setPageSize(Number(value))
+                      changePerPage(Number(value))
                     }}
                   >
                     <SelectTrigger size="sm" className="w-20 h-7 text-xs" id="rows-per-page">
@@ -505,15 +653,15 @@ export function LogsPage() {
                   </Select>
                 </div>
                 <div className="flex w-fit items-center justify-center text-xs font-medium">
-                  Page {table.getState().pagination.pageIndex + 1} of{" "}
-                  {table.getPageCount()}
+                  Page {pagination.page} of{" "}
+                  {pagination.pages || 1}
                 </div>
                 <div className="ml-auto flex items-center gap-2 lg:ml-0">
                   <Button
                     variant="outline"
                     className="hidden h-7 w-7 p-0 lg:flex"
-                    onClick={() => table.setPageIndex(0)}
-                    disabled={!table.getCanPreviousPage()}
+                    onClick={() => changePage(1)}
+                    disabled={pagination.page <= 1}
                   >
                     <span className="sr-only">Go to first page</span>
                     <ChevronsLeft className="size-3" />
@@ -522,8 +670,8 @@ export function LogsPage() {
                     variant="outline"
                     className="size-7"
                     size="icon"
-                    onClick={() => table.previousPage()}
-                    disabled={!table.getCanPreviousPage()}
+                    onClick={() => changePage(pagination.page - 1)}
+                    disabled={pagination.page <= 1}
                   >
                     <span className="sr-only">Go to previous page</span>
                     <ChevronLeft className="size-3" />
@@ -532,8 +680,8 @@ export function LogsPage() {
                     variant="outline"
                     className="size-7"
                     size="icon"
-                    onClick={() => table.nextPage()}
-                    disabled={!table.getCanNextPage()}
+                    onClick={() => changePage(pagination.page + 1)}
+                    disabled={pagination.page >= pagination.pages}
                   >
                     <span className="sr-only">Go to next page</span>
                     <ChevronRight className="size-3" />
@@ -542,8 +690,8 @@ export function LogsPage() {
                     variant="outline"
                     className="hidden size-7 lg:flex"
                     size="icon"
-                    onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-                    disabled={!table.getCanNextPage()}
+                    onClick={() => changePage(pagination.pages)}
+                    disabled={pagination.page >= pagination.pages}
                   >
                     <span className="sr-only">Go to last page</span>
                     <ChevronsRight className="size-3" />

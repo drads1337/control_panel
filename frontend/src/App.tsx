@@ -7,6 +7,7 @@ import { RemoteControlPage } from "@/features/remote-control"
 import { SecurityPage } from "@/features/security"
 import { WebhooksPage } from "@/features/webhooks-control"
 import { LogsPage } from "@/features/logs"
+import { ProfilePage } from "@/features/profile"
 import { AppLayout } from "@/components/layout"
 
 export function App() {
@@ -66,6 +67,14 @@ export function App() {
         element={
           <AppLayout>
             <LogsPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <AppLayout>
+            <ProfilePage />
           </AppLayout>
         }
       />
