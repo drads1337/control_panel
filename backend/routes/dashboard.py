@@ -776,6 +776,180 @@ def _authenticated_api_metrics(project_id=None):
         logging.error(f"Error getting API metrics: {str(e)}")
         return jsonify({"error": "Failed to retrieve API metrics"}), 500
 
+@dashboard_bp.route("/countries-map", methods=["GET"])
+@jwt_required()
+@require_project_with_grace_period
+@require_project_isolation
+def get_countries_map_data(project_id=None):
+    """
+    Get countries data with coordinates for map visualization
+    """
+    try:
+        user_id = get_jwt_identity()
+        user = User.query.get(user_id)
+
+        if not user:
+            return jsonify({"error": "Access denied"}), 403
+
+        project_filter = project_id
+        is_owner = RBACManager.is_owner(user)
+
+        if project_filter is None and not is_owner:
+            return (
+                jsonify(
+                    {
+                        "error": "Project isolation required. All queries must be filtered by project_id."
+                    }
+                ),
+                403,
+            )
+
+        week_ago = datetime.utcnow() - timedelta(days=7)
+
+        # Get countries with request counts
+        if project_filter:
+            countries_query = (
+                db.session.query(
+                    UserActivity.country,
+                    func.count(UserActivity.id).label("request_count")
+                )
+                .filter(
+                    and_(
+                        UserActivity.project_id == project_filter,
+                        UserActivity.country.isnot(None),
+                        UserActivity.created_at >= week_ago,
+                    )
+                )
+                .group_by(UserActivity.country)
+                .order_by(desc(func.count(UserActivity.id)))
+            )
+        else:
+            countries_query = (
+                db.session.query(
+                    UserActivity.country,
+                    func.count(UserActivity.id).label("request_count")
+                )
+                .filter(
+                    and_(
+                        UserActivity.country.isnot(None),
+                        UserActivity.created_at >= week_ago,
+                    )
+                )
+                .group_by(UserActivity.country)
+                .order_by(desc(func.count(UserActivity.id)))
+            )
+
+        countries_data = countries_query.all()
+
+        # Country to coordinates mapping (capital cities)
+        country_coords = {
+            "United States": {"lat": 38.9072, "lng": -77.0369},
+            "Russia": {"lat": 55.7558, "lng": 37.6173},
+            "China": {"lat": 39.9042, "lng": 116.4074},
+            "United Kingdom": {"lat": 51.5074, "lng": -0.1278},
+            "Germany": {"lat": 52.5200, "lng": 13.4050},
+            "France": {"lat": 48.8566, "lng": 2.3522},
+            "Japan": {"lat": 35.6762, "lng": 139.6503},
+            "India": {"lat": 28.6139, "lng": 77.2090},
+            "Brazil": {"lat": -15.7942, "lng": -47.8822},
+            "Canada": {"lat": 45.4215, "lng": -75.6972},
+            "Australia": {"lat": -35.2809, "lng": 149.1300},
+            "Italy": {"lat": 41.9028, "lng": 12.4964},
+            "Spain": {"lat": 40.4168, "lng": -3.7038},
+            "Netherlands": {"lat": 52.3676, "lng": 4.9041},
+            "Poland": {"lat": 52.2297, "lng": 21.0122},
+            "Sweden": {"lat": 59.3293, "lng": 18.0686},
+            "Switzerland": {"lat": 46.9481, "lng": 7.4474},
+            "Belgium": {"lat": 50.8503, "lng": 4.3517},
+            "Austria": {"lat": 48.2082, "lng": 16.3738},
+            "Norway": {"lat": 59.9139, "lng": 10.7522},
+            "Denmark": {"lat": 55.6761, "lng": 12.5683},
+            "Finland": {"lat": 60.1699, "lng": 24.9384},
+            "South Korea": {"lat": 37.5665, "lng": 126.9780},
+            "Singapore": {"lat": 1.3521, "lng": 103.8198},
+            "Mexico": {"lat": 19.4326, "lng": -99.1332},
+            "Argentina": {"lat": -34.6037, "lng": -58.3816},
+            "South Africa": {"lat": -25.7479, "lng": 28.2293},
+            "Turkey": {"lat": 41.0082, "lng": 28.9784},
+            "Indonesia": {"lat": -6.2088, "lng": 106.8456},
+            "Thailand": {"lat": 13.7563, "lng": 100.5018},
+            "Vietnam": {"lat": 21.0285, "lng": 105.8542},
+            "Philippines": {"lat": 14.5995, "lng": 120.9842},
+            "Malaysia": {"lat": 3.1390, "lng": 101.6869},
+            "New Zealand": {"lat": -41.2865, "lng": 174.7762},
+            "Israel": {"lat": 31.7683, "lng": 35.2137},
+            "United Arab Emirates": {"lat": 24.4539, "lng": 54.3773},
+            "Saudi Arabia": {"lat": 24.7136, "lng": 46.6753},
+            "Egypt": {"lat": 30.0444, "lng": 31.2357},
+            "Ukraine": {"lat": 50.4501, "lng": 30.5234},
+            "Czech Republic": {"lat": 50.0755, "lng": 14.4378},
+            "Romania": {"lat": 44.4268, "lng": 26.1025},
+            "Portugal": {"lat": 38.7223, "lng": -9.1393},
+            "Greece": {"lat": 37.9838, "lng": 23.7275},
+            "Ireland": {"lat": 53.3498, "lng": -6.2603},
+            "Hungary": {"lat": 47.4979, "lng": 19.0402},
+            "Chile": {"lat": -33.4489, "lng": -70.6693},
+            "Colombia": {"lat": 4.7110, "lng": -74.0721},
+            "Peru": {"lat": -12.0464, "lng": -77.0428},
+            "Venezuela": {"lat": 10.4806, "lng": -66.9036},
+            "Pakistan": {"lat": 33.6844, "lng": 73.0479},
+            "Bangladesh": {"lat": 23.8103, "lng": 90.4125},
+            "Nigeria": {"lat": 6.5244, "lng": 3.3792},
+            "Kenya": {"lat": -1.2921, "lng": 36.8219},
+            "Morocco": {"lat": 33.9716, "lng": -6.8498},
+            "Algeria": {"lat": 36.7538, "lng": 3.0588},
+            "Tunisia": {"lat": 36.8065, "lng": 10.1815},
+            "Kazakhstan": {"lat": 51.1694, "lng": 71.4491},
+            "Belarus": {"lat": 53.9045, "lng": 27.5615},
+            "Bulgaria": {"lat": 42.6977, "lng": 23.3219},
+            "Croatia": {"lat": 45.8150, "lng": 15.9819},
+            "Serbia": {"lat": 44.7866, "lng": 20.4489},
+            "Slovakia": {"lat": 48.1486, "lng": 17.1077},
+            "Slovenia": {"lat": 46.0569, "lng": 14.5058},
+            "Lithuania": {"lat": 54.6872, "lng": 25.2797},
+            "Latvia": {"lat": 56.9496, "lng": 24.1052},
+            "Estonia": {"lat": 59.4370, "lng": 24.7536},
+            "Iceland": {"lat": 64.1466, "lng": -21.9426},
+            "Luxembourg": {"lat": 49.6116, "lng": 6.1319},
+            "Malta": {"lat": 35.8997, "lng": 14.5146},
+            "Cyprus": {"lat": 35.1856, "lng": 33.3823},
+        }
+
+        # Build response with coordinates
+        countries_map_data = []
+        for country, count in countries_data:
+            coords = country_coords.get(country)
+            if coords:
+                countries_map_data.append({
+                    "country": country,
+                    "requests": count,
+                    "latitude": coords["lat"],
+                    "longitude": coords["lng"],
+                })
+            else:
+                # Try to find by partial match
+                for key, value in country_coords.items():
+                    if country.lower() in key.lower() or key.lower() in country.lower():
+                        countries_map_data.append({
+                            "country": country,
+                            "requests": count,
+                            "latitude": value["lat"],
+                            "longitude": value["lng"],
+                        })
+                        break
+
+        return jsonify({
+            "countries": countries_map_data,
+            "total_countries": len(countries_map_data),
+            "total_requests": sum(item["requests"] for item in countries_map_data),
+        })
+
+    except Exception as e:
+        logging.error(f"Error getting countries map data: {str(e)}")
+        import traceback
+        logging.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({"error": "Failed to retrieve countries map data"}), 500
+
 @dashboard_bp.route("/load-status", methods=["GET"])
 @jwt_required()
 @require_project_with_grace_period

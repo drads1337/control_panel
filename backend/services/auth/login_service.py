@@ -339,6 +339,7 @@ class LoginService:
         user_agent: str,
         session_id: str,
         details: str = "Successful login",
+        action: str = "login",
     ) -> None:
         """
         Log user login activity.
@@ -349,6 +350,7 @@ class LoginService:
             user_agent: Client user agent
             session_id: Session identifier
             details: Activity details
+            action: Action type (default: "login")
         """
         if not self._activity_service:
             raise ServiceError(
@@ -358,7 +360,8 @@ class LoginService:
         activity_service = self._activity_service
         try:
             activity_service.log_activity(
-                user, "login", ip=ip, user_agent=user_agent, details=details, session_id=session_id
+                user, action, ip=ip, user_agent=user_agent, details=details, session_id=session_id,
+                force_flush=True
             )
         except Exception as e:
             self.logger.warning(f"Failed to log login activity: {e}")

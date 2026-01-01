@@ -106,6 +106,7 @@ import {
   ToggleGroupItem,
 } from "@/components/ui/toggle-group"
 import { TrendingUpIcon, TrendingDownIcon, GripVerticalIcon, CheckCircle2Icon, LoaderIcon, ChevronDownIcon, PlusIcon, ChevronsLeftIcon, ChevronLeftIcon, ChevronRightIcon, ChevronsRightIcon, MoreVerticalIcon } from "lucide-react"
+import { CountriesMap } from "./components/CountriesMap"
 
 const data = [
   {
@@ -230,6 +231,9 @@ export default function Dashboard01Block() {
           <SectionCards />
           <div className="px-4 lg:px-6">
             <ChartAreaInteractive />
+          </div>
+          <div className="px-4 lg:px-6">
+            <CountriesMap />
           </div>
           <DataTable data={data} />
         </div>

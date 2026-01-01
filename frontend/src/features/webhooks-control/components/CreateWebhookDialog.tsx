@@ -41,42 +41,55 @@ export function CreateWebhookDialog({
   return (
     <ConditionalRender permission="webhooks.create" fallback={null}>
       <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-base">Create Webhook</DialogTitle>
-          <DialogDescription className="mt-1 text-xs">
-            Configure a new webhook to receive real-time notifications
-          </DialogDescription>
-        </DialogHeader>
+        <DialogContent className="w-full sm:max-w-[420px] p-0 gap-0 overflow-hidden">
+          {/* Header */}
+          <DialogHeader className="p-4 pb-1 bg-muted/5">
+            <div className="space-y-1">
+              <DialogTitle className="text-xl font-semibold">
+                Create Webhook
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                Configure a new webhook to receive real-time notifications
+              </DialogDescription>
+            </div>
+          </DialogHeader>
 
-        <WebhookForm
-          formData={formData}
-          setFormData={setFormData}
-          secretsVisibility={secretsVisibility}
-          setSecretsVisibility={setSecretsVisibility}
-          customHeaders={customHeaders}
-          setCustomHeaders={setCustomHeaders}
-          isEdit={false}
-        />
+          <div className="p-4 overflow-y-auto max-h-[calc(100vh-200px)]">
+            <WebhookForm
+              formData={formData}
+              setFormData={setFormData}
+              secretsVisibility={secretsVisibility}
+              setSecretsVisibility={setSecretsVisibility}
+              customHeaders={customHeaders}
+              setCustomHeaders={setCustomHeaders}
+              isEdit={false}
+            />
+          </div>
 
-        <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end mt-4">
-          <Button 
-            variant="outline" 
-            onClick={() => onOpenChange(false)}
-            className="w-full sm:w-auto"
-          >
-            Cancel
-          </Button>
-          <Button 
-            onClick={onCreateWebhook} 
-            disabled={saving}
-            className="w-full sm:w-auto"
-          >
-            {saving ? (<><Spinner className="mr-2 h-4 w-4 animate-spin" />Creating...</>) : 'Create Webhook'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          {/* Footer */}
+          <DialogFooter className="flex justify-end gap-2 p-4 pt-2 border-t">
+            <Button 
+              variant="outline" 
+              onClick={() => onOpenChange(false)}
+              disabled={saving}
+              className="h-8 text-xs"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={onCreateWebhook} 
+              disabled={saving}
+              className="h-8 text-xs min-w-[80px]"
+            >
+              {saving ? (
+                <Spinner className="size-3" />
+              ) : (
+                'Create Webhook'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </ConditionalRender>
   );
 }

@@ -786,6 +786,7 @@ def logout():
                     request.headers.get("User-Agent", ""),
                     "",
                     "User logged out",
+                    action="logout",
                 )
             except Exception as e:
                 logger.warning(f"Failed to log logout activity: {e}")

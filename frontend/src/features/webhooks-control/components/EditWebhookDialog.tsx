@@ -47,43 +47,55 @@ export function EditWebhookDialog({
   return (
     <ConditionalRender permission="webhooks.edit" fallback={null}>
       <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Edit Webhook</DialogTitle>
-          <DialogDescription>
-            Update webhook configuration for "{editingWebhook?.name}"
-          </DialogDescription>
-        </DialogHeader>
+        <DialogContent className="w-full sm:max-w-[420px] p-0 gap-0 overflow-hidden">
+          {/* Header */}
+          <DialogHeader className="p-4 pb-1 bg-muted/5">
+            <div className="space-y-1">
+              <DialogTitle className="text-xl font-semibold">
+                Edit Webhook
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                Update webhook configuration for "{editingWebhook?.name}"
+              </DialogDescription>
+            </div>
+          </DialogHeader>
 
-        <WebhookForm
-          formData={formData}
-          setFormData={setFormData}
-          secretsVisibility={secretsVisibility}
-          setSecretsVisibility={setSecretsVisibility}
-          customHeaders={customHeaders}
-          setCustomHeaders={setCustomHeaders}
-          isEdit={true}
-        />
+          <div className="p-4 overflow-y-auto max-h-[calc(100vh-200px)]">
+            <WebhookForm
+              formData={formData}
+              setFormData={setFormData}
+              secretsVisibility={secretsVisibility}
+              setSecretsVisibility={setSecretsVisibility}
+              customHeaders={customHeaders}
+              setCustomHeaders={setCustomHeaders}
+              isEdit={true}
+            />
+          </div>
 
-        <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end mt-4">
-          <Button 
-            variant="outline" 
-            onClick={() => onOpenChange(false)}
-            className="w-full sm:w-auto"
-          >
-            Cancel
-          </Button>
-          <Button 
-            onClick={onUpdateWebhook} 
-            disabled={saving}
-            className="w-full sm:w-auto"
-          >
-            {saving && <Spinner className="h-4 w-4 mr-2" />}
-            Update Webhook
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          {/* Footer */}
+          <DialogFooter className="flex justify-end gap-2 p-4 pt-2 border-t">
+            <Button 
+              variant="outline" 
+              onClick={() => onOpenChange(false)}
+              disabled={saving}
+              className="h-8 text-xs"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={onUpdateWebhook} 
+              disabled={saving}
+              className="h-8 text-xs min-w-[80px]"
+            >
+              {saving ? (
+                <Spinner className="size-3" />
+              ) : (
+                'Update Webhook'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </ConditionalRender>
   );
 }

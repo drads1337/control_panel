@@ -112,6 +112,7 @@ class AuthService:
         user_agent: str,
         session_id: str,
         details: str = "Successful login",
+        action: str = "login",
     ) -> None:
         """
         Log user login activity.
@@ -124,6 +125,7 @@ class AuthService:
             user_agent: Client user agent
             session_id: Session identifier
             details: Activity details
+            action: Action type (default: "login")
         """
         if not self._login_service:
             raise ServiceError(
@@ -131,7 +133,7 @@ class AuthService:
                 status_code=500
             )
         login_service = self._login_service
-        login_service.log_login_activity(user, ip, user_agent, session_id, details)
+        login_service.log_login_activity(user, ip, user_agent, session_id, details, action)
 
     def check_project_security(
         self, user: User, ip: str, user_agent: str

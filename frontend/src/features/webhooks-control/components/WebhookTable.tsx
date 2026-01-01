@@ -58,7 +58,7 @@ export function WebhookTable({
     if (webhook.webhook_type === 'telegram') {
       return (
         <div className="flex items-center gap-2 max-w-full">
-          <span className="truncate text-xs sm:text-sm">
+          <span className="truncate text-xs">
             {webhook.telegram_chat_id?.startsWith('@') ?
               `User: ${webhook.telegram_chat_id}` :
               `Chat: ${webhook.telegram_chat_id}`
@@ -67,10 +67,10 @@ export function WebhookTable({
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6 shrink-0"
+            className="h-8 w-8 shrink-0"
             onClick={() => onCopyToClipboard(webhook.telegram_chat_id || '')}
           >
-            <Copy className="h-3 w-3" />
+            <Copy className="size-3" />
           </Button>
         </div>
       );
@@ -78,16 +78,16 @@ export function WebhookTable({
     if (webhook.webhook_type === 'discord') {
       return (
         <div className="flex items-center gap-2 max-w-full">
-          <span className="truncate text-xs sm:text-sm">
+          <span className="truncate text-xs">
             {webhook.discord_webhook_url ? 'Webhook URL' : `Channel: ${webhook.discord_channel_id}`}
           </span>
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6 shrink-0"
+            className="h-8 w-8 shrink-0"
             onClick={() => onCopyToClipboard(webhook.discord_webhook_url || webhook.discord_channel_id || '')}
           >
-            <Copy className="h-3 w-3" />
+            <Copy className="size-3" />
           </Button>
         </div>
       );
@@ -95,14 +95,14 @@ export function WebhookTable({
     if (webhook.webhook_type === 'custom') {
       return (
         <div className="flex items-center gap-2 max-w-full">
-          <span className="truncate text-xs sm:text-sm">{webhook.url}</span>
+          <span className="truncate text-xs">{webhook.url}</span>
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6 shrink-0"
+            className="h-8 w-8 shrink-0"
             onClick={() => onCopyToClipboard(webhook.url || '')}
           >
-            <Copy className="h-3 w-3" />
+            <Copy className="size-3" />
           </Button>
         </div>
       );
@@ -111,24 +111,26 @@ export function WebhookTable({
   };
 
   return (
-    <Card>
-      <CardHeader className="pb-3 sm:pb-0 relative">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-0">
+    <div className="px-4 lg:px-6">
+      <Card className="p-3 border rounded-lg bg-background shadow-sm">
+        <CardHeader className="p-0 pb-1 relative">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
           <div>
-            <CardTitle className="text-base">Webhooks</CardTitle>
-            <CardDescription className="mt-1 text-xs">
+            <CardTitle className="text-xl font-semibold">Webhooks</CardTitle>
+            <CardDescription className="text-xs">
               {webhooks.length || 0} total
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             {onRefresh && (
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={onRefresh}
                 disabled={refreshing}
+                className="h-8 w-8"
               >
-                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`size-3 ${refreshing ? 'animate-spin' : ''}`} />
               </Button>
             )}
             <ConditionalRender permission="webhooks.create" fallback={null}>
@@ -136,9 +138,9 @@ export function WebhookTable({
                 variant="default"
                 size="sm"
                 onClick={onCreateClick}
-                className="hidden sm:flex"
+                className="hidden sm:flex h-8 text-xs gap-1.5"
               >
-                <Plus className="h-4 w-4 mr-1.5" />
+                <Plus className="size-3" />
                 Create Webhook
               </Button>
             </ConditionalRender>
@@ -149,26 +151,26 @@ export function WebhookTable({
             variant="default"
             size="icon"
             onClick={onCreateClick}
-            className="sm:hidden absolute top-4 right-4"
+            className="sm:hidden absolute top-0 right-0 h-8 w-8"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="size-3" />
           </Button>
         </ConditionalRender>
       </CardHeader>
-      <CardContent className="pt-0 sm:-mt-3">
+      <CardContent className="p-0 pt-1">
         {webhooks.length === 0 ? (
-          <div className="flex items-center justify-center py-12">
+          <div className="flex items-center justify-center py-8">
             <div className="text-center">
-              <Webhook className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-              <div className="text-sm text-muted-foreground">No webhooks found</div>
+              <Webhook className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+              <div className="text-xs text-muted-foreground">No webhooks found</div>
               <ConditionalRender permission="webhooks.create" fallback={null}>
                 <Button
                   variant="default"
                   size="sm"
                   onClick={onCreateClick}
-                  className="mt-4"
+                  className="mt-3 h-8 text-xs gap-1.5"
                 >
-                  <Plus className="h-4 w-4 mr-2" />
+                  <Plus className="size-3" />
                   Create First Webhook
                 </Button>
               </ConditionalRender>
@@ -177,22 +179,22 @@ export function WebhookTable({
         ) : (
           <>
             {/* --- MOBILE VIEW (Card List) --- */}
-            <div className="space-y-4 sm:hidden mt-4">
+            <div className="space-y-3 sm:hidden mt-3">
               {webhooks.map((webhook) => (
-                <div key={webhook.id} className="border rounded-lg p-4 space-y-4 bg-card text-card-foreground shadow-sm">
+                <div key={webhook.id} className="border border-muted-foreground/10 rounded-md p-2 space-y-2 bg-muted/10 shadow-sm">
                   {/* Header: Name & Switch */}
                   <div className="flex items-start justify-between">
                     <div>
-                      <div className="font-medium text-sm">{webhook.name}</div>
+                      <div className="font-medium text-xs">{webhook.name}</div>
                       <div className="mt-1">
                          <Badge variant="outline" className="capitalize text-[10px] px-1.5 h-5">
                           {webhook.webhook_type}
                         </Badge>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
                         <ConditionalRender permission="webhooks.edit" fallback={
-                          <Badge variant={webhook.is_active ? 'default' : 'secondary'} className="text-[10px]">
+                          <Badge variant={webhook.is_active ? 'default' : 'secondary'} className="text-[10px] px-1.5 h-5">
                             {webhook.is_active ? 'Active' : 'Inactive'}
                           </Badge>
                         }>
@@ -206,8 +208,8 @@ export function WebhookTable({
                   </div>
 
                   {/* Body: Target & Events */}
-                  <div className="space-y-2 text-sm">
-                    <div className="bg-muted/30 p-2 rounded text-muted-foreground">
+                  <div className="space-y-1.5 text-xs">
+                    <div className="bg-muted/30 p-1.5 rounded-md border border-muted-foreground/10 text-muted-foreground">
                       {renderTarget(webhook)}
                     </div>
                     
@@ -226,43 +228,43 @@ export function WebhookTable({
                   </div>
 
                   {/* Footer: Stats & Actions */}
-                  <div className="pt-3 border-t flex flex-col gap-3">
+                  <div className="pt-2 border-t border-muted-foreground/10 flex flex-col gap-2">
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
-                       <div className="flex gap-3 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1.5">
+                       <div className="flex gap-2 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
                             <span className="h-1.5 w-1.5 rounded-full bg-green-500"></span>
                             {webhook.success_count}
                           </span>
-                          <span className="flex items-center gap-1.5">
+                          <span className="flex items-center gap-1">
                             <span className="h-1.5 w-1.5 rounded-full bg-red-500"></span>
                             {webhook.failure_count}
                           </span>
                        </div>
                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
+                          <Clock className="size-3" />
                           {webhook.last_triggered ? new Date(webhook.last_triggered).toLocaleDateString() : 'Never'}
                        </div>
                     </div>
 
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="grid grid-cols-4 gap-1">
                         <ConditionalRender permission="webhooks.view_logs" fallback={<div/>}>
-                          <Button variant="outline" size="sm" onClick={() => onLogsClick(webhook)} className="w-full h-8 px-0">
-                            <Eye className="h-3.5 w-3.5" />
+                          <Button variant="outline" size="sm" onClick={() => onLogsClick(webhook)} className="w-full h-8 px-0 hover:bg-muted/50">
+                            <Eye className="size-3" />
                           </Button>
                         </ConditionalRender>
                         <ConditionalRender permission="webhooks.test" fallback={<div/>}>
-                          <Button variant="outline" size="sm" onClick={() => onTestClick(webhook.id)} className="w-full h-8 px-0">
-                            <Play className="h-3.5 w-3.5" />
+                          <Button variant="outline" size="sm" onClick={() => onTestClick(webhook.id)} className="w-full h-8 px-0 hover:bg-muted/50">
+                            <Play className="size-3" />
                           </Button>
                         </ConditionalRender>
                         <ConditionalRender permission="webhooks.edit" fallback={<div/>}>
-                          <Button variant="outline" size="sm" onClick={() => onEditClick(webhook)} className="w-full h-8 px-0">
-                            <Edit className="h-3.5 w-3.5" />
+                          <Button variant="outline" size="sm" onClick={() => onEditClick(webhook)} className="w-full h-8 px-0 hover:bg-muted/50">
+                            <Edit className="size-3" />
                           </Button>
                         </ConditionalRender>
                         <ConditionalRender permission="webhooks.delete" fallback={<div/>}>
-                          <Button variant="outline" size="sm" onClick={() => onDeleteClick(webhook.id)} className="w-full h-8 px-0 text-destructive hover:text-destructive">
-                            <Trash2 className="h-3.5 w-3.5" />
+                          <Button variant="outline" size="sm" onClick={() => onDeleteClick(webhook.id)} className="w-full h-8 px-0 text-destructive hover:text-destructive hover:bg-muted/50">
+                            <Trash2 className="size-3" />
                           </Button>
                         </ConditionalRender>
                     </div>
@@ -271,95 +273,97 @@ export function WebhookTable({
               ))}
             </div>
 
-            <div className="hidden sm:block rounded-md border overflow-x-auto">
+            <div className="hidden sm:block rounded-md border border-muted-foreground/10 overflow-x-auto bg-muted/10">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Target</TableHead>
-                    <TableHead>Events</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Statistics</TableHead>
-                    <TableHead>Last Triggered</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead className="text-xs h-8">Name</TableHead>
+                    <TableHead className="text-xs h-8">Type</TableHead>
+                    <TableHead className="text-xs h-8">Target</TableHead>
+                    <TableHead className="text-xs h-8">Events</TableHead>
+                    <TableHead className="text-xs h-8">Status</TableHead>
+                    <TableHead className="text-xs h-8">Statistics</TableHead>
+                    <TableHead className="text-xs h-8">Last Triggered</TableHead>
+                    <TableHead className="text-xs h-8">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {webhooks.map((webhook) => (
-                    <TableRow key={webhook.id}>
-                      <TableCell className="font-medium">{webhook.name}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="capitalize">
+                    <TableRow key={webhook.id} className="hover:bg-muted/50">
+                      <TableCell className="font-medium text-xs py-2">{webhook.name}</TableCell>
+                      <TableCell className="py-2">
+                        <Badge variant="outline" className="capitalize text-[10px] px-1.5">
                           {webhook.webhook_type}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-2">
                          {renderTarget(webhook)}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-2">
                         <div className="flex flex-wrap gap-1">
                           {webhook.events.slice(0, 2).map((event) => (
-                            <Badge key={event} variant="secondary" className="text-xs">
+                            <Badge key={event} variant="secondary" className="text-[10px] px-1.5">
                               {event}
                             </Badge>
                           ))}
                           {webhook.events.length > 2 && (
-                            <Badge variant="outline" className="text-xs">
+                            <Badge variant="outline" className="text-[10px] px-1.5">
                               +{webhook.events.length - 2} more
                             </Badge>
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
+                      <TableCell className="py-2">
+                        <div className="flex items-center gap-1">
                           <ConditionalRender permission="webhooks.edit" fallback={
-                            <Badge variant={webhook.is_active ? 'default' : 'secondary'}>
+                            <Badge variant={webhook.is_active ? 'default' : 'secondary'} className="text-[10px] px-1.5">
                               {webhook.is_active ? 'Active' : 'Inactive'}
                             </Badge>
                           }>
                             <Switch
                               checked={webhook.is_active}
                               onCheckedChange={() => onToggleStatus(webhook)}
+                              className="scale-90"
                             />
-                            <Badge variant={webhook.is_active ? 'default' : 'secondary'}>
+                            <Badge variant={webhook.is_active ? 'default' : 'secondary'} className="text-[10px] px-1.5">
                               {webhook.is_active ? 'Active' : 'Inactive'}
                             </Badge>
                           </ConditionalRender>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1.5">
+                      <TableCell className="py-2">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
                             <span className="h-1.5 w-1.5 rounded-full bg-green-500"></span>
                             {webhook.success_count}
                           </span>
-                          <span className="flex items-center gap-1.5">
+                          <span className="flex items-center gap-1">
                             <span className="h-1.5 w-1.5 rounded-full bg-red-500"></span>
                             {webhook.failure_count}
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-2">
                         {webhook.last_triggered ? (
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                            <Clock className="h-3 w-3" />
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Clock className="size-3" />
                             {new Date(webhook.last_triggered).toLocaleDateString()}
                           </div>
                         ) : (
-                          <span className="text-sm text-muted-foreground">Never</span>
+                          <span className="text-xs text-muted-foreground">Never</span>
                         )}
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
+                      <TableCell className="py-2">
+                        <div className="flex items-center gap-1">
                           <ConditionalRender permission="webhooks.view_logs" fallback={null}>
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => onLogsClick(webhook)}
                               aria-label={`View logs for webhook ${webhook.name || webhook.id}`}
+                              className="h-8 w-8 hover:bg-muted/50"
                             >
-                              <Eye className="h-3 w-3" />
+                              <Eye className="size-3" />
                             </Button>
                           </ConditionalRender>
                           <ConditionalRender permission="webhooks.test" fallback={null}>
@@ -368,8 +372,9 @@ export function WebhookTable({
                               size="sm"
                               onClick={() => onTestClick(webhook.id)}
                               aria-label={`Test webhook ${webhook.name || webhook.id}`}
+                              className="h-8 w-8 hover:bg-muted/50"
                             >
-                              <Play className="h-3 w-3" />
+                              <Play className="size-3" />
                             </Button>
                           </ConditionalRender>
                           <ConditionalRender permission="webhooks.edit" fallback={null}>
@@ -378,8 +383,9 @@ export function WebhookTable({
                               size="sm"
                               onClick={() => onEditClick(webhook)}
                               aria-label={`Edit webhook ${webhook.name || webhook.id}`}
+                              className="h-8 w-8 hover:bg-muted/50"
                             >
-                              <Edit className="h-3 w-3" />
+                              <Edit className="size-3" />
                             </Button>
                           </ConditionalRender>
                           <ConditionalRender permission="webhooks.delete" fallback={null}>
@@ -388,8 +394,9 @@ export function WebhookTable({
                               size="sm"
                               onClick={() => onDeleteClick(webhook.id)}
                               aria-label={`Delete webhook ${webhook.name || webhook.id}`}
+                              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-muted/50"
                             >
-                              <Trash2 className="h-3 w-3" />
+                              <Trash2 className="size-3" />
                             </Button>
                           </ConditionalRender>
                         </div>
@@ -402,7 +409,8 @@ export function WebhookTable({
           </>
         )}
       </CardContent>
-    </Card>
+      </Card>
+    </div>
   );
 }
 

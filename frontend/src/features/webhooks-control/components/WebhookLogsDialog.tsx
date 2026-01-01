@@ -63,25 +63,30 @@ export function WebhookLogsDialog({
   return (
     <ConditionalRender permission="webhooks.view_logs" fallback={null}>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="w-[95vw] sm:max-w-4xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
-          <DialogHeader className="p-6 pb-2 shrink-0">
-            <DialogTitle>Webhook Logs</DialogTitle>
-            <DialogDescription>
-              Execution logs for {webhook?.name}
-            </DialogDescription>
+        <DialogContent className="w-full sm:max-w-4xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
+          {/* Header */}
+          <DialogHeader className="p-4 pb-1 bg-muted/5 shrink-0">
+            <div className="space-y-1">
+              <DialogTitle className="text-xl font-semibold">
+                Webhook Logs
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                Execution logs for {webhook?.name}
+              </DialogDescription>
+            </div>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto p-6 pt-2">
+          <div className="flex-1 overflow-y-auto p-4 max-h-[calc(100vh-200px)]">
             {loading ? (
               <div className="flex items-center justify-center py-8">
                 <Spinner size="lg" />
-                <span className="ml-2">Loading webhook logs...</span>
+                <span className="ml-2 text-xs">Loading webhook logs...</span>
               </div>
             ) : !webhookLogs || webhookLogs.length === 0 ? (
               <div className="text-center py-8">
                 <Clock className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No logs yet</h3>
-                <p className="text-muted-foreground">
+                <h3 className="text-base font-semibold mb-2">No logs yet</h3>
+                <p className="text-xs text-muted-foreground">
                   This webhook hasn't been triggered yet
                 </p>
               </div>
@@ -92,17 +97,17 @@ export function WebhookLogsDialog({
                     <div key={log.id} className="border rounded-lg p-3 space-y-3 bg-card">
                       <div className="flex justify-between items-start">
                         <div>
-                          <p className="text-sm font-medium text-foreground">{log.event}</p>
-                          <p className="text-xs text-muted-foreground mt-1">
+                          <p className="text-xs font-medium text-foreground">{log.event}</p>
+                          <p className="text-[10px] text-muted-foreground mt-1">
                             {new Date(log.created_at).toLocaleString()}
                           </p>
                         </div>
-                        <Badge variant={log.success ? 'default' : 'destructive'}>
+                        <Badge variant={log.success ? 'default' : 'destructive'} className="text-[10px] h-5 px-1.5">
                           {log.success ? 'Success' : 'Failed'}
                         </Badge>
                       </div>
 
-                      <div className="flex items-center gap-2 text-xs">
+                      <div className="flex items-center gap-2 text-[10px]">
                          <span className="text-muted-foreground">Status:</span>
                          {log.response_status ? (
                             <Badge variant="outline" className="text-[10px] h-5 px-1.5">{log.response_status}</Badge>
@@ -110,7 +115,7 @@ export function WebhookLogsDialog({
                       </div>
 
                       {log.error_message && (
-                        <div className="bg-destructive/10 p-2 rounded text-xs text-red-600 break-all">
+                        <div className="bg-destructive/10 p-2 rounded text-[10px] text-red-600 break-all">
                           <span className="font-semibold block mb-0.5">Error:</span>
                           {log.error_message}
                         </div>
@@ -123,35 +128,35 @@ export function WebhookLogsDialog({
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Event</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Response</TableHead>
-                        <TableHead>Error</TableHead>
-                        <TableHead>Time</TableHead>
+                        <TableHead className="text-xs">Event</TableHead>
+                        <TableHead className="text-xs">Status</TableHead>
+                        <TableHead className="text-xs">Response</TableHead>
+                        <TableHead className="text-xs">Error</TableHead>
+                        <TableHead className="text-xs">Time</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {webhookLogs.map((log) => (
                         <TableRow key={log.id}>
-                          <TableCell className="font-medium">{log.event}</TableCell>
+                          <TableCell className="font-medium text-xs">{log.event}</TableCell>
                           <TableCell>
-                            <Badge variant={log.success ? 'default' : 'destructive'}>
+                            <Badge variant={log.success ? 'default' : 'destructive'} className="text-[10px] h-5 px-1.5">
                               {log.success ? 'Success' : 'Failed'}
                             </Badge>
                           </TableCell>
                           <TableCell>
                             {log.response_status && (
-                              <Badge variant="outline">{log.response_status}</Badge>
+                              <Badge variant="outline" className="text-[10px] h-5 px-1.5">{log.response_status}</Badge>
                             )}
                           </TableCell>
                           <TableCell>
                             {log.error_message && (
-                              <div className="text-sm text-red-600 max-w-xs truncate" title={log.error_message}>
+                              <div className="text-xs text-red-600 max-w-xs truncate" title={log.error_message}>
                                 {log.error_message}
                               </div>
                             )}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="text-xs">
                             {new Date(log.created_at).toLocaleString()}
                           </TableCell>
                         </TableRow>
@@ -163,21 +168,22 @@ export function WebhookLogsDialog({
             )}
           </div>
 
-          <DialogFooter className="p-6 pt-4 border-t flex flex-row justify-end gap-2 shrink-0">
+          {/* Footer */}
+          <DialogFooter className="flex justify-end gap-2 p-4 pt-2 border-t shrink-0">
             <Button 
               variant="ghost" 
               onClick={loadWebhookLogs}
               disabled={loading}
-              size="icon"
+              className="h-8 w-8 p-0"
             >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
             </Button>
             <Button 
               variant="ghost" 
               onClick={() => onOpenChange(false)}
-              size="icon"
+              className="h-8 w-8 p-0"
             >
-              <X className="h-4 w-4" />
+              <X className="h-3 w-3" />
             </Button>
           </DialogFooter>
         </DialogContent>
