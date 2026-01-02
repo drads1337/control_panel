@@ -31,11 +31,6 @@ export interface ProjectSettings {
     encryption_algorithm: string
     key_rotation_days: number
   }
-  backup: {
-    auto_backup_enabled: boolean
-    backup_frequency_hours: number
-    backup_retention_days: number
-  }
   offline_auth: {
     offline_auth_enabled: boolean
     offline_ticket_expiration_hours: number
@@ -48,7 +43,6 @@ export interface UpdateSettingsData {
   security?: Partial<ProjectSettings['security']>
   security_features?: Partial<ProjectSettings['security_features']>
   encryption?: Partial<ProjectSettings['encryption']>
-  backup?: Partial<ProjectSettings['backup']>
   offline_auth?: Partial<ProjectSettings['offline_auth']>
   appearance?: Record<string, any>
 }

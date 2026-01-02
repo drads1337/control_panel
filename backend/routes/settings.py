@@ -1687,6 +1687,59 @@ def update_security_rule(rule_id, validated_data=None):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@settings_bp.route("/api/settings/security/rules/<int:rule_id>", methods=["GET"])
+@jwt_required()
+@require_project_with_grace_period
+@require_project_isolation
+def get_security_rule(rule_id):
+    """Get a single security rule with full details"""
+    try:
+        rbac_service = get_service('rbac_service')
+        user_id = get_jwt_identity()
+        project_id, error = get_user_project_id(user_id)
+
+        if error:
+            return jsonify({"error": error}), 404 if "not found" in error else 403
+
+        user = User.query.get(user_id)
+
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        if not user.project_id:
+            return jsonify({"error": "User must be assigned to a project"}), 403
+
+        if not rbac_service.check_permission(user.id, "system.manage_maintenance"):
+            return jsonify({"error": "Insufficient permissions"}), 403
+
+        from ..models.security import SecurityRule
+
+        rule = SecurityRule.query.filter_by(id=rule_id, project_id=project_id).first()
+        if not rule:
+            return jsonify({"error": "Security rule not found"}), 404
+
+        return jsonify({
+            "rule": {
+                "id": rule.id,
+                "name": rule.name,
+                "description": rule.description,
+                "rule_type": rule.rule_type,
+                "conditions": json.loads(rule.conditions) if rule.conditions else {},
+                "action_type": rule.action_type,
+                "action_params": json.loads(rule.action_params) if rule.action_params else {},
+                "is_active": rule.is_active,
+                "priority": rule.priority,
+                "cooldown_minutes": rule.cooldown_minutes,
+                "created_at": rule.created_at.isoformat(),
+                "updated_at": rule.updated_at.isoformat() if rule.updated_at else rule.created_at.isoformat(),
+                "trigger_count": rule.trigger_count,
+                "last_triggered": rule.last_triggered.isoformat() if rule.last_triggered else None,
+            }
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @settings_bp.route("/api/settings/security/rules/<int:rule_id>", methods=["DELETE"])
 @jwt_required()
 @require_project_with_grace_period

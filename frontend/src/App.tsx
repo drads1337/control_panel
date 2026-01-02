@@ -8,6 +8,7 @@ import { SecurityPage } from "@/features/security"
 import { WebhooksPage } from "@/features/webhooks-control"
 import { LogsPage } from "@/features/logs"
 import { ProfilePage } from "@/features/profile"
+import { ProjectSettingsPage } from "@/features/project-settings"
 import { AppLayout } from "@/components/layout"
 
 export function App() {
@@ -75,6 +76,14 @@ export function App() {
         element={
           <AppLayout>
             <ProfilePage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/project-settings"
+        element={
+          <AppLayout>
+            <ProjectSettingsPage />
           </AppLayout>
         }
       />

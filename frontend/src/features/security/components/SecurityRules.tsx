@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { securityAPI, SecurityRule } from '@/shared/api/security'
 import { toast } from 'sonner'
 import { useSecurityPermissions } from '@/contexts/security-permissions-context'
+import SecuritySettings from './SecuritySettings'
 
 interface SecurityRulesProps {
   onRefresh?: () => void
@@ -45,11 +46,23 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
   }, [onRefresh, refetch])
 
   const [localRules, setLocalRules] = useState<SecurityRule[]>([])
+  const [selectedRule, setSelectedRule] = useState<SecurityRule | null>(null)
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false)
+
   useEffect(() => {
     if (rules.length > 0) {
       setLocalRules(rules)
     }
   }, [rules])
+
+  const handleRuleClick = useCallback((rule: SecurityRule) => {
+    // Only open settings for rules that have configurable settings
+    const configurableRules = ['Geo-blocking', 'Brute Force Protection', 'Failed Login Protection']
+    if (configurableRules.includes(rule.name)) {
+      setSelectedRule(rule)
+      setSettingsDialogOpen(true)
+    }
+  }, [])
 
   const getSeverityColor = useCallback((severity: string) => {
     switch (severity.toLowerCase()) {
@@ -79,19 +92,27 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
   const RuleItem = React.memo(({ 
     rule, 
     onToggle,
+    onRuleClick,
     canManage,
     getSeverityColor,
     getTypeIcon
   }: { 
     rule: SecurityRule;
     onToggle: (ruleId: number) => void;
+    onRuleClick: (rule: SecurityRule) => void;
     canManage: boolean;
     getSeverityColor: (severity: string) => string;
     getTypeIcon: (type: string) => React.ReactElement;
   }) => {
+    const configurableRules = ['Geo-blocking', 'Brute Force Protection', 'Failed Login Protection']
+    const isConfigurable = configurableRules.includes(rule.name)
+
     return (
       <div className="flex items-center justify-between p-2.5 border-b hover:bg-muted/50 transition-colors">
-        <div className="flex items-center gap-3 flex-1 min-w-0">
+        <div 
+          className={`flex items-center gap-3 flex-1 min-w-0 ${isConfigurable ? 'cursor-pointer' : ''}`}
+          onClick={() => isConfigurable && onRuleClick(rule)}
+        >
           <div className="h-9 w-9 rounded-full bg-muted/30 border border-muted-foreground/20 flex items-center justify-center">
             {getTypeIcon(rule.type)}
           </div>
@@ -122,7 +143,7 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
           <Switch
             checked={rule.isActive}
             onCheckedChange={() => onToggle(rule.id)}
@@ -138,10 +159,11 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
   const RulesList: React.FC<{
     rules: SecurityRule[];
     onToggle: (ruleId: number) => void;
+    onRuleClick: (rule: SecurityRule) => void;
     canManage: boolean;
     getSeverityColor: (severity: string) => string;
     getTypeIcon: (type: string) => React.ReactElement;
-  }> = ({ rules, onToggle, canManage, getSeverityColor, getTypeIcon }) => {
+  }> = ({ rules, onToggle, onRuleClick, canManage, getSeverityColor, getTypeIcon }) => {
     const parentRef = useRef<HTMLDivElement>(null);
     const shouldVirtualize = rules.length > 30;
 
@@ -185,6 +207,7 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
                     <RuleItem
                       rule={rule}
                       onToggle={onToggle}
+                      onRuleClick={onRuleClick}
                       canManage={canManage}
                       getSeverityColor={getSeverityColor}
                       getTypeIcon={getTypeIcon}
@@ -205,6 +228,7 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
             key={rule.id}
             rule={rule}
             onToggle={onToggle}
+            onRuleClick={onRuleClick}
             canManage={canManage}
             getSeverityColor={getSeverityColor}
             getTypeIcon={getTypeIcon}
@@ -241,6 +265,7 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
             <RulesList
               rules={localRules}
               onToggle={toggleRule}
+              onRuleClick={handleRuleClick}
               canManage={canManageRules}
               getSeverityColor={getSeverityColor}
               getTypeIcon={getTypeIcon}
@@ -248,6 +273,14 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
           )}
         </CardContent>
       </Card>
+
+      <SecuritySettings
+        rule={selectedRule}
+        open={settingsDialogOpen}
+        onOpenChange={setSettingsDialogOpen}
+        onRefresh={onRefresh}
+        loading={loading}
+      />
     </div>
   )
 }

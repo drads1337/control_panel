@@ -196,15 +196,6 @@ class SettingsManager:
                     ),
                     "key_rotation_days": int(getattr(settings, "key_rotation_days", 90) or 90),
                 },
-                "backup": {
-                    "auto_backup_enabled": bool(getattr(settings, "auto_backup_enabled", False)),
-                    "backup_frequency_hours": int(
-                        getattr(settings, "backup_frequency_hours", 24) or 24
-                    ),
-                    "backup_retention_days": int(
-                        getattr(settings, "backup_retention_days", 30) or 30
-                    ),
-                },
                 "offline_auth": {
                     "offline_auth_enabled": bool(getattr(settings, "offline_auth_enabled", False)),
                     "offline_ticket_expiration_hours": int(
@@ -228,7 +219,6 @@ class SettingsManager:
                 admin_only_sections = [
                     "encryption_keys",
                     "encryption",
-                    "backup",
                     "system",
                     "security_features",
                     "security",
@@ -403,13 +393,6 @@ class SettingsManager:
                 if key in encryption:
                     setattr(encryption_settings, key, encryption[key])
 
-        if "backup" in settings_data:
-            backup_settings = helper.get_backup_settings()
-            backup = settings_data["backup"]
-            for key in ["auto_backup_enabled", "backup_frequency_hours", "backup_retention_days"]:
-                if key in backup:
-                    setattr(backup_settings, key, backup[key])
-        
         if "offline_auth" in settings_data:
             offline_auth_settings = helper.get_offline_auth_settings()
             offline_auth = settings_data["offline_auth"]

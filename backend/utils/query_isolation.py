@@ -62,7 +62,6 @@ PROJECT_SCOPED_MODELS: Set[str] = {
     "ProjectSecuritySettings",
     "ProjectSystemSettings",
     "ProjectEncryptionSettings",
-    "ProjectBackupSettings",
     "ProjectChatSettings",
     "ProjectOfflineAuthSettings",
     "ProjectAppearanceSettings",

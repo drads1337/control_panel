@@ -135,7 +135,6 @@ class SettingsRepository:
         security = helper.get_security_settings()
         system = helper.get_system_settings()
         encryption = helper.get_encryption_settings()
-        backup = helper.get_backup_settings()
         chat = helper.get_chat_settings()
         offline_auth = helper.get_offline_auth_settings()
         appearance = helper.get_appearance_settings()
@@ -164,8 +163,6 @@ class SettingsRepository:
                 self.suspicious_activity_check_enabled = security.suspicious_activity_check_enabled
                 self.session_limiting_enabled = security.session_limiting_enabled
                 self.auto_log_cleanup_enabled = security.auto_log_cleanup_enabled
-                
-
                 self.max_connections = system.max_connections
                 self.session_timeout_minutes = system.session_timeout_minutes
                 self.log_file_size_mb = system.log_file_size_mb
@@ -173,31 +170,16 @@ class SettingsRepository:
                 self.auto_save_enabled = system.auto_save_enabled
                 self.analytics_enabled = system.analytics_enabled
                 self.system_notifications_enabled = system.system_notifications_enabled
-                
-
                 self.encryption_enabled = encryption.encryption_enabled
                 self.encryption_algorithm = encryption.encryption_algorithm
                 self.key_rotation_days = encryption.key_rotation_days
                 self.project_master_key = encryption.project_master_key
-                
-
-                self.auto_backup_enabled = backup.auto_backup_enabled
-                self.backup_frequency_hours = backup.backup_frequency_hours
-                self.backup_retention_days = backup.backup_retention_days
-                
-
                 self.chat_message_limit_per_minute = chat.chat_message_limit_per_minute
                 self.chat_daily_message_limit = chat.chat_daily_message_limit
                 self.chat_message_max_length = chat.chat_message_max_length
-                
-
                 self.offline_auth_enabled = offline_auth.offline_auth_enabled
                 self.offline_ticket_expiration_hours = offline_auth.offline_ticket_expiration_hours
-                
-
                 self.appearance_settings = appearance.appearance_settings
-                
-
                 self.invite_code_required = invite.invite_code_required
         
         return AggregatedSettings()

@@ -9,6 +9,7 @@ import {
   Search,
   User,
   Users,
+  Settings2,
 } from "lucide-react"
 import { Link, useLocation } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
@@ -36,6 +37,7 @@ const navigationItems = [
   { path: "/security", label: "Security", icon: Shield },
   { path: "/webhooks", label: "Webhooks", icon: Webhook },
   { path: "/logs", label: "Logs", icon: FileText },
+  { path: "/project-settings", label: "Project Settings", icon: Settings2 },
 ]
 
 export function SiteHeader({ title = "Dashboard" }: SiteHeaderProps) {

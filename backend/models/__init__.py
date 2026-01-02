@@ -67,7 +67,6 @@ from .user import (
 from .project import (
     Project,
     ProjectAppearanceSettings,
-    ProjectBackupSettings,
     ProjectChatSettings,
     ProjectEncryptionKeys,
     ProjectEncryptionSettings,

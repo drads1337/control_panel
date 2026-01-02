@@ -401,26 +401,6 @@ class ProjectEncryptionSettings(db.Model):
         return f"<ProjectEncryptionSettings(project_id={self.project_id})>"
 
 
-class ProjectBackupSettings(db.Model):
-    """Model for storing project backup settings"""
-
-    id = db.Column(db.Integer, primary_key=True)
-    project_id = db.Column(
-        db.Integer, db.ForeignKey("project.id", ondelete="CASCADE"), nullable=False, unique=True
-    )
-    project = db.relationship("Project", backref="backup_settings")
-
-    auto_backup_enabled = db.Column(db.Boolean, default=False)
-    backup_frequency_hours = db.Column(db.Integer, default=24)
-    backup_retention_days = db.Column(db.Integer, default=30)
-
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    def __repr__(self):
-        return f"<ProjectBackupSettings(project_id={self.project_id})>"
-
-
 class ProjectChatSettings(db.Model):
     """Model for storing project chat settings"""
 
@@ -505,7 +485,6 @@ class ProjectSettings(db.Model):
     - ProjectSecuritySettings
     - ProjectSystemSettings
     - ProjectEncryptionSettings
-    - ProjectBackupSettings
     - ProjectChatSettings
     - ProjectOfflineAuthSettings
     - ProjectAppearanceSettings
@@ -548,9 +527,6 @@ class ProjectSettings(db.Model):
     encryption_enabled = db.Column(db.Boolean, default=False)
     encryption_algorithm = db.Column(db.String(32), default="AES-256")
     key_rotation_days = db.Column(db.Integer, default=90)
-    auto_backup_enabled = db.Column(db.Boolean, default=False)
-    backup_frequency_hours = db.Column(db.Integer, default=24)
-    backup_retention_days = db.Column(db.Integer, default=30)
     appearance_settings = db.Column(db.Text, nullable=True)
     project_master_key = db.Column(db.Text, nullable=True)
     invite_code_required = db.Column(db.Boolean, default=True)

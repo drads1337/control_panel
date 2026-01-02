@@ -8,7 +8,6 @@ Specialized models:
 - ProjectSecuritySettings: Security-related settings
 - ProjectSystemSettings: System configuration
 - ProjectEncryptionSettings: Encryption configuration
-- ProjectBackupSettings: Backup configuration
 - ProjectChatSettings: Chat configuration
 - ProjectOfflineAuthSettings: Offline authentication
 - ProjectAppearanceSettings: Appearance/UI settings
@@ -26,7 +25,6 @@ from ..core.extensions import db
 from ..models.core import (
     Project,
     ProjectAppearanceSettings,
-    ProjectBackupSettings,
     ProjectChatSettings,
     ProjectEncryptionSettings,
     ProjectInviteSettings,
@@ -103,23 +101,6 @@ class ProjectSettingsHelper:
             db.session.add(settings)
             db.session.commit()
             logger.info(f"Created new encryption settings for project {self.project_id}")
-        
-        return settings
-
-    def get_backup_settings(self) -> ProjectBackupSettings:
-        """
-        Get backup settings from ProjectBackupSettings.
-        
-        Returns:
-            ProjectBackupSettings instance (created with defaults if doesn't exist)
-        """
-        settings = ProjectBackupSettings.query.filter_by(project_id=self.project_id).first()
-        
-        if not settings:
-            settings = ProjectBackupSettings(project_id=self.project_id)
-            db.session.add(settings)
-            db.session.commit()
-            logger.info(f"Created new backup settings for project {self.project_id}")
         
         return settings
 
@@ -232,7 +213,6 @@ def migrate_project_settings(project_id: int) -> Dict[str, bool]:
             "security": True,
             "system": True,
             "encryption": True,
-            "backup": True,
             "chat": True,
             "offline_auth": True,
             "appearance": True,
@@ -300,19 +280,6 @@ def migrate_project_settings(project_id: int) -> Dict[str, bool]:
     except Exception as e:
         logger.error(f"Failed to migrate encryption settings for project {project_id}: {e}")
         results["encryption"] = False
-    
-
-    try:
-        backup = helper.get_backup_settings()
-        backup.auto_backup_enabled = legacy_settings.auto_backup_enabled
-        backup.backup_frequency_hours = legacy_settings.backup_frequency_hours
-        backup.backup_retention_days = legacy_settings.backup_retention_days
-        db.session.commit()
-        results["backup"] = True
-        logger.info(f"Migrated backup settings for project {project_id}")
-    except Exception as e:
-        logger.error(f"Failed to migrate backup settings for project {project_id}: {e}")
-        results["backup"] = False
     
 
     try:

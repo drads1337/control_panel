@@ -2,9 +2,9 @@
 Remote Control Pydantic schemas
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from .common import BaseSchema
 
@@ -71,7 +71,7 @@ class RemoteFeatureCreateSchema(BaseSchema):
     description: Optional[str] = Field(default="", max_length=1000, description="Feature description")
     enabled: bool = Field(default=False, description="Whether the feature is enabled")
     status: str = Field(default="offline", description="Feature status")
-    configuration: Optional[Dict[str, Any]] = Field(default=None, description="Feature configuration")
+    configuration: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = Field(default=None, description="Feature configuration")
 
     @field_validator("name")
     @classmethod
@@ -90,6 +90,31 @@ class RemoteFeatureCreateSchema(BaseSchema):
             raise ValueError(f"Status must be one of {allowed_statuses}")
         return v
 
+    @model_validator(mode="after")
+    def validate_configuration(self):
+        """Validate configuration structure, especially feature types"""
+        if self.configuration:
+            # If configuration contains a 'type' field, validate it
+            if isinstance(self.configuration, dict) and "type" in self.configuration:
+                allowed_types = ["toggle", "slider", "int-slider", "float-slider", "select"]
+                feature_type = self.configuration.get("type")
+                if feature_type not in allowed_types:
+                    raise ValueError(
+                        f"Feature type must be one of {allowed_types}, got: {feature_type}"
+                    )
+            
+            # If configuration is a list (for multiple features), validate each
+            if isinstance(self.configuration, list):
+                allowed_types = ["toggle", "slider", "int-slider", "float-slider", "select"]
+                for item in self.configuration:
+                    if isinstance(item, dict) and "type" in item:
+                        feature_type = item.get("type")
+                        if feature_type not in allowed_types:
+                            raise ValueError(
+                                f"Feature type must be one of {allowed_types}, got: {feature_type}"
+                            )
+        return self
+
 
 class RemoteFeatureUpdateSchema(BaseSchema):
     """Schema for updating a remote feature"""
@@ -99,7 +124,7 @@ class RemoteFeatureUpdateSchema(BaseSchema):
     description: Optional[str] = Field(default=None, max_length=1000, description="Feature description")
     enabled: Optional[bool] = Field(default=None, description="Whether the feature is enabled")
     status: Optional[str] = Field(default=None, description="Feature status")
-    configuration: Optional[Dict[str, Any]] = Field(default=None, description="Feature configuration")
+    configuration: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = Field(default=None, description="Feature configuration")
 
     @field_validator("name")
     @classmethod
@@ -121,4 +146,29 @@ class RemoteFeatureUpdateSchema(BaseSchema):
         if v not in allowed_statuses:
             raise ValueError(f"Status must be one of {allowed_statuses}")
         return v
+
+    @model_validator(mode="after")
+    def validate_configuration(self):
+        """Validate configuration structure, especially feature types"""
+        if self.configuration:
+            # If configuration contains a 'type' field, validate it
+            if isinstance(self.configuration, dict) and "type" in self.configuration:
+                allowed_types = ["toggle", "slider", "int-slider", "float-slider", "select"]
+                feature_type = self.configuration.get("type")
+                if feature_type not in allowed_types:
+                    raise ValueError(
+                        f"Feature type must be one of {allowed_types}, got: {feature_type}"
+                    )
+            
+            # If configuration is a list (for multiple features), validate each
+            if isinstance(self.configuration, list):
+                allowed_types = ["toggle", "slider", "int-slider", "float-slider", "select"]
+                for item in self.configuration:
+                    if isinstance(item, dict) and "type" in item:
+                        feature_type = item.get("type")
+                        if feature_type not in allowed_types:
+                            raise ValueError(
+                                f"Feature type must be one of {allowed_types}, got: {feature_type}"
+                            )
+        return self
 

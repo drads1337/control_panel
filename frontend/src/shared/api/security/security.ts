@@ -81,6 +81,8 @@ export interface SecurityRule {
   updatedAt: string
   triggerCount: number
   lastTriggered?: string
+  conditions?: any
+  actionParams?: any
 }
 
 export interface SecurityEvent {
@@ -202,6 +204,42 @@ class SecurityAPI {
       params: { days }
     })
     return response.data
+  }
+
+  async updateSecurityRule(ruleId: number, data: {
+    conditions?: any
+    action_params?: any
+    is_active?: boolean
+    priority?: number
+    cooldown_minutes?: number
+  }): Promise<{ message: string; rule: any }> {
+    const response = await apiClient.put(`/api/settings/security/rules/${ruleId}`, data)
+    return response.data
+  }
+
+  async getSecurityRuleByName(ruleName: string): Promise<SecurityRule | null> {
+    const rules = await this.getSecurityRules()
+    return rules.find(rule => rule.name === ruleName) || null
+  }
+
+  async getSecurityRuleDetails(ruleId: number): Promise<{
+    id: number
+    name: string
+    description: string
+    rule_type: string
+    conditions: any
+    action_type: string
+    action_params: any
+    is_active: boolean
+    priority: number
+    cooldown_minutes: number
+    created_at: string
+    updated_at: string
+    trigger_count: number
+    last_triggered?: string
+  }> {
+    const response = await apiClient.get(`/api/settings/security/rules/${ruleId}`)
+    return response.data.rule
   }
 }
 

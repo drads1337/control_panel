@@ -74,7 +74,7 @@ interface FeatureGroup {
 interface Feature {
   id: string
   label: string
-  type: 'toggle' | 'slider' | 'select'
+  type: 'toggle' | 'slider' | 'int-slider' | 'float-slider' | 'select'
   value: boolean | number | string
   min?: number
   max?: number
@@ -97,7 +97,7 @@ const INITIAL_FEATURES: FeatureGroup[] = [
       { id: 'esp_master', label: 'Master Switch', type: 'toggle', value: true },
       { id: 'esp_box', label: 'Box Type', type: 'select', value: '2D Corners', options: ['2D Full', '2D Corners', '3D Box'] },
       { id: 'esp_skeleton', label: 'Skeleton Overlay', type: 'toggle', value: true },
-      { id: 'esp_dist', label: 'Render Distance', type: 'slider', value: 500, min: 100, max: 2000 },
+      { id: 'esp_dist', label: 'Render Distance', type: 'int-slider', value: 500, min: 100, max: 2000 },
     ]
   },
   {
@@ -123,22 +123,6 @@ export function RemoteControlPage() {
   const [categoryDescription, setCategoryDescription] = useState('')
   const [refreshing, setRefreshing] = useState(false)
 
-  if (!isInitialized) {
-    return null
-  }
-
-  if (!isAuthenticated || !user) {
-    return (
-      <AccessDenied
-        isAuthenticated={false}
-        hasAccess={false}
-        user={user}
-        message="You need to be logged in to access remote control."
-        useCard={true}
-      />
-    )
-  }
-
   // Set first product as selected when products are loaded
   useEffect(() => {
     if (products.length > 0 && !selectedProduct) {
@@ -157,6 +141,22 @@ export function RemoteControlPage() {
       }
     }
   }, [selectedProduct])
+
+  if (!isInitialized) {
+    return null
+  }
+
+  if (!isAuthenticated || !user) {
+    return (
+      <AccessDenied
+        isAuthenticated={false}
+        hasAccess={false}
+        user={user}
+        message="You need to be logged in to access remote control."
+        useCard={true}
+      />
+    )
+  }
 
   const handleFeatureChange = (groupId: string, featureId: string, newValue: any) => {
     setFeatures(prev => prev.map(group => {
@@ -476,7 +476,7 @@ export function RemoteControlPage() {
             </div>
 
             {/* Features Grid */}
-            {selectedSession ? (
+            {selectedSession && !(totalCategories === 0 && onlineFeatures === 0) ? (
               <div className="flex-1 overflow-auto bg-muted/5">
                   <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
                       {features.map(group => (
@@ -517,18 +517,18 @@ export function RemoteControlPage() {
                                                     />
                                                 )}
                                                 
-                                                {feature.type === 'slider' && (
+                                                {(feature.type === 'slider' || feature.type === 'int-slider' || feature.type === 'float-slider') && (
                                                     <div className="flex items-center gap-2 w-full pl-2">
                                                         <Slider 
                                                             value={[feature.value as number]} 
                                                             min={feature.min} 
                                                             max={feature.max}
-                                                            step={10}
+                                                            step={feature.type === 'int-slider' ? 1 : feature.type === 'float-slider' ? 0.1 : 10}
                                                             onValueChange={(vals) => handleFeatureChange(group.id, feature.id, vals[0])}
                                                             className="flex-1"
                                                         />
                                                         <span className="text-[10px] font-mono text-muted-foreground min-w-[30px] text-right">
-                                                            {feature.value}
+                                                            {feature.type === 'float-slider' ? (feature.value as number).toFixed(1) : feature.value}
                                                         </span>
                                                     </div>
                                                 )}
@@ -561,7 +561,19 @@ export function RemoteControlPage() {
               </div>
             ) : (
               <div className="flex-1 overflow-auto bg-muted/5 flex items-center justify-center">
-                <span className="text-sm text-muted-foreground">Select a product to view sessions</span>
+                <EmptyState
+                  title="No session selected"
+                  description={totalCategories === 0 && onlineFeatures === 0
+                    ? "No categories or online features available. Create categories and add features to start using remote control."
+                    : selectedProduct 
+                      ? filteredSessions.length === 0 
+                        ? "No active sessions found for this product. Sessions will appear here when users connect."
+                        : "Select a session from the list to view and configure its remote control features."
+                      : "Select a product from the list to view available sessions."
+                  }
+                  icon={Monitor}
+                  iconStyle="rounded"
+                />
               </div>
             )}
         </div>

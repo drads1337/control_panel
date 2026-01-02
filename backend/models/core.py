@@ -25,7 +25,6 @@ from .user import (
 from .project import (
     Project,
     ProjectAppearanceSettings,
-    ProjectBackupSettings,
     ProjectChatSettings,
     ProjectEncryptionKeys,
     ProjectEncryptionSettings,
@@ -57,7 +56,6 @@ __all__ = [
     "ProjectSecuritySettings",
     "ProjectSystemSettings",
     "ProjectEncryptionSettings",
-    "ProjectBackupSettings",
     "ProjectChatSettings",
     "ProjectOfflineAuthSettings",
     "ProjectAppearanceSettings",

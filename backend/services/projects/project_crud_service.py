@@ -14,7 +14,6 @@ from ...models.core import (
     Project,
     User,
     ProjectAppearanceSettings,
-    ProjectBackupSettings,
     ProjectChatSettings,
     ProjectEncryptionKeys,
     ProjectEncryptionSettings,
@@ -371,7 +370,6 @@ class ProjectCRUDService:
 
             settings_models = [
                 ProjectAppearanceSettings,
-                ProjectBackupSettings,
                 ProjectChatSettings,
                 ProjectEncryptionSettings,
                 ProjectEncryptionKeys,
