@@ -57,6 +57,10 @@ import { getProductFiles, getStorageInfo } from "@/entities/file/api/file"
 import type { FileItem } from "@/entities/file"
 import { formatFileSize } from "@/features/file-manager/utils/file-utils"
 import { Spinner } from "@/components/ui/spinner"
+import { AccessDenied } from "@/shared/ui/components"
+import { useAuthContext } from "@/app/providers/auth-provider"
+import { usePermissions } from "@/shared/hooks/use-permissions"
+import { hasManagementAccess } from "@/shared/lib/rbac"
 
 // --- Types ---
 
@@ -93,6 +97,9 @@ const formatDate = (dateString: string) => {
 }
 
 export default function FileManager() {
+  const { user, isAuthenticated, isInitialized } = useAuthContext()
+  const { hasPermission } = usePermissions()
+  
   const {
     products,
     agents,
@@ -123,6 +130,38 @@ export default function FileManager() {
   } | null>(null)
   const [loadingStorage, setLoadingStorage] = useState(false)
   const [currentPath, setCurrentPath] = useState<string[]>(["Root"])
+
+  // Check permissions
+  const managementAccess = hasManagementAccess(user)
+  const canViewFiles = managementAccess.canViewFiles || hasPermission('files.view') || hasPermission('products.upload_files')
+
+  if (!isInitialized) {
+    return null
+  }
+
+  if (!isAuthenticated || !user) {
+    return (
+      <AccessDenied
+        isAuthenticated={false}
+        hasAccess={false}
+        user={user}
+        message="You need to be logged in to access the file manager."
+        useCard={true}
+      />
+    )
+  }
+
+  if (!canViewFiles) {
+    return (
+      <AccessDenied
+        isAuthenticated={true}
+        hasAccess={false}
+        user={user}
+        message="You don't have permission to access the file manager."
+        useCard={true}
+      />
+    )
+  }
 
   // Load storage info
   useEffect(() => {

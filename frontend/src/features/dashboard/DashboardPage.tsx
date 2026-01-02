@@ -41,6 +41,8 @@ import { z } from "zod"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { AccessDenied } from "@/shared/ui/components"
+import { useAuthContext } from "@/app/providers/auth-provider"
 import {
   Card,
   CardAction,
@@ -216,6 +218,24 @@ const drawerChartConfig = {
 } satisfies ChartConfig
 
 export default function Dashboard01Block() {
+  const { user, isAuthenticated, isInitialized } = useAuthContext()
+
+  if (!isInitialized) {
+    return null
+  }
+
+  if (!isAuthenticated || !user) {
+    return (
+      <AccessDenied
+        isAuthenticated={false}
+        hasAccess={false}
+        user={user}
+        message="You need to be logged in to view the dashboard."
+        useCard={true}
+      />
+    )
+  }
+
   return (
     <div className="flex flex-1 flex-col">
       <div className="@container/main flex flex-1 flex-col gap-2">

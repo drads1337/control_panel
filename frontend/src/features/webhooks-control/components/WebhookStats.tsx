@@ -1,23 +1,15 @@
 import React from 'react';
-import { Activity, CheckCircle, TrendingUp, AlertCircle } from 'lucide-react';
-import {
-  Card,
-  CardAction,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardFooter, CardHeader, CardTitle, CardDescription, CardAction } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import type { WebhookStats as WebhookStatsType } from '../types';
+import { Webhook, Activity, CheckCircle2, XCircle } from 'lucide-react';
+import type { WebhookData } from '../types';
 
 interface WebhookStatsProps {
-  stats: WebhookStatsType | null;
+  webhooks: WebhookData[];
   loading?: boolean;
 }
 
-const WebhookStats: React.FC<WebhookStatsProps> = React.memo(({ stats, loading = false }) => {
-  // Shared grid styling from UsersStats
+export const WebhookStats: React.FC<WebhookStatsProps> = React.memo(({ webhooks, loading = false }) => {
   const gridContainerClass = "*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-2 md:grid-cols-4 gap-3 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6";
 
   if (loading) {
@@ -40,48 +32,57 @@ const WebhookStats: React.FC<WebhookStatsProps> = React.memo(({ stats, loading =
     );
   }
 
-  if (!stats) return null;
+  const totalWebhooks = webhooks.length;
+  const activeWebhooks = webhooks.filter(w => w.is_active).length;
+  const totalRequests = webhooks.reduce((sum, w) => sum + w.success_count + w.failure_count, 0);
+  const totalSuccess = webhooks.reduce((sum, w) => sum + w.success_count, 0);
+  const totalFailures = webhooks.reduce((sum, w) => sum + w.failure_count, 0);
+  const successRate = totalRequests > 0 ? Math.round((totalSuccess / totalRequests) * 100) : 0;
 
   const statCards = [
     {
       title: 'Total Webhooks',
-      value: stats.total_webhooks || 0,
+      value: totalWebhooks,
+      icon: Webhook,
+      subtitle: totalWebhooks > 0 ? `${activeWebhooks} active` : 'No webhooks yet',
+      badge: {
+        text: `${activeWebhooks} active`,
+        color: 'primary'
+      },
+      description: 'Total webhook endpoints configured'
+    },
+    {
+      title: 'Success Rate',
+      value: `${successRate}%`,
+      icon: CheckCircle2,
+      subtitle: totalRequests > 0 ? `${totalSuccess} successful` : 'No requests yet',
+      badge: {
+        text: successRate >= 95 ? 'Excellent' : successRate >= 80 ? 'Good' : 'Needs attention',
+        color: 'primary'
+      },
+      description: 'Overall webhook delivery success rate'
+    },
+    {
+      title: 'Total Requests',
+      value: totalRequests.toLocaleString(),
       icon: Activity,
-      subtitle: (stats.total_webhooks || 0) > 0 ? `${Math.round(((stats.active_webhooks || 0) / (stats.total_webhooks || 1)) * 100) || 0}% active` : 'No webhooks yet',
-      description: 'Webhooks across project',
+      subtitle: totalRequests > 0 ? `${totalSuccess} successful, ${totalFailures} failed` : 'No activity yet',
       badge: {
-        text: `${stats.active_webhooks || 0} active`,
-      }
+        text: 'Requests',
+        color: 'primary'
+      },
+      description: 'Total webhook delivery attempts'
     },
     {
-      title: 'Active',
-      value: stats.active_webhooks || 0,
-      icon: CheckCircle,
-      subtitle: 'Currently active webhooks',
-      description: 'Webhooks currently enabled',
+      title: 'Failed Deliveries',
+      value: totalFailures,
+      icon: XCircle,
+      subtitle: totalFailures > 0 ? `${Math.round((totalFailures / totalRequests) * 100)}% failure rate` : 'No failures',
       badge: {
-        text: 'Active',
-      }
-    },
-    {
-      title: 'Successful',
-      value: stats.total_success || 0,
-      icon: TrendingUp,
-      subtitle: (stats.total_success || 0) > 0 ? `${stats.success_rate || 0}% success rate` : 'No deliveries yet',
-      description: 'Successful webhook deliveries',
-      badge: {
-        text: `${stats.success_rate || 0}% rate`,
-      }
-    },
-    {
-      title: 'Failed',
-      value: stats.total_failures || 0,
-      icon: AlertCircle,
-      subtitle: (stats.total_failures || 0) > 0 ? `${stats.total_failures} failures` : 'No failures',
-      description: 'Failed webhook deliveries',
-      badge: {
-        text: 'Failures',
-      }
+        text: totalFailures > 0 ? 'Issues' : 'All good',
+        color: 'primary'
+      },
+      description: 'Total failed webhook deliveries'
     }
   ];
 
@@ -94,7 +95,7 @@ const WebhookStats: React.FC<WebhookStatsProps> = React.memo(({ stats, loading =
             <CardHeader className="p-0 pb-1">
               <CardDescription className="text-xs">{stat.title}</CardDescription>
               <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
-                {stat.value.toLocaleString()}
+                {stat.value}
               </CardTitle>
               <CardAction>
                 <Badge variant="outline" className="text-xs h-5 px-1.5">
@@ -120,6 +121,4 @@ const WebhookStats: React.FC<WebhookStatsProps> = React.memo(({ stats, loading =
 });
 
 WebhookStats.displayName = 'WebhookStats';
-
-export { WebhookStats };
 

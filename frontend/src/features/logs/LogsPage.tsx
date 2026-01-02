@@ -60,6 +60,8 @@ import { useLogsQuery, useLogActions, type Log } from '@/entities/log'
 import { toast } from 'sonner'
 import { Spinner } from '@/components/ui/spinner'
 import { useAuthContext } from '@/app/providers/auth-provider'
+import { AccessDenied } from '@/shared/ui/components'
+import { usePermissions } from '@/shared/hooks/use-permissions'
 
 // Format date helper
 const formatTimestamp = (dateString: string | null | undefined): string => {
@@ -193,7 +195,8 @@ const columns: ColumnDef<Log>[] = [
 ]
 
 export function LogsPage() {
-  const { isAuthenticated, isInitialized } = useAuthContext()
+  const { user, isAuthenticated, isInitialized } = useAuthContext()
+  const { hasPermission } = usePermissions()
   const [actionFilter, setActionFilter] = useState<string>('ALL')
   const [searchTerm, setSearchTerm] = useState('')
   const [sorting, setSorting] = useState<SortingState>([])
@@ -298,23 +301,32 @@ export function LogsPage() {
   }, [logs])
 
   if (!isInitialized) {
+    return null
+  }
+
+  if (!isAuthenticated || !user) {
     return (
-      <div className="flex h-screen bg-background">
-        <div className="flex-1 flex items-center justify-center">
-          <Spinner size="lg" />
-        </div>
-      </div>
+      <AccessDenied
+        isAuthenticated={false}
+        hasAccess={false}
+        user={user}
+        message="You need to be logged in to view logs."
+        useCard={true}
+      />
     )
   }
 
-  if (!isAuthenticated) {
+  const canViewLogs = hasPermission('logs.view') || hasPermission('security.view_logs')
+  
+  if (!canViewLogs) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
-          <p className="text-muted-foreground">You need to be logged in to view logs.</p>
-        </div>
-      </div>
+      <AccessDenied
+        isAuthenticated={true}
+        hasAccess={false}
+        user={user}
+        message="You don't have permission to view logs."
+        useCard={true}
+      />
     )
   }
 

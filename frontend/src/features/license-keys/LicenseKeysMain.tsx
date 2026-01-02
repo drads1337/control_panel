@@ -5,6 +5,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { useAuthContext } from '@/app/providers/auth-provider';
 import { usePermissions } from '@/shared/hooks/use-permissions';
 import { ConditionalRender } from '@/shared/ui/components/rbac/conditional-render';
+import { AccessDenied } from '@/shared/ui/components';
 import { useKeysManagement } from './hooks/use-keys-management';
 import { Plus, Database } from 'lucide-react';
 import LicenseKeysFilters from './LicenseKeysFilters';
@@ -19,7 +20,7 @@ interface LicenseKeysMainProps {
 }
 
 const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToProductDatabase, activeTab }) => {
-  const { user } = useAuthContext();
+  const { user, isAuthenticated, isInitialized } = useAuthContext();
   const { hasPermission } = usePermissions();
 
   // Мемоизируем все проверки разрешений
@@ -144,14 +145,31 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToProductData
   );
 
   // Условные возвраты только ПОСЛЕ всех хуков
+  if (!isInitialized) {
+    return null;
+  }
+
+  if (!isAuthenticated || !user) {
+    return (
+      <AccessDenied
+        isAuthenticated={false}
+        hasAccess={false}
+        user={user}
+        message="You need to be logged in to access license keys."
+        useCard={true}
+      />
+    );
+  }
+
   if (!hasAnyKeyPermission) {
     return (
-      <div className="p-8">
-        <div className="text-center">
-          <div className="text-red-500 text-lg font-semibold mb-2">Access Denied</div>
-          <div className="text-gray-500">You don't have permission to access license keys.</div>
-        </div>
-      </div>
+      <AccessDenied
+        isAuthenticated={true}
+        hasAccess={false}
+        user={user}
+        message="You don't have permission to access license keys."
+        useCard={true}
+      />
     );
   }
 

@@ -62,7 +62,16 @@ export const webhookAPI = {
 
   async getWebhooks(): Promise<WebhookData[]> {
     const response = await api.get<WebhooksResponse>(`${API_ENDPOINTS.WEBHOOKS}/`)
-    return response.data.data || []
+    console.log('API getWebhooks response:', {
+      status: response.status,
+      data: response.data,
+      dataData: response.data?.data,
+      type: typeof response.data?.data,
+      isArray: Array.isArray(response.data?.data)
+    })
+    const webhooks = response.data?.data || []
+    console.log('Returning webhooks:', webhooks)
+    return webhooks
   },
 
   async getWebhookStats(): Promise<WebhookStats> {

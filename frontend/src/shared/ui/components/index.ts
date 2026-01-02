@@ -32,4 +32,6 @@ export {
   useFormField,
 } from '@/components/ui/form'
 export { AccessDenied } from './access-denied'
-export type { AccessDeniedProps } from './access-denied' 
+export type { AccessDeniedProps } from './access-denied'
+export { EmptyState } from './empty-state'
+export type { EmptyStateProps } from './empty-state' 

@@ -11,6 +11,8 @@ import { Spinner } from '@/components/ui/spinner';
 import { getProductChangelog, getAgentChangelog } from '@/entities/changelog';
 import { usePermissions } from '@/shared/hooks/use-permissions';
 import { ConditionalRender } from '@/shared/ui/components/rbac/conditional-render';
+import { AccessDenied } from '@/shared/ui/components';
+import { useAuthContext } from '@/app/providers/auth-provider';
 import { toast } from 'sonner';
 import { sanitizeString } from '@/lib/sanitization';
 import ChangelogManagementDialog from './ChangelogManagementDialog';
@@ -24,6 +26,7 @@ interface ChangelogManagerProps {
 }
 
 export default function ChangelogManager({ product, onUpdate, isAgent = false }: ChangelogManagerProps) {
+  const { user, isAuthenticated, isInitialized } = useAuthContext();
   const { hasPermission, hasAnyPermission } = usePermissions();
 
   const canViewChangelog = isAgent 
@@ -68,13 +71,31 @@ export default function ChangelogManager({ product, onUpdate, isAgent = false }:
     onUpdate?.();
   };
 
+  if (!isInitialized) {
+    return null;
+  }
+
+  if (!isAuthenticated || !user) {
+    return (
+      <AccessDenied
+        isAuthenticated={false}
+        hasAccess={false}
+        user={user}
+        message="You need to be logged in to view changelog."
+        useCard={true}
+      />
+    );
+  }
+
   if (!canViewChangelog) {
     return (
-      <Alert>
-        <AlertDescription>
-          You don't have permission to view changelog.
-        </AlertDescription>
-      </Alert>
+      <AccessDenied
+        isAuthenticated={true}
+        hasAccess={false}
+        user={user}
+        message="You don't have permission to view changelog."
+        useCard={true}
+      />
     );
   }
 

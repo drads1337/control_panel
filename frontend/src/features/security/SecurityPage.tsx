@@ -3,9 +3,9 @@ import { useAuthContext } from '@/app/providers/auth-provider';
 import { SecurityPermissionsProvider, useSecurityPermissions } from '@/contexts/security-permissions-context';
 import SecurityTabs from './components/SecurityTabs';
 import { useSecurityActions } from './hooks/use-security-actions';
-import { SecurityAccessDenied } from './components/SecurityAccessDenied';
+import { AccessDenied } from '@/shared/ui/components';
 import { Button } from '@/components/ui/button';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Shield } from 'lucide-react';
 
 function SecurityPageContent() {
   const { isAuthenticated, user, isInitialized } = useAuthContext();
@@ -50,11 +50,29 @@ function SecurityPageContent() {
   }
 
   if (!isAuthenticated || !user) {
-    return <SecurityAccessDenied message="You need to be logged in to view the security panel." />;
+    return (
+      <AccessDenied
+        isAuthenticated={false}
+        hasAccess={false}
+        user={user}
+        message="You need to be logged in to view the security panel."
+        useCard={true}
+        icon={Shield}
+      />
+    );
   }
 
   if (!securityPermissions.canViewSecurity) {
-    return <SecurityAccessDenied message="You don't have permission to access the security panel." />;
+    return (
+      <AccessDenied
+        isAuthenticated={true}
+        hasAccess={false}
+        user={user}
+        message="You don't have permission to access the security panel."
+        useCard={true}
+        icon={Shield}
+      />
+    );
   }
 
   return (

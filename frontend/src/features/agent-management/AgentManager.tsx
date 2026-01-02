@@ -15,6 +15,7 @@ import {
   Database,
   GitCommit,
   RefreshCw,
+  AlertTriangle,
 } from 'lucide-react';
 
 // Hooks
@@ -23,7 +24,8 @@ import { useAgentPermissions, useAgentDialogs, useAgentFilters, useAgentMutation
 import { ConditionalRender } from '@/shared/ui/components/rbac/conditional-render';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
-import { AgentDatabaseEmptyState, AgentDatabaseErrorState, AgentDatabaseAccessDenied } from './components';
+import { AgentDatabaseErrorState } from './components';
+import { AccessDenied, EmptyState } from '@/shared/ui/components';
 import { AgentManagerDialogs } from './components/AgentManagerDialogs';
 import type { Agent } from '@/entities/agent';
 import { cn } from '@/lib/utils';
@@ -145,7 +147,16 @@ export default function AgentManager({
   const { filteredAgents } = useAgentFilters(agents);
 
   if (!hasAnyAgentPermission) {
-    return <AgentDatabaseAccessDenied />;
+    return (
+      <AccessDenied
+        isAuthenticated={true}
+        hasAccess={false}
+        noPermissionMessage="You don't have permission to view agents."
+        useCard={true}
+        icon={AlertTriangle}
+        containerClassName="p-4 sm:p-6"
+      />
+    );
   }
 
   if (error) {
@@ -153,7 +164,21 @@ export default function AgentManager({
   }
   
   if (!loading && filteredAgents.length === 0 && agents.length === 0) {
-    return <AgentDatabaseEmptyState onCreateAgent={() => setShowCreateDialog(true)} canCreateAgents={canCreateAgents} />;
+    return (
+      <EmptyState
+        title="No Agents Yet"
+        description="Get started by creating your first agent. You can manage settings, upload files, and track usage."
+        actionLabel="Create Your First Agent"
+        onAction={() => setShowCreateDialog(true)}
+        canAction={canCreateAgents}
+        icon={Container}
+        iconStyle="gradient"
+        useCard={true}
+        buttonSize="lg"
+        showButtonIcon={true}
+        titleTag="h3"
+      />
+    );
   }
 
   return (

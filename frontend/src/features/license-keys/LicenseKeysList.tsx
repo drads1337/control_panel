@@ -25,7 +25,8 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ChevronsLeftIcon,
-  ChevronsRightIcon
+  ChevronsRightIcon,
+  Package,
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -51,7 +52,8 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { KEY_STATUS } from '@/shared/constants/key-status'
-import { LoadingState, EmptyState } from './components'
+import { LoadingState } from './components'
+import { EmptyState } from '@/shared/ui/components'
 import { isMaskedKey } from '@/shared/lib/key-masking'
 
 // Types (Mocked for context)
@@ -510,7 +512,19 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
   })
 
   if (loading) return <LoadingState message="Loading keys..." />
-  if (keys.length === 0) return <EmptyState />
+  if (keys.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 px-4">
+        <EmptyState
+          title="No License Keys Found"
+          description="Create your first license key to get started"
+          icon={Package}
+          iconStyle="dashed"
+          useCard={true}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-1 flex-col gap-4">

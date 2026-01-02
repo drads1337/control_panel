@@ -13,7 +13,7 @@ import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { ConditionalRender } from '@/shared/ui/components/rbac/conditional-render'
 import { BLOCK_TYPE_OPTIONS, BLOCK_CATEGORY_OPTIONS, SEVERITY_OPTIONS } from '@/shared/constants/filters'
-import { useBlockDialogConfig } from '@/features/security-rules/hooks/useBlockDialogConfig'
+import { useBlockDialogConfig } from '../hooks/useBlockDialogConfig'
 
 interface AddIPBlockProps {
   onAdd: (data: {

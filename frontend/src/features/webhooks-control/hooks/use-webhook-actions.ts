@@ -29,10 +29,27 @@ export function useWebhookActions() {
       ]);
 
       if (webhooksResponse.status === 'fulfilled') {
-        setWebhooks(webhooksResponse.value);
+        const webhooksData = webhooksResponse.value;
+        console.log('Webhooks loaded:', { count: webhooksData?.length, data: webhooksData });
+        setWebhooks(webhooksData || []);
       } else {
+        const reason = webhooksResponse.reason;
+        console.error('Failed to load webhooks:', reason);
+        
+        // Extract error message from the rejection reason
+        let errorMessage = 'Failed to load webhooks';
+        if (isAxiosError(reason) && reason.response?.data) {
+          const errorData = reason.response.data as { error?: string };
+          errorMessage = errorData.error || errorMessage;
+        } else if (reason instanceof Error) {
+          errorMessage = reason.message;
+        }
+        
         if (showLoading) {
+          setError(errorMessage);
           setWebhooks([]);
+        } else {
+          toast.error(errorMessage);
         }
       }
 
@@ -74,15 +91,60 @@ export function useWebhookActions() {
     }
 
     try {
-      const webhookData = {
-        ...formData,
-        headers: customHeaders.reduce((acc, header) => {
-          if (header.key && header.value) {
-            acc[header.key] = header.value;
-          }
-          return acc;
-        }, {} as Record<string, string>)
+      // Prepare headers
+      const headers = customHeaders.reduce((acc, header) => {
+        if (header.key && header.value) {
+          acc[header.key] = header.value;
+        }
+        return acc;
+      }, {} as Record<string, string>);
+
+      // Build webhook data based on type, removing empty strings
+      const webhookData: any = {
+        name: formData.name.trim(),
+        webhook_type: formData.webhook_type,
+        events: formData.events,
+        is_active: formData.is_active,
+        headers: Object.keys(headers).length > 0 ? headers : undefined,
       };
+
+      // Add secret if provided
+      if (formData.secret && formData.secret.trim()) {
+        webhookData.secret = formData.secret.trim();
+      }
+
+      // Add fields based on webhook type
+      if (formData.webhook_type === 'custom') {
+        if (formData.url && formData.url.trim()) {
+          webhookData.url = formData.url.trim();
+        }
+      } else if (formData.webhook_type === 'telegram') {
+        if (formData.telegram_bot_token && formData.telegram_bot_token.trim()) {
+          webhookData.telegram_bot_token = formData.telegram_bot_token.trim();
+        }
+        if (formData.telegram_chat_id && formData.telegram_chat_id.trim()) {
+          webhookData.telegram_chat_id = formData.telegram_chat_id.trim();
+        }
+      } else if (formData.webhook_type === 'discord') {
+        if (formData.discord_webhook_url && formData.discord_webhook_url.trim()) {
+          webhookData.discord_webhook_url = formData.discord_webhook_url.trim();
+        }
+        if (formData.discord_bot_token && formData.discord_bot_token.trim()) {
+          webhookData.discord_bot_token = formData.discord_bot_token.trim();
+        }
+        if (formData.discord_channel_id && formData.discord_channel_id.trim()) {
+          webhookData.discord_channel_id = formData.discord_channel_id.trim();
+        }
+      }
+
+      // Remove undefined values
+      Object.keys(webhookData).forEach(key => {
+        if (webhookData[key] === undefined) {
+          delete webhookData[key];
+        }
+      });
+
+      console.log('Sending webhook data:', webhookData);
 
       await webhookAPI.createWebhook(webhookData);
       toast.success('Webhook created successfully');
@@ -90,14 +152,38 @@ export function useWebhookActions() {
       return true;
     } catch (err: unknown) {
       let errorMessage = 'Error creating webhook';
-      if (isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
-        const errorData = err.response.data as { error?: string }
-        errorMessage = errorData.error || errorMessage
+      if (isAxiosError(err)) {
+        console.error('Webhook creation error:', err);
+        
+        // Network errors (server unreachable, connection refused, etc.)
+        if (err.code === 'ERR_NETWORK' || err.code === 'ERR_ADDRESS_UNREACHABLE' || err.message === 'Network Error') {
+          errorMessage = 'Cannot connect to server. Please check your network connection and ensure the server is running.';
+        } else if (err.response?.data) {
+          // Server responded with error
+          const errorData = err.response.data as { error?: string; detail?: string | Array<{ msg: string; loc: string[] }> }
+          if (errorData.error) {
+            errorMessage = errorData.error;
+          } else if (errorData.detail) {
+            if (Array.isArray(errorData.detail)) {
+              // Pydantic validation errors
+              errorMessage = errorData.detail.map((e: any) => `${e.loc?.join('.')}: ${e.msg}`).join(', ');
+            } else {
+              errorMessage = String(errorData.detail);
+            }
+          } else {
+            errorMessage = `HTTP ${err.response.status}: ${err.response.statusText}`;
+          }
+        } else if (err.response) {
+          // Response without data
+          errorMessage = `HTTP ${err.response.status}: ${err.response.statusText || 'Unknown error'}`;
+        } else {
+          errorMessage = getErrorMessage(err);
+        }
       } else {
-        errorMessage = getErrorMessage(err)
+        errorMessage = getErrorMessage(err);
       }
       toast.error(errorMessage);
-      setError(errorMessage);
+      console.error('Full error:', err);
       return false;
     }
   }, [hasPermission, loadData]);

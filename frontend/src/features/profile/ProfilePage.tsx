@@ -10,8 +10,13 @@ import { ProfileGeneralTab } from './components/ProfileGeneralTab'
 import { ProfileSecurityTab } from './components/ProfileSecurityTab'
 import { ProfileActivityTab } from './components/ProfileActivityTab'
 import { AvatarCropDialog } from './components/AvatarCropDialog'
+import { AccessDenied } from '@/shared/ui/components'
+import { useAuthContext } from '@/app/providers/auth-provider'
 
 export default function ProfilePage() {
+  const authContext = useAuthContext()
+  const { user: authUser, isAuthenticated, isInitialized } = authContext
+  
   const {
     user,
     profileData,
@@ -35,6 +40,22 @@ export default function ProfilePage() {
 
   const [activeTab, setActiveTab] = useState('general')
   const [refreshing, setRefreshing] = useState(false)
+
+  if (!isInitialized) {
+    return null
+  }
+
+  if (!isAuthenticated || !authUser) {
+    return (
+      <AccessDenied
+        isAuthenticated={false}
+        hasAccess={false}
+        user={authUser}
+        message="You need to be logged in to view your profile."
+        useCard={true}
+      />
+    )
+  }
 
   const availableTabs = useMemo(() => {
     return [

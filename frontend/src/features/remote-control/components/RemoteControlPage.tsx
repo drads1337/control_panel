@@ -47,6 +47,8 @@ import { Spinner } from '@/components/ui/spinner'
 // Hooks & Types
 import { useProductQuery } from '@/features/product-management/hooks/use-product-query'
 import type { Product } from '@/entities/product'
+import { EmptyState, AccessDenied } from '@/shared/ui/components'
+import { useAuthContext } from '@/app/providers/auth-provider'
 
 // --- Types ---
 
@@ -111,6 +113,7 @@ const INITIAL_FEATURES: FeatureGroup[] = [
 ]
 
 export function RemoteControlPage() {
+  const { user, isAuthenticated, isInitialized } = useAuthContext()
   const { products, loading: productsLoading, error: productsError } = useProductQuery()
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [selectedSession, setSelectedSession] = useState<Session | null>(null)
@@ -119,6 +122,22 @@ export function RemoteControlPage() {
   const [categoryName, setCategoryName] = useState('')
   const [categoryDescription, setCategoryDescription] = useState('')
   const [refreshing, setRefreshing] = useState(false)
+
+  if (!isInitialized) {
+    return null
+  }
+
+  if (!isAuthenticated || !user) {
+    return (
+      <AccessDenied
+        isAuthenticated={false}
+        hasAccess={false}
+        user={user}
+        message="You need to be logged in to access remote control."
+        useCard={true}
+      />
+    )
+  }
 
   // Set first product as selected when products are loaded
   useEffect(() => {
@@ -202,6 +221,17 @@ export function RemoteControlPage() {
   const onlineFeatures = features.reduce((count, group) => {
     return count + group.features.filter(f => f.type === 'toggle' && f.value === true).length
   }, 0)
+
+  // Show empty state if no products and not loading
+  if (!productsLoading && !productsError && products.length === 0) {
+    return (
+      <EmptyState
+        title="No products available"
+        description="Create your first product to start using remote control features."
+        icon={Box}
+      />
+    )
+  }
 
   const statCards = [
     {

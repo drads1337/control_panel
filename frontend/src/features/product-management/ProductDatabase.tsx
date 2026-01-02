@@ -26,7 +26,8 @@ import {
   Download,
   Users,
   X,
-  Package
+  Package,
+  AlertTriangle,
 } from 'lucide-react';
 
 // Hooks
@@ -39,7 +40,9 @@ import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ConditionalRender } from '@/shared/ui/components/rbac/conditional-render';
-import { ProductDatabaseEmptyState, ProductDatabaseErrorState, ProductDatabaseAccessDenied } from './components';
+import { ProductDatabaseErrorState } from './components';
+import { EmptyState } from '@/shared/ui/components';
+import { AccessDenied } from '@/shared/ui/components';
 import { ProductDatabaseDialogs } from './components/ProductDatabaseDialogs';
 import ViewProductDialog from './components/ViewProductDialog';
 import { Badge } from '@/components/ui/badge';
@@ -178,11 +181,36 @@ export default function ProductDatabase({
     return Math.round(((product.active_users || 0) / maxUsers) * 100);
   };
 
-  if (!canViewProducts) return <ProductDatabaseAccessDenied />;
+  if (!canViewProducts) {
+    return (
+      <AccessDenied
+        isAuthenticated={true}
+        hasAccess={false}
+        noPermissionMessage="You don't have permission to view products."
+        useCard={true}
+        icon={AlertTriangle}
+        containerClassName="p-4 sm:p-6"
+      />
+    );
+  }
   if (error) return <ProductDatabaseErrorState error={error} onRetry={refetch} />;
   
   if (!loading && filteredProducts.length === 0 && products.length === 0) {
-    return <ProductDatabaseEmptyState onCreateProduct={() => setShowCreateDialog(true)} canCreateProducts={canCreateProducts} />;
+    return (
+      <EmptyState
+        title="No Products Yet"
+        description="Get started by creating your first product. You can manage settings, upload files, and track usage."
+        actionLabel="Create Your First Product"
+        onAction={() => setShowCreateDialog(true)}
+        canAction={canCreateProducts}
+        icon={Package}
+        iconStyle="gradient"
+        useCard={true}
+        buttonSize="lg"
+        showButtonIcon={true}
+        titleTag="h3"
+      />
+    );
   }
 
   return (

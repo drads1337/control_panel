@@ -2,7 +2,6 @@ export { FileItemDesktop, FileItemMobile } from './FileItem';
 export type { FileItemProps } from './FileItem';
 export { FilesList } from './FilesList';
 export type { FilesListProps } from './FilesList';
-export { FileManagerAccessDenied } from './FileManagerAccessDenied';
 export { FileManagerEmptyState } from './FileManagerEmptyState';
 export type { FileManagerEmptyStateProps } from './FileManagerEmptyState';
 export { FileManagerSelectionBar } from './FileManagerSelectionBar';

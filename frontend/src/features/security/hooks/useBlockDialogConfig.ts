@@ -1,8 +1,6 @@
-import type { AddBlockDialogConfig } from '../AddBlockDialog'
-
 export type BlockType = 'ip' | 'hwid'
 
-interface BlockTypeConfig {
+export interface AddBlockDialogConfig {
   fieldName: string
   fieldLabel: string
   fieldPlaceholder: string
@@ -17,7 +15,7 @@ interface BlockTypeConfig {
   categoryOptions: Array<{ value: string; label: string }>
 }
 
-const BLOCK_CONFIGS: Record<BlockType, BlockTypeConfig> = {
+const BLOCK_CONFIGS: Record<BlockType, AddBlockDialogConfig> = {
   ip: {
     fieldName: 'ip_address',
     fieldLabel: 'IP Address',
@@ -81,3 +79,4 @@ const BLOCK_CONFIGS: Record<BlockType, BlockTypeConfig> = {
 export function useBlockDialogConfig(blockType: BlockType): AddBlockDialogConfig {
   return BLOCK_CONFIGS[blockType]
 }
+
