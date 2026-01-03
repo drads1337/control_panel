@@ -12,18 +12,28 @@ import { getProducts } from '@/entities/product/api/product'
 import { getErrorMessage, isAxiosError } from '@/shared/lib/utils/error-utils'
 import type { Product } from '@/entities/product'
 
-interface FeatureFormData {
+export type FeatureType = 'toggle' | 'slider' | 'int-slider' | 'float-slider' | 'select'
+export type FeatureStatus = 'offline' | 'online' | 'maintenance'
+
+export interface FeatureFormData {
   name: string
   description: string
   category_id: string
   enabled: boolean
+  status: FeatureStatus
+  type: FeatureType
+  min?: number
+  max?: number
+  step?: number
+  defaultValue?: string | number | boolean
+  options?: string // comma-separated for select type
 }
 
 interface CategoryFormData {
   name: string
   description: string
   color: string
-  product_id: number
+  product_id?: number
 }
 
 export function useRemoteControlLogic() {
@@ -50,14 +60,16 @@ export function useRemoteControlLogic() {
     name: '',
     description: '',
     category_id: '',
-    enabled: false
+    enabled: false,
+    status: 'offline',
+    type: 'toggle'
   })
 
   const [categoryFormData, setCategoryFormData] = useState<CategoryFormData>({
     name: '',
     description: '',
     color: '#3b82f6',
-    product_id: 0
+    product_id: undefined
   })
 
   const loadProducts = useCallback(async () => {
@@ -145,6 +157,36 @@ export function useRemoteControlLogic() {
     }
   }, [hasPermission])
 
+  const buildConfiguration = useCallback((formData: FeatureFormData): Record<string, any> => {
+    const config: Record<string, any> = {
+      type: formData.type
+    }
+
+    if (formData.type === 'slider' || formData.type === 'int-slider' || formData.type === 'float-slider') {
+      if (formData.min !== undefined) config.min = formData.min
+      if (formData.max !== undefined) config.max = formData.max
+      if (formData.step !== undefined) config.step = formData.step
+      if (formData.defaultValue !== undefined && formData.defaultValue !== '') {
+        config.default = typeof formData.defaultValue === 'string' 
+          ? parseFloat(formData.defaultValue as string) 
+          : formData.defaultValue
+      }
+    } else if (formData.type === 'select') {
+      if (formData.options && formData.options.trim()) {
+        config.options = formData.options.split(',').map(opt => opt.trim()).filter(opt => opt.length > 0)
+      }
+      if (formData.defaultValue !== undefined && formData.defaultValue !== '') {
+        config.default = formData.defaultValue
+      }
+    } else if (formData.type === 'toggle') {
+      if (formData.defaultValue !== undefined) {
+        config.default = formData.defaultValue === 'true' || formData.defaultValue === true
+      }
+    }
+
+    return config
+  }, [])
+
   const handleAddFeature = useCallback(async () => {
     if (!hasPermission('remote_control.create')) {
       toast.error("You don't have permission to create features")
@@ -157,11 +199,14 @@ export function useRemoteControlLogic() {
     }
 
     try {
+      const configuration = buildConfiguration(formData)
       const newFeature = await remoteControlAPI.createFeature({
         name: formData.name,
         description: formData.description,
         category_id: formData.category_id,
-        enabled: formData.enabled
+        enabled: formData.enabled,
+        status: formData.status,
+        configuration: Object.keys(configuration).length > 1 ? configuration : undefined // Only send if has more than just type
       })
 
       setFeatures(prev => [...prev, newFeature])
@@ -178,7 +223,7 @@ export function useRemoteControlLogic() {
       }
       toast.error(errorMessage)
     }
-  }, [formData, hasPermission])
+  }, [formData, hasPermission, buildConfiguration])
 
   const handleEditFeature = useCallback((feature: RemoteFeature) => {
     if (!hasPermission('remote_control.edit')) {
@@ -187,13 +232,32 @@ export function useRemoteControlLogic() {
     }
 
     setEditingFeature(feature)
-    setFormData({
+    const config = feature.configuration || {}
+    const formData: FeatureFormData = {
       name: feature.name,
-      description: feature.description,
+      description: feature.description || '',
       category_id: feature.category,
-      enabled: feature.enabled
-    })
-    setEditDialogOpen(true)
+      enabled: feature.enabled,
+      status: (feature.status as FeatureStatus) || 'offline',
+      type: (config.type as FeatureType) || 'toggle'
+    }
+
+    if (formData.type === 'slider' || formData.type === 'int-slider' || formData.type === 'float-slider') {
+      if (config.min !== undefined) formData.min = config.min
+      if (config.max !== undefined) formData.max = config.max
+      if (config.step !== undefined) formData.step = config.step
+      if (config.default !== undefined) formData.defaultValue = config.default
+    } else if (formData.type === 'select') {
+      if (Array.isArray(config.options)) {
+        formData.options = config.options.join(', ')
+      }
+      if (config.default !== undefined) formData.defaultValue = config.default
+    } else if (formData.type === 'toggle') {
+      if (config.default !== undefined) formData.defaultValue = config.default
+    }
+
+    setFormData(formData)
+    setAddDialogOpen(true) // Use addDialogOpen for feature dialog
   }, [hasPermission])
 
   const handleUpdateFeature = useCallback(async () => {
@@ -208,18 +272,21 @@ export function useRemoteControlLogic() {
     }
 
     try {
+      const configuration = buildConfiguration(formData)
       const updatedFeature = await remoteControlAPI.updateFeature(editingFeature.id, {
         name: formData.name,
         description: formData.description,
         category_id: formData.category_id,
-        enabled: formData.enabled
+        enabled: formData.enabled,
+        status: formData.status,
+        configuration: Object.keys(configuration).length > 1 ? configuration : undefined
       })
 
       setFeatures(prev => prev.map(feature =>
         feature.id === editingFeature.id ? updatedFeature : feature
       ))
 
-      setEditDialogOpen(false)
+      setAddDialogOpen(false) // Use addDialogOpen for feature dialog
       setEditingFeature(null)
       resetForm()
       toast.success(`${formData.name} successfully updated`)
@@ -233,7 +300,7 @@ export function useRemoteControlLogic() {
       }
       toast.error(errorMessage)
     }
-  }, [formData, editingFeature, hasPermission])
+  }, [formData, editingFeature, hasPermission, buildConfiguration])
 
   const handleDeleteFeature = useCallback(async (featureId: string) => {
     if (!hasPermission('remote_control.delete')) {
@@ -264,8 +331,11 @@ export function useRemoteControlLogic() {
       name: '',
       description: '',
       category_id: '',
-      enabled: false
+      enabled: false,
+      status: 'offline',
+      type: 'toggle'
     })
+    setEditingFeature(null)
   }, [])
 
   const handleAddCategory = useCallback(async () => {
@@ -398,7 +468,7 @@ export function useRemoteControlLogic() {
       name: '',
       description: '',
       color: '#3b82f6',
-      product_id: selectedProductId || 0
+      product_id: selectedProductId || undefined
     })
   }, [selectedProductId])
 

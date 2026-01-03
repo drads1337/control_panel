@@ -6,7 +6,8 @@ import {
   Monitor,
   Box,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  Plus
 } from 'lucide-react'
 
 // UI Components
@@ -31,6 +32,7 @@ import { useRemoteControlLogic } from '../hooks/use-remote-control-logic'
 import { EmptyState, AccessDenied } from '@/shared/ui/components'
 import { useAuthContext } from '@/app/providers/auth-provider'
 import { CategoryTabs, CategoryDialog } from '../category'
+import { FeatureDialog } from './FeatureDialog'
 import type { RemoteCategory } from '../category'
 
 export function RemoteControlPage() {
@@ -51,13 +53,21 @@ export function RemoteControlPage() {
     editingCategory,
     categoryFormData,
     setCategoryFormData,
+    addDialogOpen,
+    setAddDialogOpen,
+    editingFeature,
+    formData,
+    setFormData,
     handleProductChange,
     loadData,
     handleFeatureToggle,
+    handleAddFeature,
+    handleUpdateFeature,
     handleAddCategory,
     handleEditCategory,
     handleUpdateCategory,
     handleDeleteCategory,
+    resetForm,
     resetCategoryForm,
     getCategoryFeatures,
     canCreate,
@@ -325,68 +335,90 @@ export function RemoteControlPage() {
                             const categoryFeatures = getCategoryFeatures(category.id)
                             return (
                               <TabsContent key={category.id} value={category.id} className="mt-0">
-                                {categoryFeatures.length === 0 ? (
-                                  <div className="flex items-center justify-center py-12">
-                                    <EmptyState
-                                      title="No features in this category"
-                                      description="Add features to this category to start controlling them remotely."
-                                      icon={Settings}
-                                      iconStyle="rounded"
-                                    />
+                                <div className="flex flex-col gap-4">
+                                  <div className="flex items-center justify-between">
+                                    <div className="text-xs font-medium text-muted-foreground">
+                                      {categoryFeatures.length} {categoryFeatures.length === 1 ? 'feature' : 'features'}
+                                    </div>
+                                    {canCreate && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-xs px-2.5 gap-1.5"
+                                        onClick={() => {
+                                          resetForm()
+                                          setFormData(prev => ({ ...prev, category_id: category.id }))
+                                          setAddDialogOpen(true)
+                                        }}
+                                      >
+                                        <Plus className="h-3.5 w-3.5" />
+                                        Add Feature
+                                      </Button>
+                                    )}
                                   </div>
-                                ) : (
-                                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                    <Card className="p-0 border rounded-lg bg-background shadow-sm h-fit">
-                                      <div className="px-3 py-2.5 border-b bg-muted/30">
-                                        <div className="flex items-center justify-between">
-                                          <div className="flex items-center gap-2">
-                                            <div 
-                                              className="w-3 h-3 rounded-full"
-                                              style={{ backgroundColor: category.color }}
-                                            />
-                                            <CardTitle className="text-xs font-semibold">{category.name}</CardTitle>
-                                          </div>
-                                          <span className="text-[10px] font-mono text-muted-foreground opacity-50">
-                                            {categoryFeatures.length} features
-                                          </span>
-                                        </div>
-                                      </div>
-                                      <CardContent className="p-2">
-                                        <div className="space-y-0.5">
-                                          {categoryFeatures.map((feature) => (
-                                            <div key={feature.id} className="flex items-center justify-between px-2.5 py-2 hover:bg-muted/40 rounded-md transition-colors group">
-                                              <div className="flex flex-col gap-0.5 max-w-[50%]">
-                                                <Label htmlFor={feature.id} className="text-xs font-medium cursor-pointer truncate">
-                                                  {feature.name}
-                                                </Label>
-                                                <span className="text-[10px] text-muted-foreground opacity-40 group-hover:opacity-100 transition-opacity font-mono">
-                                                  {feature.id}
-                                                </span>
-                                              </div>
-
-                                              <div className="flex items-center justify-end w-[45%]">
-                                                {canToggle && (
-                                                  <Switch 
-                                                    id={feature.id}
-                                                    checked={feature.enabled} 
-                                                    onCheckedChange={() => handleFeatureToggle(feature.id)}
-                                                    className="scale-75 origin-right data-[state=checked]:bg-primary" 
-                                                    disabled={!canToggle}
-                                                  />
-                                                )}
-                                                {!canToggle && (
-                                                  <Badge variant={feature.enabled ? "default" : "secondary"} className="text-[10px]">
-                                                    {feature.enabled ? "Enabled" : "Disabled"}
-                                                  </Badge>
-                                                )}
-                                              </div>
+                                  {categoryFeatures.length === 0 ? (
+                                    <div className="flex items-center justify-center py-12">
+                                      <EmptyState
+                                        title="No features in this category"
+                                        description="Add features to this category to start controlling them remotely."
+                                        icon={Settings}
+                                        iconStyle="rounded"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                      <Card className="p-0 border rounded-lg bg-background shadow-sm h-fit">
+                                        <div className="px-3 py-2.5 border-b bg-muted/30">
+                                          <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                              <div 
+                                                className="w-3 h-3 rounded-full"
+                                                style={{ backgroundColor: category.color }}
+                                              />
+                                              <CardTitle className="text-xs font-semibold">{category.name}</CardTitle>
                                             </div>
-                                          ))}
+                                            <span className="text-[10px] font-mono text-muted-foreground opacity-50">
+                                              {categoryFeatures.length} features
+                                            </span>
+                                          </div>
                                         </div>
-                                      </CardContent>
-                                    </Card>
-                                  </div>
-                                )}
+                                        <CardContent className="p-2">
+                                          <div className="space-y-0.5">
+                                            {categoryFeatures.map((feature) => (
+                                              <div key={feature.id} className="flex items-center justify-between px-2.5 py-2 hover:bg-muted/40 rounded-md transition-colors group">
+                                                <div className="flex flex-col gap-0.5 max-w-[50%]">
+                                                  <Label htmlFor={feature.id} className="text-xs font-medium cursor-pointer truncate">
+                                                    {feature.name}
+                                                  </Label>
+                                                  <span className="text-[10px] text-muted-foreground opacity-40 group-hover:opacity-100 transition-opacity font-mono">
+                                                    {feature.id}
+                                                  </span>
+                                                </div>
+
+                                                <div className="flex items-center justify-end w-[45%]">
+                                                  {canToggle && (
+                                                    <Switch 
+                                                      id={feature.id}
+                                                      checked={feature.enabled} 
+                                                      onCheckedChange={() => handleFeatureToggle(feature.id)}
+                                                      className="scale-75 origin-right data-[state=checked]:bg-primary" 
+                                                      disabled={!canToggle}
+                                                    />
+                                                  )}
+                                                  {!canToggle && (
+                                                    <Badge variant={feature.enabled ? "default" : "secondary"} className="text-[10px]">
+                                                      {feature.enabled ? "Enabled" : "Disabled"}
+                                                    </Badge>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </CardContent>
+                                      </Card>
+                                    </div>
+                                  )}
+                                </div>
                               </TabsContent>
                             )
                           })}
@@ -423,6 +455,19 @@ export function RemoteControlPage() {
         onEditCategory={handleEditCategory}
         onDeleteCategory={handleDeleteCategory}
         onResetCategoryForm={resetCategoryForm}
+      />
+
+      {/* Feature Dialog */}
+      <FeatureDialog
+        featureDialogOpen={addDialogOpen}
+        setFeatureDialogOpen={setAddDialogOpen}
+        editingFeature={editingFeature}
+        categories={categories}
+        featureFormData={formData}
+        setFeatureFormData={setFormData}
+        onAddFeature={handleAddFeature}
+        onUpdateFeature={handleUpdateFeature}
+        onResetFeatureForm={resetForm}
       />
     </div>
   )
