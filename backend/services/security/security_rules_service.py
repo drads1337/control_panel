@@ -302,9 +302,12 @@ class SecurityRulesService:
     def _evaluate_behavioral_conditions(self, conditions: Dict, context: SecurityContext) -> bool:
         """Evaluate behavioral conditions"""
         try:
-            if "fingerprint_reuse_threshold" in conditions:
-                threshold = conditions["fingerprint_reuse_threshold"]
-                time_window_hours = conditions.get("time_window_hours", 24)
+            check_patterns = conditions.get("check_patterns", [])
+            
+            # Check fingerprint reuse
+            if "fingerprint_reuse" in check_patterns:
+                threshold = conditions.get("fingerprint_reuse_threshold", 3)
+                time_window_hours = conditions.get("fingerprint_reuse_time_window_hours", 24)
 
                 from ...models.security import SecurityEvent
 
@@ -324,10 +327,14 @@ class SecurityRulesService:
                 if unique_keys >= threshold:
                     return True
 
-            if "rapid_connections" in conditions.get("check_patterns", []):
+            # Check rapid connections
+            if "rapid_connections" in check_patterns:
                 from ...models.security import SecurityEvent
 
-                start_time = datetime.utcnow() - timedelta(hours=1)
+                threshold = conditions.get("rapid_connections_threshold", 10)
+                time_window_hours = conditions.get("rapid_connections_time_window_hours", 1)
+                start_time = datetime.utcnow() - timedelta(hours=time_window_hours)
+                
                 connection_count = SecurityEvent.query.filter(
                     SecurityEvent.fingerprint == context.fingerprint,
                     SecurityEvent.project_id == context.project_id,
@@ -335,8 +342,60 @@ class SecurityRulesService:
                     SecurityEvent.event_type == "connection_attempt",
                 ).count()
 
-                if connection_count >= 10:
+                if connection_count >= threshold:
                     return True
+
+            # Check multiple IPs (requires user_key to get user_id)
+            if "multiple_ips" in check_patterns and context.user_key:
+                from ...models.core import UserActivity
+                from ...models.keys import Key
+                
+                # Get user_id from user_key
+                key = Key.query.filter_by(key=context.user_key).first()
+                if key and key.user_id:
+                    threshold = conditions.get("multiple_ips_threshold", 3)
+                    time_window_hours = conditions.get("multiple_ips_time_window_hours", 1)
+                    start_time = datetime.utcnow() - timedelta(hours=time_window_hours)
+                    
+                    unique_ips = (
+                        db.session.query(UserActivity.ip_address)
+                        .filter(
+                            UserActivity.user_id == key.user_id,
+                            UserActivity.created_at >= start_time,
+                            UserActivity.ip_address.isnot(None),
+                        )
+                        .distinct()
+                        .count()
+                    )
+
+                    if unique_ips >= threshold:
+                        return True
+
+            # Check multiple user agents (requires user_key to get user_id)
+            if "multiple_user_agents" in check_patterns and context.user_key:
+                from ...models.core import UserActivity
+                from ...models.keys import Key
+                
+                # Get user_id from user_key
+                key = Key.query.filter_by(key=context.user_key).first()
+                if key and key.user_id:
+                    threshold = conditions.get("multiple_user_agents_threshold", 3)
+                    time_window_hours = conditions.get("multiple_user_agents_time_window_hours", 1)
+                    start_time = datetime.utcnow() - timedelta(hours=time_window_hours)
+                    
+                    unique_user_agents = (
+                        db.session.query(UserActivity.user_agent)
+                        .filter(
+                            UserActivity.user_id == key.user_id,
+                            UserActivity.created_at >= start_time,
+                            UserActivity.user_agent.isnot(None),
+                        )
+                        .distinct()
+                        .count()
+                    )
+
+                    if unique_user_agents >= threshold:
+                        return True
 
             return False
 
@@ -582,4 +641,3 @@ class SecurityRulesService:
         except Exception as e:
             db.session.rollback()
             self.logger.error(f"Error updating rule trigger for {rule_name} in project {project_id}: {e}")
-

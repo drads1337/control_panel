@@ -40,17 +40,6 @@ class SecurityRulesInitService:
             "cooldown_minutes": 5,
         },
         {
-            "name": "HWID Blacklist",
-            "description": "Block known malicious hardware IDs",
-            "rule_type": "hwid_block",
-            "conditions": json.dumps({"check_blacklist": True}),
-            "action_type": "block",
-            "action_params": json.dumps({"severity": "critical", "block_duration_hours": 0}),
-            "is_active": True,
-            "priority": 100,
-            "cooldown_minutes": 0,
-        },
-        {
             "name": "Geo-blocking",
             "description": "Block connections from specific countries",
             "rule_type": "geo_block",

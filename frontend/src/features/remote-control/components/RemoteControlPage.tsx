@@ -1,16 +1,13 @@
 "use client"
 
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import { 
-  Eye, 
   Settings, 
   Monitor,
   Box,
   Loader2,
-  Plus,
   RefreshCw
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
 
 // UI Components
 import { Card, CardContent, CardTitle, CardHeader, CardFooter, CardDescription, CardAction } from '@/components/ui/card'
@@ -19,7 +16,6 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
-import { Slider } from '@/components/ui/slider'
 import { 
   Select, 
   SelectContent, 
@@ -27,83 +23,49 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Spinner } from '@/components/ui/spinner'
+import { Tabs, TabsContent } from '@/components/ui/tabs'
 
 // Hooks & Types
-import { useProductQuery } from '@/features/product-management/hooks/use-product-query'
-import type { Product } from '@/entities/product'
+import { useRemoteControlLogic } from '../hooks/use-remote-control-logic'
 import { EmptyState, AccessDenied } from '@/shared/ui/components'
 import { useAuthContext } from '@/app/providers/auth-provider'
-
-// --- Types ---
-
-interface FeatureGroup {
-  id: string
-  title: string
-  icon: React.ReactNode
-  features: Feature[]
-}
-
-interface Feature {
-  id: string
-  label: string
-  type: 'toggle' | 'slider' | 'int-slider' | 'float-slider' | 'select'
-  value: boolean | number | string
-  min?: number
-  max?: number
-  options?: string[]
-}
-
-const INITIAL_FEATURES: FeatureGroup[] = [
-  {
-    id: 'visuals',
-    title: 'Visual Assistance',
-    icon: <Eye className="size-3" />,
-    features: [
-      { id: 'esp_master', label: 'Master Switch', type: 'toggle', value: true },
-      { id: 'esp_box', label: 'Box Type', type: 'select', value: '2D Corners', options: ['2D Full', '2D Corners', '3D Box'] },
-      { id: 'esp_skeleton', label: 'Skeleton Overlay', type: 'toggle', value: true },
-      { id: 'esp_dist', label: 'Render Distance', type: 'int-slider', value: 500, min: 100, max: 2000 },
-    ]
-  },
-  {
-    id: 'misc',
-    title: 'System & Misc',
-    icon: <Settings className="size-3" />,
-    features: [
-      { id: 'radar_2d', label: 'Radar 2D', type: 'toggle', value: true },
-      { id: 'panic_key', label: 'Panic Key', type: 'select', value: 'F12', options: ['F12', 'DEL', 'INS'] },
-      { id: 'stream_proof', label: 'Stream Proof', type: 'toggle', value: true },
-    ]
-  }
-]
+import { CategoryTabs, CategoryDialog } from '../category'
+import type { RemoteCategory } from '../category'
 
 export function RemoteControlPage() {
   const { user, isAuthenticated, isInitialized } = useAuthContext()
-  const { products, loading: productsLoading, error: productsError } = useProductQuery()
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
-  const [features, setFeatures] = useState<FeatureGroup[]>(INITIAL_FEATURES)
-  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false)
-  const [categoryName, setCategoryName] = useState('')
-  const [categoryDescription, setCategoryDescription] = useState('')
-  const [refreshing, setRefreshing] = useState(false)
-
-  // Set first product as selected when products are loaded
-  useEffect(() => {
-    if (products.length > 0 && !selectedProduct) {
-      setSelectedProduct(products[0])
-    }
-  }, [products, selectedProduct])
+  const {
+    selectedProductId,
+    products,
+    productsLoading,
+    activeTab,
+    setActiveTab,
+    features,
+    categories,
+    stats,
+    loading,
+    error,
+    categoryDialogOpen,
+    setCategoryDialogOpen,
+    editingCategory,
+    categoryFormData,
+    setCategoryFormData,
+    handleProductChange,
+    loadData,
+    handleFeatureToggle,
+    handleAddCategory,
+    handleEditCategory,
+    handleUpdateCategory,
+    handleDeleteCategory,
+    resetCategoryForm,
+    getCategoryFeatures,
+    canCreate,
+    canEdit,
+    canDelete,
+    canToggle,
+    canView
+  } = useRemoteControlLogic()
 
   if (!isInitialized) {
     return null
@@ -121,51 +83,17 @@ export function RemoteControlPage() {
     )
   }
 
-  const handleFeatureChange = (groupId: string, featureId: string, newValue: any) => {
-    setFeatures(prev => prev.map(group => {
-      if (group.id !== groupId) return group
-      return {
-        ...group,
-        features: group.features.map(f => {
-          if (f.id === featureId) return { ...f, value: newValue }
-          return f
-        })
-      }
-    }))
-  }
-
-  const handleCreateCategory = () => {
-    if (!categoryName.trim()) return
-    
-    const newCategory: FeatureGroup = {
-      id: `category_${Date.now()}`,
-      title: categoryName,
-      icon: <Settings className="size-3" />,
-      features: []
-    }
-    
-    setFeatures(prev => [...prev, newCategory])
-    setCategoryDialogOpen(false)
-    setCategoryName('')
-    setCategoryDescription('')
-  }
-
   const handleRefresh = async () => {
-    setRefreshing(true)
-    // TODO: Add actual refresh logic here (e.g., refetch products, features)
-    // Simulate refresh delay
-    await new Promise(resolve => setTimeout(resolve, 500))
-    setRefreshing(false)
+    await loadData()
   }
-  
-  // Calculate category and online features stats
-  const totalCategories = features.length
-  const onlineFeatures = features.reduce((count, group) => {
-    return count + group.features.filter(f => f.type === 'toggle' && f.value === true).length
-  }, 0)
+
+  // Calculate stats
+  const totalCategories = categories.length
+  const enabledFeatures = features.filter(f => f.enabled).length
+  const totalFeatures = features.length
 
   // Show empty state if no products and not loading
-  if (!productsLoading && !productsError && products.length === 0) {
+  if (!productsLoading && products.length === 0) {
     return (
       <EmptyState
         title="No products available"
@@ -199,17 +127,19 @@ export function RemoteControlPage() {
       description: 'Total categories configured'
     },
     {
-      title: 'Online Features',
-      value: onlineFeatures,
+      title: 'Enabled Features',
+      value: enabledFeatures,
       icon: Monitor,
-      subtitle: `${onlineFeatures} enabled`,
+      subtitle: `${enabledFeatures} enabled`,
       badge: {
-        text: `${onlineFeatures} enabled`,
+        text: `${enabledFeatures} enabled`,
         color: 'primary'
       },
       description: 'Currently enabled features'
     }
   ]
+
+  const selectedProduct = products.find(p => p.id === selectedProductId)
 
   return (
     <div className="flex flex-1 flex-col">
@@ -255,247 +185,245 @@ export function RemoteControlPage() {
               )
             })}
           </div>
+
           <div className="px-4 lg:px-6">
             <div className="flex flex-col min-h-[550px]">
-        
-        {/* --- MAIN COLUMN: Categories & Features --- */}
-        <div className="flex flex-col min-h-[550px] min-w-0 border rounded-lg bg-background shadow-sm overflow-hidden">
-            
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 py-2 border-b bg-background h-[52px] shrink-0">
-                <div className="flex items-center gap-3 flex-1 min-w-0">
+              {/* --- MAIN COLUMN: Categories & Features --- */}
+              <div className="flex flex-col min-h-[550px] min-w-0 border rounded-lg bg-background shadow-sm overflow-hidden">
+                
+                {/* Header */}
+                <div className="flex items-center justify-between px-4 py-2 border-b bg-background h-[52px] shrink-0">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
                     <div className="flex items-center gap-2 min-w-0">
-                        <Select
-                            value={selectedProduct?.id?.toString() || ''}
-                            onValueChange={(value) => {
-                                const product = products.find(p => p.id.toString() === value)
-                                setSelectedProduct(product || null)
-                            }}
-                        >
-                            <SelectTrigger className="w-[200px] h-7 text-xs bg-background border-muted-foreground/20">
-                                <SelectValue placeholder="Select product" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {productsLoading ? (
-                                    <div className="flex items-center justify-center py-2">
-                                        <Loader2 className="size-3 animate-spin text-muted-foreground" />
-                                    </div>
-                                ) : products.length === 0 ? (
-                                    <div className="px-2 py-1.5 text-xs text-muted-foreground">No products available</div>
-                                ) : (
-                                    products.map((product) => (
-                                        <SelectItem key={product.id} value={product.id.toString()} className="text-xs">
-                                            {product.name}
-                                        </SelectItem>
-                                    ))
-                                )}
-                            </SelectContent>
-                        </Select>
+                      <Select
+                        value={selectedProductId?.toString() || ''}
+                        onValueChange={(value) => {
+                          handleProductChange(parseInt(value))
+                        }}
+                      >
+                        <SelectTrigger className="w-[200px] h-7 text-xs bg-background border-muted-foreground/20">
+                          <SelectValue placeholder="Select product" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {productsLoading ? (
+                            <div className="flex items-center justify-center py-2">
+                              <Loader2 className="size-3 animate-spin text-muted-foreground" />
+                            </div>
+                          ) : products.length === 0 ? (
+                            <div className="px-2 py-1.5 text-xs text-muted-foreground">No products available</div>
+                          ) : (
+                            products.map((product) => (
+                              <SelectItem key={product.id} value={product.id.toString()} className="text-xs">
+                                {product.name}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
                     </div>
                     {selectedProduct && (
-                        <>
-                            <Separator orientation="vertical" className="h-6" />
-                            <div className="flex items-center gap-3">
-                                <div className="flex items-center gap-1.5">
-                                    <span className="text-[10px] text-muted-foreground">Categories:</span>
-                                    <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-mono">
-                                        {totalCategories}
-                                    </Badge>
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                    <span className="text-[10px] text-muted-foreground">Online:</span>
-                                    <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-mono">
-                                        {onlineFeatures}
-                                    </Badge>
-                                </div>
-                            </div>
-                        </>
+                      <>
+                        <Separator orientation="vertical" className="h-6" />
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-muted-foreground">Categories:</span>
+                            <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-mono">
+                              {totalCategories}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-muted-foreground">Enabled:</span>
+                            <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-mono">
+                              {enabledFeatures}
+                            </Badge>
+                          </div>
+                        </div>
+                      </>
                     )}
-                </div>
+                  </div>
 
-                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2">
                     <Button 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={handleRefresh}
-                        disabled={refreshing}
-                        className="h-7 w-7"
+                      variant="ghost" 
+                      size="icon"
+                      onClick={handleRefresh}
+                      disabled={loading}
+                      className="h-7 w-7"
                     >
-                        {refreshing ? (
-                            <Spinner className="h-4 w-4 animate-spin" />
-                        ) : (
-                            <RefreshCw className="h-4 w-4" />
-                        )}
+                      {loading ? (
+                        <Spinner className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4" />
+                      )}
                     </Button>
-                    <Button 
+                    {canCreate && (
+                      <Button 
                         variant="outline" 
                         size="sm" 
                         className="h-7 text-xs px-2.5 gap-1.5 bg-background hover:bg-muted/50"
-                        onClick={() => setCategoryDialogOpen(true)}
-                    >
-                        <Plus className="size-3" /> Create Category
-                    </Button>
+                        onClick={() => {
+                          resetCategoryForm()
+                          setCategoryDialogOpen(true)
+                        }}
+                      >
+                        Create Category
+                      </Button>
+                    )}
+                  </div>
                 </div>
-            </div>
 
-            {/* Features Grid */}
-            {selectedProduct ? (
-              totalCategories === 0 ? (
-                <div className="flex-1 overflow-auto bg-muted/5 flex items-center justify-center">
-                  <EmptyState
-                    title="No categories available"
-                    description="Create categories and add features to start using remote control."
-                    icon={Settings}
-                    iconStyle="rounded"
-                  />
-                </div>
-              ) : (
-                <div className="flex-1 overflow-auto bg-muted/5">
-                    <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        {features.map(group => (
-                          <Card key={group.id} className="p-0 border rounded-lg bg-background shadow-sm h-fit">
-                              <div className="px-3 py-2.5 border-b bg-muted/30">
-                                  <div className="flex items-center justify-between">
-                                      <div className="flex items-center gap-2">
-                                          <div className="text-muted-foreground bg-muted/20 p-1 rounded-sm border">
-                                              {group.icon}
-                                          </div>
-                                          <CardTitle className="text-xs font-semibold">{group.title}</CardTitle>
-                                      </div>
-                                      <span className="text-[10px] font-mono text-muted-foreground opacity-50">
-                                          GRP_ID: {group.id.toUpperCase()}
-                                      </span>
+                {/* Content */}
+                {selectedProductId ? (
+                  loading ? (
+                    <div className="flex-1 overflow-auto bg-muted/5 flex items-center justify-center">
+                      <div className="flex flex-col items-center gap-2">
+                        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">Loading...</p>
+                      </div>
+                    </div>
+                  ) : error ? (
+                    <div className="flex-1 overflow-auto bg-muted/5 flex items-center justify-center">
+                      <EmptyState
+                        title="Error loading data"
+                        description={error}
+                        icon={Settings}
+                        iconStyle="rounded"
+                      />
+                    </div>
+                  ) : categories.length === 0 ? (
+                    <div className="flex-1 overflow-auto bg-muted/5 flex items-center justify-center">
+                      <EmptyState
+                        title="No categories available"
+                        description="Create categories and add features to start using remote control."
+                        icon={Settings}
+                        iconStyle="rounded"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex-1 overflow-auto bg-muted/5 flex flex-col">
+                      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
+                        {/* Category Tabs */}
+                        <div className="p-4 pb-2 shrink-0">
+                          <CategoryTabs
+                            categories={categories}
+                            activeTab={activeTab}
+                            setActiveTab={setActiveTab}
+                            onAddCategory={() => {
+                              resetCategoryForm()
+                              setCategoryDialogOpen(true)
+                            }}
+                            onManageCategories={() => {
+                              resetCategoryForm()
+                              setCategoryDialogOpen(true)
+                            }}
+                          />
+                        </div>
+
+                        {/* Features Content */}
+                        <div className="flex-1 p-4 pt-2 min-h-0">
+                          {categories.map(category => {
+                            const categoryFeatures = getCategoryFeatures(category.id)
+                            return (
+                              <TabsContent key={category.id} value={category.id} className="mt-0">
+                                {categoryFeatures.length === 0 ? (
+                                  <div className="flex items-center justify-center py-12">
+                                    <EmptyState
+                                      title="No features in this category"
+                                      description="Add features to this category to start controlling them remotely."
+                                      icon={Settings}
+                                      iconStyle="rounded"
+                                    />
                                   </div>
-                              </div>
-                              <CardContent className="p-2">
-                                  <div className="space-y-0.5">
-                                      {group.features.map((feature) => (
-                                          <div key={feature.id} className="flex items-center justify-between px-2.5 py-2 hover:bg-muted/40 rounded-md transition-colors group">
+                                ) : (
+                                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    <Card className="p-0 border rounded-lg bg-background shadow-sm h-fit">
+                                      <div className="px-3 py-2.5 border-b bg-muted/30">
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex items-center gap-2">
+                                            <div 
+                                              className="w-3 h-3 rounded-full"
+                                              style={{ backgroundColor: category.color }}
+                                            />
+                                            <CardTitle className="text-xs font-semibold">{category.name}</CardTitle>
+                                          </div>
+                                          <span className="text-[10px] font-mono text-muted-foreground opacity-50">
+                                            {categoryFeatures.length} features
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <CardContent className="p-2">
+                                        <div className="space-y-0.5">
+                                          {categoryFeatures.map((feature) => (
+                                            <div key={feature.id} className="flex items-center justify-between px-2.5 py-2 hover:bg-muted/40 rounded-md transition-colors group">
                                               <div className="flex flex-col gap-0.5 max-w-[50%]">
-                                                  <Label htmlFor={feature.id} className="text-xs font-medium cursor-pointer truncate">
-                                                      {feature.label}
-                                                  </Label>
-                                                  <span className="text-[10px] text-muted-foreground opacity-40 group-hover:opacity-100 transition-opacity font-mono">
-                                                      {feature.id}
-                                                  </span>
+                                                <Label htmlFor={feature.id} className="text-xs font-medium cursor-pointer truncate">
+                                                  {feature.name}
+                                                </Label>
+                                                <span className="text-[10px] text-muted-foreground opacity-40 group-hover:opacity-100 transition-opacity font-mono">
+                                                  {feature.id}
+                                                </span>
                                               </div>
 
                                               <div className="flex items-center justify-end w-[45%]">
-                                                  {feature.type === 'toggle' && (
-                                                      <Switch 
-                                                          id={feature.id}
-                                                          checked={feature.value as boolean} 
-                                                          onCheckedChange={(val) => handleFeatureChange(group.id, feature.id, val)}
-                                                          className="scale-75 origin-right data-[state=checked]:bg-primary" 
-                                                      />
-                                                  )}
-                                                  
-                                                  {(feature.type === 'slider' || feature.type === 'int-slider' || feature.type === 'float-slider') && (
-                                                      <div className="flex items-center gap-2 w-full pl-2">
-                                                          <Slider 
-                                                              value={[feature.value as number]} 
-                                                              min={feature.min} 
-                                                              max={feature.max}
-                                                              step={feature.type === 'int-slider' ? 1 : feature.type === 'float-slider' ? 0.1 : 10}
-                                                              onValueChange={(vals) => handleFeatureChange(group.id, feature.id, vals[0])}
-                                                              className="flex-1"
-                                                          />
-                                                          <span className="text-[10px] font-mono text-muted-foreground min-w-[30px] text-right">
-                                                              {feature.type === 'float-slider' ? (feature.value as number).toFixed(1) : feature.value}
-                                                          </span>
-                                                      </div>
-                                                  )}
-
-                                                  {feature.type === 'select' && feature.options && (
-                                                      <Select 
-                                                          value={feature.value as string}
-                                                          onValueChange={(val) => handleFeatureChange(group.id, feature.id, val)}
-                                                      >
-                                                          <SelectTrigger className="w-full h-7 text-[10px] bg-muted/30 border-muted-foreground/20 focus:ring-0">
-                                                              <SelectValue />
-                                                          </SelectTrigger>
-                                                          <SelectContent>
-                                                              {feature.options.map(opt => (
-                                                                  <SelectItem key={opt} value={opt} className="text-xs">
-                                                                      {opt}
-                                                                  </SelectItem>
-                                                              ))}
-                                                          </SelectContent>
-                                                      </Select>
-                                                  )}
+                                                {canToggle && (
+                                                  <Switch 
+                                                    id={feature.id}
+                                                    checked={feature.enabled} 
+                                                    onCheckedChange={() => handleFeatureToggle(feature.id)}
+                                                    className="scale-75 origin-right data-[state=checked]:bg-primary" 
+                                                    disabled={!canToggle}
+                                                  />
+                                                )}
+                                                {!canToggle && (
+                                                  <Badge variant={feature.enabled ? "default" : "secondary"} className="text-[10px]">
+                                                    {feature.enabled ? "Enabled" : "Disabled"}
+                                                  </Badge>
+                                                )}
                                               </div>
-                                          </div>
-                                      ))}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </CardContent>
+                                    </Card>
                                   </div>
-                              </CardContent>
-                          </Card>
-                        ))}
+                                )}
+                              </TabsContent>
+                            )
+                          })}
+                        </div>
+                      </Tabs>
                     </div>
-                </div>
-              )
-            ) : (
-              <div className="flex-1 overflow-auto bg-muted/5 flex items-center justify-center">
-                <EmptyState
-                  title="No product selected"
-                  description="Select a product from the list to configure its remote control features."
-                  icon={Box}
-                  iconStyle="rounded"
-                />
+                  )
+                ) : (
+                  <div className="flex-1 overflow-auto bg-muted/5 flex items-center justify-center">
+                    <EmptyState
+                      title="No product selected"
+                      description="Select a product from the list to configure its remote control features."
+                      icon={Box}
+                      iconStyle="rounded"
+                    />
+                  </div>
+                )}
               </div>
-            )}
-        </div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-      {/* Create Category Dialog */}
-      <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Create Category</DialogTitle>
-            <DialogDescription>
-              Create a new category to organize remote control features.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="category-name">Category Name</Label>
-              <Input
-                id="category-name"
-                placeholder="Enter category name"
-                value={categoryName}
-                onChange={(e) => setCategoryName(e.target.value)}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="category-description">Description (Optional)</Label>
-              <Textarea
-                id="category-description"
-                placeholder="Enter category description"
-                value={categoryDescription}
-                onChange={(e) => setCategoryDescription(e.target.value)}
-                rows={3}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setCategoryDialogOpen(false)
-                setCategoryName('')
-                setCategoryDescription('')
-              }}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleCreateCategory} disabled={!categoryName.trim()}>
-              Create Category
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Category Dialog */}
+      <CategoryDialog
+        categoryDialogOpen={categoryDialogOpen}
+        setCategoryDialogOpen={setCategoryDialogOpen}
+        editingCategory={editingCategory}
+        categories={categories}
+        categoryFormData={categoryFormData}
+        setCategoryFormData={setCategoryFormData}
+        onAddCategory={handleAddCategory}
+        onUpdateCategory={handleUpdateCategory}
+        onEditCategory={handleEditCategory}
+        onDeleteCategory={handleDeleteCategory}
+        onResetCategoryForm={resetCategoryForm}
+      />
     </div>
   )
-} 
+}

@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
 import { Spinner } from '@/components/ui/spinner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -42,6 +41,34 @@ interface AutoBlockSettings {
   cooldown_minutes: number
 }
 
+interface RateLimitingSettings {
+  enabled: boolean
+  maxRequestsPerMinute: number
+  timeWindowMinutes: number
+  blockDurationMinutes: number
+}
+
+interface SuspiciousActivitySettings {
+  enabled: boolean
+  checkPatterns: {
+    rapidConnections: boolean
+    fingerprintReuse: boolean
+    multipleIPs: boolean
+    multipleUserAgents: boolean
+  }
+  rapidConnectionsThreshold: number
+  rapidConnectionsTimeWindowHours: number
+  fingerprintReuseThreshold: number
+  fingerprintReuseTimeWindowHours: number
+  multipleIPsThreshold: number
+  multipleIPsTimeWindowHours: number
+  multipleUserAgentsThreshold: number
+  multipleUserAgentsTimeWindowHours: number
+  actionType: 'log' | 'alert' | 'block'
+  logSeverity: 'low' | 'medium' | 'high'
+  blockDurationHours: number
+}
+
 export default function SecuritySettings({ rule, open, onOpenChange, onRefresh, loading = false }: SecuritySettingsProps) {
   const { canManageRules } = useSecurityPermissions()
   const queryClient = useQueryClient()
@@ -64,6 +91,32 @@ export default function SecuritySettings({ rule, open, onOpenChange, onRefresh, 
     severity: 'high',
     priority: 90,
     cooldown_minutes: 60
+  })
+  const [rateLimiting, setRateLimiting] = useState<RateLimitingSettings>({
+    enabled: true,
+    maxRequestsPerMinute: 60,
+    timeWindowMinutes: 1,
+    blockDurationMinutes: 30
+  })
+  const [suspiciousActivity, setSuspiciousActivity] = useState<SuspiciousActivitySettings>({
+    enabled: true,
+    checkPatterns: {
+      rapidConnections: true,
+      fingerprintReuse: true,
+      multipleIPs: false,
+      multipleUserAgents: false
+    },
+    rapidConnectionsThreshold: 10,
+    rapidConnectionsTimeWindowHours: 1,
+    fingerprintReuseThreshold: 3,
+    fingerprintReuseTimeWindowHours: 24,
+    multipleIPsThreshold: 3,
+    multipleIPsTimeWindowHours: 1,
+    multipleUserAgentsThreshold: 3,
+    multipleUserAgentsTimeWindowHours: 1,
+    actionType: 'log',
+    logSeverity: 'low',
+    blockDurationHours: 24
   })
   const [countrySearch, setCountrySearch] = useState('')
   const [isLoadingDetails, setIsLoadingDetails] = useState(false)
@@ -99,6 +152,35 @@ export default function SecuritySettings({ rule, open, onOpenChange, onRefresh, 
             severity: actionParams.severity || 'high',
             priority: ruleDetails.priority || 90,
             cooldown_minutes: ruleDetails.cooldown_minutes || 60
+          })
+        } else if (rule.name === 'Rate Limiting Protection') {
+          setRateLimiting({
+            enabled: ruleDetails.is_active,
+            maxRequestsPerMinute: conditions.max_requests_per_minute || 60,
+            timeWindowMinutes: conditions.time_window_minutes || 1,
+            blockDurationMinutes: actionParams.block_duration_minutes || 30
+          })
+        } else if (rule.name === 'Suspicious Activity Monitor') {
+          const checkPatterns = conditions.check_patterns || ['rapid_connections', 'fingerprint_reuse']
+          setSuspiciousActivity({
+            enabled: ruleDetails.is_active,
+            checkPatterns: {
+              rapidConnections: checkPatterns.includes('rapid_connections'),
+              fingerprintReuse: checkPatterns.includes('fingerprint_reuse'),
+              multipleIPs: checkPatterns.includes('multiple_ips'),
+              multipleUserAgents: checkPatterns.includes('multiple_user_agents')
+            },
+            rapidConnectionsThreshold: conditions.rapid_connections_threshold || 10,
+            rapidConnectionsTimeWindowHours: conditions.rapid_connections_time_window_hours || 1,
+            fingerprintReuseThreshold: conditions.fingerprint_reuse_threshold || 3,
+            fingerprintReuseTimeWindowHours: conditions.fingerprint_reuse_time_window_hours || 24,
+            multipleIPsThreshold: conditions.multiple_ips_threshold || 3,
+            multipleIPsTimeWindowHours: conditions.multiple_ips_time_window_hours || 1,
+            multipleUserAgentsThreshold: conditions.multiple_user_agents_threshold || 3,
+            multipleUserAgentsTimeWindowHours: conditions.multiple_user_agents_time_window_hours || 1,
+            actionType: actionParams.action_type || ruleDetails.action_type || 'log',
+            logSeverity: actionParams.log_severity || 'low',
+            blockDurationHours: actionParams.block_duration_hours || 24
           })
         }
       }).catch(() => {
@@ -202,6 +284,104 @@ export default function SecuritySettings({ rule, open, onOpenChange, onRefresh, 
     },
   })
 
+  // Update Rate Limiting rule
+  const updateRateLimitingMutation = useMutation({
+    mutationFn: async (settings: RateLimitingSettings) => {
+      if (!rule || rule.name !== 'Rate Limiting Protection') {
+        throw new Error('Rate Limiting Protection rule not found')
+      }
+
+      const conditions = {
+        max_requests_per_minute: settings.maxRequestsPerMinute,
+        time_window_minutes: settings.timeWindowMinutes
+      }
+
+      const actionParams = {
+        block_duration_minutes: settings.blockDurationMinutes,
+        log_severity: 'medium'
+      }
+
+      return securityAPI.updateSecurityRule(rule.id, {
+        conditions,
+        action_params: actionParams,
+        is_active: settings.enabled
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['security-rules'] })
+      toast.success('Rate limiting protection settings updated')
+      onRefresh?.()
+      onOpenChange(false)
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.error || 'Failed to update rate limiting settings')
+    },
+  })
+
+  // Update Suspicious Activity Monitor rule
+  const updateSuspiciousActivityMutation = useMutation({
+    mutationFn: async (settings: SuspiciousActivitySettings) => {
+      if (!rule || rule.name !== 'Suspicious Activity Monitor') {
+        throw new Error('Suspicious Activity Monitor rule not found')
+      }
+
+      const checkPatterns: string[] = []
+      if (settings.checkPatterns.rapidConnections) checkPatterns.push('rapid_connections')
+      if (settings.checkPatterns.fingerprintReuse) checkPatterns.push('fingerprint_reuse')
+      if (settings.checkPatterns.multipleIPs) checkPatterns.push('multiple_ips')
+      if (settings.checkPatterns.multipleUserAgents) checkPatterns.push('multiple_user_agents')
+
+      const conditions: any = {
+        check_patterns: checkPatterns
+      }
+
+      if (settings.checkPatterns.rapidConnections) {
+        conditions.rapid_connections_threshold = settings.rapidConnectionsThreshold
+        conditions.rapid_connections_time_window_hours = settings.rapidConnectionsTimeWindowHours
+      }
+      if (settings.checkPatterns.fingerprintReuse) {
+        conditions.fingerprint_reuse_threshold = settings.fingerprintReuseThreshold
+        conditions.fingerprint_reuse_time_window_hours = settings.fingerprintReuseTimeWindowHours
+      }
+      if (settings.checkPatterns.multipleIPs) {
+        conditions.multiple_ips_threshold = settings.multipleIPsThreshold
+        conditions.multiple_ips_time_window_hours = settings.multipleIPsTimeWindowHours
+      }
+      if (settings.checkPatterns.multipleUserAgents) {
+        conditions.multiple_user_agents_threshold = settings.multipleUserAgentsThreshold
+        conditions.multiple_user_agents_time_window_hours = settings.multipleUserAgentsTimeWindowHours
+      }
+
+      const actionParams: any = {
+        log_severity: settings.logSeverity
+      }
+
+      if (settings.actionType === 'block') {
+        actionParams.action_type = 'block'
+        actionParams.block_duration_hours = settings.blockDurationHours
+      } else if (settings.actionType === 'alert') {
+        actionParams.action_type = 'alert'
+      } else {
+        actionParams.action_type = 'log'
+      }
+
+      return securityAPI.updateSecurityRule(rule.id, {
+        conditions,
+        action_params: actionParams,
+        is_active: settings.enabled
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['security-rules'] })
+      toast.success('Suspicious Activity Monitor settings updated')
+      onRefresh?.()
+      onOpenChange(false)
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.error || 'Failed to update suspicious activity settings')
+    },
+  })
+
   const handleSaveGeoBlocking = useCallback(() => {
     if (!canManageRules) return
     updateGeoBlockingMutation.mutate(geoBlocking)
@@ -216,6 +396,16 @@ export default function SecuritySettings({ rule, open, onOpenChange, onRefresh, 
     if (!canManageRules) return
     updateAutoBlockMutation.mutate(autoBlock)
   }, [autoBlock, canManageRules, updateAutoBlockMutation])
+
+  const handleSaveRateLimiting = useCallback(() => {
+    if (!canManageRules) return
+    updateRateLimitingMutation.mutate(rateLimiting)
+  }, [rateLimiting, canManageRules, updateRateLimitingMutation])
+
+  const handleSaveSuspiciousActivity = useCallback(() => {
+    if (!canManageRules) return
+    updateSuspiciousActivityMutation.mutate(suspiciousActivity)
+  }, [suspiciousActivity, canManageRules, updateSuspiciousActivityMutation])
 
   const filteredCountries = COUNTRIES.filter(country =>
     country.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
@@ -234,13 +424,17 @@ export default function SecuritySettings({ rule, open, onOpenChange, onRefresh, 
 
   const isSaving = updateGeoBlockingMutation.isPending || 
                    updateBruteForceMutation.isPending ||
-                   updateAutoBlockMutation.isPending
+                   updateAutoBlockMutation.isPending ||
+                   updateRateLimitingMutation.isPending ||
+                   updateSuspiciousActivityMutation.isPending
 
   // Determine which settings to show based on rule name
   const showGeoBlocking = rule?.name === 'Geo-blocking'
   const showBruteForce = rule?.name === 'Brute Force Protection'
   const showAutoBlock = rule?.name === 'Auto-block Suspicious IPs'
-  const showSettings = showGeoBlocking || showBruteForce || showAutoBlock
+  const showRateLimiting = rule?.name === 'Rate Limiting Protection'
+  const showSuspiciousActivity = rule?.name === 'Suspicious Activity Monitor'
+  const showSettings = showGeoBlocking || showBruteForce || showAutoBlock || showRateLimiting || showSuspiciousActivity
 
   if (!rule || !showSettings) {
     return null
@@ -248,7 +442,7 @@ export default function SecuritySettings({ rule, open, onOpenChange, onRefresh, 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={(showBruteForce || showAutoBlock || showGeoBlocking) ? "w-full sm:max-w-[500px] p-0 gap-0 overflow-hidden" : "max-w-2xl max-h-[90vh] overflow-y-auto"}>
+      <DialogContent className={(showBruteForce || showAutoBlock || showGeoBlocking || showRateLimiting || showSuspiciousActivity) ? "w-full sm:max-w-[600px] p-0 gap-0 overflow-hidden" : "max-w-2xl max-h-[90vh] overflow-y-auto"}>
         {showBruteForce ? (
           <>
             {/* Header */}
@@ -364,24 +558,12 @@ export default function SecuritySettings({ rule, open, onOpenChange, onRefresh, 
             {/* Header */}
             <DialogHeader className="p-4 pb-1 bg-muted/5 pr-12">
               <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <DialogTitle className="text-xl font-semibold flex items-center gap-2">
-                      Auto-block Suspicious IPs
-                    </DialogTitle>
-                    <DialogDescription className="text-xs mt-1">
-                      Automatically block IPs with high threat score
-                    </DialogDescription>
-                  </div>
-                  <Switch
-                    checked={autoBlock.enabled}
-                    onCheckedChange={(checked) => {
-                      if (!canManageRules) return
-                      setAutoBlock(prev => ({ ...prev, enabled: checked }))
-                    }}
-                    disabled={!canManageRules || isSaving}
-                  />
-                </div>
+                <DialogTitle className="text-xl font-semibold flex items-center gap-2">
+                  Auto-block Suspicious IPs
+                </DialogTitle>
+                <DialogDescription className="text-xs">
+                  Block IPs after multiple failed login attempts
+                </DialogDescription>
               </div>
             </DialogHeader>
 
@@ -688,6 +870,519 @@ export default function SecuritySettings({ rule, open, onOpenChange, onRefresh, 
               </Button>
             </div>
           </>
+        ) : showRateLimiting ? (
+          <>
+            {/* Header */}
+            <DialogHeader className="p-4 pb-1 bg-muted/5 pr-12">
+              <div className="space-y-1">
+                <DialogTitle className="text-xl font-semibold flex items-center gap-2">
+                  Rate Limiting Protection
+                </DialogTitle>
+                <DialogDescription className="text-xs">
+                  Block IPs after multiple failed login attempts
+                </DialogDescription>
+              </div>
+            </DialogHeader>
+
+            {/* Scrollable Content Area */}
+            <div className="p-4 overflow-y-auto max-h-[calc(100vh-200px)]">
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="rate-max-requests" className="text-xs font-medium">
+                    Max Requests Per Minute *
+                  </Label>
+                  <Input
+                    id="rate-max-requests"
+                    type="number"
+                    min="0"
+                    max="1000"
+                    value={rateLimiting.maxRequestsPerMinute}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value) || 0
+                      setRateLimiting(prev => ({ ...prev, maxRequestsPerMinute: Math.max(0, Math.min(1000, value)) }))
+                    }}
+                    disabled={!canManageRules || isSaving}
+                    className="h-8 text-xs"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Maximum requests per minute per IP (0 = unlimited)
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="rate-time-window" className="text-xs font-medium">
+                    Time Window (minutes) *
+                  </Label>
+                  <Input
+                    id="rate-time-window"
+                    type="number"
+                    min="1"
+                    max="1440"
+                    value={rateLimiting.timeWindowMinutes}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value) || 1
+                      setRateLimiting(prev => ({ ...prev, timeWindowMinutes: Math.max(1, Math.min(1440, value)) }))
+                    }}
+                    disabled={!canManageRules || isSaving}
+                    className="h-8 text-xs"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Time window to count requests
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="rate-block-duration" className="text-xs font-medium">
+                    Block Duration (minutes) *
+                  </Label>
+                  <Input
+                    id="rate-block-duration"
+                    type="number"
+                    min="1"
+                    max="1440"
+                    value={rateLimiting.blockDurationMinutes}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value) || 1
+                      setRateLimiting(prev => ({ ...prev, blockDurationMinutes: Math.max(1, Math.min(1440, value)) }))
+                    }}
+                    disabled={!canManageRules || isSaving}
+                    className="h-8 text-xs"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    How long to block the IP after threshold is reached
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-2 p-4 pt-2 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={loading || isSaving}
+                className="h-8 text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSaveRateLimiting}
+                disabled={!canManageRules || loading || isSaving}
+                className="h-8 text-xs min-w-[80px]"
+              >
+                {updateRateLimitingMutation.isPending ? (
+                  <Spinner className="size-3" />
+                ) : (
+                  "Save"
+                )}
+              </Button>
+            </div>
+          </>
+        ) : showSuspiciousActivity ? (
+          <>
+            {/* Header */}
+            <DialogHeader className="p-4 pb-1 bg-muted/5 pr-12">
+              <div className="space-y-1">
+                <DialogTitle className="text-xl font-semibold flex items-center gap-2">
+                  Suspicious Activity Monitor
+                </DialogTitle>
+                <DialogDescription className="text-xs">
+                  Monitor unusual access patterns and behaviors
+                </DialogDescription>
+              </div>
+            </DialogHeader>
+
+            {/* Scrollable Content Area */}
+            <div className="p-4 overflow-y-auto max-h-[calc(100vh-200px)]">
+              <div className="space-y-4">
+                {/* Check Patterns */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Monitor Patterns</Label>
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="check-rapid-connections"
+                        checked={suspiciousActivity.checkPatterns.rapidConnections}
+                        onCheckedChange={(checked) =>
+                          setSuspiciousActivity(prev => ({
+                            ...prev,
+                            checkPatterns: {
+                              ...prev.checkPatterns,
+                              rapidConnections: checked as boolean
+                            }
+                          }))
+                        }
+                        disabled={!canManageRules || isSaving}
+                      />
+                      <Label htmlFor="check-rapid-connections" className="text-xs cursor-pointer flex-1">
+                        Rapid Connections
+                      </Label>
+                    </div>
+                    {suspiciousActivity.checkPatterns.rapidConnections && (
+                      <div className="ml-6 space-y-2 pl-4 border-l">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="rapid-threshold" className="text-xs font-medium">
+                            Threshold (connections)
+                          </Label>
+                          <Input
+                            id="rapid-threshold"
+                            type="number"
+                            min="1"
+                            max="1000"
+                            value={suspiciousActivity.rapidConnectionsThreshold}
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value) || 1
+                              setSuspiciousActivity(prev => ({
+                                ...prev,
+                                rapidConnectionsThreshold: Math.max(1, Math.min(1000, value))
+                              }))
+                            }}
+                            disabled={!canManageRules || isSaving}
+                            className="h-8 text-xs"
+                          />
+                          <p className="text-[10px] text-muted-foreground">
+                            Number of connections to trigger alert
+                          </p>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="rapid-window" className="text-xs font-medium">
+                            Time Window (hours)
+                          </Label>
+                          <Input
+                            id="rapid-window"
+                            type="number"
+                            min="1"
+                            max="168"
+                            value={suspiciousActivity.rapidConnectionsTimeWindowHours}
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value) || 1
+                              setSuspiciousActivity(prev => ({
+                                ...prev,
+                                rapidConnectionsTimeWindowHours: Math.max(1, Math.min(168, value))
+                              }))
+                            }}
+                            disabled={!canManageRules || isSaving}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="check-fingerprint-reuse"
+                        checked={suspiciousActivity.checkPatterns.fingerprintReuse}
+                        onCheckedChange={(checked) =>
+                          setSuspiciousActivity(prev => ({
+                            ...prev,
+                            checkPatterns: {
+                              ...prev.checkPatterns,
+                              fingerprintReuse: checked as boolean
+                            }
+                          }))
+                        }
+                        disabled={!canManageRules || isSaving}
+                      />
+                      <Label htmlFor="check-fingerprint-reuse" className="text-xs cursor-pointer flex-1">
+                        Fingerprint Reuse
+                      </Label>
+                    </div>
+                    {suspiciousActivity.checkPatterns.fingerprintReuse && (
+                      <div className="ml-6 space-y-2 pl-4 border-l">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="fingerprint-threshold" className="text-xs font-medium">
+                            Threshold (unique keys)
+                          </Label>
+                          <Input
+                            id="fingerprint-threshold"
+                            type="number"
+                            min="1"
+                            max="100"
+                            value={suspiciousActivity.fingerprintReuseThreshold}
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value) || 1
+                              setSuspiciousActivity(prev => ({
+                                ...prev,
+                                fingerprintReuseThreshold: Math.max(1, Math.min(100, value))
+                              }))
+                            }}
+                            disabled={!canManageRules || isSaving}
+                            className="h-8 text-xs"
+                          />
+                          <p className="text-[10px] text-muted-foreground">
+                            Number of different user keys using same fingerprint
+                          </p>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="fingerprint-window" className="text-xs font-medium">
+                            Time Window (hours)
+                          </Label>
+                          <Input
+                            id="fingerprint-window"
+                            type="number"
+                            min="1"
+                            max="168"
+                            value={suspiciousActivity.fingerprintReuseTimeWindowHours}
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value) || 1
+                              setSuspiciousActivity(prev => ({
+                                ...prev,
+                                fingerprintReuseTimeWindowHours: Math.max(1, Math.min(168, value))
+                              }))
+                            }}
+                            disabled={!canManageRules || isSaving}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="check-multiple-ips"
+                        checked={suspiciousActivity.checkPatterns.multipleIPs}
+                        onCheckedChange={(checked) =>
+                          setSuspiciousActivity(prev => ({
+                            ...prev,
+                            checkPatterns: {
+                              ...prev.checkPatterns,
+                              multipleIPs: checked as boolean
+                            }
+                          }))
+                        }
+                        disabled={!canManageRules || isSaving}
+                      />
+                      <Label htmlFor="check-multiple-ips" className="text-xs cursor-pointer flex-1">
+                        Multiple IP Addresses
+                      </Label>
+                    </div>
+                    {suspiciousActivity.checkPatterns.multipleIPs && (
+                      <div className="ml-6 space-y-2 pl-4 border-l">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="ips-threshold" className="text-xs font-medium">
+                            Threshold (IPs)
+                          </Label>
+                          <Input
+                            id="ips-threshold"
+                            type="number"
+                            min="1"
+                            max="100"
+                            value={suspiciousActivity.multipleIPsThreshold}
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value) || 1
+                              setSuspiciousActivity(prev => ({
+                                ...prev,
+                                multipleIPsThreshold: Math.max(1, Math.min(100, value))
+                              }))
+                            }}
+                            disabled={!canManageRules || isSaving}
+                            className="h-8 text-xs"
+                          />
+                          <p className="text-[10px] text-muted-foreground">
+                            Number of different IP addresses for same user
+                          </p>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="ips-window" className="text-xs font-medium">
+                            Time Window (hours)
+                          </Label>
+                          <Input
+                            id="ips-window"
+                            type="number"
+                            min="1"
+                            max="168"
+                            value={suspiciousActivity.multipleIPsTimeWindowHours}
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value) || 1
+                              setSuspiciousActivity(prev => ({
+                                ...prev,
+                                multipleIPsTimeWindowHours: Math.max(1, Math.min(168, value))
+                              }))
+                            }}
+                            disabled={!canManageRules || isSaving}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="check-multiple-user-agents"
+                        checked={suspiciousActivity.checkPatterns.multipleUserAgents}
+                        onCheckedChange={(checked) =>
+                          setSuspiciousActivity(prev => ({
+                            ...prev,
+                            checkPatterns: {
+                              ...prev.checkPatterns,
+                              multipleUserAgents: checked as boolean
+                            }
+                          }))
+                        }
+                        disabled={!canManageRules || isSaving}
+                      />
+                      <Label htmlFor="check-multiple-user-agents" className="text-xs cursor-pointer flex-1">
+                        Multiple User Agents
+                      </Label>
+                    </div>
+                    {suspiciousActivity.checkPatterns.multipleUserAgents && (
+                      <div className="ml-6 space-y-2 pl-4 border-l">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="ua-threshold" className="text-xs font-medium">
+                            Threshold (user agents)
+                          </Label>
+                          <Input
+                            id="ua-threshold"
+                            type="number"
+                            min="1"
+                            max="100"
+                            value={suspiciousActivity.multipleUserAgentsThreshold}
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value) || 1
+                              setSuspiciousActivity(prev => ({
+                                ...prev,
+                                multipleUserAgentsThreshold: Math.max(1, Math.min(100, value))
+                              }))
+                            }}
+                            disabled={!canManageRules || isSaving}
+                            className="h-8 text-xs"
+                          />
+                          <p className="text-[10px] text-muted-foreground">
+                            Number of different user agents for same user
+                          </p>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="ua-window" className="text-xs font-medium">
+                            Time Window (hours)
+                          </Label>
+                          <Input
+                            id="ua-window"
+                            type="number"
+                            min="1"
+                            max="168"
+                            value={suspiciousActivity.multipleUserAgentsTimeWindowHours}
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value) || 1
+                              setSuspiciousActivity(prev => ({
+                                ...prev,
+                                multipleUserAgentsTimeWindowHours: Math.max(1, Math.min(168, value))
+                              }))
+                            }}
+                            disabled={!canManageRules || isSaving}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Action Type */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="action-type" className="text-xs font-medium">
+                    Action Type
+                  </Label>
+                  <select
+                    id="action-type"
+                    value={suspiciousActivity.actionType}
+                    onChange={(e) =>
+                      setSuspiciousActivity(prev => ({
+                        ...prev,
+                        actionType: e.target.value as 'log' | 'alert' | 'block'
+                      }))
+                    }
+                    disabled={!canManageRules || isSaving}
+                    className="h-8 text-xs w-full rounded-md border border-input bg-background px-3 py-1"
+                  >
+                    <option value="log">Log Only</option>
+                    <option value="alert">Alert</option>
+                    <option value="block">Block</option>
+                  </select>
+                  <p className="text-[10px] text-muted-foreground">
+                    What to do when suspicious activity is detected
+                  </p>
+                </div>
+
+                {/* Log Severity */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="log-severity" className="text-xs font-medium">
+                    Log Severity
+                  </Label>
+                  <select
+                    id="log-severity"
+                    value={suspiciousActivity.logSeverity}
+                    onChange={(e) =>
+                      setSuspiciousActivity(prev => ({
+                        ...prev,
+                        logSeverity: e.target.value as 'low' | 'medium' | 'high'
+                      }))
+                    }
+                    disabled={!canManageRules || isSaving}
+                    className="h-8 text-xs w-full rounded-md border border-input bg-background px-3 py-1"
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                </div>
+
+                {/* Block Duration (only if action is block) */}
+                {suspiciousActivity.actionType === 'block' && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="block-duration" className="text-xs font-medium">
+                      Block Duration (hours)
+                    </Label>
+                    <Input
+                      id="block-duration"
+                      type="number"
+                      min="1"
+                      max="168"
+                      value={suspiciousActivity.blockDurationHours}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value) || 1
+                        setSuspiciousActivity(prev => ({
+                          ...prev,
+                          blockDurationHours: Math.max(1, Math.min(168, value))
+                        }))
+                      }}
+                      disabled={!canManageRules || isSaving}
+                      className="h-8 text-xs"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      How long to block when threshold is reached
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-2 p-4 pt-2 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={loading || isSaving}
+                className="h-8 text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSaveSuspiciousActivity}
+                disabled={!canManageRules || loading || isSaving}
+                className="h-8 text-xs min-w-[80px]"
+              >
+                {updateSuspiciousActivityMutation.isPending ? (
+                  <Spinner className="size-3" />
+                ) : (
+                  "Save"
+                )}
+              </Button>
+            </div>
+          </>
         ) : (
           <>
             <DialogHeader>
@@ -706,4 +1401,3 @@ export default function SecuritySettings({ rule, open, onOpenChange, onRefresh, 
     </Dialog>
   )
 }
-

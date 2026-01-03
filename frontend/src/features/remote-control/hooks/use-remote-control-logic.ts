@@ -409,6 +409,11 @@ export function useRemoteControlLogic() {
   const handleProductChange = useCallback((productId: number) => {
     setSelectedProductId(productId)
     setActiveTab('')
+    // Update category form data with new product ID
+    setCategoryFormData(prev => ({
+      ...prev,
+      product_id: productId
+    }))
   }, [])
 
   return {

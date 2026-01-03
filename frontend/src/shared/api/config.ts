@@ -117,6 +117,10 @@ export const API_ENDPOINTS = {
   WEBHOOKS_TEST_TRIGGER: '/api/webhooks/test-trigger',
 
   NAVIGATION: '/api/rbac/navigation',
+
+  REMOTE_CONTROL_CATEGORIES: '/api/remote-control/categories',
+  REMOTE_CONTROL_FEATURES: '/api/remote-control/features',
+  REMOTE_CONTROL_STATS: '/api/remote-control/stats',
 } as const
 
 export type ApiEndpoint = typeof API_ENDPOINTS[keyof typeof API_ENDPOINTS]
