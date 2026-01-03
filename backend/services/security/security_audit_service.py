@@ -277,7 +277,8 @@ class SecurityAuditService:
                             "SecurityRulesService dependency not injected",
                             status_code=500
                         )
-                    self._security_rules_service._update_rule_trigger("Failed Login Protection", project_id)
+                    # Update Brute Force Protection rule trigger instead of removed Failed Login Protection
+                    self._security_rules_service._update_rule_trigger("Brute Force Protection", project_id)
                     
                     db.session.commit()
                     self.logger.warning(

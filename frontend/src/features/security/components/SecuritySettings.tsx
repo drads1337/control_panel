@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -12,7 +11,6 @@ import { toast } from 'sonner'
 import { useSecurityPermissions } from '@/contexts/security-permissions-context'
 import { COUNTRIES } from '../utils/countries'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Globe, Shield, Lock } from 'lucide-react'
 
 interface SecuritySettingsProps {
   rule: SecurityRule | null
@@ -35,11 +33,13 @@ interface BruteForceSettings {
   blockDurationMinutes: number
 }
 
-interface FailedLoginSettings {
+interface AutoBlockSettings {
   enabled: boolean
-  maxFailedAttempts: number
-  timeWindowMinutes: number
-  blockDurationHours: number
+  min_threat_score: number
+  block_duration_hours: number
+  severity: 'low' | 'medium' | 'high' | 'critical'
+  priority: number
+  cooldown_minutes: number
 }
 
 export default function SecuritySettings({ rule, open, onOpenChange, onRefresh, loading = false }: SecuritySettingsProps) {
@@ -57,11 +57,13 @@ export default function SecuritySettings({ rule, open, onOpenChange, onRefresh, 
     timeWindowMinutes: 5,
     blockDurationMinutes: 30
   })
-  const [failedLogin, setFailedLogin] = useState<FailedLoginSettings>({
+  const [autoBlock, setAutoBlock] = useState<AutoBlockSettings>({
     enabled: true,
-    maxFailedAttempts: 5,
-    timeWindowMinutes: 15,
-    blockDurationHours: 1
+    min_threat_score: 70,
+    block_duration_hours: 24,
+    severity: 'high',
+    priority: 90,
+    cooldown_minutes: 60
   })
   const [countrySearch, setCountrySearch] = useState('')
   const [isLoadingDetails, setIsLoadingDetails] = useState(false)
@@ -89,12 +91,14 @@ export default function SecuritySettings({ rule, open, onOpenChange, onRefresh, 
             timeWindowMinutes: conditions.time_window_minutes || 5,
             blockDurationMinutes: conditions.block_duration_minutes || 30
           })
-        } else if (rule.name === 'Failed Login Protection') {
-          setFailedLogin({
+        } else if (rule.name === 'Auto-block Suspicious IPs') {
+          setAutoBlock({
             enabled: ruleDetails.is_active,
-            maxFailedAttempts: conditions.max_failed_attempts || 5,
-            timeWindowMinutes: conditions.time_window_minutes || 15,
-            blockDurationHours: actionParams.block_duration_hours || 1
+            min_threat_score: conditions.min_threat_score || 70,
+            block_duration_hours: actionParams.block_duration_hours || 24,
+            severity: actionParams.severity || 'high',
+            priority: ruleDetails.priority || 90,
+            cooldown_minutes: ruleDetails.cooldown_minutes || 60
           })
         }
       }).catch(() => {
@@ -162,37 +166,39 @@ export default function SecuritySettings({ rule, open, onOpenChange, onRefresh, 
     },
   })
 
-  // Update Failed Login rule
-  const updateFailedLoginMutation = useMutation({
-    mutationFn: async (settings: FailedLoginSettings) => {
-      if (!rule || rule.name !== 'Failed Login Protection') {
-        throw new Error('Failed Login Protection rule not found')
+  // Update Auto-block Suspicious IPs rule
+  const updateAutoBlockMutation = useMutation({
+    mutationFn: async (settings: AutoBlockSettings) => {
+      if (!rule || rule.name !== 'Auto-block Suspicious IPs') {
+        throw new Error('Auto-block Suspicious IPs rule not found')
       }
 
       const conditions = {
-        max_failed_attempts: settings.maxFailedAttempts,
-        time_window_minutes: settings.timeWindowMinutes
+        min_threat_score: settings.min_threat_score
       }
 
       const actionParams = {
-        severity: 'high',
-        block_duration_hours: settings.blockDurationHours
+        severity: settings.severity,
+        threat_score: settings.min_threat_score,
+        block_duration_hours: settings.block_duration_hours
       }
 
       return securityAPI.updateSecurityRule(rule.id, {
         conditions,
         action_params: actionParams,
-        is_active: settings.enabled
+        is_active: settings.enabled,
+        priority: settings.priority,
+        cooldown_minutes: settings.cooldown_minutes
       })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['security-rules'] })
-      toast.success('Failed login protection settings updated')
+      toast.success('Auto-block settings updated')
       onRefresh?.()
       onOpenChange(false)
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.error || 'Failed to update failed login settings')
+      toast.error(error?.response?.data?.error || 'Failed to update auto-block settings')
     },
   })
 
@@ -206,10 +212,10 @@ export default function SecuritySettings({ rule, open, onOpenChange, onRefresh, 
     updateBruteForceMutation.mutate(bruteForce)
   }, [bruteForce, canManageRules, updateBruteForceMutation])
 
-  const handleSaveFailedLogin = useCallback(() => {
+  const handleSaveAutoBlock = useCallback(() => {
     if (!canManageRules) return
-    updateFailedLoginMutation.mutate(failedLogin)
-  }, [failedLogin, canManageRules, updateFailedLoginMutation])
+    updateAutoBlockMutation.mutate(autoBlock)
+  }, [autoBlock, canManageRules, updateAutoBlockMutation])
 
   const filteredCountries = COUNTRIES.filter(country =>
     country.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
@@ -227,14 +233,14 @@ export default function SecuritySettings({ rule, open, onOpenChange, onRefresh, 
   }
 
   const isSaving = updateGeoBlockingMutation.isPending || 
-                   updateBruteForceMutation.isPending || 
-                   updateFailedLoginMutation.isPending
+                   updateBruteForceMutation.isPending ||
+                   updateAutoBlockMutation.isPending
 
   // Determine which settings to show based on rule name
   const showGeoBlocking = rule?.name === 'Geo-blocking'
   const showBruteForce = rule?.name === 'Brute Force Protection'
-  const showFailedLogin = rule?.name === 'Failed Login Protection'
-  const showSettings = showGeoBlocking || showBruteForce || showFailedLogin
+  const showAutoBlock = rule?.name === 'Auto-block Suspicious IPs'
+  const showSettings = showGeoBlocking || showBruteForce || showAutoBlock
 
   if (!rule || !showSettings) {
     return null
@@ -242,108 +248,90 @@ export default function SecuritySettings({ rule, open, onOpenChange, onRefresh, 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={showFailedLogin ? "w-full sm:max-w-[500px] p-0 gap-0 overflow-hidden" : "max-w-2xl max-h-[90vh] overflow-y-auto"}>
-        {showFailedLogin ? (
+      <DialogContent className={(showBruteForce || showAutoBlock || showGeoBlocking) ? "w-full sm:max-w-[500px] p-0 gap-0 overflow-hidden" : "max-w-2xl max-h-[90vh] overflow-y-auto"}>
+        {showBruteForce ? (
           <>
             {/* Header */}
             <DialogHeader className="p-4 pb-1 bg-muted/5 pr-12">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1 flex-1">
-                  <DialogTitle className="text-xl font-semibold flex items-center gap-2">
-                    <Lock className="h-4 w-4 text-muted-foreground" />
-                    Failed Login Protection
-                  </DialogTitle>
-                  <DialogDescription className="text-xs">
-                    Block IPs after multiple failed login attempts
-                  </DialogDescription>
-                </div>
-                <Switch
-                  checked={failedLogin.enabled}
-                  onCheckedChange={(checked) => {
-                    if (!canManageRules) return
-                    setFailedLogin(prev => ({ ...prev, enabled: checked }))
-                  }}
-                  disabled={!canManageRules || loading || isSaving}
-                />
+              <div className="space-y-1">
+                <DialogTitle className="text-xl font-semibold flex items-center gap-2">
+                  Brute Force Protection
+                </DialogTitle>
+                <DialogDescription className="text-xs">
+                  Block IPs after multiple failed login attempts
+                </DialogDescription>
               </div>
             </DialogHeader>
 
             {/* Scrollable Content Area */}
             <div className="p-4 overflow-y-auto max-h-[calc(100vh-200px)]">
-              {failedLogin.enabled ? (
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="failed-max-attempts" className="text-xs font-medium">
-                      Max Failed Attempts *
-                    </Label>
-                    <Input
-                      id="failed-max-attempts"
-                      type="number"
-                      min="1"
-                      max="20"
-                      value={failedLogin.maxFailedAttempts}
-                      onChange={(e) => {
-                        const value = parseInt(e.target.value) || 1
-                        setFailedLogin(prev => ({ ...prev, maxFailedAttempts: Math.max(1, Math.min(20, value)) }))
-                      }}
-                      disabled={!canManageRules || isSaving}
-                      className="h-8 text-xs"
-                    />
-                    <p className="text-[10px] text-muted-foreground">
-                      Number of failed login attempts before blocking
-                    </p>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="failed-time-window" className="text-xs font-medium">
-                      Time Window (minutes) *
-                    </Label>
-                    <Input
-                      id="failed-time-window"
-                      type="number"
-                      min="1"
-                      max="1440"
-                      value={failedLogin.timeWindowMinutes}
-                      onChange={(e) => {
-                        const value = parseInt(e.target.value) || 1
-                        setFailedLogin(prev => ({ ...prev, timeWindowMinutes: Math.max(1, Math.min(1440, value)) }))
-                      }}
-                      disabled={!canManageRules || isSaving}
-                      className="h-8 text-xs"
-                    />
-                    <p className="text-[10px] text-muted-foreground">
-                      Time window to count failed attempts
-                    </p>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="failed-block-duration" className="text-xs font-medium">
-                      Block Duration (hours) *
-                    </Label>
-                    <Input
-                      id="failed-block-duration"
-                      type="number"
-                      min="0.5"
-                      max="168"
-                      step="0.5"
-                      value={failedLogin.blockDurationHours}
-                      onChange={(e) => {
-                        const value = parseFloat(e.target.value) || 0.5
-                        setFailedLogin(prev => ({ ...prev, blockDurationHours: Math.max(0.5, Math.min(168, value)) }))
-                      }}
-                      disabled={!canManageRules || isSaving}
-                      className="h-8 text-xs"
-                    />
-                    <p className="text-[10px] text-muted-foreground">
-                      How long to block the IP after threshold is reached
-                    </p>
-                  </div>
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="brute-max-attempts" className="text-xs font-medium">
+                    Max Attempts *
+                  </Label>
+                  <Input
+                    id="brute-max-attempts"
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={bruteForce.maxAttempts}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value) || 1
+                      setBruteForce(prev => ({ ...prev, maxAttempts: Math.max(1, Math.min(100, value)) }))
+                    }}
+                    disabled={!canManageRules || isSaving}
+                    className="h-8 text-xs"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Number of failed attempts before blocking
+                  </p>
                 </div>
-              ) : (
-                <div className="text-center py-6 text-muted-foreground text-xs">
-                  Failed login protection is disabled. Enable it to configure settings.
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="brute-time-window" className="text-xs font-medium">
+                    Time Window (minutes) *
+                  </Label>
+                  <Input
+                    id="brute-time-window"
+                    type="number"
+                    min="1"
+                    max="1440"
+                    value={bruteForce.timeWindowMinutes}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value) || 1
+                      setBruteForce(prev => ({ ...prev, timeWindowMinutes: Math.max(1, Math.min(1440, value)) }))
+                    }}
+                    disabled={!canManageRules || isSaving}
+                    className="h-8 text-xs"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Time window to count attempts
+                  </p>
                 </div>
-              )}
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="brute-block-duration" className="text-xs font-medium">
+                    Block Duration (minutes) *
+                  </Label>
+                  <Input
+                    id="brute-block-duration"
+                    type="number"
+                    min="1"
+                    max="1440"
+                    value={bruteForce.blockDurationMinutes}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value) || 1
+                      setBruteForce(prev => ({ ...prev, blockDurationMinutes: Math.max(1, Math.min(1440, value)) }))
+                    }}
+                    disabled={!canManageRules || isSaving}
+                    className="h-8 text-xs"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    How long to block the IP after threshold is reached
+                  </p>
+                </div>
+              </div>
             </div>
 
             {/* Footer */}
@@ -359,11 +347,340 @@ export default function SecuritySettings({ rule, open, onOpenChange, onRefresh, 
               </Button>
               <Button
                 type="button"
-                onClick={handleSaveFailedLogin}
-                disabled={!canManageRules || loading || isSaving || !failedLogin.enabled}
+                onClick={handleSaveBruteForce}
+                disabled={!canManageRules || loading || isSaving}
                 className="h-8 text-xs min-w-[80px]"
               >
-                {updateFailedLoginMutation.isPending ? (
+                {updateBruteForceMutation.isPending ? (
+                  <Spinner className="size-3" />
+                ) : (
+                  "Save"
+                )}
+              </Button>
+            </div>
+          </>
+        ) : showAutoBlock ? (
+          <>
+            {/* Header */}
+            <DialogHeader className="p-4 pb-1 bg-muted/5 pr-12">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <DialogTitle className="text-xl font-semibold flex items-center gap-2">
+                      Auto-block Suspicious IPs
+                    </DialogTitle>
+                    <DialogDescription className="text-xs mt-1">
+                      Automatically block IPs with high threat score
+                    </DialogDescription>
+                  </div>
+                  <Switch
+                    checked={autoBlock.enabled}
+                    onCheckedChange={(checked) => {
+                      if (!canManageRules) return
+                      setAutoBlock(prev => ({ ...prev, enabled: checked }))
+                    }}
+                    disabled={!canManageRules || isSaving}
+                  />
+                </div>
+              </div>
+            </DialogHeader>
+
+            {/* Scrollable Content Area */}
+            <div className="p-4 overflow-y-auto max-h-[calc(100vh-200px)]">
+              <div className="space-y-5">
+                {/* Threat Score Section */}
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <Label className="text-sm font-semibold">Threat Score Settings</Label>
+                    <p className="text-[10px] text-muted-foreground">
+                      Threat score is calculated based on multiple security factors
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-1.5">
+                    <Label htmlFor="auto-block-threat-score" className="text-xs font-medium">
+                      Minimum Threat Score *
+                    </Label>
+                    <Input
+                      id="auto-block-threat-score"
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={autoBlock.min_threat_score}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value) || 0
+                        setAutoBlock(prev => ({ ...prev, min_threat_score: Math.max(0, Math.min(100, value)) }))
+                      }}
+                      disabled={!canManageRules || isSaving}
+                      className="h-8 text-xs"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      IPs with threat score at or above this value will be automatically blocked (0-100)
+                    </p>
+                  </div>
+
+                  {/* Threat Score Factors Info */}
+                  <div className="p-3 bg-muted/30 rounded-md border border-muted-foreground/20">
+                    <p className="text-[10px] font-medium mb-2">Threat Score Calculation:</p>
+                    <ul className="text-[10px] text-muted-foreground space-y-1 list-disc list-inside">
+                      <li>Suspicious user agent: +20 points</li>
+                      <li>Known malicious IP: +30 points</li>
+                      <li>Rapid request pattern: +15 points</li>
+                      <li>Geographic anomaly: +25 points</li>
+                      <li>Fingerprint reuse: +10 points</li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Blocking Settings */}
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <Label className="text-sm font-semibold">Blocking Settings</Label>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="auto-block-duration" className="text-xs font-medium">
+                      Block Duration (hours) *
+                    </Label>
+                    <Input
+                      id="auto-block-duration"
+                      type="number"
+                      min="1"
+                      max="168"
+                      value={autoBlock.block_duration_hours}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value) || 1
+                        setAutoBlock(prev => ({ ...prev, block_duration_hours: Math.max(1, Math.min(168, value)) }))
+                      }}
+                      disabled={!canManageRules || isSaving}
+                      className="h-8 text-xs"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      How long to block the IP after threat threshold is reached (1-168 hours, 0 = permanent)
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="auto-block-severity" className="text-xs font-medium">
+                      Severity Level *
+                    </Label>
+                    <select
+                      id="auto-block-severity"
+                      value={autoBlock.severity}
+                      onChange={(e) => {
+                        setAutoBlock(prev => ({ ...prev, severity: e.target.value as 'low' | 'medium' | 'high' | 'critical' }))
+                      }}
+                      disabled={!canManageRules || isSaving}
+                      className="h-8 text-xs w-full rounded-md border border-input bg-background px-3 py-1"
+                    >
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                      <option value="critical">Critical</option>
+                    </select>
+                    <p className="text-[10px] text-muted-foreground">
+                      Severity level for blocked IPs (affects logging and notifications)
+                    </p>
+                  </div>
+                </div>
+
+                {/* Advanced Settings */}
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <Label className="text-sm font-semibold">Advanced Settings</Label>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="auto-block-priority" className="text-xs font-medium">
+                      Rule Priority *
+                    </Label>
+                    <Input
+                      id="auto-block-priority"
+                      type="number"
+                      min="0"
+                      max="1000"
+                      value={autoBlock.priority}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value) || 0
+                        setAutoBlock(prev => ({ ...prev, priority: Math.max(0, Math.min(1000, value)) }))
+                      }}
+                      disabled={!canManageRules || isSaving}
+                      className="h-8 text-xs"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      Higher priority rules are evaluated first (0-1000, default: 90)
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="auto-block-cooldown" className="text-xs font-medium">
+                      Cooldown Period (minutes) *
+                    </Label>
+                    <Input
+                      id="auto-block-cooldown"
+                      type="number"
+                      min="0"
+                      max="1440"
+                      value={autoBlock.cooldown_minutes}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value) || 0
+                        setAutoBlock(prev => ({ ...prev, cooldown_minutes: Math.max(0, Math.min(1440, value)) }))
+                      }}
+                      disabled={!canManageRules || isSaving}
+                      className="h-8 text-xs"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      Minimum time between rule triggers for the same IP (0-1440 minutes, default: 60)
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-2 p-4 pt-2 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={loading || isSaving}
+                className="h-8 text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSaveAutoBlock}
+                disabled={!canManageRules || loading || isSaving}
+                className="h-8 text-xs min-w-[80px]"
+              >
+                {updateAutoBlockMutation.isPending ? (
+                  <Spinner className="size-3" />
+                ) : (
+                  "Save"
+                )}
+              </Button>
+            </div>
+          </>
+        ) : showGeoBlocking ? (
+          <>
+            {/* Header */}
+            <DialogHeader className="p-4 pb-1 bg-muted/5 pr-12">
+              <div className="space-y-1">
+                <DialogTitle className="text-xl font-semibold flex items-center gap-2">
+                  Geo-blocking
+                </DialogTitle>
+                <DialogDescription className="text-xs">
+                  Block or allow connections from specific countries
+                </DialogDescription>
+              </div>
+            </DialogHeader>
+
+            {/* Scrollable Content Area */}
+            <div className="p-4 overflow-y-auto max-h-[calc(100vh-200px)]">
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Mode</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant={geoBlocking.mode === 'block' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => {
+                        if (!canManageRules) return
+                        setGeoBlocking(prev => ({ ...prev, mode: 'block' }))
+                      }}
+                      disabled={!canManageRules || isSaving}
+                      className="text-xs h-8"
+                    >
+                      Block Countries
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={geoBlocking.mode === 'allow' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => {
+                        if (!canManageRules) return
+                        setGeoBlocking(prev => ({ ...prev, mode: 'allow' }))
+                      }}
+                      disabled={!canManageRules || isSaving}
+                      className="text-xs h-8"
+                    >
+                      Allow Only
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    {geoBlocking.mode === 'block' 
+                      ? 'Block connections from selected countries' 
+                      : 'Only allow connections from selected countries'}
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">
+                    {geoBlocking.mode === 'block' ? 'Blocked Countries' : 'Allowed Countries'}
+                  </Label>
+                  <Input
+                    placeholder="Search countries..."
+                    value={countrySearch}
+                    onChange={(e) => setCountrySearch(e.target.value)}
+                    disabled={!canManageRules || isSaving}
+                    className="h-8 text-xs"
+                  />
+                  <div className="max-h-[300px] overflow-y-auto border rounded-md p-2 space-y-1">
+                    {filteredCountries.length === 0 ? (
+                      <div className="text-xs text-muted-foreground text-center py-4">
+                        No countries found
+                      </div>
+                    ) : (
+                      filteredCountries.map((country) => {
+                        const isSelected = geoBlocking.blockedCountries.includes(country.code)
+                        return (
+                          <div
+                            key={country.code}
+                            className="flex items-center space-x-2 p-1.5 hover:bg-muted/50 rounded cursor-pointer"
+                            onClick={() => toggleCountry(country.code)}
+                          >
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleCountry(country.code)}
+                              disabled={!canManageRules || isSaving}
+                            />
+                            <Label className="text-xs cursor-pointer flex-1">
+                              {country.name} ({country.code})
+                            </Label>
+                          </div>
+                        )
+                      })
+                    )}
+                  </div>
+                  {geoBlocking.blockedCountries.length > 0 && (
+                    <p className="text-[10px] text-muted-foreground">
+                      {geoBlocking.blockedCountries.length} {geoBlocking.mode === 'block' ? 'blocked' : 'allowed'} {geoBlocking.blockedCountries.length === 1 ? 'country' : 'countries'}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-2 p-4 pt-2 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={loading || isSaving}
+                className="h-8 text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSaveGeoBlocking}
+                disabled={!canManageRules || loading || isSaving}
+                className="h-8 text-xs min-w-[80px]"
+              >
+                {updateGeoBlockingMutation.isPending ? (
                   <Spinner className="size-3" />
                 ) : (
                   "Save"
@@ -378,243 +695,11 @@ export default function SecuritySettings({ rule, open, onOpenChange, onRefresh, 
               <DialogDescription>{rule.description}</DialogDescription>
             </DialogHeader>
             
-            <div className="space-y-4">
-          {/* Geo-blocking Settings */}
-          {showGeoBlocking && (
-            <Card className="p-3 border rounded-lg bg-background shadow-sm">
-        <CardHeader className="p-0 pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Globe className="h-4 w-4 text-muted-foreground" />
-              <CardTitle className="text-base sm:text-lg">Geo-blocking</CardTitle>
-            </div>
-            <Switch
-              checked={geoBlocking.enabled}
-              onCheckedChange={(checked) => {
-                if (!canManageRules) return
-                setGeoBlocking(prev => ({ ...prev, enabled: checked }))
-              }}
-              disabled={!canManageRules || loading || isSaving}
-            />
-          </div>
-          <CardDescription className="mt-1 text-xs sm:text-sm">
-            Block or allow connections from specific countries
-          </CardDescription>
-        </CardHeader>
-        
-        <CardContent className="p-0 pt-3 space-y-3">
-          {geoBlocking.enabled && (
-            <>
-              <div className="space-y-2">
-                <Label className="text-xs font-medium">Mode</Label>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant={geoBlocking.mode === 'block' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setGeoBlocking(prev => ({ ...prev, mode: 'block' }))}
-                    disabled={!canManageRules || isSaving}
-                    className="text-xs h-7"
-                  >
-                    Block Countries
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={geoBlocking.mode === 'allow' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setGeoBlocking(prev => ({ ...prev, mode: 'allow' }))}
-                    disabled={!canManageRules || isSaving}
-                    className="text-xs h-7"
-                  >
-                    Allow Only
-                  </Button>
-                </div>
+            {(isLoadingDetails || loading) && (
+              <div className="flex items-center justify-center py-12">
+                <Spinner />
               </div>
-
-              <div className="space-y-2">
-                <Label className="text-xs font-medium">
-                  {geoBlocking.mode === 'block' ? 'Blocked Countries' : 'Allowed Countries'}
-                </Label>
-                <Input
-                  placeholder="Search countries..."
-                  value={countrySearch}
-                  onChange={(e) => setCountrySearch(e.target.value)}
-                  className="h-8 text-xs"
-                />
-                <div className="max-h-[200px] overflow-y-auto border rounded-md p-2 space-y-1">
-                  {filteredCountries.length === 0 ? (
-                    <div className="text-xs text-muted-foreground text-center py-4">
-                      No countries found
-                    </div>
-                  ) : (
-                    filteredCountries.map((country) => {
-                      const isSelected = geoBlocking.blockedCountries.includes(country.code)
-                      return (
-                        <div
-                          key={country.code}
-                          className="flex items-center space-x-2 p-1.5 hover:bg-muted/50 rounded cursor-pointer"
-                          onClick={() => toggleCountry(country.code)}
-                        >
-                          <Checkbox
-                            checked={isSelected}
-                            onCheckedChange={() => toggleCountry(country.code)}
-                            disabled={!canManageRules || isSaving}
-                          />
-                          <Label className="text-xs cursor-pointer flex-1">
-                            {country.name} ({country.code})
-                          </Label>
-                        </div>
-                      )
-                    })
-                  )}
-                </div>
-                {geoBlocking.blockedCountries.length > 0 && (
-                  <div className="text-xs text-muted-foreground">
-                    {geoBlocking.blockedCountries.length} {geoBlocking.mode === 'block' ? 'blocked' : 'allowed'} countries
-                  </div>
-                )}
-              </div>
-
-              <Button
-                onClick={handleSaveGeoBlocking}
-                disabled={!canManageRules || loading || isSaving}
-                size="sm"
-                className="w-full text-xs h-8"
-              >
-                {updateGeoBlockingMutation.isPending ? (
-                  <>
-                    <Spinner className="mr-2 h-3 w-3" />
-                    Saving...
-                  </>
-                ) : (
-                  'Save Geo-blocking Settings'
-                )}
-              </Button>
-            </>
-          )}
-        </CardContent>
-      </Card>
-          )}
-
-          {/* Brute Force Protection Settings */}
-          {showBruteForce && (
-            <Card className="p-3 border rounded-lg bg-background shadow-sm">
-        <CardHeader className="p-0 pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Shield className="h-4 w-4 text-muted-foreground" />
-              <CardTitle className="text-base sm:text-lg">Brute Force Protection</CardTitle>
-            </div>
-            <Switch
-              checked={bruteForce.enabled}
-              onCheckedChange={(checked) => {
-                if (!canManageRules) return
-                setBruteForce(prev => ({ ...prev, enabled: checked }))
-              }}
-              disabled={!canManageRules || loading || isSaving}
-            />
-          </div>
-          <CardDescription className="mt-1 text-xs sm:text-sm">
-            Block IPs after multiple failed authentication attempts
-          </CardDescription>
-        </CardHeader>
-        
-        <CardContent className="p-0 pt-3 space-y-3">
-          {bruteForce.enabled && (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="brute-max-attempts" className="text-xs font-medium">
-                  Max Attempts
-                </Label>
-                <Input
-                  id="brute-max-attempts"
-                  type="number"
-                  min="1"
-                  max="100"
-                  value={bruteForce.maxAttempts}
-                  onChange={(e) => {
-                    const value = parseInt(e.target.value) || 1
-                    setBruteForce(prev => ({ ...prev, maxAttempts: Math.max(1, Math.min(100, value)) }))
-                  }}
-                  disabled={!canManageRules || isSaving}
-                  className="h-8 text-xs"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Number of failed attempts before blocking
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="brute-time-window" className="text-xs font-medium">
-                  Time Window (minutes)
-                </Label>
-                <Input
-                  id="brute-time-window"
-                  type="number"
-                  min="1"
-                  max="1440"
-                  value={bruteForce.timeWindowMinutes}
-                  onChange={(e) => {
-                    const value = parseInt(e.target.value) || 1
-                    setBruteForce(prev => ({ ...prev, timeWindowMinutes: Math.max(1, Math.min(1440, value)) }))
-                  }}
-                  disabled={!canManageRules || isSaving}
-                  className="h-8 text-xs"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Time window to count attempts
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="brute-block-duration" className="text-xs font-medium">
-                  Block Duration (minutes)
-                </Label>
-                <Input
-                  id="brute-block-duration"
-                  type="number"
-                  min="1"
-                  max="1440"
-                  value={bruteForce.blockDurationMinutes}
-                  onChange={(e) => {
-                    const value = parseInt(e.target.value) || 1
-                    setBruteForce(prev => ({ ...prev, blockDurationMinutes: Math.max(1, Math.min(1440, value)) }))
-                  }}
-                  disabled={!canManageRules || isSaving}
-                  className="h-8 text-xs"
-                />
-                <p className="text-xs text-muted-foreground">
-                  How long to block the IP after threshold is reached
-                </p>
-              </div>
-
-              <Button
-                onClick={handleSaveBruteForce}
-                disabled={!canManageRules || loading || isSaving}
-                size="sm"
-                className="w-full text-xs h-8"
-              >
-                {updateBruteForceMutation.isPending ? (
-                  <>
-                    <Spinner className="mr-2 h-3 w-3" />
-                    Saving...
-                  </>
-                ) : (
-                  'Save Brute Force Settings'
-                )}
-              </Button>
-            </>
-          )}
-        </CardContent>
-      </Card>
-          )}
-
-          {(isLoadingDetails || loading) && (
-            <div className="flex items-center justify-center py-12">
-              <Spinner />
-            </div>
-          )}
-            </div>
+            )}
           </>
         )}
       </DialogContent>

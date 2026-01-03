@@ -109,8 +109,6 @@ class SecurityRulesService:
                 return self._evaluate_threat_score_conditions(conditions, context)
             elif rule.rule_type == "vpn_detection":
                 return self._evaluate_vpn_conditions(conditions, context)
-            elif rule.rule_type == "failed_login":
-                return self._evaluate_failed_login_conditions(conditions, context)
             elif rule.rule_type == "hwid_block":
                 return self._evaluate_hwid_block_conditions(conditions, context)
             elif rule.rule_type == "brute_force":
@@ -262,8 +260,6 @@ class SecurityRulesService:
                 redis_client.expire(rate_key, time_window * 60)
 
             if new_count > max_requests:
-
-                self._update_rule_trigger("Rate Limiting Protection", context.project_id)
                 return True
 
             return False
@@ -288,8 +284,6 @@ class SecurityRulesService:
                 if blocked_countries and context.country and context.country.upper() in [
                     c.upper() for c in blocked_countries
                 ]:
-
-                    self._update_rule_trigger("Geo-blocking", context.project_id)
                     return True
 
             if "allowed_countries" in conditions:
@@ -297,8 +291,6 @@ class SecurityRulesService:
                 if allowed_countries and context.country and context.country.upper() not in [
                     c.upper() for c in allowed_countries
                 ]:
-
-                    self._update_rule_trigger("Geo-blocking", context.project_id)
                     return True
 
             return False
@@ -344,8 +336,6 @@ class SecurityRulesService:
                 ).count()
 
                 if connection_count >= 10:
-
-                    self._update_rule_trigger("Suspicious Activity Monitor", context.project_id)
                     return True
 
             return False
@@ -397,10 +387,6 @@ class SecurityRulesService:
                         expires_at=expires_at,
                     )
                     db.session.add(blocked_ip)
-                    
-
-                    self._update_rule_trigger("Auto-block Suspicious IPs", context.project_id)
-                    
                     db.session.commit()
                     self.logger.warning(
                         f"Auto-blocked IP {context.ip_address} with threat score {threat_assessment.score}"
@@ -445,10 +431,6 @@ class SecurityRulesService:
                     severity="medium",
                     threat_score=30,
                 )
-                
-
-                self._update_rule_trigger("VPN Detection", context.project_id)
-                
 
                 block_vpn = conditions.get("block_vpn", False)
                 if block_vpn:
@@ -482,11 +464,6 @@ class SecurityRulesService:
             self.logger.error(f"Error evaluating VPN conditions: {e}")
             return False
 
-    def _evaluate_failed_login_conditions(self, conditions: Dict, context: SecurityContext) -> bool:
-        """Evaluate failed login conditions (handled separately in record_login_attempt)"""
-
-        return False
-
     def _evaluate_hwid_block_conditions(self, conditions: Dict, context: SecurityContext) -> bool:
         """Evaluate HWID blacklist conditions"""
         try:
@@ -509,11 +486,6 @@ class SecurityRulesService:
                     db.session.commit()
                     return False
                 
-
-
-                if not hasattr(context, '_hwid_trigger_updated'):
-                    self._update_rule_trigger("HWID Blacklist", context.project_id)
-                    context._hwid_trigger_updated = True
                 return True
             
             return False
@@ -564,10 +536,6 @@ class SecurityRulesService:
                         expires_at=expires_at,
                     )
                     db.session.add(blocked_ip)
-                    
-
-                    self._update_rule_trigger("Brute Force Protection", context.project_id)
-                    
                     db.session.commit()
                     self.logger.warning(
                         f"Brute force protection triggered for IP {context.ip_address}: {failed_attempts} attempts"

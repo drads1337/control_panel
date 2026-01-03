@@ -1336,8 +1336,10 @@ def get_security_rules():
 
         from ..models.security import SecurityRule
 
+        # Filter out deprecated "Failed Login Protection" rule
         rules = (
             SecurityRule.query.filter_by(project_id=project_id)
+            .filter(SecurityRule.name != "Failed Login Protection")
             .order_by(SecurityRule.priority.desc())
             .all()
         )
@@ -1346,7 +1348,6 @@ def get_security_rules():
         type_mapping = {
             "threat_score": "ip",
             "rate_limit": "behavior",
-            "failed_login": "behavior",
             "hwid_block": "hwid",
             "geo_block": "geo",
             "vpn_detection": "ip",

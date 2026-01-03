@@ -57,7 +57,7 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
 
   const handleRuleClick = useCallback((rule: SecurityRule) => {
     // Only open settings for rules that have configurable settings
-    const configurableRules = ['Geo-blocking', 'Brute Force Protection', 'Failed Login Protection']
+    const configurableRules = ['Geo-blocking', 'Brute Force Protection', 'Auto-block Suspicious IPs']
     if (configurableRules.includes(rule.name)) {
       setSelectedRule(rule)
       setSettingsDialogOpen(true)
@@ -104,7 +104,7 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
     getSeverityColor: (severity: string) => string;
     getTypeIcon: (type: string) => React.ReactElement;
   }) => {
-    const configurableRules = ['Geo-blocking', 'Brute Force Protection', 'Failed Login Protection']
+    const configurableRules = ['Geo-blocking', 'Brute Force Protection', 'Auto-block Suspicious IPs']
     const isConfigurable = configurableRules.includes(rule.name)
 
     return (

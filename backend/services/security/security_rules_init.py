@@ -40,17 +40,6 @@ class SecurityRulesInitService:
             "cooldown_minutes": 5,
         },
         {
-            "name": "Failed Login Protection",
-            "description": "Block after 5 failed login attempts",
-            "rule_type": "failed_login",
-            "conditions": json.dumps({"max_failed_attempts": 5, "time_window_minutes": 15}),
-            "action_type": "block",
-            "action_params": json.dumps({"severity": "high", "block_duration_hours": 1}),
-            "is_active": True,
-            "priority": 95,
-            "cooldown_minutes": 60,
-        },
-        {
             "name": "HWID Blacklist",
             "description": "Block known malicious hardware IDs",
             "rule_type": "hwid_block",
@@ -163,6 +152,7 @@ class SecurityRulesInitService:
     def ensure_default_rules(self, project_id: int) -> List[SecurityRule]:
         """
         Ensure all default rules exist for a project (create missing ones)
+        Also removes deprecated "Failed Login Protection" rule if it exists
 
         Args:
             project_id: Project ID
@@ -170,6 +160,16 @@ class SecurityRulesInitService:
         Returns:
             List of all security rules for the project
         """
+        # Remove deprecated "Failed Login Protection" rule
+        deprecated_rule = SecurityRule.query.filter_by(
+            project_id=project_id,
+            name="Failed Login Protection"
+        ).first()
+        if deprecated_rule:
+            db.session.delete(deprecated_rule)
+            db.session.commit()
+            logger.info(f"Removed deprecated 'Failed Login Protection' rule from project {project_id}")
+        
         self.initialize_default_rules(project_id)
         return SecurityRule.query.filter_by(project_id=project_id).all()
 
