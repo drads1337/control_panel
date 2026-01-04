@@ -2,7 +2,7 @@ import {
   LogOut,
   LayoutDashboard,
   Settings,
-  Monitor,
+  // Monitor, // Temporarily hidden
   Shield,
   Webhook,
   FileText,
@@ -33,7 +33,7 @@ const navigationItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/management-page", label: "Management", icon: Settings },
   { path: "/users", label: "Users", icon: Users },
-  { path: "/remote-control", label: "Remote Control", icon: Monitor },
+  // { path: "/remote-control", label: "Remote Control", icon: Monitor }, // Temporarily hidden
   { path: "/security", label: "Security", icon: Shield },
   { path: "/webhooks", label: "Webhooks", icon: Webhook },
   { path: "/logs", label: "Logs", icon: FileText },

@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { securityAPI, SecurityRule } from '@/shared/api/security'
 import { toast } from 'sonner'
@@ -646,20 +647,23 @@ export default function SecuritySettings({ rule, open, onOpenChange, onRefresh, 
                     <Label htmlFor="auto-block-severity" className="text-xs font-medium">
                       Severity Level *
                     </Label>
-                    <select
-                      id="auto-block-severity"
+                    <Select
                       value={autoBlock.severity}
-                      onChange={(e) => {
-                        setAutoBlock(prev => ({ ...prev, severity: e.target.value as 'low' | 'medium' | 'high' | 'critical' }))
+                      onValueChange={(value) => {
+                        setAutoBlock(prev => ({ ...prev, severity: value as 'low' | 'medium' | 'high' | 'critical' }))
                       }}
                       disabled={!canManageRules || isSaving}
-                      className="h-8 text-xs w-full rounded-md border border-input bg-background px-3 py-1"
                     >
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                      <option value="critical">Critical</option>
-                    </select>
+                      <SelectTrigger id="auto-block-severity" className="h-8 text-xs w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="critical">Critical</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <p className="text-[10px] text-muted-foreground">
                       Severity level for blocked IPs (affects logging and notifications)
                     </p>

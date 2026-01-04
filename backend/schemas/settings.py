@@ -121,7 +121,7 @@ class BlockIPSchema(BaseSchema):
     @classmethod
     def validate_block_type(cls, v: str) -> str:
         """Validate block type"""
-        allowed_types = ["manual", "automatic"]
+        allowed_types = ["manual", "automatic", "behavioral", "rate_limit"]
         if v not in allowed_types:
             raise ValueError(f"Block type must be one of {allowed_types}")
         return v
@@ -143,6 +143,7 @@ class BlockHWIDSchema(BaseSchema):
     reason: str = Field(default="Manual block", description="Block reason")
     expires_at: Optional[datetime] = Field(default=None, description="Expiration datetime")
     block_type: str = Field(default="manual", description="Block type")
+    category: str = Field(default="general", description="Block category")
     severity: str = Field(default="medium", description="Severity level")
     threat_score: int = Field(default=0, ge=0, le=100, description="Threat score")
 
@@ -150,9 +151,18 @@ class BlockHWIDSchema(BaseSchema):
     @classmethod
     def validate_block_type(cls, v: str) -> str:
         """Validate block type"""
-        allowed_types = ["manual", "automatic"]
+        allowed_types = ["manual", "automatic", "behavioral", "rate_limit"]
         if v not in allowed_types:
             raise ValueError(f"Block type must be one of {allowed_types}")
+        return v
+
+    @field_validator("category")
+    @classmethod
+    def validate_category(cls, v: str) -> str:
+        """Validate category"""
+        allowed_categories = ["general", "spam", "abuse", "fraud", "malware", "suspicious", "violation", "rate_limit"]
+        if v not in allowed_categories:
+            raise ValueError(f"Category must be one of {allowed_categories}")
         return v
 
     @field_validator("severity")

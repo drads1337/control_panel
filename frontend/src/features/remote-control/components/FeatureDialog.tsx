@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from 'react'
+import React, { useMemo, useCallback, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -49,6 +49,7 @@ interface FeatureDialogProps {
   onAddFeature: () => void
   onUpdateFeature: () => void
   onResetFeatureForm: () => void
+  categoryId?: string // Optional: if provided, category is fixed and not editable
 }
 
 export function FeatureDialog({
@@ -60,18 +61,27 @@ export function FeatureDialog({
   setFeatureFormData,
   onAddFeature,
   onUpdateFeature,
-  onResetFeatureForm
+  onResetFeatureForm,
+  categoryId
 }: FeatureDialogProps) {
+  // Ensure category_id is set when categoryId prop is provided
+  useEffect(() => {
+    if (categoryId && featureFormData.category_id !== categoryId) {
+      setFeatureFormData((prev) => ({ ...prev, category_id: categoryId }))
+    }
+  }, [categoryId, featureFormData.category_id, setFeatureFormData])
+
   const handleClose = useCallback(() => {
     setFeatureDialogOpen(false)
     onResetFeatureForm()
   }, [setFeatureDialogOpen, onResetFeatureForm])
 
   const isFormValid = useMemo(() => {
+    const hasCategory = categoryId ? true : featureFormData.category_id !== ''
     return featureFormData.name.trim().length >= 1 && 
            featureFormData.description.trim().length >= 1 &&
-           featureFormData.category_id !== ''
-  }, [featureFormData.name, featureFormData.description, featureFormData.category_id])
+           hasCategory
+  }, [featureFormData.name, featureFormData.description, featureFormData.category_id, categoryId])
 
   const handleSave = useCallback(() => {
     if (editingFeature) {
@@ -151,30 +161,7 @@ export function FeatureDialog({
             </div>
 
             {/* --- ГРУППИРОВКА В ОДНУ СТРОКУ (GRID) --- */}
-            <div className="grid grid-cols-3 gap-3">
-              {/* Category Field */}
-              <div className="space-y-1">
-                <Label htmlFor="category" className="text-xs font-medium">Category *</Label>
-                <Select
-                  value={featureFormData.category_id}
-                  onValueChange={(value) => setFeatureFormData((prev) => ({ ...prev, category_id: value }))}
-                >
-                  <SelectTrigger className="h-8 text-xs px-2">
-                    <SelectValue placeholder="Cat." />
-                  </SelectTrigger>
-                  <SelectContent className="text-xs">
-                    {categories.map((category) => (
-                      <SelectItem key={category.id} value={category.id} className="text-xs">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: category.color }} />
-                          <span className="truncate">{category.name}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
+            <div className="grid grid-cols-2 gap-3">
               {/* Type Field */}
               <div className="space-y-1">
                 <Label htmlFor="type" className="text-xs font-medium">Type *</Label>
@@ -214,19 +201,7 @@ export function FeatureDialog({
             </div>
             {/* ------------------------------------------- */}
 
-            {/* Enabled Field */}
-            <div className="flex items-center justify-between py-1 bg-muted/20 px-2 rounded border">
-              <Label htmlFor="enabled" className="text-xs font-medium cursor-pointer">
-                Enabled by default
-              </Label>
-              <Switch
-                id="enabled"
-                className="scale-90"
-                checked={featureFormData.enabled}
-                onCheckedChange={(checked) => setFeatureFormData((prev) => ({ ...prev, enabled: checked }))}
-              />
-            </div>
-
+           
             {/* Type-specific Configuration */}
             {isSliderType && (
               <div className="space-y-3 pt-2 border-t">
@@ -253,7 +228,7 @@ export function FeatureDialog({
                 <div className="space-y-1">
                   <Label className="text-xs font-medium">Default Value</Label>
                   <Input type="number" className="h-8 text-xs" placeholder="Default"
-                    value={featureFormData.defaultValue ?? ''} onChange={handleNumberChange('defaultValue')} />
+                    value={typeof featureFormData.defaultValue === 'number' ? featureFormData.defaultValue : (typeof featureFormData.defaultValue === 'string' ? parseFloat(featureFormData.defaultValue) || '' : '')} onChange={handleNumberChange('defaultValue')} />
                 </div>
               </div>
             )}
@@ -270,7 +245,7 @@ export function FeatureDialog({
                 <div className="space-y-1">
                   <Label className="text-xs font-medium">Default Value</Label>
                   <Input className="h-8 text-xs" placeholder="Default option"
-                    value={featureFormData.defaultValue ?? ''}
+                    value={typeof featureFormData.defaultValue === 'string' ? featureFormData.defaultValue : (typeof featureFormData.defaultValue === 'number' ? String(featureFormData.defaultValue) : '')}
                     onChange={(e) => setFeatureFormData((prev) => ({ ...prev, defaultValue: e.target.value }))} />
                 </div>
               </div>

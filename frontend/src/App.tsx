@@ -3,7 +3,7 @@ import { LoginPage } from "@/features/auth"
 import { DashboardPage } from "@/features/dashboard"
 import { ManagementPage } from "@/features/management"
 import { UsersPage } from "@/features/user-administration"
-import { RemoteControlPage } from "@/features/remote-control"
+// import { RemoteControlPage } from "@/features/remote-control" // Temporarily hidden
 import { SecurityPage } from "@/features/security"
 import { WebhooksPage } from "@/features/webhooks-control"
 import { LogsPage } from "@/features/logs"
@@ -39,6 +39,7 @@ export function App() {
           </AppLayout>
         }
       />
+      {/* Temporarily hidden
       <Route
         path="/remote-control"
         element={
@@ -47,6 +48,7 @@ export function App() {
           </AppLayout>
         }
       />
+      */}
       <Route
         path="/security"
         element={

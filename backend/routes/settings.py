@@ -995,9 +995,13 @@ def get_blocked_ips():
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def block_ip(validated_data=None):
+def block_ip(**kwargs):
     try:
-
+        # Extract validated_data from kwargs (set by @validate_request decorator)
+        validated_data = kwargs.get('validated_data')
+        
+        if not validated_data:
+            return jsonify({"error": "No data provided"}), 400
 
         rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
@@ -1011,9 +1015,6 @@ def block_ip(validated_data=None):
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        if not validated_data:
-            return jsonify({"error": "No data provided"}), 400
-
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -1023,26 +1024,26 @@ def block_ip(validated_data=None):
         from ..models.security import BlockedIP
 
         existing = BlockedIP.query.filter_by(
-            ip_address=validated_data.ip_address, project_id=project_id, is_active=True
+            ip_address=validated_data["ip_address"], project_id=project_id, is_active=True
         ).first()
 
         if existing:
             return jsonify({"error": "IP address is already blocked"}), 400
 
         blocked_ip = BlockedIP(
-            ip_address=validated_data.ip_address,
+            ip_address=validated_data["ip_address"],
             project_id=project_id,
-            reason=validated_data.reason,
+            reason=validated_data["reason"],
             blocked_by_user_id=user_id,
             is_active=True,
-            block_type=validated_data.block_type,
-            category=validated_data.category,
-            severity=validated_data.severity,
-            threat_score=validated_data.threat_score,
+            block_type=validated_data["block_type"],
+            category=validated_data["category"],
+            severity=validated_data["severity"],
+            threat_score=validated_data["threat_score"],
         )
 
-        if validated_data.expires_at:
-            blocked_ip.expires_at = validated_data.expires_at
+        if validated_data.get("expires_at"):
+            blocked_ip.expires_at = validated_data["expires_at"]
 
         db.session.add(blocked_ip)
         db.session.commit()
@@ -1167,9 +1168,66 @@ def get_blocked_hwids():
 @jwt_required()
 @require_project_with_grace_period
 @require_project_isolation
-def block_hwid(validated_data=None):
+def block_hwid(**kwargs):
     try:
-
+        # Extract validated_data from kwargs (set by @validate_request decorator)
+        validated_data = kwargs.get('validated_data')
+        
+        # Check if validated_data is None or not a dict, or if it's missing required fields
+        if validated_data is None:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"block_hwid: validated_data is None. kwargs keys: {list(kwargs.keys())}")
+            logger.error(f"Request method: {request.method}, Content-Type: {request.headers.get('Content-Type')}")
+            
+            # Try to manually parse the request as a fallback for debugging
+            try:
+                request_data = request.get_data(as_text=True)
+                logger.error(f"Request data preview: {request_data[:500] if request_data else 'EMPTY'}")
+                
+                if request_data:
+                    try:
+                        json_data = json.loads(request_data)
+                        logger.error(f"Parsed JSON data: {json_data}")
+                        # Try to validate manually
+                        from ..schemas.settings import BlockHWIDSchema
+                        try:
+                            schema = BlockHWIDSchema(**json_data)
+                            validated_data = schema.model_dump()
+                            logger.info(f"Manual validation succeeded, using validated_data: {validated_data}")
+                        except Exception as schema_error:
+                            logger.error(f"Manual schema validation failed: {str(schema_error)}")
+                            return jsonify({
+                                "error": "Validation failed",
+                                "message": f"Schema validation error: {str(schema_error)}"
+                            }), 400
+                    except json.JSONDecodeError as json_error:
+                        logger.error(f"JSON decode error: {str(json_error)}")
+                        return jsonify({
+                            "error": "Invalid JSON",
+                            "message": f"Failed to parse JSON: {str(json_error)}"
+                        }), 400
+                else:
+                    logger.error("Request body is empty")
+                    return jsonify({
+                        "error": "No data provided",
+                        "message": "Request body is empty"
+                    }), 400
+            except Exception as parse_error:
+                logger.error(f"Error parsing request: {str(parse_error)}")
+            
+            if validated_data is None:
+                return jsonify({
+                    "error": "No data provided",
+                    "message": "Request validation failed - validated_data is None. Check server logs for details."
+                }), 400
+        
+        if not isinstance(validated_data, dict):
+            return jsonify({"error": "Invalid data format", "message": f"Expected dict, got {type(validated_data)}"}), 400
+        
+        # Check for required field
+        if 'hwid' not in validated_data:
+            return jsonify({"error": "Missing required field", "message": "hwid field is required"}), 400
 
         rbac_service = get_service('rbac_service')
         user_id = get_jwt_identity()
@@ -1183,9 +1241,6 @@ def block_hwid(validated_data=None):
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        if not validated_data:
-            return jsonify({"error": "No data provided"}), 400
-
         if not user.project_id:
             return jsonify({"error": "User must be assigned to a project"}), 403
 
@@ -1195,25 +1250,26 @@ def block_hwid(validated_data=None):
         from ..models.security import BlockedHWID
 
         existing = BlockedHWID.query.filter_by(
-            hwid=validated_data.hwid, project_id=project_id, is_active=True
+            hwid=validated_data["hwid"], project_id=project_id, is_active=True
         ).first()
 
         if existing:
             return jsonify({"error": "HWID is already blocked"}), 400
 
         blocked_hwid = BlockedHWID(
-            hwid=validated_data.hwid,
+            hwid=validated_data["hwid"],
             project_id=project_id,
-            reason=validated_data.reason,
+            reason=validated_data["reason"],
             blocked_by_user_id=user_id,
             is_active=True,
-            block_type=validated_data.block_type,
-            severity=validated_data.severity,
-            threat_score=validated_data.threat_score,
+            block_type=validated_data["block_type"],
+            category=validated_data["category"],
+            severity=validated_data["severity"],
+            threat_score=validated_data["threat_score"],
         )
 
-        if validated_data.expires_at:
-            blocked_hwid.expires_at = validated_data.expires_at
+        if validated_data.get("expires_at"):
+            blocked_hwid.expires_at = validated_data["expires_at"]
 
         db.session.add(blocked_hwid)
         db.session.commit()

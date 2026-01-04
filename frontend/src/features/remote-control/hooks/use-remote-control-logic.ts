@@ -476,6 +476,53 @@ export function useRemoteControlLogic() {
     return features.filter(feature => feature.category === categoryId)
   }, [features])
 
+  const handleSliderValueChange = useCallback(async (featureId: string, newValue: number) => {
+    if (!hasPermission('remote_control.edit')) {
+      toast.error("You don't have permission to update features")
+      return
+    }
+
+    const feature = features.find(f => f.id === featureId)
+    if (!feature) return
+
+    // Optimistic update
+    const currentConfig = feature.configuration || {}
+    const updatedConfig = {
+      ...currentConfig,
+      default: newValue
+    }
+
+    setFeatures(prev => prev.map(f =>
+      f.id === featureId 
+        ? { ...f, configuration: updatedConfig }
+        : f
+    ))
+
+    try {
+      const updatedFeature = await remoteControlAPI.updateFeature(featureId, {
+        configuration: updatedConfig
+      })
+
+      setFeatures(prev => prev.map(f =>
+        f.id === featureId ? updatedFeature : f
+      ))
+    } catch (err: unknown) {
+      // Revert on error
+      setFeatures(prev => prev.map(f =>
+        f.id === featureId ? feature : f
+      ))
+
+      let errorMessage = 'Failed to update slider value'
+      if (isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
+        const errorData = err.response.data as { error?: string }
+        errorMessage = errorData.error || errorMessage
+      } else {
+        errorMessage = getErrorMessage(err)
+      }
+      toast.error(errorMessage)
+    }
+  }, [features, hasPermission])
+
   const handleProductChange = useCallback((productId: number) => {
     setSelectedProductId(productId)
     setActiveTab('')
@@ -517,6 +564,7 @@ export function useRemoteControlLogic() {
     handleProductChange,
     loadData,
     handleFeatureToggle,
+    handleSliderValueChange,
     handleAddFeature,
     handleEditFeature,
     handleUpdateFeature,

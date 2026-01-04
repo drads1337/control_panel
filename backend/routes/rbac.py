@@ -2224,10 +2224,11 @@ def get_navigation_config(current_user):
                     "href": "/users-management",
                     "permissionPrefixes": ["employees.", "clients."]
                 },
-                {
-                    "href": "/remote-control",
-                    "permissionPrefixes": ["remote_control."]
-                },
+                # Temporarily hidden
+                # {
+                #     "href": "/remote-control",
+                #     "permissionPrefixes": ["remote_control."]
+                # },
                 {
                     "href": "/security",
                     "permissionPrefixes": ["security."]

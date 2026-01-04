@@ -1,5 +1,3 @@
-"use client"
-
 import React from 'react'
 import { Settings, Monitor, Box, Eye, Gauge, Plus } from 'lucide-react'
 import { useRemoteControlLogic } from '../hooks/use-remote-control-logic'
@@ -32,10 +30,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { Spinner } from '@/components/ui/spinner'
 import { Button } from '@/components/ui/button'
-// Separator больше не нужен, используем divide-y для чистоты
 import { cn } from '@/lib/utils'
-
-// --- Types ---
 
 interface FeatureGroup {
   id: string
@@ -44,8 +39,6 @@ interface FeatureGroup {
   color: string
   features: RemoteFeature[]
 }
-
-// --- Main Component ---
 
 export function RemoteControlPage() {
   const { user, isAuthenticated, isInitialized } = useAuthContext()
@@ -71,6 +64,7 @@ export function RemoteControlPage() {
     setFormData,
     handleProductChange,
     handleFeatureToggle,
+    handleSliderValueChange,
     handleAddFeature,
     handleUpdateFeature,
     handleAddCategory,
@@ -83,7 +77,15 @@ export function RemoteControlPage() {
     canToggle
   } = useRemoteControlLogic()
 
-  if (!isInitialized) return null
+  if (!isInitialized) {
+    return (
+      <div className="flex h-screen bg-background">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-muted-foreground">Initializing...</div>
+        </div>
+      </div>
+    )
+  }
 
   if (!isAuthenticated || !user) {
     return (
@@ -97,7 +99,6 @@ export function RemoteControlPage() {
     )
   }
 
-  // Show empty state if no products and not loading
   if (!productsLoading && products.length === 0) {
     return (
       <div className="flex flex-1 flex-col p-6">
@@ -171,22 +172,25 @@ export function RemoteControlPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="@container/main flex flex-1 flex-col gap-3 p-4 md:p-6">
-        
-        {/* Header */}
-        <div className="mb-1">
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Remote Control
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage remote control features and configure product settings
-          </p>
-        </div>
+      <div className="@container/main flex flex-1 flex-col gap-2">
+        <div className="flex flex-col gap-3 py-3 md:gap-4 md:py-4">
+          <div className="px-4 lg:px-6 mb-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-lg xs:text-xl sm:text-xl md:text-2xl font-bold tracking-tight text-foreground leading-tight">
+                  Remote Control
+                </h1>
+                <p className="text-[10px] xs:text-xs sm:text-xs md:text-sm text-muted-foreground mt-1 xs:mt-1.5 sm:mt-2 leading-snug">
+                  Manage remote control features and configure product settings
+                </p>
+              </div>
+            </div>
+          </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-4 min-h-0 items-start">
-          
-          {/* Sidebar: Products List */}
-          <div className="flex flex-col h-[calc(100vh-12rem)] md:sticky md:top-4 border rounded-lg bg-background shadow-sm overflow-hidden">
+          <div className="px-4 lg:px-6">
+            <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-4 min-h-0 items-start">
+              {/* Sidebar: Products List */}
+              <div className="flex flex-col h-[calc(100vh-12rem)] md:sticky md:top-4 border rounded-lg bg-background shadow-sm overflow-hidden">
             {/* Header */}
             <div className="px-3 py-2.5 border-b bg-muted/30">
               <div className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
@@ -232,13 +236,12 @@ export function RemoteControlPage() {
                 )}
               </div>
             </ScrollArea>
-          </div>
+              </div>
 
-          {/* Main Panel */}
-          <div className="flex flex-col gap-3 min-w-0">
-            
-            {/* Top Stats Cards */}
-            <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 sm:grid-cols-3 gap-3 -mx-4 md:-mx-6 px-4 md:px-6 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs">
+              {/* Main Panel */}
+              <div className="flex flex-col gap-3 min-w-0">
+                {/* Top Stats Cards */}
+                <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 sm:grid-cols-3 gap-3 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs">
               {statCards.map((stat, index) => {
                 const Icon = stat.icon
                 return (
@@ -267,47 +270,47 @@ export function RemoteControlPage() {
                   </Card>
                 )
               })}
-            </div>
+                </div>
 
-            {/* Content Area */}
-            {selectedProductId ? (
-              loading ? (
-                <div className="min-h-[200px] flex items-center justify-center -mx-4 md:-mx-6 px-4 md:px-6">
-                  <Spinner className="size-6" />
-                </div>
-              ) : error ? (
-                <div className="flex justify-center -mx-4 md:-mx-6 px-4 md:px-6 py-8">
-                  <EmptyState title="Error" description={error} icon={Settings} />
-                </div>
-              ) : categories.length === 0 ? (
-                <div className="flex justify-center -mx-4 md:-mx-6 px-4 md:px-6 py-12">
-                  <EmptyState
-                    title="No categories"
-                    description="Create categories to start."
-                    icon={Settings}
-                  />
-                </div>
-              ) : (
-                <div className="space-y-4 -mx-4 md:-mx-6 px-4 md:px-6">
-                  {/* Tabs */}
-                  <div className="relative">
-                    <CategoryTabs
-                      categories={categories}
-                      activeTab={activeTab}
-                      setActiveTab={setActiveTab}
-                      onAddCategory={() => {
-                        resetCategoryForm()
-                        setCategoryDialogOpen(true)
-                      }}
-                      onManageCategories={() => {
-                        resetCategoryForm()
-                        setCategoryDialogOpen(true)
-                      }}
-                    />
-                  </div>
+                {/* Content Area */}
+                {selectedProductId ? (
+                  loading ? (
+                    <div className="min-h-[200px] flex items-center justify-center -mx-4 md:-mx-6 px-4 md:px-6">
+                      <Spinner className="size-6" />
+                    </div>
+                  ) : error ? (
+                    <div className="flex justify-center -mx-4 md:-mx-6 px-4 md:px-6 py-8">
+                      <EmptyState title="Error" description={error} icon={Settings} />
+                    </div>
+                  ) : categories.length === 0 ? (
+                    <div className="flex justify-center -mx-4 md:-mx-6 px-4 md:px-6 py-12">
+                      <EmptyState
+                        title="No categories"
+                        description="Create categories to start."
+                        icon={Settings}
+                      />
+                    </div>
+                  ) : (
+                    <div className="space-y-4 -mx-4 md:-mx-6 px-4 md:px-6">
+                      {/* Tabs */}
+                      <div className="relative">
+                        <CategoryTabs
+                          categories={categories}
+                          activeTab={activeTab}
+                          setActiveTab={setActiveTab}
+                          onAddCategory={() => {
+                            resetCategoryForm()
+                            setCategoryDialogOpen(true)
+                          }}
+                          onManageCategories={() => {
+                            resetCategoryForm()
+                            setCategoryDialogOpen(true)
+                          }}
+                        />
+                      </div>
 
-                  {/* Feature Grid */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                      {/* Feature Grid */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                     {featureGroups
                       .filter(group => group.id === activeTab || !activeTab)
                       .map(group => {
@@ -365,20 +368,39 @@ export function RemoteControlPage() {
                                             />
                                           )}
                                           
-                                          {(featureType === 'slider' || featureType === 'int-slider' || featureType === 'float-slider') && (
-                                            <div className="flex items-center gap-2 w-28 xs:w-32">
-                                              <Slider
-                                                value={[typeof config.default === 'number' ? config.default : (config.min || 0)]}
-                                                min={config.min || 0}
-                                                max={config.max || 100}
-                                                disabled={!canToggle}
-                                                className="flex-1"
-                                              />
-                                              <span className="text-[10px] font-mono text-muted-foreground w-6 text-right">
-                                                {typeof config.default === 'number' ? config.default : (config.min || 0)}
-                                              </span>
-                                            </div>
-                                          )}
+                                          {(featureType === 'slider' || featureType === 'int-slider' || featureType === 'float-slider') && (() => {
+                                            const min = config.min ?? 0
+                                            const max = config.max ?? 100
+                                            const currentValue = typeof config.default === 'number' ? config.default : min
+                                            const isOnOffMode = min === 0 && max === 1
+                                            
+                                            return (
+                                              <div className="flex items-center gap-2 w-28 xs:w-32">
+                                                <Slider
+                                                  value={[currentValue]}
+                                                  min={min}
+                                                  max={max}
+                                                  step={isOnOffMode ? 1 : (config.step || (featureType === 'int-slider' ? 1 : 0.1))}
+                                                  disabled={!canToggle}
+                                                  className="flex-1"
+                                                  onValueChange={(values) => {
+                                                    let newValue = values[0]
+                                                    // For on/off mode, snap to 0 or 1
+                                                    if (isOnOffMode) {
+                                                      newValue = newValue >= 0.5 ? 1 : 0
+                                                    }
+                                                    handleSliderValueChange(feature.id, newValue)
+                                                  }}
+                                                />
+                                                <span className="text-[10px] font-mono text-muted-foreground w-6 text-right">
+                                                  {isOnOffMode 
+                                                    ? (currentValue >= 0.5 ? 'On' : 'Off')
+                                                    : (featureType === 'float-slider' ? currentValue.toFixed(1) : Math.round(currentValue))
+                                                  }
+                                                </span>
+                                              </div>
+                                            )
+                                          })()}
 
                                           {featureType === 'select' && config.options && (
                                             <Select
@@ -427,22 +449,24 @@ export function RemoteControlPage() {
                           </Card>
                         )
                       })}
+                      </div>
+                    </div>
+                  )
+                ) : (
+                  <div className="flex-1 flex items-center justify-center -mx-4 md:-mx-6 px-4 md:px-6 py-12">
+                    <Card className="w-full max-w-md border-dashed">
+                      <div className="p-8 flex flex-col items-center justify-center">
+                        <EmptyState
+                          title="No product selected"
+                          description="Select a product from the sidebar to configure."
+                          icon={Box}
+                        />
+                      </div>
+                    </Card>
                   </div>
-                </div>
-              )
-            ) : (
-              <div className="flex-1 flex items-center justify-center -mx-4 md:-mx-6 px-4 md:px-6 py-12">
-                <Card className="w-full max-w-md border-dashed">
-                  <div className="p-8 flex flex-col items-center justify-center">
-                    <EmptyState
-                      title="No product selected"
-                      description="Select a product from the sidebar to configure."
-                      icon={Box}
-                    />
-                  </div>
-                </Card>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
@@ -472,6 +496,7 @@ export function RemoteControlPage() {
         onAddFeature={handleAddFeature}
         onUpdateFeature={handleUpdateFeature}
         onResetFeatureForm={resetForm}
+        categoryId={editingFeature ? editingFeature.category : formData.category_id}
       />
     </div>
   )
