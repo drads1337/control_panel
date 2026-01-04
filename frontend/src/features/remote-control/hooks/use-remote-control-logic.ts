@@ -338,13 +338,24 @@ export function useRemoteControlLogic() {
     setEditingFeature(null)
   }, [])
 
+  const resetCategoryForm = useCallback(() => {
+    setCategoryFormData({
+      name: '',
+      description: '',
+      color: '#3b82f6',
+      product_id: selectedProductId || undefined
+    })
+  }, [selectedProductId])
+
   const handleAddCategory = useCallback(async () => {
     if (!hasPermission('remote_control.create')) {
       toast.error("You don't have permission to create sections")
       return
     }
 
-    if (!selectedProductId) {
+    const productIdToUse = categoryFormData.product_id || selectedProductId
+
+    if (!productIdToUse) {
       toast.error("Please select a product first")
       return
     }
@@ -359,7 +370,7 @@ export function useRemoteControlLogic() {
         name: categoryFormData.name,
         description: categoryFormData.description,
         color: categoryFormData.color,
-        product_id: selectedProductId
+        product_id: productIdToUse
       })
 
       setCategories(prev => [...prev, newCategory])
@@ -376,7 +387,7 @@ export function useRemoteControlLogic() {
       }
       toast.error(errorMessage)
     }
-  }, [categoryFormData, selectedProductId, hasPermission])
+  }, [categoryFormData, selectedProductId, hasPermission, resetCategoryForm])
 
   const handleEditCategory = useCallback((category: RemoteCategory) => {
     if (!hasPermission('remote_control.edit')) {
@@ -431,7 +442,7 @@ export function useRemoteControlLogic() {
       }
       toast.error(errorMessage)
     }
-  }, [categoryFormData, editingCategory, selectedProductId, hasPermission])
+  }, [categoryFormData, editingCategory, selectedProductId, hasPermission, resetCategoryForm])
 
   const handleDeleteCategory = useCallback(async (categoryId: string) => {
     if (!hasPermission('remote_control.delete')) {
@@ -462,15 +473,6 @@ export function useRemoteControlLogic() {
       toast.error(errorMessage)
     }
   }, [categories, features, hasPermission])
-
-  const resetCategoryForm = useCallback(() => {
-    setCategoryFormData({
-      name: '',
-      description: '',
-      color: '#3b82f6',
-      product_id: selectedProductId || undefined
-    })
-  }, [selectedProductId])
 
   const getCategoryFeatures = useCallback((categoryId: string) => {
     return features.filter(feature => feature.category === categoryId)

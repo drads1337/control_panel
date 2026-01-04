@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useMemo, useCallback } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -21,10 +21,27 @@ import { X, Check, Plus } from 'lucide-react'
 import { ConditionalRender } from '@/shared/ui/components/rbac/conditional-render'
 import type { RemoteFeature } from '@/shared/lib/remote-control-api'
 import type { RemoteCategory } from '../category'
-
 import type { FeatureFormData, FeatureType, FeatureStatus } from '../hooks/use-remote-control-logic'
 
 export type { FeatureType, FeatureStatus, FeatureFormData }
+
+// Constants
+const FEATURE_TYPES: { value: FeatureType; label: string }[] = [
+  { value: 'toggle', label: 'Toggle (On/Off)' },
+  { value: 'int-slider', label: 'Integer Slider' },
+  { value: 'float-slider', label: 'Float Slider' },
+  { value: 'select', label: 'Select (Dropdown)' },
+]
+
+const STATUS_OPTIONS: { value: FeatureStatus; label: string }[] = [
+  { value: 'offline', label: 'Offline' },
+  { value: 'online', label: 'Online' },
+  { value: 'maintenance', label: 'Maintenance' },
+]
+
+const LABEL_CLASSES = "text-[10px] uppercase text-muted-foreground font-bold"
+const INPUT_CLASSES = "h-8 text-sm"
+const SECTION_CLASSES = "space-y-3 pt-2 border-t"
 
 interface FeatureDialogProps {
   featureDialogOpen: boolean
@@ -49,43 +66,54 @@ export function FeatureDialog({
   onUpdateFeature,
   onResetFeatureForm
 }: FeatureDialogProps) {
-  
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setFeatureDialogOpen(false)
     onResetFeatureForm()
-  }
+  }, [setFeatureDialogOpen, onResetFeatureForm])
 
-  const isFormValid = featureFormData.name.trim().length >= 1 && 
-                      featureFormData.description.trim().length >= 1 &&
-                      featureFormData.category_id !== ''
+  const isFormValid = useMemo(() => {
+    return featureFormData.name.trim().length >= 1 && 
+           featureFormData.description.trim().length >= 1 &&
+           featureFormData.category_id !== ''
+  }, [featureFormData.name, featureFormData.description, featureFormData.category_id])
 
-  const featureTypes: { value: FeatureType; label: string }[] = [
-    { value: 'toggle', label: 'Toggle (On/Off)' },
-    { value: 'slider', label: 'Slider (0-100)' },
-    { value: 'int-slider', label: 'Integer Slider' },
-    { value: 'float-slider', label: 'Float Slider' },
-    { value: 'select', label: 'Select (Dropdown)' },
-  ]
-
-  const statusOptions: { value: FeatureStatus; label: string }[] = [
-    { value: 'offline', label: 'Offline' },
-    { value: 'online', label: 'Online' },
-    { value: 'maintenance', label: 'Maintenance' },
-  ]
-
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     if (editingFeature) {
       onUpdateFeature()
     } else {
       onAddFeature()
     }
-  }
+  }, [editingFeature, onUpdateFeature, onAddFeature])
+
+  const handleTypeChange = useCallback((value: FeatureType) => {
+    setFeatureFormData((prev) => ({ 
+      ...prev, 
+      type: value,
+      min: undefined,
+      max: undefined,
+      step: undefined,
+      defaultValue: undefined,
+      options: undefined
+    }))
+  }, [setFeatureFormData])
+
+  const handleNumberChange = useCallback((field: 'min' | 'max' | 'step' | 'defaultValue') => {
+    return (e: React.ChangeEvent<HTMLInputElement>) => {
+      setFeatureFormData((prev) => ({ 
+        ...prev, 
+        [field]: e.target.value === '' ? undefined : parseFloat(e.target.value) 
+      }))
+    }
+  }, [setFeatureFormData])
+
+  const isSliderType = useMemo(() => {
+    return featureFormData.type === 'int-slider' || 
+           featureFormData.type === 'float-slider'
+  }, [featureFormData.type])
 
   return (
     <Dialog open={featureDialogOpen} onOpenChange={handleClose}>
       <DialogContent className="w-full max-w-[500px] max-h-[90vh] overflow-y-auto p-0 gap-0 bg-background">
-        
-        {/* Header */}
         <DialogHeader className="px-4 py-3 border-b sticky top-0 bg-background z-10">
           <DialogTitle className="text-sm font-semibold">
             {editingFeature ? 'Edit Feature' : 'Create Feature'}
@@ -93,17 +121,15 @@ export function FeatureDialog({
         </DialogHeader>
 
         <div className="p-4 space-y-4">
-          {/* Form Area */}
           <div className="bg-muted/30 p-4 rounded-lg border space-y-4">
-            
-            {/* Name */}
+            {/* Name Field */}
             <div className="space-y-1">
-              <Label htmlFor="name" className="text-[10px] uppercase text-muted-foreground font-bold">
+              <Label htmlFor="name" className={LABEL_CLASSES}>
                 Name *
               </Label>
               <Input
                 id="name"
-                className="h-8 text-sm"
+                className={INPUT_CLASSES}
                 placeholder="e.g. Smooth Aimbot"
                 value={featureFormData.name}
                 onChange={(e) => setFeatureFormData((prev) => ({ ...prev, name: e.target.value }))}
@@ -112,9 +138,9 @@ export function FeatureDialog({
               />
             </div>
 
-            {/* Description */}
+            {/* Description Field */}
             <div className="space-y-1">
-              <Label htmlFor="description" className="text-[10px] uppercase text-muted-foreground font-bold">
+              <Label htmlFor="description" className={LABEL_CLASSES}>
                 Description *
               </Label>
               <Textarea
@@ -127,16 +153,16 @@ export function FeatureDialog({
               />
             </div>
 
-            {/* Category */}
+            {/* Category Field */}
             <div className="space-y-1">
-              <Label htmlFor="category" className="text-[10px] uppercase text-muted-foreground font-bold">
+              <Label htmlFor="category" className={LABEL_CLASSES}>
                 Category *
               </Label>
               <Select
                 value={featureFormData.category_id}
                 onValueChange={(value) => setFeatureFormData((prev) => ({ ...prev, category_id: value }))}
               >
-                <SelectTrigger className="h-8 text-sm">
+                <SelectTrigger className={INPUT_CLASSES}>
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -155,28 +181,17 @@ export function FeatureDialog({
               </Select>
             </div>
 
-            {/* Type */}
+            {/* Type Field */}
             <div className="space-y-1">
-              <Label htmlFor="type" className="text-[10px] uppercase text-muted-foreground font-bold">
+              <Label htmlFor="type" className={LABEL_CLASSES}>
                 Type *
               </Label>
-              <Select
-                value={featureFormData.type}
-                onValueChange={(value: FeatureType) => setFeatureFormData((prev) => ({ 
-                  ...prev, 
-                  type: value,
-                  min: undefined,
-                  max: undefined,
-                  step: undefined,
-                  defaultValue: undefined,
-                  options: undefined
-                }))}
-              >
-                <SelectTrigger className="h-8 text-sm">
+              <Select value={featureFormData.type} onValueChange={handleTypeChange}>
+                <SelectTrigger className={INPUT_CLASSES}>
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
-                  {featureTypes.map((type) => (
+                  {FEATURE_TYPES.map((type) => (
                     <SelectItem key={type.value} value={type.value}>
                       {type.label}
                     </SelectItem>
@@ -185,20 +200,20 @@ export function FeatureDialog({
               </Select>
             </div>
 
-            {/* Status */}
+            {/* Status Field */}
             <div className="space-y-1">
-              <Label htmlFor="status" className="text-[10px] uppercase text-muted-foreground font-bold">
+              <Label htmlFor="status" className={LABEL_CLASSES}>
                 Status
               </Label>
               <Select
                 value={featureFormData.status}
                 onValueChange={(value: FeatureStatus) => setFeatureFormData((prev) => ({ ...prev, status: value }))}
               >
-                <SelectTrigger className="h-8 text-sm">
+                <SelectTrigger className={INPUT_CLASSES}>
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
-                  {statusOptions.map((status) => (
+                  {STATUS_OPTIONS.map((status) => (
                     <SelectItem key={status.value} value={status.value}>
                       {status.label}
                     </SelectItem>
@@ -207,9 +222,9 @@ export function FeatureDialog({
               </Select>
             </div>
 
-            {/* Enabled */}
+            {/* Enabled Field */}
             <div className="flex items-center justify-between py-2">
-              <Label htmlFor="enabled" className="text-[10px] uppercase text-muted-foreground font-bold">
+              <Label htmlFor="enabled" className={LABEL_CLASSES}>
                 Enabled by default
               </Label>
               <Switch
@@ -219,94 +234,74 @@ export function FeatureDialog({
               />
             </div>
 
-            {/* Type-specific configuration */}
-            {(featureFormData.type === 'slider' || featureFormData.type === 'int-slider' || featureFormData.type === 'float-slider') && (
-              <div className="space-y-3 pt-2 border-t">
+            {/* Type-specific Configuration */}
+            {isSliderType && (
+              <div className={SECTION_CLASSES}>
                 <div className="text-xs font-medium text-muted-foreground">Slider Configuration</div>
                 
                 <div className="grid grid-cols-3 gap-2">
                   <div className="space-y-1">
-                    <Label htmlFor="min" className="text-[10px] uppercase text-muted-foreground font-bold">
-                      Min
-                    </Label>
+                    <Label htmlFor="min" className={LABEL_CLASSES}>Min</Label>
                     <Input
                       id="min"
                       type="number"
-                      className="h-8 text-sm"
+                      className={INPUT_CLASSES}
                       placeholder="0"
                       value={featureFormData.min ?? ''}
-                      onChange={(e) => setFeatureFormData((prev) => ({ 
-                        ...prev, 
-                        min: e.target.value === '' ? undefined : parseFloat(e.target.value) 
-                      }))}
+                      onChange={handleNumberChange('min')}
                     />
                   </div>
                   
                   <div className="space-y-1">
-                    <Label htmlFor="max" className="text-[10px] uppercase text-muted-foreground font-bold">
-                      Max
-                    </Label>
+                    <Label htmlFor="max" className={LABEL_CLASSES}>Max</Label>
                     <Input
                       id="max"
                       type="number"
-                      className="h-8 text-sm"
+                      className={INPUT_CLASSES}
                       placeholder="100"
                       value={featureFormData.max ?? ''}
-                      onChange={(e) => setFeatureFormData((prev) => ({ 
-                        ...prev, 
-                        max: e.target.value === '' ? undefined : parseFloat(e.target.value) 
-                      }))}
+                      onChange={handleNumberChange('max')}
                     />
                   </div>
                   
                   <div className="space-y-1">
-                    <Label htmlFor="step" className="text-[10px] uppercase text-muted-foreground font-bold">
-                      Step
-                    </Label>
+                    <Label htmlFor="step" className={LABEL_CLASSES}>Step</Label>
                     <Input
                       id="step"
                       type="number"
-                      className="h-8 text-sm"
+                      className={INPUT_CLASSES}
                       placeholder="1"
                       value={featureFormData.step ?? ''}
-                      onChange={(e) => setFeatureFormData((prev) => ({ 
-                        ...prev, 
-                        step: e.target.value === '' ? undefined : parseFloat(e.target.value) 
-                      }))}
+                      onChange={handleNumberChange('step')}
                     />
                   </div>
                 </div>
                 
                 <div className="space-y-1">
-                  <Label htmlFor="defaultValue" className="text-[10px] uppercase text-muted-foreground font-bold">
-                    Default Value
-                  </Label>
+                  <Label htmlFor="defaultValue" className={LABEL_CLASSES}>Default Value</Label>
                   <Input
                     id="defaultValue"
                     type="number"
-                    className="h-8 text-sm"
+                    className={INPUT_CLASSES}
                     placeholder="Default value"
                     value={featureFormData.defaultValue ?? ''}
-                    onChange={(e) => setFeatureFormData((prev) => ({ 
-                      ...prev, 
-                      defaultValue: e.target.value === '' ? undefined : parseFloat(e.target.value) 
-                    }))}
+                    onChange={handleNumberChange('defaultValue')}
                   />
                 </div>
               </div>
             )}
 
             {featureFormData.type === 'select' && (
-              <div className="space-y-3 pt-2 border-t">
+              <div className={SECTION_CLASSES}>
                 <div className="text-xs font-medium text-muted-foreground">Select Configuration</div>
                 
                 <div className="space-y-1">
-                  <Label htmlFor="options" className="text-[10px] uppercase text-muted-foreground font-bold">
+                  <Label htmlFor="options" className={LABEL_CLASSES}>
                     Options (comma-separated) *
                   </Label>
                   <Input
                     id="options"
-                    className="h-8 text-sm"
+                    className={INPUT_CLASSES}
                     placeholder="option1, option2, option3"
                     value={featureFormData.options ?? ''}
                     onChange={(e) => setFeatureFormData((prev) => ({ ...prev, options: e.target.value }))}
@@ -314,12 +309,10 @@ export function FeatureDialog({
                 </div>
                 
                 <div className="space-y-1">
-                  <Label htmlFor="defaultValue" className="text-[10px] uppercase text-muted-foreground font-bold">
-                    Default Value
-                  </Label>
+                  <Label htmlFor="selectDefaultValue" className={LABEL_CLASSES}>Default Value</Label>
                   <Input
-                    id="defaultValue"
-                    className="h-8 text-sm"
+                    id="selectDefaultValue"
+                    className={INPUT_CLASSES}
                     placeholder="Default option"
                     value={featureFormData.defaultValue ?? ''}
                     onChange={(e) => setFeatureFormData((prev) => ({ ...prev, defaultValue: e.target.value }))}
@@ -329,16 +322,14 @@ export function FeatureDialog({
             )}
 
             {featureFormData.type === 'toggle' && (
-              <div className="space-y-3 pt-2 border-t">
+              <div className={SECTION_CLASSES}>
                 <div className="text-xs font-medium text-muted-foreground">Toggle Configuration</div>
                 
                 <div className="flex items-center justify-between py-2">
-                  <Label htmlFor="toggleDefault" className="text-[10px] uppercase text-muted-foreground font-bold">
-                    Default State
-                  </Label>
+                  <Label htmlFor="toggleDefault" className={LABEL_CLASSES}>Default State</Label>
                   <Switch
                     id="toggleDefault"
-                    checked={featureFormData.defaultValue === true || featureFormData.defaultValue === 'true'}
+                    checked={featureFormData.defaultValue === true}
                     onCheckedChange={(checked) => setFeatureFormData((prev) => ({ ...prev, defaultValue: checked }))}
                   />
                 </div>
@@ -356,6 +347,7 @@ export function FeatureDialog({
                 <X className="h-4 w-4 mr-1.5" />
                 Cancel
               </Button>
+              
               {editingFeature ? (
                 <ConditionalRender permission="remote_control.edit" fallback={null}>
                   <Button 

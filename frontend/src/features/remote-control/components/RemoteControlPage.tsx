@@ -1,39 +1,51 @@
 "use client"
 
 import React from 'react'
-import { 
-  Settings, 
-  Monitor,
-  Box,
-  Loader2,
-  RefreshCw,
-  Plus
-} from 'lucide-react'
-
-// UI Components
-import { Card, CardContent, CardTitle, CardHeader, CardFooter, CardDescription, CardAction } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
-import { Switch } from '@/components/ui/switch'
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from '@/components/ui/select'
-import { Spinner } from '@/components/ui/spinner'
-import { Tabs, TabsContent } from '@/components/ui/tabs'
-
-// Hooks & Types
+import { Settings, Monitor, Box, Eye, Gauge, Plus } from 'lucide-react'
 import { useRemoteControlLogic } from '../hooks/use-remote-control-logic'
 import { EmptyState, AccessDenied } from '@/shared/ui/components'
 import { useAuthContext } from '@/app/providers/auth-provider'
-import { CategoryTabs, CategoryDialog } from '../category'
+import { CategoryDialog, CategoryTabs } from '../category'
 import { FeatureDialog } from './FeatureDialog'
+import { ConditionalRender } from '@/shared/ui/components/rbac/conditional-render'
 import type { RemoteCategory } from '../category'
+import type { RemoteFeature } from '@/shared/lib/remote-control-api'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardAction,
+  CardFooter,
+} from '@/components/ui/card'
+import { Switch } from '@/components/ui/switch'
+import { Slider } from '@/components/ui/slider'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Badge } from '@/components/ui/badge'
+import { Spinner } from '@/components/ui/spinner'
+import { Button } from '@/components/ui/button'
+// Separator больше не нужен, используем divide-y для чистоты
+import { cn } from '@/lib/utils'
+
+// --- Types ---
+
+interface FeatureGroup {
+  id: string
+  title: string
+  icon: string
+  color: string
+  features: RemoteFeature[]
+}
+
+// --- Main Component ---
 
 export function RemoteControlPage() {
   const { user, isAuthenticated, isInitialized } = useAuthContext()
@@ -45,7 +57,6 @@ export function RemoteControlPage() {
     setActiveTab,
     features,
     categories,
-    stats,
     loading,
     error,
     categoryDialogOpen,
@@ -59,7 +70,6 @@ export function RemoteControlPage() {
     formData,
     setFormData,
     handleProductChange,
-    loadData,
     handleFeatureToggle,
     handleAddFeature,
     handleUpdateFeature,
@@ -70,16 +80,10 @@ export function RemoteControlPage() {
     resetForm,
     resetCategoryForm,
     getCategoryFeatures,
-    canCreate,
-    canEdit,
-    canDelete,
-    canToggle,
-    canView
+    canToggle
   } = useRemoteControlLogic()
 
-  if (!isInitialized) {
-    return null
-  }
+  if (!isInitialized) return null
 
   if (!isAuthenticated || !user) {
     return (
@@ -93,356 +97,409 @@ export function RemoteControlPage() {
     )
   }
 
-  const handleRefresh = async () => {
-    await loadData()
-  }
-
-  // Calculate stats
-  const totalCategories = categories.length
-  const enabledFeatures = features.filter(f => f.enabled).length
-  const totalFeatures = features.length
-
   // Show empty state if no products and not loading
   if (!productsLoading && products.length === 0) {
     return (
-      <EmptyState
-        title="No products available"
-        description="Create your first product to start using remote control features."
-        icon={Box}
-      />
+      <div className="flex flex-1 flex-col p-6">
+        <EmptyState
+          title="No products available"
+          description="Create your first product to start using remote control features."
+          icon={Box}
+        />
+      </div>
     )
+  }
+
+  // Show empty state if selected product has no categories (no loading, no error)
+  if (selectedProductId && !loading && !error && categories.length === 0) {
+    return (
+      <>
+        <EmptyState
+          title="No categories yet"
+          description="Create your first category to start organizing remote control features."
+          actionLabel="Create Category"
+          onAction={() => {
+            setCategoryFormData({
+              name: '',
+              description: '',
+              color: '#3b82f6',
+              product_id: undefined
+            })
+            setCategoryDialogOpen(true)
+          }}
+          icon={Settings}
+        />
+        
+        {/* Dialogs */}
+        <CategoryDialog
+          categoryDialogOpen={categoryDialogOpen}
+          setCategoryDialogOpen={setCategoryDialogOpen}
+          editingCategory={editingCategory}
+          categories={categories}
+          categoryFormData={categoryFormData}
+          setCategoryFormData={setCategoryFormData}
+          onAddCategory={handleAddCategory}
+          onUpdateCategory={handleUpdateCategory}
+          onEditCategory={handleEditCategory}
+          onDeleteCategory={handleDeleteCategory}
+          onResetCategoryForm={resetCategoryForm}
+          products={products}
+          showProductSelect={true}
+        />
+
+        <FeatureDialog
+          featureDialogOpen={addDialogOpen}
+          setFeatureDialogOpen={setAddDialogOpen}
+          editingFeature={editingFeature}
+          categories={categories}
+          featureFormData={formData}
+          setFeatureFormData={setFormData}
+          onAddFeature={handleAddFeature}
+          onUpdateFeature={handleUpdateFeature}
+          onResetFeatureForm={resetForm}
+        />
+      </>
+    )
+  }
+
+  // Transform categories
+  const featureGroups: FeatureGroup[] = categories.map(category => ({
+    id: category.id,
+    title: category.name,
+    icon: 'settings',
+    color: category.color,
+    features: getCategoryFeatures(category.id)
+  }))
+
+  const categoryCount = categories.length
+  const totalFunctions = features.length
+  const activeFunctions = features.filter(f => f.enabled).length
+
+  const getIcon = (iconName: string) => {
+    switch(iconName) {
+      case 'settings': return Settings
+      case 'monitor': return Monitor
+      case 'eye': return Eye
+      case 'gauge': return Gauge
+      default: return Settings
+    }
   }
 
   const statCards = [
     {
-      title: 'Products',
-      value: products.length,
-      icon: Box,
-      subtitle: 'Total products available',
-      badge: {
-        text: 'Products',
-        color: 'primary'
-      },
-      description: 'Products in system'
-    },
-    {
       title: 'Categories',
-      value: totalCategories,
+      value: categoryCount,
       icon: Settings,
-      subtitle: `${totalCategories} categories`,
+      subtitle: `${categoryCount} groups`,
+      description: 'Feature categories',
       badge: {
-        text: `${totalCategories} categories`,
+        text: 'Groups',
         color: 'primary'
-      },
-      description: 'Total categories configured'
+      }
     },
     {
-      title: 'Enabled Features',
-      value: enabledFeatures,
+      title: 'Active Features',
+      value: activeFunctions,
       icon: Monitor,
-      subtitle: `${enabledFeatures} enabled`,
+      subtitle: `${activeFunctions}/${totalFunctions} active`,
+      description: 'Enabled features',
       badge: {
-        text: `${enabledFeatures} enabled`,
+        text: 'Active',
         color: 'primary'
-      },
-      description: 'Currently enabled features'
+      }
+    },
+    {
+      title: 'Total Features',
+      value: totalFunctions,
+      icon: Gauge,
+      subtitle: `${totalFunctions} total`,
+      description: 'Available features',
+      badge: {
+        text: 'Total',
+        color: 'primary'
+      }
     }
   ]
 
-  const selectedProduct = products.find(p => p.id === selectedProductId)
-
   return (
     <div className="flex flex-1 flex-col">
-      <div className="@container/main flex flex-1 flex-col gap-2">
-        <div className="flex flex-col gap-3 py-3 md:gap-4 md:py-4">
-          <div className="px-4 lg:px-6 mb-2">
-            <h1 className="text-lg xs:text-xl sm:text-xl md:text-2xl font-bold tracking-tight text-foreground leading-tight">
-              Remote Control
-            </h1>
-            <p className="text-[10px] xs:text-xs sm:text-xs md:text-sm text-muted-foreground mt-1 xs:mt-1.5 sm:mt-2 leading-snug">
-              Configure and control features for your products.
-            </p>
-          </div>
+      <div className="@container/main flex flex-1 flex-col gap-3 p-4 md:p-6">
+        
+        {/* Header */}
+        <div className="mb-1">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            Remote Control
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage remote control features and configure product settings
+          </p>
+        </div>
 
-          {/* Stats Cards */}
-          <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-2 md:grid-cols-3 gap-3 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6">
-            {statCards.map((stat, index) => {
-              const Icon = stat.icon
-              return (
-                <Card key={index} className="@container/card p-3">
-                  <CardHeader className="p-0 pb-1">
-                    <CardDescription className="text-xs">{stat.title}</CardDescription>
-                    <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
-                      {stat.value}
-                    </CardTitle>
-                    <CardAction>
-                      <Badge variant="outline" className="text-xs h-5 px-1.5">
-                        <Icon className="size-3" />
-                        {stat.badge.text}
-                      </Badge>
-                    </CardAction>
-                  </CardHeader>
-                  <CardFooter className="flex-col items-start gap-0.5 text-xs p-0 pt-1">
-                    <div className="line-clamp-1 flex gap-1.5 font-medium">
-                      {stat.subtitle}{" "}
-                      <Icon className="size-3" />
-                    </div>
-                    <div className="text-muted-foreground">
-                      {stat.description}
-                    </div>
-                  </CardFooter>
-                </Card>
-              )
-            })}
-          </div>
-
-          <div className="px-4 lg:px-6">
-            <div className="flex flex-col min-h-[550px]">
-              {/* --- MAIN COLUMN: Categories & Features --- */}
-              <div className="flex flex-col min-h-[550px] min-w-0 border rounded-lg bg-background shadow-sm overflow-hidden">
-                
-                {/* Header */}
-                <div className="flex items-center justify-between px-4 py-2 border-b bg-background h-[52px] shrink-0">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Select
-                        value={selectedProductId?.toString() || ''}
-                        onValueChange={(value) => {
-                          handleProductChange(parseInt(value))
-                        }}
-                      >
-                        <SelectTrigger className="w-[200px] h-7 text-xs bg-background border-muted-foreground/20">
-                          <SelectValue placeholder="Select product" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {productsLoading ? (
-                            <div className="flex items-center justify-center py-2">
-                              <Loader2 className="size-3 animate-spin text-muted-foreground" />
-                            </div>
-                          ) : products.length === 0 ? (
-                            <div className="px-2 py-1.5 text-xs text-muted-foreground">No products available</div>
-                          ) : (
-                            products.map((product) => (
-                              <SelectItem key={product.id} value={product.id.toString()} className="text-xs">
-                                {product.name}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {selectedProduct && (
-                      <>
-                        <Separator orientation="vertical" className="h-6" />
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] text-muted-foreground">Categories:</span>
-                            <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-mono">
-                              {totalCategories}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] text-muted-foreground">Enabled:</span>
-                            <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-mono">
-                              {enabledFeatures}
-                            </Badge>
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      onClick={handleRefresh}
-                      disabled={loading}
-                      className="h-7 w-7"
-                    >
-                      {loading ? (
-                        <Spinner className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <RefreshCw className="h-4 w-4" />
-                      )}
-                    </Button>
-                    {canCreate && (
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="h-7 text-xs px-2.5 gap-1.5 bg-background hover:bg-muted/50"
-                        onClick={() => {
-                          resetCategoryForm()
-                          setCategoryDialogOpen(true)
-                        }}
-                      >
-                        Create Category
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Content */}
-                {selectedProductId ? (
-                  loading ? (
-                    <div className="flex-1 overflow-auto bg-muted/5 flex items-center justify-center">
-                      <div className="flex flex-col items-center gap-2">
-                        <Loader2 className="size-6 animate-spin text-muted-foreground" />
-                        <p className="text-sm text-muted-foreground">Loading...</p>
-                      </div>
-                    </div>
-                  ) : error ? (
-                    <div className="flex-1 overflow-auto bg-muted/5 flex items-center justify-center">
-                      <EmptyState
-                        title="Error loading data"
-                        description={error}
-                        icon={Settings}
-                        iconStyle="rounded"
-                      />
-                    </div>
-                  ) : categories.length === 0 ? (
-                    <div className="flex-1 overflow-auto bg-muted/5 flex items-center justify-center">
-                      <EmptyState
-                        title="No categories available"
-                        description="Create categories and add features to start using remote control."
-                        icon={Settings}
-                        iconStyle="rounded"
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex-1 overflow-auto bg-muted/5 flex flex-col">
-                      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
-                        {/* Category Tabs */}
-                        <div className="p-4 pb-2 shrink-0">
-                          <CategoryTabs
-                            categories={categories}
-                            activeTab={activeTab}
-                            setActiveTab={setActiveTab}
-                            onAddCategory={() => {
-                              resetCategoryForm()
-                              setCategoryDialogOpen(true)
-                            }}
-                            onManageCategories={() => {
-                              resetCategoryForm()
-                              setCategoryDialogOpen(true)
-                            }}
-                          />
-                        </div>
-
-                        {/* Features Content */}
-                        <div className="flex-1 p-4 pt-2 min-h-0">
-                          {categories.map(category => {
-                            const categoryFeatures = getCategoryFeatures(category.id)
-                            return (
-                              <TabsContent key={category.id} value={category.id} className="mt-0">
-                                <div className="flex flex-col gap-4">
-                                  <div className="flex items-center justify-between">
-                                    <div className="text-xs font-medium text-muted-foreground">
-                                      {categoryFeatures.length} {categoryFeatures.length === 1 ? 'feature' : 'features'}
-                                    </div>
-                                    {canCreate && (
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-7 text-xs px-2.5 gap-1.5"
-                                        onClick={() => {
-                                          resetForm()
-                                          setFormData(prev => ({ ...prev, category_id: category.id }))
-                                          setAddDialogOpen(true)
-                                        }}
-                                      >
-                                        <Plus className="h-3.5 w-3.5" />
-                                        Add Feature
-                                      </Button>
-                                    )}
-                                  </div>
-                                  {categoryFeatures.length === 0 ? (
-                                    <div className="flex items-center justify-center py-12">
-                                      <EmptyState
-                                        title="No features in this category"
-                                        description="Add features to this category to start controlling them remotely."
-                                        icon={Settings}
-                                        iconStyle="rounded"
-                                      />
-                                    </div>
-                                  ) : (
-                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                      <Card className="p-0 border rounded-lg bg-background shadow-sm h-fit">
-                                        <div className="px-3 py-2.5 border-b bg-muted/30">
-                                          <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                              <div 
-                                                className="w-3 h-3 rounded-full"
-                                                style={{ backgroundColor: category.color }}
-                                              />
-                                              <CardTitle className="text-xs font-semibold">{category.name}</CardTitle>
-                                            </div>
-                                            <span className="text-[10px] font-mono text-muted-foreground opacity-50">
-                                              {categoryFeatures.length} features
-                                            </span>
-                                          </div>
-                                        </div>
-                                        <CardContent className="p-2">
-                                          <div className="space-y-0.5">
-                                            {categoryFeatures.map((feature) => (
-                                              <div key={feature.id} className="flex items-center justify-between px-2.5 py-2 hover:bg-muted/40 rounded-md transition-colors group">
-                                                <div className="flex flex-col gap-0.5 max-w-[50%]">
-                                                  <Label htmlFor={feature.id} className="text-xs font-medium cursor-pointer truncate">
-                                                    {feature.name}
-                                                  </Label>
-                                                  <span className="text-[10px] text-muted-foreground opacity-40 group-hover:opacity-100 transition-opacity font-mono">
-                                                    {feature.id}
-                                                  </span>
-                                                </div>
-
-                                                <div className="flex items-center justify-end w-[45%]">
-                                                  {canToggle && (
-                                                    <Switch 
-                                                      id={feature.id}
-                                                      checked={feature.enabled} 
-                                                      onCheckedChange={() => handleFeatureToggle(feature.id)}
-                                                      className="scale-75 origin-right data-[state=checked]:bg-primary" 
-                                                      disabled={!canToggle}
-                                                    />
-                                                  )}
-                                                  {!canToggle && (
-                                                    <Badge variant={feature.enabled ? "default" : "secondary"} className="text-[10px]">
-                                                      {feature.enabled ? "Enabled" : "Disabled"}
-                                                    </Badge>
-                                                  )}
-                                                </div>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        </CardContent>
-                                      </Card>
-                                    </div>
-                                  )}
-                                </div>
-                              </TabsContent>
-                            )
-                          })}
-                        </div>
-                      </Tabs>
-                    </div>
-                  )
-                ) : (
-                  <div className="flex-1 overflow-auto bg-muted/5 flex items-center justify-center">
-                    <EmptyState
-                      title="No product selected"
-                      description="Select a product from the list to configure its remote control features."
-                      icon={Box}
-                      iconStyle="rounded"
-                    />
-                  </div>
-                )}
+        <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-4 min-h-0 items-start">
+          
+          {/* Sidebar: Products List */}
+          <div className="flex flex-col h-[calc(100vh-12rem)] md:sticky md:top-4 border rounded-lg bg-background shadow-sm overflow-hidden">
+            {/* Header */}
+            <div className="px-3 py-2.5 border-b bg-muted/30">
+              <div className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
+                Products ({products.length})
               </div>
             </div>
+            
+            {/* Scrollable Content */}
+            <ScrollArea className="flex-1">
+              <div className="p-2 space-y-1">
+                {productsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Spinner className="size-4" />
+                  </div>
+                ) : products.length === 0 ? (
+                  <div className="px-2.5 py-4 text-center text-xs text-muted-foreground">
+                    No products available
+                  </div>
+                ) : (
+                  products.map(product => {
+                    const isSelected = selectedProductId === product.id
+                    return (
+                      <Button
+                        key={product.id}
+                        variant={isSelected ? "secondary" : "ghost"}
+                        size="sm"
+                        onClick={() => handleProductChange(product.id)}
+                        className={cn(
+                          "w-full justify-start h-8 text-xs px-2.5 font-normal rounded-md",
+                          isSelected 
+                            ? "bg-secondary font-medium shadow-sm" 
+                            : "hover:bg-muted/50"
+                        )}
+                      >
+                        <Box className={cn(
+                          "size-3.5 mr-2",
+                          isSelected ? "text-foreground" : "text-muted-foreground"
+                        )} />
+                        <span className="truncate">{product.name}</span>
+                      </Button>
+                    )
+                  })
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+
+          {/* Main Panel */}
+          <div className="flex flex-col gap-3 min-w-0">
+            
+            {/* Top Stats Cards */}
+            <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 sm:grid-cols-3 gap-3 -mx-4 md:-mx-6 px-4 md:px-6 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs">
+              {statCards.map((stat, index) => {
+                const Icon = stat.icon
+                return (
+                  <Card key={index} className="@container/card p-3">
+                    <CardHeader className="p-0 pb-1">
+                      <CardDescription className="text-xs">{stat.title}</CardDescription>
+                      <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
+                        {stat.value}
+                      </CardTitle>
+                      <CardAction>
+                        <Badge variant="outline" className="text-xs h-5 px-1.5">
+                          <Icon className="size-3" />
+                          {stat.badge.text}
+                        </Badge>
+                      </CardAction>
+                    </CardHeader>
+                    <CardFooter className="flex-col items-start gap-0.5 text-xs p-0 pt-1">
+                      <div className="line-clamp-1 flex gap-1.5 font-medium">
+                        {stat.subtitle}{" "}
+                        <Icon className="size-3" />
+                      </div>
+                      <div className="text-muted-foreground">
+                        {stat.description}
+                      </div>
+                    </CardFooter>
+                  </Card>
+                )
+              })}
+            </div>
+
+            {/* Content Area */}
+            {selectedProductId ? (
+              loading ? (
+                <div className="min-h-[200px] flex items-center justify-center -mx-4 md:-mx-6 px-4 md:px-6">
+                  <Spinner className="size-6" />
+                </div>
+              ) : error ? (
+                <div className="flex justify-center -mx-4 md:-mx-6 px-4 md:px-6 py-8">
+                  <EmptyState title="Error" description={error} icon={Settings} />
+                </div>
+              ) : categories.length === 0 ? (
+                <div className="flex justify-center -mx-4 md:-mx-6 px-4 md:px-6 py-12">
+                  <EmptyState
+                    title="No categories"
+                    description="Create categories to start."
+                    icon={Settings}
+                  />
+                </div>
+              ) : (
+                <div className="space-y-4 -mx-4 md:-mx-6 px-4 md:px-6">
+                  {/* Tabs */}
+                  <div className="relative">
+                    <CategoryTabs
+                      categories={categories}
+                      activeTab={activeTab}
+                      setActiveTab={setActiveTab}
+                      onAddCategory={() => {
+                        resetCategoryForm()
+                        setCategoryDialogOpen(true)
+                      }}
+                      onManageCategories={() => {
+                        resetCategoryForm()
+                        setCategoryDialogOpen(true)
+                      }}
+                    />
+                  </div>
+
+                  {/* Feature Grid */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                    {featureGroups
+                      .filter(group => group.id === activeTab || !activeTab)
+                      .map(group => {
+                        const Icon = getIcon(group.icon)
+                        return (
+                          <Card key={group.id} className="p-3 border rounded-lg bg-background shadow-sm">
+                            <CardHeader className="p-0 pb-1">
+                              <div className="flex items-center justify-between">
+                                <CardTitle className="flex items-center gap-2 text-xs font-semibold">
+                                  <div
+                                    className="w-2 h-2 rounded-full shrink-0"
+                                    style={{ backgroundColor: group.color }}
+                                  />
+                                  <span className="truncate">{group.title}</span>
+                                </CardTitle>
+                                <Icon className="size-3 text-muted-foreground opacity-50 shrink-0" />
+                              </div>
+                            </CardHeader>
+                            
+                            <CardContent className="p-0 pt-1">
+                              {group.features.length === 0 ? (
+                                <div className="p-2 border border-dashed border-muted-foreground/25 rounded-md bg-muted/20 text-center text-xs text-muted-foreground">
+                                  No features in this category
+                                </div>
+                              ) : (
+                                <div className="space-y-1">
+                                  {group.features.map((feature) => {
+                                    const config = feature.configuration || {}
+                                    const featureType = config.type || 'toggle'
+                                    
+                                    return (
+                                      <div 
+                                        key={feature.id} 
+                                        className={cn(
+                                          "flex items-center justify-between p-2 transition-colors rounded-md",
+                                          "hover:bg-muted/50"
+                                        )}
+                                      >
+                                        <div className="flex flex-col min-w-0 pr-3">
+                                          <span className="text-xs font-medium text-foreground truncate">
+                                            {feature.name}
+                                          </span>
+                                          <span className="text-[10px] text-muted-foreground font-mono opacity-70 mt-0.5">
+                                            ID: {feature.id}
+                                          </span>
+                                        </div>
+                                        
+                                        <div className="shrink-0 flex items-center gap-2">
+                                          {featureType === 'toggle' && (
+                                            <Switch
+                                              checked={feature.enabled}
+                                              onCheckedChange={() => handleFeatureToggle(feature.id)}
+                                              disabled={!canToggle}
+                                              className="scale-90 origin-right"
+                                            />
+                                          )}
+                                          
+                                          {(featureType === 'slider' || featureType === 'int-slider' || featureType === 'float-slider') && (
+                                            <div className="flex items-center gap-2 w-28 xs:w-32">
+                                              <Slider
+                                                value={[typeof config.default === 'number' ? config.default : (config.min || 0)]}
+                                                min={config.min || 0}
+                                                max={config.max || 100}
+                                                disabled={!canToggle}
+                                                className="flex-1"
+                                              />
+                                              <span className="text-[10px] font-mono text-muted-foreground w-6 text-right">
+                                                {typeof config.default === 'number' ? config.default : (config.min || 0)}
+                                              </span>
+                                            </div>
+                                          )}
+
+                                          {featureType === 'select' && config.options && (
+                                            <Select
+                                              value={String(config.default || config.options[0])}
+                                              disabled={!canToggle}
+                                            >
+                                              <SelectTrigger className="w-[110px] h-8 text-xs bg-muted/30 border-muted-foreground/20 focus-visible:bg-background">
+                                                <SelectValue />
+                                              </SelectTrigger>
+                                              <SelectContent className="text-xs">
+                                                {config.options.map((opt: string) => (
+                                                  <SelectItem key={opt} value={String(opt)} className="text-xs">
+                                                    {opt}
+                                                  </SelectItem>
+                                                ))}
+                                              </SelectContent>
+                                            </Select>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                              
+                              {/* Add Feature Button */}
+                              <ConditionalRender permission="remote_control.create" fallback={null}>
+                                <div className="pt-2">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      resetForm()
+                                      setFormData((prev) => ({ ...prev, category_id: group.id }))
+                                      setAddDialogOpen(true)
+                                    }}
+                                    className="w-full h-8 text-xs gap-2"
+                                  >
+                                    <Plus className="size-3" />
+                                    Add Feature
+                                  </Button>
+                                </div>
+                              </ConditionalRender>
+                            </CardContent>
+                          </Card>
+                        )
+                      })}
+                  </div>
+                </div>
+              )
+            ) : (
+              <div className="flex-1 flex items-center justify-center -mx-4 md:-mx-6 px-4 md:px-6 py-12">
+                <Card className="w-full max-w-md border-dashed">
+                  <div className="p-8 flex flex-col items-center justify-center">
+                    <EmptyState
+                      title="No product selected"
+                      description="Select a product from the sidebar to configure."
+                      icon={Box}
+                    />
+                  </div>
+                </Card>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Category Dialog */}
+      {/* Dialogs */}
       <CategoryDialog
         categoryDialogOpen={categoryDialogOpen}
         setCategoryDialogOpen={setCategoryDialogOpen}
@@ -457,7 +514,6 @@ export function RemoteControlPage() {
         onResetCategoryForm={resetCategoryForm}
       />
 
-      {/* Feature Dialog */}
       <FeatureDialog
         featureDialogOpen={addDialogOpen}
         setFeatureDialogOpen={setAddDialogOpen}

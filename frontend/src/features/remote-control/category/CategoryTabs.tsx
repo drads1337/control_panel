@@ -1,6 +1,14 @@
 import React from 'react'
-import { TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
 import { Plus, Settings } from 'lucide-react'
 import { ConditionalRender } from '@/shared/ui/components/rbac/conditional-render'
 import type { RemoteCategory } from './CategoryDialog'
@@ -42,30 +50,60 @@ export function CategoryTabs({
     )
   }
 
+  const activeCategory = categories.find(cat => cat.id === activeTab)
+  const displayName = activeCategory 
+    ? (activeCategory.name || 'Unnamed')
+    : 'Select section'
+
   return (
-    <div className="relative">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="relative w-full sm:flex-1 min-w-0">
-          <TabsList 
-            className={`grid w-full h-12 xs:h-14 bg-muted border border-border rounded-lg p-1`}
-            style={{gridTemplateColumns: `repeat(${categories.length}, 1fr)`}}
-          >
-            {categories.map(category => (
-              <TabsTrigger
-                key={category.id}
-                value={category.id}
-                className="flex items-center justify-center gap-2"
-              >
-                <div
-                  className="w-2 h-2 rounded-full shrink-0"
-                  style={{ backgroundColor: category.color }}
-                />
-                <span className="truncate hidden md:inline">
-                  {category.name ? category.name : <span className="text-muted-foreground italic">Unnamed</span>}
-                </span>
-                <span className="truncate md:hidden">
-                  {category.name ? category.name.substring(0, 8) : <span className="text-muted-foreground italic">Unnamed</span>}
-                </span>
+    <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <div className="flex items-center justify-between">
+        <Label htmlFor="category-selector" className="sr-only">
+          Section
+        </Label>
+        <div className="flex items-center gap-2 flex-1">
+          <Select value={activeTab} onValueChange={setActiveTab}>
+            <SelectTrigger
+              className="flex w-fit h-8 text-xs @4xl/main:hidden"
+              size="sm"
+              id="category-selector"
+            >
+              <SelectValue>
+                {activeCategory && (
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-2 h-2 rounded-full shrink-0"
+                      style={{ backgroundColor: activeCategory.color }}
+                    />
+                    <span>{displayName}</span>
+                  </div>
+                )}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent className="text-xs">
+              {categories.map((category) => (
+                <SelectItem key={category.id} value={category.id} className="text-xs">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-2 h-2 rounded-full shrink-0"
+                      style={{ backgroundColor: category.color }}
+                    />
+                    <span>{category.name || 'Unnamed'}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <TabsList className="hidden h-8 **:data-[slot=tabs-trigger]:text-xs @4xl/main:flex">
+            {categories.map((category) => (
+              <TabsTrigger key={category.id} value={category.id}>
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-2 h-2 rounded-full shrink-0"
+                    style={{ backgroundColor: category.color }}
+                  />
+                  <span>{category.name || 'Unnamed'}</span>
+                </div>
               </TabsTrigger>
             ))}
           </TabsList>
@@ -79,6 +117,7 @@ export function CategoryTabs({
               onClick={onAddCategory}
               disabled={categories.length >= 8}
               title={categories.length >= 8 ? "Maximum of 8 sections allowed" : ""}
+              className="h-8"
             >
               <Plus className="h-4 w-4 mr-1.5" />
               <span className="hidden sm:inline">Add</span>
@@ -89,14 +128,14 @@ export function CategoryTabs({
               variant="ghost"
               size="icon"
               onClick={onManageCategories}
-              className="h-9 w-9"
+              className="h-8 w-8"
             >
               <Settings className="h-4 w-4" />
             </Button>
           </ConditionalRender>
         </div>
       </div>
-    </div>
+    </Tabs>
   )
 }
 
