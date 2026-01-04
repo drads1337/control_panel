@@ -2,6 +2,7 @@ import React, { useMemo, useCallback } from 'react'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -17,7 +18,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { X, Check, Plus } from 'lucide-react'
 import { ConditionalRender } from '@/shared/ui/components/rbac/conditional-render'
 import type { RemoteFeature } from '@/shared/lib/remote-control-api'
 import type { RemoteCategory } from '../category'
@@ -27,21 +27,17 @@ export type { FeatureType, FeatureStatus, FeatureFormData }
 
 // Constants
 const FEATURE_TYPES: { value: FeatureType; label: string }[] = [
-  { value: 'toggle', label: 'Toggle (On/Off)' },
-  { value: 'int-slider', label: 'Integer Slider' },
+  { value: 'toggle', label: 'Toggle' }, // Сократил лейблы для компактности
+  { value: 'int-slider', label: 'Int Slider' },
   { value: 'float-slider', label: 'Float Slider' },
-  { value: 'select', label: 'Select (Dropdown)' },
+  { value: 'select', label: 'Select' },
 ]
 
 const STATUS_OPTIONS: { value: FeatureStatus; label: string }[] = [
   { value: 'offline', label: 'Offline' },
   { value: 'online', label: 'Online' },
-  { value: 'maintenance', label: 'Maintenance' },
+  { value: 'maintenance', label: 'Maint.' }, // Сократил для компактности
 ]
-
-const LABEL_CLASSES = "text-[10px] uppercase text-muted-foreground font-bold"
-const INPUT_CLASSES = "h-8 text-sm"
-const SECTION_CLASSES = "space-y-3 pt-2 border-t"
 
 interface FeatureDialogProps {
   featureDialogOpen: boolean
@@ -113,122 +109,119 @@ export function FeatureDialog({
 
   return (
     <Dialog open={featureDialogOpen} onOpenChange={handleClose}>
-      <DialogContent className="w-full max-w-[500px] max-h-[90vh] overflow-y-auto p-0 gap-0 bg-background">
-        <DialogHeader className="px-4 py-3 border-b sticky top-0 bg-background z-10">
-          <DialogTitle className="text-sm font-semibold">
-            {editingFeature ? 'Edit Feature' : 'Create Feature'}
-          </DialogTitle>
+      <DialogContent className="w-full sm:max-w-[420px] p-0 gap-0 overflow-hidden">
+        {/* Header */}
+        <DialogHeader className="p-4 pb-1 bg-muted/5">
+          <div className="space-y-1">
+            <DialogTitle className="text-xl font-semibold">
+              {editingFeature ? 'Edit Feature' : 'Create Feature'}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              {editingFeature ? 'Edit feature settings.' : 'Create a new feature.'}
+            </DialogDescription>
+          </div>
         </DialogHeader>
 
-        <div className="p-4 space-y-4">
-          <div className="bg-muted/30 p-4 rounded-lg border space-y-4">
+        <div className="p-4 overflow-y-auto max-h-[calc(100vh-200px)]">
+          <div className="space-y-4">
             {/* Name Field */}
             <div className="space-y-1">
-              <Label htmlFor="name" className={LABEL_CLASSES}>
-                Name *
-              </Label>
+              <Label htmlFor="name" className="text-xs font-medium">Name *</Label>
               <Input
                 id="name"
-                className={INPUT_CLASSES}
-                placeholder="e.g. Smooth Aimbot"
+                className="h-8 text-xs"
+                placeholder="Feature Name"
                 value={featureFormData.name}
                 onChange={(e) => setFeatureFormData((prev) => ({ ...prev, name: e.target.value }))}
                 required
-                minLength={1}
               />
             </div>
 
             {/* Description Field */}
             <div className="space-y-1">
-              <Label htmlFor="description" className={LABEL_CLASSES}>
-                Description *
-              </Label>
+              <Label htmlFor="description" className="text-xs font-medium">Description *</Label>
               <Textarea
                 id="description"
-                className="min-h-[60px] text-sm"
-                placeholder="Feature description..."
+                className="min-h-[60px] text-xs"
+                placeholder="Description..."
                 value={featureFormData.description}
                 onChange={(e) => setFeatureFormData((prev) => ({ ...prev, description: e.target.value }))}
                 required
               />
             </div>
 
-            {/* Category Field */}
-            <div className="space-y-1">
-              <Label htmlFor="category" className={LABEL_CLASSES}>
-                Category *
-              </Label>
-              <Select
-                value={featureFormData.category_id}
-                onValueChange={(value) => setFeatureFormData((prev) => ({ ...prev, category_id: value }))}
-              >
-                <SelectTrigger className={INPUT_CLASSES}>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-2 h-2 rounded-full"
-                          style={{ backgroundColor: category.color }}
-                        />
-                        {category.name}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* --- ГРУППИРОВКА В ОДНУ СТРОКУ (GRID) --- */}
+            <div className="grid grid-cols-3 gap-3">
+              {/* Category Field */}
+              <div className="space-y-1">
+                <Label htmlFor="category" className="text-xs font-medium">Category *</Label>
+                <Select
+                  value={featureFormData.category_id}
+                  onValueChange={(value) => setFeatureFormData((prev) => ({ ...prev, category_id: value }))}
+                >
+                  <SelectTrigger className="h-8 text-xs px-2">
+                    <SelectValue placeholder="Cat." />
+                  </SelectTrigger>
+                  <SelectContent className="text-xs">
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={category.id} className="text-xs">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: category.color }} />
+                          <span className="truncate">{category.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            {/* Type Field */}
-            <div className="space-y-1">
-              <Label htmlFor="type" className={LABEL_CLASSES}>
-                Type *
-              </Label>
-              <Select value={featureFormData.type} onValueChange={handleTypeChange}>
-                <SelectTrigger className={INPUT_CLASSES}>
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {FEATURE_TYPES.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+              {/* Type Field */}
+              <div className="space-y-1">
+                <Label htmlFor="type" className="text-xs font-medium">Type *</Label>
+                <Select value={featureFormData.type} onValueChange={handleTypeChange}>
+                  <SelectTrigger className="h-8 text-xs px-2">
+                    <SelectValue placeholder="Type" />
+                  </SelectTrigger>
+                  <SelectContent className="text-xs">
+                    {FEATURE_TYPES.map((type) => (
+                      <SelectItem key={type.value} value={type.value} className="text-xs">
+                        {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            {/* Status Field */}
-            <div className="space-y-1">
-              <Label htmlFor="status" className={LABEL_CLASSES}>
-                Status
-              </Label>
-              <Select
-                value={featureFormData.status}
-                onValueChange={(value: FeatureStatus) => setFeatureFormData((prev) => ({ ...prev, status: value }))}
-              >
-                <SelectTrigger className={INPUT_CLASSES}>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUS_OPTIONS.map((status) => (
-                    <SelectItem key={status.value} value={status.value}>
-                      {status.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Status Field */}
+              <div className="space-y-1">
+                <Label htmlFor="status" className="text-xs font-medium">Status</Label>
+                <Select
+                  value={featureFormData.status}
+                  onValueChange={(value: FeatureStatus) => setFeatureFormData((prev) => ({ ...prev, status: value }))}
+                >
+                  <SelectTrigger className="h-8 text-xs px-2">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent className="text-xs">
+                    {STATUS_OPTIONS.map((status) => (
+                      <SelectItem key={status.value} value={status.value} className="text-xs">
+                        {status.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+            {/* ------------------------------------------- */}
 
             {/* Enabled Field */}
-            <div className="flex items-center justify-between py-2">
-              <Label htmlFor="enabled" className={LABEL_CLASSES}>
+            <div className="flex items-center justify-between py-1 bg-muted/20 px-2 rounded border">
+              <Label htmlFor="enabled" className="text-xs font-medium cursor-pointer">
                 Enabled by default
               </Label>
               <Switch
                 id="enabled"
+                className="scale-90"
                 checked={featureFormData.enabled}
                 onCheckedChange={(checked) => setFeatureFormData((prev) => ({ ...prev, enabled: checked }))}
               />
@@ -236,150 +229,79 @@ export function FeatureDialog({
 
             {/* Type-specific Configuration */}
             {isSliderType && (
-              <div className={SECTION_CLASSES}>
-                <div className="text-xs font-medium text-muted-foreground">Slider Configuration</div>
+              <div className="space-y-3 pt-2 border-t">
+                <div className="text-xs font-medium text-muted-foreground">Slider Config</div>
                 
                 <div className="grid grid-cols-3 gap-2">
                   <div className="space-y-1">
-                    <Label htmlFor="min" className={LABEL_CLASSES}>Min</Label>
-                    <Input
-                      id="min"
-                      type="number"
-                      className={INPUT_CLASSES}
-                      placeholder="0"
-                      value={featureFormData.min ?? ''}
-                      onChange={handleNumberChange('min')}
-                    />
+                    <Label className="text-[10px] text-muted-foreground">Min</Label>
+                    <Input type="number" className="h-7 text-xs" placeholder="0"
+                      value={featureFormData.min ?? ''} onChange={handleNumberChange('min')} />
                   </div>
-                  
                   <div className="space-y-1">
-                    <Label htmlFor="max" className={LABEL_CLASSES}>Max</Label>
-                    <Input
-                      id="max"
-                      type="number"
-                      className={INPUT_CLASSES}
-                      placeholder="100"
-                      value={featureFormData.max ?? ''}
-                      onChange={handleNumberChange('max')}
-                    />
+                    <Label className="text-[10px] text-muted-foreground">Max</Label>
+                    <Input type="number" className="h-7 text-xs" placeholder="100"
+                      value={featureFormData.max ?? ''} onChange={handleNumberChange('max')} />
                   </div>
-                  
                   <div className="space-y-1">
-                    <Label htmlFor="step" className={LABEL_CLASSES}>Step</Label>
-                    <Input
-                      id="step"
-                      type="number"
-                      className={INPUT_CLASSES}
-                      placeholder="1"
-                      value={featureFormData.step ?? ''}
-                      onChange={handleNumberChange('step')}
-                    />
+                    <Label className="text-[10px] text-muted-foreground">Step</Label>
+                    <Input type="number" className="h-7 text-xs" placeholder="1"
+                      value={featureFormData.step ?? ''} onChange={handleNumberChange('step')} />
                   </div>
                 </div>
                 
                 <div className="space-y-1">
-                  <Label htmlFor="defaultValue" className={LABEL_CLASSES}>Default Value</Label>
-                  <Input
-                    id="defaultValue"
-                    type="number"
-                    className={INPUT_CLASSES}
-                    placeholder="Default value"
-                    value={featureFormData.defaultValue ?? ''}
-                    onChange={handleNumberChange('defaultValue')}
-                  />
+                  <Label className="text-xs font-medium">Default Value</Label>
+                  <Input type="number" className="h-8 text-xs" placeholder="Default"
+                    value={featureFormData.defaultValue ?? ''} onChange={handleNumberChange('defaultValue')} />
                 </div>
               </div>
             )}
 
             {featureFormData.type === 'select' && (
-              <div className={SECTION_CLASSES}>
-                <div className="text-xs font-medium text-muted-foreground">Select Configuration</div>
-                
+              <div className="space-y-3 pt-2 border-t">
+                <div className="text-xs font-medium text-muted-foreground">Select Config</div>
                 <div className="space-y-1">
-                  <Label htmlFor="options" className={LABEL_CLASSES}>
-                    Options (comma-separated) *
-                  </Label>
-                  <Input
-                    id="options"
-                    className={INPUT_CLASSES}
-                    placeholder="option1, option2, option3"
+                  <Label className="text-xs font-medium">Options (comma-separated)</Label>
+                  <Input className="h-8 text-xs" placeholder="opt1, opt2"
                     value={featureFormData.options ?? ''}
-                    onChange={(e) => setFeatureFormData((prev) => ({ ...prev, options: e.target.value }))}
-                  />
+                    onChange={(e) => setFeatureFormData((prev) => ({ ...prev, options: e.target.value }))} />
                 </div>
-                
                 <div className="space-y-1">
-                  <Label htmlFor="selectDefaultValue" className={LABEL_CLASSES}>Default Value</Label>
-                  <Input
-                    id="selectDefaultValue"
-                    className={INPUT_CLASSES}
-                    placeholder="Default option"
+                  <Label className="text-xs font-medium">Default Value</Label>
+                  <Input className="h-8 text-xs" placeholder="Default option"
                     value={featureFormData.defaultValue ?? ''}
-                    onChange={(e) => setFeatureFormData((prev) => ({ ...prev, defaultValue: e.target.value }))}
-                  />
+                    onChange={(e) => setFeatureFormData((prev) => ({ ...prev, defaultValue: e.target.value }))} />
                 </div>
               </div>
             )}
 
             {featureFormData.type === 'toggle' && (
-              <div className={SECTION_CLASSES}>
-                <div className="text-xs font-medium text-muted-foreground">Toggle Configuration</div>
-                
-                <div className="flex items-center justify-between py-2">
-                  <Label htmlFor="toggleDefault" className={LABEL_CLASSES}>Default State</Label>
-                  <Switch
-                    id="toggleDefault"
+              <div className="space-y-3 pt-2 border-t">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="toggleDefault" className="text-xs font-medium">Default State (On/Off)</Label>
+                  <Switch id="toggleDefault" className="scale-90"
                     checked={featureFormData.defaultValue === true}
-                    onCheckedChange={(checked) => setFeatureFormData((prev) => ({ ...prev, defaultValue: checked }))}
-                  />
+                    onCheckedChange={(checked) => setFeatureFormData((prev) => ({ ...prev, defaultValue: checked }))} />
                 </div>
               </div>
             )}
-
-            {/* Action Buttons */}
-            <div className="flex gap-2 justify-end pt-2 border-t">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={handleClose}
-                className="h-8"
-              >
-                <X className="h-4 w-4 mr-1.5" />
-                Cancel
-              </Button>
-              
-              {editingFeature ? (
-                <ConditionalRender permission="remote_control.edit" fallback={null}>
-                  <Button 
-                    size="sm" 
-                    className="h-8" 
-                    onClick={handleSave} 
-                    disabled={!isFormValid}
-                    title={!isFormValid ? "Please fill in all required fields" : ""}
-                  >
-                    <Check className="h-4 w-4 mr-1.5" />
-                    Update
-                  </Button>
-                </ConditionalRender>
-              ) : (
-                <ConditionalRender permission="remote_control.create" fallback={null}>
-                  <Button 
-                    size="sm" 
-                    className="h-8"
-                    onClick={handleSave}
-                    disabled={!isFormValid}
-                    title={!isFormValid ? "Please fill in all required fields" : ""}
-                  >
-                    <Plus className="h-4 w-4 mr-1.5" />
-                    Create
-                  </Button>
-                </ConditionalRender>
-              )}
-            </div>
           </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end gap-2 p-4 pt-2 border-t bg-muted/5">
+          <Button type="button" variant="ghost" onClick={handleClose} className="h-8 text-xs">
+            Cancel
+          </Button>
+          
+          <ConditionalRender permission={editingFeature ? "remote_control.edit" : "remote_control.create"} fallback={null}>
+            <Button type="button" onClick={handleSave} disabled={!isFormValid} className="h-8 text-xs px-4">
+              {editingFeature ? 'Save Changes' : 'Create Feature'}
+            </Button>
+          </ConditionalRender>
         </div>
       </DialogContent>
     </Dialog>
   )
 }
-

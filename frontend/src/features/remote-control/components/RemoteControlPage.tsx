@@ -110,58 +110,6 @@ export function RemoteControlPage() {
     )
   }
 
-  // Show empty state if selected product has no categories (no loading, no error)
-  if (selectedProductId && !loading && !error && categories.length === 0) {
-    return (
-      <>
-        <EmptyState
-          title="No categories yet"
-          description="Create your first category to start organizing remote control features."
-          actionLabel="Create Category"
-          onAction={() => {
-            setCategoryFormData({
-              name: '',
-              description: '',
-              color: '#3b82f6',
-              product_id: undefined
-            })
-            setCategoryDialogOpen(true)
-          }}
-          icon={Settings}
-        />
-        
-        {/* Dialogs */}
-        <CategoryDialog
-          categoryDialogOpen={categoryDialogOpen}
-          setCategoryDialogOpen={setCategoryDialogOpen}
-          editingCategory={editingCategory}
-          categories={categories}
-          categoryFormData={categoryFormData}
-          setCategoryFormData={setCategoryFormData}
-          onAddCategory={handleAddCategory}
-          onUpdateCategory={handleUpdateCategory}
-          onEditCategory={handleEditCategory}
-          onDeleteCategory={handleDeleteCategory}
-          onResetCategoryForm={resetCategoryForm}
-          products={products}
-          showProductSelect={true}
-        />
-
-        <FeatureDialog
-          featureDialogOpen={addDialogOpen}
-          setFeatureDialogOpen={setAddDialogOpen}
-          editingFeature={editingFeature}
-          categories={categories}
-          featureFormData={formData}
-          setFeatureFormData={setFormData}
-          onAddFeature={handleAddFeature}
-          onUpdateFeature={handleUpdateFeature}
-          onResetFeatureForm={resetForm}
-        />
-      </>
-    )
-  }
-
   // Transform categories
   const featureGroups: FeatureGroup[] = categories.map(category => ({
     id: category.id,

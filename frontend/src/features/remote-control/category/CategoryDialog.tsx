@@ -8,16 +8,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Edit, Trash2, Plus, X, Check } from 'lucide-react'
 import { ConditionalRender } from '@/shared/ui/components/rbac/conditional-render'
-import type { Product } from '@/entities/product'
 
 export interface RemoteCategory {
   id: string
@@ -46,8 +38,6 @@ interface CategoryDialogProps {
   onEditCategory: (category: RemoteCategory) => void
   onDeleteCategory: (categoryId: string) => void
   onResetCategoryForm: () => void
-  products?: Product[]
-  showProductSelect?: boolean
 }
 
 export function CategoryDialog({
@@ -61,9 +51,7 @@ export function CategoryDialog({
   onUpdateCategory,
   onEditCategory,
   onDeleteCategory,
-  onResetCategoryForm,
-  products = [],
-  showProductSelect = false
+  onResetCategoryForm
 }: CategoryDialogProps) {
   
   const handleClose = () => {
@@ -72,8 +60,7 @@ export function CategoryDialog({
   }
 
   const isFormValid = categoryFormData.name.trim().length >= 1 && 
-                      categoryFormData.description.trim().length >= 1 &&
-                      (!showProductSelect || categoryFormData.product_id !== undefined)
+                      categoryFormData.description.trim().length >= 1
 
   return (
     <Dialog open={categoryDialogOpen} onOpenChange={handleClose}>
@@ -92,27 +79,6 @@ export function CategoryDialog({
         <div className="p-4 space-y-4">
           {/* Form Area - Compact & Dense */}
           <div className="bg-muted/30 p-4 rounded-lg border space-y-3">
-            {showProductSelect && products.length > 0 && !editingCategory && (
-              <div className="space-y-1">
-                <Label htmlFor="product" className="text-[10px] uppercase text-muted-foreground font-bold">Product *</Label>
-                <Select
-                  value={categoryFormData.product_id?.toString() || ''}
-                  onValueChange={(value) => setCategoryFormData((prev) => ({ ...prev, product_id: parseInt(value) }))}
-                >
-                  <SelectTrigger className="h-8 text-sm">
-                    <SelectValue placeholder="Select a product" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {products.map((product) => (
-                      <SelectItem key={product.id} value={product.id.toString()}>
-                        {product.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            
             <div className="flex gap-2 items-end">
               <div className="space-y-1">
                 <Label htmlFor="color" className="text-[10px] uppercase text-muted-foreground font-bold">Color</Label>
