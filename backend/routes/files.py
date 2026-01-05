@@ -236,14 +236,12 @@ def get_file_stats():
 @jwt_required()
 @enforce_project_scope
 def get_storage_info():
+    file_service = get_service('file_service')
     user_id = get_jwt_identity()
     user = file_service.get_user_by_id(user_id)
 
     is_valid, error = file_service.validate_user_project(user)
     if not is_valid:
-
-
-        file_service = get_service('file_service')
         if error == "User not found":
             return jsonify({"error": error}), 404
         return (
@@ -2182,15 +2180,24 @@ def finalize_product_extra_file_upload():
             pass
         return jsonify({"error": validation_error or "File validation failed"}), 400
 
+    # Get file hash and type
+    file_hash = file_service.get_file_hash(final_path)
+    file_type = ext_lower if ext_lower else "unknown"
+
     # Create database record
     try:
         extra_file = ProductExtraFile(
             product_id=product.id,
-            name=name or unique_filename,
-            filename=unique_filename,
-            file_size=file_info["size"],
+            name=name or original_filename,
+            original_filename=original_filename,
             description=description,
+            file_path=final_path,
+            file_size=file_info["size"],
+            file_type=file_type,
+            content_hash=file_hash,
             uploaded_by=user.id,
+            status="active",
+            is_active=True,
         )
         db.session.add(extra_file)
         db.session.commit()
@@ -2198,7 +2205,7 @@ def finalize_product_extra_file_upload():
         file_data = {
             "id": extra_file.id,
             "name": extra_file.name,
-            "filename": extra_file.filename,
+            "filename": extra_file.original_filename,
             "size": extra_file.file_size,
             "size_human": file_service.format_file_size(extra_file.file_size),
             "description": extra_file.description,

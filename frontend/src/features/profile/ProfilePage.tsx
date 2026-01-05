@@ -1,14 +1,21 @@
 "use client"
 
 import React, { useState, useMemo, useCallback } from 'react'
-import { User, Shield, Activity, RefreshCw } from 'lucide-react'
+import { User, Shield, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Label } from '@/components/ui/label'
 import { useProfileData } from './hooks/use-profile-data'
 import { ProfileCard } from './components/ProfileCard'
 import { ProfileGeneralTab } from './components/ProfileGeneralTab'
 import { ProfileSecurityTab } from './components/ProfileSecurityTab'
-import { ProfileActivityTab } from './components/ProfileActivityTab'
 import { AvatarCropDialog } from './components/AvatarCropDialog'
 import { AccessDenied } from '@/shared/ui/components'
 import { useAuthContext } from '@/app/providers/auth-provider'
@@ -41,6 +48,34 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState('general')
   const [refreshing, setRefreshing] = useState(false)
 
+  // All hooks must be called before any early returns
+  const availableTabs = useMemo(() => {
+    return [
+      {
+        value: 'general',
+        label: 'General',
+        icon: User
+      },
+      {
+        value: 'security',
+        label: 'Security',
+        icon: Shield
+      }
+    ]
+  }, [])
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true)
+    try {
+      window.location.reload()
+    } catch (error) {
+      // Error refreshing
+    } finally {
+      setRefreshing(false)
+    }
+  }, [])
+
+  // Early returns after all hooks have been called
   if (!isInitialized) {
     return null
   }
@@ -57,40 +92,9 @@ export default function ProfilePage() {
     )
   }
 
-  const availableTabs = useMemo(() => {
-    return [
-      {
-        value: 'general',
-        label: 'General',
-        icon: User
-      },
-      {
-        value: 'security',
-        label: 'Security',
-        icon: Shield
-      },
-      {
-        value: 'activity',
-        label: 'Activity',
-        icon: Activity
-      }
-    ]
-  }, [])
-
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true)
-    try {
-      window.location.reload()
-    } catch (error) {
-      // Error refreshing
-    } finally {
-      setRefreshing(false)
-    }
-  }, [])
-
   return (
     <div className="flex flex-1 flex-col">
-      <div className="flex flex-1 flex-col gap-2">
+      <div className="@container/main flex flex-1 flex-col gap-2">
         <div className="flex flex-col gap-3 py-3 md:gap-4 md:py-4">
           <div className="px-4 lg:px-6 mb-2">
             <div className="flex items-center justify-between">
@@ -130,29 +134,40 @@ export default function ProfilePage() {
               {/* Right Column: Tabs */}
               <div className="lg:col-span-2">
                 {availableTabs.length > 0 && (
-                  <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <div className="relative mb-4">
-                      <TabsList 
-                        className="grid w-full h-12 bg-muted/30 border border-border rounded-lg p-1" 
-                        style={{gridTemplateColumns: `repeat(${availableTabs.length}, 1fr)`}}
-                      >
+                  <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-col justify-start gap-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <Label htmlFor="profile-view-selector" className="sr-only">
+                        View
+                      </Label>
+                      <Select value={activeTab} onValueChange={setActiveTab}>
+                        <SelectTrigger
+                          className="flex w-fit h-7 text-xs @4xl/main:hidden"
+                          size="sm"
+                          id="profile-view-selector"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="text-xs">
+                          {availableTabs.map((tab) => (
+                            <SelectItem key={tab.value} value={tab.value} className="text-xs">
+                              {tab.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <TabsList className="**:data-[slot=badge]:bg-muted-foreground/30 hidden h-8 **:data-[slot=badge]:size-4 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:px-1 **:data-[slot=tabs-trigger]:text-xs @4xl/main:flex">
                         {availableTabs.map((tab) => {
                           const Icon = tab.icon
                           return (
-                            <TabsTrigger 
-                              key={tab.value}
-                              value={tab.value} 
-                              className="flex items-center justify-center gap-2 text-xs sm:text-sm"
-                            >
+                            <TabsTrigger key={tab.value} value={tab.value} className="flex items-center justify-center gap-2">
                               <Icon className="h-4 w-4" />
-                              <span className="hidden sm:inline">{tab.label}</span>
+                              <span>{tab.label}</span>
                             </TabsTrigger>
                           )
                         })}
                       </TabsList>
                     </div>
-
-                    <TabsContent value="general" className="space-y-0 mt-0">
+                    <TabsContent value="general" className="relative flex flex-col gap-3 overflow-auto space-y-0 mt-0">
                       <ProfileGeneralTab
                         profileData={profileData}
                         isEditing={isEditing}
@@ -164,17 +179,13 @@ export default function ProfilePage() {
                       />
                     </TabsContent>
 
-                    <TabsContent value="security" className="space-y-0 mt-0">
+                    <TabsContent value="security" className="relative flex flex-col gap-3 overflow-auto space-y-0 mt-0">
                       <ProfileSecurityTab
                         passwordData={passwordData}
                         isPasswordChanging={isPasswordChanging}
                         onPasswordChange={handlePasswordDataChange}
                         onChangePassword={handlePasswordChange}
                       />
-                    </TabsContent>
-
-                    <TabsContent value="activity" className="space-y-0 mt-0">
-                      <ProfileActivityTab />
                     </TabsContent>
                   </Tabs>
                 )}

@@ -97,3 +97,42 @@ export async function getDashboardStats(): Promise<DashboardData> {
   const response = await api.get(API_ENDPOINTS.DASHBOARD_STATS)
   return response.data
 }
+
+export interface MapRequestPoint {
+  id: number
+  ip_address: string
+  hwid: string | null
+  city: string
+  country: string
+  lat: number
+  lng: number
+  action: string
+  created_at: string | null
+  user_id: number | null
+}
+
+export interface MapCity {
+  city: string
+  country: string
+  lat: number
+  lng: number
+  requests: number
+  points: MapRequestPoint[]
+}
+
+export interface MapRequestsResponse {
+  points: MapRequestPoint[]
+  cities: MapCity[]
+  total_points: number
+  total_cities: number
+}
+
+export async function getMapRequests(params?: {
+  hwid?: string
+  ip?: string
+  date_from?: string
+  date_to?: string
+}): Promise<MapRequestsResponse> {
+  const response = await api.get(API_ENDPOINTS.DASHBOARD_MAP_REQUESTS, { params })
+  return response.data
+}

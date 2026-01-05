@@ -9,11 +9,11 @@ import {
   type ColumnDef,
   type ColumnFiltersState,
   type SortingState,
+  type VisibilityState,
 } from '@tanstack/react-table'
 import { 
   Search, 
   Download, 
-  Trash2, 
   ArrowUp, 
   AlertTriangle, 
   User, 
@@ -26,13 +26,14 @@ import {
   Database,
   ChevronDownIcon,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  Monitor,
+  Hash
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardAction, CardFooter } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Table,
   TableBody,
@@ -105,33 +106,14 @@ const getActionBadgeColor = (action: string): string => {
 
 const columns: ColumnDef<Log>[] = [
   {
-    id: "select",
-    header: ({ table }) => (
-      <div className="flex items-center justify-center">
-        <Checkbox
-          checked={table.getIsAllPageRowsSelected()}
-          data-indeterminate={
-            table.getIsSomePageRowsSelected() &&
-            !table.getIsAllPageRowsSelected()
-          }
-          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-          aria-label="Select all"
-          className="size-3.5"
-        />
-      </div>
-    ),
+    accessorKey: "id",
+    header: "ID",
     cell: ({ row }) => (
-      <div className="flex items-center justify-center">
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label="Select row"
-          className="size-3.5"
-        />
+      <div className="text-muted-foreground text-[11px] font-mono flex items-center gap-1">
+        <Hash className="size-3" />
+        {row.original.id}
       </div>
     ),
-    enableSorting: false,
-    enableHiding: false,
   },
   {
     accessorKey: "created_at",
@@ -152,56 +134,114 @@ const columns: ColumnDef<Log>[] = [
     ),
   },
   {
-    accessorKey: "details",
-    header: "Details",
+    accessorKey: "username",
+    header: "Username",
     cell: ({ row }) => (
-      <div className="text-muted-foreground truncate max-w-md" title={row.original.details || row.original.action}>
-        {row.original.details || row.original.action}
+      <div className="text-muted-foreground text-[11px] flex items-center gap-1.5">
+        {row.original.username ? (
+          <>
+            <User className="size-3" />
+            <span>{row.original.username}</span>
+          </>
+        ) : (
+          <span className="text-muted-foreground/50">-</span>
+        )}
       </div>
     ),
   },
   {
-    id: "userOrIp",
-    header: () => <div className="text-right">User / IP</div>,
+    accessorKey: "ip_address",
+    header: "IP Address",
     cell: ({ row }) => (
-      <div className="text-right text-muted-foreground text-[11px]">
-        {row.original.username ? (
-          <span className="flex items-center justify-end gap-1.5">
-            <User className="size-3" /> {row.original.username}
-          </span>
-        ) : row.original.ip_address ? (
-          <span className="flex items-center justify-end gap-1.5">
-            <Globe className="size-3" /> {row.original.ip_address}
-          </span>
+      <div className="text-muted-foreground text-[11px] font-mono flex items-center gap-1.5">
+        {row.original.ip_address ? (
+          <>
+            <Globe className="size-3" />
+            <span>{row.original.ip_address}</span>
+          </>
         ) : (
           <span className="text-muted-foreground/50">-</span>
         )}
+      </div>
+    ),
+  },
+  {
+    accessorKey: "city",
+    header: "City",
+    cell: ({ row }) => (
+      <div className="text-muted-foreground text-[11px]">
+        {row.original.city || <span className="text-muted-foreground/50">-</span>}
       </div>
     ),
   },
   {
     accessorKey: "country",
-    header: "Location",
+    header: "Country",
     cell: ({ row }) => (
       <div className="text-muted-foreground text-[11px]">
-        {row.original.country || row.original.city ? (
-          <span>{[row.original.city, row.original.country].filter(Boolean).join(', ')}</span>
+        {row.original.country || <span className="text-muted-foreground/50">-</span>}
+      </div>
+    ),
+  },
+  {
+    accessorKey: "user_agent",
+    header: "User Agent",
+    cell: ({ row }) => (
+      <div className="text-muted-foreground text-[11px] truncate max-w-xs" title={row.original.user_agent || ''}>
+        {row.original.user_agent ? (
+          <span className="flex items-center gap-1.5">
+            <Monitor className="size-3 flex-shrink-0" />
+            <span className="truncate">{row.original.user_agent}</span>
+          </span>
         ) : (
           <span className="text-muted-foreground/50">-</span>
         )}
       </div>
     ),
   },
+  {
+    accessorKey: "details",
+    header: "Details",
+    cell: ({ row }) => (
+      <div className="text-muted-foreground text-[11px] truncate max-w-lg" title={row.original.details || row.original.action || ''}>
+        {row.original.details || row.original.action || <span className="text-muted-foreground/50">-</span>}
+      </div>
+    ),
+  },
 ]
+
+const COLUMN_VISIBILITY_STORAGE_KEY = 'logs-column-visibility'
 
 export function LogsPage() {
   const { user, isAuthenticated, isInitialized } = useAuthContext()
   const { hasPermission } = usePermissions()
-  const [actionFilter, setActionFilter] = useState<string>('ALL')
   const [searchTerm, setSearchTerm] = useState('')
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
+  const [selectedAction, setSelectedAction] = useState<string>('all')
+  
+  // Load column visibility from localStorage
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => {
+    try {
+      const saved = localStorage.getItem(COLUMN_VISIBILITY_STORAGE_KEY)
+      if (saved) {
+        return JSON.parse(saved)
+      }
+    } catch {
+      // Silent fail
+    }
+    return {}
+  })
+
+  // Save column visibility to localStorage
+  React.useEffect(() => {
+    try {
+      localStorage.setItem(COLUMN_VISIBILITY_STORAGE_KEY, JSON.stringify(columnVisibility))
+    } catch {
+      // Silent fail
+    }
+  }, [columnVisibility])
 
   // Debounce search term
   React.useEffect(() => {
@@ -230,30 +270,50 @@ export function LogsPage() {
 
   const { exportLogsToCSV, isExporting } = useLogActions()
 
+  // Handle action filter change
+  const handleActionFilterChange = useCallback((action: string) => {
+    setSelectedAction(action)
+    setSearchTerm('') // Clear search when filtering by action
+    setDebouncedSearchTerm('') // Clear debounced search
+    if (action && action !== 'all') {
+      fetchLogs({ action })
+    } else {
+      fetchLogs({})
+    }
+  }, [fetchLogs])
+
+  // Handle search input change - clear action filter when user starts typing
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setSearchTerm(value)
+    if (value && selectedAction && selectedAction !== 'all') {
+      setSelectedAction('all')
+    }
+  }, [selectedAction])
+
   // Handle search - when user types in search box
   React.useEffect(() => {
-    searchLogsByTerm(debouncedSearchTerm)
-  }, [debouncedSearchTerm, searchLogsByTerm])
-
-  // Filter logs by action locally (client-side filtering for UI responsiveness)
-  // Note: This filters the current page of results only
-  const filteredLogs = useMemo(() => {
-    if (actionFilter === 'ALL') return logs
-    return logs.filter(log => 
-      log.action.toLowerCase() === actionFilter.toLowerCase()
-    )
-  }, [logs, actionFilter])
+    if (!isAuthenticated || !isInitialized) {
+      return
+    }
+    // Only search if no action filter is selected (or "all" is selected)
+    if (!selectedAction || selectedAction === 'all') {
+      searchLogsByTerm(debouncedSearchTerm)
+    }
+  }, [debouncedSearchTerm, searchLogsByTerm, isAuthenticated, isInitialized, selectedAction])
 
   const table = useReactTable({
-    data: filteredLogs,
+    data: logs,
     columns,
     getRowId: (row) => row.id.toString(),
     state: {
       sorting,
       columnFilters,
+      columnVisibility,
     },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
+    onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -279,26 +339,18 @@ export function LogsPage() {
   })
 
   const handleExport = useCallback(async () => {
+    if (!isAuthenticated || !isInitialized) {
+      toast.error('You must be authenticated to export logs')
+      return
+    }
     try {
-      await exportLogsToCSV({
-        action: actionFilter !== 'ALL' ? actionFilter : undefined,
-      })
+      await exportLogsToCSV({})
       toast.success('Logs exported successfully')
     } catch (err) {
       toast.error('Failed to export logs')
       console.error(err)
     }
-  }, [exportLogsToCSV, actionFilter])
-
-  const handleClear = useCallback(() => {
-    toast.info('Clear functionality requires backend implementation')
-  }, [])
-
-  // Get unique actions for filter - must be before early returns to maintain hook order
-  const uniqueActions = useMemo(() => {
-    const actions = new Set(logs.map(log => log.action))
-    return Array.from(actions).sort()
-  }, [logs])
+  }, [exportLogsToCSV, isAuthenticated, isInitialized])
 
   if (!isInitialized) {
     return null
@@ -464,254 +516,227 @@ export function LogsPage() {
             </div>
           )}
 
-          {/* Main Logs Panel */}
-          <Card className="flex flex-col flex-1 border bg-background shadow-sm overflow-hidden">
-            
-            {/* Toolbar */}
-            <div className="p-3 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-background">
-              <div className="flex items-center gap-3 flex-1">
-                <div className="relative w-full max-w-xs">
-                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-                  <Input 
-                    placeholder="Search logs..." 
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="h-8 text-xs pl-8 bg-muted/30 border-muted-foreground/20"
-                  />
-                </div>
-                
-                <div className="hidden md:flex bg-muted/30 p-0.5 rounded-lg border border-border/50">
-                  <button 
-                    onClick={() => setActionFilter('ALL')}
-                    className={cn(
-                      "px-3 py-1 text-[10px] font-bold rounded-md transition-all uppercase tracking-wide",
-                      actionFilter === 'ALL' 
-                        ? "bg-background shadow-sm text-foreground ring-1 ring-border" 
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                    )}
-                  >
-                    ALL
-                  </button>
-                  {uniqueActions.slice(0, 5).map(action => (
-                    <button 
-                      key={action}
-                      onClick={() => setActionFilter(action)}
-                      className={cn(
-                        "px-3 py-1 text-[10px] font-bold rounded-md transition-all uppercase tracking-wide truncate max-w-[100px]",
-                        actionFilter === action 
-                          ? "bg-background shadow-sm text-foreground ring-1 ring-border" 
-                          : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                      )}
-                      title={formatAction(action)}
-                    >
-                      {formatAction(action)}
-                    </button>
-                  ))}
-                </div>
+          {/* Toolbar */}
+          <div className="p-3 border-b border rounded-t-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-background">
+            <div className="flex items-center gap-3 flex-1">
+              <div className="relative w-full max-w-xs">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+                <Input 
+                  placeholder="Search logs..." 
+                  value={searchTerm}
+                  onChange={handleSearchChange}
+                  className="h-8 text-xs pl-8 bg-muted/30 border-muted-foreground/20"
+                  disabled={!!(selectedAction && selectedAction !== 'all')}
+                />
               </div>
+              <Select
+                value={selectedAction}
+                onValueChange={handleActionFilterChange}
+              >
+                <SelectTrigger className="w-[180px] h-8 text-xs" disabled={!!searchTerm}>
+                  <SelectValue placeholder="Filter by action..." />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  <SelectItem value="all" className="text-xs">All Actions</SelectItem>
+                  {stats?.action_stats
+                    ?.sort((a, b) => b.count - a.count)
+                    .map((stat) => (
+                      <SelectItem key={stat.action} value={stat.action} className="text-xs">
+                        {formatAction(stat.action)} ({stat.count})
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-              <div className="flex items-center gap-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="h-7 text-xs">
-                      <span className="hidden lg:inline">Columns</span>
-                      <ChevronDownIcon className="size-3" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56 text-xs">
-                    {table
-                      .getAllColumns()
-                      .filter(
-                        (column) =>
-                          typeof column.accessorFn !== "undefined" &&
-                          column.getCanHide()
+            <div className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-7 text-xs">
+                    <span className="hidden lg:inline">Columns</span>
+                    <ChevronDownIcon className="size-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 text-xs">
+                  {table
+                    .getAllColumns()
+                    .filter(
+                      (column) =>
+                        typeof column.accessorFn !== "undefined" &&
+                        column.getCanHide()
+                    )
+                    .map((column) => {
+                      return (
+                        <DropdownMenuCheckboxItem
+                          key={column.id}
+                          className="capitalize text-xs"
+                          checked={column.getIsVisible()}
+                          onCheckedChange={(value) =>
+                            column.toggleVisibility(!!value)
+                          }
+                        >
+                          {column.id}
+                        </DropdownMenuCheckboxItem>
                       )
-                      .map((column) => {
-                        return (
-                          <DropdownMenuCheckboxItem
-                            key={column.id}
-                            className="capitalize text-xs"
-                            checked={column.getIsVisible()}
-                            onCheckedChange={(value) =>
-                              column.toggleVisibility(!!value)
-                            }
-                          >
-                            {column.id}
-                          </DropdownMenuCheckboxItem>
-                        )
-                      })}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="h-7 text-xs gap-1.5 bg-background"
-                  onClick={handleExport}
-                  disabled={isExporting}
-                >
-                  {isExporting ? (
-                    <Loader2 className="size-3 animate-spin" />
-                  ) : (
-                    <Download className="size-3" />
-                  )}
-                  Export
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="h-7 text-xs gap-1.5 hover:text-rose-500 hover:border-rose-200 hover:bg-rose-50/50 dark:hover:bg-rose-900/10"
-                  onClick={handleClear}
-                >
-                  <Trash2 className="size-3" /> Clear
-                </Button>
-              </div>
+                    })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="h-7 text-xs gap-1.5 bg-background"
+                onClick={handleExport}
+                disabled={isExporting}
+              >
+                {isExporting ? (
+                  <Loader2 className="size-3 animate-spin" />
+                ) : (
+                  <Download className="size-3" />
+                )}
+                Export
+              </Button>
             </div>
+          </div>
 
-            {/* Table */}
-            <div className="overflow-hidden rounded-lg border">
-              <Table>
-                <TableHeader className="bg-muted sticky top-0 z-10">
-                  {table.getHeaderGroups().map((headerGroup) => (
-                    <TableRow key={headerGroup.id} className="h-9">
-                      {headerGroup.headers.map((header) => {
-                        return (
-                          <TableHead key={header.id} colSpan={header.colSpan} className="text-xs py-2">
-                            {header.isPlaceholder
-                              ? null
-                              : flexRender(
-                                  header.column.columnDef.header,
-                                  header.getContext()
-                                )}
-                          </TableHead>
-                        )
-                      })}
-                    </TableRow>
-                  ))}
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={columns.length}
-                        className="h-24 text-center"
-                      >
-                        <div className="flex flex-col items-center justify-center py-10">
-                          <Loader2 className="size-8 mb-3 animate-spin text-primary" />
-                          <p className="text-xs font-medium text-muted-foreground">Loading logs...</p>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : table.getRowModel().rows?.length ? (
-                    table.getRowModel().rows.map((row) => (
-                      <TableRow
-                        key={row.id}
-                        data-state={row.getIsSelected() && "selected"}
-                        className={cn(
-                          "h-9",
-                          row.getIsSelected() && "bg-primary/5"
-                        )}
-                      >
-                        {row.getVisibleCells().map((cell) => (
-                          <TableCell key={cell.id} className="text-xs py-1.5">
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell
-                        colSpan={columns.length}
-                        className="h-24 text-center"
-                      >
-                        <div className="flex flex-col items-center justify-center py-10 text-muted-foreground opacity-50">
-                          <Filter className="size-8 mb-3 stroke-1" />
-                          <p className="text-xs font-medium">No logs found matching your filters</p>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-
-            {/* Footer */}
-            <div className="flex items-center justify-between px-4 py-2 border-t bg-muted/10">
-              <div className="text-muted-foreground flex-1 text-xs">
-                {table.getFilteredSelectedRowModel().rows.length} of{" "}
-                {table.getFilteredRowModel().rows.length} row(s) selected.
-              </div>
-              <div className="flex w-full items-center gap-8 lg:w-fit">
-                <div className="hidden items-center gap-2 lg:flex">
-                  <Label htmlFor="rows-per-page" className="text-xs font-medium">
-                    Rows per page
-                  </Label>
-                  <Select
-                    value={`${pagination.perPage}`}
-                    onValueChange={(value) => {
-                      changePerPage(Number(value))
-                    }}
-                  >
-                    <SelectTrigger size="sm" className="w-20 h-7 text-xs" id="rows-per-page">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent side="top" className="text-xs">
-                      {[10, 20, 30, 40, 50].map((pageSize) => (
-                        <SelectItem key={pageSize} value={`${pageSize}`} className="text-xs">
-                          {pageSize}
-                        </SelectItem>
+          {/* Table */}
+          <div className="border-x border-b rounded-b-lg overflow-auto">
+            <Table>
+              <TableHeader className="bg-muted sticky top-0 z-10">
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id} className="h-9">
+                    {headerGroup.headers.map((header) => {
+                      return (
+                        <TableHead key={header.id} colSpan={header.colSpan} className="text-xs py-2">
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(
+                                header.column.columnDef.header,
+                                header.getContext()
+                              )}
+                        </TableHead>
+                      )
+                    })}
+                  </TableRow>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={columns.length}
+                      className="h-24 text-center"
+                    >
+                      <div className="flex flex-col items-center justify-center py-10">
+                        <Loader2 className="size-8 mb-3 animate-spin text-primary" />
+                        <p className="text-xs font-medium text-muted-foreground">Loading logs...</p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : table.getRowModel().rows?.length ? (
+                  table.getRowModel().rows.map((row) => (
+                    <TableRow
+                      key={row.id}
+                      className="h-9"
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id} className="text-xs py-1.5">
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
                       ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex w-fit items-center justify-center text-xs font-medium">
-                  Page {pagination.page} of{" "}
-                  {pagination.pages || 1}
-                </div>
-                <div className="ml-auto flex items-center gap-2 lg:ml-0">
-                  <Button
-                    variant="outline"
-                    className="hidden h-7 w-7 p-0 lg:flex"
-                    onClick={() => changePage(1)}
-                    disabled={pagination.page <= 1}
-                  >
-                    <span className="sr-only">Go to first page</span>
-                    <ChevronsLeft className="size-3" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="size-7"
-                    size="icon"
-                    onClick={() => changePage(pagination.page - 1)}
-                    disabled={pagination.page <= 1}
-                  >
-                    <span className="sr-only">Go to previous page</span>
-                    <ChevronLeft className="size-3" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="size-7"
-                    size="icon"
-                    onClick={() => changePage(pagination.page + 1)}
-                    disabled={pagination.page >= pagination.pages}
-                  >
-                    <span className="sr-only">Go to next page</span>
-                    <ChevronRight className="size-3" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="hidden size-7 lg:flex"
-                    size="icon"
-                    onClick={() => changePage(pagination.pages)}
-                    disabled={pagination.page >= pagination.pages}
-                  >
-                    <span className="sr-only">Go to last page</span>
-                    <ChevronsRight className="size-3" />
-                  </Button>
-                </div>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell
+                      colSpan={columns.length}
+                      className="h-24 text-center"
+                    >
+                      <div className="flex flex-col items-center justify-center py-10 text-muted-foreground opacity-50">
+                        <Filter className="size-8 mb-3 stroke-1" />
+                        <p className="text-xs font-medium">No logs found matching your filters</p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between px-4 py-2 border rounded-b-lg bg-muted/10">
+            <div className="text-muted-foreground flex-1 text-xs">
+              {table.getFilteredRowModel().rows.length} row(s) total
+            </div>
+            <div className="flex w-full items-center gap-8 lg:w-fit">
+              <div className="hidden items-center gap-2 lg:flex">
+                <Label htmlFor="rows-per-page" className="text-xs font-medium">
+                  Rows per page
+                </Label>
+                <Select
+                  value={`${pagination.perPage}`}
+                  onValueChange={(value) => {
+                    changePerPage(Number(value))
+                  }}
+                >
+                  <SelectTrigger size="sm" className="w-20 h-7 text-xs" id="rows-per-page">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent side="top" className="text-xs">
+                    {[10, 20, 30, 40, 50].map((pageSize) => (
+                      <SelectItem key={pageSize} value={`${pageSize}`} className="text-xs">
+                        {pageSize}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex w-fit items-center justify-center text-xs font-medium">
+                Page {pagination.page} of{" "}
+                {pagination.pages || 1}
+              </div>
+              <div className="ml-auto flex items-center gap-2 lg:ml-0">
+                <Button
+                  variant="outline"
+                  className="hidden h-7 w-7 p-0 lg:flex"
+                  onClick={() => changePage(1)}
+                  disabled={pagination.page <= 1}
+                >
+                  <span className="sr-only">Go to first page</span>
+                  <ChevronsLeft className="size-3" />
+                </Button>
+                <Button
+                  variant="outline"
+                  className="size-7"
+                  size="icon"
+                  onClick={() => changePage(pagination.page - 1)}
+                  disabled={pagination.page <= 1}
+                >
+                  <span className="sr-only">Go to previous page</span>
+                  <ChevronLeft className="size-3" />
+                </Button>
+                <Button
+                  variant="outline"
+                  className="size-7"
+                  size="icon"
+                  onClick={() => changePage(pagination.page + 1)}
+                  disabled={pagination.page >= pagination.pages}
+                >
+                  <span className="sr-only">Go to next page</span>
+                  <ChevronRight className="size-3" />
+                </Button>
+                <Button
+                  variant="outline"
+                  className="hidden size-7 lg:flex"
+                  size="icon"
+                  onClick={() => changePage(pagination.pages)}
+                  disabled={pagination.page >= pagination.pages}
+                >
+                  <span className="sr-only">Go to last page</span>
+                  <ChevronsRight className="size-3" />
+                </Button>
               </div>
             </div>
-          </Card>
+          </div>
         </div>
       </div>
     </div>

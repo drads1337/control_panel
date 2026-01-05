@@ -108,6 +108,7 @@ export const API_ENDPOINTS = {
   DASHBOARD_API_METRICS: '/api/dashboard/api-metrics',
   DASHBOARD_STATS: '/api/dashboard/stats',
   DASHBOARD_COUNTRIES_MAP: '/api/dashboard/countries-map',
+  DASHBOARD_MAP_REQUESTS: '/api/dashboard/map-requests',
 
   WEBHOOKS: '/api/webhooks',
   WEBHOOKS_STATS: '/api/webhooks/stats',

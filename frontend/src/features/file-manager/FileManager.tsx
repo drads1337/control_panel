@@ -61,6 +61,7 @@ import { AccessDenied } from "@/shared/ui/components"
 import { useAuthContext } from "@/app/providers/auth-provider"
 import { usePermissions } from "@/shared/hooks/use-permissions"
 import { hasManagementAccess } from "@/shared/lib/rbac"
+import { FileUploadDialog } from "./components"
 
 // --- Types ---
 
@@ -130,10 +131,16 @@ export default function FileManager() {
   } | null>(null)
   const [loadingStorage, setLoadingStorage] = useState(false)
   const [currentPath, setCurrentPath] = useState<string[]>(["Root"])
+  
+  // Determine if we're in configs folder based on currentPath
+  const isInConfigFolder = useMemo(() => {
+    return currentPath.length === 2 && currentPath[0] === "Root" && currentPath[1] === "config"
+  }, [currentPath])
 
   // Check permissions
   const managementAccess = hasManagementAccess(user)
   const canViewFiles = managementAccess.canViewFiles || hasPermission('files.view') || hasPermission('products.upload_files')
+  const canUploadFiles = hasPermission('products.files_upload') || hasPermission('products.upload_files')
 
   if (!isInitialized) {
     return null
@@ -648,6 +655,28 @@ export default function FileManager() {
           </div>
         </div>
       </div>
+
+      {/* File Upload Dialog */}
+      <FileUploadDialog
+        open={fileDialogs.uploadDialogOpen}
+        onOpenChange={fileDialogs.setUploadDialogOpen}
+        selectedProduct={selectedProduct}
+        selectedAgent={selectedAgent}
+        showConfigsFolder={isInConfigFolder}
+        canUploadFiles={canUploadFiles}
+        uploadForm={fileUpload.uploadForm}
+        uploading={fileUpload.uploading}
+        uploadProgress={fileUpload.uploadProgress}
+        dragOver={fileUpload.dragOver}
+        fileInputRef={fileUpload.fileInputRef}
+        onUploadFormChange={fileUpload.setUploadForm}
+        onDragOver={fileUpload.handleDragOver}
+        onDragLeave={fileUpload.handleDragLeave}
+        onDrop={(e) => fileUpload.handleDrop(e, (file) => {})}
+        onFileSelect={(file) => { fileUpload.setUploadForm(prev => ({ ...prev, name: file.name })); }}
+        onUpload={fileUpload.handleFileUpload}
+        onResetForm={fileUpload.resetUploadForm}
+      />
     </div>
   )
 }

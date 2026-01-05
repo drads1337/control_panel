@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from sqlalchemy import and_, desc, func, or_
+from sqlalchemy.orm import joinedload
 
 from ..core.extensions import db
 from ..middleware.auth import require_project_isolation, require_project_with_grace_period
@@ -949,6 +950,154 @@ def get_countries_map_data(project_id=None):
         import traceback
         logging.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": "Failed to retrieve countries map data"}), 500
+
+@dashboard_bp.route("/map-requests", methods=["GET"])
+@jwt_required()
+@require_project_with_grace_period
+@require_project_isolation
+def get_map_requests(project_id=None):
+    """
+    Get requests data with coordinates for map visualization.
+    Supports filtering by hwid and ip_address.
+    Returns data grouped by city on low zoom, individual requests on high zoom.
+    """
+    try:
+        from ..utils.ip_utils import get_coordinates_from_ip
+        
+        user_id = get_jwt_identity()
+        user = User.query.get(user_id)
+
+        if not user:
+            return jsonify({"error": "Access denied"}), 403
+
+        project_filter = project_id
+        is_owner = RBACManager.is_owner(user)
+
+        if project_filter is None and not is_owner:
+            return (
+                jsonify(
+                    {
+                        "error": "Project isolation required. All queries must be filtered by project_id."
+                    }
+                ),
+                403,
+            )
+
+        # Get filter parameters
+        hwid_filter = request.args.get("hwid")
+        ip_filter = request.args.get("ip")
+        date_from = request.args.get("date_from")
+        date_to = request.args.get("date_to")
+        
+        # Build query for UserActivity
+        query = UserActivity.query
+        
+        if project_filter:
+            query = query.filter(UserActivity.project_id == project_filter)
+        
+        # Apply filters
+        if ip_filter:
+            query = query.filter(UserActivity.ip_address.like(f"%{ip_filter}%"))
+        
+        if date_from:
+            try:
+                date_from_obj = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
+                query = query.filter(UserActivity.created_at >= date_from_obj)
+            except:
+                pass
+        
+        if date_to:
+            try:
+                date_to_obj = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
+                query = query.filter(UserActivity.created_at <= date_to_obj)
+            except:
+                pass
+        
+        # Filter by hwid (fingerprint) - need to join with Key
+        if hwid_filter:
+            query = query.join(Key, UserActivity.user_id == Key.user_id).filter(
+                or_(
+                    Key.fingerprint.like(f"%{hwid_filter}%"),
+                    Key.devices.like(f"%{hwid_filter}%")
+                )
+            )
+        
+        # Get activities with IP addresses
+        activities = query.filter(
+            UserActivity.ip_address.isnot(None),
+            UserActivity.ip_address.notin_(["127.0.0.1", "localhost", "::1", "unknown"])
+        ).limit(10000).all()  # Limit to prevent memory issues
+        
+        # Get coordinates from IP addresses
+        points = []
+        city_groups = {}  # For grouping by city
+        
+        for activity in activities:
+            if not activity.ip_address:
+                continue
+            
+            lat, lng, country, city = get_coordinates_from_ip(activity.ip_address)
+            
+            if lat and lng:
+                # Get hwid/fingerprint from related Key if available
+                hwid = None
+                if activity.user_id:
+                    key = Key.query.filter_by(user_id=activity.user_id).first()
+                    if key:
+                        hwid = key.fingerprint or key.devices
+                
+                point = {
+                    "id": activity.id,
+                    "ip_address": activity.ip_address,
+                    "hwid": hwid,
+                    "city": city or "Unknown",
+                    "country": country or "Unknown",
+                    "lat": float(lat),
+                    "lng": float(lng),
+                    "action": activity.action,
+                    "created_at": activity.created_at.isoformat() if activity.created_at else None,
+                    "user_id": activity.user_id,
+                }
+                points.append(point)
+                
+                # Group by city for clustering
+                city_key = f"{city or 'Unknown'},{country or 'Unknown'}"
+                if city_key not in city_groups:
+                    city_groups[city_key] = {
+                        "city": city or "Unknown",
+                        "country": country or "Unknown",
+                        "lat": float(lat),
+                        "lng": float(lng),
+                        "count": 0,
+                        "points": []
+                    }
+                city_groups[city_key]["count"] += 1
+                city_groups[city_key]["points"].append(point)
+        
+        # Convert city groups to list
+        cities = []
+        for city_key, group in city_groups.items():
+            cities.append({
+                "city": group["city"],
+                "country": group["country"],
+                "lat": group["lat"],
+                "lng": group["lng"],
+                "requests": group["count"],
+                "points": group["points"]  # Individual points for this city
+            })
+        
+        return jsonify({
+            "points": points,  # All individual points
+            "cities": cities,  # Grouped by city
+            "total_points": len(points),
+            "total_cities": len(cities),
+        })
+        
+    except Exception as e:
+        logging.error(f"Error getting map requests: {str(e)}")
+        import traceback
+        logging.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({"error": "Failed to retrieve map requests"}), 500
 
 @dashboard_bp.route("/load-status", methods=["GET"])
 @jwt_required()

@@ -150,7 +150,7 @@ export async function uploadFileInChunks(
     const { getCsrfHeaders } = await import('@/shared/lib/csrf');
     const csrfHeaders = await getCsrfHeaders();
     // Use finalize endpoint (e.g., /api/files/product-files/extra/finalize)
-    const finalizeUrl = getApiUrl(endpoint.replace('/chunk', '/finalize'));
+    const finalizeUrl = getApiUrl(endpoint.includes('/finalize') ? endpoint : `${endpoint}/finalize`);
     
     const finalizeResponse = await fetch(finalizeUrl, {
       method: 'POST',

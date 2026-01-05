@@ -112,3 +112,13 @@ export async function getUserNotifications(params?: {
   const response = await api.get(API_ENDPOINTS.NOTIFICATIONS, { params })
   return response.data;
 }
+
+export async function markNotificationAsRead(notificationId: number): Promise<{ message: string }> {
+  const response = await api.put(`/api/notifications/${notificationId}/read`)
+  return response.data;
+}
+
+export async function markAllNotificationsAsRead(): Promise<{ message: string }> {
+  const response = await api.put('/api/notifications/mark-all-read')
+  return response.data;
+}

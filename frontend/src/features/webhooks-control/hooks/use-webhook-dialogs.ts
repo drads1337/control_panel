@@ -31,8 +31,10 @@ export function useWebhookDialogs() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [logsDialogOpen, setLogsDialogOpen] = useState(false)
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false)
   const [editingWebhook, setEditingWebhook] = useState<WebhookData | null>(null)
   const [viewingLogsWebhook, setViewingLogsWebhook] = useState<WebhookData | null>(null)
+  const [viewingSettingsWebhook, setViewingSettingsWebhook] = useState<WebhookData | null>(null)
   const [formData, setFormData] = useState<WebhookFormData>(initialFormData)
   const [secretsVisibility, setSecretsVisibility] = useState<SecretsVisibility>(initialSecretsVisibility)
   const [customHeaders, setCustomHeaders] = useState<Array<{ key: string, value: string }>>([])
@@ -110,13 +112,25 @@ export function useWebhookDialogs() {
     setViewingLogsWebhook(null)
   }, [])
 
+  const openSettingsDialog = useCallback((webhook: WebhookData) => {
+    setViewingSettingsWebhook(webhook)
+    setSettingsDialogOpen(true)
+  }, [])
+
+  const closeSettingsDialog = useCallback(() => {
+    setSettingsDialogOpen(false)
+    setViewingSettingsWebhook(null)
+  }, [])
+
   return {
     // Dialog states
     createDialogOpen,
     editDialogOpen,
     logsDialogOpen,
+    settingsDialogOpen,
     editingWebhook,
     viewingLogsWebhook,
+    viewingSettingsWebhook,
     
     // Form states
     formData,
@@ -134,6 +148,8 @@ export function useWebhookDialogs() {
     closeEditDialog,
     openLogsDialog,
     closeLogsDialog,
+    openSettingsDialog,
+    closeSettingsDialog,
     resetForm
   }
 }

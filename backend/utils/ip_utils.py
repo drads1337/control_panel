@@ -71,6 +71,38 @@ def get_location_from_ip(ip: str) -> Tuple[Optional[str], Optional[str]]:
         logging.debug(f"[WARNING] Failed to get geolocation for IP {ip}: {e}")
         return None, None
 
+def get_coordinates_from_ip(ip: str) -> Tuple[Optional[float], Optional[float], Optional[str], Optional[str]]:
+    """
+    Get coordinates (latitude, longitude), country and city from IP address
+
+    Args:
+        ip: IP address to lookup
+
+    Returns:
+        Tuple of (latitude, longitude, country, city) or (None, None, None, None) if unable to determine
+    """
+    if not ip or ip in ("127.0.0.1", "localhost", "::1", "unknown"):
+        return None, None, None, None
+
+    try:
+        db_path = os.path.join(os.path.dirname(__file__), "..", "GeoLite2-City.mmdb")
+
+        if not os.path.exists(db_path):
+            logging.warning(f"[WARNING] GeoIP database not found at {db_path}")
+            return None, None, None, None
+
+        with geoip2.database.Reader(db_path) as reader:
+            response = reader.city(ip)
+            lat = response.location.latitude
+            lng = response.location.longitude
+            country = response.country.name
+            city = response.city.name
+            return lat, lng, country, city
+
+    except Exception as e:
+        logging.debug(f"[WARNING] Failed to get coordinates for IP {ip}: {e}")
+        return None, None, None, None
+
 def get_ip_info(ip: str) -> dict:
     """
     Get full information about an IP address

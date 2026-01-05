@@ -1,0 +1,28 @@
+# Production docker-compose configuration
+# Использование: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Этот файл переопределяет конфигурацию для production:
+# - Убирает volumes для кода (используется код из образа)
+# - Оптимизирует настройки
+
+version: '3.8'
+
+services:
+  api:
+    volumes:
+      # Только uploads, без монтирования кода (используется код из образа)
+      - ./uploads:/app/uploads
+      - ./backend/uploads:/app/backend/uploads
+
+  celery_worker_default:
+    volumes:
+      - ./uploads:/app/uploads
+
+  celery_worker_server:
+    volumes:
+      - ./uploads:/app/uploads
+
+  celery_worker_keys:
+    volumes:
+      - ./uploads:/app/uploads
+

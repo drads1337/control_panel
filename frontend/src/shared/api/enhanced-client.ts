@@ -358,6 +358,39 @@ async function handleError(error: AxiosError): Promise<never> {
         return Promise.reject(error)
       }
 
+      // For POST/PUT/DELETE requests with 401, try to retry with fresh CSRF token
+      // This handles cases where CSRF token might be missing or expired
+      const method = config?.method?.toUpperCase()
+      const isModifyingRequest = method === 'POST' || method === 'PUT' || method === 'DELETE'
+      const retryCount = (config as any)?.['__authRetryCount'] || 0
+      
+      if (isModifyingRequest && error.response?.status === 401 && retryCount === 0 && config) {
+        console.warn(`[API] 401 error on ${method} request to ${requestUrl}, attempting retry with fresh CSRF token...`)
+        
+        // Mark that we're retrying
+        ;(config as any)['__authRetryCount'] = 1
+        
+        try {
+          // Clear CSRF token cache and get fresh token
+          const { clearCsrfToken, getCsrfHeaders } = await import('@/shared/lib/csrf')
+          clearCsrfToken()
+          
+          // Wait a bit for cache to clear
+          await new Promise(resolve => setTimeout(resolve, 100))
+          
+          // Get fresh CSRF headers
+          const csrfHeaders = await getCsrfHeaders()
+          Object.assign(config.headers, csrfHeaders)
+          
+          // Retry the request
+          console.info(`[API] Retrying ${method} request to ${requestUrl} with fresh CSRF token`)
+          return enhancedApi.request(config)
+        } catch (retryError: any) {
+          console.warn(`[API] Retry failed for ${method} request to ${requestUrl}:`, retryError.message)
+          // Fall through to normal error handling
+        }
+      }
+
       const isManagementPage = window.location.pathname === '/management-page'
 
       // Handle authentication errors for all endpoints except special cases

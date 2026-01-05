@@ -737,11 +737,9 @@ def export_logs(current_user=None, project_id=None):
     user = current_user or User.query.get(user_id)
 
     if not user:
-
-
-        rbac_service = get_service('rbac_service')
         return jsonify({"error": "User not found"}), 404
 
+    rbac_service = get_service('rbac_service')
     user_roles = RBACManager.get_user_role_names(user)
     is_owner = user_roles and user_roles[0] == "owner"
 
@@ -1085,7 +1083,20 @@ def search_logs():
 
         query = query.filter_by(project_id=project_id_param)
 
-    query = fulltext_search_filter(query, search_term, "search_vector")
+    # Use fallback search since UserActivity doesn't have search_vector column
+    # Search across action, details, ip_address, user_agent, country, city fields
+    if search_term:
+        search_pattern = f"%{search_term}%"
+        query = query.filter(
+            or_(
+                UserActivity.action.ilike(search_pattern),
+                UserActivity.details.ilike(search_pattern),
+                UserActivity.ip_address.ilike(search_pattern),
+                UserActivity.user_agent.ilike(search_pattern),
+                UserActivity.country.ilike(search_pattern),
+                UserActivity.city.ilike(search_pattern),
+            )
+        )
 
     pagination = query.order_by(UserActivity.created_at.desc()).paginate(
         page=page, per_page=per_page, error_out=False

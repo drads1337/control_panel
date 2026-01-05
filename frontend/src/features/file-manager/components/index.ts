@@ -1,11 +1,1 @@
-export { FileItemDesktop, FileItemMobile } from './FileItem';
-export type { FileItemProps } from './FileItem';
-export { FilesList } from './FilesList';
-export type { FilesListProps } from './FilesList';
-export { FileManagerEmptyState } from './FileManagerEmptyState';
-export type { FileManagerEmptyStateProps } from './FileManagerEmptyState';
-export { FileManagerSelectionBar } from './FileManagerSelectionBar';
-export type { FileManagerSelectionBarProps } from './FileManagerSelectionBar';
-export { FileManagerHeader } from './FileManagerHeader';
-export type { FileManagerHeaderProps } from './FileManagerHeader';
-export { ProductAgentItem } from './ProductAgentItem';
+export { default as FileUploadDialog } from './FileUploadDialog';

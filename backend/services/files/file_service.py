@@ -248,7 +248,21 @@ class FileService:
             return False, "Project not found"
 
         current_usage = self.get_project_storage_usage(user.project_id)
-        available_space = project.storage_limit - current_usage
+        
+        # Handle None storage_limit and convert to int to avoid Decimal/float type issues
+        if project.storage_limit is not None:
+            storage_limit = int(project.storage_limit)
+        else:
+            storage_limit = 0
+        
+        # Ensure current_usage is also an int
+        current_usage = int(current_usage) if current_usage is not None else 0
+        
+        # If storage_limit is 0 or None, allow upload (unlimited storage)
+        if storage_limit == 0:
+            return True, "Storage limit check passed"
+        
+        available_space = storage_limit - current_usage
 
         if file_size > available_space:
             return (
@@ -455,10 +469,12 @@ class FileService:
         if user.project_id:
             project = Project.query.filter_by(id=user.project_id).first()
             if project:
-                storage_limit = project.storage_limit
+                # Convert to int to handle Decimal types from database
+                storage_limit = int(project.storage_limit) if project.storage_limit is not None else 0
+                total_size = int(total_size) if total_size is not None else 0
                 available_space = max(0, storage_limit - total_size)
                 storage_usage_percent = (
-                    round((total_size / storage_limit) * 100, 2) if storage_limit > 0 else 0
+                    round((float(total_size) / float(storage_limit)) * 100, 2) if storage_limit > 0 else 0
                 )
 
         return {
@@ -500,11 +516,19 @@ class FileService:
         try:
             current_usage = self.get_project_storage_usage(user.project_id)
             
-            # Handle None storage_limit
-            storage_limit = project.storage_limit if project.storage_limit is not None else 0
+            # Handle None storage_limit and convert to int to avoid Decimal/float type issues
+            if project.storage_limit is not None:
+                # Convert to int to handle Decimal types from database
+                storage_limit = int(project.storage_limit)
+            else:
+                storage_limit = 0
+            
+            # Ensure current_usage is also an int
+            current_usage = int(current_usage) if current_usage is not None else 0
+            
             available_space = max(0, storage_limit - current_usage) if storage_limit > 0 else 0
             usage_percent = (
-                round((current_usage / storage_limit) * 100, 2)
+                round((float(current_usage) / float(storage_limit)) * 100, 2)
                 if storage_limit > 0
                 else 0
             )
@@ -518,10 +542,13 @@ class FileService:
             try:
                 storage_limit_gb = project.storage_limit_gb if storage_limit > 0 else 0
                 storage_limit_mb = project.storage_limit_mb if storage_limit > 0 else 0
+                # Ensure they are floats, not Decimals
+                storage_limit_gb = float(storage_limit_gb) if storage_limit_gb is not None else 0
+                storage_limit_mb = float(storage_limit_mb) if storage_limit_mb is not None else 0
             except (AttributeError, TypeError) as e:
                 self.logger.warning(f"Error accessing project storage_limit properties: {e}")
-                storage_limit_gb = round(storage_limit / (1024**3), 2) if storage_limit > 0 else 0
-                storage_limit_mb = round(storage_limit / (1024**2), 2) if storage_limit > 0 else 0
+                storage_limit_gb = round(float(storage_limit) / (1024**3), 2) if storage_limit > 0 else 0
+                storage_limit_mb = round(float(storage_limit) / (1024**2), 2) if storage_limit > 0 else 0
 
             response_data = {
                 "project_name": project.name,
@@ -532,12 +559,12 @@ class FileService:
                 "current_usage": current_usage,
                 "used_space": current_usage,
                 "used_space_human": used_space_human,
-                "current_usage_gb": round(current_usage / (1024**3), 2),
-                "current_usage_mb": round(current_usage / (1024**2), 2),
+                "current_usage_gb": round(float(current_usage) / (1024**3), 2),
+                "current_usage_mb": round(float(current_usage) / (1024**2), 2),
                 "available_space": available_space,
                 "available_space_human": available_space_human,
-                "available_space_gb": round(available_space / (1024**3), 2),
-                "available_space_mb": round(available_space / (1024**2), 2),
+                "available_space_gb": round(float(available_space) / (1024**3), 2),
+                "available_space_mb": round(float(available_space) / (1024**2), 2),
                 "usage_percent": usage_percent,
                 "is_near_limit": usage_percent >= 80,
                 "is_at_limit": usage_percent >= 95,

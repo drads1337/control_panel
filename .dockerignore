@@ -1,80 +1,89 @@
 # Git
 .git
 .gitignore
-.gitattributes
+.github
 
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-venv/
-.venv/
-env/
-ENV/
-*.egg-info/
-dist/
-build/
-.pytest_cache/
-.coverage
-htmlcov/
-
-# Node
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-.DS_Store
+# Documentation
+*.md
+!README.md
 
 # Environment
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info
+dist
+build
+venv/
+env/
+.venv
+
+# Node
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Build outputs (кроме собранного фронтенда)
+frontend/dist
+*.tsbuildinfo
+
+# Testing
+.pytest_cache
+.coverage
+htmlcov
+test-results
+playwright-report
 
 # Logs
 *.log
 logs/
 
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-test-results/
-
-# Documentation
-*.md
-!README.md
-docs/
-
-# Frontend build (if not needed in container)
-frontend/dist/
-frontend/node_modules/
-
-# Backend specific
-backend/__pycache__/
-backend/*.pyc
-backend/.pytest_cache/
-backend/coverage/
-
-# Uploads (will be mounted as volume)
+# Uploads (будут созданы в контейнере)
 uploads/
 backend/uploads/
 
-# Scripts that shouldn't be in production
-scripts/refactor_*.py
-scripts/analyze_*.py
-scripts/remove_*.py
+# Backup files
+*.bak
+*.backup
+*.old
 
 # Temporary files
 *.tmp
-*.bak
-*.swp
+*.temp
+
+# Monitoring
+*.prom
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# SSL certificates (должны быть на сервере)
+*.pem
+*.key
+*.crt
+nginx/ssl/
+
+# Scripts (не нужны в образе)
+scripts/

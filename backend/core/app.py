@@ -218,6 +218,19 @@ def setup_redis_and_limiter(app: Flask) -> None:
     except (ImportError, AttributeError) as e:
         logger.warning(f"Could not apply CSRF-specific rate limit to CSRF token endpoint: {e}")
 
+    try:
+        from ..routes.files import upload_product_extra_file_chunk, finalize_product_extra_file_upload
+
+        # Exempt chunked upload endpoints from default rate limit and apply higher limits
+        # Chunked uploads can send many requests in quick succession (one per chunk)
+        limiter.exempt(upload_product_extra_file_chunk)
+        limiter.limit("500 per minute")(upload_product_extra_file_chunk)
+        limiter.exempt(finalize_product_extra_file_upload)
+        limiter.limit("60 per minute")(finalize_product_extra_file_upload)
+        logger.info("Applied higher rate limits to chunked upload endpoints (500/min for chunks, 60/min for finalize)")
+    except (ImportError, AttributeError) as e:
+        logger.warning(f"Could not apply higher rate limits to chunked upload endpoints: {e}")
+
     app.limiter = limiter
 
     logger.info(

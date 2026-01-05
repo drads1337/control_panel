@@ -71,14 +71,16 @@ class Project(db.Model):
         """Get storage limit in GB"""
         if self.storage_limit is None:
             return 0.0
-        return round(self.storage_limit / (1024**3), 2)
+        # Convert to float to handle Decimal types from database
+        return round(float(self.storage_limit) / (1024**3), 2)
 
     @property
     def storage_limit_mb(self):
         """Get storage limit in MB"""
         if self.storage_limit is None:
             return 0.0
-        return round(self.storage_limit / (1024**2), 2)
+        # Convert to float to handle Decimal types from database
+        return round(float(self.storage_limit) / (1024**2), 2)
 
     @property
     def is_active(self):

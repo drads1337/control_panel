@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# Git hook для автоматического деплоя при git push
+# Установка:
+# 1. На сервере создайте bare репозиторий: git init --bare /path/to/repo.git
+# 2. Скопируйте этот файл в /path/to/repo.git/hooks/post-receive
+# 3. Сделайте исполняемым: chmod +x /path/to/repo.git/hooks/post-receive
+# 4. Настройте remote: git remote add production user@server:/path/to/repo.git
+
+set -e
+
+# Переменные (настройте под вашу конфигурацию)
+DEPLOY_DIR="/path/to/panel"  # Замените на путь к проекту на сервере
+GIT_DIR="$(pwd)"
+
+echo "🚀 Получен push, начинаем деплой..."
+
+# Проверяем, что рабочая директория существует
+if [ ! -d "$DEPLOY_DIR" ]; then
+    echo "❌ Ошибка: директория $DEPLOY_DIR не существует"
+    exit 1
+fi
+
+# Переходим в рабочую директорию
+cd "$DEPLOY_DIR"
+
+# Обновляем код
+git --git-dir="$GIT_DIR" --work-tree="$DEPLOY_DIR" checkout -f
+
+# Запускаем скрипт деплоя
+if [ -f "$DEPLOY_DIR/scripts/deploy.sh" ]; then
+    chmod +x "$DEPLOY_DIR/scripts/deploy.sh"
+    "$DEPLOY_DIR/scripts/deploy.sh"
+else
+    echo "⚠️  Скрипт deploy.sh не найден, выполняем базовый деплой..."
+    docker compose build
+    docker compose up -d --force-recreate
+fi
+
+echo "✅ Деплой завершен!"

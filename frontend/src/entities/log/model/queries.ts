@@ -72,7 +72,7 @@ interface UseLogsReturn {
 
 export function useLogsQuery(options: UseLogsOptions = {}): UseLogsReturn {
   const queryClient = useQueryClient()
-  const { isAuthenticated } = useAuthContext()
+  const { isAuthenticated, user, isInitialized } = useAuthContext()
 
   const [pagination, setPagination] = React.useState({
     page: options.page || 1,
@@ -106,7 +106,7 @@ export function useLogsQuery(options: UseLogsOptions = {}): UseLogsReturn {
         filters.projectId
       )
     },
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && !!user && isInitialized,
     staleTime: 30 * 1000,
     refetchInterval: options.autoRefresh ? (options.refreshInterval || 30000) : false,
   })
@@ -121,7 +121,7 @@ export function useLogsQuery(options: UseLogsOptions = {}): UseLogsReturn {
   const statsQuery = useQuery<LogStats, Error>({
     queryKey: logKeys.stats(),
     queryFn: getLogStats,
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && !!user && isInitialized,
     staleTime: 60 * 1000,
     refetchInterval: options.autoRefresh ? (options.refreshInterval || 30000) : false,
   })
@@ -140,6 +140,10 @@ export function useLogsQuery(options: UseLogsOptions = {}): UseLogsReturn {
   }, [statsQuery])
 
   const searchLogsByTerm = React.useCallback((term: string) => {
+    // Don't change state if user is not authenticated
+    if (!isAuthenticated || !user || !isInitialized) {
+      return
+    }
     if (!term.trim()) {
       setIsSearching(false)
       setSearchTerm('')
@@ -148,7 +152,7 @@ export function useLogsQuery(options: UseLogsOptions = {}): UseLogsReturn {
     setIsSearching(true)
     setSearchTerm(term)
     setPagination(prev => ({ ...prev, page: 1 }))
-  }, [])
+  }, [isAuthenticated, user, isInitialized])
 
   const changePage = React.useCallback((page: number) => {
     setPagination(prev => ({ ...prev, page }))

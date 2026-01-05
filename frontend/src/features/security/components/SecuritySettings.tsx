@@ -1288,22 +1288,25 @@ export default function SecuritySettings({ rule, open, onOpenChange, onRefresh, 
                   <Label htmlFor="action-type" className="text-xs font-medium">
                     Action Type
                   </Label>
-                  <select
-                    id="action-type"
+                  <Select
                     value={suspiciousActivity.actionType}
-                    onChange={(e) =>
+                    onValueChange={(value) =>
                       setSuspiciousActivity(prev => ({
                         ...prev,
-                        actionType: e.target.value as 'log' | 'alert' | 'block'
+                        actionType: value as 'log' | 'alert' | 'block'
                       }))
                     }
                     disabled={!canManageRules || isSaving}
-                    className="h-8 text-xs w-full rounded-md border border-input bg-background px-3 py-1"
                   >
-                    <option value="log">Log Only</option>
-                    <option value="alert">Alert</option>
-                    <option value="block">Block</option>
-                  </select>
+                    <SelectTrigger id="action-type" className="h-8 text-xs w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="log">Log Only</SelectItem>
+                      <SelectItem value="alert">Alert</SelectItem>
+                      <SelectItem value="block">Block</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <p className="text-[10px] text-muted-foreground">
                     What to do when suspicious activity is detected
                   </p>
@@ -1314,22 +1317,25 @@ export default function SecuritySettings({ rule, open, onOpenChange, onRefresh, 
                   <Label htmlFor="log-severity" className="text-xs font-medium">
                     Log Severity
                   </Label>
-                  <select
-                    id="log-severity"
+                  <Select
                     value={suspiciousActivity.logSeverity}
-                    onChange={(e) =>
+                    onValueChange={(value) =>
                       setSuspiciousActivity(prev => ({
                         ...prev,
-                        logSeverity: e.target.value as 'low' | 'medium' | 'high'
+                        logSeverity: value as 'low' | 'medium' | 'high'
                       }))
                     }
                     disabled={!canManageRules || isSaving}
-                    className="h-8 text-xs w-full rounded-md border border-input bg-background px-3 py-1"
                   >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                  </select>
+                    <SelectTrigger id="log-severity" className="h-8 text-xs w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Block Duration (only if action is block) */}
