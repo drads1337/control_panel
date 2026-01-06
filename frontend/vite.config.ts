@@ -116,7 +116,11 @@ const resolveTypeScriptFiles = () => {
       }
       
       if (basePath) {
-        return tryResolveFile(basePath)
+        const resolved = tryResolveFile(basePath)
+        if (resolved) {
+          // Return the resolved path directly - this should work
+          return resolved
+        }
       }
       
       return null
@@ -133,6 +137,28 @@ const resolveTypeScriptFiles = () => {
       const hasExtension = id.match(/\.[^/]+$/)
       if (hasExtension) {
         return null
+      }
+      
+      // Early check for /src/ paths - this is the most common case
+      if (id.includes('/src/') && !id.match(/\.[^/]+$/)) {
+        const normalizedId = path.normalize(id)
+        let srcIndex = normalizedId.indexOf('/src/')
+        if (srcIndex === -1) {
+          srcIndex = normalizedId.indexOf('\\src\\')
+        }
+        if (srcIndex !== -1) {
+          const relativePath = normalizedId.substring(srcIndex + '/src/'.length)
+          const normalizedRelative = relativePath.replace(/\\/g, '/')
+          const basePath = path.resolve(__dirname, './src', normalizedRelative)
+          const resolved = tryResolveFile(basePath)
+          if (resolved && fs.existsSync(resolved)) {
+            try {
+              return fs.readFileSync(resolved, 'utf-8')
+            } catch {
+              // Continue to other checks
+            }
+          }
+        }
       }
       
       let basePath: string | null = null
