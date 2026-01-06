@@ -9,7 +9,10 @@ export default defineConfig(({ mode }) => {
   
   return {
     plugins: [
-      react(),
+      react({
+        // Ensure proper TypeScript file resolution
+        include: '**/*.{jsx,tsx}',
+      }),
       // Bundle visualizer - only enable in analyze mode
       isAnalyze && visualizer({
         open: true,
@@ -91,7 +94,8 @@ export default defineConfig(({ mode }) => {
         "events": "events",
       },
       // Explicitly set extensions to ensure TypeScript files are resolved
-      extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json'],
+      // Order matters: TypeScript files first for better resolution
+      extensions: ['.ts', '.tsx', '.mts', '.js', '.jsx', '.mjs', '.json'],
       // Ensure proper handling of CommonJS modules like lodash
       // Dedupe React to prevent multiple instances and bundling issues
       dedupe: ['react', 'react-dom', 'lodash'],
@@ -99,6 +103,8 @@ export default defineConfig(({ mode }) => {
       conditions: ['import', 'module', 'browser', 'default'],
       // Fix react-map-gl package exports resolution
       mainFields: ['module', 'main'],
+      // Ensure proper file resolution in production builds
+      preserveSymlinks: false,
     },
     build: {
       // Use modern ES2020 target for better tree-shaking and smaller bundles
@@ -156,6 +162,10 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         // Handle Node.js modules that shouldn't be bundled
         plugins: [],
+        // Ensure proper module resolution in production builds
+        resolve: {
+          extensions: ['.ts', '.tsx', '.mts', '.js', '.jsx', '.mjs', '.json'],
+        },
         output: {
           // Define globals for Node.js modules that are externalized
           globals: {},
