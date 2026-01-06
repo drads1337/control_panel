@@ -153,15 +153,11 @@ def setup_security_headers(app: Flask) -> None:
             response.headers['Strict-Transport-Security'] = (
                 'max-age=31536000; includeSubDomains; preload'
             )
+            # Cross-Origin-Opener-Policy requires secure context (HTTPS or localhost)
+            # Only set it for HTTPS requests to avoid browser warnings
+            response.headers['Cross-Origin-Opener-Policy'] = 'same-origin'
         
-
-        response.headers['Cross-Origin-Opener-Policy'] = 'same-origin'
-        
-
-
-
-
-        
+    
         return response
     
     logger.info("Security headers configured for all responses")
