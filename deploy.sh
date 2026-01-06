@@ -102,15 +102,16 @@ fi
 # Остановка старых контейнеров
 echo "🛑 Остановка старых контейнеров..."
 cd "$PROJECT_DIR"
-docker-compose down
+docker compose down 2>/dev/null || docker-compose down 2>/dev/null || true
 
 # Сборка образов
 echo "🔨 Сборка Docker образов..."
-docker-compose build --no-cache
+docker compose build --no-cache || docker-compose build --no-cache
 
-# Запуск контейнеров
+# Запуск контейнеров с production конфигурацией
 echo "🚀 Запуск контейнеров..."
-docker-compose up -d
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d || \
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
 # Ожидание готовности сервисов
 echo "⏳ Ожидание готовности сервисов..."
@@ -118,7 +119,15 @@ sleep 15
 
 # Применение миграций
 echo "📊 Применение миграций базы данных..."
-docker-compose exec -T api python -c "
+docker compose exec -T api python -c "
+from backend.core.app import create_app
+from flask_migrate import upgrade
+import os
+os.chdir('/app/backend')
+app = create_app()
+app.app_context().push()
+upgrade()
+" 2>/dev/null || docker-compose exec -T api python -c "
 from backend.core.app import create_app
 from flask_migrate import upgrade
 import os
@@ -131,7 +140,7 @@ upgrade()
 # Проверка статуса
 echo ""
 echo "📊 Статус контейнеров:"
-docker-compose ps
+docker compose ps || docker-compose ps
 
 echo ""
 echo "✅ Развертывание завершено!"
@@ -142,8 +151,13 @@ echo "   • API: http://localhost:5001"
 echo "   • Flower: http://localhost:5555"
 echo ""
 echo "📋 Полезные команды:"
-echo "   • Просмотр логов: docker-compose logs -f"
-echo "   • Остановка: docker-compose down"
-echo "   • Перезапуск: docker-compose restart"
-echo "   • Статус: docker-compose ps"
+echo "   • Просмотр логов: docker compose logs -f"
+echo "   • Остановка: docker compose down"
+echo "   • Перезапуск: docker compose restart"
+echo "   • Статус: docker compose ps"
+echo ""
+echo "🔍 Если домен не работает, проверьте:"
+echo "   • DNS настройки (A-запись для ovrin.xyz → IP сервера)"
+echo "   • Файрвол (порты 80 и 443 должны быть открыты)"
+echo "   • Логи nginx: docker compose logs -f nginx"
 
