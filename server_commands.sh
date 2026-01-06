@@ -1,6 +1,10 @@
 #!/bin/bash
 # Команды для выполнения на сервере
 # Скопируйте и выполните эти команды на сервере: ssh root@38.242.149.188
+#
+# Альтернатива: Быстрое развертывание через curl (попробует main, затем develop):
+# curl -s https://raw.githubusercontent.com/drads1337/control_panel/main/DEPLOY_NOW.sh | bash || \
+# curl -s https://raw.githubusercontent.com/drads1337/control_panel/develop/DEPLOY_NOW.sh | bash
 
 # 1. Установка Docker (если не установлен)
 curl -fsSL https://get.docker.com -o get-docker.sh

@@ -1,6 +1,9 @@
 #!/bin/bash
 # Быстрое развертывание на сервере
 # Скопируйте и выполните на сервере: ssh root@38.242.149.188
+#
+# Альтернативный способ (если файл не на GitHub):
+# git clone -b develop https://github.com/drads1337/control_panel.git /tmp/panel && bash /tmp/panel/DEPLOY_NOW.sh
 
 set -e
 
