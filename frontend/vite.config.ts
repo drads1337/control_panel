@@ -2,6 +2,65 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 import { visualizer } from 'rollup-plugin-visualizer'
+import fs from 'fs'
+
+// Plugin to ensure TypeScript files are resolved correctly
+const resolveTypeScriptFiles = () => {
+  return {
+    name: 'resolve-typescript-files',
+    resolveId(id: string, importer?: string) {
+      // Skip node_modules and absolute paths
+      if (id.startsWith('\0') || id.includes('node_modules') || path.isAbsolute(id)) {
+        return null
+      }
+      
+      // Handle imports without extensions
+      if (!id.match(/\.[^/]+$/)) {
+        const extensions = ['.ts', '.tsx', '.js', '.jsx', '.mts', '.mjs', '.json']
+        
+        let basePath: string | null = null
+        
+        if (id.startsWith('@/')) {
+          // Handle @ alias
+          basePath = path.resolve(__dirname, './src', id.replace('@/', ''))
+        } else if (id.startsWith('./') || id.startsWith('../')) {
+          // Handle relative imports
+          if (importer) {
+            basePath = path.resolve(path.dirname(importer), id)
+          }
+        }
+        
+        if (basePath) {
+          // Try direct file with extensions
+          for (const ext of extensions) {
+            const fullPath = basePath + ext
+            try {
+              if (fs.existsSync(fullPath)) {
+                return fullPath
+              }
+            } catch {
+              // Ignore errors
+            }
+          }
+          
+          // Try index files
+          for (const ext of extensions) {
+            const indexPath = path.join(basePath, 'index' + ext)
+            try {
+              if (fs.existsSync(indexPath)) {
+                return indexPath
+              }
+            } catch {
+              // Ignore errors
+            }
+          }
+        }
+      }
+      
+      return null
+    },
+  }
+}
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -9,6 +68,7 @@ export default defineConfig(({ mode }) => {
   
   return {
     plugins: [
+      resolveTypeScriptFiles(),
       react({
         // Ensure proper TypeScript file resolution
         include: '**/*.{jsx,tsx}',
@@ -162,10 +222,6 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         // Handle Node.js modules that shouldn't be bundled
         plugins: [],
-        // Ensure proper module resolution in production builds
-        resolve: {
-          extensions: ['.ts', '.tsx', '.mts', '.js', '.jsx', '.mjs', '.json'],
-        },
         output: {
           // Define globals for Node.js modules that are externalized
           globals: {},
