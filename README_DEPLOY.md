@@ -1,90 +1,100 @@
-# 🚀 Быстрый старт: Деплой Panel Project
+# Быстрый старт развертывания
 
-## Что было сделано
+## На сервере
 
-✅ Проект полностью контейнеризирован:
-- Backend: `Dockerfile` 
-- Frontend: `Dockerfile.frontend` (multi-stage build)
-- Nginx: добавлен в `docker-compose.yml`
-- Все сервисы работают в Docker контейнерах
-
-✅ Настроен автоматический деплой:
-- **Git Hook** - простой способ (см. `DEPLOY_AUTO.md`)
-- **GitHub Actions** - с веб-интерфейсом (см. `DEPLOY_AUTO.md`)
-
-## 📦 Самый простой способ (рекомендуется)
-
-Смотрите **`DEPLOY_SIMPLE.md`** - самая простая инструкция для начала работы!
-
-## 📦 Быстрый деплой (в первый раз)
-
-### 1. На сервере
+### 1. Первоначальная настройка
 
 ```bash
-# Клонируйте проект
-git clone <your-repo-url> panel
-cd panel
+# Клонирование репозитория
+sudo mkdir -p /var/www/panel
+sudo chown $USER:$USER /var/www/panel
+cd /var/www/panel
+git clone https://github.com/drads1337/control_panel.git .
 
-# Настройте .env (скопируйте и заполните)
-cp .env.example .env  # если есть
+# Создание .env файла
 nano .env
+# (скопируйте переменные из SERVER_SETUP.md)
 
-# Соберите и запустите
-docker compose build
-docker compose up -d
+# Создание SSL сертификатов
+mkdir -p nginx/ssl
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout nginx/ssl/key.pem \
+    -out nginx/ssl/cert.pem \
+    -subj "/C=RU/ST=State/L=City/O=Organization/CN=ovrin.xyz"
 
-# Проверьте статус
-docker compose ps
-docker compose logs -f
+# Развертывание
+chmod +x deploy.sh
+sudo ./deploy.sh main
 ```
 
-### 2. Настройка автоматического обновления
-
-**Вариант A: Git Hook (простой)**
+### 2. Обновление проекта
 
 ```bash
-# На сервере
-./scripts/setup-git-deploy.sh
+cd /var/www/panel
 
-# На локальной машине
-git remote add production user@server:/path/to/repo.git
+# Production (main)
+git checkout main
+git pull origin main
+sudo ./deploy.sh main
+
+# Development (develop)
+git checkout develop
+git pull origin develop
+sudo ./deploy.sh develop
 ```
 
-**Вариант B: GitHub Actions**
+## Git Workflow
 
-1. Настройте GitHub Secrets (см. `DEPLOY_AUTO.md`)
-2. Отредактируйте `.github/workflows/deploy.yml` (путь к проекту)
-3. Готово! При `git push origin main` - автоматический деплой
+### Ветки:
+- **main** - Production (стабильная версия)
+- **develop** - Development (версия для разработки)
 
-## 🔄 Обновление проекта
-
-После настройки автоматического деплоя:
+### Работа с ветками:
 
 ```bash
-# Локально
+# Разработка новой функции
+git checkout develop
+git pull origin develop
+git checkout -b feature/my-feature
+# ... делаем изменения ...
 git add .
-git commit -m "Ваши изменения"
-git push production main  # или git push origin main для GitHub Actions
+git commit -m "Add my feature"
+git push origin feature/my-feature
+
+# Слияние в develop
+git checkout develop
+git merge feature/my-feature
+git push origin develop
+
+# Развертывание develop на сервере
+# (на сервере: git pull origin develop && sudo ./deploy.sh develop)
+
+# Когда готово к production
+git checkout main
+git merge develop
+git push origin main
+
+# Развертывание main на сервере
+# (на сервере: git pull origin main && sudo ./deploy.sh main)
 ```
 
-Сервер автоматически:
-1. Получит изменения из Git
-2. Пересоберет Docker образы
-3. Перезапустит контейнеры
+## Полезные команды
 
-## 📚 Подробная документация
+```bash
+# Статус контейнеров
+docker-compose ps
 
-- **Полная инструкция по деплою**: `DEPLOYMENT_RU.md`
-- **Автоматический деплой**: `DEPLOY_AUTO.md`
-- **Основной README**: `README.md`
+# Логи
+docker-compose logs -f
 
-## ⚠️ Важно
+# Перезапуск
+docker-compose restart
 
-1. **`.env` файл** - должен быть настроен на сервере (не в Git!)
-2. **SSL сертификаты** - поместите в `nginx/ssl/` для HTTPS
-3. **Первая настройка** - выполните миграции БД и создайте администратора (см. `DEPLOYMENT_RU.md`)
+# Остановка
+docker-compose down
 
----
-
-**Вопросы?** Смотрите `DEPLOYMENT_RU.md` и `DEPLOY_AUTO.md` для детальной информации.
-
+# Полная пересборка
+docker-compose down
+docker-compose build --no-cache
+docker-compose up -d
+```
