@@ -30,12 +30,48 @@ cd /var/www/panel
 # Клонирование репозитория
 if [ -d .git ]; then
     echo "📥 Обновление репозитория..."
-    git fetch origin
-    git checkout develop
-    git pull origin develop
+    # Если репозиторий уже существует, пробуем обновить
+    if git remote get-url origin 2>/dev/null | grep -q "github.com"; then
+        # Пробуем обновить через существующий remote
+        git fetch origin 2>/dev/null || echo "⚠️  Не удалось обновить через git, используем альтернативный метод..."
+        git checkout develop 2>/dev/null || git checkout main 2>/dev/null || true
+        git pull origin develop 2>/dev/null || git pull origin main 2>/dev/null || {
+            echo "⚠️  Git pull не удался, скачиваем файлы через curl..."
+            # Альтернативный метод: скачиваем необходимые файлы через raw.githubusercontent.com
+            curl -fsSL https://raw.githubusercontent.com/drads1337/control_panel/develop/deploy.sh -o deploy.sh 2>/dev/null || \
+            curl -fsSL https://raw.githubusercontent.com/drads1337/control_panel/main/deploy.sh -o deploy.sh 2>/dev/null || true
+        }
+    fi
 else
-    echo "📥 Клонирование репозитория..."
-    git clone -b develop https://github.com/drads1337/control_panel.git .
+    echo "📥 Скачивание файлов развертывания..."
+    # Скачиваем необходимые файлы напрямую через raw.githubusercontent.com
+    BRANCH="develop"
+    BASE_URL="https://raw.githubusercontent.com/drads1337/control_panel/$BRANCH"
+    
+    # Скачиваем основные файлы для развертывания
+    for file in deploy.sh docker-compose.yml nginx.conf; do
+        echo "  📥 Скачивание $file..."
+        curl -fsSL "$BASE_URL/$file" -o "$file" 2>/dev/null || \
+        curl -fsSL "https://raw.githubusercontent.com/drads1337/control_panel/main/$file" -o "$file" 2>/dev/null || \
+        echo "  ⚠️  Не удалось скачать $file"
+    done
+    
+    # Если не удалось скачать через curl, пробуем git clone (может потребовать аутентификацию)
+    if [ ! -f deploy.sh ]; then
+        echo "⚠️  Не удалось скачать через curl, пробуем git clone..."
+        echo "💡 Если репозиторий приватный, настройте SSH ключи или используйте токен:"
+        echo "   git config --global credential.helper store"
+        echo "   или используйте: git clone git@github.com:drads1337/control_panel.git ."
+        git clone -b develop https://github.com/drads1337/control_panel.git . 2>/dev/null || \
+        git clone -b main https://github.com/drads1337/control_panel.git . 2>/dev/null || {
+            echo "❌ Не удалось клонировать репозиторий"
+            echo "💡 Решения:"
+            echo "   1. Сделайте репозиторий публичным на GitHub"
+            echo "   2. Настройте SSH ключи: ssh-keygen -t ed25519 -C 'your_email@example.com'"
+            echo "   3. Используйте токен: git clone https://TOKEN@github.com/drads1337/control_panel.git ."
+            exit 1
+        }
+    fi
 fi
 
 # Создание .env если не существует
