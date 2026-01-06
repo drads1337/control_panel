@@ -22,7 +22,7 @@ import {
 import { useWebhookActions, useWebhookDialogs } from './hooks'
 import type { WebhookData } from './types'
 import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/utils.ts'
 import { CreateWebhookDialog, EditWebhookDialog, WebhookStats } from './components'
 import { EmptyState, AccessDenied } from '@/shared/ui/components'
 import { useAuthContext } from '@/app/providers/auth-provider'

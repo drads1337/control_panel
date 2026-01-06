@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Edit, Upload, DollarSign, Bell, FileText, X } from 'lucide-react'
 import type { Product } from '@/entities/product'
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils.ts'
 
 const formatDate = (dateString: string) => {
   try {

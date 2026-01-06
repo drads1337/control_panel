@@ -64,7 +64,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils.ts';
 import type { Product } from '@/entities/product';
 import { getStatusClasses, getStatusText, type StatusType } from '@/lib/status-utils';
 

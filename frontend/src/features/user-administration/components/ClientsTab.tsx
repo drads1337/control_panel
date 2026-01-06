@@ -35,7 +35,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils.ts'
 
 // Hook to detect screen size
 const useMediaQuery = (query: string) => {

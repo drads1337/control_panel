@@ -12,7 +12,7 @@ import { Spinner } from '@/components/ui/spinner';
 import type { Product } from '@/entities/product';
 import type { Agent } from '@/entities/agent';
 import type { UploadForm } from '@/features/file-manager/hooks/use-file-manager-upload';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils.ts';
 
 interface FileUploadDialogProps {
   open: boolean;

@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useUserActivityQuery } from '@/features/user-administration/hooks/use-user-activity-query'
 import { Activity, Loader2, MapPin, Monitor, Clock } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/utils.ts'
 
 export function ProfileActivityTab() {
   const {

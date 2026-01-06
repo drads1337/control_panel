@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { getUserNotifications, markNotificationAsRead, markAllNotificationsAsRead, type UserNotification } from "@/entities/notification/api/notification"
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils.ts'
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false)

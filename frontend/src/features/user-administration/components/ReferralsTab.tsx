@@ -36,7 +36,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils.ts'
 import { toast } from "sonner"
 import { copyToClipboard } from "@/utils"
 

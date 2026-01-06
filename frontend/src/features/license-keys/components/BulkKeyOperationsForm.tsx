@@ -33,7 +33,7 @@ import {
   DATE_RANGE_OPTIONS,
 } from '@/shared/constants/filters';
 import { sanitizeString } from '@/lib/sanitization';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils.ts';
 
 export interface FilterState {
   status: string;

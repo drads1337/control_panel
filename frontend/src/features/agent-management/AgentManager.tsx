@@ -28,7 +28,7 @@ import { AgentDatabaseErrorState } from './components';
 import { AccessDenied, EmptyState } from '@/shared/ui/components';
 import { AgentManagerDialogs } from './components/AgentManagerDialogs';
 import type { Agent } from '@/entities/agent';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils.ts';
 import { getStatusClasses, getStatusText, type StatusType } from '@/lib/status-utils';
 import {
   DropdownMenu,

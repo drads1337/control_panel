@@ -27,7 +27,7 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { usePermissions } from '@/shared/hooks/use-permissions'
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/utils.ts'
 
 interface SearchResult {
   id: string

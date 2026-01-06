@@ -15,7 +15,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CalendarIcon, Clock } from 'lucide-react';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils.ts';
 import { sendProductNotification, sendAgentNotification } from '@/entities/notification';
 import { usePermissions } from '@/shared/hooks/use-permissions';
 import { ConditionalRender } from '@/shared/ui/components/rbac/conditional-render';

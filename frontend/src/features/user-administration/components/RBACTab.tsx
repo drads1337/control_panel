@@ -16,7 +16,7 @@ import EditRoleDialog from "./EditRoleDialog"
 import { Plus, Shield, Key, Edit, Trash2, RefreshCw } from "lucide-react"
 import { useRBACTab } from "@/features/user-administration/hooks/use-rbac-tab"
 import { sanitizeString } from "@/lib/sanitization"
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils.ts'
 
 const RBACTab: React.FC = () => {
   const {

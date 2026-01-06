@@ -21,7 +21,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils.ts'
 import type { User } from "@/entities/user"
 
 interface NotificationDialogProps {

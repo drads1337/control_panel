@@ -43,7 +43,7 @@ import {
 } from "@/lib/validations/user"
 import { measurePerformance } from "@/shared/lib/sentry-config"
 import { sanitizeString } from "@/lib/sanitization"
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils.ts'
 
 interface Role {
   id: number

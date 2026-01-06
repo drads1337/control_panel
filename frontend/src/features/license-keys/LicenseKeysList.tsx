@@ -59,7 +59,7 @@ import { isMaskedKey } from '@/shared/lib/key-masking'
 // Types (Mocked for context)
 import type { StatusType } from '@/lib/status-utils'
 import { getStatusClasses, getStatusText } from '@/lib/status-utils'
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/utils.ts'
 import type { LicenseKey } from '@/entities/key'
 
 interface LicenseKeysListProps {

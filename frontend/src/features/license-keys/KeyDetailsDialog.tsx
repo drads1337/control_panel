@@ -18,7 +18,7 @@ import { getLicenseKeyDetails, getLicenseKeyAnalytics, revealLicenseKey } from '
 import { toast } from 'sonner';
 import { usePermissions } from '@/shared/hooks/use-permissions';
 import { isMaskedKey } from '@/shared/lib/key-masking';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils.ts';
 
 interface KeyDetailsDialogProps {
   open: boolean;

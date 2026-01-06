@@ -51,7 +51,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils.ts'
 import { useFileManagerLogic } from "./hooks/use-file-manager-logic"
 import { getProductFiles, getStorageInfo } from "@/entities/file/api/file"
 import type { FileItem } from "@/entities/file"

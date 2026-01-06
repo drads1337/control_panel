@@ -18,7 +18,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import type { Product, UpdateProductData } from '@/entities/product';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/shared/lib/utils/error-utils';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils.ts';
 
 interface EditProductDialogProps {
   open: boolean;

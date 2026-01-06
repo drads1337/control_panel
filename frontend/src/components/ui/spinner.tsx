@@ -1,6 +1,6 @@
 import * as React from "react"
 import { Loader2 } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils.ts'
 
 interface SpinnerProps extends React.ComponentProps<typeof Loader2> {
   size?: "sm" | "md" | "lg"

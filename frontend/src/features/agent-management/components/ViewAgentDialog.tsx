@@ -16,7 +16,7 @@ import {
   FileText 
 } from 'lucide-react'
 import type { Agent } from '@/entities/agent'
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils.ts'
 import AssignProductsDialog from './AssignProductsDialog'
 import AgentConfigDialog from './AgentConfigDialog'
 import UploadAgentFilesDialog from './UploadAgentFilesDialog'

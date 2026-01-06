@@ -22,7 +22,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Spinner } from "@/components/ui/spinner"
 import { useEditUserDialog } from "@/features/user-administration/hooks/use-edit-user-dialog"
 import { sanitizeString } from "@/lib/sanitization"
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils.ts'
 import type { User } from "@/entities/user"
 
 interface EditUserDialogProps {

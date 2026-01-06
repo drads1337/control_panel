@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Spinner } from "@/components/ui/spinner"
 import { type Permission } from "@/features/user-administration/hooks/use-rbac"
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils.ts'
 
 interface EditRoleDialogProps {
   open: boolean

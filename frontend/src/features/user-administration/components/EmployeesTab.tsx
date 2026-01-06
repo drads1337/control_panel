@@ -17,7 +17,7 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@/components/ui/avatar"
-import { getAvatarUrl } from "@/lib/utils"
+import { getAvatarUrl } from '@/lib/utils.ts'
 import { ConditionalRender } from "@/shared/ui/components/rbac"
 import CreateUserDialog from "./CreateUserDialog"
 import EditUserDialog from "./EditUserDialog"
@@ -53,7 +53,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils.ts'
 
 // Hook to detect screen size
 const useMediaQuery = (query: string) => {

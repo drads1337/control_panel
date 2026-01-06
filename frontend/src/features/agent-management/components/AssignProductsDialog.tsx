@@ -7,7 +7,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Label } from '@/components/ui/label';
 import { type Agent } from '@/entities/agent';
 import { getProducts, getProductsAvailableForAssignment, type Product } from '@/entities/product';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils.ts';
 
 const ProductItem = React.memo<{
   product: Product;

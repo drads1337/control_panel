@@ -56,7 +56,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/utils.ts'
 import { useLogsQuery, useLogActions, type Log } from '@/entities/log'
 import { toast } from 'sonner'
 import { Spinner } from '@/components/ui/spinner'

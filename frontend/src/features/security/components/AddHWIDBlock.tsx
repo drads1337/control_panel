@@ -10,7 +10,7 @@ import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Plus } from 'lucide-react'
 import { format } from 'date-fns'
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/utils.ts'
 import { ConditionalRender } from '@/shared/ui/components/rbac/conditional-render'
 import { BLOCK_TYPE_OPTIONS, BLOCK_CATEGORY_OPTIONS, SEVERITY_OPTIONS } from '@/shared/constants/filters'
 

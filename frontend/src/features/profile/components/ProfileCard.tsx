@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Mail, Camera, Loader2 } from 'lucide-react'
 import { getPrimaryRole } from '@/shared/lib/rbac'
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/utils.ts'
 
 interface ProfileCardProps {
   user: any | null | undefined
