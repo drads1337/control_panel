@@ -8,52 +8,86 @@ import fs from 'fs'
 const resolveTypeScriptFiles = () => {
   return {
     name: 'resolve-typescript-files',
+    enforce: 'pre' as const, // Run before other plugins
     resolveId(id: string, importer?: string) {
-      // Skip node_modules and absolute paths
-      if (id.startsWith('\0') || id.includes('node_modules') || path.isAbsolute(id)) {
+      // Skip node_modules, virtual modules, and already resolved paths
+      if (id.startsWith('\0') || id.includes('node_modules') || id.startsWith('data:') || id.startsWith('http')) {
         return null
       }
       
-      // Handle imports without extensions
-      if (!id.match(/\.[^/]+$/)) {
-        const extensions = ['.ts', '.tsx', '.js', '.jsx', '.mts', '.mjs', '.json']
+      // Skip if already has extension and is not an alias
+      if (id.match(/\.[^/]+$/) && !id.startsWith('@/')) {
+        return null
+      }
+      
+      const extensions = ['.ts', '.tsx', '.js', '.jsx', '.mts', '.mjs', '.json']
+      let basePath: string | null = null
+      
+      if (id.startsWith('@/')) {
+        // Handle @ alias - resolve relative to src directory
+        const aliasPath = id.replace('@/', '')
+        // Normalize path separators for cross-platform compatibility
+        const normalizedPath = aliasPath.replace(/\\/g, '/')
+        basePath = path.resolve(__dirname, './src', normalizedPath)
+      } else if (id.startsWith('./') || id.startsWith('../')) {
+        // Handle relative imports
+        if (importer) {
+          basePath = path.resolve(path.dirname(importer), id)
+        }
+      } else if (!path.isAbsolute(id) && !id.includes(':')) {
+        // Handle bare imports (without ./ or ../)
+        // Try resolving from src directory
+        basePath = path.resolve(__dirname, './src', id)
+      }
+      
+      if (basePath) {
+        // Normalize the path for cross-platform compatibility
+        const normalizedBasePath = path.normalize(basePath)
         
-        let basePath: string | null = null
-        
-        if (id.startsWith('@/')) {
-          // Handle @ alias
-          basePath = path.resolve(__dirname, './src', id.replace('@/', ''))
-        } else if (id.startsWith('./') || id.startsWith('../')) {
-          // Handle relative imports
-          if (importer) {
-            basePath = path.resolve(path.dirname(importer), id)
+        // Try direct file with extensions
+        for (const ext of extensions) {
+          const fullPath = normalizedBasePath + ext
+          try {
+            const stats = fs.statSync(fullPath)
+            if (stats.isFile()) {
+              return fullPath
+            }
+          } catch {
+            // File doesn't exist, continue
           }
         }
         
-        if (basePath) {
-          // Try direct file with extensions
-          for (const ext of extensions) {
-            const fullPath = basePath + ext
-            try {
-              if (fs.existsSync(fullPath)) {
-                return fullPath
+        // Try index files in the directory
+        for (const ext of extensions) {
+          const indexPath = path.join(normalizedBasePath, 'index' + ext)
+          try {
+            const stats = fs.statSync(indexPath)
+            if (stats.isFile()) {
+              return indexPath
+            }
+          } catch {
+            // File doesn't exist, continue
+          }
+        }
+        
+        // If basePath is a directory, try index files inside
+        try {
+          const stats = fs.statSync(normalizedBasePath)
+          if (stats.isDirectory()) {
+            for (const ext of extensions) {
+              const indexPath = path.join(normalizedBasePath, 'index' + ext)
+              try {
+                const fileStats = fs.statSync(indexPath)
+                if (fileStats.isFile()) {
+                  return indexPath
+                }
+              } catch {
+                // File doesn't exist, continue
               }
-            } catch {
-              // Ignore errors
             }
           }
-          
-          // Try index files
-          for (const ext of extensions) {
-            const indexPath = path.join(basePath, 'index' + ext)
-            try {
-              if (fs.existsSync(indexPath)) {
-                return indexPath
-              }
-            } catch {
-              // Ignore errors
-            }
-          }
+        } catch {
+          // Path doesn't exist, continue
         }
       }
       
