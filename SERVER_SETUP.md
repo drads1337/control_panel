@@ -1,5 +1,41 @@
 # Инструкция по развертыванию на сервере
 
+## Быстрый старт
+
+### Первоначальная настройка на сервере
+
+```bash
+# 1. Клонирование репозитория
+sudo mkdir -p /var/www/panel
+sudo chown $USER:$USER /var/www/panel
+cd /var/www/panel
+git clone https://github.com/drads1337/control_panel.git .
+
+# 2. Развертывание (скрипт автоматически создаст .env файл при первом запуске)
+chmod +x deploy.sh
+sudo ./deploy.sh main    # Для production
+# или
+sudo ./deploy.sh develop # Для development
+```
+
+### Обновление проекта
+
+```bash
+cd /var/www/panel
+
+# Production (main)
+git checkout main
+git pull origin main
+sudo ./deploy.sh main
+
+# Development (develop)
+git checkout develop
+git pull origin develop
+sudo ./deploy.sh develop
+```
+
+---
+
 ## Предварительные требования
 
 1. **Сервер с установленным Docker и Docker Compose**
@@ -266,28 +302,38 @@ docker-compose up -d
 
 ## Git Workflow
 
+### Ветки проекта
+
+- **main** - Production (стабильная версия)
+- **develop** - Development (версия для разработки)
+
 ### Работа с ветками
 
 ```bash
-# Переключение на ветку разработки
+# Разработка новой функции
 git checkout develop
-
-# Создание feature ветки
-git checkout -b feature/new-feature
+git pull origin develop
+git checkout -b feature/my-feature
 # ... делаем изменения ...
 git add .
-git commit -m "Add new feature"
-git push origin feature/new-feature
+git commit -m "Add my feature"
+git push origin feature/my-feature
 
 # Слияние в develop
 git checkout develop
-git merge feature/new-feature
+git merge feature/my-feature
 git push origin develop
 
-# Слияние develop в main (для production)
+# Развертывание develop на сервере
+# (на сервере: git pull origin develop && sudo ./deploy.sh develop)
+
+# Когда готово к production
 git checkout main
 git merge develop
 git push origin main
+
+# Развертывание main на сервере
+# (на сервере: git pull origin main && sudo ./deploy.sh main)
 ```
 
 ### Автоматическое развертывание через GitHub Actions

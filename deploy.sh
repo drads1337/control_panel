@@ -36,10 +36,56 @@ fi
 # Проверка наличия .env файла
 if [ ! -f "$PROJECT_DIR/.env" ]; then
     echo "⚠️  Файл .env не найден!"
-    echo "📝 Создайте .env файл с необходимыми переменными окружения"
-    echo "   Скопируйте пример: cp .env.example .env"
-    echo "   И отредактируйте: nano .env"
-    exit 1
+    echo "🔐 Создание .env файла с автоматически сгенерированными ключами..."
+    
+    cd "$PROJECT_DIR"
+    python3 << 'PYEOF'
+import secrets
+import os
+
+env_content = f"""# Database
+POSTGRES_DB=panel
+POSTGRES_USER=panel_user
+POSTGRES_PASSWORD={secrets.token_urlsafe(16)}
+POSTGRES_PORT=5432
+
+# Redis
+REDIS_PASSWORD={secrets.token_urlsafe(16)}
+REDIS_PORT=6380
+
+# Flask
+SECRET_KEY={secrets.token_urlsafe(32)}
+FLASK_ENV=production
+FLASK_DEBUG=0
+
+# Security Keys
+PANEL_MASTER_KEY={secrets.token_hex(32)}
+JWT_SECRET_KEY={secrets.token_urlsafe(32)}
+TOKEN_STATIC_WORD={secrets.token_urlsafe(32)}
+OFFLINE_TICKET_SECRET={secrets.token_urlsafe(32)}
+PROJECT_MASTER_KEY={secrets.token_hex(32)}
+
+# Frontend
+FRONTEND_URL=https://ovrin.xyz
+CORS_ORIGINS=https://ovrin.xyz,https://www.ovrin.xyz
+
+# API Port
+API_PORT=5001
+
+# Nginx Ports
+NGINX_HTTP_PORT=80
+NGINX_HTTPS_PORT=443
+
+# Flower
+FLOWER_PORT=5555
+FLOWER_BASIC_AUTH=admin:admin
+"""
+
+with open('.env', 'w') as f:
+    f.write(env_content)
+print("✅ .env файл создан с автоматически сгенерированными ключами")
+print("⚠️  ВАЖНО: Проверьте и при необходимости обновите значения в .env файле")
+PYEOF
 fi
 
 # Проверка SSL сертификатов
