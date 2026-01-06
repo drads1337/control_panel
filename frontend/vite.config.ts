@@ -85,14 +85,18 @@ const resolveTypeScriptFiles = () => {
       let basePath: string | null = null
       
       // Handle absolute paths (like /app/src/lib/utils)
-      if (path.isAbsolute(id)) {
+      if (path.isAbsolute(id) || id.startsWith('/app/') || id.startsWith('/')) {
         // Check if it's a path in our src directory
-        if (id.includes('/src/')) {
-          const srcIndex = id.indexOf('/src/')
-          if (srcIndex !== -1) {
-            const relativePath = id.substring(srcIndex + '/src/'.length)
-            basePath = path.resolve(__dirname, './src', relativePath)
-          }
+        // Handle both /app/src/... and /src/... patterns
+        let srcIndex = id.indexOf('/src/')
+        if (srcIndex === -1) {
+          srcIndex = id.indexOf('\\src\\')
+        }
+        if (srcIndex !== -1) {
+          const relativePath = id.substring(srcIndex + '/src/'.length)
+          // Normalize path separators
+          const normalizedRelative = relativePath.replace(/\\/g, '/')
+          basePath = path.resolve(__dirname, './src', normalizedRelative)
         }
       } else if (id.startsWith('@/')) {
         // Handle @ alias - resolve relative to src directory
@@ -120,31 +124,68 @@ const resolveTypeScriptFiles = () => {
     load(id: string) {
       // Handle cases where resolveId didn't catch it
       // This happens when vite:load-fallback tries to load the file
+      // Skip node_modules, virtual modules, and files with extensions
+      if (id.includes('node_modules') || id.startsWith('\0') || id.startsWith('data:') || id.startsWith('http')) {
+        return null
+      }
+      
       // Check if it's a path without extension that should be resolved
-      if (!id.match(/\.[^/]+$/) && !id.includes('node_modules') && !id.startsWith('\0')) {
-        let basePath: string | null = null
-        
-        // Handle absolute paths like /app/src/lib/utils
-        if (id.startsWith('/app/src/') || id.includes('/src/')) {
-          const srcIndex = id.indexOf('/src/')
+      const hasExtension = id.match(/\.[^/]+$/)
+      if (hasExtension) {
+        return null
+      }
+      
+      let basePath: string | null = null
+      
+      // Handle absolute paths like /app/src/lib/utils
+      // Check multiple patterns to catch all cases
+      if (path.isAbsolute(id) || id.startsWith('/app/') || (id.startsWith('/') && id.includes('/src/'))) {
+        // Check if it's a path in our src directory
+        const normalizedId = path.normalize(id)
+        let srcIndex = normalizedId.indexOf('/src/')
+        if (srcIndex === -1) {
+          srcIndex = normalizedId.indexOf('\\src\\')
+        }
+        // Also check for /app/src/ pattern specifically
+        if (srcIndex === -1 && id.includes('/app/src/')) {
+          srcIndex = id.indexOf('/src/')
+        }
+        if (srcIndex !== -1) {
+          const relativePath = normalizedId.substring(srcIndex + '/src/'.length)
+          // Normalize path separators
+          const normalizedRelative = relativePath.replace(/\\/g, '/')
+          basePath = path.resolve(__dirname, './src', normalizedRelative)
+        }
+      }
+      // Handle @ alias paths
+      else if (id.includes('@/')) {
+        const aliasPath = id.replace(/.*@\//, '')
+        basePath = path.resolve(__dirname, './src', aliasPath)
+      }
+      // Handle relative paths that might have been missed
+      else if (id.startsWith('./') || id.startsWith('../')) {
+        // Try to resolve relative to src if it's a src path
+        if (id.includes('src/')) {
+          const srcIndex = id.indexOf('src/')
           if (srcIndex !== -1) {
-            const relativePath = id.substring(srcIndex + '/src/'.length)
+            const relativePath = id.substring(srcIndex + 'src/'.length)
             basePath = path.resolve(__dirname, './src', relativePath)
           }
         }
-        // Handle @ alias paths
-        else if (id.includes('@/')) {
-          const aliasPath = id.replace(/.*@\//, '')
-          basePath = path.resolve(__dirname, './src', aliasPath)
-        }
-        
-        if (basePath) {
-          const resolved = tryResolveFile(basePath)
-          if (resolved && fs.existsSync(resolved)) {
+      }
+      
+      if (basePath) {
+        const resolved = tryResolveFile(basePath)
+        if (resolved && fs.existsSync(resolved)) {
+          try {
             return fs.readFileSync(resolved, 'utf-8')
+          } catch (err) {
+            // If we can't read the file, return null to let other plugins handle it
+            return null
           }
         }
       }
+      
       return null
     },
   }
