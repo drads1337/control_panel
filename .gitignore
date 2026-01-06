@@ -13,6 +13,7 @@ eggs/
 lib/
 !frontend/src/shared/lib/
 !frontend/src/lib/
+!frontend/src/entities/navigation/lib/
 lib64/
 parts/
 sdist/
