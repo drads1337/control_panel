@@ -1,103 +1,38 @@
 #!/bin/bash
-# Скрипт для развертывания проекта на сервере
-# Использование: ./deploy.sh [main|develop]
+# Универсальный скрипт развертывания
+# Работает даже если DEPLOY_NOW.sh недоступен через curl
+# Использование: curl -fsSL https://raw.githubusercontent.com/drads1337/control_panel/main/DEPLOY.sh | bash
 
 set -e
 
-BRANCH=${1:-main}
-PROJECT_DIR="/var/www/panel"
-GIT_REPO="https://github.com/drads1337/control_panel.git"
+BRANCH="${1:-develop}"
+TMP_DIR="/tmp/panel-deploy-$$"
 
-echo "🚀 Развертывание проекта Panel"
-echo "Ветка: $BRANCH"
-echo "Директория: $PROJECT_DIR"
+echo "🚀 Быстрое развертывание Panel на сервере"
+echo "📦 Ветка: $BRANCH"
 echo ""
 
-# Проверка прав root
-if [ "$EUID" -ne 0 ]; then 
-    echo "❌ Запустите скрипт с правами root: sudo ./deploy.sh"
-    exit 1
-fi
+# Очистка при выходе
+trap "rm -rf $TMP_DIR" EXIT
 
-# Создание директории проекта
-if [ ! -d "$PROJECT_DIR" ]; then
-    echo "📁 Создание директории проекта..."
-    mkdir -p "$PROJECT_DIR"
-    cd "$PROJECT_DIR"
-    git clone "$GIT_REPO" .
+# Попытка скачать через curl, если не получается - клонируем репозиторий
+if curl -fsSL "https://raw.githubusercontent.com/drads1337/control_panel/$BRANCH/DEPLOY_NOW.sh" > "$TMP_DIR/deploy.sh" 2>/dev/null; then
+    echo "✅ Скрипт загружен через curl"
+    chmod +x "$TMP_DIR/deploy.sh"
+    bash "$TMP_DIR/deploy.sh"
 else
-    echo "📁 Обновление проекта..."
-    cd "$PROJECT_DIR"
-    git fetch origin
-    git checkout "$BRANCH"
-    git pull origin "$BRANCH"
+    echo "📥 Клонирование репозитория..."
+    git clone -b "$BRANCH" https://github.com/drads1337/control_panel.git "$TMP_DIR" || {
+        echo "⚠️  Ветка $BRANCH не найдена, пробуем main..."
+        git clone -b main https://github.com/drads1337/control_panel.git "$TMP_DIR"
+    }
+    
+    if [ -f "$TMP_DIR/DEPLOY_NOW.sh" ]; then
+        echo "✅ Запуск DEPLOY_NOW.sh из репозитория"
+        chmod +x "$TMP_DIR/DEPLOY_NOW.sh"
+        bash "$TMP_DIR/DEPLOY_NOW.sh"
+    else
+        echo "❌ Файл DEPLOY_NOW.sh не найден в репозитории"
+        exit 1
+    fi
 fi
-
-# Проверка наличия .env файла
-if [ ! -f "$PROJECT_DIR/.env" ]; then
-    echo "⚠️  Файл .env не найден!"
-    echo "📝 Создайте .env файл с необходимыми переменными окружения"
-    echo "   Скопируйте пример: cp .env.example .env"
-    echo "   И отредактируйте: nano .env"
-    exit 1
-fi
-
-# Проверка SSL сертификатов
-if [ ! -f "$PROJECT_DIR/nginx/ssl/cert.pem" ] || [ ! -f "$PROJECT_DIR/nginx/ssl/key.pem" ]; then
-    echo "🔐 SSL сертификаты не найдены. Создание самоподписанных сертификатов..."
-    mkdir -p "$PROJECT_DIR/nginx/ssl"
-    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-        -keyout "$PROJECT_DIR/nginx/ssl/key.pem" \
-        -out "$PROJECT_DIR/nginx/ssl/cert.pem" \
-        -subj "/C=RU/ST=State/L=City/O=Organization/CN=ovrin.xyz" 2>/dev/null
-    echo "✅ SSL сертификаты созданы"
-fi
-
-# Остановка старых контейнеров
-echo "🛑 Остановка старых контейнеров..."
-cd "$PROJECT_DIR"
-docker-compose down
-
-# Сборка образов
-echo "🔨 Сборка Docker образов..."
-docker-compose build --no-cache
-
-# Запуск контейнеров
-echo "🚀 Запуск контейнеров..."
-docker-compose up -d
-
-# Ожидание готовности сервисов
-echo "⏳ Ожидание готовности сервисов..."
-sleep 15
-
-# Применение миграций
-echo "📊 Применение миграций базы данных..."
-docker-compose exec -T api python -c "
-from backend.core.app import create_app
-from flask_migrate import upgrade
-import os
-os.chdir('/app/backend')
-app = create_app()
-app.app_context().push()
-upgrade()
-" || echo "⚠️  Миграции могут быть уже применены"
-
-# Проверка статуса
-echo ""
-echo "📊 Статус контейнеров:"
-docker-compose ps
-
-echo ""
-echo "✅ Развертывание завершено!"
-echo ""
-echo "🌐 Доступные сервисы:"
-echo "   • Frontend: https://ovrin.xyz"
-echo "   • API: http://localhost:5001"
-echo "   • Flower: http://localhost:5555"
-echo ""
-echo "📋 Полезные команды:"
-echo "   • Просмотр логов: docker-compose logs -f"
-echo "   • Остановка: docker-compose down"
-echo "   • Перезапуск: docker-compose restart"
-echo "   • Статус: docker-compose ps"
-
