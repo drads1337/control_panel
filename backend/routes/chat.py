@@ -319,7 +319,7 @@ def send_message(project_id=None):
             sender_name = (
                 user.username
                 if user.username
-                else f"{RBACManager.get_user_role_names(user)[0] if RBACManager.get_user_role_names(user) else "client".title()} ({user.id})"
+                else f"{(RBACManager.get_user_role_names(user)[0] if RBACManager.get_user_role_names(user) else 'client').title()} ({user.id})"
             )
             formatted_message = bot_manager.format_message(sender_type, sender_name, message_text)
 

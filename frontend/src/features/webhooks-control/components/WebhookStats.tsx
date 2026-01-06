@@ -10,7 +10,7 @@ interface WebhookStatsProps {
 }
 
 export const WebhookStats: React.FC<WebhookStatsProps> = React.memo(({ webhooks, loading = false }) => {
-  const gridContainerClass = "*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-2 md:grid-cols-4 gap-3 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6";
+  const gridContainerClass = "*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-2 md:grid-cols-4 gap-3 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs";
 
   if (loading) {
     return (

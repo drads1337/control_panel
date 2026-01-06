@@ -14,7 +14,6 @@ import { Link, useLocation } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { useTheme } from "next-themes"
 import { useState } from "react"
-import { Separator } from "@/components/ui/separator"
 import { useSidebar } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
@@ -105,7 +104,7 @@ export function SiteHeader({ title = "Dashboard" }: SiteHeaderProps) {
                 className="h-5 w-5 sm:h-6 sm:w-6 object-contain"
               />
             </button>
-            <Separator orientation="vertical" className="h-3 sm:h-3.5 self-end mb-0.5 opacity-50" />
+            <div className="h-3 sm:h-3.5 w-[1.5px] bg-border opacity-50" />
             <h1 className="text-xs sm:text-sm font-semibold tracking-tight truncate">
               {projectName}
             </h1>

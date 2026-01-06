@@ -68,9 +68,27 @@ export default defineConfig(({ mode }) => {
         overlay: false,
       },
     },
+    define: {
+      // Force browser environment for axios
+      'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),
+      'process.browser': true,
+      'global': 'globalThis',
+    },
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
+        // Polyfill Node.js modules for browser (only if needed)
+        "stream": "stream-browserify",
+        "util": "util",
+        "crypto": "crypto-browserify",
+        "path": "path-browserify",
+        "os": "os-browserify/browser",
+        "http": "stream-http",
+        "https": "https-browserify",
+        "zlib": "browserify-zlib",
+        "tty": "tty-browserify",
+        "assert": "assert",
+        "events": "events",
       },
       // Ensure proper handling of CommonJS modules like lodash
       // Dedupe React to prevent multiple instances and bundling issues
@@ -134,7 +152,11 @@ export default defineConfig(({ mode }) => {
       reportCompressedSize: false, // Speeds up build
       // Enable tree-shaking and dead code elimination
       rollupOptions: {
+        // Handle Node.js modules that shouldn't be bundled
+        plugins: [],
         output: {
+          // Define globals for Node.js modules that are externalized
+          globals: {},
           // Improved code splitting for better loading
           manualChunks: (id) => {
             // Vendor chunks - main libraries
@@ -268,6 +290,7 @@ export default defineConfig(({ mode }) => {
         'recharts', // Pre-bundle recharts to fix lodash compatibility
         'react-map-gl/mapbox',
         'mapbox-gl',
+        'axios', // Pre-bundle axios to fix Node.js module issues
       ],
       // Exclude heavy dependencies from pre-bundling to reduce initial load
       exclude: [

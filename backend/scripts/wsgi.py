@@ -68,5 +68,8 @@ def db_current():
     """Display the current revision for each database."""
     alembic_current()
 
+# WSGI entry point for Gunicorn
+application = app
+
 if __name__ == "__main__":
     app.run()

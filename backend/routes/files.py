@@ -1265,10 +1265,12 @@ def get_product_files():
                 )
 
             if agent.file:
+                # Извлекаем имя файла из пути
+                file_name = os.path.basename(agent.file) if agent.file else f"{agent.name}.exe"
                 files_list.append(
                     {
                         "id": f"loader_file_{product_id}",
-                        "name": f"{agent.name} - File",
+                        "name": file_name,
                         "type": "file",
                         "size": 0,
                         "path": agent.file,

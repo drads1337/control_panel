@@ -8,8 +8,7 @@ import { AccessDenied } from "@/shared/ui/components"
 import { useAuthContext } from "@/app/providers/auth-provider"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Search, X, Filter } from "lucide-react"
+import { Search, X, SlidersHorizontal } from "lucide-react"
 import type { GeoJSONSource } from "mapbox-gl"
 import { getMapRequests, type MapRequestPoint, type MapCity } from "@/entities/dashboard/api/dashboard"
 import { useQuery } from "@tanstack/react-query"
@@ -399,32 +398,43 @@ export default function Dashboard01Block() {
       {
         label: 'Requests',
         value: formatValue(stats.totalRequests),
+        subtext: ['Total requests', 'in system']
       },
       {
         label: 'Connections',
         value: formatValue(stats.totalConnections),
+        subtext: ['Total connections', 'in system']
       },
       {
-        label: 'Keys',
+        label: 'License Keys',
         value: formatValue(stats.totalKeys),
+        subtext: ['License keys', 'active']
       },
       {
         label: 'Users',
         value: formatValue(stats.totalUsers),
+        subtext: ['Total users', 'in system']
       }
     ]
 
     return (
-      <div className="absolute top-4 left-4 z-10">
-        <div className="flex divide-x divide-white/10 backdrop-blur-2xl bg-transparent border border-white/10">
+      <div className="absolute top-2 left-2 sm:top-4 sm:left-4 z-10 max-w-[calc(100%-1rem)] sm:max-w-none">
+        <div className="flex flex-wrap divide-x divide-white/10 backdrop-blur-2xl bg-transparent border border-white/10 overflow-x-auto">
           {statItems.map((stat, index) => (
-            <div key={index} className="px-3 py-2 flex flex-col min-w-[100px]">
-              <span className="text-[10px] font-semibold tracking-wider text-gray-400 dark:text-gray-400 uppercase mb-1">
+            <div key={index} className="px-2 py-1.5 sm:px-3 sm:py-2 flex flex-col min-w-[80px] sm:min-w-[100px]">
+              <span className="text-[9px] sm:text-[10px] font-semibold tracking-wider text-gray-400 dark:text-gray-400 uppercase mb-0.5 sm:mb-1">
                 {stat.label}
               </span>
-              <span className="text-xl font-bold text-white dark:text-white leading-none">
+              <span className="text-lg sm:text-xl font-bold text-white dark:text-white mb-0.5 sm:mb-1 leading-none">
                 {stat.value}
               </span>
+              <div className="flex flex-col">
+                {stat.subtext.map((line, i) => (
+                  <span key={i} className="text-[9px] sm:text-[10px] text-gray-500 dark:text-gray-500 leading-tight">
+                    {line}
+                  </span>
+                ))}
+              </div>
             </div>
           ))}
         </div>
@@ -435,24 +445,22 @@ export default function Dashboard01Block() {
   // --- Filter Panel Component ---
   const FilterPanel = () => {
     return (
-      <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
-        <Button
+      <div className="absolute top-2 right-2 sm:top-4 sm:right-4 z-10 flex flex-col gap-2 max-w-[calc(100%-1rem)] sm:max-w-none">
+        <button
           onClick={() => setIsFilterOpen(!isFilterOpen)}
-          variant="default"
-          size="sm"
-          className="h-8 text-xs gap-1.5"
+          className="flex items-center gap-1 sm:gap-1.5 bg-pink-500 hover:bg-pink-600 transition-colors text-white px-2 py-1.5 sm:px-3 sm:py-1.5 rounded-md font-medium shadow-lg shadow-pink-500/20 active:translate-y-0.5 transform duration-150 text-xs sm:text-sm"
         >
-          <Filter className="size-3" />
-          Filter
+          <SlidersHorizontal size={14} className="sm:w-[15px] sm:h-[15px] text-white" />
+          <span className="hidden min-[360px]:inline">Filter</span>
           {filterValue && (
-            <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-primary-foreground/20 text-primary-foreground rounded-full">
+            <span className="ml-0.5 px-1 py-0.5 text-[9px] bg-white/20 text-white rounded-full">
               1
             </span>
           )}
-        </Button>
+        </button>
 
         {isFilterOpen && (
-          <Card className="p-3 border rounded-lg bg-background shadow-sm w-64">
+          <Card className="p-2.5 sm:p-3 border rounded-lg bg-background shadow-sm w-[calc(100vw-1rem)] sm:w-64 max-w-[calc(100vw-1rem)] sm:max-w-xs">
             <div className="space-y-2">
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/60" />

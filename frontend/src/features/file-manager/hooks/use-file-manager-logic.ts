@@ -294,6 +294,8 @@ export function useFileManagerLogic({ onSwitchToProductDatabase }: UseFileManage
 
       toast.success(`File "${file.name}" deleted successfully`);
       fileSelection.setSelectedFiles((prev) => prev.filter((id) => id !== file.id));
+      // Сбрасываем ref, чтобы гарантировать обновление списка файлов
+      lastLoadedIdRef.current = null;
       await loadProductFiles();
       return true;
     } catch (error: unknown) {

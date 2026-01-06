@@ -235,9 +235,9 @@ export function WebhooksPage() {
             {/* Table */}
             {!loading && !error && webhooks.length > 0 && (
               <div className="px-4 lg:px-6">
-                <div className="overflow-hidden rounded-lg border">
+                <div className="border border-muted-foreground/10 rounded-md bg-muted/10">
                   <Table>
-                    <TableHeader className="bg-muted">
+                    <TableHeader>
                       <TableRow>
                         <TableHead>Name</TableHead>
                         <TableHead>Type</TableHead>
@@ -291,37 +291,37 @@ export function WebhooksPage() {
                                   variant="ghost"
                                   size="icon"
                                   onClick={() => openEditDialog(webhook)}
-                                  className="h-8 w-8"
+                                  className="h-7 w-7 hover:bg-muted/50"
                                 >
-                                  <Edit className="h-4 w-4" />
+                                  <Edit className="size-3.5" />
                                 </Button>
                                 <Button
                                   variant="ghost"
                                   size="icon"
                                   onClick={() => handleToggleStatus(webhook)}
-                                  className="h-8 w-8"
+                                  className="h-7 w-7 hover:bg-muted/50"
                                 >
                                   {webhook.is_active ? (
-                                    <AlertTriangle className="h-4 w-4" />
+                                    <AlertTriangle className="size-3.5" />
                                   ) : (
-                                    <RefreshCw className="h-4 w-4" />
+                                    <RefreshCw className="size-3.5" />
                                   )}
                                 </Button>
                                 <Button
                                   variant="ghost"
                                   size="icon"
                                   onClick={() => handleTestWebhook(webhook.id)}
-                                  className="h-8 w-8"
+                                  className="h-7 w-7 hover:bg-muted/50"
                                 >
-                                  <Send className="h-4 w-4" />
+                                  <Send className="size-3.5" />
                                 </Button>
                                 <Button
                                   variant="ghost"
                                   size="icon"
                                   onClick={() => handleDelete(webhook.id)}
-                                  className="h-8 w-8 text-destructive hover:text-destructive"
+                                  className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  <Trash2 className="size-3.5" />
                                 </Button>
                               </div>
                             </TableCell>

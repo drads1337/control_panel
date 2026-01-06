@@ -131,6 +131,7 @@ export default function FileManager() {
   } | null>(null)
   const [loadingStorage, setLoadingStorage] = useState(false)
   const [currentPath, setCurrentPath] = useState<string[]>(["Root"])
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
   
   // Determine if we're in configs folder based on currentPath
   const isInConfigFolder = useMemo(() => {
@@ -265,7 +266,7 @@ export default function FileManager() {
   const handleFolderClick = useCallback((file: FileItem) => {
     if (file.type === "folder") {
       if (file.name === "config") {
-        setCurrentPath(["Root"])
+        setCurrentPath(["Root", "config"])
         // Reload files with config category filter
         if (selectedProduct?.id || selectedAgent?.id) {
           loadProductFiles()
@@ -276,6 +277,14 @@ export default function FileManager() {
       }
     }
   }, [currentPath, selectedProduct, selectedAgent, loadProductFiles])
+  
+  const handleFileClick = useCallback((file: FileItem, event: React.MouseEvent) => {
+    // Для файлов открываем dropdown меню
+    if (file.type !== "folder") {
+      event.stopPropagation()
+      setOpenDropdownId(file.id)
+    }
+  }, [])
 
   const handleBackClick = useCallback(() => {
     if (currentPath.length > 1) {
@@ -540,7 +549,13 @@ export default function FileManager() {
                     <TableRow
                       key={file.id}
                       className="group h-9 border-b-muted-foreground/5 hover:bg-background hover:shadow-sm transition-all cursor-pointer"
-                      onClick={() => file.type === "folder" && handleFolderClick(file)}
+                      onClick={(e) => handleFileClick(file, e)}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation()
+                        if (file.type === "folder") {
+                          handleFolderClick(file)
+                        }
+                      }}
                     >
                       <TableCell className="py-2 pl-4">
                         <div className="flex items-center gap-2.5">
@@ -565,7 +580,7 @@ export default function FileManager() {
                         {file.type === "folder" ? "-" : formatFileSize(file.size)}
                       </TableCell>
                       <TableCell className="py-2 text-right pr-2">
-                        <DropdownMenu>
+                        <DropdownMenu open={openDropdownId === file.id} onOpenChange={(open) => setOpenDropdownId(open ? file.id : null)}>
                           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                             <Button
                               variant="ghost"
@@ -591,9 +606,10 @@ export default function FileManager() {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem 
                               className="text-xs text-red-600"
-                              onClick={(e) => {
+                              onClick={async (e) => {
                                 e.stopPropagation()
-                                handleFileDelete(file)
+                                setOpenDropdownId(null)
+                                await handleFileDelete(file)
                               }}
                             >
                               Delete
@@ -610,10 +626,54 @@ export default function FileManager() {
                 {filteredFiles.map((file) => (
                   <Card
                     key={file.id}
-                    className="group border-muted-foreground/10 shadow-sm hover:shadow-md transition-all cursor-pointer bg-background"
-                    onClick={() => file.type === "folder" && handleFolderClick(file)}
+                    className="group border-muted-foreground/10 shadow-sm hover:shadow-md transition-all cursor-pointer bg-background relative"
+                    onClick={(e) => handleFileClick(file, e)}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation()
+                      if (file.type === "folder") {
+                        handleFolderClick(file)
+                      }
+                    }}
                   >
                     <CardContent className="p-3 flex flex-col items-center text-center gap-2">
+                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <DropdownMenu open={openDropdownId === file.id} onOpenChange={(open) => setOpenDropdownId(open ? file.id : null)}>
+                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                            >
+                              <MoreVertical className="size-3.5 text-muted-foreground" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            {file.type !== "folder" && (
+                              <DropdownMenuItem 
+                                className="text-xs"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleFileDownload(file)
+                                }}
+                              >
+                                Download
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              className="text-xs text-red-600"
+                              onClick={async (e) => {
+                                e.stopPropagation()
+                                setOpenDropdownId(null)
+                                await handleFileDelete(file)
+                              }}
+                            >
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                       <div className="size-12 rounded-lg bg-muted/30 flex items-center justify-center mb-1 group-hover:bg-muted/50 transition-colors">
                         {getFileIcon(file.category, "lg")}
                       </div>

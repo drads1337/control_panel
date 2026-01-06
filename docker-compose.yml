@@ -28,10 +28,10 @@ services:
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-change_me_in_production}
     volumes:
       - redis_data:/data
-    # Use different port if local Redis is running on 6379
-    # Set REDIS_PORT=6380 in .env to avoid conflicts
-    ports:
-      - "${REDIS_PORT:-6380}:6379"
+    # Redis is only accessible within Docker network
+    # If you need external access, uncomment the ports line and set REDIS_PORT in .env
+    # ports:
+    #   - "${REDIS_PORT:-6380}:6379"
     expose:
       - "6379"
     healthcheck:
@@ -55,6 +55,9 @@ services:
       
       # Redis
       REDIS_URL: redis://:${REDIS_PASSWORD:-change_me_in_production}@redis:6379/0
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-change_me_in_production}
       
       # Flask
       SECRET_KEY: ${SECRET_KEY:-change_me_in_production}
@@ -62,9 +65,11 @@ services:
       FLASK_DEBUG: ${FLASK_DEBUG:-0}
       
       # Security
+      PANEL_MASTER_KEY: ${PANEL_MASTER_KEY:-}
       TOKEN_STATIC_WORD: ${TOKEN_STATIC_WORD:-}
       PROJECT_MASTER_KEY: ${PROJECT_MASTER_KEY:-}
       OFFLINE_TICKET_SECRET: ${OFFLINE_TICKET_SECRET:-}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-}
       
       # Email (optional)
       MAIL_SERVER: ${MAIL_SERVER:-}
@@ -101,8 +106,10 @@ services:
     restart: unless-stopped
     command: >
       sh -c "
-        echo 'Waiting for database...' &&
-        python -m backend.scripts.setup_database &&
+        echo 'Waiting for database to be ready...' &&
+        sleep 5 &&
+        echo 'Running database migrations...' &&
+        python -c 'from backend.core.app import create_app; app = create_app(); from flask_migrate import upgrade; app.app_context().push(); upgrade()' || echo 'Migrations may have already been applied' &&
         echo 'Starting API server...' &&
         gunicorn -c backend/scripts/gunicorn.conf.py backend.scripts.wsgi:application
       "
@@ -116,9 +123,14 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-panel_user}:${POSTGRES_PASSWORD:-change_me_in_production}@postgres:5432/${POSTGRES_DB:-panel}
       REDIS_URL: redis://:${REDIS_PASSWORD:-change_me_in_production}@redis:6379/0
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-change_me_in_production}
       CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-change_me_in_production}@redis:6379/1
       CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-change_me_in_production}@redis:6379/2
       SECRET_KEY: ${SECRET_KEY:-change_me_in_production}
+      PANEL_MASTER_KEY: ${PANEL_MASTER_KEY:-}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-}
       TOKEN_STATIC_WORD: ${TOKEN_STATIC_WORD:-}
       PROJECT_MASTER_KEY: ${PROJECT_MASTER_KEY:-}
       OFFLINE_TICKET_SECRET: ${OFFLINE_TICKET_SECRET:-}
@@ -144,9 +156,14 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-panel_user}:${POSTGRES_PASSWORD:-change_me_in_production}@postgres:5432/${POSTGRES_DB:-panel}
       REDIS_URL: redis://:${REDIS_PASSWORD:-change_me_in_production}@redis:6379/0
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-change_me_in_production}
       CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-change_me_in_production}@redis:6379/1
       CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-change_me_in_production}@redis:6379/2
       SECRET_KEY: ${SECRET_KEY:-change_me_in_production}
+      PANEL_MASTER_KEY: ${PANEL_MASTER_KEY:-}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-}
       TOKEN_STATIC_WORD: ${TOKEN_STATIC_WORD:-}
       PROJECT_MASTER_KEY: ${PROJECT_MASTER_KEY:-}
       OFFLINE_TICKET_SECRET: ${OFFLINE_TICKET_SECRET:-}
@@ -172,9 +189,14 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-panel_user}:${POSTGRES_PASSWORD:-change_me_in_production}@postgres:5432/${POSTGRES_DB:-panel}
       REDIS_URL: redis://:${REDIS_PASSWORD:-change_me_in_production}@redis:6379/0
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-change_me_in_production}
       CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-change_me_in_production}@redis:6379/1
       CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-change_me_in_production}@redis:6379/2
       SECRET_KEY: ${SECRET_KEY:-change_me_in_production}
+      PANEL_MASTER_KEY: ${PANEL_MASTER_KEY:-}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-}
       TOKEN_STATIC_WORD: ${TOKEN_STATIC_WORD:-}
       PROJECT_MASTER_KEY: ${PROJECT_MASTER_KEY:-}
       OFFLINE_TICKET_SECRET: ${OFFLINE_TICKET_SECRET:-}
@@ -198,6 +220,7 @@ services:
       dockerfile: Dockerfile
     container_name: panel_flower
     environment:
+      PANEL_MASTER_KEY: ${PANEL_MASTER_KEY:-}
       CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-change_me_in_production}@redis:6379/1
       CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-change_me_in_production}@redis:6379/2
       FLOWER_BASIC_AUTH: ${FLOWER_BASIC_AUTH:-admin:admin}

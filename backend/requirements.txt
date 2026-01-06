@@ -92,3 +92,4 @@ locust==2.31.0
 
 # Caching utilities
 cachetools==5.4.0
+email-validator>=2.0.0

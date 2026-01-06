@@ -311,6 +311,9 @@ def create_loader(validated_data=None):
         if existing_agent:
             return jsonify({"error": "Agent with this name already exists", "success": False}), 400
 
+        # Определяем имя файла
+        file_name = validated_data.get('file')
+        
         new_agent = Agent(
             name=name,
             description=validated_data.get('description', ''),
@@ -318,7 +321,7 @@ def create_loader(validated_data=None):
             logo=validated_data.get('logo'),
             banner=validated_data.get('banner'),
             background=validated_data.get('background'),
-            file=validated_data.get('file') or f"{name.lower().replace(' ', '_')}_loader.exe",
+            file=file_name,  # Временно, обновим после создания
             changelog=validated_data.get('changelog') or "Initial version",
             notifications=validated_data.get('notifications') or "New agent added!",
             version=validated_data.get('version', '1.0.0'),
@@ -329,6 +332,28 @@ def create_loader(validated_data=None):
         )
 
         db.session.add(new_agent)
+        db.session.flush()  # Получаем ID агента
+        
+        # Если файл не был передан, создаем пустой файл автоматически
+        if not file_name:
+            upload_path = os.path.join(current_app.root_path, "uploads", "agents")
+            os.makedirs(upload_path, exist_ok=True)
+            
+            # Создаем уникальное имя файла с ID агента
+            file_base = f"{name.lower().replace(' ', '_')}_loader.exe"
+            file_base = secure_filename(file_base)
+            unique_filename = f"file_{new_agent.id}_{uuid.uuid4().hex}_{file_base}"
+            file_path = os.path.join(upload_path, unique_filename)
+            
+            # Создаем пустой файл-заглушку
+            try:
+                with open(file_path, 'wb') as f:
+                    f.write(b'')  # Создаем пустой файл
+                new_agent.file = unique_filename
+            except Exception as e:
+                current_app.logger.error(f"Failed to create agent file: {str(e)}")
+                # Продолжаем без файла, но логируем ошибку
+        
         db.session.commit()
 
         try:
