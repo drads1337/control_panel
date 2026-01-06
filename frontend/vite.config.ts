@@ -253,10 +253,6 @@ export default defineConfig(({ mode }) => {
           chunkFileNames: 'assets/js/[name]-[hash].js',
           entryFileNames: 'assets/js/[name]-[hash].js',
           assetFileNames: 'assets/[ext]/[name]-[hash].[ext]',
-          // Optimize chunk size - split large chunks
-          maxParallelFileOps: 2,
-          // Limit chunk size to improve loading performance
-          chunkSizeWarningLimit: 500, // Warn about chunks larger than 500KB
           // Better tree-shaking and dead code elimination
           generatedCode: {
             constBindings: true, // Use const instead of var for better tree-shaking
