@@ -90,6 +90,8 @@ export default defineConfig(({ mode }) => {
         "assert": "assert",
         "events": "events",
       },
+      // Explicitly set extensions to ensure TypeScript files are resolved
+      extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json'],
       // Ensure proper handling of CommonJS modules like lodash
       // Dedupe React to prevent multiple instances and bundling issues
       dedupe: ['react', 'react-dom', 'lodash'],
