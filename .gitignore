@@ -103,6 +103,9 @@ cookies.txt
 *.p12
 *.pfx
 
+# Let's Encrypt certificates
+letsencrypt/
+
 # Testing
 .coverage
 .pytest_cache/

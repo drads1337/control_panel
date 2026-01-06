@@ -88,15 +88,19 @@ print("⚠️  ВАЖНО: Проверьте и при необходимост
 PYEOF
 fi
 
-# Проверка SSL сертификатов
+# Проверка SSL сертификатов (fallback - самоподписанные, только если Let's Encrypt не используется)
+# Для production рекомендуется использовать Let's Encrypt: ./obtain_ssl_cert.sh
 if [ ! -f "$PROJECT_DIR/nginx/ssl/cert.pem" ] || [ ! -f "$PROJECT_DIR/nginx/ssl/key.pem" ]; then
-    echo "🔐 SSL сертификаты не найдены. Создание самоподписанных сертификатов..."
-    mkdir -p "$PROJECT_DIR/nginx/ssl"
-    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-        -keyout "$PROJECT_DIR/nginx/ssl/key.pem" \
-        -out "$PROJECT_DIR/nginx/ssl/cert.pem" \
-        -subj "/C=RU/ST=State/L=City/O=Organization/CN=ovrin.xyz" 2>/dev/null
-    echo "✅ SSL сертификаты созданы"
+    if [ ! -f "$PROJECT_DIR/letsencrypt/live/ovrin.xyz/fullchain.pem" ]; then
+        echo "🔐 SSL сертификаты не найдены. Создание временных самоподписанных сертификатов..."
+        echo "⚠️  Для production используйте Let's Encrypt: ./obtain_ssl_cert.sh"
+        mkdir -p "$PROJECT_DIR/nginx/ssl"
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+            -keyout "$PROJECT_DIR/nginx/ssl/key.pem" \
+            -out "$PROJECT_DIR/nginx/ssl/cert.pem" \
+            -subj "/C=RU/ST=State/L=City/O=Organization/CN=ovrin.xyz" 2>/dev/null
+        echo "✅ Временные SSL сертификаты созданы"
+    fi
 fi
 
 # Остановка старых контейнеров

@@ -77,15 +77,19 @@ print("✅ .env файл создан")
 PYEOF
 fi
 
-# SSL сертификаты
+# SSL сертификаты (fallback - самоподписанные, только если Let's Encrypt не используется)
+# Для production рекомендуется использовать Let's Encrypt: ./obtain_ssl_cert.sh
 if [ ! -f nginx/ssl/cert.pem ]; then
-    echo "🔐 Создание SSL сертификатов..."
-    mkdir -p nginx/ssl
-    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-        -keyout nginx/ssl/key.pem \
-        -out nginx/ssl/cert.pem \
-        -subj "/C=RU/ST=State/L=City/O=Organization/CN=ovrin.xyz" 2>/dev/null
-    echo "✅ SSL сертификаты созданы"
+    if [ ! -f letsencrypt/live/ovrin.xyz/fullchain.pem ]; then
+        echo "🔐 Создание временных самоподписанных SSL сертификатов..."
+        echo "⚠️  Для production используйте Let's Encrypt: ./obtain_ssl_cert.sh"
+        mkdir -p nginx/ssl
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+            -keyout nginx/ssl/key.pem \
+            -out nginx/ssl/cert.pem \
+            -subj "/C=RU/ST=State/L=City/O=Organization/CN=ovrin.xyz" 2>/dev/null
+        echo "✅ Временные SSL сертификаты созданы"
+    fi
 fi
 
 # Развертывание
