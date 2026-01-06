@@ -6,6 +6,68 @@ import fs from 'fs'
 
 // Plugin to ensure TypeScript files are resolved correctly
 const resolveTypeScriptFiles = () => {
+  const extensions = ['.ts', '.tsx', '.js', '.jsx', '.mts', '.mjs', '.json']
+  
+  const tryResolveFile = (basePath: string): string | null => {
+    const normalizedBasePath = path.normalize(basePath)
+    
+    // Try direct file with extensions
+    for (const ext of extensions) {
+      const fullPath = normalizedBasePath + ext
+      try {
+        if (fs.existsSync(fullPath)) {
+          const stats = fs.statSync(fullPath)
+          if (stats.isFile()) {
+            return fullPath
+          }
+        }
+      } catch {
+        // File doesn't exist, continue
+      }
+    }
+    
+    // Try index files in the directory
+    for (const ext of extensions) {
+      const indexPath = path.join(normalizedBasePath, 'index' + ext)
+      try {
+        if (fs.existsSync(indexPath)) {
+          const stats = fs.statSync(indexPath)
+          if (stats.isFile()) {
+            return indexPath
+          }
+        }
+      } catch {
+        // File doesn't exist, continue
+      }
+    }
+    
+    // If basePath is a directory, try index files inside
+    try {
+      if (fs.existsSync(normalizedBasePath)) {
+        const stats = fs.statSync(normalizedBasePath)
+        if (stats.isDirectory()) {
+          for (const ext of extensions) {
+            const indexPath = path.join(normalizedBasePath, 'index' + ext)
+            try {
+              if (fs.existsSync(indexPath)) {
+                const fileStats = fs.statSync(indexPath)
+                if (fileStats.isFile()) {
+                  return indexPath
+                }
+              }
+            } catch {
+              // File doesn't exist, continue
+            }
+          }
+        }
+      }
+    } catch {
+      // Path doesn't exist, continue
+    }
+    
+    return null
+  }
+  
   return {
     name: 'resolve-typescript-files',
     enforce: 'pre' as const, // Run before other plugins
@@ -20,10 +82,19 @@ const resolveTypeScriptFiles = () => {
         return null
       }
       
-      const extensions = ['.ts', '.tsx', '.js', '.jsx', '.mts', '.mjs', '.json']
       let basePath: string | null = null
       
-      if (id.startsWith('@/')) {
+      // Handle absolute paths (like /app/src/lib/utils)
+      if (path.isAbsolute(id)) {
+        // Check if it's a path in our src directory
+        if (id.includes('/src/')) {
+          const srcIndex = id.indexOf('/src/')
+          if (srcIndex !== -1) {
+            const relativePath = id.substring(srcIndex + '/src/'.length)
+            basePath = path.resolve(__dirname, './src', relativePath)
+          }
+        }
+      } else if (id.startsWith('@/')) {
         // Handle @ alias - resolve relative to src directory
         const aliasPath = id.replace('@/', '')
         // Normalize path separators for cross-platform compatibility
@@ -34,63 +105,46 @@ const resolveTypeScriptFiles = () => {
         if (importer) {
           basePath = path.resolve(path.dirname(importer), id)
         }
-      } else if (!path.isAbsolute(id) && !id.includes(':')) {
+      } else if (!id.includes(':')) {
         // Handle bare imports (without ./ or ../)
         // Try resolving from src directory
         basePath = path.resolve(__dirname, './src', id)
       }
       
       if (basePath) {
-        // Normalize the path for cross-platform compatibility
-        const normalizedBasePath = path.normalize(basePath)
-        
-        // Try direct file with extensions
-        for (const ext of extensions) {
-          const fullPath = normalizedBasePath + ext
-          try {
-            const stats = fs.statSync(fullPath)
-            if (stats.isFile()) {
-              return fullPath
-            }
-          } catch {
-            // File doesn't exist, continue
-          }
-        }
-        
-        // Try index files in the directory
-        for (const ext of extensions) {
-          const indexPath = path.join(normalizedBasePath, 'index' + ext)
-          try {
-            const stats = fs.statSync(indexPath)
-            if (stats.isFile()) {
-              return indexPath
-            }
-          } catch {
-            // File doesn't exist, continue
-          }
-        }
-        
-        // If basePath is a directory, try index files inside
-        try {
-          const stats = fs.statSync(normalizedBasePath)
-          if (stats.isDirectory()) {
-            for (const ext of extensions) {
-              const indexPath = path.join(normalizedBasePath, 'index' + ext)
-              try {
-                const fileStats = fs.statSync(indexPath)
-                if (fileStats.isFile()) {
-                  return indexPath
-                }
-              } catch {
-                // File doesn't exist, continue
-              }
-            }
-          }
-        } catch {
-          // Path doesn't exist, continue
-        }
+        return tryResolveFile(basePath)
       }
       
+      return null
+    },
+    load(id: string) {
+      // Handle cases where resolveId didn't catch it
+      // This happens when vite:load-fallback tries to load the file
+      // Check if it's a path without extension that should be resolved
+      if (!id.match(/\.[^/]+$/) && !id.includes('node_modules') && !id.startsWith('\0')) {
+        let basePath: string | null = null
+        
+        // Handle absolute paths like /app/src/lib/utils
+        if (id.startsWith('/app/src/') || id.includes('/src/')) {
+          const srcIndex = id.indexOf('/src/')
+          if (srcIndex !== -1) {
+            const relativePath = id.substring(srcIndex + '/src/'.length)
+            basePath = path.resolve(__dirname, './src', relativePath)
+          }
+        }
+        // Handle @ alias paths
+        else if (id.includes('@/')) {
+          const aliasPath = id.replace(/.*@\//, '')
+          basePath = path.resolve(__dirname, './src', aliasPath)
+        }
+        
+        if (basePath) {
+          const resolved = tryResolveFile(basePath)
+          if (resolved && fs.existsSync(resolved)) {
+            return fs.readFileSync(resolved, 'utf-8')
+          }
+        }
+      }
       return null
     },
   }
