@@ -299,9 +299,29 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-muted/50"
-                    onClick={() => {
+                    onClick={async () => {
                       if (fullKeys[key.id]) {
-                        navigator.clipboard.writeText(fullKeys[key.id])
+                        const textToCopy = fullKeys[key.id]
+                        try {
+                          // Check if Clipboard API is available
+                          if (navigator.clipboard && navigator.clipboard.writeText) {
+                            await navigator.clipboard.writeText(textToCopy)
+                          } else {
+                            // Fallback to execCommand for older browsers
+                            const textArea = document.createElement('textarea')
+                            textArea.value = textToCopy
+                            textArea.style.position = 'fixed'
+                            textArea.style.left = '-999999px'
+                            textArea.style.top = '-999999px'
+                            document.body.appendChild(textArea)
+                            textArea.focus()
+                            textArea.select()
+                            document.execCommand('copy')
+                            textArea.remove()
+                          }
+                        } catch (err) {
+                          console.error('Failed to copy text:', err)
+                        }
                       } else {
                         // Если ключ скрыт/не загружен, загружаем его (или просто копируем маску, но логичнее сначала открыть)
                         if (!isVisible) onToggleKeyVisibility(key.id)

@@ -97,28 +97,23 @@ class DecryptionService:
 
         logger.info(f"[DECRYPT] Using project {effective_project_id} key first (strict multi-tenant)...")
         try:
-            data, successful_project_id = self._decrypt_with_project_key(enc_data, effective_project_id)
+            result = self._decrypt_with_project_key(enc_data, effective_project_id)
+            if result is None:
+                raise ValueError(f"_decrypt_with_project_key returned None for project {effective_project_id}")
+            data, successful_project_id = result
             if data and successful_project_id:
                 logger.info(
                     f"[DECRYPT] Successfully decrypted with project {successful_project_id} AES Key"
                 )
                 return data, False, successful_project_id
             else:
-                raise ValueError(f"Failed to decrypt with project {effective_project_id} key")
+                raise ValueError(f"Failed to decrypt with project {effective_project_id} key: data={data is not None}, project_id={successful_project_id}")
         except (ValueError, TypeError, AttributeError, KeyError) as project_error:
-
-
-
-
 
             logger.warning(
                 f"[DECRYPT] Project {effective_project_id} keys failed: "
                 f"{type(project_error).__name__}: {str(project_error)[:100]}..."
             )
-            
-
-
-
 
             logger.error(
                 f"[DECRYPT] Decryption failed for project {effective_project_id}. "
@@ -323,7 +318,11 @@ class DecryptionService:
                 f"[DECRYPT_PROJECT] Unexpected state: decryption failed but no exception was captured "
                 f"for project {project_id} (execution_time={execution_time:.4f}s)"
             )
-            return None, None
+            # Вместо возврата None, выбрасываем исключение для правильной обработки
+            raise ValueError(
+                f"Decryption failed for project {project_id}. "
+                f"Unexpected state: no exception captured but decryption was not successful."
+            )
 
     def _get_aes_key_preview(self, project_id: str) -> str:
         """Get AES Key preview for diagnostic logging (first 16 chars)"""

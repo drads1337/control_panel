@@ -53,7 +53,7 @@ export default function ProjectSettingsPage() {
   })
 
   const regenerateKeysMutation = useMutation({
-    mutationFn: (action: 'aes' | 'rsa' | 'all') => regenerateKeys(action),
+    mutationFn: (action: 'aes') => regenerateKeys(action),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project-settings'] })
       toast.success('Encryption keys regenerated successfully')
@@ -709,47 +709,6 @@ export default function ProjectSettingsPage() {
                           </Button>
                         </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs">Public Key (RSA)</Label>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="password"
-                            value={localSettings.encryption_keys.public_key || ''}
-                            readOnly
-                            className="h-8 text-xs font-mono"
-                          />
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => regenerateKeysMutation.mutate('rsa')}
-                            disabled={regenerateKeysMutation.isPending}
-                            className="h-8 text-xs"
-                          >
-                            {regenerateKeysMutation.isPending ? (
-                              <Spinner className="h-3 w-3" />
-                            ) : (
-                              'Regenerate'
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 pt-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => regenerateKeysMutation.mutate('all')}
-                          disabled={regenerateKeysMutation.isPending}
-                          className="h-8 text-xs"
-                        >
-                          {regenerateKeysMutation.isPending ? (
-                            <>
-                              <Spinner className="h-3 w-3 mr-2" />
-                              Regenerating...
-                            </>
-                          ) : (
-                            'Regenerate All Keys'
-                          )}
-                        </Button>
                         <Button
                           variant="outline"
                           size="sm"

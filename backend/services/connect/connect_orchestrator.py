@@ -10,8 +10,9 @@ from typing import Any, Dict, Optional, Tuple
 from ...config.config import Config
 from ...core.extensions import db
 from ...models.core import User
-from ...services.keys import key_validator
+from ...services.keys.key_validator import KeyValidator
 from ...services.validation import request_validation_pipeline
+from ...utils.service_exceptions import ValidationError, NotFoundError
 from .analytics_tracker import AnalyticsTracker
 from .challenge_validation_service import ChallengeValidationService
 from .decryption_service import DecryptionService
@@ -37,6 +38,7 @@ class ConnectOrchestrator:
         self.request_validator = RequestValidationService()
         self.key_lookup = KeyLookupService()
         self.challenge_validator = ChallengeValidationService()
+        self.key_validator = KeyValidator()
 
         self.token_generator = TokenGenerationService()
 
@@ -91,16 +93,22 @@ class ConnectOrchestrator:
                 self.security_checker.log_suspicious_activity(ip, "EMPTY_DATA")
                 return self._build_error_response("Invalid request data", used_global_key, successful_project_id), 400
 
-            is_valid, error_msg = self.request_validator.validate_request_data(data)
-            if not is_valid:
+            # validate_request_data выбрасывает ValidationError при ошибке, не возвращает кортеж
+            try:
+                self.request_validator.validate_request_data(data)
+            except ValidationError as validation_error:
+                error_msg = validation_error.message if hasattr(validation_error, 'message') else str(validation_error)
                 logger.error(f"VALIDATION_ERROR ip={ip} error={error_msg}")
                 return self._build_error_response(error_msg, used_global_key, successful_project_id), 400
 
             fields = self.request_validator.extract_request_fields(data)
             user_key = fields.get("user_key")
 
-            is_valid, error_msg = self.request_validator.validate_user_key_format(user_key)
-            if not is_valid:
+            # validate_user_key_format выбрасывает ValidationError при ошибке
+            try:
+                self.request_validator.validate_user_key_format(user_key)
+            except ValidationError as validation_error:
+                error_msg = validation_error.message if hasattr(validation_error, 'message') else str(validation_error)
                 logger.error(f"INVALID_USER_KEY ip={ip} user_key={user_key}")
                 self.security_checker.log_suspicious_activity(ip, "INVALID_USER_KEY", str(user_key))
                 return self._build_error_response(error_msg, used_global_key, successful_project_id), 400
@@ -109,14 +117,22 @@ class ConnectOrchestrator:
                 f"CONNECT_DATA ip={ip} user_key={user_key} product={fields.get('product')} serial={fields.get('serial')}"
             )
 
-            key_obj, project_id, error_msg = self.key_lookup.find_key_in_project(
-                user_key, fields.get("project_id")
-            )
-            if not key_obj:
+            try:
+                key_obj, project_id = self.key_lookup.find_key_in_project(
+                    user_key, fields.get("project_id")
+                )
+            except NotFoundError as not_found_error:
+                error_msg = not_found_error.message if hasattr(not_found_error, 'message') else str(not_found_error)
                 logger.warning(
                     f"CONNECT_KEY_VALIDATION_FAILED ip={ip} user_key={user_key} error={error_msg}"
                 )
-                return self._build_error_response(error_msg, used_global_key, successful_project_id), 403
+                return self._build_error_response(error_msg or "Key not found", used_global_key, successful_project_id), 404
+            except ValidationError as validation_error:
+                error_msg = validation_error.message if hasattr(validation_error, 'message') else str(validation_error)
+                logger.warning(
+                    f"CONNECT_KEY_VALIDATION_FAILED ip={ip} user_key={user_key} error={error_msg}"
+                )
+                return self._build_error_response(error_msg, used_global_key, successful_project_id), 400
 
 
             ip_validation_result = request_validation_pipeline.validate_ip_only(
@@ -129,7 +145,7 @@ class ConnectOrchestrator:
                 self.security_checker.log_suspicious_activity(ip, ip_validation_result[1], user_agent)
                 return self._build_error_response("Access denied", used_global_key, project_id), 403
 
-            is_valid, error_msg, project = key_validator.validate_project_status(project_id)
+            is_valid, error_msg, project = self.key_validator.validate_project_status(project_id)
             if not is_valid:
                 logger.warning(
                     f"PROJECT_INACTIVE ip={ip} user_key={user_key} project_id={project_id}"
@@ -181,7 +197,7 @@ class ConnectOrchestrator:
                 )
                 return encrypted_response, 403
 
-            is_valid, error_msg, product_obj = key_validator.validate_product_access(
+            is_valid, error_msg, product_obj = self.key_validator.validate_product_access(
                 key_obj, fields.get("product"), project_id
             )
             if not is_valid:
@@ -200,14 +216,14 @@ class ConnectOrchestrator:
                 )
                 return encrypted_response, 403
 
-            is_valid, error_msg = key_validator.validate_user_authorization(key_obj, project_id)
+            is_valid, error_msg = self.key_validator.validate_user_authorization(key_obj, project_id)
             if not is_valid:
                 logger.warning(
                     f"USER_AUTHORIZATION_FAILED ip={ip} user_key={user_key} error={error_msg}"
                 )
                 return self._build_error_response(error_msg, used_global_key, project_id), 403
 
-            is_valid, error_msg = key_validator.validate_single_device_fingerprint(
+            is_valid, error_msg = self.key_validator.validate_single_device_fingerprint(
                 key_obj, fields.get("fingerprint")
             )
             if not is_valid:
@@ -230,15 +246,15 @@ class ConnectOrchestrator:
 
             geo = self.security_checker.behavioral_analysis(user_key, ip, fields.get("fingerprint"))
 
-            is_valid, error_msg = key_validator.validate_key_status(key_obj)
+            is_valid, error_msg = self.key_validator.validate_key_status(key_obj)
             if not is_valid:
                 logger.warning(f"KEY_INVALID ip={ip} user_key={user_key} error={error_msg}")
                 self._log_user_activity(key_obj, project_id, "api_connect_error", f"user_key={user_key}, reason=KEY_INVALID", ip)
                 return self._build_error_response(error_msg, used_global_key, project_id), 403
 
-            key_validator.activate_key_if_needed(key_obj)
+            self.key_validator.activate_key_if_needed(key_obj)
 
-            is_valid, error_msg = key_validator.validate_device_limit(key_obj, fields.get("serial"))
+            is_valid, error_msg = self.key_validator.validate_device_limit(key_obj, fields.get("serial"))
             if not is_valid:
                 logger.warning(
                     f"DEVICE_LIMIT_EXCEEDED ip={ip} user_key={user_key} error={error_msg}"
@@ -278,7 +294,7 @@ class ConnectOrchestrator:
             )
 
             expires_at, seconds_left, seconds_left_human = (
-                key_validator.get_key_expiration_info(key_obj)
+                self.key_validator.get_key_expiration_info(key_obj)
             )
 
 

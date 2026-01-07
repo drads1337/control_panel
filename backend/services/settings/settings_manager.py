@@ -110,7 +110,7 @@ class SettingsManager:
         
         Args:
             settings: ProjectSettings model instance
-            encryption_keys: Dict with aes_key and public_key
+            encryption_keys: Dict with aes_key
             user: User model instance
             
         Returns:
@@ -127,12 +127,10 @@ class SettingsManager:
 
 
             if not encryption_keys or not isinstance(encryption_keys, dict):
-                encryption_keys = {"aes_key": "", "public_key": ""}
+                encryption_keys = {"aes_key": ""}
             
             if "aes_key" not in encryption_keys:
                 encryption_keys["aes_key"] = ""
-            if "public_key" not in encryption_keys:
-                encryption_keys["public_key"] = ""
 
 
             result = {
@@ -204,7 +202,6 @@ class SettingsManager:
                 },
                 "encryption_keys": {
                     "aes_key": str(encryption_keys.get("aes_key", "") or ""),
-                    "public_key": str(encryption_keys.get("public_key", "") or ""),
                 },
             }
             

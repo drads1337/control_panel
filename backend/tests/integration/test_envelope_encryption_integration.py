@@ -50,7 +50,7 @@ class TestEnvelopeEncryptionIntegration:
         encryption_keys = ProjectEncryptionKeys(
             project_id=project.id,
             aes_key_encrypted=encrypted_key,
-            public_key_cert="test_cert"
+            private_key_encrypted=""
         )
         db_session.add(encryption_keys)
         db_session.commit()
@@ -73,7 +73,7 @@ class TestEnvelopeEncryptionIntegration:
         encryption_keys = ProjectEncryptionKeys(
             project_id=project.id,
             aes_key=plain_key,
-            public_key_cert="test_cert"
+            private_key_encrypted=""
         )
         db_session.add(encryption_keys)
         db_session.commit()
@@ -93,7 +93,7 @@ class TestEnvelopeEncryptionIntegration:
         # Create encryption keys
         encryption_keys = ProjectEncryptionKeys(
             project_id=project.id,
-            public_key_cert="test_cert"
+            private_key_encrypted=""
         )
         db_session.add(encryption_keys)
         db_session.commit()
@@ -128,7 +128,7 @@ class TestEnvelopeEncryptionIntegration:
             project_id=project.id,
             aes_key=plain_key,
             aes_key_encrypted=encrypted_key,
-            public_key_cert="test_cert"
+            private_key_encrypted=""
         )
         db_session.add(encryption_keys)
         db_session.commit()
@@ -151,7 +151,7 @@ class TestEnvelopeEncryptionIntegration:
         encryption_keys = ProjectEncryptionKeys(
             project_id=project.id,
             aes_key=plain_key,
-            public_key_cert="test_cert"
+            private_key_encrypted=""
         )
         db_session.add(encryption_keys)
         db_session.commit()

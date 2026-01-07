@@ -54,7 +54,6 @@ class EncryptionKeysUpdateSchema(BaseSchema):
     """Schema for updating encryption keys"""
     
     aes_key: Optional[str] = Field(default=None, description="AES key (64 hex characters)")
-    public_key: Optional[str] = Field(default=None, description="Public key certificate")
 
     @field_validator("aes_key")
     @classmethod
@@ -75,13 +74,13 @@ class EncryptionKeysUpdateSchema(BaseSchema):
 class RegenerateKeysActionSchema(BaseSchema):
     """Schema for regenerating keys action"""
     
-    action: str = Field(default="all", description="Action: 'aes', 'rsa', or 'all'")
+    action: str = Field(default="aes", description="Action: 'aes' (RSA keys removed)")
 
     @field_validator("action")
     @classmethod
     def validate_action(cls, v: str) -> str:
         """Validate action"""
-        allowed_actions = ["aes", "rsa", "all"]
+        allowed_actions = ["aes"]
         if v not in allowed_actions:
             raise ValueError(f"Action must be one of {allowed_actions}")
         return v

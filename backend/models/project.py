@@ -214,8 +214,6 @@ class ProjectEncryptionKeys(db.Model):
 
     aes_key_encrypted = db.Column(db.Text, nullable=True)
 
-    public_key_cert = db.Column(db.Text, nullable=False)
-
     private_key_encrypted = db.Column(db.Text, nullable=False)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

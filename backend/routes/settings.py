@@ -208,27 +208,10 @@ def get_or_create_project_keys(project_id):
     if not keys:
         aes_key = secrets.token_hex(32)
 
-        private_key = rsa.generate_private_key(
-            public_exponent=65537, key_size=2048, backend=default_backend()
-        )
-        public_key = private_key.public_key()
-
-        private_pem = private_key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.PKCS8,
-            encryption_algorithm=serialization.NoEncryption(),
-        ).decode("utf-8")
-
-        public_pem = public_key.public_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo,
-        ).decode("utf-8")
-
         keys = ProjectEncryptionKeys(
             project_id=project_id,
-            public_key_cert=public_pem,
-            private_key_encrypted=private_pem,
-            key_metadata=json.dumps({"algorithm": "RSA", "key_size": 2048, "aes_key_size": 256}),
+            private_key_encrypted="",  # RSA keys not used, keeping for backward compatibility
+            key_metadata=json.dumps({"algorithm": "AES-256-GCM", "aes_key_size": 256}),
         )
 
         keys.set_aes_key(aes_key, use_envelope=True)
@@ -661,36 +644,16 @@ def regenerate_keys(validated_data=None):
     if not validated_data:
 
         data = request.get_json() or {}
-        action = data.get("action", "all")
+        action = data.get("action", "aes")
     else:
         action = validated_data.action
 
     keys = get_or_create_project_keys(project_id)
 
-    if action in ["aes", "all"]:
+    if action == "aes":
         new_aes_key = secrets.token_hex(32)
 
         keys.set_aes_key(new_aes_key, use_envelope=True)
-
-    if action in ["rsa", "all"]:
-        private_key = rsa.generate_private_key(
-            public_exponent=65537, key_size=2048, backend=default_backend()
-        )
-        public_key = private_key.public_key()
-
-        private_pem = private_key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.PKCS8,
-            encryption_algorithm=serialization.NoEncryption(),
-        ).decode("utf-8")
-
-        public_pem = public_key.public_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo,
-        ).decode("utf-8")
-
-        keys.public_key_cert = public_pem
-        keys.private_key_encrypted = private_pem
 
     db.session.commit()
 
@@ -708,8 +671,6 @@ def regenerate_keys(validated_data=None):
             "message": "Keys regenerated successfully",
             "keys": {
                 "aes_key": aes_key,
-                "public_key": keys.public_key_cert,
-
             },
         }
     )
@@ -753,12 +714,6 @@ def update_keys(validated_data=None):
     if validated_data.aes_key:
 
         keys.set_aes_key(validated_data.aes_key, use_envelope=True)
-
-    if validated_data.public_key:
-        public_key = validated_data.public_key.strip()
-        if not public_key.startswith("-----BEGIN PUBLIC KEY-----"):
-            return jsonify({"error": "Invalid public key format"}), 400
-        keys.public_key_cert = public_key
 
     db.session.commit()
 

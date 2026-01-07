@@ -885,8 +885,8 @@ def decrypt_data_with_project_key(
     )
     
     try:
-
-        json_str = MasterKeyManager.decrypt_with_master_key(encrypted_data, project_key)
+        # Используем legacy метод для совместимости с клиентами (AES-256-GCM)
+        json_str = MasterKeyManager.decrypt_with_master_key_legacy(encrypted_data, project_key)
         logging.debug(f"[DECRYPT_PROJECT] Successfully decrypted with {key_source} for project {project_id}")
         return json.loads(json_str)
     except Exception as decrypt_error:
@@ -919,37 +919,21 @@ def decrypt_with_master_key(encrypted_data: str, master_key: str) -> str:
 def generate_project_keys_secure(project_name: str) -> Dict[str, Any]:
     """
     Generate all encryption keys for a project using secure methods.
-    Returns dictionary with aes_key, public_key_cert, private_key_encrypted, project_password, and metadata.
+    Returns dictionary with aes_key and metadata.
+    Uses AES-256-GCM encryption.
     """
     aes_key = SecureCrypto.generate_secure_aes_key()
 
-    private_key_pem, public_key_pem = SecureCrypto.generate_secure_rsa_key_pair()
-
-    certificate = SecureCrypto.generate_secure_self_signed_certificate(
-        project_name, private_key_pem
-    )
-
-    project_password = f"{project_name}_{secrets.token_hex(16)}"
-
-    encrypted_private_key = SecureCrypto.encrypt_private_key_secure(
-        private_key_pem, project_password
-    )
-
     metadata = {
-        "algorithm": "AES-256-GCM + RSA-2048",
+        "algorithm": "AES-256-GCM",
         "aes_key_size": 256,
-        "rsa_key_size": 2048,
-        "certificate_validity_days": 730,
-        "encryption_method": "AES-256-GCM with PBKDF2 key derivation",
+        "encryption_method": "AES-256-GCM",
         "generated_at": datetime.utcnow().isoformat(),
         "security_level": "high",
     }
 
     return {
         "aes_key": aes_key,
-        "public_key_cert": certificate,
-        "private_key_encrypted": encrypted_private_key,
-        "project_password": project_password,
         "metadata": metadata,
     }
 

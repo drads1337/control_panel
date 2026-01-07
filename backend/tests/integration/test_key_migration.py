@@ -48,7 +48,7 @@ class TestKeyMigration:
         encryption_keys = ProjectEncryptionKeys(
             project_id=project.id,
             aes_key=plain_key,
-            public_key_cert="test_cert",
+            private_key_encrypted="",
             private_key_encrypted="test_private"
         )
         db_session.add(encryption_keys)
@@ -84,7 +84,7 @@ class TestKeyMigration:
         encryption_keys = ProjectEncryptionKeys(
             project_id=project.id,
             aes_key=plain_key,
-            public_key_cert="test_cert",
+            private_key_encrypted="",
             private_key_encrypted="test_private"
         )
         db_session.add(encryption_keys)
@@ -122,7 +122,7 @@ class TestKeyMigration:
             encryption_keys = ProjectEncryptionKeys(
                 project_id=project.id,
                 aes_key=plain_key,
-                public_key_cert="test_cert",
+                private_key_encrypted="",
                 private_key_encrypted="test_private"
             )
             db_session.add(encryption_keys)
@@ -153,7 +153,7 @@ class TestKeyMigration:
         encryption_keys = ProjectEncryptionKeys(
             project_id=project.id,
             aes_key=plain_key,
-            public_key_cert="test_cert",
+            private_key_encrypted="",
             private_key_encrypted="test_private"
         )
         db_session.add(encryption_keys)
@@ -185,7 +185,7 @@ class TestKeyMigration:
         encryption_keys = ProjectEncryptionKeys(
             project_id=project.id,
             aes_key=invalid_key,
-            public_key_cert="test_cert",
+            private_key_encrypted="",
             private_key_encrypted="test_private"
         )
         db_session.add(encryption_keys)

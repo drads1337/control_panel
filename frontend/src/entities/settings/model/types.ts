@@ -24,7 +24,6 @@ export interface ProjectSettings {
   }
   encryption_keys: {
     aes_key: string
-    public_key: string
   }
   encryption: {
     encryption_enabled: boolean
@@ -50,6 +49,4 @@ export interface UpdateSettingsData {
 
 export interface UpdateKeysData {
   aes_key?: string
-  public_key?: string
-  private_key?: string
 }

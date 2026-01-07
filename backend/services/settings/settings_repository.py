@@ -222,29 +222,12 @@ class SettingsRepository:
     def create_project_encryption_keys(self, project_id: int) -> ProjectEncryptionKeys:
         """Create project encryption keys"""
         try:
-            private_key = rsa.generate_private_key(
-                public_exponent=65537, key_size=2048, backend=default_backend()
-            )
-            public_key = private_key.public_key()
-
-            private_pem = private_key.private_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.PKCS8,
-                encryption_algorithm=serialization.NoEncryption(),
-            ).decode("utf-8")
-
-            public_pem = public_key.public_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PublicFormat.SubjectPublicKeyInfo,
-            ).decode("utf-8")
-
             keys = ProjectEncryptionKeys(
                 project_id=project_id,
                 aes_key=secrets.token_hex(32),
-                public_key_cert=public_pem,
-                private_key_encrypted=private_pem,
+                private_key_encrypted="",  # RSA keys not used, keeping for backward compatibility
                 key_metadata=json.dumps(
-                    {"algorithm": "RSA", "key_size": 2048, "aes_key_size": 256}
+                    {"algorithm": "AES-256-GCM", "aes_key_size": 256}
                 ),
                 created_at=datetime.utcnow(),
             )
@@ -258,14 +241,14 @@ class SettingsRepository:
             raise
 
     def get_or_create_project_encryption_keys(self, project_id: int) -> Dict[str, str]:
-        """Get or create project encryption keys, returns dict with aes_key and public_key"""
+        """Get or create project encryption keys, returns dict with aes_key"""
         try:
             keys = self.get_project_encryption_keys(project_id)
             if not keys:
                 keys = self.create_project_encryption_keys(project_id)
             
             if not keys:
-                return {"aes_key": "", "public_key": ""}
+                return {"aes_key": ""}
             
             # Use get_aes_key() to get decrypted key (handles envelope encryption)
             try:
@@ -276,10 +259,9 @@ class SettingsRepository:
             
             return {
                 "aes_key": aes_key,
-                "public_key": keys.public_key_cert or "",
             }
         except Exception as e:
             logger.error(f"Error in get_or_create_project_encryption_keys for project_id {project_id}: {e}")
 
-            return {"aes_key": "", "public_key": ""}
+            return {"aes_key": ""}
 
