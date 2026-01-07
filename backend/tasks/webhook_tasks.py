@@ -21,7 +21,7 @@ except ImportError:
     class Task:
         pass
 
-from ...utils.celery_db_session import celery_db_session
+from backend.utils.celery_db_session import celery_db_session
 from ..models.webhooks import Webhook, WebhookLog
 
 logger = logging.getLogger(__name__)

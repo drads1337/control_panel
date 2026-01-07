@@ -8,7 +8,8 @@ Uses dependency injection - services are obtained once at the start of each task
 """
 
 import logging
-from ...utils.service_helpers import get_service
+# Absolute import so module is importable in production
+from backend.utils.service_helpers import get_service
 
 try:
     from celery import Task

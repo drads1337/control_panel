@@ -9,8 +9,9 @@ Uses dependency injection - services are obtained once at the start of each task
 import json
 import logging
 from datetime import datetime, timedelta
-from ...utils.service_helpers import get_service
-from ...utils.celery_db_session import celery_db_session
+# Absolute imports to be importable in production
+from backend.utils.service_helpers import get_service
+from backend.utils.celery_db_session import celery_db_session
 
 try:
     from celery import Task
