@@ -293,6 +293,8 @@ def get_mtls_cert(project_id: str, client_name: str):
         return (cert_path_str, key_path_str)
     else:
         print(f"[mTLS] ⚠ Не удалось сгенерировать сертификаты")
+        print(f"[mTLS] 💡 Для автоматического получения сертификата через API используйте:")
+        print(f"[mTLS]    python scripts/get_client_cert_auto.py {project_id} <username> <password>")
         print(f"[mTLS] Подключение без mTLS (сервер может требовать клиентский сертификат)")
         return None
 
