@@ -37,6 +37,7 @@ export interface ProjectSettings {
 
   }
   appearance: Record<string, any>
+  project_unique_id?: string
 }
 
 export interface UpdateSettingsData {

@@ -696,11 +696,18 @@ def regenerate_keys(validated_data=None):
 
     cache_service.invalidate_user_cache(user_id)
 
+    # Get decrypted AES key using get_aes_key() method
+    try:
+        aes_key = keys.get_aes_key()
+    except (ValueError, Exception) as e:
+        logger.warning(f"Could not get decrypted AES key for project {project_id}: {e}")
+        aes_key = ""
+
     return jsonify(
         {
             "message": "Keys regenerated successfully",
             "keys": {
-                "aes_key": keys.aes_key,
+                "aes_key": aes_key,
                 "public_key": keys.public_key_cert,
 
             },

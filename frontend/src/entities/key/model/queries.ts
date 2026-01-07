@@ -59,7 +59,7 @@ interface UseKeysReturn {
 
 export function useKeysQuery(initialParams: UseKeysParams = {}): UseKeysReturn {
   const queryClient = useQueryClient()
-  const { isAuthenticated } = useAuthContext()
+  const { isAuthenticated, isInitialized } = useAuthContext()
 
   const [params, setParams] = React.useState<UseKeysParams>({
     page: 1,
@@ -130,7 +130,7 @@ export function useKeysQuery(initialParams: UseKeysParams = {}): UseKeysReturn {
       )
     },
     staleTime: 2 * 60 * 1000,
-    enabled: isAuthenticated && (initialParams.enabled ?? true), // Загружаем только если таб активен и пользователь авторизован (по умолчанию true)
+    enabled: isInitialized && isAuthenticated && (initialParams.enabled ?? true), // Загружаем только если auth инициализирован, пользователь авторизован и таб активен (по умолчанию true)
     placeholderData: keepPreviousData,
   })
 
@@ -226,7 +226,7 @@ export function useKeysQuery(initialParams: UseKeysParams = {}): UseKeysReturn {
 }
 
 export function useKeysStats() {
-  const { isAuthenticated } = useAuthContext()
+  const { isAuthenticated, isInitialized } = useAuthContext()
 
   const {
     data: stats,
@@ -237,7 +237,7 @@ export function useKeysStats() {
     queryKey: keyKeys.stats(),
     queryFn: getKeysStats,
     staleTime: 2 * 60 * 1000,
-    enabled: isAuthenticated,
+    enabled: isInitialized && isAuthenticated,
   })
 
   return {

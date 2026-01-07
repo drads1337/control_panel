@@ -267,8 +267,15 @@ class SettingsRepository:
             if not keys:
                 return {"aes_key": "", "public_key": ""}
             
+            # Use get_aes_key() to get decrypted key (handles envelope encryption)
+            try:
+                aes_key = keys.get_aes_key()
+            except (ValueError, Exception) as e:
+                logger.warning(f"Could not get decrypted AES key for project {project_id}: {e}")
+                aes_key = ""
+            
             return {
-                "aes_key": keys.aes_key or "",
+                "aes_key": aes_key,
                 "public_key": keys.public_key_cert or "",
             }
         except Exception as e:

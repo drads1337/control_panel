@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useMemo, useCallback } from 'react'
-import { Shield, Key, RefreshCw, Settings2, Lock } from 'lucide-react'
+import { Shield, Key, RefreshCw, Settings2, Lock, Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -28,6 +28,7 @@ export default function ProjectSettingsPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [localSettings, setLocalSettings] = useState<ProjectSettings | null>(null)
+  const [showAesKey, setShowAesKey] = useState(false)
 
   const canManageSettings = hasPermission('system.manage')
 
@@ -109,6 +110,15 @@ export default function ProjectSettingsPage() {
 
   const handleInputChange = useCallback((section: keyof ProjectSettings, field: string, value: any) => {
     if (!localSettings) return
+    
+    // Handle top-level fields like project_unique_id
+    if (section === 'project_unique_id' || !(section in localSettings) || typeof localSettings[section] !== 'object') {
+      setLocalSettings({
+        ...localSettings,
+        [section]: value,
+      })
+      return
+    }
     
     setLocalSettings({
       ...localSettings,
@@ -199,9 +209,19 @@ export default function ProjectSettingsPage() {
                 <h1 className="text-lg xs:text-xl sm:text-xl md:text-2xl font-bold tracking-tight text-foreground leading-tight">
                   Project Settings
                 </h1>
-                <p className="text-[10px] xs:text-xs sm:text-xs md:text-sm text-muted-foreground mt-1 xs:mt-1.5 sm:mt-2 leading-snug">
-                  Manage your project configuration and security settings
-                </p>
+                <div className="flex items-center gap-2 mt-1 xs:mt-1.5 sm:mt-2">
+                  <p className="text-[10px] xs:text-xs sm:text-xs md:text-sm text-muted-foreground leading-snug">
+                    Manage your project configuration and security settings
+                  </p>
+                  {settings?.project_unique_id && (
+                    <>
+                      <span className="text-[10px] xs:text-xs sm:text-xs md:text-sm text-muted-foreground">•</span>
+                      <p className="text-[10px] xs:text-xs sm:text-xs md:text-sm text-muted-foreground leading-snug">
+                        Unique ID: <span className="font-mono font-semibold text-foreground">{settings.project_unique_id}</span>
+                      </p>
+                    </>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <Button 
@@ -643,18 +663,37 @@ export default function ProjectSettingsPage() {
                       <CardTitle className="text-base">Encryption Keys</CardTitle>
                       <CardDescription className="text-xs">
                         Manage encryption keys for your project
+                        {settings?.project_unique_id && (
+                          <span className="ml-2 font-mono text-foreground">(Unique ID: {settings.project_unique_id})</span>
+                        )}
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="space-y-2">
                         <Label className="text-xs">AES Key</Label>
                         <div className="flex items-center gap-2">
-                          <Input
-                            type="password"
-                            value={localSettings.encryption_keys.aes_key || ''}
-                            readOnly
-                            className="h-8 text-xs font-mono"
-                          />
+                          <div className="relative flex-1">
+                            <Input
+                              type={showAesKey ? "text" : "password"}
+                              value={localSettings.encryption_keys.aes_key || ''}
+                              readOnly
+                              className="h-8 text-xs font-mono pr-10"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setShowAesKey(!showAesKey)}
+                              className="absolute right-0 top-0 h-8 w-8 hover:bg-transparent"
+                              aria-label={showAesKey ? "Hide AES key" : "Show AES key"}
+                            >
+                              {showAesKey ? (
+                                <EyeOff className="h-4 w-4 text-muted-foreground" />
+                              ) : (
+                                <Eye className="h-4 w-4 text-muted-foreground" />
+                              )}
+                            </Button>
+                          </div>
                           <Button
                             variant="outline"
                             size="sm"

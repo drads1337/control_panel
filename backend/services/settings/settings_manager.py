@@ -103,7 +103,7 @@ class SettingsManager:
         return project_id
 
     def build_settings_response(
-        self, settings: Any, encryption_keys: Dict[str, str], user: User
+        self, settings: Any, encryption_keys: Dict[str, str], user: User, project_id: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         Build settings response dictionary from database models.
@@ -207,6 +207,16 @@ class SettingsManager:
                     "public_key": str(encryption_keys.get("public_key", "") or ""),
                 },
             }
+            
+            # Add project unique_id if project_id is provided
+            if project_id:
+                try:
+                    from ...models.core import Project
+                    project = Project.query.get(project_id)
+                    if project and project.unique_id:
+                        result["project_unique_id"] = project.unique_id
+                except Exception as e:
+                    self.logger.warning(f"Could not get project unique_id for project {project_id}: {e}")
 
 
             try:
@@ -261,7 +271,7 @@ class SettingsManager:
             encryption_keys = self.repository.get_or_create_project_encryption_keys(project_id)
 
 
-            result = self.build_settings_response(settings, encryption_keys, user)
+            result = self.build_settings_response(settings, encryption_keys, user, project_id)
             
             self.logger.info(f"Successfully retrieved settings for user {user_id}, project {project_id}")
             return result
