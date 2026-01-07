@@ -58,6 +58,25 @@ def get_challenge():
             client_project_id = client_project_id or inferred
         if not client_project_id:
             return jsonify({"error": "project_id required for mTLS"}), 400
+        
+        # Automatically create mTLS CA for existing projects if it doesn't exist
+        try:
+            from ...models.core import Project
+            from ...utils.mtls_manager import MTLSProjectManager
+            project = Project.query.filter_by(unique_id=str(client_project_id)).first()
+            if not project:
+                try:
+                    project_id_int = int(client_project_id)
+                    project = Project.query.get(project_id_int)
+                except (ValueError, TypeError):
+                    pass
+            if project and project.unique_id:
+                mtls_manager = MTLSProjectManager()
+                mtls_manager.ensure_project_ca(project.unique_id, project.name)
+                logger.debug(f"Ensured mTLS CA exists for project {client_project_id}")
+        except Exception as e:
+            logger.debug(f"Could not ensure mTLS CA for project {client_project_id}: {e}")
+        
         valid, msg, cn = verify_project_certificate_from_request(client_project_id)
         if not valid:
             logger.warning(f"mTLS project check failed: {msg}, cn={cn}")
@@ -201,6 +220,24 @@ def api_connect():
             encrypted_response = response_builder.encrypt_response(error_response, True)
             return encrypted_response, 400
 
+        # Automatically create mTLS CA for existing projects if it doesn't exist
+        try:
+            from ...models.core import Project
+            from ...utils.mtls_manager import MTLSProjectManager
+            project = Project.query.filter_by(unique_id=str(project_id)).first()
+            if not project:
+                try:
+                    project_id_int = int(project_id)
+                    project = Project.query.get(project_id_int)
+                except (ValueError, TypeError):
+                    pass
+            if project and project.unique_id:
+                mtls_manager = MTLSProjectManager()
+                mtls_manager.ensure_project_ca(project.unique_id, project.name)
+                logger.debug(f"Ensured mTLS CA exists for project {project_id}")
+        except Exception as e:
+            logger.debug(f"Could not ensure mTLS CA for project {project_id}: {e}")
+
         valid, msg, cn = verify_project_certificate_from_request(project_id)
         if not valid:
             logger.warning(f"mTLS validation failed for project {project_id}: {msg}, cn={cn}")
@@ -276,6 +313,25 @@ def classic_connect():
         if not project_id:
             logger.warning("mTLS enabled but project_id missing for classic_connect")
             return jsonify({"error": "project_id required for mTLS"}), 400
+        
+        # Automatically create mTLS CA for existing projects if it doesn't exist
+        try:
+            from ...models.core import Project
+            from ...utils.mtls_manager import MTLSProjectManager
+            project = Project.query.filter_by(unique_id=str(project_id)).first()
+            if not project:
+                try:
+                    project_id_int = int(project_id)
+                    project = Project.query.get(project_id_int)
+                except (ValueError, TypeError):
+                    pass
+            if project and project.unique_id:
+                mtls_manager = MTLSProjectManager()
+                mtls_manager.ensure_project_ca(project.unique_id, project.name)
+                logger.debug(f"Ensured mTLS CA exists for project {project_id}")
+        except Exception as e:
+            logger.debug(f"Could not ensure mTLS CA for project {project_id}: {e}")
+        
         valid, msg, cn = verify_project_certificate_from_request(project_id)
         if not valid:
             logger.warning(f"mTLS validation failed for project {project_id}: {msg}, cn={cn}")

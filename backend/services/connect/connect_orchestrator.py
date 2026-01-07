@@ -144,6 +144,18 @@ class ConnectOrchestrator:
                 )
                 return self._build_error_response(error_msg, used_global_key, successful_project_id), 400
 
+            # Automatically create mTLS CA for existing projects if it doesn't exist
+            try:
+                from ...models.core import Project
+                from ...utils.mtls_manager import MTLSProjectManager
+                project = Project.query.get(project_id)
+                if project and project.unique_id:
+                    mtls_manager = MTLSProjectManager()
+                    mtls_manager.ensure_project_ca(project.unique_id, project.name)
+                    logger.debug(f"Ensured mTLS CA exists for project {project_id} (unique_id: {project.unique_id})")
+            except Exception as e:
+                # Don't fail connection if CA creation fails - it's not critical
+                logger.debug(f"Could not ensure mTLS CA for project {project_id}: {e}")
 
             ip_validation_result = request_validation_pipeline.validate_ip_only(
                 ip=ip, project_id=project_id

@@ -171,6 +171,17 @@ class ProjectCRUDService:
                 self.logger.info(f"Initialized default security rules for project {project.id}")
             except Exception as e:
                 self.logger.warning(f"Failed to initialize security rules for project {project.id}: {e}")
+            
+            # Automatically create mTLS CA certificate for the project
+            try:
+                from ...utils.mtls_manager import MTLSProjectManager
+                mtls_manager = MTLSProjectManager()
+                mtls_manager.ensure_project_ca(project.unique_id, project.name)
+                self.logger.info(f"Created mTLS CA certificate for project {project.id} (unique_id: {project.unique_id})")
+            except Exception as e:
+                # Don't fail project creation if CA creation fails - it can be created later
+                self.logger.warning(f"Failed to create mTLS CA for project {project.id}: {e}. CA will be created on first access.")
+            
             return project
 
         except (NotFoundError, ValidationError, ConflictError):
