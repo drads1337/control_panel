@@ -4,7 +4,8 @@ Handles email notifications asynchronously
 """
 
 import logging
-from ...utils.service_helpers import get_service
+# Absolute import so module is importable in production
+from backend.utils.service_helpers import get_service
 
 try:
     from celery import Task

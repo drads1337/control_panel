@@ -8,12 +8,12 @@ This prevents connection leaks even if worker crashes.
 
 import logging
 import time
-from ...utils.service_helpers import get_service
-from ...utils.celery_db_session import celery_db_session
+# Use absolute imports to be importable in production (no relative beyond top-level)
+from backend.utils.service_helpers import get_service
+from backend.utils.celery_db_session import celery_db_session
 
 try:
     from celery import Task
-
     CELERY_AVAILABLE = True
 except ImportError:
     CELERY_AVAILABLE = False
