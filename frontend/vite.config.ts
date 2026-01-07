@@ -541,7 +541,6 @@ export default defineConfig(({ mode }) => {
       exclude: [
         '@tanstack/react-table', 
         'chart.js',
-        'framer-motion', // Lazy load animations
         'ogl', // Lazy load 3D library (used in FaultyTerminal)
       ],
       // Force optimization of specific packages
