@@ -8,21 +8,63 @@ import json
 import hashlib
 import secrets
 import base64
+import os
+import subprocess
+import sys
+from pathlib import Path
 import requests
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
 # Конфигурация
-SERVER_URL = "http://192.168.1.80:5001"  # Измените на ваш URL
-USER_KEY = "PUBG-1M-BZZ8OnYPSOED"
+SERVER_URL = "https://ovrin.xyz"  # Измените на ваш URL
+USER_KEY = "PUBG-12M-uUakzkGT5FQY"
 GAME_NAME = "PUBG"
-MASTER_KEY = "ca3695f66cc428a41e6bc8c2ed7ee27b0940fe4da284ae03cc89b89edb35c339"
-PROJECT_ID = "9516412833"
+MASTER_KEY = "a13b9a550d491f4d88206118a8ea9c12dc19ac1b7d263fa09c57a14e266f916d"
+PROJECT_ID = "2920317791"
 # Project key для расшифровки ответов (может отличаться от master key)
 PROJECT_KEY = MASTER_KEY  # По умолчанию используем master key
 
+# Имя клиента для сертификатов (можно изменить через переменную окружения)
+CLIENT_NAME = os.environ.get("MTLS_CLIENT_NAME", "test-client")
+
 # Генерируем фиктивный fingerprint (в реальном приложении это Android ID + модель + бренд)
 FINGERPRINT = hashlib.sha256("test-android-id-test-device-model-test-device-brand".encode()).hexdigest()
+
+
+def get_ssl_base_path():
+    """
+    Определяет базовый путь к SSL сертификатам в зависимости от окружения.
+    В Docker: /app/nginx/ssl
+    Локально: ./nginx/ssl
+    """
+    # Проверяем, работаем ли мы в Docker контейнере
+    if os.path.exists("/app/nginx/ssl"):
+        return Path("/app/nginx/ssl")
+    elif os.path.exists("/app"):
+        # В Docker, но директория не существует - создаем
+        ssl_path = Path("/app/nginx/ssl")
+        ssl_path.mkdir(parents=True, exist_ok=True)
+        return ssl_path
+    else:
+        # Локально
+        script_dir = Path(__file__).parent
+        ssl_path = script_dir / "nginx" / "ssl"
+        ssl_path.mkdir(parents=True, exist_ok=True)
+        return ssl_path
+
+
+def get_client_cert_paths(project_id: str, client_name: str):
+    """
+    Возвращает пути к клиентским сертификатам для проекта.
+    В Docker: /app/nginx/ssl/projects/{project_id}/clients/{client_name}/
+    Локально: ./nginx/ssl/projects/{project_id}/clients/{client_name}/
+    """
+    ssl_base = get_ssl_base_path()
+    client_dir = ssl_base / "projects" / project_id / "clients" / client_name
+    cert_path = client_dir / "client-cert.pem"
+    key_path = client_dir / "client-key.pem"
+    return cert_path, key_path, client_dir
 
 
 def sha256(text: str) -> str:
@@ -92,7 +134,170 @@ def decrypt_with_master_key(encrypted_data_b64: str, master_key_hex: str) -> str
     return plaintext.decode('utf-8')
 
 
-def get_challenge(user_key: str, fingerprint: str, project_id: str) -> tuple[str, str, str]:
+def generate_client_certificates(project_id: str, client_name: str):
+    """
+    Генерирует клиентские сертификаты для проекта используя скрипт mtls_project.sh
+    """
+    cert_path, key_path, client_dir = get_client_cert_paths(project_id, client_name)
+    
+    # Если сертификаты уже существуют, возвращаем их
+    if cert_path.exists() and key_path.exists():
+        print(f"[mTLS] Сертификаты уже существуют:")
+        print(f"[mTLS]   Cert: {cert_path}")
+        print(f"[mTLS]   Key: {key_path}")
+        return str(cert_path), str(key_path)
+    
+    print(f"[mTLS] Генерация клиентских сертификатов для проекта {project_id}...")
+    
+    # Определяем путь к скрипту
+    script_dir = Path(__file__).parent
+    mtls_script = script_dir / "scripts" / "mtls_project.sh"
+    
+    if not mtls_script.exists():
+        print(f"[mTLS] ⚠ Скрипт {mtls_script} не найден")
+        print(f"[mTLS] Попытка генерации через локальный OpenSSL...")
+        return _generate_certs_local(project_id, client_name, client_dir)
+    
+    try:
+        # Сначала инициализируем CA для проекта, если его нет
+        project_ssl_dir = get_ssl_base_path() / "projects" / project_id
+        ca_cert = project_ssl_dir / "ca" / "ca-cert.pem"
+        
+        if not ca_cert.exists():
+            print(f"[mTLS] Инициализация CA для проекта {project_id}...")
+            # Используем bash для запуска скрипта (на случай, если нет прав на выполнение)
+            script_cmd = ["bash", str(mtls_script), "init", project_id, client_name]
+            result = subprocess.run(
+                script_cmd,
+                capture_output=True,
+                text=True,
+                cwd=script_dir
+            )
+            if result.returncode != 0:
+                print(f"[mTLS] ⚠ Ошибка инициализации CA через скрипт: {result.stderr[:200]}")
+                print(f"[mTLS] Попытка генерации через локальный OpenSSL...")
+                return _generate_certs_local(project_id, client_name, client_dir)
+        
+        # Генерируем приватный ключ и CSR
+        print(f"[mTLS] Генерация приватного ключа...")
+        client_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Генерируем ключ
+        subprocess.run(
+            ["openssl", "genrsa", "-out", str(key_path), "2048"],
+            check=True,
+            capture_output=True
+        )
+        os.chmod(key_path, 0o600)
+        
+        # Генерируем CSR
+        csr_path = client_dir / "client.csr"
+        cn = f"project-{project_id}-{client_name}"
+        subprocess.run(
+            [
+                "openssl", "req", "-new", "-key", str(key_path),
+                "-out", str(csr_path),
+                "-subj", f"/C=US/ST=CA/L=San Francisco/O=Panel/CN={cn}"
+            ],
+            check=True,
+            capture_output=True
+        )
+        
+        # Подписываем CSR через скрипт
+        print(f"[mTLS] Подписание CSR...")
+        script_cmd = ["bash", str(mtls_script), "sign", project_id, str(csr_path), client_name]
+        result = subprocess.run(
+            script_cmd,
+            capture_output=True,
+            text=True,
+            cwd=script_dir
+        )
+        
+        if result.returncode == 0 and cert_path.exists():
+            print(f"[mTLS] ✓ Сертификаты успешно сгенерированы:")
+            print(f"[mTLS]   Cert: {cert_path}")
+            print(f"[mTLS]   Key: {key_path}")
+            return str(cert_path), str(key_path)
+        else:
+            print(f"[mTLS] ⚠ Ошибка подписания CSR через скрипт: {result.stderr[:200] if result.stderr else 'Unknown error'}")
+            print(f"[mTLS] Попытка генерации через локальный OpenSSL...")
+            return _generate_certs_local(project_id, client_name, client_dir)
+            
+    except subprocess.CalledProcessError as e:
+        print(f"[mTLS] ⚠ Ошибка выполнения команды: {e}")
+        return None, None
+    except FileNotFoundError:
+        print(f"[mTLS] ⚠ OpenSSL не найден. Установите openssl для генерации сертификатов.")
+        return None, None
+
+
+def _generate_certs_local(project_id: str, client_name: str, client_dir: Path):
+    """Резервный метод: генерация сертификатов напрямую через OpenSSL"""
+    try:
+        cert_path = client_dir / "client-cert.pem"
+        key_path = client_dir / "client-key.pem"
+        client_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Для полной генерации нужен CA, но мы можем создать самоподписанный сертификат для теста
+        print(f"[mTLS] ⚠ Генерация самоподписанного сертификата (для теста)...")
+        cn = f"project-{project_id}-{client_name}"
+        
+        # Генерируем ключ
+        subprocess.run(
+            ["openssl", "genrsa", "-out", str(key_path), "2048"],
+            check=True,
+            capture_output=True
+        )
+        os.chmod(key_path, 0o600)
+        
+        # Генерируем самоподписанный сертификат
+        subprocess.run(
+            [
+                "openssl", "req", "-new", "-x509", "-key", str(key_path),
+                "-out", str(cert_path), "-days", "365",
+                "-subj", f"/C=US/ST=CA/L=San Francisco/O=Panel/CN={cn}"
+            ],
+            check=True,
+            capture_output=True
+        )
+        
+        print(f"[mTLS] ⚠ ВНИМАНИЕ: Создан самоподписанный сертификат!")
+        print(f"[mTLS] ⚠ Этот сертификат НЕ будет работать с сервером, требующим mTLS!")
+        print(f"[mTLS] ⚠ Используйте скрипт scripts/mtls_project.sh для правильной генерации.")
+        return str(cert_path), str(key_path)
+        
+    except Exception as e:
+        print(f"[mTLS] ⚠ Ошибка локальной генерации: {e}")
+        return None, None
+
+
+def get_mtls_cert(project_id: str, client_name: str):
+    """
+    Возвращает кортеж (cert_path, key_path) для mTLS.
+    Автоматически генерирует сертификаты если их нет.
+    """
+    cert_path, key_path, _ = get_client_cert_paths(project_id, client_name)
+    
+    # Проверяем наличие обоих файлов сертификатов
+    if cert_path.exists() and key_path.exists():
+        print(f"[mTLS] Используются существующие клиентские сертификаты:")
+        print(f"[mTLS]   Cert: {cert_path}")
+        print(f"[mTLS]   Key: {key_path}")
+        return (str(cert_path), str(key_path))
+    
+    # Пытаемся сгенерировать сертификаты
+    print(f"[mTLS] Сертификаты не найдены, пытаемся сгенерировать...")
+    cert_path_str, key_path_str = generate_client_certificates(project_id, client_name)
+    
+    if cert_path_str and key_path_str:
+        return (cert_path_str, key_path_str)
+    else:
+        print(f"[mTLS] ⚠ Не удалось сгенерировать сертификаты")
+        print(f"[mTLS] Подключение без mTLS (сервер может требовать клиентский сертификат)")
+        return None
+
+
+def get_challenge(user_key: str, fingerprint: str, project_id: str, mtls_cert=None) -> tuple[str, str, str]:
     """
     Получает challenge от сервера
     Возвращает (challenge, canary, project_id)
@@ -114,10 +319,12 @@ def get_challenge(user_key: str, fingerprint: str, project_id: str) -> tuple[str
             "Content-Type": "application/json",
             "User-Agent": "Dalvik/2.1.0 (Linux; U; Android 11; SM-G991B Build/RP1A.200720.012)"
         }
+        
         response = requests.post(
             url,
             json=data,
             headers=headers,
+            cert=mtls_cert,  # None если сертификаты не найдены
             timeout=10
         )
         
@@ -150,13 +357,12 @@ def get_challenge(user_key: str, fingerprint: str, project_id: str) -> tuple[str
                 raise ValueError("Invalid challenge format")
             
             # Обновляем project_id если он в ответе (сервер может вернуть другой project_id)
+            new_project_id = None
             if "project_id" in result:
-                project_id = str(result["project_id"])
-                print(f"[GetChallenge] Project ID из ответа: {project_id}")
+                new_project_id = str(result["project_id"])
+                print(f"[GetChallenge] Project ID из ответа: {new_project_id}")
+            return challenge, canary, new_project_id or project_id
             
-            print(f"[GetChallenge] ✓ Challenge получен успешно")
-            print(f"[GetChallenge] ✓ Ключ найден на сервере!")
-            return challenge, canary, project_id
         elif response.status_code == 404:
             print(f"[GetChallenge] ✗ Ключ не найден на сервере (404)")
             try:
@@ -181,7 +387,7 @@ def get_challenge(user_key: str, fingerprint: str, project_id: str) -> tuple[str
 
 
 def connect(user_key: str, challenge: str, canary: str, fingerprint: str, 
-            game_name: str, project_id: str) -> str:
+            game_name: str, project_id: str, mtls_cert=None) -> str:
     """
     Отправляет connect запрос с решением challenge
     """
@@ -228,10 +434,12 @@ def connect(user_key: str, challenge: str, canary: str, fingerprint: str,
             "Content-Type": "application/json",
             "User-Agent": "Dalvik/2.1.0 (Linux; U; Android 11; SM-G991B Build/RP1A.200720.012)"
         }
+        
         response = requests.post(
             url,
             json=request_data,
             headers=headers,
+            cert=mtls_cert,  # None если сертификаты не найдены
             timeout=10
         )
         
@@ -340,10 +548,14 @@ def check_license(user_key: str, game_name: str) -> str:
     print(f"Project ID: {PROJECT_ID}")
     print(f"{'='*60}\n")
     
+    # Получаем mTLS сертификаты один раз для всех запросов
+    # Используем project_id из конфигурации (может быть обновлен позже)
+    mtls_cert = get_mtls_cert(PROJECT_ID, CLIENT_NAME)
+    
     # Шаг 1: Получаем challenge
     print("[Шаг 1] Получение challenge от сервера...")
     try:
-        challenge, canary, actual_project_id = get_challenge(user_key, FINGERPRINT, PROJECT_ID)
+        challenge, canary, actual_project_id = get_challenge(user_key, FINGERPRINT, PROJECT_ID, mtls_cert)
         print(f"[Шаг 1] ✓ Challenge получен")
         print(f"[Шаг 1] ✓ Ключ найден на сервере!")
         # Используем project_id из ответа сервера
@@ -357,7 +569,7 @@ def check_license(user_key: str, game_name: str) -> str:
     # Шаг 2: Отправляем connect запрос
     print("\n[Шаг 2] Отправка connect запроса...")
     try:
-        result = connect(user_key, challenge, canary, FINGERPRINT, game_name, project_id_to_use)
+        result = connect(user_key, challenge, canary, FINGERPRINT, game_name, project_id_to_use, mtls_cert)
         # Если получили ошибку, но challenge был получен - ключ найден
         if not result.startswith("VALID") and ("403" in result or "Доступ запрещен" in result):
             return f"✓ Ключ найден на сервере!\n   Challenge получен успешно.\n   {result}"
