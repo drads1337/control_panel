@@ -51,20 +51,9 @@ if [ -f \"${CA_CERT_PATH}\" ]; then
 else
     echo '⚠️  CA сертификат не найден'
     echo '   Попытка создания CA через Python...'
-    python -c \"
-from backend.utils.mtls_manager import MTLSProjectManager
-from backend.models.project import Project
-from backend.core.extensions import db
-
-# Получаем проект
-project = Project.query.filter_by(unique_id='${PROJECT_ID}').first()
-if project:
-    manager = MTLSProjectManager()
-    manager.ensure_project_ca(project.unique_id, project.name)
-    print('✅ CA создан успешно')
-else:
-    print('❌ Проект не найден')
-\"
+    python /app/scripts/create_project_ca.py ${PROJECT_ID} || {
+        echo '⚠️  Ошибка создания CA, попробуем автоматически при подключении'
+    }
 fi
 
 if [ -f \"${CLIENT_CERT_PATH}\" ] && [ -f \"${CLIENT_KEY_PATH}\" ]; then
