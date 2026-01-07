@@ -58,8 +58,9 @@ USER appuser
 EXPOSE 5001
 
 # Health check
+# Use lightweight liveness probe that exists in the app
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:5001/api/system/health || exit 1
+    CMD curl -f http://localhost:5001/api/health/live || exit 1
 
 # Default command (can be overridden in docker-compose)
 CMD ["gunicorn", "-c", "backend/scripts/gunicorn.conf.py", "backend.scripts.wsgi:application"]
