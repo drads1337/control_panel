@@ -480,13 +480,16 @@ export default defineConfig(({ mode }) => {
           // Better tree-shaking and dead code elimination
           generatedCode: {
             constBindings: true, // Use const instead of var for better tree-shaking
-            preset: 'es2015', // Use ES2015 preset for better compatibility
+            // Use es2015 preset for better compatibility
+            preset: 'es2015',
             // Ensure no CommonJS exports are generated - force ESM only
             objectShorthand: true,
             arrowFunctions: true,
             // Explicitly prevent CommonJS code generation
             symbols: true,
           },
+          // Ensure proper interop handling for ESM output
+          interop: 'compat', // Better compatibility with mixed ESM/CJS
           // Optimize chunk loading
           compact: true, // Compact output for smaller files
         },
@@ -506,6 +509,8 @@ export default defineConfig(({ mode }) => {
         ignore: [],
         // Convert require() calls to imports
         sourceMap: false,
+        // Ensure dynamic requires are transformed properly
+        dynamicRequireTargets: [],
       },
       // Additional optimizations for smaller bundles
       assetsInlineLimit: 4096, // Inline small assets (<4KB) as base64 to reduce HTTP requests
@@ -527,6 +532,8 @@ export default defineConfig(({ mode }) => {
         'react-map-gl/mapbox',
         'mapbox-gl',
         'axios', // Pre-bundle axios to fix Node.js module issues
+        'util', // Pre-bundle util to ensure proper CommonJS transformation
+        'framer-motion', // Pre-bundle framer-motion to ensure proper transformation
       ],
       // Exclude heavy dependencies from pre-bundling to reduce initial load
       exclude: [
