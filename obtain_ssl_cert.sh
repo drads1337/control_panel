@@ -19,24 +19,52 @@ mkdir -p letsencrypt/var/lib/letsencrypt
 mkdir -p letsencrypt/var/log/letsencrypt
 
 # Проверка, что nginx запущен
-if ! docker compose ps nginx | grep -q "Up"; then
+if ! docker compose -f docker-compose.yml -f docker-compose.prod.yml ps nginx 2>/dev/null | grep -q "Up"; then
     echo "⚠️  Nginx не запущен. Запускаю контейнеры..."
-    docker compose up -d nginx
-    echo "⏳ Ожидание запуска nginx (5 секунд)..."
-    sleep 5
+    docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d nginx
+    echo "⏳ Ожидание запуска nginx (10 секунд)..."
+    sleep 10
+fi
+
+# Проверка доступности домена
+echo "🔍 Проверка доступности домена $DOMAIN..."
+if ! curl -s -o /dev/null -w "%{http_code}" "http://$DOMAIN/.well-known/acme-challenge/test" | grep -q "404\|403"; then
+    echo "⚠️  Предупреждение: домен может быть недоступен или nginx не настроен для ACME challenge"
+    echo "   Убедитесь, что:"
+    echo "   1. Домен $DOMAIN указывает на этот сервер (A-запись)"
+    echo "   2. Порт 80 открыт"
+    echo "   3. Nginx настроен для обработки /.well-known/acme-challenge/"
+    read -p "Продолжить? (y/n) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        exit 1
+    fi
 fi
 
 # Получение сертификатов
 echo "📜 Запрос сертификатов от Let's Encrypt..."
-docker compose run --rm certbot certonly \
+echo "   Это может занять несколько минут..."
+docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm certbot certonly \
     --webroot \
     --webroot-path=/var/www/certbot \
     --email "$EMAIL" \
     --agree-tos \
     --no-eff-email \
-    --force-renewal \
+    --non-interactive \
     -d "$DOMAIN" \
-    -d "www.$DOMAIN"
+    -d "www.$DOMAIN" || {
+    echo ""
+    echo "❌ Ошибка при получении сертификатов!"
+    echo ""
+    echo "Возможные причины:"
+    echo "  1. Домен не указывает на этот сервер"
+    echo "  2. Порт 80 закрыт или заблокирован"
+    echo "  3. Nginx не настроен для ACME challenge"
+    echo "  4. Превышен лимит запросов Let's Encrypt (5 в неделю на домен)"
+    echo ""
+    echo "Проверьте логи: docker compose logs certbot"
+    exit 1
+}
 
 echo ""
 echo "✅ Сертификаты получены!"
@@ -58,7 +86,10 @@ sed -i.bak \
 echo "✅ Конфигурация обновлена!"
 echo ""
 echo "🔄 Перезагрузка nginx для применения сертификатов..."
-docker compose exec nginx nginx -s reload
+docker compose -f docker-compose.yml -f docker-compose.prod.yml exec nginx nginx -s reload || {
+    echo "⚠️  Не удалось перезагрузить nginx. Попробуйте перезапустить контейнер:"
+    echo "   docker compose -f docker-compose.yml -f docker-compose.prod.yml restart nginx"
+}
 
 echo ""
 echo "✅ Готово! SSL сертификаты Let's Encrypt установлены и применены."

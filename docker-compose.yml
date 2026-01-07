@@ -262,17 +262,17 @@ services:
     restart: unless-stopped
 
   # Certbot for Let's Encrypt SSL certificates
+  # Note: Certbot runs on-demand via scripts, not as a persistent service
   certbot:
     image: certbot/certbot:latest
-    container_name: panel_certbot
     volumes:
       - ./letsencrypt:/etc/letsencrypt
       - ./letsencrypt/var/lib/letsencrypt:/var/lib/letsencrypt
       - ./letsencrypt/var/log/letsencrypt:/var/log/letsencrypt
+      - ./letsencrypt/var/www/certbot:/var/www/certbot
     networks:
       - panel_network
-    # Certbot runs on-demand via scripts, not as a service
-    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do sleep 12h & wait $${!}; done;'"
+    # No entrypoint - certbot runs on-demand via docker compose run
 
 volumes:
   postgres_data:
