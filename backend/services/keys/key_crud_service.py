@@ -450,8 +450,11 @@ class KeyCRUDService:
 
 
 
-                is_expired = key.status == 1 and key.expires_at and key.expires_at <= datetime.utcnow()
-                is_active = key.status == 1 and (not key.expires_at or not is_expired)
+                # Ensure boolean values for Pydantic schema:
+                # - Avoid 'and' chain returning None when expires_at is None
+                now_utc = datetime.utcnow()
+                is_expired = (key.status == 1) and (key.expires_at is not None) and (key.expires_at <= now_utc)
+                is_active = key.status == 1 and (key.expires_at is None or not is_expired)
 
                 self.logger.info(
                     f"🔑 Key {key.id}: status={key.status}, expires_at={key.expires_at}, is_active={is_active}, product_name={product_name}"
@@ -590,14 +593,17 @@ class KeyCRUDService:
                 agent_id=key.agent_id,
                 status=key.status,
                 is_active=key.status == 1
-                and (not key.expires_at or key.expires_at > datetime.utcnow()),
-                is_expired=key.expires_at and key.expires_at <= datetime.utcnow(),
+                and (key.expires_at is None or key.expires_at > datetime.utcnow()),
+                is_expired=(key.expires_at is not None)
+                and (key.expires_at <= datetime.utcnow()),
                 created_at=key.created_at.isoformat() if key.created_at else None,
                 expires_at=key.expires_at.isoformat() if key.expires_at else None,
                 activated_at=key.activated_at.isoformat() if key.activated_at else None,
                 max_devices=key.max_devices,
                 device_count=(
-                    len([d.strip() for d in key.devices.split(",") if d.strip()]) if key.devices else 0
+                    len([d.strip() for d in key.devices.split(",") if d.strip()])
+                    if key.devices
+                    else 0
                 ),
                 duration_hours=key.duration_hours,
                 project_id=key.project_id,

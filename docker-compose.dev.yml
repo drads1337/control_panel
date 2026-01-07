@@ -10,6 +10,10 @@ services:
     environment:
       FLASK_ENV: development
       FLASK_DEBUG: 1
+      # Dev defaults (override empty defaults from docker-compose.yml).
+      # For real deployments, set these via `.env` / environment variables.
+      OFFLINE_TICKET_SECRET: ${OFFLINE_TICKET_SECRET:-dev-offline-ticket-secret-change-me-32chars-min}
+      TOKEN_STATIC_WORD: ${TOKEN_STATIC_WORD:-dev-token-static-word-change-me-32chars-min}
     command: >
       sh -c "
         echo 'Waiting for database to be ready...' &&
@@ -25,21 +29,29 @@ services:
     environment:
       FLASK_ENV: development
       FLASK_DEBUG: 1
+      OFFLINE_TICKET_SECRET: ${OFFLINE_TICKET_SECRET:-dev-offline-ticket-secret-change-me-32chars-min}
+      TOKEN_STATIC_WORD: ${TOKEN_STATIC_WORD:-dev-token-static-word-change-me-32chars-min}
     # Celery workers будут перезагружаться при изменении файлов благодаря volume
 
   celery_worker_server:
     environment:
       FLASK_ENV: development
       FLASK_DEBUG: 1
+      OFFLINE_TICKET_SECRET: ${OFFLINE_TICKET_SECRET:-dev-offline-ticket-secret-change-me-32chars-min}
+      TOKEN_STATIC_WORD: ${TOKEN_STATIC_WORD:-dev-token-static-word-change-me-32chars-min}
 
   celery_worker_keys:
     environment:
       FLASK_ENV: development
       FLASK_DEBUG: 1
+      OFFLINE_TICKET_SECRET: ${OFFLINE_TICKET_SECRET:-dev-offline-ticket-secret-change-me-32chars-min}
+      TOKEN_STATIC_WORD: ${TOKEN_STATIC_WORD:-dev-token-static-word-change-me-32chars-min}
 
   flower:
     environment:
       FLASK_ENV: development
+      OFFLINE_TICKET_SECRET: ${OFFLINE_TICKET_SECRET:-dev-offline-ticket-secret-change-me-32chars-min}
+      TOKEN_STATIC_WORD: ${TOKEN_STATIC_WORD:-dev-token-static-word-change-me-32chars-min}
 
   # Для фронтенда в режиме разработки лучше запускать Vite dev server локально
   # или использовать volume для dist. Здесь отключаем nginx для dev режима

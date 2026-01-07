@@ -42,7 +42,6 @@
 #include <openssl/x509.h>
 
 // Project includes
-#include "LOGIN/StrEnc.h"
 #include "LOGIN/Login.h"
 #include "LOGIN/cpr/cpr.h"
 #include "LOGIN/json.hpp"
@@ -230,6 +229,16 @@ std::string GetClipboardText(android_app* app) {
 
     if (env && env->ExceptionCheck()) env->ExceptionClear();
     if (app && app->activity && app->activity->vm) app->activity->vm->DetachCurrentThread();
+    return result;
+}
+
+// String decryption function (XOR-based)
+std::string StrEnc(const char* encrypted, const char* key, size_t length) {
+    std::string result;
+    result.reserve(length);
+    for (size_t i = 0; i < length; ++i) {
+        result += static_cast<char>(encrypted[i] ^ key[i]);
+    }
     return result;
 }
 
@@ -428,10 +437,10 @@ std::string decrypt_with_master_key(const std::string& encrypted_data_b64, const
 class ApiClient {
 public:
     static cpr::Session createSession() {
-    cpr::Session session;
-    session.SetHeader({{"Content-Type", "application/json"}});
+        cpr::Session session;
+        session.SetHeader({{"Content-Type", "application/json"}});
         session.SetTimeout(cpr::Timeout{10000});
-    session.SetSslOptions(cpr::Ssl(cpr::ssl::TLSv1_2{}, cpr::ssl::VerifyHost{false}, cpr::ssl::VerifyPeer{false}));
+        session.SetSslOptions(cpr::Ssl(cpr::ssl::TLSv1_2{}, cpr::ssl::VerifyHost{false}, cpr::ssl::VerifyPeer{false}));
         return session;
     }
 
@@ -441,96 +450,96 @@ public:
         cpr::Session session = createSession();
         session.SetUrl(std::string(SERVER_URL) + "/api/challenge");
 
-    json challenge_data;
-    challenge_data["user_key"] = user_key;
-    challenge_data["fingerprint"] = fingerprint;
-    challenge_data["project_id"] = g_ProjectId;
+        json challenge_data;
+        challenge_data["user_key"] = user_key;
+        challenge_data["fingerprint"] = fingerprint;
+        challenge_data["project_id"] = g_ProjectId;
 
-    session.SetBody(cpr::Body{challenge_data.dump()});
-    LOGI("GetChallenge: Request JSON = %s", challenge_data.dump().c_str());
+        session.SetBody(cpr::Body{challenge_data.dump()});
+        LOGI("GetChallenge: Request JSON = %s", challenge_data.dump().c_str());
 
-    cpr::Response response = session.Post();
-    LOGI("GetChallenge: Response status=%d", response.status_code);
+        cpr::Response response = session.Post();
+        LOGI("GetChallenge: Response status=%d", response.status_code);
 
-    if (response.status_code == 200) {
-        try {
-            json result = json::parse(response.text);
-            std::string canary = result["canary"];
+        if (response.status_code == 200) {
+            try {
+                json result = json::parse(response.text);
+                std::string canary = result["canary"];
 
-            std::string challenge;
-            if (result.contains("challenge") && result["challenge"].is_object()) {
-                if (result["challenge"].contains("challenges") &&
-                    result["challenge"]["challenges"].contains("crypto") &&
-                    result["challenge"]["challenges"]["crypto"].contains("challenges")) {
+                std::string challenge;
+                if (result.contains("challenge") && result["challenge"].is_object()) {
+                    if (result["challenge"].contains("challenges") &&
+                        result["challenge"]["challenges"].contains("crypto") &&
+                        result["challenge"]["challenges"]["crypto"].contains("challenges")) {
 
-                    auto crypto_challenges = result["challenge"]["challenges"]["crypto"]["challenges"];
+                        auto crypto_challenges = result["challenge"]["challenges"]["crypto"]["challenges"];
 
-                    if (crypto_challenges.contains("sha256") && crypto_challenges["sha256"].contains("input")) {
-                        challenge = crypto_challenges["sha256"]["input"];
-                    } else if (crypto_challenges.contains("combined") && crypto_challenges["combined"].contains("input")) {
-                        challenge = crypto_challenges["combined"]["input"];
-                    } else if (crypto_challenges.contains("md5") && crypto_challenges["md5"].contains("input")) {
-                        challenge = crypto_challenges["md5"]["input"];
-                    } else {
+                        if (crypto_challenges.contains("sha256") && crypto_challenges["sha256"].contains("input")) {
+                            challenge = crypto_challenges["sha256"]["input"];
+                        } else if (crypto_challenges.contains("combined") && crypto_challenges["combined"].contains("input")) {
+                            challenge = crypto_challenges["combined"]["input"];
+                        } else if (crypto_challenges.contains("md5") && crypto_challenges["md5"].contains("input")) {
+                            challenge = crypto_challenges["md5"]["input"];
+                        } else {
                             LOGE("GetChallenge: Could not find challenge input");
+                            return "";
+                        }
+                    } else {
+                        LOGE("GetChallenge: Invalid challenge structure");
                         return "";
                     }
+                } else if (result.contains("challenge") && result["challenge"].is_string()) {
+                    challenge = result["challenge"];
                 } else {
-                        LOGE("GetChallenge: Invalid challenge structure");
+                    LOGE("GetChallenge: Invalid challenge format");
                     return "";
                 }
-            } else if (result.contains("challenge") && result["challenge"].is_string()) {
-                challenge = result["challenge"];
-            } else {
-                    LOGE("GetChallenge: Invalid challenge format");
-                return "";
-            }
 
-            if (result.contains("project_id")) {
-                g_ProjectId = std::to_string(result["project_id"].get<int>());
-            }
+                if (result.contains("project_id")) {
+                    g_ProjectId = std::to_string(result["project_id"].get<int>());
+                }
 
                 LOGI("GetChallenge: SUCCESS");
                 return challenge + "|" + canary;
-        } catch (const std::exception& e) {
-            LOGE("GetChallenge: JSON parsing error: %s", e.what());
+            } catch (const std::exception& e) {
+                LOGE("GetChallenge: JSON parsing error: %s", e.what());
+                return "";
+            }
+        } else {
+            LOGE("GetChallenge: Server error: %d", response.status_code);
             return "";
         }
-    } else {
-        LOGE("GetChallenge: Server error: %d", response.status_code);
-        return "";
     }
-}
 
     static std::string connect(const std::string& user_key,
-                                 const std::string& challenge_data,
-                                 const std::string& fingerprint,
-                                 const std::string& game_name,
-                                 const std::string& serial,
-                                 const std::string& android_id,
-                                 const std::string& device_model,
-                                 const std::string& device_brand) {
-    LOGI("ConnectWithChallenge: START");
+                               const std::string& challenge_data,
+                               const std::string& fingerprint,
+                               const std::string& game_name,
+                               const std::string& serial,
+                               const std::string& android_id,
+                               const std::string& device_model,
+                               const std::string& device_brand) {
+        LOGI("ConnectWithChallenge: START");
 
-    size_t separator = challenge_data.find("|");
-    if (separator == std::string::npos) {
-        LOGE("ConnectWithChallenge: Invalid challenge data format");
-        return "Ошибка: Неверный формат challenge";
-    }
+        size_t separator = challenge_data.find("|");
+        if (separator == std::string::npos) {
+            LOGE("ConnectWithChallenge: Invalid challenge data format");
+            return "Ошибка: Неверный формат challenge";
+        }
 
-    std::string challenge = challenge_data.substr(0, separator);
-    std::string canary = challenge_data.substr(separator + 1);
+        std::string challenge = challenge_data.substr(0, separator);
+        std::string canary = challenge_data.substr(separator + 1);
 
-    std::string challenge_response;
-    if (challenge.length() > 100) {
-        challenge_response = sha256(challenge);
-    } else {
-        challenge_response = sha256(challenge + user_key + fingerprint);
-    }
+        std::string challenge_response;
+        if (challenge.length() > 100) {
+            challenge_response = sha256(challenge);
+        } else {
+            challenge_response = sha256(challenge + user_key + fingerprint);
+        }
 
-    std::string nonce = random_hex(16);
+        std::string nonce = random_hex(16);
 
-    json data;
+        json data;
         data["a"] = user_key;
         data["b"] = challenge_response;
         data["c"] = canary;
@@ -543,49 +552,49 @@ public:
         data["j"] = nonce;
         data["k"] = g_ProjectId;
 
-    std::string encrypted_blob = encrypt_with_master_key(data.dump(), MASTER_KEY);
+        std::string encrypted_blob = encrypt_with_master_key(data.dump(), MASTER_KEY);
 
         cpr::Session session = createSession();
-    session.SetUrl(std::string(SERVER_URL) + "/api/connect");
+        session.SetUrl(std::string(SERVER_URL) + "/api/connect");
 
-    json request_data;
-    request_data["blob"] = encrypted_blob;
-    session.SetBody(cpr::Body{request_data.dump()});
+        json request_data;
+        request_data["blob"] = encrypted_blob;
+        session.SetBody(cpr::Body{request_data.dump()});
 
-    cpr::Response response = session.Post();
+        cpr::Response response = session.Post();
         LOGI("ConnectWithChallenge: Response status=%d", response.status_code);
 
-    if (response.status_code == 200) {
-        try {
-            std::string decrypted_response = decrypt_with_master_key(response.text, MASTER_KEY);
-            json result = json::parse(decrypted_response);
+        if (response.status_code == 200) {
+            try {
+                std::string decrypted_response = decrypt_with_master_key(response.text, MASTER_KEY);
+                json result = json::parse(decrypted_response);
 
-            if (result.contains("error")) {
+                if (result.contains("error")) {
                     return "Ошибка сервера: " + result["error"].get<std::string>();
-            }
-
-            if (result.contains("a") && result.contains("d") && result.contains("f")) {
-                    std::string token = result["a"].get<std::string>() + 
-                                       result["d"].get<std::string>() + 
-                                       result["f"].get<std::string>();
-
-                if (result.contains("project_id")) {
-                    g_ProjectId = std::to_string(result["project_id"].get<int>());
                 }
 
-                std::string expires_at = result.value("expires_at", "Never");
+                if (result.contains("a") && result.contains("d") && result.contains("f")) {
+                    std::string token = result["a"].get<std::string>() +
+                                        result["d"].get<std::string>() +
+                                        result["f"].get<std::string>();
+
+                    if (result.contains("project_id")) {
+                        g_ProjectId = std::to_string(result["project_id"].get<int>());
+                    }
+
+                    std::string expires_at = result.value("expires_at", "Never");
                     std::string seconds_left = result.value("seconds_left_human", "Unknown");
 
                     LOGI("ConnectWithChallenge: SUCCESS");
                     return "VALID|" + expires_at + "|" + seconds_left;
-            } else {
-                return "Ошибка: Неверный формат ответа сервера";
+                } else {
+                    return "Ошибка: Неверный формат ответа сервера";
+                }
+            } catch (const std::exception& e) {
+                LOGE("ConnectWithChallenge: Decryption/parsing error: %s", e.what());
+                return "Ошибка расшифровки ответа: " + std::string(e.what());
             }
-        } catch (const std::exception& e) {
-            LOGE("ConnectWithChallenge: Decryption/parsing error: %s", e.what());
-            return "Ошибка расшифровки ответа: " + std::string(e.what());
-        }
-    } else {
+        } else {
             try {
                 json error_json = json::parse(response.text);
                 if (error_json.contains("error")) {
@@ -593,11 +602,11 @@ public:
                     if (server_error == "Key not found") {
                         return "Ключ лицензии не найден на сервере";
                     }
-                        return "Ошибка сервера: " + server_error;
-                    }
+                    return "Ошибка сервера: " + server_error;
+                }
             } catch (...) {
                 try {
-                std::string decrypted_error = decrypt_with_master_key(response.text, MASTER_KEY);
+                    std::string decrypted_error = decrypt_with_master_key(response.text, MASTER_KEY);
                     json error_json = json::parse(decrypted_error);
                     if (error_json.contains("error")) {
                         return "Ошибка сервера: " + error_json["error"].get<std::string>();
@@ -618,28 +627,28 @@ public:
     static std::string checkLicense(const char* user_key, const char* game_name, JNIEnv* env, jobject context) {
         LOGI("CheckLicense: START - user_key=%s", user_key);
 
-    if (!user_key || strlen(user_key) == 0) {
-        return "Ошибка: Ключ лицензии не может быть пустым";
-    }
+        if (!user_key || strlen(user_key) == 0) {
+            return "Ошибка: Ключ лицензии не может быть пустым";
+        }
 
         std::string android_id = getAndroidId(env, context);
         std::string device_model = getDeviceModel(env);
         std::string device_brand = getDeviceBrand(env);
 
-    std::string fingerprint = sha256(android_id + "-" + device_model + "-" + device_brand);
-    std::string serial = android_id;
+        std::string fingerprint = sha256(android_id + "-" + device_model + "-" + device_brand);
+        std::string serial = android_id;
 
         std::string challenge_data = ApiClient::getChallenge(user_key, fingerprint);
-    if (challenge_data.empty()) {
-        return "Ошибка: Не удалось получить challenge от сервера";
-    }
+        if (challenge_data.empty()) {
+            return "Ошибка: Не удалось получить challenge от сервера";
+        }
 
         std::string result = ApiClient::connect(user_key, challenge_data, fingerprint,
                                                 game_name ? game_name : "", serial,
                                                 android_id, device_model, device_brand);
 
-    return result;
-}
+        return result;
+    }
 
 private:
     static std::string getAndroidId(JNIEnv* env, jobject context) {
@@ -774,109 +783,109 @@ void android_main(struct android_app* app) {
 
         // Main Window
         ImVec2 windowSize(380 * scaleFactor, 0);
-            ImVec2 windowPos((width - windowSize.x) * 0.5f, height * 0.15f);
-            ImGui::SetNextWindowPos(windowPos, ImGuiCond_FirstUseEver);
-            ImGui::SetNextWindowSize(windowSize, ImGuiCond_FirstUseEver);
+        ImVec2 windowPos((width - windowSize.x) * 0.5f, height * 0.15f);
+        ImGui::SetNextWindowPos(windowPos, ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(windowSize, ImGuiCond_FirstUseEver);
 
-            ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 15.0f);
-            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(20.0f, 20.0f));
-            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 15.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(20.0f, 20.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8.0f);
         ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.08f, 0.08f, 0.12f, 0.95f));
         ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.2f, 0.4f, 0.8f, 0.6f));
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.95f, 1.0f));
 
         if (ImGui::Begin("Проверка лицензии", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize)) {
             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.8f, 1.0f, 1.0f));
-                ImGui::Text("Игра: %s", g_gameName.empty() ? "Не указана" : g_gameName.c_str());
-                ImGui::PopStyleColor();
-                ImGui::Separator();
-                ImGui::Spacing();
+            ImGui::Text("Игра: %s", g_gameName.empty() ? "Не указана" : g_gameName.c_str());
+            ImGui::PopStyleColor();
+            ImGui::Separator();
+            ImGui::Spacing();
 
-                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.9f, 1.0f, 1.0f));
-                    ImGui::Text("Введите ключ лицензии:");
-                    ImGui::PopStyleColor();
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.9f, 1.0f, 1.0f));
+            ImGui::Text("Введите ключ лицензии:");
+            ImGui::PopStyleColor();
 
-                    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.12f, 0.12f, 0.18f, 0.8f));
-                    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.15f, 0.15f, 0.22f, 0.9f));
-                    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.18f, 0.18f, 0.25f, 1.0f));
-                    ImGui::PushItemWidth(-1);
-                    ImGui::InputText("##key", keyInput, sizeof(keyInput), ImGuiInputTextFlags_Password);
-                    ImGui::PopItemWidth();
+            ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.12f, 0.12f, 0.18f, 0.8f));
+            ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.15f, 0.15f, 0.22f, 0.9f));
+            ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.18f, 0.18f, 0.25f, 1.0f));
+            ImGui::PushItemWidth(-1);
+            ImGui::InputText("##key", keyInput, sizeof(keyInput), ImGuiInputTextFlags_Password);
+            ImGui::PopItemWidth();
             ImGui::PopStyleColor(3);
 
-                    ImGui::Spacing();
+            ImGui::Spacing();
 
-                    if (ImGui::Button("Вставить из буфера", ImVec2(-FLT_MIN, 45 * scaleFactor))) {
-                        const char* clipboard = ImGui::GetIO().GetClipboardTextFn(ImGui::GetIO().ClipboardUserData);
-                        if (clipboard) {
-                            strncpy(keyInput, clipboard, sizeof(keyInput) - 1);
-                            keyInput[sizeof(keyInput) - 1] = '\0';
-                        }
-                    }
+            if (ImGui::Button("Вставить из буфера", ImVec2(-FLT_MIN, 45 * scaleFactor))) {
+                const char* clipboard = ImGui::GetIO().GetClipboardTextFn(ImGui::GetIO().ClipboardUserData);
+                if (clipboard) {
+                    strncpy(keyInput, clipboard, sizeof(keyInput) - 1);
+                    keyInput[sizeof(keyInput) - 1] = '\0';
+                }
+            }
 
-                    ImGui::Spacing();
+            ImGui::Spacing();
 
-                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.7f, 0.3f, 0.8f));
-                    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.8f, 0.4f, 0.9f));
-                    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.6f, 0.2f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.7f, 0.3f, 0.8f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.8f, 0.4f, 0.9f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.6f, 0.2f, 1.0f));
             if (ImGui::Button(isLoading ? "Проверяем..." : "Проверить", ImVec2(-FLT_MIN, 50 * scaleFactor))) {
                 if (!isLoading && strlen(keyInput) > 0) {
-                            isLoading = true;
-                            loadingProgress = 0.0f;
-                            loadingText = "Подключаемся к серверу...";
-                            statusMessage = "Проверяем лицензию...";
+                    isLoading = true;
+                    loadingProgress = 0.0f;
+                    loadingText = "Подключаемся к серверу...";
+                    statusMessage = "Проверяем лицензию...";
 
-                            JNIEnv* env = nullptr;
-                            app->activity->vm->AttachCurrentThread(&env, nullptr);
-                            jobject context = app->activity->clazz;
+                    JNIEnv* env = nullptr;
+                    app->activity->vm->AttachCurrentThread(&env, nullptr);
+                    jobject context = app->activity->clazz;
 
                     std::string result = LicenseChecker::checkLicense(keyInput, g_gameName.c_str(), env, context);
-                            app->activity->vm->DetachCurrentThread();
+                    app->activity->vm->DetachCurrentThread();
 
-                            if (result.substr(0, 5) == "VALID") {
-                                size_t first_pipe = result.find("|");
-                                if (first_pipe != std::string::npos) {
-                                    size_t second_pipe = result.find("|", first_pipe + 1);
-                                    if (second_pipe != std::string::npos) {
-                                        std::string expires_at = result.substr(first_pipe + 1, second_pipe - first_pipe - 1);
-                                        std::string seconds_left = result.substr(second_pipe + 1);
+                    if (result.substr(0, 5) == "VALID") {
+                        size_t first_pipe = result.find("|");
+                        if (first_pipe != std::string::npos) {
+                            size_t second_pipe = result.find("|", first_pipe + 1);
+                            if (second_pipe != std::string::npos) {
+                                std::string expires_at = result.substr(first_pipe + 1, second_pipe - first_pipe - 1);
+                                std::string seconds_left = result.substr(second_pipe + 1);
                                 statusMessage = "Лицензия действительна!\nИстекает: " + expires_at + "\nОсталось: " + seconds_left;
-                                    } else {
+                            } else {
                                 statusMessage = "Лицензия действительна!\nИстекает: " + result.substr(first_pipe + 1);
-                                    }
-                                } else {
+                            }
+                        } else {
                             statusMessage = "Лицензия действительна!";
                         }
-                            } else {
+                    } else {
                         statusMessage = "Ошибка: " + result;
-                            }
+                    }
 
-                            isLoading = false;
-                            loadingProgress = 0.0f;
+                    isLoading = false;
+                    loadingProgress = 0.0f;
                 } else if (strlen(keyInput) == 0) {
                     statusMessage = "Пожалуйста, введите ключ лицензии";
-                        }
-                    }
-                    ImGui::PopStyleColor(3);
-
-                        if (isLoading) {
-                        ImGui::Separator();
-                        ImGui::Spacing();
-                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.2f, 0.8f, 1.0f, 1.0f));
-                    ImGui::Text("%s", loadingText.c_str());
-                    ImGui::PopStyleColor();
-                    ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImVec4(0.2f, 0.8f, 1.0f, 0.8f));
-                    ImGui::ProgressBar(loadingProgress, ImVec2(-FLT_MIN, 25 * scaleFactor));
-                    ImGui::PopStyleColor();
                 }
+            }
+            ImGui::PopStyleColor(3);
 
+            if (isLoading) {
                 ImGui::Separator();
                 ImGui::Spacing();
-            ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + windowSize.x - 32.0f);
-                ImGui::TextWrapped("%s", statusMessage.c_str());
-                ImGui::PopTextWrapPos();
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.2f, 0.8f, 1.0f, 1.0f));
+                ImGui::Text("%s", loadingText.c_str());
+                ImGui::PopStyleColor();
+                ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImVec4(0.2f, 0.8f, 1.0f, 0.8f));
+                ImGui::ProgressBar(loadingProgress, ImVec2(-FLT_MIN, 25 * scaleFactor));
+                ImGui::PopStyleColor();
             }
-            ImGui::End();
+
+            ImGui::Separator();
+            ImGui::Spacing();
+            ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + windowSize.x - 32.0f);
+            ImGui::TextWrapped("%s", statusMessage.c_str());
+            ImGui::PopTextWrapPos();
+        }
+        ImGui::End();
 
         ImGui::PopStyleColor(3);
         ImGui::PopStyleVar(3);
