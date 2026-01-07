@@ -87,6 +87,12 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
       PRODUCTION_CORS_ORIGINS: ${PRODUCTION_CORS_ORIGINS:-}
       
+      # mTLS (Mutual TLS)
+      MTLS_ENABLED: ${MTLS_ENABLED:-false}
+      MTLS_CA_CERT_PATH: ${MTLS_CA_CERT_PATH:-/etc/nginx/ssl/ca-cert.pem}
+      MTLS_REQUIRED_CN: ${MTLS_REQUIRED_CN:-}
+      MTLS_REQUIRE_WSGI_VARS: ${MTLS_REQUIRE_WSGI_VARS:-true}
+      
       # Celery
       CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-change_me_in_production}@redis:6379/1
       CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-change_me_in_production}@redis:6379/2
@@ -135,6 +141,11 @@ services:
       PROJECT_MASTER_KEY: ${PROJECT_MASTER_KEY:-}
       OFFLINE_TICKET_SECRET: ${OFFLINE_TICKET_SECRET:-}
       FLASK_ENV: ${FLASK_ENV:-production}
+      # mTLS (Mutual TLS)
+      MTLS_ENABLED: ${MTLS_ENABLED:-false}
+      MTLS_CA_CERT_PATH: ${MTLS_CA_CERT_PATH:-/etc/nginx/ssl/ca-cert.pem}
+      MTLS_REQUIRED_CN: ${MTLS_REQUIRED_CN:-}
+      MTLS_REQUIRE_WSGI_VARS: ${MTLS_REQUIRE_WSGI_VARS:-true}
     volumes:
       - ./backend:/app/backend
       - ./uploads:/app/uploads
@@ -168,6 +179,11 @@ services:
       PROJECT_MASTER_KEY: ${PROJECT_MASTER_KEY:-}
       OFFLINE_TICKET_SECRET: ${OFFLINE_TICKET_SECRET:-}
       FLASK_ENV: ${FLASK_ENV:-production}
+      # mTLS (Mutual TLS)
+      MTLS_ENABLED: ${MTLS_ENABLED:-false}
+      MTLS_CA_CERT_PATH: ${MTLS_CA_CERT_PATH:-/etc/nginx/ssl/ca-cert.pem}
+      MTLS_REQUIRED_CN: ${MTLS_REQUIRED_CN:-}
+      MTLS_REQUIRE_WSGI_VARS: ${MTLS_REQUIRE_WSGI_VARS:-true}
     volumes:
       - ./backend:/app/backend
       - ./uploads:/app/uploads
@@ -201,6 +217,11 @@ services:
       PROJECT_MASTER_KEY: ${PROJECT_MASTER_KEY:-}
       OFFLINE_TICKET_SECRET: ${OFFLINE_TICKET_SECRET:-}
       FLASK_ENV: ${FLASK_ENV:-production}
+      # mTLS (Mutual TLS)
+      MTLS_ENABLED: ${MTLS_ENABLED:-false}
+      MTLS_CA_CERT_PATH: ${MTLS_CA_CERT_PATH:-/etc/nginx/ssl/ca-cert.pem}
+      MTLS_REQUIRED_CN: ${MTLS_REQUIRED_CN:-}
+      MTLS_REQUIRE_WSGI_VARS: ${MTLS_REQUIRE_WSGI_VARS:-true}
     volumes:
       - ./backend:/app/backend
       - ./uploads:/app/uploads
@@ -243,7 +264,7 @@ services:
       context: .
       dockerfile: Dockerfile.frontend
       args:
-        VITE_MAPBOX_TOKEN: ${VITE_MAPBOX_TOKEN}
+        VITE_MAPBOX_TOKEN: ${VITE_MAPBOX_TOKEN:-pk.eyJ1IjoiZHJhZHMxMjMiLCJhIjoiY21peWJ4cWZlMDRlZDNkc2RhOGs5a3Q4NyJ9.QhOmR4WaOrkzEMUf51ODaQ}
     container_name: panel_nginx
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro

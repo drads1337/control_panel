@@ -48,7 +48,7 @@ def get_challenge():
     return jsonify(response), status_code
 
 @connect_bp.route("/connect", methods=["POST"])
-# @require_mtls  # Временно отключено для тестирования
+@require_mtls
 @connect_rate_limit(rate_limit=Config.RATE_LIMIT, rate_limit_burst=Config.RATE_LIMIT_BURST)
 def api_connect():
     """
