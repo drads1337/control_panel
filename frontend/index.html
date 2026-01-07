@@ -2,7 +2,8 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/png" href="/src/assets/light-logo.png" />
+    <link rel="apple-touch-icon" href="/src/assets/light-logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!-- DNS prefetch for external resources -->
     <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
@@ -14,9 +15,15 @@
     <!-- Vite will inject preload links for critical chunks during build -->
     <!-- Resource hints for better performance -->
     <!-- Prefetch likely next routes for faster navigation -->
+    <link rel="prefetch" href="/login" />
     <link rel="prefetch" href="/dashboard" />
     <link rel="prefetch" href="/management-page" />
-    <link rel="prefetch" href="/settings" />
+    <link rel="prefetch" href="/users" />
+    <link rel="prefetch" href="/security" />
+    <link rel="prefetch" href="/webhooks" />
+    <link rel="prefetch" href="/logs" />
+    <link rel="prefetch" href="/profile" />
+    <link rel="prefetch" href="/project-settings" />
     <!-- 
       Content Security Policy (CSP)
       
@@ -51,36 +58,38 @@
       http-equiv="Content-Security-Policy" 
       content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https: blob:; font-src 'self' data: https:; connect-src 'self' https: wss: ws:; base-uri 'self'; form-action 'self'; block-all-mixed-content; object-src 'none'; media-src 'self' https:; worker-src 'self' blob:;" 
     />
-    <meta name="description" content="Secure authentication and user management system with role-based access control, project management, and comprehensive admin features." />
-    <meta name="keywords" content="authentication, user management, RBAC, role-based access control, admin panel, project management" />
-    <meta name="author" content="Auth System" />
+    <meta name="description" content="Authora - platform for managing applications, users, products, and access control with comprehensive administration tools." />
+    <meta name="keywords" content="authora, application management, user management, product management, access control, admin panel, RBAC, SaaS platform" />
+    <meta name="author" content="Authora" />
     <meta name="robots" content="index, follow" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Auth System - Secure User Management" />
-    <meta property="og:description" content="Secure authentication and user management system with role-based access control, project management, and comprehensive admin features." />
-    <meta property="og:site_name" content="Auth System" />
+    <meta property="og:title" content="Authora - Application Management Platform" />
+    <meta property="og:description" content="Authora - platform for managing applications, users, products, and access control with comprehensive administration tools." />
+    <meta property="og:image" content="/src/assets/light-logo.png" />
+    <meta property="og:site_name" content="Authora" />
     
     <!-- Twitter -->
     <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="Auth System - Secure User Management" />
-    <meta name="twitter:description" content="Secure authentication and user management system with role-based access control, project management, and comprehensive admin features." />
+    <meta name="twitter:title" content="Authora - Application Management Platform" />
+    <meta name="twitter:description" content="Authora - platform for managing applications, users, products, and access control with comprehensive administration tools." />
+    <meta name="twitter:image" content="/src/assets/light-logo.png" />
     
     <!-- Structured Data -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "WebApplication",
-      "name": "Auth System",
-      "description": "Secure authentication and user management system with role-based access control, project management, and comprehensive admin features.",
+      "name": "Authora",
+      "description": "Platform for managing applications, users, products, and access control with comprehensive administration tools.",
       "applicationCategory": "BusinessApplication",
       "operatingSystem": "Web"
     }
     </script>
     
-    <title>Auth System - Secure User Management</title>
+    <title>Authora - Application Management Platform</title>
   </head>
   <body>
     <div id="root"></div>
