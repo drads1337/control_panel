@@ -134,9 +134,10 @@ def decrypt_with_master_key(encrypted_data_b64: str, master_key_hex: str) -> str
     return plaintext.decode('utf-8')
 
 
-def generate_client_certificates(project_id: str, client_name: str):
+def generate_client_certificates(project_id: str, client_name: str, user_key: str | None = None):
     """
-    Генерирует клиентские сертификаты для проекта используя скрипт mtls_project.sh
+    Генерирует клиентские сертификаты для проекта через API (если user_key предоставлен)
+    или используя локальный скрипт mtls_project.sh
     """
     cert_path, key_path, client_dir = get_client_cert_paths(project_id, client_name)
     
@@ -149,6 +150,87 @@ def generate_client_certificates(project_id: str, client_name: str):
     
     print(f"[mTLS] Генерация клиентских сертификатов для проекта {project_id}...")
     
+    # Если есть user_key, пробуем получить сертификат через API (автоматически, без username/password)
+    if user_key:
+        print(f"[mTLS] Получение сертификата через API с user_key...")
+        try:
+            return _get_cert_via_api(project_id, client_name, user_key, key_path, cert_path, client_dir)
+        except Exception as e:
+            print(f"[mTLS] ⚠ Не удалось получить сертификат через API: {e}")
+            print(f"[mTLS] Пробуем локальную генерацию...")
+    
+    # Локальная генерация (fallback)
+    return _generate_certs_local_script(project_id, client_name, client_dir)
+
+
+def _get_cert_via_api(project_id: str, client_name: str, user_key: str, key_path: Path, cert_path: Path, client_dir: Path) -> tuple[str, str]:
+    """Получение клиентского сертификата через API используя user_key"""
+    import requests
+    
+    # Генерируем приватный ключ
+    client_dir.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        ["openssl", "genrsa", "-out", str(key_path), "2048"],
+        check=True,
+        capture_output=True
+    )
+    os.chmod(key_path, 0o600)
+    print(f"[mTLS] ✓ Приватный ключ создан")
+    
+    # Генерируем CSR
+    csr_path = client_dir / "client.csr"
+    cn = f"project-{project_id}-{client_name}"
+    subprocess.run(
+        [
+            "openssl", "req", "-new", "-key", str(key_path),
+            "-out", str(csr_path),
+            "-subj", f"/C=US/ST=CA/L=San Francisco/O=Panel/CN={cn}"
+        ],
+        check=True,
+        capture_output=True
+    )
+    
+    # Читаем CSR
+    with open(csr_path, "r") as f:
+        csr_pem = f.read()
+    
+    # Отправляем CSR на сервер для подписания (без JWT, только user_key)
+    url = f"{SERVER_URL}/api/projects/{project_id}/mtls/csr-sign-public"
+    data = {
+        "user_key": user_key,
+        "csr_pem": csr_pem,
+        "client_name": client_name
+    }
+    
+    print(f"[mTLS] Отправка CSR на сервер...")
+    response = requests.post(url, json=data, timeout=30)
+    response.raise_for_status()
+    
+    result = response.json()
+    client_cert = result["certificate"]
+    ca_cert = result["ca_certificate"]
+    fingerprint = result["fingerprint"]
+    
+    # Сохраняем клиентский сертификат
+    with open(cert_path, "w") as f:
+        f.write(client_cert)
+    os.chmod(cert_path, 0o644)
+    
+    # Сохраняем CA сертификат (для справки)
+    ca_path = client_dir / "ca-cert.pem"
+    with open(ca_path, "w") as f:
+        f.write(ca_cert)
+    
+    print(f"[mTLS] ✓ Сертификат получен и сохранен через API!")
+    print(f"[mTLS]   Cert: {cert_path}")
+    print(f"[mTLS]   Key: {key_path}")
+    print(f"[mTLS]   Fingerprint: {fingerprint}")
+    
+    return str(cert_path), str(key_path)
+
+
+def _generate_certs_local_script(project_id: str, client_name: str, client_dir: Path) -> tuple[str, str] | tuple[None, None]:
+    """Локальная генерация сертификатов через скрипт (fallback)"""
     # Определяем путь к скрипту
     script_dir = Path(__file__).parent
     mtls_script = script_dir / "scripts" / "mtls_project.sh"
@@ -177,6 +259,8 @@ def generate_client_certificates(project_id: str, client_name: str):
                 print(f"[mTLS] ⚠ Ошибка инициализации CA через скрипт: {result.stderr[:200]}")
                 print(f"[mTLS] Попытка генерации через локальный OpenSSL...")
                 return _generate_certs_local(project_id, client_name, client_dir)
+        
+        cert_path, key_path, _ = get_client_cert_paths(project_id, client_name)
         
         # Генерируем приватный ключ и CSR
         print(f"[mTLS] Генерация приватного ключа...")
@@ -271,10 +355,10 @@ def _generate_certs_local(project_id: str, client_name: str, client_dir: Path):
         return None, None
 
 
-def get_mtls_cert(project_id: str, client_name: str):
+def get_mtls_cert(project_id: str, client_name: str, user_key: str | None = None):
     """
     Возвращает кортеж (cert_path, key_path) для mTLS.
-    Автоматически генерирует сертификаты если их нет.
+    Автоматически получает сертификаты через API (если user_key предоставлен) или генерирует локально.
     """
     cert_path, key_path, _ = get_client_cert_paths(project_id, client_name)
     
@@ -285,16 +369,14 @@ def get_mtls_cert(project_id: str, client_name: str):
         print(f"[mTLS]   Key: {key_path}")
         return (str(cert_path), str(key_path))
     
-    # Пытаемся сгенерировать сертификаты
-    print(f"[mTLS] Сертификаты не найдены, пытаемся сгенерировать...")
-    cert_path_str, key_path_str = generate_client_certificates(project_id, client_name)
+    # Пытаемся получить/сгенерировать сертификаты
+    print(f"[mTLS] Сертификаты не найдены, получаем автоматически...")
+    cert_path_str, key_path_str = generate_client_certificates(project_id, client_name, user_key)
     
     if cert_path_str and key_path_str:
         return (cert_path_str, key_path_str)
     else:
-        print(f"[mTLS] ⚠ Не удалось сгенерировать сертификаты")
-        print(f"[mTLS] 💡 Для автоматического получения сертификата через API используйте:")
-        print(f"[mTLS]    python scripts/get_client_cert_auto.py {project_id} <username> <password>")
+        print(f"[mTLS] ⚠ Не удалось получить сертификаты")
         print(f"[mTLS] Подключение без mTLS (сервер может требовать клиентский сертификат)")
         return None
 
@@ -551,8 +633,8 @@ def check_license(user_key: str, game_name: str) -> str:
     print(f"{'='*60}\n")
     
     # Получаем mTLS сертификаты один раз для всех запросов
-    # Используем project_id из конфигурации (может быть обновлен позже)
-    mtls_cert = get_mtls_cert(PROJECT_ID, CLIENT_NAME)
+    # Автоматически получаем через API используя user_key (без username/password!)
+    mtls_cert = get_mtls_cert(PROJECT_ID, CLIENT_NAME, user_key)
     
     # Шаг 1: Получаем challenge
     print("[Шаг 1] Получение challenge от сервера...")

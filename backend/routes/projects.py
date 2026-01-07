@@ -5,6 +5,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from sqlalchemy import or_
 
 from ..core.extensions import db
+from ..config.config import Config
 from ..utils.service_helpers import get_service
 from ..middleware.auth import (
     enforce_project_scope,
@@ -13,8 +14,10 @@ from ..middleware.auth import (
     require_project_isolation,
     require_project_with_grace_period,
 )
+from ..middleware.rate_limiting import connect_rate_limit
 from ..middleware.validation import validate_request
 from ..models.core import Project, User
+from ..models.keys import Key
 from ..schemas.project import (
     ProjectCreateSchema,
     ProjectUpdateSchema,
@@ -518,6 +521,63 @@ def sign_project_csr(project_id, validated_data=None):
             csr_pem=data.csr_pem,
             client_name=client_name,
         )
+
+        return (
+            jsonify(
+                {
+                    "project_id": project.unique_id,
+                    "client_name": client_name,
+                    "certificate": client_cert,
+                    "ca_certificate": ca_cert,
+                    "fingerprint": fingerprint,
+                    "algorithm": "SHA-256",
+                }
+            ),
+            201,
+        )
+    except Exception as e:
+        logging.error(f"Error signing CSR for project {project_id}: {e}")
+        return jsonify({"error": "Failed to sign CSR"}), 500
+
+
+@projects_bp.route("/projects/<project_id>/mtls/csr-sign-public", methods=["POST"])
+@connect_rate_limit(rate_limit=Config.RATE_LIMIT, rate_limit_burst=Config.RATE_LIMIT_BURST)
+def sign_project_csr_public(project_id):
+    """
+    Sign client CSR with project-specific CA using user_key validation (no JWT required).
+    This endpoint allows clients to get mTLS certificates automatically using only their license key.
+    """
+    try:
+        project = _get_project_by_identifier(project_id)
+        if not project:
+            return jsonify({"error": "Project not found"}), 404
+
+        req_json = request.get_json(silent=True) or {}
+        user_key = req_json.get("user_key")
+        csr_pem = req_json.get("csr_pem")
+        client_name = req_json.get("client_name", "client")
+
+        if not user_key or not csr_pem:
+            return jsonify({"error": "user_key and csr_pem are required"}), 400
+
+        # Валидация user_key - проверяем, что ключ существует и принадлежит проекту
+        key = Key.query.filter_by(key=user_key, project_id=project.id).first()
+        if not key:
+            logging.warning(f"Invalid user_key for CSR signing: {user_key[:10]}... (project: {project_id})")
+            return jsonify({"error": "Invalid user_key for this project"}), 403
+
+        # Проверка статуса ключа
+        if key.status != 1:
+            return jsonify({"error": "Key is not active"}), 403
+
+        # Подписываем CSR
+        client_cert, ca_cert, fingerprint = _mtls_manager.sign_csr(
+            project_id=project.unique_id,
+            csr_pem=csr_pem,
+            client_name=client_name,
+        )
+
+        logging.info(f"CSR signed for user_key {user_key[:10]}... in project {project_id}")
 
         return (
             jsonify(
