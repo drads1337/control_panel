@@ -35,19 +35,71 @@ except ImportError as e:
 }
 echo ""
 
-echo "2. Запуск проверки лицензии..."
+echo "2. Проверка mTLS сертификатов для проекта..."
+echo "---"
+PROJECT_ID="2920317791"
+CLIENT_NAME="test-client"
+
+# Проверяем наличие CA для проекта
+CA_CERT_PATH="/app/nginx/ssl/projects/${PROJECT_ID}/ca/ca-cert.pem"
+CLIENT_CERT_PATH="/app/nginx/ssl/projects/${PROJECT_ID}/clients/${CLIENT_NAME}/client-cert.pem"
+CLIENT_KEY_PATH="/app/nginx/ssl/projects/${PROJECT_ID}/clients/${CLIENT_NAME}/client-key.pem"
+
+docker-compose exec -T api bash -c "
+if [ -f \"${CA_CERT_PATH}\" ]; then
+    echo '✅ CA сертификат найден'
+else
+    echo '⚠️  CA сертификат не найден'
+    echo '   Попытка создания CA через Python...'
+    python -c \"
+from backend.utils.mtls_manager import MTLSProjectManager
+from backend.models.project import Project
+from backend.core.extensions import db
+
+# Получаем проект
+project = Project.query.filter_by(unique_id='${PROJECT_ID}').first()
+if project:
+    manager = MTLSProjectManager()
+    manager.ensure_project_ca(project.unique_id, project.name)
+    print('✅ CA создан успешно')
+else:
+    print('❌ Проект не найден')
+\"
+fi
+
+if [ -f \"${CLIENT_CERT_PATH}\" ] && [ -f \"${CLIENT_KEY_PATH}\" ]; then
+    echo '✅ Клиентские сертификаты найдены'
+else
+    echo '⚠️  Клиентские сертификаты не найдены'
+    echo '   Они будут созданы автоматически при первом запуске check_license.py'
+fi
+" || {
+    echo "⚠️  Ошибка при проверке сертификатов"
+}
+echo ""
+
+echo "3. Запуск проверки лицензии..."
 echo "---"
 echo ""
 
+# Копируем скрипт в контейнер если его там нет
+docker-compose exec -T api test -f /app/check_license.py || {
+    echo "Копирование check_license.py в контейнер..."
+    docker cp check_license.py panel_api_1:/app/check_license.py 2>/dev/null || \
+    docker cp check_license.py $(docker-compose ps -q api):/app/check_license.py 2>/dev/null || {
+        echo "⚠️  Не удалось скопировать скрипт, используем локальный путь"
+    }
+}
+
 # Запускаем скрипт проверки лицензии
-docker-compose exec -T api python /app/check_license.py || {
+docker-compose exec -T api python /app/check_license.py 2>&1 || {
     echo ""
     echo "⚠️  Скрипт завершился с ошибкой"
     echo "Проверьте логи выше"
+    exit 1
 }
 
 echo ""
 echo "=========================================="
 echo "Готово!"
 echo "=========================================="
-
