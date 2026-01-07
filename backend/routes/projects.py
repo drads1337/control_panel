@@ -2,6 +2,7 @@ import logging
 
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
+from sqlalchemy import or_
 
 from ..core.extensions import db
 from ..utils.service_helpers import get_service
@@ -19,10 +20,20 @@ from ..schemas.project import (
     ProjectUpdateSchema,
     ProjectInviteCodeCreateSchema,
 )
+from ..schemas.mtls import CSRSignSchema
+from ..utils.mtls_manager import MTLSProjectManager
 from ..utils.rbac_utils import RBACManager
 from ..utils.role_constants import UserRoles
 
 projects_bp = Blueprint("projects", __name__)
+_mtls_manager = MTLSProjectManager()
+
+
+def _get_project_by_identifier(project_id: str | int):
+    """Fetch project by numeric id or unique_id string."""
+    return Project.query.filter(
+        or_(Project.id == project_id, Project.unique_id == str(project_id))
+    ).first()
 
 @projects_bp.route("/projects", methods=["GET"])
 @jwt_required()
@@ -456,3 +467,71 @@ def delete_project_invite_code(code_id, current_user):
     except Exception as e:
         logging.error(f"Error deleting project invite code: {str(e)}")
         return jsonify({"error": "Failed to delete project invite code"}), 500
+
+
+@projects_bp.route("/projects/<project_id>/mtls/ca-cert", methods=["GET"])
+@jwt_required()
+@require_project_with_grace_period
+@enforce_project_scope
+def get_project_ca_certificate(project_id):
+    """
+    Download project-specific CA certificate (public only).
+    """
+    try:
+        project = _get_project_by_identifier(project_id)
+        if not project:
+            return jsonify({"error": "Project not found"}), 404
+
+        ca_cert, fingerprint = _mtls_manager.get_ca_cert(project.unique_id)
+        return jsonify(
+            {
+                "project_id": project.unique_id,
+                "ca_certificate": ca_cert,
+                "fingerprint": fingerprint,
+                "algorithm": "SHA-256",
+            }
+        )
+    except Exception as e:
+        logging.error(f"Error getting CA cert for project {project_id}: {e}")
+        return jsonify({"error": "Failed to get CA certificate"}), 500
+
+
+@projects_bp.route("/projects/<project_id>/mtls/csr-sign", methods=["POST"])
+@jwt_required()
+@require_project_with_grace_period
+@enforce_project_scope
+@validate_request(CSRSignSchema)
+def sign_project_csr(project_id, validated_data=None):
+    """
+    Sign client CSR with project-specific CA. Client keeps private key.
+    """
+    try:
+        project = _get_project_by_identifier(project_id)
+        if not project:
+            return jsonify({"error": "Project not found"}), 404
+
+        data = CSRSignSchema(**(validated_data or {}))
+        client_name = data.client_name or "client"
+
+        client_cert, ca_cert, fingerprint = _mtls_manager.sign_csr(
+            project_id=project.unique_id,
+            csr_pem=data.csr_pem,
+            client_name=client_name,
+        )
+
+        return (
+            jsonify(
+                {
+                    "project_id": project.unique_id,
+                    "client_name": client_name,
+                    "certificate": client_cert,
+                    "ca_certificate": ca_cert,
+                    "fingerprint": fingerprint,
+                    "algorithm": "SHA-256",
+                }
+            ),
+            201,
+        )
+    except Exception as e:
+        logging.error(f"Error signing CSR for project {project_id}: {e}")
+        return jsonify({"error": "Failed to sign CSR"}), 500

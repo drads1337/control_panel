@@ -10,7 +10,11 @@ from flask_jwt_extended import create_access_token, set_access_cookies
 from flask_wtf.csrf import CSRFProtect
 
 from ...config.config import Config
-from ...middleware import require_mtls
+from ...middleware import require_mtls, is_mtls_enabled
+from ...middleware.mtls import (
+    verify_project_certificate_from_request,
+    get_client_certificate_cn,
+)
 from ...middleware.rate_limiting import connect_rate_limit
 from ...utils.service_helpers import get_service
 
@@ -20,8 +24,19 @@ csrf = CSRFProtect()
 
 logger = logging.getLogger(__name__)
 
+def _extract_project_id_from_cn(cn: str | None) -> str | None:
+    if not cn:
+        return None
+    # Expected format: project-<project_id>-<client_name>
+    parts = cn.split("-")
+    if len(parts) < 2:
+        return None
+    if parts[0].lower() != "project":
+        return None
+    return parts[1]
+
 @connect_bp.route("/challenge", methods=["POST"])
-# @require_mtls  # Disabled to allow initial certificate distribution
+@require_mtls
 @connect_rate_limit(rate_limit=Config.RATE_LIMIT, rate_limit_burst=Config.RATE_LIMIT_BURST)
 def get_challenge():
     """Generate challenge for authentication"""
@@ -37,6 +52,17 @@ def get_challenge():
     if not user_key or not fingerprint:
         return jsonify({"error": "Missing user_key or fingerprint"}), 400
 
+    if is_mtls_enabled():
+        if not client_project_id:
+            inferred = _extract_project_id_from_cn(get_client_certificate_cn())
+            client_project_id = client_project_id or inferred
+        if not client_project_id:
+            return jsonify({"error": "project_id required for mTLS"}), 400
+        valid, msg, cn = verify_project_certificate_from_request(client_project_id)
+        if not valid:
+            logger.warning(f"mTLS project check failed: {msg}, cn={cn}")
+            return jsonify({"error": f"mTLS validation failed: {msg}"}), 403
+
     ip = request.remote_addr
     response, status_code = connect_service.handle_challenge_request(
         user_key=user_key,
@@ -48,7 +74,7 @@ def get_challenge():
     return jsonify(response), status_code
 
 @connect_bp.route("/connect", methods=["POST"])
-# @require_mtls  # Disabled to allow initial certificate distribution
+@require_mtls
 @connect_rate_limit(rate_limit=Config.RATE_LIMIT, rate_limit_burst=Config.RATE_LIMIT_BURST)
 def api_connect():
     """
@@ -161,6 +187,32 @@ def api_connect():
         encrypted_response = response_builder.encrypt_response(error_response, True)
         return encrypted_response, 400
 
+    if is_mtls_enabled():
+        if not project_id:
+            project_id = _extract_project_id_from_cn(get_client_certificate_cn())
+        if not project_id:
+            logger.warning("mTLS enabled but project_id missing in request and certificate CN")
+            from ...services.connect import ResponseBuilder
+
+            response_builder = ResponseBuilder()
+            error_response = response_builder.build_error_response(
+                "project_id required for mTLS"
+            )
+            encrypted_response = response_builder.encrypt_response(error_response, True)
+            return encrypted_response, 400
+
+        valid, msg, cn = verify_project_certificate_from_request(project_id)
+        if not valid:
+            logger.warning(f"mTLS validation failed for project {project_id}: {msg}, cn={cn}")
+            from ...services.connect import ResponseBuilder
+
+            response_builder = ResponseBuilder()
+            error_response = response_builder.build_error_response(
+                f"mTLS validation failed: {msg}"
+            )
+            encrypted_response = response_builder.encrypt_response(error_response, True)
+            return encrypted_response, 403
+
     MAX_ENCRYPTED_DATA_SIZE = 1024 * 1024
     if len(enc_data) > MAX_ENCRYPTED_DATA_SIZE:
         logger.warning(f"ENCRYPTED_DATA_TOO_LARGE ip={ip} size={len(enc_data)}")
@@ -181,7 +233,7 @@ def api_connect():
     return encrypted_response, status_code
 
 @connect_bp.route("/classic_connect", methods=["POST"])
-# @require_mtls  # Disabled to allow initial certificate distribution
+@require_mtls
 @connect_rate_limit(rate_limit=Config.RATE_LIMIT, rate_limit_burst=Config.RATE_LIMIT_BURST)
 @csrf.exempt
 def classic_connect():
@@ -216,6 +268,18 @@ def classic_connect():
     token = req_json.get("token")
     username = req_json.get("username")
     password = req_json.get("password")
+    project_id = req_json.get("project_id")
+
+    if is_mtls_enabled():
+        if not project_id:
+            project_id = _extract_project_id_from_cn(get_client_certificate_cn())
+        if not project_id:
+            logger.warning("mTLS enabled but project_id missing for classic_connect")
+            return jsonify({"error": "project_id required for mTLS"}), 400
+        valid, msg, cn = verify_project_certificate_from_request(project_id)
+        if not valid:
+            logger.warning(f"mTLS validation failed for project {project_id}: {msg}, cn={cn}")
+            return jsonify({"error": f"mTLS validation failed: {msg}"}), 403
     response_data, status_code = connect_service.handle_classic_connect_request(
         token=token,
         username=username,

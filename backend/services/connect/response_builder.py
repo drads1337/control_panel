@@ -3,9 +3,12 @@ Response Builder
 Handles response formatting and encryption
 """
 
+import hashlib
+import hmac
 import json
 import logging
 import os
+import secrets
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
@@ -51,6 +54,9 @@ class ResponseBuilder:
         """
         now = datetime.utcnow()
         now_utc = now.isoformat() + "Z"
+        
+        # Generate unique response ID for replay protection
+        response_id = secrets.token_hex(16)
 
         response = {
             "a": token[:16],
@@ -68,6 +74,7 @@ class ResponseBuilder:
             "seconds_left_human": seconds_left_human,
             "now_utc": now_utc,
             "notifications": notifications,
+            "response_id": response_id,  # For replay protection
         }
 
         if heartbeat_session:
@@ -125,12 +132,59 @@ class ResponseBuilder:
         Returns:
             Error response dictionary
         """
-        response = {"error": error_message, "r": os.urandom(16).hex()}
+        response_id = secrets.token_hex(16)
+        response = {
+            "error": error_message,
+            "r": os.urandom(16).hex(),
+            "response_id": response_id,  # For replay protection
+        }
 
         if project_id:
             response["project_id"] = project_id
+            # Add signature for error responses too
+            signature = self._sign_response(response, project_id)
+            response["signature"] = signature
 
         return response
+
+    def _sign_response(self, response: Dict[str, Any], project_id: Optional[int] = None) -> str:
+        """
+        Generate HMAC signature for response to prevent tampering.
+        
+        SECURITY: This signature allows clients to verify that the response
+        was not modified by a MITM attacker.
+        
+        Args:
+            response: Response dictionary
+            project_id: Project ID for project-specific signing key
+            
+        Returns:
+            HMAC-SHA256 signature as hex string
+        """
+        # Create deterministic JSON representation (sorted keys)
+        response_copy = response.copy()
+        # Remove signature field if present (to avoid circular dependency)
+        response_copy.pop("signature", None)
+        response_json = json.dumps(response_copy, sort_keys=True, separators=(',', ':'))
+        
+        # Use project-specific key if available, otherwise use master key
+        if project_id:
+            try:
+                from ...models import ProjectEncryptionKeys
+                project_key = ProjectEncryptionKeys.query.filter_by(project_id=project_id).first()
+                if project_key and project_key.encryption_key:
+                    signing_key = project_key.encryption_key.encode('utf-8')
+                else:
+                    # Fallback to master key if project key not found
+                    signing_key = Config.MASTER_KEY.encode('utf-8')
+            except Exception:
+                signing_key = Config.MASTER_KEY.encode('utf-8')
+        else:
+            signing_key = Config.MASTER_KEY.encode('utf-8')
+        
+        # Generate HMAC-SHA256 signature
+        signature = hmac.new(signing_key, response_json.encode('utf-8'), hashlib.sha256).hexdigest()
+        return signature
 
     def encrypt_response(
         self,
@@ -140,7 +194,7 @@ class ResponseBuilder:
         use_legacy: bool = True,
     ) -> str:
         """
-        Encrypt response data
+        Encrypt response data with HMAC signature for tamper detection.
 
         Args:
             response: Response dictionary
@@ -151,6 +205,11 @@ class ResponseBuilder:
         Returns:
             Encrypted response string
         """
+        # Add HMAC signature before encryption
+        if project_id or not used_global_key:
+            signature = self._sign_response(response, project_id)
+            response["signature"] = signature
+        
         try:
             if used_global_key:
                 if use_legacy:
@@ -257,6 +316,7 @@ class ResponseBuilder:
         seconds_left = 24 * 3600
         seconds_left_human = "24 h"
 
+        response_id = secrets.token_hex(16)
         response = {
             "a": token[:16],
             "b": os.urandom(4).hex(),
@@ -274,6 +334,7 @@ class ResponseBuilder:
             "now_utc": now_utc,
             "notifications": notifications,
             "login_type": login_type,
+            "response_id": response_id,  # For replay protection
         }
 
         return response

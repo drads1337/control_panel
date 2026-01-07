@@ -11,6 +11,7 @@ from typing import Optional
 from flask import jsonify, request
 
 from ..config.config import Config
+from ..utils.mtls_manager import MTLSProjectManager
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,8 @@ class MTLSValidator:
     
     def __init__(self):
         self.enabled = os.environ.get("MTLS_ENABLED", "false").lower() == "true"
-        self.ca_cert_path = os.environ.get("MTLS_CA_CERT_PATH")
+        default_bundle = os.environ.get("MTLS_CA_BUNDLE_PATH", "/etc/nginx/ssl/ca-bundle.pem")
+        self.ca_cert_path = os.environ.get("MTLS_CA_CERT_PATH", default_bundle)
         self.required_cn = os.environ.get("MTLS_REQUIRED_CN")
         
         if self.enabled and not self.ca_cert_path:
@@ -35,6 +37,15 @@ class MTLSValidator:
                 "mTLS validation will be disabled."
             )
             self.enabled = False
+
+    def get_client_certificate_pem(self) -> Optional[str]:
+        """
+        Return PEM client certificate from trusted WSGI vars or headers.
+        """
+        cert = request.environ.get("SSL_CLIENT_CERT") or request.environ.get("HTTP_X_SSL_CLIENT_CERT")
+        if not cert:
+            return None
+        return cert.replace("\\n", "\n").strip()
     
     def validate_client_certificate(self) -> tuple[bool, Optional[str]]:
         """
@@ -276,4 +287,40 @@ def require_mtls(f):
 def is_mtls_enabled() -> bool:
     """Check if mTLS validation is enabled."""
     return _mtls_validator.enabled
+
+
+def verify_project_certificate_from_request(project_id: str):
+    """
+    Verify that incoming request presents a certificate signed by the project's CA
+    and with CN starting with project-{project_id}.
+    """
+    if not is_mtls_enabled():
+        return True, "mTLS disabled", None
+
+    cert_pem = _mtls_validator.get_client_certificate_pem()
+    if not cert_pem:
+        return False, "Client certificate not provided", None
+
+    manager = MTLSProjectManager()
+    return manager.verify_certificate_for_project(str(project_id), cert_pem)
+
+
+def get_client_certificate_cn() -> Optional[str]:
+    """Extract CN from presented client certificate, if any."""
+    cert_pem = _mtls_validator.get_client_certificate_pem()
+    if not cert_pem:
+        return None
+    try:
+        from cryptography import x509
+        from cryptography.hazmat.backends import default_backend
+
+        cert = x509.load_pem_x509_certificate(
+            cert_pem.encode(), default_backend()
+        )
+        attrs = cert.subject.get_attributes_for_oid(
+            x509.oid.NameOID.COMMON_NAME
+        )
+        return attrs[0].value if attrs else None
+    except Exception:
+        return None
 

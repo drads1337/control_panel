@@ -113,6 +113,16 @@ class ConnectOrchestrator:
                 self.security_checker.log_suspicious_activity(ip, "INVALID_USER_KEY", str(user_key))
                 return self._build_error_response(error_msg, used_global_key, successful_project_id), 400
 
+            # SECURITY: Check for nonce replay attack
+            nonce = fields.get("nonce")
+            if nonce:
+                from ...utils.replay_protection import check_nonce_replay
+                is_replay, replay_msg = check_nonce_replay(nonce, user_key)
+                if is_replay:
+                    logger.warning(f"REPLAY_ATTACK ip={ip} user_key={user_key} nonce={nonce[:16]}...")
+                    self.security_checker.log_suspicious_activity(ip, "REPLAY_ATTACK_NONCE", f"nonce={nonce[:16]}")
+                    return self._build_error_response("Request replay detected", used_global_key, successful_project_id), 403
+
             logger.info(
                 f"CONNECT_DATA ip={ip} user_key={user_key} product={fields.get('product')} serial={fields.get('serial')}"
             )
@@ -343,6 +353,12 @@ class ConnectOrchestrator:
                 product_obj=product_obj,
             )
 
+            # SECURITY: Mark response_id as used to prevent replay attacks
+            response_id = response.get("response_id")
+            if response_id:
+                from ...utils.replay_protection import mark_response_id_used
+                mark_response_id_used(response_id, project_id)
+
             logger.info(
                 f"ENCRYPTING_RESPONSE used_global_key={used_global_key} project_id={project_id}"
             )
@@ -466,6 +482,13 @@ class ConnectOrchestrator:
         )
         if additional_message:
             error_response["message"] = additional_message
+        
+        # SECURITY: Mark response_id as used to prevent replay attacks
+        response_id = error_response.get("response_id")
+        if response_id:
+            from ...utils.replay_protection import mark_response_id_used
+            mark_response_id_used(response_id, project_id)
+        
         return self.response_builder.encrypt_response(
             error_response,
             used_global_key=used_global_key,
