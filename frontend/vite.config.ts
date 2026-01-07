@@ -380,6 +380,8 @@ export default defineConfig(({ mode }) => {
         output: {
           // Define globals for Node.js modules that are externalized
           globals: {},
+          // Force ES modules output so vendor chunks don't emit CommonJS `exports`
+          format: 'es',
           // Improved code splitting for better loading
           manualChunks: (id) => {
             // Vendor chunks - main libraries
