@@ -89,7 +89,8 @@ services:
       
       # mTLS (Mutual TLS)
       MTLS_ENABLED: ${MTLS_ENABLED:-false}
-      MTLS_CA_CERT_PATH: ${MTLS_CA_CERT_PATH:-/etc/nginx/ssl/ca-cert.pem}
+      MTLS_CA_CERT_PATH: ${MTLS_CA_CERT_PATH:-/etc/nginx/ssl/ca-bundle.pem}
+      MTLS_CA_BUNDLE_PATH: ${MTLS_CA_BUNDLE_PATH:-/etc/nginx/ssl/ca-bundle.pem}
       MTLS_REQUIRED_CN: ${MTLS_REQUIRED_CN:-}
       MTLS_REQUIRE_WSGI_VARS: ${MTLS_REQUIRE_WSGI_VARS:-true}
       
@@ -143,7 +144,8 @@ services:
       FLASK_ENV: ${FLASK_ENV:-production}
       # mTLS (Mutual TLS)
       MTLS_ENABLED: ${MTLS_ENABLED:-false}
-      MTLS_CA_CERT_PATH: ${MTLS_CA_CERT_PATH:-/etc/nginx/ssl/ca-cert.pem}
+      MTLS_CA_CERT_PATH: ${MTLS_CA_CERT_PATH:-/etc/nginx/ssl/ca-bundle.pem}
+      MTLS_CA_BUNDLE_PATH: ${MTLS_CA_BUNDLE_PATH:-/etc/nginx/ssl/ca-bundle.pem}
       MTLS_REQUIRED_CN: ${MTLS_REQUIRED_CN:-}
       MTLS_REQUIRE_WSGI_VARS: ${MTLS_REQUIRE_WSGI_VARS:-true}
     volumes:
@@ -181,7 +183,8 @@ services:
       FLASK_ENV: ${FLASK_ENV:-production}
       # mTLS (Mutual TLS)
       MTLS_ENABLED: ${MTLS_ENABLED:-false}
-      MTLS_CA_CERT_PATH: ${MTLS_CA_CERT_PATH:-/etc/nginx/ssl/ca-cert.pem}
+      MTLS_CA_CERT_PATH: ${MTLS_CA_CERT_PATH:-/etc/nginx/ssl/ca-bundle.pem}
+      MTLS_CA_BUNDLE_PATH: ${MTLS_CA_BUNDLE_PATH:-/etc/nginx/ssl/ca-bundle.pem}
       MTLS_REQUIRED_CN: ${MTLS_REQUIRED_CN:-}
       MTLS_REQUIRE_WSGI_VARS: ${MTLS_REQUIRE_WSGI_VARS:-true}
     volumes:
@@ -219,7 +222,8 @@ services:
       FLASK_ENV: ${FLASK_ENV:-production}
       # mTLS (Mutual TLS)
       MTLS_ENABLED: ${MTLS_ENABLED:-false}
-      MTLS_CA_CERT_PATH: ${MTLS_CA_CERT_PATH:-/etc/nginx/ssl/ca-cert.pem}
+      MTLS_CA_CERT_PATH: ${MTLS_CA_CERT_PATH:-/etc/nginx/ssl/ca-bundle.pem}
+      MTLS_CA_BUNDLE_PATH: ${MTLS_CA_BUNDLE_PATH:-/etc/nginx/ssl/ca-bundle.pem}
       MTLS_REQUIRED_CN: ${MTLS_REQUIRED_CN:-}
       MTLS_REQUIRE_WSGI_VARS: ${MTLS_REQUIRE_WSGI_VARS:-true}
     volumes:
