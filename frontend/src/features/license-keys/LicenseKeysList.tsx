@@ -55,11 +55,13 @@ import { KEY_STATUS } from '@/shared/constants/key-status'
 import { LoadingState } from './components'
 import { EmptyState } from '@/shared/ui/components'
 import { isMaskedKey } from '@/shared/lib/key-masking'
+import { revealLicenseKey } from '@/entities/key'
+import { toast } from 'sonner'
 
 // Types (Mocked for context)
 import type { StatusType } from '@/lib/status-utils'
 import { getStatusClasses, getStatusText } from '@/lib/status-utils'
-import { cn } from '@/lib/utils.ts'
+import { cn } from '@/lib/utils'
 import type { LicenseKey } from '@/entities/key'
 
 interface LicenseKeysListProps {
@@ -300,31 +302,49 @@ const LicenseKeysList: React.FC<LicenseKeysListProps> = ({
                     size="icon"
                     className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-muted/50"
                     onClick={async () => {
-                      if (fullKeys[key.id]) {
-                        const textToCopy = fullKeys[key.id]
-                        try {
-                          // Check if Clipboard API is available
-                          if (navigator.clipboard && navigator.clipboard.writeText) {
-                            await navigator.clipboard.writeText(textToCopy)
-                          } else {
-                            // Fallback to execCommand for older browsers
-                            const textArea = document.createElement('textarea')
-                            textArea.value = textToCopy
-                            textArea.style.position = 'fixed'
-                            textArea.style.left = '-999999px'
-                            textArea.style.top = '-999999px'
-                            document.body.appendChild(textArea)
-                            textArea.focus()
-                            textArea.select()
-                            document.execCommand('copy')
-                            textArea.remove()
+                      try {
+                        let fullKey: string;
+                        
+                        // Если ключ уже загружен и не замаскирован, используем его
+                        if (fullKeys[key.id] && !isMaskedKey(fullKeys[key.id])) {
+                          fullKey = fullKeys[key.id];
+                        } else {
+                          // Получаем полный ключ через API
+                          const revealResponse = await revealLicenseKey(key.id);
+                          fullKey = revealResponse.key;
+                          
+                          if (isMaskedKey(fullKey) || revealResponse.key_masked) {
+                            toast.error('You do not have permission to copy full keys.');
+                            return;
                           }
-                        } catch (err) {
-                          console.error('Failed to copy text:', err)
                         }
-                      } else {
-                        // Если ключ скрыт/не загружен, загружаем его (или просто копируем маску, но логичнее сначала открыть)
-                        if (!isVisible) onToggleKeyVisibility(key.id)
+                        
+                        // Копируем ключ
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                          await navigator.clipboard.writeText(fullKey);
+                        } else {
+                          // Fallback to execCommand for older browsers
+                          const textArea = document.createElement('textarea');
+                          textArea.value = fullKey;
+                          textArea.style.position = 'fixed';
+                          textArea.style.left = '-999999px';
+                          textArea.style.top = '-999999px';
+                          document.body.appendChild(textArea);
+                          textArea.focus();
+                          textArea.select();
+                          document.execCommand('copy');
+                          textArea.remove();
+                        }
+                        
+                        toast.success('Key copied to clipboard');
+                      } catch (err: unknown) {
+                        console.error('Failed to copy key:', err);
+                        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+                        if (errorMessage.includes('403') || errorMessage.includes('permission')) {
+                          toast.error('You do not have permission to copy full keys.');
+                        } else {
+                          toast.error('Failed to copy key. Please try again.');
+                        }
                       }
                     }}
                     disabled={isActionLoading}

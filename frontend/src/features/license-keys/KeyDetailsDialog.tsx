@@ -18,7 +18,7 @@ import { getLicenseKeyDetails, getLicenseKeyAnalytics, revealLicenseKey } from '
 import { toast } from 'sonner';
 import { usePermissions } from '@/shared/hooks/use-permissions';
 import { isMaskedKey } from '@/shared/lib/key-masking';
-import { cn } from '@/lib/utils.ts';
+import { cn } from '@/lib/utils';
 
 interface KeyDetailsDialogProps {
   open: boolean;
@@ -72,19 +72,25 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
   };
 
   const handleCopyText = async (text: string, entity: string = "Key") => {
-    let fullKey: string;
     const currentKeyData = keyDetails?.key || keyData;
+    let fullKey: string;
 
+    // Если ключ уже есть и не замаскирован, используем его
     if (currentKeyData?.key && !isMaskedKey(currentKeyData.key) && !currentKeyData.key_masked) {
       fullKey = currentKeyData.key;
     } else if (keyId) {
+      // Получаем полный ключ через API
       try {
         const revealResponse = await revealLicenseKey(keyId);
         fullKey = revealResponse.key;
+        
         if (isMaskedKey(fullKey) || revealResponse.key_masked) {
           toast.error('Permission denied to copy full key.');
           return;
         }
+        
+        // Обновляем данные, чтобы ключ был виден после копирования
+        await loadKeyDetails();
       } catch (error: unknown) {
         toast.error('Failed to get full key.');
         return;
@@ -97,6 +103,7 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
       }
     }
 
+    // Копируем ключ
     try {
       await navigator.clipboard.writeText(fullKey);
       toast.success('Copied!');
@@ -205,7 +212,12 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
                             Reveal
                           </Button>
                         )}
-                        <Button variant="outline" size="sm" onClick={() => handleCopyText(displayKey?.key)} className="h-7 text-[10px] px-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleCopyText(displayKey?.key)} 
+                          className="h-7 text-[10px] px-2"
+                        >
                           Copy
                         </Button>
                       </div>

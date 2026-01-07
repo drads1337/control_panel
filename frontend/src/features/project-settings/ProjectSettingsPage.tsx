@@ -709,6 +709,7 @@ export default function ProjectSettingsPage() {
                           </Button>
                         </div>
                       </div>
+                      <div className="space-y-2">
                         <Button
                           variant="outline"
                           size="sm"
