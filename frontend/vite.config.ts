@@ -316,8 +316,8 @@ export default defineConfig(({ mode }) => {
       dedupe: ['react', 'react-dom', 'lodash'],
       // Fix react-map-gl v8 package resolution issue
       conditions: ['import', 'module', 'browser', 'default'],
-      // Fix react-map-gl package exports resolution
-      mainFields: ['module', 'main'],
+      // Prefer browser entry points so packages like axios pick the XHR adapter
+      mainFields: ['browser', 'module', 'main'],
       // Ensure proper file resolution in production builds
       preserveSymlinks: false,
     },
@@ -564,8 +564,8 @@ export default defineConfig(({ mode }) => {
           'lodash/isString': 'lodash-es/isString',
         },
         conditions: ['import', 'module', 'browser', 'default'],
-        // Fix react-map-gl package exports resolution in optimizeDeps
-        mainFields: ['module', 'main'],
+        // Prefer browser builds during pre-bundle (avoids pulling Node adapters)
+        mainFields: ['browser', 'module', 'main'],
         // Handle packages without root exports (like react-map-gl v8)
         extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json'],
       },
