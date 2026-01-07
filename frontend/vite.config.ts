@@ -291,9 +291,6 @@ export default defineConfig(({ mode }) => {
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),
       'process.browser': true,
       'global': 'globalThis',
-      // Prevent CommonJS exports from being referenced in browser
-      'typeof exports': '"undefined"',
-      'typeof module': '"undefined"',
     },
     resolve: {
       alias: {
